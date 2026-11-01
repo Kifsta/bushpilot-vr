@@ -20,7 +20,7 @@
 </script>
 </head>
 <body>
-<div id="info">BUSH PILOT VR v0.10 - PA-18 Super Cub prototype (v0.10: performance pass, crouch / jump, more zombies, force grab)
+<div id="info">BUSH PILOT VR v0.10.1 - PA-18 Super Cub prototype (v0.10.1: smoother virtual stock; v0.10: performance pass, crouch / jump, more zombies, force grab)
 RIFLE (VR): A/X on the rifle hand = work the lever (tap = full stroke, hold = keep it open) or flick the rifle down-forward, or grab the lever loop with your other hand and work it yourself;
   lever open = no shot; a short stroke won't feed. Load: tip of a round into the gate (right side) - it snaps in; keep grip held and go back to the pouch for the next one.
   Hold the right stick IN (click) + push it up/down while holding the rifle (right hand) = grip angle. Let go of the wrist with a hand on the forend = it stays in that hand.
@@ -1099,7 +1099,7 @@ let lookYaw = 0, lookPitch = 0, needRecenter = 0, crashTimer = 0;
 let mode = 'plane';                                 // 'plane' | 'foot'
 const footRig = new THREE.Group(); scene.add(footRig);
 const EYE = 1.6, WALK = 2.2;                          // on-foot eye height (m) and walk speed (m/s)
-const R = { stockW: 0, stockD: 9, hand: null, support: null, chambered: false, tube: 7, leverT: 0, flashT: 0, stowed: false, prev: new THREE.Vector3(), vel: new THREE.Vector3(), flickCool: 0,
+const R = { stockW: 0, stockF: 0, stockFv: 0, stockD: 9, hand: null, support: null, chambered: false, tube: 7, leverT: 0, flashT: 0, stowed: false, prev: new THREE.Vector3(), vel: new THREE.Vector3(), flickCool: 0,
             stock: false, ads: false, lastQ: new THREE.Quaternion() };
 let msg = '', msgT = 0;
 const say = m => { msg = m; msgT = 3; };
@@ -1495,12 +1495,12 @@ function updateRifle(dt) {
   if (R.hand === 'desk') {
     camera.updateWorldMatrix(true, false); camera.getWorldQuaternion(_tq);
     _tp.copy(camera.localToWorld(R.ads ? _a.set(0, -SIGHT_Y, -CHEEK_Z) : _a.set(0.13, -0.17, -0.32)));
-    R.stock = false; R.stockW = 0; rifleHold(dt);
+    R.stock = false; R.stockW = R.stockF = R.stockFv = 0; rifleHold(dt);
   } else if (R.hand) {
     // zero-lag: this frame's grip + eye poses (XR updates them before this callback), rifle posed right before render
     const g = R.hand; g.getWorldPosition(_a); g.getWorldQuaternion(_qa);
     _q1.copy(_qa).multiply(_gq.setFromAxisAngle(_xAxis, gripPitch * D2R));      // controller grip -> rifle wrist angle
-    if (R.free) { _tq.copy(_qa).multiply(R.freeQ); _tp.copy(R.freeP).applyQuaternion(_qa).add(_a); R.stockW = 0; R.stock = false; }
+    if (R.free) { _tq.copy(_qa).multiply(R.freeQ); _tp.copy(R.freeP).applyQuaternion(_qa).add(_a); R.stockW = R.stockF = R.stockFv = 0; R.stock = false; }
     else {
       _hu.set(0, 1, 0).applyQuaternion(_q1);
       const M = eyeWorld(g.userData.src?.handedness === 'left' ? 0 : 1);      // sighting eye on the rifle-hand side
@@ -1508,21 +1508,24 @@ function updateRifle(dt) {
       // virtual stock (v0.9.1: progressive). Shoulder point = where the rear (grip) hand sits with the butt in the shoulder and the cheek on the comb:
       // CHEEK_Z ahead of the sighting eye, SIGHT_Y below it, in the eye's vertical plane (eye directly over the sight line).
       _b.copy(_eye).addScaledVector(_hf, CHEEK_Z).addScaledVector(_w, -SIGHT_Y);
-      const dS = _a.distanceTo(_b), wT = 1 - smooth01(clamp((dS - GUN.stockFull) / (GUN.stockEngage - GUN.stockFull), 0, 1));
+      const dS = _a.distanceTo(_b), xS = 1 - clamp((dS - GUN.stockFull) / (GUN.stockEngage - GUN.stockFull), 0, 1),
+            wT = xS * xS * xS * (xS * (xS * 6 - 15) + 10);                               // smootherstep: almost no pull in the first few cm
+      { const wn = 2 / GUN.stockTau, h = Math.min(dt, 0.05);                                   // critically damped low-pass of the weight
+        R.stockFv += (wn * wn * (wT - R.stockF) - 2 * wn * R.stockFv) * h; R.stockF = clamp(R.stockF + R.stockFv * h, 0, 1); }
       R.stockD = dS;
       // unshouldered pose: two-hand aim (grip -> forend hand) or the bare grip
       if (R.support) { R.support.getWorldPosition(_b); _d.subVectors(_b, _a).normalize(); aimQuat(_d, _hu, _tq).multiply(SUPPORT_TILT); }
       else _tq.copy(_q1);
       _tp.copy(_a);
-      if (wT > 0 || R.stockW > 0) {   // shouldered pose: eye -> sight line above the support hand (or grip hand); cheek weld puts the eye on the sights
+      if (R.stockF > 1e-4 || R.stockW > 0) {   // shouldered pose: eye -> sight line above the support hand (or grip hand); cheek weld puts the eye on the sights
         if (!R.support) _b.copy(_a);
         _b.addScaledVector(_hu, SIGHT_Y);
         _d.subVectors(_b, _eye); if (_d.lengthSq() < 0.0064) _d.copy(_hf); _d.normalize();
         aimQuat(_d, _hu, _sq); _sp.copy(_eye).sub(_v.set(0, SIGHT_Y, CHEEK_Z).applyQuaternion(_sq));
-        // the stock's own pull is rate-capped so the rifle never moves toward the face faster than ~1.5 cm / 1 deg per frame
-        const dp = _sp.distanceTo(_tp), da = _sq.angleTo(_tq);
-        const maxDw = Math.min(dp > 1e-6 ? GUN.stockCapPos / dp : 1, da > 1e-6 ? GUN.stockCapRot * D2R / da : 1);
-        R.stockW += clamp(wT - R.stockW, -maxDw, maxDw);
+        // the stock's own pull (position + rotation, same weight) is also rate-capped: <= ~0.3 cm / 0.6 deg per 90 Hz frame
+        const dp = _sp.distanceTo(_tp), da = _sq.angleTo(_tq), fk = Math.min(dt, 0.05) * 90;
+        const maxDw = Math.min(dp > 1e-6 ? GUN.stockCapPos * fk / dp : 1, da > 1e-6 ? GUN.stockCapRot * D2R * fk / da : 1);
+        R.stockW += clamp(R.stockF - R.stockW, -maxDw, maxDw); if (R.stockW < 1e-4 && R.stockF < 1e-4) R.stockW = 0;
         _tq.slerp(_sq, R.stockW); _tp.lerp(_sp, R.stockW);
       }
       R.stock = R.stockW > 0.5;
@@ -1533,7 +1536,7 @@ function updateRifle(dt) {
     R.flickCool -= dt;
     if (!R.levHand && R.flickCool <= 0 && R.vel.y < -1.6 && (R.vel.x * _d.x + R.vel.z * _d.z) > 0.4) { cycleLever(); R.flickCool = 0.45; }
     rifleHold(dt);
-  } else { R.sig = ''; R.stockW = 0; R.stock = false; R.baseP.copy(rifle.position); R.baseQ.copy(rifle.quaternion); R.wantFire = false; if (R.levHand) R.levHand = null; }
+  } else { R.sig = ''; R.stockW = R.stockF = R.stockFv = 0; R.stock = false; R.baseP.copy(rifle.position); R.baseQ.copy(rifle.quaternion); R.wantFire = false; if (R.levHand) R.levHand = null; }
   R.wantFire = false;
   // hands: hide controller hands that hold the rifle (clear sight line), show small gloves under the wood instead
   let leftOnRifle = false;
@@ -2124,10 +2127,11 @@ const GUN = {
   gripPitchDeg: -40,   // controller grip -> rifle wrist angle (deg, - = muzzle down). Right stick up/down while holding the rifle (right hand) = 5 deg steps, saved
   handoffBlend: 0.08,  // s: support hand grabs / lets go, hand-offs - old pose melts into the new one (no snaps)
   stockBlend: 0.10,    // s: desktop ADS in/out blend
-  stockEngage: 0.12,   // m: rear hand this close to the shoulder/cheek point -> virtual stock starts pulling in (weight 0)
-  stockFull: 0.05,     // m: ... this close -> fully shouldered (weight 1). Smoothstep in between, no timed pop
-  stockCapPos: 0.015,  // m/frame: max movement the stock pull itself may add (hand motion passes straight through)
-  stockCapRot: 1.0,    // deg/frame: max rotation the stock pull itself may add
+  stockEngage: 0.14,   // m: rear hand this close to the shoulder/cheek point -> virtual stock starts pulling in (weight 0)
+  stockFull: 0.04,     // m: ... this close -> fully shouldered (weight 1). Smootherstep in between (v0.10.1: wider + softer start)
+  stockTau: 0.15,      // s: critically damped low-pass on the stock weight (~63% rise in this time), so quick hand moves never give a fast pull
+  stockCapPos: 0.003,  // m/frame (@90 fps): max movement the stock pull itself may add (hand motion passes straight through)
+  stockCapRot: 0.6,    // deg/frame (@90 fps): max rotation the stock pull itself may add
   pickupBlend: 0.12,   // s: rifle flies into the hand on pick-up
   inertiaWn: 55,       // rad/s: one-handed muzzle lag spring (critically damped; higher = lighter rifle, 0 = off). None two-handed / shouldered
   leverTime: 0.12,     // s per half stroke (open, then close)
@@ -2357,7 +2361,7 @@ function rifleHold(dt) {      // called by updateRifle once this frame's target 
   }
   if (R.blendT < R.blendDur) { R.blendT += dt; const k = 1 - smooth01(Math.min(1, R.blendT / R.blendDur));
     _qe.identity().slerp(R.offQ, k); _tq.premultiply(_qe); _tp.addScaledVector(R.offP, k); }
-  const oneHand = R.hand !== 'desk' && !R.support && GUN.inertiaWn > 0 && R.stockW < 0.999;   // inertia fades out as the stock pulls in
+  const oneHand = R.hand !== 'desk' && !R.support && GUN.inertiaWn > 0;   // inertia fades out continuously as the stock pulls in (slerp by stockW, no threshold)
   if (oneHand) {                 // critically damped rotational lag (heavy rifle in one hand). Hand angular velocity is fed forward,
     const n = 4, h = dt / n, wn = GUN.inertiaWn;   // so a steady swing has zero lag - only starts/stops show the weight
     if (!R.tqP) R.tqP = new THREE.Quaternion().copy(_tq), R.ht = V3();
