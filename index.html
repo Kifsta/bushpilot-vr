@@ -20,7 +20,10 @@
 </script>
 </head>
 <body>
-<div id="info">BUSH PILOT VR v0.8 - PA-18 Super Cub prototype (paper map, six-pack panel, stick stays where you leave it)
+<div id="info">BUSH PILOT VR v0.9 - PA-18 Super Cub prototype (gunplay pass: real lever stroke, projectile ballistics zeroed at 50 m, recoil, hit effects)
+RIFLE (VR): A/X on the rifle hand = work the lever (tap = full stroke, hold = keep it open) or flick the rifle down-forward, or grab the lever loop with your other hand and work it yourself;
+  lever open = no shot; a short stroke won't feed. Load: tip of a round into the gate (right side) - it snaps in; keep grip held and go back to the pouch for the next one.
+  Right stick up/down while holding it (right hand) = grip angle. Let go of the wrist with a hand on the forend = it stays in that hand.
 MAP: M = show/hide (desktop) | VR: reach to the pocket on the LEFT side of the pack (left hip / lower back), grip to pull it out; grab the far edge with the other hand to hold it open;
   let go at the pocket (or over the open pack) = stow, in the cockpit = clips to the left wall, anywhere else = drops
 FLY (desktop): click to mouse-look | W/S pitch | A/D roll | Q/E rudder | Shift/Ctrl (or = / -) throttle
@@ -31,7 +34,7 @@ ON FOOT (desktop): WASD walk (Shift sprint) | F board | G grab rifle / pick up l
 VR FLY: R grip = stick, L grip = throttle (or flap handle at its knob, left wall by your hip),
   L stick X = rudder, L trigger = brakes, Y = get out, A/X = recenter, B = reset
 VR FOOT: L stick walk (click = sprint), R stick snap turn, grip = grab/hold, other grip on forend = steady, rifle to cheek = stock,
-  trigger = fire, A/X on rifle hand or flick = lever, Y = board.
+  trigger = fire, A/X on rifle hand or flick or grab the loop = lever, Y = board.
   Reload: grip the ammo pouch on your right hip = one cartridge, touch its tip to the loading gate (right side of the receiver).
   Belt: knife sheath left hip, 2 pouches front, rifle sling over the right shoulder - let go of a thing near its slot (green box) to holster it.
   Pack: grip over either shoulder, pull it round to the front; let go = it hovers open at your chest. Drop items in, grip minis to take out.
@@ -441,13 +444,14 @@ let terrainMesh;
   build(2 * T_OUT, 2 * T_OUT / T_C2, false);
 }
 // grass strip, cabin, trees
+const TREES = []; let CABIN_MESH = null;   // v0.9: bullets hit trunks / crowns / the cabin
 {
   const strip = new THREE.Mesh(new THREE.PlaneGeometry(24, 310).rotateX(-Math.PI / 2),
     new THREE.MeshLambertMaterial({ color: 0x7aa84c, map: grainTexture([4, 52]), polygonOffset: true, polygonOffsetFactor: -2 }));
   strip.position.set(0, 0.03, -145); scene.add(strip);
   const cabin = new THREE.Mesh(new THREE.BoxGeometry(6, 3, 5), mat(0x6b4a2f)); cabin.position.set(32, 1.5, -15); scene.add(cabin);
   const roof = new THREE.Mesh(new THREE.ConeGeometry(4.8, 2, 4), mat(0x3b3b3b));
-  roof.position.set(32, 4, -15); roof.rotation.y = Math.PI / 4; roof.scale.set(1, 1, 0.85); scene.add(roof);
+  CABIN_MESH = cabin; roof.position.set(32, 4, -15); roof.rotation.y = Math.PI / 4; roof.scale.set(1, 1, 0.85); scene.add(roof);
 
   const N = 300;
   const trunk = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.25, 0.35, 3, 5), mat(0x4a3520), N);
@@ -463,7 +467,7 @@ let terrainMesh;
       const sc = 0.7 + rand() * 0.8, y = groundY(x, z);
       s.set(sc, sc, sc);
       trunk.setMatrixAt(n, m4.compose(pos.set(x, y + 1.5 * sc, z), qq, s));
-      crown.setMatrixAt(n, m4.compose(pos.set(x, y + 6 * sc, z), qq, s));
+      crown.setMatrixAt(n, m4.compose(pos.set(x, y + 6 * sc, z), qq, s)); TREES.push([x, y, z, sc]);
       n++;
     }
   }
@@ -678,8 +682,6 @@ const flash = new THREE.Mesh(new THREE.ConeGeometry(0.045, 0.16, 6).rotateX(-Mat
 flash.visible = false; muzzle.add(flash);
 const rifleHome = () => { rifle.position.set(28.75, 0.36, -13.6); rifle.rotation.set(1.3, 0, -0.12, 'YXZ'); rifle.visible = true; };
 rifleHome();
-const markers = Array.from({ length: 8 }, () => { const m = new THREE.Mesh(new THREE.SphereGeometry(0.05, 6, 4), new THREE.MeshBasicMaterial({ color: 0xffee33 })); m.visible = false; m.userData.t = 0; scene.add(m); return m; });
-let markerIdx = 0;
 
 // ---- aircraft (body frame = physics frame) ----
 // v0.4: Cub-like low-poly PA-18. Static parts are built into PS then merged to one mesh per material (few draw calls).
@@ -1049,6 +1051,14 @@ function audioGraph() {
   SND.rumbG = gain(0); loopNoise().connect(filt('lowpass', 90, 1)).connect(SND.rumbG).connect(SND.master);
   const ho = A.createOscillator(); ho.type = 'sawtooth'; ho.frequency.value = 470; ho.start();
   SND.hornG = gain(0); ho.connect(filt('bandpass', 950, 3)).connect(SND.hornG).connect(SND.master);
+  // v0.9: valley reverb for the gunshot - diffuse tail + discrete echoes off the ridges, darkened (one convolver, only the shot feeds it)
+  const sr = A.sampleRate, n = Math.floor(sr * 2.6), ir = A.createBuffer(2, n, sr);
+  const taps = [[0.34, 0.55], [0.62, 0.4], [0.97, 0.3], [1.38, 0.2], [1.9, 0.12]];
+  for (let ch = 0; ch < 2; ch++) { const d = ir.getChannelData(ch); let lp = 0;
+    for (let i = 0; i < n; i++) { const tt = i / sr; let x = tt > 0.03 ? (Math.random() * 2 - 1) * 0.16 * Math.exp(-tt / 0.55) : 0;
+      for (const [at, amp] of taps) { const u = tt - at - ch * 0.017; if (u > 0 && u < 0.25) x += (Math.random() * 2 - 1) * amp * Math.exp(-u / 0.05); }
+      lp += (x - lp) * (0.12 + 0.1 * Math.exp(-tt * 2)); d[i] = lp; } }
+  SND.verb = A.createConvolver(); SND.verb.buffer = ir; SND.verb.connect(gain(1.1)).connect(SND.master);
 }
 function mkPanner(ref, roll) {
   const p = actx.createPanner(); p.panningModel = 'equalpower'; p.distanceModel = 'inverse'; p.refDistance = ref; p.rolloffFactor = roll; p.maxDistance = 2000; return p;
@@ -1056,9 +1066,9 @@ function mkPanner(ref, roll) {
 function setPos(p, v) { if (p.positionX) { p.positionX.value = v.x; p.positionY.value = v.y; p.positionZ.value = v.z; } else p.setPosition(v.x, v.y, v.z); }
 const _sv = new THREE.Vector3();
 // one-shots. pos (optional THREE.Vector3) = positional
-function sfx(kind, pos) {
+function sfx(kind, pos, delay = 0) {
   if (!SND.ok) return;
-  const A = actx, t = A.currentTime;
+  const A = actx, t = A.currentTime + delay;
   let out = SND.master; if (pos) { out = mkPanner(3, 1); setPos(out, pos); out.connect(SND.master); }
   const burst = (len, decay, vol, type, f, at = 0) => {
     const s = A.createBufferSource(); s.buffer = SND.noise; const g = A.createGain(), b = A.createBiquadFilter(); b.type = type; b.frequency.value = f;
@@ -1070,10 +1080,31 @@ function sfx(kind, pos) {
     o.frequency.setValueAtTime(f0, t + at); o.frequency.exponentialRampToValueAtTime(f1, t + at + len);
     g.gain.setValueAtTime(0.0001, t + at); g.gain.linearRampToValueAtTime(vol, t + at + Math.min(0.15, len * 0.2)); g.gain.exponentialRampToValueAtTime(0.001, t + at + len);
     let n = o; if (filt) { const b = A.createBiquadFilter(); b.type = 'bandpass'; b.frequency.value = filt; b.Q.value = 3; o.connect(b); n = b; }
-    n.connect(g).connect(out); o.start(t + at); o.stop(t + at + len + 0.05);
+    n.connect(g).connect(out); o.start(t + at); o.stop(t + at + len + 0.05); return g;
   };
-  if (kind === 'bang') { burst(0.45, 5, 0.9, 'lowpass', 3500); tone('sine', 90, 35, 0.25, 0.7); burst(1.4, 2, 0.12, 'lowpass', 600, 0.08); }  // crack + thump + rolling echo
+  const ping = (f, len, vol, at = 0, type = 'sine') => { const o = A.createOscillator(), g = A.createGain(); o.type = type; o.frequency.setValueAtTime(f, t + at); o.frequency.exponentialRampToValueAtTime(f * 0.97, t + at + len);
+    g.gain.setValueAtTime(vol, t + at); g.gain.exponentialRampToValueAtTime(0.001, t + at + len); o.connect(g).connect(out); o.start(t + at); o.stop(t + at + len + 0.02); return g; };
+  if (kind === 'bang') {        // layered: sharp crack + blast body + low thump, all fed to the valley reverb/echo
+    const send = A.createGain(); send.gain.value = 0.9; if (SND.verb) send.connect(SND.verb);
+    burst(0.035, 1, 1.0, 'highpass', 2400).connect(send);
+    burst(0.3, 1, 0.95, 'lowpass', 1500).connect(send);
+    burst(0.12, 1, 0.5, 'bandpass', 500).connect(send);
+    const o = A.createOscillator(), g = A.createGain(); o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(38, t + 0.25);
+    g.gain.setValueAtTime(0.95, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.3); o.connect(g).connect(out); g.connect(send); o.start(t); o.stop(t + 0.32);
+  }
+  else if (kind === 'levOpen') { burst(0.018, 1, 0.45, 'highpass', 3200); burst(0.05, 1, 0.35, 'bandpass', 1500, 0.01); ping(2350, 0.07, 0.07, 0.005, 'triangle'); }   // metallic clack + ring
+  else if (kind === 'levClose') { burst(0.03, 1, 0.55, 'bandpass', 900); burst(0.02, 1, 0.45, 'highpass', 2600, 0.012); ping(1800, 0.09, 0.08, 0.012, 'triangle'); }
   else if (kind === 'clack') { burst(0.04, 1, 0.35, 'highpass', 1800); burst(0.05, 1, 0.4, 'bandpass', 1200, 0.14); }
+  else if (kind === 'dry') { burst(0.012, 1, 0.5, 'highpass', 3800); burst(0.025, 1, 0.25, 'bandpass', 1900, 0.004); }                 // hammer on an empty chamber
+  else if (kind === 'gate') { burst(0.03, 1, 0.35, 'bandpass', 2800); burst(0.05, 1, 0.12, 'bandpass', 5200, 0.03); burst(0.015, 1, 0.3, 'highpass', 3000, 0.1); }   // push past the gate spring, click
+  else if (kind === 'ping') { ping(3400 + Math.random() * 600, 0.14, 0.14); ping(5100 + Math.random() * 500, 0.08, 0.07, 0.05); ping(4300, 0.06, 0.05, 0.12); }   // brass on the ground
+  else if (kind === 'can') { ping(1250, 0.3, 0.35, 0, 'triangle'); ping(2700, 0.22, 0.2); burst(0.03, 1, 0.5, 'highpass', 3000); }
+  else if (kind === 'canB') { ping(1100 + Math.random() * 300, 0.12, 0.12, 0, 'triangle'); burst(0.03, 1, 0.2, 'bandpass', 2000); }
+  else if (kind === 'thock') { burst(0.07, 1, 0.6, 'bandpass', 520); ping(230, 0.08, 0.25, 0, 'triangle'); }
+  else if (kind === 'thud') burst(0.12, 1, 0.55, 'lowpass', 380);
+  else if (kind === 'leaf') burst(0.15, 1, 0.25, 'highpass', 3500);
+  else if (kind === 'flesh') { burst(0.09, 1, 0.6, 'lowpass', 520); ping(110, 0.08, 0.25, 0, 'sine'); }
+  else if (kind === 'tick') ping(1500, 0.035, 0.05);                                   // subtle hit confirm
   else if (kind === 'click') burst(0.03, 1, 0.25, 'highpass', 2500);
   else if (kind === 'pick') burst(0.06, 1, 0.2, 'bandpass', 700);
   else if (kind === 'eat') for (let i = 0; i < 3; i++) burst(0.06, 1, 0.3, 'bandpass', 1800 + i * 400, i * 0.16);
@@ -1137,32 +1168,6 @@ renderer.xr.addEventListener('sessionstart', () => { needRecenter = 5; audioInit
 renderer.xr.addEventListener('sessionend', () => { xrOffset.position.set(0, 0, 0); xrOffset.quaternion.identity(); camera.position.set(0, 0, 0); });
 
 // ---- rifle ----
-function cycleLever() {
-  if (R.leverT > 0) return;
-  R.leverT = 0.3; sfx('clack');
-  if (R.spent || R.chambered) { ejectCase(R.chambered); if (R.chambered) R.spare++; R.spent = R.chambered = false; }   // live round ejected goes back in the pouch
-  if (R.tube > 0) { R.tube--; R.chambered = true; }
-}
-function fire(origin, dir) {
-  if (!R.chambered) { sfx('click'); return; }
-  R.chambered = false; R.spent = true; R.flashT = 0.06; flash.visible = true; sfx('bang');
-  const ray = new THREE.Raycaster(origin, dir, 0.05, 400);
-  let best = null;
-  const hits = ray.intersectObjects(shootables, false);
-  if (hits.length) best = { p: hits[0].point, d: hits[0].distance, obj: hits[0].object };
-  for (let d = 0.5; d < (best ? best.d : 400); d += 0.5) {           // terrain: cheap ray-march
-    const x = origin.x + dir.x * d, y = origin.y + dir.y * d, z = origin.z + dir.z * d, g = groundY(x, z);
-    if (y < g) { best = { p: new THREE.Vector3(x, g + 0.02, z), d, obj: null }; break; }
-  }
-  alertNoise(origin);
-  const ch = creatureHit(origin, dir, best ? best.d : 400);
-  if (ch) { const m = markers[markerIdx++ % markers.length]; m.position.copy(ch.p); m.visible = true; m.userData.t = 4; ch.c.hit(ch.part); return; }
-  if (!best) return;
-  const m = markers[markerIdx++ % markers.length]; m.position.copy(best.p); m.visible = true; m.userData.t = 4;
-  if (best.obj && best.obj.userData.can && !best.obj.userData.vel) {
-    best.obj.userData.vel = dir.clone().multiplyScalar(5).add(new THREE.Vector3(0, 2.5, 0)); best.obj.userData.t = 10;
-  }
-}
 const reach = (h, p) => Math.hypot(h.x - p.x, h.z - p.z) < 0.45 && h.y - p.y > -0.4 && h.y - p.y < 1.7;  // generous downward reach for seated play
 function pickLoot(item) {
   const si = stash.indexOf(item); if (si >= 0) { stash.splice(si, 1); layoutStash(); }
@@ -1177,10 +1182,13 @@ function handGrab(g) {
   g.getWorldPosition(_a);
   if (held.has(g) || rounds.has(g) || PK.g === g) return;
   if (R.hand !== g && !held.has(g) && mapGrab(g, _a)) return;   // v0.8 map (pocket / ground / clip / other edge)
-  if (R.hand && R.hand !== g) { rifle.localToWorld(_b.set(0, 0.012, -0.3)); if (_a.distanceTo(_b) < 0.3) { R.support = g; return; } }
+  if (R.hand && R.hand !== g && leverGrab(g, _a)) return;                                             // v0.9: work the lever by its loop
+  if (R.hand && R.hand !== g && R.hand !== 'desk' && R.free && rifle.localToWorld(_b.set(0, 0, 0)).distanceTo(_a) < 0.15) {   // back on the wrist
+    R.support = R.hand; R.hand = g; R.free = false; R.prev.copy(_a); tick(g); return; }
+  if (R.hand && R.hand !== g && !R.free) { rifle.localToWorld(_b.set(0, 0.012, -0.3)); if (_a.distanceTo(_b) < 0.3) { R.support = g; tick(g); return; } }
   const foot = mode === 'foot';
-  if (foot && !R.hand && R.slung && slotPos(SLING).distanceTo(_a) < SLING.r && rightSide(_a)) { R.slung = false; R.hand = g; R.support = null; R.stock = false; R.prev.copy(_a); tick(g); sfx('pick'); return; }   // rifle off the sling
-  if (!R.hand && !R.stowed && !R.slung && (reach(_a, rifle.position) || reach(_a, rifle.localToWorld(_b.set(0, 0, -0.35))))) { R.hand = g; R.support = null; R.stock = false; R.prev.copy(_a); return; }
+  if (foot && !R.hand && R.slung && slotPos(SLING).distanceTo(_a) < SLING.r && rightSide(_a)) { R.slung = false; R.hand = g; R.support = null; R.stock = false; R.free = false; R.prev.copy(_a); tick(g); sfx('pick'); return; }   // rifle off the sling
+  if (!R.hand && !R.stowed && !R.slung && (reach(_a, rifle.position) || reach(_a, rifle.localToWorld(_b.set(0, 0, -0.35))))) { R.hand = g; R.support = null; R.stock = false; R.free = false; R.prev.copy(_a); tick(g); sfx('pick'); return; }
   if (foot && PK.state !== 'worn') {             // take an item out of the open bag, or pick the bag back up
     let bi = null, bd = 0.1; for (const it of inv) { const d = it.mesh.getWorldPosition(_b).distanceTo(_a); if (d < bd) { bd = d; bi = it; } }
     if (bi) { holdItem(g, bi); say('FROM PACK: ' + bi.name); return; }
@@ -1198,12 +1206,13 @@ function handGrab(g) {
 }
 function dropRifle() {
   rifle.getWorldDirection(_d); const yaw = Math.atan2(_d.x, _d.z);   // getWorldDirection returns +z
-  R.hand = R.support = null;
+  R.hand = R.support = null; R.free = false; R.levHand = null;
   rifle.position.y = groundY(rifle.position.x, rifle.position.z) + 0.04; rifle.rotation.set(0, yaw, Math.PI / 2, 'YXZ');
 }
 function handRelease(g) {       // called every frame the grip is up: keep it cheap / idempotent
+  if (R.levHand === g) leverRelease();
   if (R.support === g) R.support = null;
-  if (R.hand === g) { if (slingNear(g.getWorldPosition(_a))) { slingRifle(); tick(g); } else dropRifle(); }
+  if (R.hand === g) { if (slingNear(g.getWorldPosition(_a))) { slingRifle(); tick(g); } else if (R.support) forendHold(); else dropRifle(); }
   if (PK.g === g) { g.getWorldPosition(_a); headPose(); setPack(PK.front && !behindShoulder(_a, _eye, _hf) ? 'open' : 'worn'); }
   if (held.size) releaseHeld(g); if (rounds.size) dropRound(g); vr.dress.delete(g); mapRelease(g);
 }
@@ -1237,7 +1246,7 @@ addEventListener('mousedown', e => {
   if (e.button === 2) { R.ads = true; return; }                                   // hold right mouse = aim down the sights
   if (document.pointerLockElement !== renderer.domElement || mode !== 'foot') return;
   if (R.hand !== 'desk') { if (deskKnife) deskKnifeUse(); return; }
-  const live = R.chambered; camera.getWorldPosition(_a); camera.getWorldDirection(_d); fire(_a.clone(), _d.clone()); if (live) R.recT = 0;
+  R.wantFire = true;                                                                // fired in updateRifle with this frame's pose
 });
 addEventListener('mousemove', e => {
   if (document.pointerLockElement !== renderer.domElement) return;
@@ -1348,11 +1357,10 @@ function footXR(dt) {
     if (pressedEdge(gp, 1, h + 'sq')) handGrab(g);
     if (!sq) handRelease(g);
     const trig = pressedEdge(gp, 0, h + 'trig'), btn = !!gp.buttons[4]?.pressed && !vr.prev[h + 'btn']; vr.prev[h + 'btn'] = !!gp.buttons[4]?.pressed;
-    if (R.hand === g) { if (trig) {             // bullet uses the pre-recoil pose
-        const live = R.chambered; _a.copy(muzzle.position).applyQuaternion(R.baseQ).add(R.baseP); _d.set(0, 0, -1).applyQuaternion(R.baseQ);
-        fire(_a.clone(), _d.clone());
-        if (live) { R.recT = 0; pulse(g, RECOIL.hapticMain, RECOIL.hapticMainMs); if (R.support) pulse(R.support, RECOIL.hapticSupport, RECOIL.hapticSupportMs); } }
-      if (btn) cycleLever(); }
+    if (R.hand === g) {
+      if (trig) R.wantFire = true;                // shot leaves in updateRifle from this frame's pose (no one-frame lag)
+      R.levHold = !!gp.buttons[4]?.pressed; if (btn) cycleLever();
+      if (h === 'right') { const ry = gp.axes[3] || 0; if (Math.abs(ry) > 0.75 && !R.gripAdj) { R.gripAdj = true; adjustGrip(ry < 0 ? 5 : -5); } else if (Math.abs(ry) < 0.3) R.gripAdj = false; } }
     else if (btn && PK.state !== 'worn') setPack('worn');   // other hand's A/X: close + wear the pack
     else if (btn) recenter();
   }
@@ -1385,55 +1393,54 @@ function aimQuat(f, up, out) {    // rifle -z along f, roll taken from the prima
 function updateRifle(dt) {
   if (R.slung) { SLING.o.updateWorldMatrix(true, false); SLING.o.matrixWorld.decompose(rifle.position, rifle.quaternion, _ks); rifle.visible = mode === 'foot'; }
   if (R.hand === 'desk') {
-    camera.updateMatrixWorld(); camera.getWorldQuaternion(rifle.quaternion);
-    rifle.position.copy(camera.localToWorld(R.ads ? _a.set(0, -SIGHT_Y, -CHEEK_Z) : _a.set(0.13, -0.17, -0.32)));
+    camera.updateWorldMatrix(true, false); camera.getWorldQuaternion(_tq);
+    _tp.copy(camera.localToWorld(R.ads ? _a.set(0, -SIGHT_Y, -CHEEK_Z) : _a.set(0.13, -0.17, -0.32)));
+    R.stock = false; rifleHold(dt);
   } else if (R.hand) {
-    // rigid: rifle pose is rebuilt from this frame's grip poses every frame (no smoothing / lerp)
+    // zero-lag: this frame's grip + eye poses (XR updates them before this callback), rifle posed right before render
     const g = R.hand; g.getWorldPosition(_a); g.getWorldQuaternion(_qa);
-    _hu.set(0, 1, 0).applyQuaternion(_qa);
-    const M = eyeWorld(g.userData.src?.handedness === 'left' ? 0 : 1);      // sighting eye on the rifle-hand side
-    _eye.setFromMatrixPosition(M); _hf.set(0, 0, -1).transformDirection(M); _w.set(0, 1, 0).transformDirection(M);
-    // virtual stock: grip hand near where it sits with the butt shouldered and the eye on the sights
-    _b.copy(_eye).addScaledVector(_hf, CHEEK_Z).addScaledVector(_w, -SIGHT_Y);
-    R.stock = _a.distanceTo(_b) < (R.stock ? STOCK_OUT : STOCK_IN);
-    if (R.support) R.support.getWorldPosition(_b);
-    if (R.stock) {            // aim = eye/shoulder -> support hand (or -> grip hand when one-handed), stock anchored to the head
-      if (!R.support) _b.copy(_a);
-      _b.addScaledVector(_hu, SIGHT_Y);                         // the point on the sight line above that hand
-      _d.subVectors(_b, _eye); if (_d.lengthSq() < 0.0064) _d.copy(_hf); _d.normalize();
-      aimQuat(_d, _hu, _tq);
-    } else if (R.support) { _d.subVectors(_b, _a).normalize(); aimQuat(_d, _hu, _tq); }   // rear hand -> support hand
-    else _tq.copy(_qa);
-    if (R.lastQ.angleTo(_tq) > ROT_DEADZONE) R.lastQ.copy(_tq);   // drop sub-0.1 deg rotation jitter only (no lag)
-    rifle.quaternion.copy(R.lastQ);
-    if (R.stock) rifle.position.copy(_eye).sub(_v.set(0, SIGHT_Y, CHEEK_Z).applyQuaternion(R.lastQ));  // cheek weld
-    else rifle.position.copy(_a);
+    _q1.copy(_qa).multiply(_gq.setFromAxisAngle(_xAxis, gripPitch * D2R));      // controller grip -> rifle wrist angle
+    if (R.free) { _tq.copy(_qa).multiply(R.freeQ); _tp.copy(R.freeP).applyQuaternion(_qa).add(_a); }
+    else {
+      _hu.set(0, 1, 0).applyQuaternion(_q1);
+      const M = eyeWorld(g.userData.src?.handedness === 'left' ? 0 : 1);      // sighting eye on the rifle-hand side
+      _eye.setFromMatrixPosition(M); _hf.set(0, 0, -1).transformDirection(M); _w.set(0, 1, 0).transformDirection(M);
+      // virtual stock: grip hand near where it sits with the butt shouldered and the eye on the sights (hysteresis)
+      _b.copy(_eye).addScaledVector(_hf, CHEEK_Z).addScaledVector(_w, -SIGHT_Y);
+      R.stock = _a.distanceTo(_b) < (R.stock ? STOCK_OUT : STOCK_IN);
+      if (R.support) R.support.getWorldPosition(_b);
+      if (R.stock) {            // aim = eye -> sight line above the support hand (or the grip hand one-handed); cheek weld puts the eye on the sights
+        if (!R.support) _b.copy(_a);
+        _b.addScaledVector(_hu, SIGHT_Y);
+        _d.subVectors(_b, _eye); if (_d.lengthSq() < 0.0064) _d.copy(_hf); _d.normalize();
+        aimQuat(_d, _hu, _tq); _tp.copy(_eye).sub(_v.set(0, SIGHT_Y, CHEEK_Z).applyQuaternion(_tq));
+      } else if (R.support) { _d.subVectors(_b, _a).normalize(); aimQuat(_d, _hu, _tq).multiply(SUPPORT_TILT); _tp.copy(_a); }
+      else { _tq.copy(_q1); _tp.copy(_a); }
+    }
     // lever flick: quick downward-forward snap of the rifle hand
     R.vel.subVectors(_a, R.prev).divideScalar(Math.max(dt, 1e-3)); R.prev.copy(_a);
-    rifle.getWorldDirection(_d).negate();
+    _d.set(0, 0, -1).applyQuaternion(_tq);
     R.flickCool -= dt;
-    if (R.flickCool <= 0 && R.vel.y < -1.6 && (R.vel.x * _d.x + R.vel.z * _d.z) > 0.4) { cycleLever(); R.flickCool = 0.45; }
-  }
-  if (R.hand) {             // recoil: visual-only offset on top of the rebuilt pose (springs back, no drift)
-    R.baseP.copy(rifle.position); R.baseQ.copy(rifle.quaternion);
-    if (R.recT < 0.3) { R.recT += dt; const t = R.recT, k = t < RECOIL.up ? t / RECOIL.up : Math.exp(-(t - RECOIL.up) / RECOIL.decay);
-      const m = k * (R.hand === 'desk' ? RECOIL.desk : R.stock ? RECOIL.stock : R.support ? RECOIL.twoHand : 1);
-      rifle.rotateX(RECOIL.rise * m); rifle.translateZ(RECOIL.kick * m); }
-  }
+    if (!R.levHand && R.flickCool <= 0 && R.vel.y < -1.6 && (R.vel.x * _d.x + R.vel.z * _d.z) > 0.4) { cycleLever(); R.flickCool = 0.45; }
+    rifleHold(dt);
+  } else { R.sig = ''; R.baseP.copy(rifle.position); R.baseQ.copy(rifle.quaternion); R.wantFire = false; if (R.levHand) R.levHand = null; }
+  R.wantFire = false;
   // hands: hide controller hands that hold the rifle (clear sight line), show small gloves under the wood instead
   let leftOnRifle = false;
   for (const g of grips) { const on = R.hand === g || R.support === g; if (g.userData.hand) g.userData.hand.visible = !on; if (on && g.userData.src?.handedness === 'left') leftOnRifle = true; }
   wrist.visible = !leftOnRifle;
-  handR.visible = !!R.hand; handS.visible = !!R.support || R.hand === 'desk';
-  if (R.leverT > 0) { R.leverT -= dt; const k = Math.sin(Math.max(0, R.leverT) / 0.3 * Math.PI); lever.rotation.x = 0.85 * k; bolt.position.z = -0.1 + 0.06 * k; }
-  if (R.flashT > 0 && (R.flashT -= dt) <= 0) flash.visible = false;
+  handR.visible = !!R.hand && !R.free; handS.visible = !!R.support || R.hand === 'desk' || R.free;
+  if (R.flashT > 0 && (R.flashT -= dt) <= 0) flash.visible = flashSpr.visible = false;
 }
 function updateWorld(dt, t) {
   for (const c of cans) { const u = c.userData;
-    if (u.vel) { u.vel.y -= 9.81 * dt; c.position.addScaledVector(u.vel, dt); c.rotation.x += 9 * dt;
-      const g = groundY(c.position.x, c.position.z) + 0.04; if (c.position.y < g) { c.position.y = g; u.vel.set(0, 0, 0); } }
+    if (u.vel && u.vel.lengthSq() > 0) { u.vel.y -= 9.81 * dt; c.position.addScaledVector(u.vel, dt);
+      if (u.av) { _fe.set(u.av.x * dt, u.av.y * dt, u.av.z * dt); c.quaternion.multiply(_fq.setFromEuler(_fe)); }
+      const g = groundY(c.position.x, c.position.z) + 0.04;
+      if (c.position.y < g) { c.position.y = g;
+        if (u.vel.y < -1.2) { u.vel.set(u.vel.x * 0.55, -u.vel.y * 0.35, u.vel.z * 0.55); u.av?.multiplyScalar(0.6); sfx('canB', c.position); }
+        else { u.vel.set(0, 0, 0); if (u.av) u.av.set(0, 0, 0); c.rotation.set(Math.PI / 2, c.rotation.y, 0); } } }
     if (u.t > 0 && (u.t -= dt) <= 0) { u.vel = null; c.position.copy(u.home); c.rotation.set(0, 0, 0); } }
-  for (const m of markers) if (m.visible && (m.userData.t -= dt) <= 0) m.visible = false;
   for (let i = 0; i < 14; i++) {               // smoke plume from the abandoned farmhouse chimney
     const ph = (t * 0.05 + i / 14) % 1, s = 1.5 + ph * 9;
     _m4.compose(_v.set(smokeBase.x + ph * 30 + Math.sin(i * 2.1) * 2, smokeBase.y + ph * 80, smokeBase.z + Math.cos(i * 1.7) * 2), _q.identity(), _s.set(s, s, s));
@@ -1542,7 +1549,7 @@ function cookTick(it, dt) {
 }
 function loadRound() {
   if (R.tube >= 7) { say('TUBE FULL'); return; } if (R.spare <= 0) { say('NO SPARE AMMO'); return; }
-  R.tube++; R.spare--; sfx('click');
+  R.tube++; R.spare--; sfx('gate');
 }
 function hurt(n) {
   P.hp -= n;
@@ -1710,12 +1717,16 @@ const zBody = imesh([vbox(0.34, 0.22, 0.2, 0, 0.95, 0, 0x34333d), vbox(0.42, 0.5
                      vbox(0.04, 0.03, 0.02, -0.05, 1.75, -0.185, 0xd8e070), vbox(0.04, 0.03, 0.02, 0.05, 1.75, -0.185, 0xd8e070)], N_PADZ + N_CABZ);
 const zArm = imesh([vbox(0.1, 0.62, 0.1, 0, -0.31, 0, 0x6b7a55)], (N_PADZ + N_CABZ) * 2);
 const zLeg = imesh([vbox(0.14, 0.86, 0.15, 0, -0.43, 0, 0x34333d)], (N_PADZ + N_CABZ) * 2);
-function zAt(z, x, zz, st) { Object.assign(z, { x, z: zz, y: groundY(x, zz), yaw: Math.random() * 6.3, hp: Z_HP, state: st, t: Math.random() * 4, fall: 0, ph: Math.random() * 6, mv: 0, lunge: 0, cd: 2, tx: x, tz: zz, deadT: 0, groanT: 2 + Math.random() * 6, atk: 0 }); }
+function zAt(z, x, zz, st) { Object.assign(z, { x, z: zz, y: groundY(x, zz), yaw: Math.random() * 6.3, hp: Z_HP, state: st, t: Math.random() * 4, fall: 0, ph: Math.random() * 6, mv: 0, lunge: 0, cd: 2, tx: x, tz: zz, deadT: 0, groanT: 2 + Math.random() * 6, atk: 0, flinch: 0, fv: 0, fdir: 1, pvx: 0, pvz: 0, hs: false, sink: 0, droll: 0 }); }
 for (let i = 0; i < N_PADZ + N_CABZ; i++) {
-  const z = { cabin: i >= N_PADZ, hx: PAD_HOUSE.x - 6, hz: PAD_HOUSE.z, hit(part) {
-    sfx('hit', _sv.set(this.x, this.y + 1.2, this.z));
-    this.hp -= part === 'head' ? 99 : part === 'torso' ? 1.5 : 1; if (this.state !== 'dead') this.state = 'chase';
-    if (this.hp <= 0) { this.state = 'dead'; this.deadT = 0; say(part === 'head' ? 'HEADSHOT' : 'ZOMBIE DOWN'); }
+  const z = { cabin: i >= N_PADZ, hx: PAD_HOUSE.x - 6, hz: PAD_HOUSE.z, hit(part, dir) {
+    if (this.state === 'dead') return;
+    if (!dir) sfx('hit', _sv.set(this.x, this.y + 1.2, this.z));
+    this.hp -= part === 'head' ? 99 : part === 'torso' ? 1.5 : 1; this.state = 'chase';
+    if (dir) { const k = part === 'head' ? 0.6 : 1.4; this.pvx = dir.x * k; this.pvz = dir.z * k;           // stagger back along the shot
+      this.fdir = (dir.x * -Math.sin(this.yaw) + dir.z * -Math.cos(this.yaw)) < 0 ? 1 : -1; }              // shot from the front -> falls backwards
+    this.flinch = 1; this.lunge = 0;
+    if (this.hp <= 0) { this.state = 'dead'; this.deadT = 0; this.fall = 0; this.fv = 0; this.hs = part === 'head'; this.droll = (Math.random() - 0.5) * 0.5; say(part === 'head' ? 'HEADSHOT' : 'ZOMBIE DOWN'); }
   } };
   if (z.cabin) zAt(z, 0, 0, 'off');
   else { let x, zz; do { x = z.hx + (Math.random() - 0.5) * 50; zz = z.hz + (Math.random() - 0.5) * 50; } while (Math.abs(x - PAD_HOUSE.x) < 6 && Math.abs(zz - PAD_HOUSE.z) < 6); zAt(z, x, zz, 'idle'); }
@@ -1737,7 +1748,11 @@ function updateZombies(dt) {
     const dx = pp.x - z.x, dz = pp.z - z.z, d = Math.hypot(dx, dz);
     let spd = 0;
     if (z.state === 'dead') {
-      z.fall = Math.min(1.5, z.fall + dt * 3); z.deadT += dt;
+      z.deadT += dt; z.sink = z.hs ? Math.min(1, z.deadT * 6) : 0;                   // headshot: knees go first
+      if (z.fall < 1.5 && z.deadT > (z.hs ? 0.15 : 0)) { z.fv += (2 + 9 * Math.sin(z.fall + 0.1)) * dt; z.fall += z.fv * dt;   // topples, accelerating like a dead weight
+        if (z.fall >= 1.5) { z.fall = 1.5; z.fv = z.fv > 2 ? -z.fv * 0.18 : 0; } }
+      else if (z.fv) { z.fv += 9 * dt; z.fall = Math.min(1.5, z.fall + z.fv * dt); if (z.fall >= 1.5) { z.fall = 1.5; z.fv = 0; } }   // small bounce
+      z.x += z.pvx * dt; z.z += z.pvz * dt; z.pvx *= Math.exp(-5 * dt); z.pvz *= Math.exp(-5 * dt);
       if (z.cabin && z.deadT > 60) z.state = 'off';
       if (!z.cabin && padAway > 180) { let x, zz; do { x = z.hx + (Math.random() - 0.5) * 50; zz = z.hz + (Math.random() - 0.5) * 50; } while (Math.abs(x - PAD_HOUSE.x) < 6 && Math.abs(zz - PAD_HOUSE.z) < 6); zAt(z, x, zz, 'idle'); }
     } else {
@@ -1749,7 +1764,7 @@ function updateZombies(dt) {
         z.yaw = turn(z.yaw, yawTo(z.x, z.z, pp.x, pp.z), 3 * dt);
         const stop = foot ? 0.8 : 2.6;
         z.cd -= dt; if (z.lunge > 0) z.lunge -= dt; else if (z.cd <= 0 && d < 7 && d > 2) { z.lunge = 0.7; z.cd = 3 + Math.random() * 3; }
-        if (d > stop) spd = z.lunge > 0 ? Z_LUNGE : Z_SPEED;
+        if (d > stop) spd = (z.lunge > 0 ? Z_LUNGE : Z_SPEED) * (1 - 0.9 * z.flinch);   // a hit stops them for a beat
         if (foot && d < 1.15) { z.atk = 1; hurt(Z_DPS * dt); }
       } else {
         z.t -= dt;
@@ -1757,13 +1772,14 @@ function updateZombies(dt) {
         if (z.state === 'wander') { z.yaw = turn(z.yaw, yawTo(z.x, z.z, z.tx, z.tz), 1.5 * dt); spd = Math.hypot(z.tx - z.x, z.tz - z.z) > 1 ? 0.5 : 0; }
       }
       z.x -= Math.sin(z.yaw) * spd * dt; z.z -= Math.cos(z.yaw) * spd * dt;
+      z.x += z.pvx * dt; z.z += z.pvz * dt; z.pvx *= Math.exp(-6 * dt); z.pvz *= Math.exp(-6 * dt); z.flinch = Math.max(0, z.flinch - dt * 2.5);
       for (let j = 0; j < ZS.length; j++) { const o = ZS[j]; if (j === i || o.state === 'off' || o.state === 'dead') continue;   // personal space
         const sx = z.x - o.x, sz = z.z - o.z, sd = Math.hypot(sx, sz); if (sd < 0.6 && sd > 1e-3) { z.x += sx / sd * (0.6 - sd) * 0.5; z.z += sz / sd * (0.6 - sd) * 0.5; } }
       pushOutBox(z, PAD_HOUSE); pushOutBox(z, CABIN_BOX);
       if (d < 40 && (z.groanT -= dt) <= 0) { z.groanT = 4 + Math.random() * 7; sfx('groan', _sv.set(z.x, z.y + 1.6, z.z)); }
     }
     z.y = groundY(z.x, z.z); z.mv += ((spd > 0 ? 1 : 0) - z.mv) * Math.min(1, dt * 5); z.ph += spd * dt * 4.5;
-    baseM(z.x, z.y, z.z, z.yaw, z.fall, z.state === 'dead' ? 0 : Math.sin(z.ph * 0.5) * 0.07);
+    const zd = z.state === 'dead'; baseM(z.x, z.y - (zd ? 0.32 * z.sink * (1 - Math.min(1, z.fall / 1.2)) : 0), z.z, z.yaw, zd ? z.fall * z.fdir : 0.35 * z.flinch * z.fdir, zd ? z.droll * z.fall : Math.sin(z.ph * 0.5) * 0.07);
     zBody.setMatrixAt(i, cM);
     const sw = Math.sin(z.ph) * 0.5 * z.mv, dead = z.state === 'dead';
     const arm = dead ? 0.3 : z.atk ? 1.3 + Math.sin(performance.now() * 0.015) * 0.5 : 1.25 + Math.sin(z.ph * 0.5) * 0.15;
@@ -1800,8 +1816,9 @@ const dLeg = imesh([vbox(0.07, 0.82, 0.08, 0, -0.41, 0, 0x6e4528)], N_DEER * 4);
 const rab = imesh([vbox(0.16, 0.15, 0.26, 0, 0.1, 0, 0x9a8a70), vbox(0.11, 0.11, 0.12, 0, 0.2, -0.15, 0x9a8a70),
                    vbox(0.03, 0.13, 0.02, -0.03, 0.31, -0.13, 0x9a8a70), vbox(0.03, 0.13, 0.02, 0.03, 0.31, -0.13, 0x9a8a70), vbox(0.06, 0.06, 0.05, 0, 0.14, 0.15, 0xf2efe6)], N_RAB);
 const ANIM = [];
-function aHit(part) {
-  sfx('hit', _sv.set(this.x, this.y + 0.8, this.z));
+function aHit(part, dir) {
+  if (this.state === 'dead') return;
+  if (!dir) sfx('hit', _sv.set(this.x, this.y + 0.8, this.z)); this.flinch = 1;
   this.hp -= (part === 'head' || part === 'vitals' || this.kind === 'rabbit') ? 99 : 1;
   if (this.hp <= 0) { this.state = 'dead'; this.fall = 0; say((this.kind === 'deer' ? 'DEER' : 'RABBIT') + ' DOWN - HOLD GRIP ON IT TO DRESS'); }
 }
@@ -1844,7 +1861,7 @@ function updateAnimals(dt) {
       a.x = clamp(a.x - Math.sin(a.yaw) * spd * dt, -2900, 2900); a.z = clamp(a.z - Math.cos(a.yaw) * spd * dt, -2900, 2900);
       if (deer && d < 400) pushOutBox(a, CABIN_BOX, 0.8);
     }
-    a.y = groundY(a.x, a.z); a.ph += spd * dt * (deer ? 3 : 9);
+    a.y = groundY(a.x, a.z) + (a.flinch > 0 && a.state !== 'dead' ? 0.18 * Math.sin(a.flinch * Math.PI) : 0); a.ph += spd * dt * (deer ? 3 : 9); if (a.flinch > 0) a.flinch = Math.max(0, a.flinch - dt * 3);
     const gone = a.state === 'gone', dead = a.state === 'dead';
     if (deer) {
       if (gone) { dBody.setMatrixAt(di, HIDE); dHead.setMatrixAt(di, HIDE); for (let k = 0; k < 4; k++) dLeg.setMatrixAt(di * 4 + k, HIDE); di++; continue; }
@@ -1903,42 +1920,308 @@ const tick = g => pulse(g, 0.4, 20);
 const V3 = () => new THREE.Vector3();
 Object.assign(R, { slung: false, spent: false, recT: 1, baseP: V3(), baseQ: new THREE.Quaternion() });
 const GATE = new THREE.Vector3(0.019, 0.002, -0.125), EJECT = new THREE.Vector3(0, 0.055, -0.11);
-{ const g = new THREE.Mesh(new THREE.BoxGeometry(0.003, 0.012, 0.024), mat(0x9a8040)); g.position.copy(GATE); g.position.x -= 0.0015; rifle.add(g); }  // loading gate
+{ const g = new THREE.Mesh(new THREE.BoxGeometry(0.003, 0.012, 0.024), mat(0x9a8040)); g.position.copy(GATE); g.position.x -= 0.0015; rifle.add(g); rifle.userData.gate = g; }  // loading gate
 // ---- brass: cartridges in hand, loading, ejected cases ----
 const brassM = mat(0xd8a640), leadM = mat(0x8a8a8a);
 const roundG = new THREE.CylinderGeometry(0.0055, 0.0055, 0.05, 6).rotateX(Math.PI / 2), tipG = new THREE.ConeGeometry(0.0055, 0.016, 6).rotateX(-Math.PI / 2);
 function roundMesh() { const m = new THREE.Mesh(roundG, brassM), t = new THREE.Mesh(tipG, leadM); t.position.z = -0.033; m.add(t); return m; }
 const ROUND_TIP = new THREE.Vector3(0, 0, -0.041);
 const rounds = new Map(), loading = [], cases = [];
-for (let i = 0; i < 6; i++) { const m = roundMesh(); m.visible = false; scene.add(m); cases.push({ m, v: V3(), t: 0 }); }
+for (let i = 0; i < 8; i++) { const m = roundMesh(); m.visible = false; scene.add(m); cases.push({ m, v: V3(), av: V3(), t: 0, bounces: 0 }); }
 let caseIdx = 0;
-function ejectCase(live) {
-  const c = cases[caseIdx++ % cases.length]; c.m.children[0].visible = live; c.m.visible = true; c.t = 3;
-  rifle.localToWorld(c.m.position.copy(EJECT)); c.m.quaternion.copy(rifle.quaternion);
-  c.v.set(0.9 + Math.random() * 0.4, 2.4 + Math.random() * 0.6, 0.3).applyQuaternion(rifle.quaternion);
+function ejectCase(live) {     // up and a little right, with spin, plus whatever the rifle was doing
+  const c = cases[caseIdx++ % cases.length]; c.m.children[0].visible = live; c.m.visible = true; c.t = 4; c.bounces = 0;
+  rifle.updateMatrixWorld(); rifle.localToWorld(c.m.position.copy(EJECT)); c.m.quaternion.copy(rifle.quaternion);
+  c.v.set(0.45 + Math.random() * 0.35, 2.6 + Math.random() * 0.6, 0.2 + Math.random() * 0.2).applyQuaternion(rifle.quaternion);
+  if (R.hand && R.hand !== 'desk') c.v.addScaledVector(R.vel, 0.8);
+  c.av.set(18 + Math.random() * 14, (Math.random() - 0.5) * 20, (Math.random() - 0.5) * 12);
 }
+const ROUND_HOLD = new THREE.Vector3(0, -0.01, -0.03), GATE_AXIS = new THREE.Vector3(0.5, 0, 0.866), ALIGN = new THREE.Vector3();
+const _qm = new THREE.Quaternion(), _qr = new THREE.Quaternion(), _kd = V3(), _ls = V3(), _lq = new THREE.Quaternion();
 function updateBrass(dt) {
   for (const c of cases) if (c.t > 0) {
     c.t -= dt; const g = groundY(c.m.position.x, c.m.position.z) + 0.006;
-    if (c.m.position.y > g) { c.v.y -= 9.81 * dt; c.m.position.addScaledVector(c.v, dt); c.m.rotation.x += 14 * dt; c.m.rotation.y += 9 * dt; }
-    if (c.m.position.y <= g) { c.m.position.y = g; c.v.set(0, 0, 0); }
+    if (c.m.position.y > g || c.v.lengthSq() > 0) { c.v.y -= 9.81 * dt; c.m.position.addScaledVector(c.v, dt);
+      _fe.set(c.av.x * dt, c.av.y * dt, c.av.z * dt); c.m.quaternion.multiply(_fq.setFromEuler(_fe)); }
+    if (c.m.position.y <= g) { c.m.position.y = g;
+      if (c.v.y < -0.6 && c.bounces < 3) { if (c.bounces === 0) sfx('ping', c.m.position); c.bounces++; c.v.set(c.v.x * 0.45, -c.v.y * 0.3, c.v.z * 0.45); c.av.multiplyScalar(0.5); }
+      else { c.v.set(0, 0, 0); c.av.set(0, 0, 0); c.m.rotation.set(0, c.m.rotation.y, 0); } }
     if (c.t <= 0) c.m.visible = false;
   }
-  for (let i = loading.length - 1; i >= 0; i--) { const L = loading[i]; L.t += dt; const k = Math.min(1, L.t / 0.15);
-    L.m.position.set(GATE.x + 0.02 * (1 - k), GATE.y, GATE.z + 0.03 - 0.07 * k);
-    if (k >= 1) { L.m.removeFromParent(); loading.splice(i, 1); } }
+  // rounds sliding in through the gate: 40 ms magnetic snap to the gate axis, then 100 ms push in
+  ALIGN.set(GATE.x + 0.004, GATE.y, GATE.z + 0.041);
+  for (let i = loading.length - 1; i >= 0; i--) { const L = loading[i]; L.t += dt;
+    if (L.t < 0.04) { const k = smooth01(L.t / 0.04); L.m.position.lerpVectors(L.p0, ALIGN, k); L.m.quaternion.slerpQuaternions(L.q0, _qi.identity(), k); }
+    else { const k = smooth01(Math.min(1, (L.t - 0.04) / 0.1)); L.m.quaternion.identity(); L.m.position.set(ALIGN.x - 0.014 * k, ALIGN.y, ALIGN.z - 0.075 * k);
+      if (gateMesh) gateMesh.position.x = GATE.x - 0.0015 - 0.004 * Math.sin(k * Math.PI); }
+    if (L.t >= 0.14) { L.m.removeFromParent(); loading.splice(i, 1); if (gateMesh) gateMesh.position.x = GATE.x - 0.0015; } }
+  if (R.fullT > 0) R.fullT -= dt;
+  const canLoad = rifle.visible && !R.stowed && !R.slung;
+  if (canLoad) rifle.updateMatrixWorld();
   for (const [g, m] of rounds) {
-    const tip = m.localToWorld(_kt.copy(ROUND_TIP));
-    if (rifle.visible && !R.stowed && !R.slung && tip.distanceTo(rifle.localToWorld(_kg.copy(GATE))) < LOAD_DIST) {
-      if (R.tube >= 7) { if (msgT <= 0) say('TUBE FULL'); continue; }
-      R.tube++; rounds.delete(g); rifle.add(m); m.quaternion.identity(); loading.push({ m, t: 0 });
-      sfx('click', _kg); pulse(g, 0.6, 30); if (R.hand && R.hand !== 'desk') pulse(R.hand, 0.3, 25); say('LOADED ' + R.tube + '/7');
+    m.position.copy(ROUND_HOLD); m.quaternion.identity();
+    if (!canLoad || g === R.hand) continue;
+    g.updateMatrixWorld(); m.updateMatrixWorld();
+    const tip = rifle.worldToLocal(m.localToWorld(_kt.copy(ROUND_TIP)));
+    _kd.subVectors(tip, GATE); const dist = _kd.length(); if (dist > GUN.magnetR) continue;
+    const inCone = dist < 0.012 || _kd.dot(GATE_AXIS) > dist * Math.cos(GUN.gateCone);
+    _qr.copy(rifle.quaternion).invert().multiply(m.getWorldQuaternion(_qm)); _ls.set(0, 0, -1).applyQuaternion(_qr);
+    if (!inCone || _ls.z > -0.6) continue;                 // tip must come from behind / outside the gate, cartridge pointing roughly forward
+    if (dist < GUN.gateR) {
+      if (R.tube >= 7) { if (R.fullT <= 0) { say('TUBE FULL'); pulse(g, 0.15, 10); R.fullT = 1.5; } continue; }
+      _m4.copy(rifle.matrixWorld).invert().multiply(m.matrixWorld); const p0 = V3(), q0 = new THREE.Quaternion(); _m4.decompose(p0, q0, _ls);
+      rounds.delete(g); rifle.add(m); m.position.copy(p0); m.quaternion.copy(q0); loading.push({ m, t: 0, p0, q0 });
+      R.tube++; sfx('gate', rifle.localToWorld(_kg.copy(GATE))); pulse(g, 0.6, 30); if (R.hand && R.hand !== 'desk') pulse(R.hand, 0.3, 25); vr.reload.add(g);
+      continue;
     }
+    // magnetic pull: the cartridge in your fingers swings onto the gate axis over the last few cm
+    const w = 0.7 * smooth01(clamp((GUN.magnetR - dist) / (GUN.magnetR - GUN.gateR), 0, 1));
+    _m4.copy(g.matrixWorld).invert().multiply(rifle.matrixWorld).multiply(_m2.makeTranslation(ALIGN.x, ALIGN.y, ALIGN.z)); _m4.decompose(_kg, _lq, _ls);
+    m.position.lerp(_kg, w); m.quaternion.slerp(_lq, w);
   }
+  // fast reloading: keep the grip squeezed, go back to the pouch and the next round is in your fingers
+  for (const g of vr.reload) { if (rounds.has(g)) continue; const sq = !!g.userData.src?.gamepad?.buttons[1]?.pressed;
+    if (!sq || held.has(g)) { vr.reload.delete(g); continue; }
+    if (AMMO_P.o.getWorldPosition(_kp).distanceTo(g.getWorldPosition(_kg)) < SLOT_R) takeRound(g); }
 }
 const _kt = V3(), _kg = V3(), _kp = V3();
 function takeRound(g) { if (R.spare <= 0) { say('AMMO POUCH EMPTY'); return; } R.spare--; const m = roundMesh(); g.add(m); m.position.set(0, -0.01, -0.03); rounds.set(g, m); sfx('pick'); tick(g); }
 function dropRound(g) { const m = rounds.get(g); if (!m) return; rounds.delete(g); m.removeFromParent(); R.spare++; }
+// ================= v0.9: gunplay polish - lever stroke, physical loading, projectile ballistics, recoil springs, hit FX =================
+// ---- tunables (feel) ----
+const GUN = {
+  gripPitchDeg: -40,   // controller grip -> rifle wrist angle (deg, - = muzzle down). Right stick up/down while holding the rifle (right hand) = 5 deg steps, saved
+  handoffBlend: 0.08,  // s: support hand grabs / lets go, hand-offs - old pose melts into the new one (no snaps)
+  stockBlend: 0.10,    // s: virtual stock engage / disengage (and desktop ADS)
+  pickupBlend: 0.12,   // s: rifle flies into the hand on pick-up
+  inertiaWn: 55,       // rad/s: one-handed muzzle lag spring (critically damped; higher = lighter rifle, 0 = off). None two-handed / shouldered
+  leverTime: 0.12,     // s per half stroke (open, then close)
+  leverMax: 0.9,       // rad lever swing
+  mv: 400,             // m/s muzzle velocity (.44-40 from a 20" carbine)
+  drag: 0.0029,        // 1/m quadratic drag (~400 -> ~300 m/s at 100 m)
+  zeroM: 50,           // m: sights zeroed here
+  dispersion: 0.0006,  // rad (1 sigma) ~2 MOA
+  gateR: 0.025,        // m: cartridge tip this close to the loading gate (inside the cone) snaps in
+  magnetR: 0.05,       // m: magnetic pull starts here
+  gateCone: 40 * Math.PI / 180,   // half-angle of the entry cone (opens backwards / outwards from the gate)
+};
+// recoil = spring-dampers on top of the hand pose (visual only, the bullet left already): sharp rise, rearward kick, settles with a small overshoot
+const RECOIL2 = { rise: 4.5, kick: 3.3, yaw: 0.6, wn: 20, zeta: 0.45, kwn: 32, kzeta: 0.65, random: 0.15,   // rad/s + m/s impulses, spring rad/s, damping ratio
+                  stock: 0.4, twoHand: 0.7, desk: 0.6 };                                              // multipliers
+let gripPitch = GUN.gripPitchDeg; try { const s = localStorage.getItem('bp_gripPitch'); if (s !== null && isFinite(+s)) gripPitch = +s; } catch (e) {}
+const _xAxis = new THREE.Vector3(1, 0, 0);
+const SUPPORT_TILT = new THREE.Quaternion().setFromAxisAngle(_xAxis, Math.atan2(0.032, 0.3));   // support hand sits under the forend
+const LEV_PIV = new THREE.Vector3(0, -0.012, -0.17), LOOP_L = new THREE.Vector3(0, -0.044, 0.018);    // lever pivot / loop (rifle space)
+Object.assign(R, { levA: 0, levS: 0, levReq: false, levHold: false, levFree: false, levHand: null, levGrab0: 0, lifted: false, cocked: false,
+  free: false, freeQ: new THREE.Quaternion(), freeP: V3(), wantFire: false, sig: '', offQ: new THREE.Quaternion(), offP: V3(), blendT: 9, blendDur: 0.08,
+  iq: new THREE.Quaternion(), iw: V3(), rec: { a: 0, av: 0, y: 0, yv: 0, z: 0, zv: 0 }, fullT: 0, gripAdj: false });
+vr.reload = new Set();
+if (CABIN_MESH) shootables.push(CABIN_MESH);
+// lifter (carrier) + the cartridge it raises, visible in the open action
+const lifter = new THREE.Mesh(new THREE.BoxGeometry(0.014, 0.01, 0.05), mat(0x2a2b2e)); lifter.position.set(0, 0.025, -0.125); rifle.add(lifter);
+const feedRound = roundMesh(); feedRound.visible = false; rifle.add(feedRound);
+const gateMesh = rifle.userData.gate;
+// muzzle flash sprite (additive, no light = no shader recompiles)
+const flashSpr = (() => { const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d');
+  const gr = x.createRadialGradient(32, 32, 0, 32, 32, 32); gr.addColorStop(0, 'rgba(255,250,220,1)'); gr.addColorStop(0.25, 'rgba(255,200,90,0.9)'); gr.addColorStop(1, 'rgba(255,120,20,0)');
+  x.fillStyle = gr; x.fillRect(0, 0, 64, 64);
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), blending: THREE.AdditiveBlending, depthWrite: false, transparent: true }));
+  s.scale.set(0.28, 0.28, 1); s.position.set(0, 0, -0.07); s.visible = false; muzzle.add(s); return s; })();
+
+// ---- particles: one instanced mesh of little cubes (dust, chips, blood, smoke) ----
+const FXN = 220, fxMesh = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshLambertMaterial({ flatShading: true }), FXN);
+fxMesh.frustumCulled = false; scene.add(fxMesh);
+const FXP = Array.from({ length: FXN }, () => ({ life: 0, t: 0, p: V3(), v: V3(), s0: 0, s1: 0, drag: 0, grav: 0, spin: 0, ph: 0 }));
+const _fc = new THREE.Color(), _fq = new THREE.Quaternion(), _fe = new THREE.Euler(), _fs = V3();
+for (let i = 0; i < FXN; i++) { fxMesh.setMatrixAt(i, HIDE); fxMesh.setColorAt(i, _fc.set(0xffffff)); }
+let fxIdx = 0, fxLive = 0;
+const WIND = new THREE.Vector3(0.45, 0, 0.2);
+function emit(n, p, col, o) {   // o: { v: base velocity, rnd, s0, s1, life, drag, grav, spin }
+  for (let k = 0; k < n; k++) {
+    const i = fxIdx++ % FXN, q = FXP[i]; q.t = 0; q.life = o.life * (0.7 + Math.random() * 0.6); q.p.copy(p);
+    q.v.set(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).multiplyScalar(2 * o.rnd); if (o.v) q.v.add(o.v);
+    q.s0 = o.s0 * (0.7 + Math.random() * 0.6); q.s1 = o.s1 * (0.7 + Math.random() * 0.6); q.drag = o.drag; q.grav = o.grav; q.spin = (o.spin || 0) * (Math.random() - 0.5); q.ph = Math.random() * 6;
+    fxMesh.setColorAt(i, _fc.set(col).offsetHSL(0, 0, (Math.random() - 0.5) * 0.08));
+  }
+  fxMesh.instanceColor.needsUpdate = true; fxLive = 4;
+}
+function updateFX(dt) {
+  if (fxLive <= 0) return; let any = false;
+  for (let i = 0; i < FXN; i++) { const q = FXP[i]; if (q.life <= 0) continue;
+    q.t += dt; if (q.t >= q.life) { q.life = 0; fxMesh.setMatrixAt(i, HIDE); continue; } any = true;
+    const k = q.t / q.life, f = Math.exp(-q.drag * dt);
+    q.v.multiplyScalar(f); q.v.y -= q.grav * dt; if (q.grav < 1) q.v.addScaledVector(WIND, dt * 0.6);
+    q.p.addScaledVector(q.v, dt);
+    const gy = groundY(q.p.x, q.p.z) + 0.01; if (q.p.y < gy) { q.p.y = gy; q.v.set(0, 0, 0); }
+    const s = (q.s0 + (q.s1 - q.s0) * Math.sqrt(k)) * (k > 0.75 ? (1 - k) * 4 : 1);
+    _fq.setFromEuler(_fe.set(q.ph + q.spin * q.t, q.ph * 0.7 + q.spin * 0.6 * q.t, 0));
+    fxMesh.setMatrixAt(i, _m4.compose(q.p, _fq, _fs.set(s, s, s)));
+  }
+  fxMesh.instanceMatrix.needsUpdate = true; if (!any) fxLive--;
+}
+const FX = {
+  dust: (p, d) => { emit(9, p, 0x9c8664, { v: _v.set(-d.x * 0.6, 1.4, -d.z * 0.6), rnd: 0.9, s0: 0.05, s1: 0.28, life: 1.6, drag: 2.2, grav: 0.4 });
+                    emit(5, p, 0x6e5a40, { v: _v.set(-d.x, 2.5, -d.z), rnd: 1.5, s0: 0.02, s1: 0.015, life: 0.8, drag: 0.3, grav: 9.8, spin: 20 }); },
+  wood: (p, d) => emit(9, p, 0x8a6538, { v: _v.set(-d.x * 2, 1.2, -d.z * 2), rnd: 2.2, s0: 0.025, s1: 0.018, life: 1.1, drag: 0.4, grav: 9.8, spin: 30 }),
+  leaves: (p, d) => emit(8, p, 0x355f2e, { v: _v.set(d.x, 0.2, d.z), rnd: 1.2, s0: 0.03, s1: 0.03, life: 1.8, drag: 2.5, grav: 1.2, spin: 12 }),
+  metal: (p, d) => emit(4, p, 0xd8d8d0, { v: _v.set(-d.x, 1, -d.z), rnd: 2.5, s0: 0.012, s1: 0.008, life: 0.4, drag: 0.5, grav: 9.8 }),
+  blood: (p, d) => { emit(10, p, 0x5c0a0a, { v: _v.set(d.x * 1.6, 0.6, d.z * 1.6), rnd: 1.3, s0: 0.03, s1: 0.02, life: 0.9, drag: 0.6, grav: 9.8, spin: 15 });
+                     emit(4, p, 0x420606, { v: _v.set(d.x * 0.8, 0.2, d.z * 0.8), rnd: 0.4, s0: 0.05, s1: 0.13, life: 0.5, drag: 4, grav: 0.5 }); },
+  smoke: (p, d) => emit(7, p, 0xb9b7ae, { v: _v.copy(d).multiplyScalar(3.5), rnd: 0.35, s0: 0.03, s1: 0.26, life: 2.6, drag: 2.6, grav: -0.25, spin: 1 }),
+  wisp: p => emit(2, p, 0xc4c2ba, { v: _v.set(0, 0.25, 0), rnd: 0.08, s0: 0.015, s1: 0.08, life: 1.4, drag: 1.5, grav: -0.2, spin: 1 }),
+};
+
+// ---- ballistics: fast projectile, gravity + drag, fixed 1/240 s steps, exact segment hits ----
+const BH = 1 / 240, BORE_BELOW = SIGHT_Y - muzzle.position.y;   // bore is 3 cm under the sight line
+function bulletStep(p, v, h) { const sp = v.length(), k = GUN.drag * sp; v.x -= k * v.x * h; v.y -= (9.81 + k * v.y) * h; v.z -= k * v.z * h; p.addScaledVector(v, h); }
+function trajY(theta, X) {     // height relative to the sight line at range X (m) for launch angle theta
+  const p = V3().set(0, -BORE_BELOW, 0), v = V3().set(0, Math.sin(theta) * GUN.mv, -Math.cos(theta) * GUN.mv); let py = p.y, pz = 0, t = 0;
+  while (-p.z < X && t < 5) { py = p.y; pz = p.z; bulletStep(p, v, BH); t += BH; }
+  return { y: py + (p.y - py) * ((-X - pz) / (p.z - pz)), t, v: v.length() };
+}
+const ZERO = (() => { let lo = 0, hi = 0.02; for (let i = 0; i < 40; i++) { const m = (lo + hi) / 2; if (trajY(m, GUN.zeroM).y < 0) lo = m; else hi = m; } return (lo + hi) / 2; })();
+const bullets = [], _bp = V3(), _sd = V3(), _ray = new THREE.Raycaster();
+const gauss = () => (Math.random() + Math.random() + Math.random() - 1.5) * 2;
+function spawnBullet(origin, q) {
+  const e = ZERO + gauss() * GUN.dispersion, y = gauss() * GUN.dispersion;
+  const v = V3().set(Math.sin(y), Math.sin(e), -Math.cos(e) * Math.cos(y)).normalize().applyQuaternion(q).multiplyScalar(GUN.mv);
+  bullets.push({ p: origin.clone(), v, t: 0, o: origin.clone() });
+}
+function hitSegment(p0, p1) {
+  _sd.subVectors(p1, p0); const len = _sd.length(); if (len < 1e-6) return null; _sd.divideScalar(len);
+  let best = null; const take = (d, kind, ex) => { if (d >= 0 && d <= len && (!best || d < best.d)) best = Object.assign({ d, kind }, ex); };
+  const n = Math.ceil(len / 0.5);                                   // terrain: march + bisect
+  for (let i = 1; i <= n; i++) { const s = len * i / n;
+    if (p0.y + _sd.y * s < groundY(p0.x + _sd.x * s, p0.z + _sd.z * s)) { let a = s - len / n, b = s;
+      for (let k = 0; k < 10; k++) { const m = (a + b) / 2; if (p0.y + _sd.y * m < groundY(p0.x + _sd.x * m, p0.z + _sd.z * m)) b = m; else a = m; }
+      take(b, 'ground'); break; } }
+  _ray.set(p0, _sd); _ray.near = 0; _ray.far = best ? best.d : len;          // cans, doors, benches, buildings
+  const hs = _ray.intersectObjects(shootables, false); if (hs.length) take(hs[0].distance, hs[0].object.userData.can ? 'can' : 'wood', { obj: hs[0].object });
+  const ax = _sd.x * _sd.x + _sd.z * _sd.z;                         // trees: trunk + two crown cylinders
+  if (ax > 1e-9) for (const [tx, ty, tz, sc] of TREES) {
+    const ox = p0.x - tx, oz = p0.z - tz, mx = Math.min(len, best ? best.d : len);
+    const cl = clamp(-(ox * _sd.x + oz * _sd.z) / ax, 0, mx), qx = ox + _sd.x * cl, qz = oz + _sd.z * cl; if (qx * qx + qz * qz > 2.6 * sc * 2.6 * sc) continue;
+    for (const [r, y0, y1, kind] of [[0.3 * sc, 0, 3 * sc, 'wood'], [1.6 * sc, 2.6 * sc, 5.6 * sc, 'leaves'], [0.85 * sc, 5.6 * sc, 8.5 * sc, 'leaves']]) {
+      const b = 2 * (ox * _sd.x + oz * _sd.z), c = ox * ox + oz * oz - r * r, disc = b * b - 4 * ax * c; if (disc < 0) continue;
+      const s = c < 0 ? 0 : (-b - Math.sqrt(disc)) / (2 * ax), hy = p0.y + _sd.y * s - ty; if (hy >= y0 && hy <= y1) take(s, kind);
+    }
+  }
+  const ch = creatureHit(p0, _sd, best ? best.d : len); if (ch) take(ch.d, 'flesh', { c: ch.c, part: ch.part });
+  if (best) { best.p = p0.clone().addScaledVector(_sd, best.d); best.dir = _sd.clone(); }
+  return best;
+}
+function impact(h) {
+  const dl = camera.getWorldPosition(_kp).distanceTo(h.p) / 343, d = h.dir;
+  if (h.kind === 'flesh') { h.c.hit(h.part, d); FX.blood(h.p, d); sfx('flesh', h.p, dl); sfx('tick', null, dl + 0.02); }
+  else if (h.kind === 'can') { const u = h.obj.userData; u.vel = (u.vel || V3()).copy(d).multiplyScalar(4 + Math.random() * 2.5).add(_v.set(0, 2.6 + Math.random(), 0));
+    u.av = V3().set(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).multiplyScalar(40); u.t = 10; FX.metal(h.p, d); sfx('can', h.p, dl); sfx('tick', null, dl + 0.02); }
+  else if (h.kind === 'wood') { FX.wood(h.p, d); sfx('thock', h.p, dl); }
+  else if (h.kind === 'leaves') { FX.leaves(h.p, d); sfx('leaf', h.p, dl); }
+  else { h.p.y += 0.02; FX.dust(h.p, d); sfx('thud', h.p, dl); }
+}
+function updateBullets(dt) {
+  for (let i = bullets.length - 1; i >= 0; i--) { const b = bullets[i]; let rem = dt, done = false;
+    while (rem > 1e-7 && !done) { const h = Math.min(BH, rem); rem -= h; _bp.copy(b.p); bulletStep(b.p, b.v, h); b.t += h;
+      const hit = hitSegment(_bp, b.p); if (hit) { impact(hit); b.hit = hit; done = true; } }
+    if (done || b.t > 2.5 || b.p.y < -300) { bullets.splice(i, 1); if (window.__bulletLog) window.__bulletLog.push(b); }
+  }
+}
+
+// ---- lever: continuous stroke; extract/eject at 70 %, lifter raises a round at the end of the opening stroke, chambers on full close ----
+const smooth01 = x => x * x * (3 - 2 * x), invSmooth = a => 0.5 - Math.sin(Math.asin(clamp(1 - 2 * a, -1, 1)) / 3);
+function cycleLever() { if (!R.hand) return; if (R.levFree) { R.levFree = false; R.levS = invSmooth(R.levA); } R.levReq = true; }
+function handAngle(p) { rifle.worldToLocal(_kp.copy(p)); return Math.atan2(-(_kp.y - LEV_PIV.y), _kp.z - LEV_PIV.z); }
+function leverGrab(g, p) {
+  if (R.levHand || !R.hand || R.hand === 'desk' || R.free) return false;
+  rifle.updateMatrixWorld(); lever.updateMatrixWorld();
+  const loop = lever.localToWorld(_kg.set(0, -0.032, 0.188)); if (loop.distanceTo(p) > 0.07) return false;
+  R.levHand = g; R.levFree = false; R.levGrab0 = handAngle(p) - R.levA * GUN.leverMax; tick(g); return true;
+}
+function leverRelease() { R.levHand = null; if (R.levA < 0.06) { R.levFree = false; R.levS = invSmooth(R.levA); R.levReq = false; } else R.levFree = true; }   // it stays where you leave it
+function leverPulse(a, ms) { if (R.hand && R.hand !== 'desk') pulse(R.hand, a, ms); if (R.levHand) pulse(R.levHand, a, ms); }
+function updateLever(dt) {
+  if (!R.hand) { R.levHold = false; if (R.levHand) R.levHand = null; }
+  let a = R.levA;
+  if (R.levHand) { R.levHand.getWorldPosition(_kd); const tg = clamp((handAngle(_kd) - R.levGrab0) / GUN.leverMax, 0, 1); a += clamp(tg - a, -dt / 0.04, dt / 0.04); R.levS = invSmooth(a); }
+  else if (!R.levFree) { R.levS = approach(R.levS, (R.levReq || R.levHold) ? 1 : 0, 1 / GUN.leverTime, dt); a = smooth01(R.levS); if (R.levS >= 1) R.levReq = false; }
+  const p = R.levA; R.levA = a;
+  if (p < 0.06 && a >= 0.06) { sfx('levOpen'); leverPulse(0.45, 22); if (R.spent) FX.wisp(rifle.localToWorld(_kp.copy(EJECT))); }
+  if (p < 0.7 && a >= 0.7) { if (R.chambered || R.spent) { ejectCase(R.chambered); if (R.chambered) R.spare++; R.chambered = R.spent = false; } R.cocked = true; }
+  if (p < 0.95 && a >= 0.95 && R.tube > 0 && !R.lifted && !R.chambered) { R.tube--; R.lifted = true; leverPulse(0.2, 12); }
+  if (p > 0.02 && a <= 0.02) { R.levA = a = 0; sfx('levClose'); leverPulse(0.7, 30); if (R.lifted) { R.lifted = false; R.chambered = true; } }
+  // visuals: lever, bolt (unlocks over the first 12 %), lifter, the fed round
+  lever.rotation.x = GUN.leverMax * a;
+  const bk = smooth01(clamp((a - 0.12) / 0.88, 0, 1)); bolt.position.z = -0.1 + 0.06 * bk;
+  const lk = smooth01(clamp((a - 0.45) / 0.5, 0, 1)); lifter.position.y = 0.025 + 0.02 * lk;
+  feedRound.visible = R.lifted || (a > 0.72 && R.tube > 0 && !R.chambered);
+  feedRound.position.set(0, 0.031 + 0.019 * lk, Math.min(-0.125, bolt.position.z - 0.081));
+}
+
+// ---- trigger ----
+function shoot() {
+  const g = R.hand;
+  if (R.levA > 0.02) { pulse(g, 0.1, 8); return; }          // lever not closed: trigger is blocked
+  if (!R.cocked) { pulse(g, 0.1, 8); return; }              // hammer already down
+  R.cocked = false;
+  if (!R.chambered) { sfx('dry'); pulse(g, 0.35, 14); return; }
+  R.chambered = false; R.spent = true;
+  if (g === 'desk') { camera.getWorldQuaternion(_qb); camera.getWorldPosition(_kp).add(_v.set(0, -BORE_BELOW, -0.6).applyQuaternion(_qb)); }   // bore under the crosshair
+  else { _qb.copy(rifle.quaternion); _kp.copy(muzzle.position).applyQuaternion(_qb).add(rifle.position); }
+  spawnBullet(_kp, _qb);
+  R.flashT = 0.045; flash.visible = flashSpr.visible = true; flash.rotation.z = flashSpr.material.rotation = Math.random() * 6.3;
+  FX.smoke(_kp, _v.set(0, 0, -1).applyQuaternion(_qb));
+  sfx('bang'); alertNoise(_kp);
+  const m = (g === 'desk' ? RECOIL2.desk : R.stock ? RECOIL2.stock : R.support ? RECOIL2.twoHand : 1), j = 1 + (Math.random() - 0.5) * 2 * RECOIL2.random;
+  R.rec.av += RECOIL2.rise * m * j; R.rec.yv += (Math.random() - 0.5) * 2 * RECOIL2.yaw * m; R.rec.zv += RECOIL2.kick * m * j;
+  if (g !== 'desk') { pulse(g, RECOIL.hapticMain, RECOIL.hapticMainMs); if (R.support) pulse(R.support, RECOIL.hapticSupport, RECOIL.hapticSupportMs); }
+}
+const _qb = new THREE.Quaternion(), _qi = new THREE.Quaternion(), _qe = new THREE.Quaternion(), _ev = V3(), _q1 = new THREE.Quaternion(), _gq = new THREE.Quaternion(), _tp = V3(), _pv = V3(), _pv2 = V3();
+function springStep(x, v, wn, z, h) { return v + (-wn * wn * x - 2 * z * wn * v) * h; }
+function rifleHold(dt) {      // called by updateRifle once this frame's target pose (_tq/_tp) is known
+  const sig = [R.hand === 'desk' ? 'd' : R.hand ? R.hand.id || 'h' : '', R.support ? 's' : '', R.stock ? 'k' : '', R.free ? 'f' : '', R.hand === 'desk' && R.ads ? 'a' : ''].join();
+  if (sig !== R.sig) {           // hold changed: start from where the rifle was drawn last frame and melt the offset away
+    const wasHeld = !!R.sig;
+    R.blendDur = !wasHeld ? GUN.pickupBlend : (R.sig.includes('k') !== sig.includes('k') || R.sig.includes('a') !== sig.includes('a')) ? GUN.stockBlend : GUN.handoffBlend;
+    R.offQ.copy(R.baseQ).multiply(_qi.copy(_tq).invert()); R.offP.subVectors(R.baseP, _tp); R.blendT = 0; R.sig = sig;
+  }
+  if (R.blendT < R.blendDur) { R.blendT += dt; const k = 1 - smooth01(Math.min(1, R.blendT / R.blendDur));
+    _qe.identity().slerp(R.offQ, k); _tq.premultiply(_qe); _tp.addScaledVector(R.offP, k); }
+  const oneHand = R.hand !== 'desk' && !R.support && !R.stock && GUN.inertiaWn > 0;
+  if (oneHand) {                 // critically damped rotational lag (heavy rifle in one hand). Hand angular velocity is fed forward,
+    const n = 4, h = dt / n, wn = GUN.inertiaWn;   // so a steady swing has zero lag - only starts/stops show the weight
+    if (!R.tqP) R.tqP = new THREE.Quaternion().copy(_tq), R.ht = V3();
+    if (R.tqOk) { _qe.copy(_tq).multiply(_qi.copy(R.tqP).invert()); if (_qe.w < 0) { _qe.x = -_qe.x; _qe.y = -_qe.y; _qe.z = -_qe.z; _qe.w = -_qe.w; }
+      const s0 = Math.sqrt(1 - Math.min(1, _qe.w * _qe.w)); R.ht.set(_qe.x, _qe.y, _qe.z).multiplyScalar(s0 > 1e-6 ? 2 * Math.acos(Math.min(1, _qe.w)) / s0 / Math.max(dt, 1e-3) : 2 / Math.max(dt, 1e-3));
+      if (R.ht.length() > 25) R.ht.setLength(25); } else R.ht.set(0, 0, 0);
+    R.tqP.copy(_tq); R.tqOk = true;
+    for (let i = 0; i < n; i++) {
+      _qe.copy(_tq).multiply(_qi.copy(R.iq).invert()); if (_qe.w < 0) { _qe.x = -_qe.x; _qe.y = -_qe.y; _qe.z = -_qe.z; _qe.w = -_qe.w; }
+      const s = Math.sqrt(1 - Math.min(1, _qe.w * _qe.w)), ang = 2 * Math.acos(Math.min(1, _qe.w));
+      _ev.set(_qe.x, _qe.y, _qe.z); if (s > 1e-6) _ev.multiplyScalar(ang / s); else _ev.multiplyScalar(2);
+      R.iw.addScaledVector(_ev, wn * wn * h).addScaledVector(R.ht, 2 * wn * h).multiplyScalar(1 / (1 + 2 * wn * h));     // semi-implicit damping toward hand spin
+      const w = R.iw.length(); if (w > 1e-9) { _qe.setFromAxisAngle(_ev.copy(R.iw).divideScalar(w), w * h); R.iq.premultiply(_qe).normalize(); }
+    }
+  } else { R.iq.copy(_tq); R.iw.set(0, 0, 0); R.tqOk = false; }
+  rifle.quaternion.copy(oneHand ? R.iq : _tq); rifle.position.copy(_tp);
+  R.baseP.copy(rifle.position); R.baseQ.copy(rifle.quaternion); rifle.updateMatrixWorld();
+  updateLever(dt);
+  if (R.wantFire) shoot();
+  // recoil springs (pivot: grip one-handed, shoulder pocket when shouldered)
+  const rc = R.rec, n = 4, h = dt / n;
+  for (let i = 0; i < n; i++) { rc.av = springStep(rc.a, rc.av, RECOIL2.wn, RECOIL2.zeta, h); rc.a += rc.av * h; rc.yv = springStep(rc.y, rc.yv, RECOIL2.wn, RECOIL2.zeta, h); rc.y += rc.yv * h;
+    rc.zv = springStep(rc.z, rc.zv, RECOIL2.kwn, RECOIL2.kzeta, h); rc.z += rc.zv * h; }
+  if (Math.abs(rc.a) + Math.abs(rc.z) + Math.abs(rc.y) > 1e-5) {
+    _pv.set(0, -0.04, R.stock ? 0.3 : 0).applyQuaternion(rifle.quaternion);
+    rifle.rotateX(rc.a); rifle.rotateY(rc.y); _pv2.set(0, -0.04, R.stock ? 0.3 : 0).applyQuaternion(rifle.quaternion); rifle.position.add(_pv).sub(_pv2);
+    rifle.translateZ(rc.z);
+  }
+}
+function forendHold() {     // let go of the wrist while the other hand is on the forend: it keeps the rifle where it is
+  const g = R.support; g.getWorldPosition(_kp); g.getWorldQuaternion(_qi); _qi.invert();
+  R.freeQ.copy(_qi).multiply(R.baseQ); R.freeP.subVectors(R.baseP, _kp).applyQuaternion(_qi);
+  R.hand = g; R.support = null; R.free = true; R.stock = false; if (R.levHand) leverRelease();
+}
+function adjustGrip(d) { gripPitch = clamp(gripPitch + d, -80, 20); try { localStorage.setItem('bp_gripPitch', gripPitch); } catch (e) {} say('GRIP ANGLE ' + gripPitch + '\u00B0'); tick(R.hand); }
 
 // ---- body heading + belt ----
 let bodyYaw = 0;
@@ -1970,7 +2253,7 @@ function toSlot(s, it, quiet) {
   else { const sz = ITEM[it.name].sz, k = 0.085 / Math.max(...sz); it.mesh.scale.setScalar(k); it.mesh.position.set(0, 0.03, 0); it.mesh.rotation.set(0, 0, 0); }
   if (!quiet) { say((it.name === 'KNIFE' ? 'SHEATHED ' : 'POUCHED ') + it.name); sfx('click'); }
 }
-function slingRifle() { R.hand = R.support = null; R.slung = true; rifle.visible = true; say('RIFLE SLUNG'); sfx('click'); }
+function slingRifle() { R.hand = R.support = null; R.free = false; R.levHand = null; R.slung = true; rifle.visible = true; say('RIFLE SLUNG'); sfx('click'); }
 const slingNear = p => mode === 'foot' && !R.slung && slotPos(SLING).distanceTo(p) < SLING.r;
 
 // ---- backpack ----
@@ -2322,7 +2605,7 @@ renderer.setAnimationLoop(() => {
 
   fpsFrames++; fpsT += dt; instT += dt;
   if (fpsT >= 1) { fps = Math.round(fpsFrames / fpsT); fpsFrames = 0; fpsT = 0; }
-  updateRifle(dt); updateWorld(dt, clock.elapsedTime);
+  updateRifle(dt); updateBullets(dt); updateFX(dt); updateWorld(dt, clock.elapsedTime);
   updateSurvival(dt); updateZombies(dt); updateAnimals(dt); updateItems(dt); updateBrass(dt); updateFalling(dt); updateSpots(dt); updateAudio(dt);
   panelUpdate(ac, dt); compassCard.rotation.y = IN.hdg;
   if (instT > 0.1) { instT = 0; drawWrist(); }
