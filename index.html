@@ -19,19 +19,21 @@
 </script>
 </head>
 <body>
-<div id="info">BUSH PILOT VR v0.3 - PA-18 Super Cub prototype
+<div id="info">BUSH PILOT VR v0.4 - PA-18 Super Cub prototype
 FLY (desktop): click to mouse-look | W/S pitch | A/D roll | Q/E rudder | Shift/Ctrl (or = / -) throttle
-  B brakes | F get out (stopped + idle) | R reset to strip | C recenter
-ON FOOT (desktop): WASD walk (Shift run) | F board (within 3 m) | G grab rifle/loot (G again drops rifle)
-  click fire | X work lever
-VR FLY: R grip = stick, L grip = throttle, L stick X = rudder, L trigger = brakes, Y = get out, A/X = recenter, B = reset
-VR FOOT: L stick walk, R stick snap turn 30, grip = grab, other grip on forend = steady, trigger = fire,
-  A/X on rifle hand or flick rifle down-forward = lever, Y = board, B = reset
+  [ / ] flaps up / down a notch (0-15-30-50) | B brakes | F get out (stopped + idle) | R reset | C recenter
+ON FOOT (desktop): WASD walk (Shift sprint) | F board (within 3 m of right door) | G grab rifle/loot (G again drops)
+  click fire | hold right mouse aim down sights | X work lever
+VR FLY: R grip = stick, L grip = throttle (or flap handle when your hand is on its knob, left wall by your hip),
+  L stick X = rudder, L trigger = brakes, Y = get out, A/X = recenter, B = reset
+VR FOOT: L stick walk (click it to sprint), R stick snap turn 30, grip = grab, other grip on forend = steady,
+  bring the rifle to your cheek = virtual stock, trigger = fire, A/X on rifle hand or flick down-forward = lever, Y = board
 Loot: smoke + orange tarp ~3.6 km SE (paddock ~170 m, bumpy). Walk within 6 m of cabin door to stash.</div>
 <div id="hud"></div><div id="cross"></div>
 <script type="module">
 import * as THREE from 'three';
 import { VRButton } from 'three/addons/webxr/VRButton.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
 // === PHYSICS START ===
 // Pure-JS flight model (no three.js dependency so it can be unit-tested in node).
@@ -68,6 +70,13 @@ const C = {
   CD_FLAT: 1.3,            // extra flat-plate drag when stalled
   CD_BETA: 0.3,            // extra drag from sideslip
   CY_BETA: -0.9,           // fuselage side force per rad sideslip
+
+  // ---- flaps (ctl.flap = commanded deflection in deg: 0 / 15 / 30 / 50) ----
+  FLAP_RATE: 25,           // deg/s flap travel
+  FLAP_CL: 1.15,           // extra lift coeff at full flap (scales with sin(deflection)) -> CLmax ~2.7, Vs ~34 mph
+  FLAP_DALPHA: 0.03,       // rad: wing stalls this much earlier at full flap
+  FLAP_CD: 0.10,           // extra drag coeff at full flap (scales with deflection^2)
+  FLAP_PITCH: -0.07,       // nose-down moment coeff at full flap (x qS c); lift increase still balloons you up
 
   // ---- engine & propeller (O-320, 150 hp, fixed pitch) ----
   STATIC_THRUST: 2500,     // N, full power, zero airspeed
@@ -175,11 +184,11 @@ function resetAircraft(a) {
   a.q = qAxis([1, 0, 0], th);
   a.pos = [0, -qRot(a.q, m)[1] - 0.06, 0];
   a.vel = [0, 0, 0]; a.w = [0, 0, 0];
-  a.power = C.IDLE_POWER; a.crashed = false; a.crashReason = ''; a.t = 0;
-  a.ctl.throttle = 0; a.ctl.elev = a.ctl.ail = a.ctl.rud = a.ctl.brake = 0;
+  a.power = C.IDLE_POWER; a.crashed = false; a.crashReason = ''; a.t = 0; a.flap = 0;
+  a.ctl.throttle = 0; a.ctl.elev = a.ctl.ail = a.ctl.rud = a.ctl.brake = a.ctl.flap = 0;
 }
 function createAircraft() {
-  const a = { ctl: { elev: 0, ail: 0, rud: 0, throttle: 0, brake: 0 }, out: {} };
+  const a = { ctl: { elev: 0, ail: 0, rud: 0, throttle: 0, brake: 0, flap: 0 }, out: {} };
   resetAircraft(a); return a;
 }
 function crash(a, why) { a.crashed = true; a.crashReason = why; }
@@ -190,6 +199,9 @@ function stepAircraft(a, dt) {
   const c = a.ctl; a.t += dt;
   const thr = C.IDLE_POWER + (1 - C.IDLE_POWER) * clamp(c.throttle, 0, 1);
   a.power += (thr - a.power) * Math.min(1, dt / C.ENGINE_LAG);
+  a.flap += clamp((c.flap || 0) - a.flap, -C.FLAP_RATE * dt, C.FLAP_RATE * dt);
+  const fl = Math.sin(a.flap * Math.PI / 180) / Math.sin(50 * Math.PI / 180), fd = (a.flap / 50) ** 2;
+  const aStall = C.ALPHA_STALL - C.FLAP_DALPHA * fl;
 
   // ---- air data (no wind) ----
   const vb = qRotInv(a.q, a.vel);
@@ -200,12 +212,12 @@ function stepAircraft(a, dt) {
 
   // ---- lift / drag with stall break ----
   let stall = 0;
-  if (alpha > C.ALPHA_STALL) stall = smooth((alpha - C.ALPHA_STALL) / C.STALL_WIDTH);
+  if (alpha > aStall) stall = smooth((alpha - aStall) / C.STALL_WIDTH);
   else if (alpha < C.ALPHA_STALL_NEG) stall = smooth((C.ALPHA_STALL_NEG - alpha) / C.STALL_WIDTH);
-  const CL = (C.CL0 + C.CL_ALPHA * alpha) * (1 - stall) + C.POST_STALL_CL * Math.sin(2 * alpha) * stall;
+  const CL = (C.CL0 + C.FLAP_CL * fl + C.CL_ALPHA * alpha) * (1 - stall) + C.POST_STALL_CL * Math.sin(2 * alpha) * stall;
   const AR = b * b / S;
   const CD = C.CD0 + CL * CL / (Math.PI * C.OSWALD * AR) + stall * C.CD_FLAT * Math.sin(alpha) ** 2
-           + C.CD_BETA * Math.sin(beta) ** 2;
+           + C.CD_BETA * Math.sin(beta) ** 2 + C.FLAP_CD * fd;
   const vhat = V > 0.01 ? vScale(vb, 1 / V) : [0, 0, -1];
   const liftDir = vNorm(vCross([1, 0, 0], vhat));
   const F = vAdd(vScale(liftDir, qd * S * CL), vScale(vhat, -qd * S * CD));
@@ -220,7 +232,7 @@ function stepAircraft(a, dt) {
   // ---- aero moments (aviation signs: roll right, pitch up, yaw right) ----
   const pR = -a.w[2], qP = a.w[0], rY = -a.w[1];
   const Mpitch = qd * S * ch * (C.PITCH_0 + C.PITCH_ALPHA * clamp(alpha, -0.6, 0.6)
-                 + C.PITCH_Q * qP * ch / (2 * Vs) + C.PITCH_STALL * stall)
+                 + C.PITCH_Q * qP * ch / (2 * Vs) + C.PITCH_STALL * stall + C.FLAP_PITCH * fl)
                + qt * S * ch * C.PITCH_ELEV * c.elev;
   const Lroll = qd * S * b * (C.ROLL_BETA * beta + C.ROLL_P * pR * b / (2 * Vs) + C.ROLL_R * rY * b / (2 * Vs)
                  + C.ROLL_AIL * c.ail * (1 - 0.6 * stall) - C.STALL_ROLL * stall * (clamp(beta * 10, -1, 1) + 0.2))
@@ -277,7 +289,7 @@ function stepAircraft(a, dt) {
   const ql = Math.hypot(q[0], q[1], q[2], q[3]); a.q = [q[0] / ql, q[1] / ql, q[2] / ql, q[3] / ql];
 
   const pn = (a.power - C.IDLE_POWER) / (1 - C.IDLE_POWER);
-  a.out = { V, alpha, beta, stall, thrust: T, wow, vs: a.vel[1], alt: a.pos[1],
+  a.out = { V, alpha, beta, stall, flap: a.flap, thrust: T, wow, vs: a.vel[1], alt: a.pos[1],
             rpm: Math.min(C.RPM_REDLINE, C.RPM_IDLE + (C.RPM_STATIC - C.RPM_IDLE) * pn + 8 * Math.max(u, 0) * (0.3 + 0.7 * pn)) };
 }
 // === PHYSICS END ===
@@ -530,19 +542,51 @@ let smoke, smokeBase;
     loot.push({ name, mesh: m, h: sz[1], state: 'world' });
   });
 }
-// Winchester lever-action (origin = grip hand, barrel along -z)
-const rifle = new THREE.Group(), lever = new THREE.Group(), muzzle = new THREE.Object3D();
+// Winchester 1892 carbine, flat low-poly. Origin = grip hand at the wrist, barrel along -z.
+// Sight line (rear buckhorn notch -> front bead) runs SIGHT_Y above the grip, parallel to the bore.
+const SIGHT_Y = 0.062, CHEEK_Z = 0.2;         // cheek weld: the eye sits on the sight line CHEEK_Z behind the grip
+const rifle = new THREE.Group(), lever = new THREE.Group(), bolt = new THREE.Group(), muzzle = new THREE.Object3D();
+const handR = new THREE.Group(), handS = new THREE.Group();   // small gloves drawn on the rifle (below the sight line)
 {
-  const wood = mat(0x7a4a22), steel = mat(0x2b2b2e);
-  box(0.04, 0.09, 0.32, wood, 0, -0.035, 0.2, rifle);                    // stock
-  box(0.036, 0.07, 0.17, steel, 0, 0, -0.06, rifle);                     // receiver
-  const brl = new THREE.Mesh(new THREE.CylinderGeometry(0.011, 0.011, 0.56, 6).rotateX(Math.PI / 2), steel); brl.position.set(0, 0.018, -0.42); rifle.add(brl);
-  const tube = new THREE.Mesh(new THREE.CylinderGeometry(0.009, 0.009, 0.44, 6).rotateX(Math.PI / 2), steel); tube.position.set(0, -0.008, -0.37); rifle.add(tube);
-  box(0.034, 0.035, 0.24, wood, 0, -0.01, -0.27, rifle);                 // forend
-  box(0.004, 0.02, 0.01, steel, 0, 0.035, -0.69, rifle);                 // front sight
-  box(0.012, 0.015, 0.008, steel, 0, 0.036, -0.2, rifle);                // rear sight
-  lever.position.set(0, -0.035, -0.1); rifle.add(lever); box(0.012, 0.05, 0.13, steel, 0, -0.025, 0.07, lever);
-  muzzle.position.set(0, 0.018, -0.71); rifle.add(muzzle);
+  const wood = mat(0x6e3b1b), steel = mat(0x1e1f22), glove = mat(0x4a3b2c);
+  const brass = new THREE.MeshBasicMaterial({ color: 0xffd36a });
+  const cc = document.createElement('canvas'); cc.width = cc.height = 32; const cx = cc.getContext('2d');
+  cx.fillStyle = '#59616e'; cx.fillRect(0, 0, 32, 32);
+  const cols = ['#3d5a8a', '#8a6a3a', '#2f3b55', '#a08850', '#5a3f66', '#7b8fa0'];
+  for (let i = 0; i < 70; i++) { cx.fillStyle = cols[i % cols.length]; cx.fillRect(rand() * 32, rand() * 32, 2 + rand() * 6, 2 + rand() * 4); }
+  const ctex = new THREE.CanvasTexture(cc); ctex.colorSpace = THREE.SRGBColorSpace;
+  const caseCol = new THREE.MeshLambertMaterial({ map: ctex, flatShading: true });   // case-hardened colours
+  const S = new THREE.Group();
+  const cyl = (r, len, seg, m, y, z) => { const o = new THREE.Mesh(new THREE.CylinderGeometry(r, r, len, seg).rotateX(Math.PI / 2), m); o.position.set(0, y, z); S.add(o); return o; };
+  box(0.034, 0.062, 0.17, caseCol, 0, 0.019, -0.105, S);                    // receiver
+  box(0.008, 0.016, 0.012, steel, 0, 0.049, -0.012, S);                     // hammer (top stays under the sight line)
+  box(0.004, 0.016, 0.006, steel, 0, -0.019, -0.035, S);                    // trigger
+  cyl(0.011, 0.51, 8, steel, 0.032, -0.445).rotation.z = Math.PI / 8;       // octagonal 20" barrel
+  cyl(0.0085, 0.49, 6, steel, 0.0125, -0.435);                              // full-length magazine tube
+  cyl(0.0095, 0.02, 6, steel, 0.0125, -0.675);                              // tube cap
+  box(0.036, 0.036, 0.23, wood, 0, 0.012, -0.305, S);                       // walnut forend
+  box(0.038, 0.05, 0.012, steel, 0, 0.021, -0.425, S);                      // forend cap / rear band
+  box(0.03, 0.044, 0.01, steel, 0, 0.022, -0.64, S);                        // front barrel band
+  box(0.003, 0.017, 0.012, steel, 0, 0.0515, -0.695, S);                    // front sight blade
+  const bead = new THREE.Mesh(new THREE.SphereGeometry(0.0035, 6, 4), brass); bead.position.set(0, SIGHT_Y, -0.695); S.add(bead);
+  box(0.024, 0.013, 0.012, steel, 0, 0.0495, -0.33, S);                     // rear sight base, notch bottom at y 0.056
+  for (const sx of [-1, 1]) box(0.007, 0.02, 0.006, steel, sx * 0.0095, 0.064, -0.33, S).rotation.z = -sx * 0.4;  // buckhorn ears
+  taper(-0.02, 0.09, [0.03, 0.03, -0.02], [0.032, 0.024, -0.036], wood, S);       // straight-grip wrist
+  taper(0.09, 0.325, [0.034, 0.024, -0.036], [0.04, 0.016, -0.1], wood, S);        // buttstock with drop at heel
+  taper(0.325, 0.334, [0.041, 0.019, -0.104], [0.041, 0.019, -0.104], steel, S);   // crescent buttplate
+  box(0.034, 0.01, 0.022, steel, 0, 0.019, 0.338, S); box(0.034, 0.012, 0.024, steel, 0, -0.1, 0.339, S);  // heel + toe horns
+  mergeInto(S, rifle);
+  // loop lever (pivots at the front of the receiver; swings down and forward when cycled) and sliding bolt
+  lever.position.set(0, -0.012, -0.17); rifle.add(lever);
+  box(0.01, 0.01, 0.15, steel, 0, -0.005, 0.075, lever);
+  box(0.01, 0.034, 0.01, steel, 0, -0.024, 0.06, lever);
+  box(0.01, 0.01, 0.11, steel, 0, -0.04, 0.11, lever);
+  const loop = new THREE.Mesh(new THREE.TorusGeometry(0.026, 0.005, 4, 10).rotateY(Math.PI / 2), steel); loop.position.set(0, -0.032, 0.188); lever.add(loop);
+  bolt.position.set(0, 0.046, -0.1); rifle.add(bolt); box(0.012, 0.012, 0.11, steel, 0, 0, 0, bolt);
+  box(0.03, 0.045, 0.085, glove, 0.008, -0.047, 0.04, handR); rifle.add(handR);
+  box(0.03, 0.04, 0.09, glove, -0.01, -0.032, -0.3, handS); rifle.add(handS);
+  handR.visible = handS.visible = false;
+  muzzle.position.set(0, 0.032, -0.705); rifle.add(muzzle);
   scene.add(rifle);
 }
 const flash = new THREE.Mesh(new THREE.ConeGeometry(0.045, 0.16, 6).rotateX(-Math.PI / 2).translate(0, 0, -0.08), new THREE.MeshBasicMaterial({ color: 0xffc040 }));
@@ -553,55 +597,153 @@ const markers = Array.from({ length: 8 }, () => { const m = new THREE.Mesh(new T
 let markerIdx = 0;
 
 // ---- aircraft (body frame = physics frame) ----
+// v0.4: Cub-like low-poly PA-18. Static parts are built into PS then merged to one mesh per material (few draw calls).
 const plane = new THREE.Group(); scene.add(plane);
-const yellow = mat(0xf2c12e), dark = mat(0x262626), grey = mat(0x6d6d6d), tube = mat(0x9a9a9a), black = mat(0x111111);
-function box(w, h, d, m, x, y, z, parent = plane) { const o = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); o.position.set(x, y, z); parent.add(o); return o; }
+const yellow = mat(0xf6c419), dark = mat(0x262626), grey = mat(0x6d6d6d), tube = mat(0x9a9a9a), black = mat(0x111111);
+const glass = new THREE.MeshBasicMaterial({ color: 0xcfe3f0, transparent: true, opacity: 0.09, depthWrite: false, side: THREE.DoubleSide });
+const boltMat = new THREE.MeshLambertMaterial({ color: 0x111111, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2 });
+var partsRoot = plane;
+function box(w, h, d, m, x, y, z, parent = partsRoot) { const o = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); o.position.set(x, y, z); parent.add(o); return o; }
 const _up = new THREE.Vector3(0, 1, 0);
-function rod(a, b, r, m, parent = plane) {
+function rod(a, b, r, m, parent = partsRoot) {
   const A = new THREE.Vector3(...a), B = new THREE.Vector3(...b), d = B.clone().sub(A);
   const o = new THREE.Mesh(new THREE.CylinderGeometry(r, r, d.length(), 5), m);
   o.position.copy(A).addScaledVector(d, 0.5); o.quaternion.setFromUnitVectors(_up, d.normalize()); parent.add(o); return o;
 }
-// high wing (split over the cabin skylight)
-box(5.0, 0.12, 1.58, yellow, -2.88, 1.0, -0.15); box(5.0, 0.12, 1.58, yellow, 2.88, 1.0, -0.15);
+function taper(z0, z1, a, b, m, parent = partsRoot) {   // box lofted between two [width, yTop, yBottom] sections along z
+  const g = new THREE.BoxGeometry(1, 1, 1), p = g.attributes.position;
+  for (let i = 0; i < p.count; i++) { const s = p.getZ(i) < 0 ? a : b; p.setXYZ(i, p.getX(i) * s[0], p.getY(i) > 0 ? s[1] : s[2], p.getZ(i) < 0 ? z0 : z1); }
+  g.computeVertexNormals(); const o = new THREE.Mesh(g, m); parent.add(o); return o;
+}
+const extrude = (shapes, depth) => new THREE.ExtrudeGeometry(shapes, { depth, bevelEnabled: false, curveSegments: 4 });
+function mergeInto(src, dst) {   // merge a group's direct mesh children into one mesh per material
+  const byMat = new Map(); src.updateMatrixWorld(true);
+  for (const o of src.children) {
+    if (!o.isMesh) continue;
+    const g = o.geometry.index ? o.geometry.toNonIndexed() : o.geometry.clone();
+    g.applyMatrix4(o.matrix); g.clearGroups();
+    for (const k of Object.keys(g.attributes)) if (k !== 'position' && k !== 'normal' && k !== 'uv') g.deleteAttribute(k);
+    if (!g.attributes.uv) g.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(g.attributes.position.count * 2), 2));
+    if (!g.attributes.normal) g.computeVertexNormals();
+    if (!byMat.has(o.material)) byMat.set(o.material, []);
+    byMat.get(o.material).push(g);
+  }
+  for (const [m, gs] of byMat) dst.add(new THREE.Mesh(mergeGeometries(gs), m));
+}
+const PS = new THREE.Group(); partsRoot = PS;
+// wings: rounded tips, cut back to the rear spar where the flaps (inboard) and ailerons (outboard) hang
 for (const sx of [-1, 1]) {
-  rod([sx * 0.38, -0.45, -0.45], [sx * 2.9, 0.94, -0.7], 0.025, tube);       // V struts
-  rod([sx * 0.38, -0.45, -0.45], [sx * 2.9, 0.94, 0.4], 0.025, tube);
-  rod([sx * 0.38, 0.12, -0.62], [sx * 0.36, 0.94, -0.85], 0.02, tube);       // windscreen posts
-  rod([sx * 0.38, 0.94, -0.9], [sx * 0.38, 0.94, 0.75], 0.02, tube);         // top longeron
-  rod([sx * 0.38, -0.05, -0.62], [sx * 0.38, -0.05, 1.3], 0.02, tube);       // window sill
-  rod([sx * 0.38, -0.05, 0.75], [sx * 0.38, 0.94, 0.75], 0.02, tube);        // door post
-  rod([sx * 0.38, -0.05, -0.2], [sx * 0.38, 0.94, 0.75], 0.015, tube);       // diagonal
-  box(0.02, 0.45, 1.95, yellow, sx * 0.39, -0.28, 0.33);                       // lower side fabric
-  rod([sx * 0.3, -0.5, -0.45], [sx * 0.95, -0.95, -0.45], 0.03, tube);       // gear legs
-  const tyre = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 0.32, 10), black);
-  tyre.rotation.z = Math.PI / 2; tyre.position.set(sx * 0.95, -0.95, -0.45); plane.add(tyre);
+  const s = new THREE.Shape(); s.moveTo(sx * 0.42, -0.94); s.lineTo(sx * 4.95, -0.94);
+  s.quadraticCurveTo(sx * 5.35, -0.94, sx * 5.35, -0.15); s.quadraticCurveTo(sx * 5.35, 0.64, sx * 4.95, 0.64);
+  s.lineTo(sx * 4.95, 0.30); s.lineTo(sx * 0.42, 0.30);
+  PS.add(new THREE.Mesh(extrude(s, 0.12).rotateX(Math.PI / 2).translate(0, 1.06, 0), yellow));
 }
-rod([-0.38, 0.94, -0.9], [0.38, 0.94, -0.9], 0.02, tube); rod([-0.38, 0.94, 0.75], [0.38, 0.94, 0.75], 0.02, tube);
-box(0.76, 0.04, 2.0, dark, 0, -0.52, 0.3);                                     // floor
-box(0.76, 0.6, 1.6, yellow, 0, -0.22, -1.45);                                  // cowling
-box(0.74, 0.28, 0.04, dark, 0, 0.0, -0.62);                                    // panel
-box(0.48, 0.55, 0.06, grey, 0, -0.18, 0.45);                                   // front seat back
-box(0.55, 0.1, 0.45, grey, 0, -0.38, 1.0); box(0.55, 0.5, 0.06, grey, 0, -0.1, 1.25); // rear seat (tandem)
-{
-  const fus = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.5, 3.9, 4, 1), yellow);
-  fus.rotation.set(Math.PI / 2, Math.PI / 4, 0); fus.position.set(0, 0.05, 3.25); plane.add(fus);  // rear fuselage
-  fus.rotation.order = 'XYZ';
+box(0.84, 0.01, 1.58, glass, 0, 1.0, -0.15);                                      // skylight over the cabin
+// V struts + jury struts, cabin frame
+for (const sx of [-1, 1]) {
+  for (const z of [-0.7, 0.2]) {
+    const A = [sx * 0.38, -0.45, -0.45], B = [sx * 2.9, 0.94, z]; rod(A, B, 0.025, tube);
+    const t = 0.55, P = A.map((v, i) => v + (B[i] - v) * t); rod(P, [P[0] * 0.8, 0.94, P[2]], 0.012, tube);   // jury strut
+  }
+  rod([sx * 0.38, 0.1, -1.15], [sx * 0.38, 0.95, -0.92], 0.018, tube);        // windshield posts (slanted)
+  rod([sx * 0.38, 0.94, -0.92], [sx * 0.38, 0.94, 0.75], 0.02, tube);          // top longeron
+  rod([sx * 0.38, -0.05, 0.75], [sx * 0.38, 0.94, 0.75], 0.02, tube);          // door post
+  box(0.02, 0.99, 0.55, yellow, sx * 0.39, 0.445, 1.025);                       // rear cabin side
+  if (sx < 0) {
+    rod([-0.38, -0.05, -0.62], [-0.38, -0.05, 1.3], 0.02, tube);               // left window sill
+    box(0.02, 0.45, 1.95, yellow, -0.39, -0.28, 0.33);                          // left lower side
+    box(0.006, 0.97, 1.3, glass, -0.39, 0.445, 0.1);                            // left window
+  } else {
+    box(0.02, 0.45, 0.55, yellow, 0.39, -0.28, 1.025); box(0.02, 0.45, 0.1, yellow, 0.39, -0.28, -0.6);  // right side around the door
+  }
+  // split-axle gear with bungees and big tundra tyres
+  const ax = [sx * 0.82, -0.95, -0.45];
+  rod([sx * 0.3, -0.52, -0.8], ax, 0.026, tube); rod([sx * 0.3, -0.52, -0.1], ax, 0.026, tube); rod([0, -0.53, -0.45], ax, 0.022, tube);
+  box(0.09, 0.07, 0.12, black, sx * 0.32, -0.52, -0.12);                       // bungee wraps
+  const prof = [[0.12, -0.165], [0.28, -0.175], [0.37, -0.14], [0.405, -0.05], [0.405, 0.05], [0.37, 0.14], [0.28, 0.175], [0.12, 0.165]];
+  const ty = new THREE.Mesh(new THREE.LatheGeometry(prof.map(p => new THREE.Vector2(p[0], p[1])), 12).rotateZ(Math.PI / 2), black);
+  ty.position.set(sx * 0.95, -0.95, -0.45); PS.add(ty);
+  const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.34, 8).rotateZ(Math.PI / 2), grey); hub.position.copy(ty.position); PS.add(hub);
+  // exposed cylinder heads with fins, exhaust stacks
+  for (const z of [-1.5, -1.85]) {
+    box(0.1, 0.13, 0.13, grey, sx * 0.36, -0.18, z);
+    for (const y of [-0.13, -0.18, -0.23]) box(0.112, 0.012, 0.15, dark, sx * 0.365, y, z);
+  }
+  rod([sx * 0.2, -0.45, -1.75], [sx * 0.24, -0.63, -1.05], 0.022, dark);
+  box(0.14, 0.09, 0.01, black, sx * 0.17, -0.12, -2.205);                       // nose-bowl air intakes
+  // tail feathers wires
+  rod([sx * 0.8, 0.25, 4.75], [0, 0.85, 4.85], 0.006, tube); rod([sx * 0.8, 0.25, 4.75], [0, 0.03, 4.6], 0.01, tube);
 }
-box(3.2, 0.06, 0.9, yellow, 0, 0.25, 4.95); box(0.06, 1.1, 0.95, yellow, 0, 0.8, 5.05);   // tail
-const tw = new THREE.Mesh(new THREE.SphereGeometry(0.12, 6, 4), black); tw.position.set(0, -0.43, 4.45); plane.add(tw);
-box(0.16, 0.16, 0.2, dark, 0, -0.2, -2.32);                                    // spinner
+rod([-0.38, 0.94, -0.92], [0.38, 0.94, -0.92], 0.02, tube); rod([-0.38, 0.94, 0.75], [0.38, 0.94, 0.75], 0.02, tube);
+{ const ws = box(0.76, 0.89, 0.005, glass, 0, 0.525, -1.035); ws.rotation.x = Math.atan2(0.23, 0.85); }  // slanted windshield
+taper(-2.2, -0.62, [0.62, 0.02, -0.46], [0.78, 0.12, -0.55], yellow);             // cowling
+taper(1.3, 5.15, [0.78, 0.94, -0.55], [0.1, 0.36, 0.06], yellow);                 // rear fuselage (boxy, tapering)
+box(0.78, 0.02, 0.66, yellow, 0, 0.95, 0.97);                                    // cabin roof behind the wing
+box(0.76, 0.04, 2.0, dark, 0, -0.52, 0.3);                                       // floor
+box(0.74, 0.28, 0.04, dark, 0, 0.0, -0.62);                                      // panel
+box(0.48, 0.55, 0.06, grey, 0, -0.18, 0.45);                                     // front seat back
+box(0.55, 0.1, 0.45, grey, 0, -0.38, 1.0); box(0.55, 0.5, 0.06, grey, 0, -0.1, 1.25);  // rear seat (tandem)
+box(0.03, 0.02, 0.24, grey, -0.35, -0.02, -0.17);                                // throttle quadrant slot
+box(0.01, 0.3, 0.3, dark, -0.375, -0.1, 0.34);                                   // flap handle quadrant
+PS.add(new THREE.Mesh(new THREE.ConeGeometry(0.11, 0.2, 8).rotateX(-Math.PI / 2), dark).translateY(-0.2).translateZ(-2.3));  // spinner
+{ // fin (rounded) and stabiliser
+  const f = new THREE.Shape(); f.moveTo(4.4, 0.42); f.lineTo(5.0, 0.36); f.lineTo(5.0, 1.17); f.lineTo(4.86, 1.16); f.lineTo(4.4, 0.42);
+  PS.add(new THREE.Mesh(extrude(f, 0.05).rotateY(-Math.PI / 2).translate(0.025, 0, 0), yellow));
+  const st = new THREE.Shape(); st.moveTo(-1.5, 4.55); st.lineTo(1.5, 4.55); st.quadraticCurveTo(1.65, 4.6, 1.65, 4.8); st.lineTo(1.65, 5.0);
+  st.lineTo(-1.65, 5.0); st.lineTo(-1.65, 4.8); st.quadraticCurveTo(-1.65, 4.6, -1.5, 4.55);
+  PS.add(new THREE.Mesh(extrude(st, 0.04).rotateX(Math.PI / 2).translate(0, 0.27, 0), yellow));
+  rod([0, 0.05, 4.65], [0, -0.38, 4.45], 0.015, dark);                              // tailwheel spring
+  const tw = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.06, 8).rotateZ(Math.PI / 2), black); tw.position.set(0, -0.45, 4.45); PS.add(tw);
+}
+// black lightning-bolt stripe down each side (skips the right door, which carries its own piece)
+for (const sx of [-1, 1]) {
+  const path = [[-2.15, -0.16], [2.0, -0.12], [2.28, 0.08], [2.45, -0.05], [4.95, 0.2]], pts = [];
+  for (let i = 0; i < path.length - 1; i++) { const [z0, y0] = path[i], [z1, y1] = path[i + 1], n = Math.max(1, Math.ceil(Math.abs(z1 - z0) / 0.2));
+    for (let k = 0; k < n; k++) pts.push([z0 + (z1 - z0) * k / n, y0 + (y1 - y0) * k / n]); }
+  pts.push(path[path.length - 1]);
+  const hw = z => z < -0.62 ? 0.31 + 0.08 * (z + 2.2) / 1.58 : z < 1.3 ? 0.40 : 0.39 - 0.34 * (z - 1.3) / 3.85;
+  const pos = [], idx = [];
+  pts.forEach(([z, y], i) => { const h = 0.07 * clamp(Math.min((z + 2.2) / 0.6, (5.0 - z) / 1.2), 0.25, 1), x = sx * (hw(z) + 0.006);
+    pos.push(x, y + h / 2, z, x, y - h / 2, z);
+    if (i && !(sx > 0 && z > -0.55 && pts[i - 1][0] < 0.75)) idx.push(2 * i - 2, 2 * i - 1, 2 * i, 2 * i - 1, 2 * i + 1, 2 * i); });
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
+  PS.add(new THREE.Mesh(g, boltMat));
+}
+partsRoot = plane;
+mergeInto(PS, plane);
+// moving surfaces
+const flapGrp = new THREE.Group(); flapGrp.position.set(0, 0.995, 0.30); plane.add(flapGrp);
+box(2.16, 0.035, 0.34, yellow, -1.52, 0, 0.17, flapGrp); box(2.16, 0.035, 0.34, yellow, 1.52, 0, 0.17, flapGrp);
+const ails = [-1, 1].map(sx => { const g = new THREE.Group(); g.position.set(sx * 3.78, 0.995, 0.30); plane.add(g); box(2.3, 0.035, 0.34, yellow, 0, 0, 0.17, g); return g; });
+const elevGrp = new THREE.Group(); elevGrp.position.set(0, 0.25, 5.0); plane.add(elevGrp);
+elevGrp.add(new THREE.Mesh(extrude([-1, 1].map(sx => { const e = new THREE.Shape(); e.moveTo(sx * 0.05, 0); e.lineTo(sx * 1.65, 0); e.lineTo(sx * 1.65, 0.18);
+  e.quadraticCurveTo(sx * 1.62, 0.36, sx * 1.3, 0.36); e.lineTo(sx * 0.05, 0.36); return e; }), 0.035).rotateX(Math.PI / 2).translate(0, 0.0175, 0), yellow));
+const rudGrp = new THREE.Group(); rudGrp.position.set(0, 0, 5.0); plane.add(rudGrp);
+{ const r = new THREE.Shape(); r.moveTo(0, 1.17); r.quadraticCurveTo(0.4, 1.2, 0.42, 0.85); r.lineTo(0.4, 0.3); r.lineTo(0.28, 0.1); r.lineTo(0, 0.1); r.lineTo(0, 1.17);
+  rudGrp.add(new THREE.Mesh(extrude(r, 0.035).rotateY(-Math.PI / 2).translate(0.0175, 0, 0), yellow)); }
+// right side: lower door hinges down, upper window hinges up under the wing
+const door = new THREE.Group(); door.position.set(0.39, -0.505, 0); plane.add(door);
+box(0.02, 0.45, 1.3, yellow, 0, 0.225, 0.1, door); box(0.004, 0.07, 1.3, boltMat, 0.012, 0.367, 0.1, door);
+const win = new THREE.Group(); win.position.set(0.39, 0.94, 0); plane.add(win);
+box(0.006, 0.97, 1.3, glass, 0, -0.49, 0.1, win); box(0.02, 0.025, 1.3, yellow, 0, -0.975, 0.1, win);
+let doorT = 0;
 const prop = new THREE.Mesh(new THREE.CircleGeometry(0.95, 16),
   new THREE.MeshBasicMaterial({ color: 0x222222, transparent: true, opacity: 0.18, side: THREE.DoubleSide, depthWrite: false }));
 prop.position.set(0, -0.2, -2.35); plane.add(prop);
 const blade = box(0.09, 1.9, 0.03, dark, 0, 0, 0.01, prop); blade.visible = true;
+
+// flap handle (left wall, Johnson-bar style): pull up through notches 0 / 1 / 2 / 3 = 0 / 15 / 30 / 50 deg
+const FLAP_PIVOT = new THREE.Vector3(-0.34, -0.22, 0.42), FLAP_DEG = [0, 15, 30, 50], FLAP_STEP = 25 * Math.PI / 180, FLAP_REACH = 0.1;
+const flapLever = new THREE.Group(); flapLever.position.copy(FLAP_PIVOT); plane.add(flapLever);
+rod([0, 0, 0], [0, 0, -0.24], 0.011, grey, flapLever);
+const flapKnob = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.08, 6).rotateX(Math.PI / 2), black); flapKnob.position.z = -0.25; flapLever.add(flapKnob);
+let flapNotch = 0;
 
 // stick (pivot near floor) and throttle (left wall)
 const STICK_PIVOT = new THREE.Vector3(0, -0.5, -0.15);
 const stick = new THREE.Group(); stick.position.copy(STICK_PIVOT); plane.add(stick);
 rod([0, 0, 0], [0, 0.46, 0], 0.014, dark, stick);
 const knob = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.1, 6), black); knob.position.y = 0.48; stick.add(knob);
-box(0.03, 0.02, 0.24, grey, -0.35, -0.02, -0.17);                              // throttle quadrant slot
 const throttleKnob = box(0.045, 0.06, 0.04, mat(0x222222), -0.35, 0.02, 0);
 
 // instruments (canvas texture)
@@ -635,7 +777,7 @@ function drawInstruments(a) {
   gauge(320, 'VSI FPM', fpm, -2000, 2000, 500, (fpm >= 0 ? '+' : '') + (Math.round(fpm / 10) * 10));
   gauge(448, 'RPM', o.rpm || 0, 0, 3000, 500, ((o.rpm || 0)).toFixed(0));
   ix.fillStyle = a.crashed ? '#f44' : '#9f9'; ix.font = '14px monospace'; ix.textAlign = 'left';
-  ix.fillText(a.crashed ? 'CRASH: ' + a.crashReason : (msgT > 0 && mode === 'plane' ? msg : `FPS ${fps}  THR ${(a.ctl.throttle * 100).toFixed(0)}%${a.ctl.brake > 0.05 ? '  BRK' : ''}${o.stall > 0.3 ? '  STALL' : ''}  INV ${inv.length} STASH ${stash.length}`), 8, 150);
+  ix.fillText(a.crashed ? 'CRASH: ' + a.crashReason : (msgT > 0 && mode === 'plane' ? msg : `FPS ${fps}  THR ${(a.ctl.throttle * 100).toFixed(0)}%  FLAP ${FLAP_DEG[flapNotch]}${a.ctl.brake > 0.05 ? '  BRK' : ''}${o.stall > 0.3 ? '  STALL' : ''}  INV ${inv.length} STASH ${stash.length}`), 8, 150);
   itex.needsUpdate = true;
 }
 
@@ -653,7 +795,8 @@ let lookYaw = 0, lookPitch = 0, needRecenter = 0, crashTimer = 0;
 let mode = 'plane';                                 // 'plane' | 'foot'
 const footRig = new THREE.Group(); scene.add(footRig);
 const EYE = 1.6, WALK = 2.2;                          // on-foot eye height (m) and walk speed (m/s)
-const R = { hand: null, support: null, chambered: false, tube: 7, leverT: 0, flashT: 0, stowed: false, prev: new THREE.Vector3(), vel: new THREE.Vector3(), flickCool: 0 };
+const R = { hand: null, support: null, chambered: false, tube: 7, leverT: 0, flashT: 0, stowed: false, prev: new THREE.Vector3(), vel: new THREE.Vector3(), flickCool: 0,
+            stock: false, ads: false, lastQ: new THREE.Quaternion() };
 let msg = '', msgT = 0;
 const say = m => { msg = m; msgT = 3; };
 const _a = new THREE.Vector3(), _b = new THREE.Vector3(), _w = new THREE.Vector3(), _d = new THREE.Vector3(), _qa = new THREE.Quaternion();
@@ -680,11 +823,11 @@ function toPlane() { rig.add(xrOffset); mode = 'plane'; ctl.brake = 0; lookYaw =
 function resetFlight() {
   if (mode === 'foot') toPlane();
   if (R.hand) { R.hand = R.support = null; rifleHome(); }
-  resetAircraft(ac); crashTimer = 0;
+  resetAircraft(ac); crashTimer = 0; flapNotch = 0;
 }
 function exitPlane() {
   if (!((ac.out.V || 0) < 1 && ctl.throttle < 0.05 && !ac.crashed)) { say('STOP + IDLE TO EXIT'); return; }
-  const s = qRot(ac.q, [-2.2, 0, -0.3]), f = qRot(ac.q, [0, 0, -1]), yaw = Math.atan2(-f[0], -f[2]);
+  const s = qRot(ac.q, [2.2, 0, -0.3]), f = qRot(ac.q, [0, 0, -1]), yaw = Math.atan2(-f[0], -f[2]);
   const x = ac.pos[0] + s[0], z = ac.pos[2] + s[2];
   footRig.position.set(x, groundY(x, z) + EYE, z); footRig.rotation.set(0, yaw, 0);
   footRig.add(xrOffset); mode = 'foot'; lookYaw = lookPitch = 0; needRecenter = renderer.xr.isPresenting ? 2 : 0;
@@ -695,8 +838,8 @@ function exitPlane() {
   }
 }
 function board() {
-  camera.getWorldPosition(_w); const door = qRot(ac.q, [-0.6, 0, 0]);
-  if (Math.hypot(_w.x - ac.pos[0] - door[0], _w.z - ac.pos[2] - door[2]) > 3) { say('TOO FAR FROM PLANE'); return; }
+  camera.getWorldPosition(_w); const dp = qRot(ac.q, [0.6, 0, 0]);
+  if (Math.hypot(_w.x - ac.pos[0] - dp[0], _w.z - ac.pos[2] - dp[2]) > 3) { say('TOO FAR FROM PLANE'); return; }
   if (R.hand) { R.hand = R.support = null; R.stowed = true; rifle.visible = false; say('RIFLE STOWED'); }
   toPlane();
 }
@@ -730,8 +873,8 @@ const reach = (h, p) => Math.hypot(h.x - p.x, h.z - p.z) < 0.45 && h.y - p.y > -
 function pickLoot(item) { item.state = 'inv'; item.mesh.visible = false; inv.push(item); say('+ ' + item.name); }
 function handGrab(g) {
   g.getWorldPosition(_a);
-  if (R.hand && R.hand !== g) { rifle.localToWorld(_b.set(0, 0, -0.3)); if (_a.distanceTo(_b) < 0.3) R.support = g; return; }
-  if (!R.hand && !R.stowed && (reach(_a, rifle.position) || reach(_a, rifle.localToWorld(_b.set(0, 0, -0.35))))) { R.hand = g; R.support = null; R.prev.copy(_a); return; }
+  if (R.hand && R.hand !== g) { rifle.localToWorld(_b.set(0, 0.012, -0.3)); if (_a.distanceTo(_b) < 0.3) R.support = g; return; }
+  if (!R.hand && !R.stowed && (reach(_a, rifle.position) || reach(_a, rifle.localToWorld(_b.set(0, 0, -0.35))))) { R.hand = g; R.support = null; R.stock = false; R.prev.copy(_a); return; }
   for (const it of loot) if (it.state === 'world' && reach(_a, it.mesh.position)) { pickLoot(it); return; }
 }
 function dropRifle() {
@@ -751,11 +894,16 @@ addEventListener('keydown', e => {
   if (e.code === 'KeyF') mode === 'plane' ? exitPlane() : board();
   if (mode === 'foot' && e.code === 'KeyX' && R.hand) cycleLever();
   if (mode === 'foot' && e.code === 'KeyG') desktopGrab();
+  if (e.code === 'BracketRight') setFlapNotch(flapNotch + 1);
+  if (e.code === 'BracketLeft') setFlapNotch(flapNotch - 1);
   if (e.code.startsWith('Arrow') || e.code === 'Space') e.preventDefault();
 });
 addEventListener('keyup', e => { keys[e.code] = false; });
 renderer.domElement.addEventListener('click', () => { if (!renderer.xr.isPresenting) renderer.domElement.requestPointerLock(); });
-addEventListener('mousedown', () => {
+addEventListener('contextmenu', e => e.preventDefault());
+addEventListener('mouseup', e => { if (e.button === 2) R.ads = false; });
+addEventListener('mousedown', e => {
+  if (e.button === 2) { R.ads = true; return; }                                   // hold right mouse = aim down the sights
   if (document.pointerLockElement !== renderer.domElement || mode !== 'foot' || R.hand !== 'desk') return;
   camera.getWorldPosition(_a); camera.getWorldDirection(_d); fire(_a.clone(), _d.clone());
 });
@@ -799,12 +947,19 @@ const grips = [0, 1].map(i => {
   const g = renderer.xr.getControllerGrip(i);
   g.addEventListener('connected', e => { g.userData.src = e.data; if (e.data.handedness === 'left') g.add(wrist); });
   g.addEventListener('disconnected', () => { g.userData.src = null; });
-  const h = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.05, 0.1), mat(0x3a3a3a)); g.add(h);
+  const h = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.05, 0.1), mat(0x3a3a3a)); g.add(h); g.userData.hand = h;
   xrOffset.add(g); return g;
 });
-const vignette = new THREE.Mesh(new THREE.RingGeometry(0.07, 0.6, 24), new THREE.MeshBasicMaterial({ color: 0, transparent: true, opacity: 0, depthTest: false }));
-vignette.position.z = -0.1; vignette.renderOrder = 999; vignette.visible = false; camera.add(vignette);
-const vr = { stick: false, stick0: new THREE.Vector3(), thr: false, thr0: 0, thrZ: 0, prev: {}, snap: false };
+const vr = { stick: false, stick0: new THREE.Vector3(), thr: false, thr0: 0, thrZ: 0, flap: false, flapAng: 0, prev: {}, snap: false, sprint: false };
+function setFlapNotch(n, gp) {
+  n = clamp(n, 0, 3); if (n === flapNotch) return;
+  flapNotch = n; ctl.flap = FLAP_DEG[n]; gp?.hapticActuators?.[0]?.pulse?.(0.6, 25);   // detent click
+}
+const xrCam = renderer.xr.getCamera(), _m2 = new THREE.Matrix4();
+function eyeWorld(i) {   // this frame's eye pose (the user camera itself is only refreshed inside render(), one frame late)
+  const c = xrCam.cameras[i] || xrCam.cameras[0] || xrCam;
+  xrOffset.updateWorldMatrix(true, false); return _m2.multiplyMatrices(xrOffset.matrixWorld, c.matrix);
+}
 const _p = new THREE.Vector3();
 function pressedEdge(gp, i, id) { const p = !!gp.buttons[i]?.pressed, r = p && !vr.prev[id]; vr.prev[id] = p; return r; }
 function xrInput(dt) {
@@ -824,9 +979,17 @@ function xrInput(dt) {
       if (pressedEdge(gp, 4, 'A')) recenter();
       if (pressedEdge(gp, 5, 'B')) resetFlight();
     } else if (src.handedness === 'left') {
-      if (squeeze && !vr.thr) { vr.thr = true; vr.thr0 = ctl.throttle; vr.thrZ = _p.z; }
-      if (!squeeze) vr.thr = false;
+      if (squeeze && !vr.thr && !vr.flap) {                       // grab the flap handle only when the hand is right at its knob
+        g.getWorldPosition(_a); flapKnob.getWorldPosition(_b);
+        if (_a.distanceTo(_b) < FLAP_REACH) vr.flap = true; else { vr.thr = true; vr.thr0 = ctl.throttle; vr.thrZ = _p.z; }
+      }
+      if (!squeeze) vr.thr = vr.flap = false;
       if (vr.thr) ctl.throttle = clamp(vr.thr0 - (_p.z - vr.thrZ) / THROTTLE_TRAVEL, 0, 1);  // push forward = more power
+      if (vr.flap) {                                               // lever follows the hand; flaps take the nearest notch
+        plane.worldToLocal(g.getWorldPosition(_a));
+        vr.flapAng = clamp(Math.atan2(_a.y - FLAP_PIVOT.y, FLAP_PIVOT.z - _a.z), 0, 3 * FLAP_STEP);
+        setFlapNotch(Math.round(vr.flapAng / FLAP_STEP), gp);
+      }
       const x = gp.axes[2] || 0;
       ctl.rud = Math.abs(x) > 0.08 ? Math.sign(x) * (Math.abs(x) - 0.08) / 0.92 : 0;
       ctl.brake = gp.buttons[0]?.value || 0;
@@ -843,7 +1006,7 @@ function footXR(dt) {
   for (const g of grips) {
     const src = g.userData.src; if (!src || !src.gamepad) continue;
     const gp = src.gamepad, h = src.handedness, sq = !!gp.buttons[1]?.pressed;
-    if (h === 'left') { lx = gp.axes[2] || 0; ly = gp.axes[3] || 0; if (pressedEdge(gp, 5, 'Y')) board(); pressedEdge(gp, 4, 'X'); }
+    if (h === 'left') { lx = gp.axes[2] || 0; ly = gp.axes[3] || 0; if (pressedEdge(gp, 5, 'Y')) board(); pressedEdge(gp, 4, 'X'); if (pressedEdge(gp, 3, 'LS')) vr.sprint = true; }
     else { rx = gp.axes[2] || 0; if (pressedEdge(gp, 5, 'B')) resetFlight(); pressedEdge(gp, 4, 'A'); }
     if (pressedEdge(gp, 1, h + 'sq')) handGrab(g);
     if (!sq) handRelease(g);
@@ -853,14 +1016,14 @@ function footXR(dt) {
   }
   // smooth locomotion (head-relative) + snap turn
   const dz = v => Math.abs(v) < 0.15 ? 0 : v;
-  camera.getWorldDirection(_d); const yaw = Math.atan2(-_d.x, -_d.z);
+  const M = eyeWorld(0); _d.set(0, 0, -1).transformDirection(M); const yaw = Math.atan2(-_d.x, -_d.z);
   const moving = !!(dz(lx) || dz(ly));
-  if (moving) walk(-dz(ly), dz(lx), yaw, WALK, dt);
+  if (!moving) vr.sprint = false;                                 // sprint (L stick click) lasts until the stick re-centres
+  if (moving) walk(-dz(ly), dz(lx), yaw, WALK * (vr.sprint ? 2 : 1), dt);
   if (Math.abs(rx) > 0.7 && !vr.snap) {
-    vr.snap = true; const ang = -Math.sign(rx) * Math.PI / 6; camera.getWorldPosition(_w);
+    vr.snap = true; const ang = -Math.sign(rx) * Math.PI / 6; _w.setFromMatrixPosition(M);
     footRig.position.sub(_w).applyAxisAngle(_up, ang).add(_w); footRig.rotation.y += ang;
   } else if (Math.abs(rx) < 0.3) vr.snap = false;
-  const m = vignette.material; m.opacity += ((moving ? 0.85 : 0) - m.opacity) * Math.min(1, dt * 8); vignette.visible = m.opacity > 0.02;
 }
 function updateFoot(dt) {
   camera.getWorldPosition(_w);
@@ -874,21 +1037,49 @@ function updateFoot(dt) {
     if (R.tube < 7 && R.hand) { R.tube = 7; say('RIFLE RELOADED'); }
   }
 }
+const STOCK_IN = 0.2, STOCK_OUT = 0.27, ROT_DEADZONE = 0.1 * Math.PI / 180;
+const _f = new THREE.Vector3(), _u = new THREE.Vector3(), _r = new THREE.Vector3(), _eye = new THREE.Vector3(), _hf = new THREE.Vector3(), _hu = new THREE.Vector3(), _tq = new THREE.Quaternion();
+function aimQuat(f, up, out) {    // rifle -z along f, roll taken from the primary hand's up
+  _r.crossVectors(f, up); if (_r.lengthSq() < 1e-4) _r.crossVectors(f, _up); _r.normalize();
+  _u.crossVectors(_r, f); _f.copy(f).negate(); _m4.makeBasis(_r, _u, _f); return out.setFromRotationMatrix(_m4);
+}
 function updateRifle(dt) {
   if (R.hand === 'desk') {
-    rifle.position.copy(camera.localToWorld(_a.set(0.13, -0.17, -0.32))); camera.getWorldQuaternion(rifle.quaternion);
+    camera.updateMatrixWorld(); camera.getWorldQuaternion(rifle.quaternion);
+    rifle.position.copy(camera.localToWorld(R.ads ? _a.set(0, -SIGHT_Y, -CHEEK_Z) : _a.set(0.13, -0.17, -0.32)));
   } else if (R.hand) {
-    R.hand.getWorldPosition(_a); R.hand.getWorldQuaternion(_qa);
-    if (R.support) { R.support.getWorldPosition(_b); _w.set(0, 1, 0).applyQuaternion(_qa); _m4.lookAt(_a, _b, _w); rifle.quaternion.setFromRotationMatrix(_m4); }
-    else rifle.quaternion.copy(_qa);
-    rifle.position.copy(_a);
+    // rigid: rifle pose is rebuilt from this frame's grip poses every frame (no smoothing / lerp)
+    const g = R.hand; g.getWorldPosition(_a); g.getWorldQuaternion(_qa);
+    _hu.set(0, 1, 0).applyQuaternion(_qa);
+    const M = eyeWorld(g.userData.src?.handedness === 'left' ? 0 : 1);      // sighting eye on the rifle-hand side
+    _eye.setFromMatrixPosition(M); _hf.set(0, 0, -1).transformDirection(M); _w.set(0, 1, 0).transformDirection(M);
+    // virtual stock: grip hand near where it sits with the butt shouldered and the eye on the sights
+    _b.copy(_eye).addScaledVector(_hf, CHEEK_Z).addScaledVector(_w, -SIGHT_Y);
+    R.stock = _a.distanceTo(_b) < (R.stock ? STOCK_OUT : STOCK_IN);
+    if (R.support) R.support.getWorldPosition(_b);
+    if (R.stock) {            // aim = eye/shoulder -> support hand (or -> grip hand when one-handed), stock anchored to the head
+      if (!R.support) _b.copy(_a);
+      _b.addScaledVector(_hu, SIGHT_Y);                         // the point on the sight line above that hand
+      _d.subVectors(_b, _eye); if (_d.lengthSq() < 0.0064) _d.copy(_hf); _d.normalize();
+      aimQuat(_d, _hu, _tq);
+    } else if (R.support) { _d.subVectors(_b, _a).normalize(); aimQuat(_d, _hu, _tq); }   // rear hand -> support hand
+    else _tq.copy(_qa);
+    if (R.lastQ.angleTo(_tq) > ROT_DEADZONE) R.lastQ.copy(_tq);   // drop sub-0.1 deg rotation jitter only (no lag)
+    rifle.quaternion.copy(R.lastQ);
+    if (R.stock) rifle.position.copy(_eye).sub(_v.set(0, SIGHT_Y, CHEEK_Z).applyQuaternion(R.lastQ));  // cheek weld
+    else rifle.position.copy(_a);
     // lever flick: quick downward-forward snap of the rifle hand
     R.vel.subVectors(_a, R.prev).divideScalar(Math.max(dt, 1e-3)); R.prev.copy(_a);
     rifle.getWorldDirection(_d).negate();
     R.flickCool -= dt;
     if (R.flickCool <= 0 && R.vel.y < -1.6 && (R.vel.x * _d.x + R.vel.z * _d.z) > 0.4) { cycleLever(); R.flickCool = 0.45; }
   }
-  if (R.leverT > 0) { R.leverT -= dt; lever.rotation.x = -Math.sin(Math.max(0, R.leverT) / 0.3 * Math.PI) * 0.9; }
+  // hands: hide controller hands that hold the rifle (clear sight line), show small gloves under the wood instead
+  let leftOnRifle = false;
+  for (const g of grips) { const on = R.hand === g || R.support === g; if (g.userData.hand) g.userData.hand.visible = !on; if (on && g.userData.src?.handedness === 'left') leftOnRifle = true; }
+  wrist.visible = !leftOnRifle;
+  handR.visible = !!R.hand; handS.visible = !!R.support || R.hand === 'desk';
+  if (R.leverT > 0) { R.leverT -= dt; const k = Math.sin(Math.max(0, R.leverT) / 0.3 * Math.PI); lever.rotation.x = 0.85 * k; bolt.position.z = -0.1 + 0.06 * k; }
   if (R.flashT > 0 && (R.flashT -= dt) <= 0) flash.visible = false;
 }
 function updateWorld(dt, t) {
@@ -940,6 +1131,11 @@ renderer.setAnimationLoop(() => {
   prop.rotation.z += (ac.out.rpm || 0) / 60 * 2 * Math.PI * dt * 0.13;   // aliased-looking slow spin
   stick.rotation.set(ctl.elev * 0.3, 0, -ctl.ail * 0.3);
   throttleKnob.position.z = 0.06 - ctl.throttle * 0.2;
+  flapLever.rotation.x = vr.flap ? vr.flapAng : flapNotch * FLAP_STEP;
+  flapGrp.rotation.x = ac.flap * Math.PI / 180;
+  ails[0].rotation.x = ctl.ail * 0.35; ails[1].rotation.x = -ctl.ail * 0.35;
+  elevGrp.rotation.x = -ctl.elev * 0.4; rudGrp.rotation.y = ctl.rud * 0.45;
+  doorT = approach(doorT, mode === 'foot' ? 1 : 0, 1.5, dt); door.rotation.z = -1.35 * doorT; win.rotation.z = 1.45 * doorT;
 
   fpsFrames++; fpsT += dt; instT += dt;
   if (fpsT >= 1) { fps = Math.round(fpsFrames / fpsT); fpsFrames = 0; fpsT = 0; }

@@ -51,3 +51,21 @@ console.log('Idle glide @', mph(b.out.V),'mph: sink', (b.out.vs*196.85).toFixed(
 a = createAircraft(); a.ctl.throttle=1; let maxH=0;
 for (let i=0;i<120*12 && !a.crashed;i++){ a.ctl.elev = -0.5; stepAircraft(a,dt); maxH=Math.max(maxH,Math.abs(att(a).hdg)); }
 console.log('No-rudder full power with tail up: max heading dev', (maxH*57.3).toFixed(0),'deg crashed', a.crashed, a.crashReason);
+// --- 7. flaps ---
+b = airborne(30, 500, 0); b.ctl.flap = 50; b.flap = 50; st={i:0}; stallV=null; minV=1e9;
+const aSF = C.ALPHA_STALL - C.FLAP_DALPHA;
+for (let i=0;i<120*90 && !b.crashed;i++){ altHold(b,500,st); wingsLevelHeading(b,0); stepAircraft(b,dt);
+  if (b.out.V<minV) minV=b.out.V; if (stallV===null && b.out.alpha > aSF) stallV=b.out.V; }
+console.log('Full flap (50) stall, idle level decel: critical AoA at', stallV?mph(stallV):'never','mph; min speed', mph(minV),'mph; analytic 1g Vs', mph(Math.sqrt(2*C.MASS*C.G/(C.RHO*C.WING_AREA*(C.CL0+C.FLAP_CL+C.CL_ALPHA*aSF)))),'mph');
+b = airborne(25, 500, 0.55); b.ctl.flap = 50; b.flap = 50; for (let i=0;i<120*120;i++){ b.ctl.elev=0; wingsLevelHeading(b,0); stepAircraft(b,dt);}
+console.log('Full flap hands-off, 55% power after 120s:', mph(b.out.V),'mph vs', (b.out.vs*196.85).toFixed(0),'fpm');
+b = airborne(25, 500, 0); b.ctl.flap = 50; b.flap = 50; st={i:0};
+for (let i=0;i<120*60;i++){ const V=b.out.V||25, at=att(b), tp=-0.12+0.03*(V-23);
+  st.i=Math.max(-1,Math.min(1,st.i+0.3*(tp-at.pitch)*dt)); b.ctl.elev=Math.max(-1,Math.min(1,st.i+3*(tp-at.pitch)-1.5*b.w[0]));
+  wingsLevelHeading(b,0); stepAircraft(b,dt);}
+console.log('Full flap idle glide @', mph(b.out.V),'mph: sink', (b.out.vs*196.85).toFixed(0),'fpm, L/D', (b.out.V/-b.out.vs).toFixed(1));
+a = createAircraft(); a.ctl.throttle = 1; a.ctl.flap = 15; a.flap = 15; liftoff=null; t=0; z0=a.pos[2];
+for (let i=0;i<120*40 && !a.crashed;i++) { t+=dt; wingsLevelHeading(a, 0); const v = a.out.V||0;
+  a.ctl.elev = v < 14 ? -0.35 : (v < 19 ? 0.0 : 0.25); if (liftoff===null && a.out.wow===0 && v>5) liftoff = { d: z0-a.pos[2], t, v };
+  if (liftoff && t > liftoff.t + 8) break; stepAircraft(a,dt); }
+console.log('Takeoff, 1 notch (15):', liftoff ? `liftoff after ${liftoff.d.toFixed(0)} m, ${liftoff.t.toFixed(1)} s, ${mph(liftoff.v)} mph` : 'NO LIFTOFF', '| crashed', a.crashed, a.crashReason, '| 8s later alt', a.pos[1].toFixed(0),'m');
