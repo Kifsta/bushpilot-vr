@@ -20,18 +20,24 @@
 </script>
 </head>
 <body>
-<div id="info">BUSH PILOT VR v0.5 - PA-18 Super Cub prototype (zombies, hunger/fuel, sound, hunting)
+<div id="info">BUSH PILOT VR v0.6 - PA-18 Super Cub prototype (Tabor-style backpack, utility belt, knife, recoil, hand reloading)
 FLY (desktop): click to mouse-look | W/S pitch | A/D roll | Q/E rudder | Shift/Ctrl (or = / -) throttle
   [ / ] flaps up / down a notch (0-15-30-50) | B brakes | F get out (stopped + idle) | R reset (refuels) | C recenter
-ON FOOT (desktop): WASD walk (Shift sprint) | F board (right door) | G grab rifle / pick up loot (hold G on a kill = dress)
-  click fire | hold right mouse aim | X lever | Z load a round | E eat / refuel (fuel can, next to plane) | T stash pack at the bench
+ON FOOT (desktop): WASD walk (Shift sprint) | F board | G grab rifle / pick up loot into pack (hold G on a kill = dress, needs knife)
+  click fire | hold right mouse aim | X lever | Z or R load a round from the pouch | E eat / refuel | T stash pack at the bench
+  I open/close pack | 1 knife draw/away (click or V = stab; V on a kill = dress) | 2 / 3 belt pouches (use, or fill from pack) | 4 sling/unsling rifle
 VR FLY: R grip = stick, L grip = throttle (or flap handle at its knob, left wall by your hip),
   L stick X = rudder, L trigger = brakes, Y = get out, A/X = recenter, B = reset
 VR FOOT: L stick walk (click = sprint), R stick snap turn, grip = grab/hold, other grip on forend = steady, rifle to cheek = stock,
-  trigger = fire, A/X on rifle hand or flick = lever, A/X on other hand = load a round, Y = board.
-  Hold food to your mouth = eat | fuel can to the wing filler cap = refuel | raw meat over the fire pit = cook
-  Grip over your shoulder = take from pack | let go of an item = it goes in your pack (over the cabin bench = stash) | hold grip on a kill 2 s = dress
-Loot: paddock farmhouse (smoke + orange tarp ~3.6 km SE, zombies!), red truck on the N-S dirt road, a barn east along the road.</div>
+  trigger = fire, A/X on rifle hand or flick = lever, Y = board.
+  Reload: grip the ammo pouch on your right hip = one cartridge, touch its tip to the loading gate (right side of the receiver).
+  Belt: knife sheath left hip, 2 pouches front, rifle sling over the right shoulder - let go of a thing near its slot (green box) to holster it.
+  Pack: grip over either shoulder, pull it round to the front; let go = it hovers open at your chest. Drop items in, grip minis to take out.
+  Push it back over your shoulder (or A/X on the free hand) to wear it. Let go of items anywhere else = they drop on the ground.
+  Knife: stab zombies (head = kill), slice across a kill 3x (or hold grip on it with the knife in the other hand) = meat.
+  Hold food to your mouth = eat | fuel can to the wing filler cap = refuel | raw meat over the fire pit = cook | cabin bench = stash
+Loot: paddock farmhouse (smoke + orange tarp ~3.6 km SE, zombies!), red truck on the N-S dirt road, a barn east along the road.
+</div>
 <div id="hud"></div><div id="cross"></div><div id="hurt"></div>
 <script type="module">
 import * as THREE from 'three';
@@ -899,7 +905,7 @@ function recenter() {
   xrOffset.quaternion.copy(yq);
   xrOffset.position.copy(camera.position).applyQuaternion(yq).negate();
 }
-function toPlane() { rig.add(xrOffset); mode = 'plane'; ctl.brake = 0; lookYaw = lookPitch = 0; needRecenter = renderer.xr.isPresenting ? 2 : 0; }
+function toPlane() { if (R.slung) { R.slung = false; R.stowed = true; rifle.visible = false; } deskKnife = false; rig.add(xrOffset); mode = 'plane'; ctl.brake = 0; lookYaw = lookPitch = 0; needRecenter = renderer.xr.isPresenting ? 2 : 0; }
 function resetFlight() {
   if (mode === 'foot') toPlane();
   if (R.hand) { R.hand = R.support = null; rifleHome(); }
@@ -912,10 +918,8 @@ function exitPlane() {
   footRig.position.set(x, groundY(x, z) + EYE, z); footRig.rotation.set(0, yaw, 0);
   footRig.add(xrOffset); mode = 'foot'; lookYaw = lookPitch = 0; needRecenter = renderer.xr.isPresenting ? 2 : 0;
   ctl.elev = ctl.ail = ctl.rud = 0;
-  if (R.stowed) {           // rifle comes out with you, leaning upright in front of you
-    R.stowed = false; const rx = x - Math.sin(yaw) * 0.7, rz = z - Math.cos(yaw) * 0.7;
-    rifle.position.set(rx, groundY(rx, rz) + 0.36, rz); rifle.rotation.set(1.3, yaw, 0, 'YXZ'); rifle.visible = true;
-  }
+  bodyYaw = yaw;
+  if (R.stowed) { R.stowed = false; R.slung = true; rifle.visible = true; }   // rifle comes out with you on the sling
 }
 function board() {
   camera.getWorldPosition(_w); const dp = qRot(ac.q, [0.6, 0, 0]);
@@ -930,11 +934,12 @@ renderer.xr.addEventListener('sessionend', () => { xrOffset.position.set(0, 0, 0
 function cycleLever() {
   if (R.leverT > 0) return;
   R.leverT = 0.3; sfx('clack');
-  if (!R.chambered && R.tube > 0) { R.tube--; R.chambered = true; }
+  if (R.spent || R.chambered) { ejectCase(R.chambered); if (R.chambered) R.spare++; R.spent = R.chambered = false; }   // live round ejected goes back in the pouch
+  if (R.tube > 0) { R.tube--; R.chambered = true; }
 }
 function fire(origin, dir) {
   if (!R.chambered) { sfx('click'); return; }
-  R.chambered = false; R.flashT = 0.06; flash.visible = true; sfx('bang');
+  R.chambered = false; R.spent = true; R.flashT = 0.06; flash.visible = true; sfx('bang');
   const ray = new THREE.Raycaster(origin, dir, 0.05, 400);
   let best = null;
   const hits = ray.intersectObjects(shootables, false);
@@ -955,33 +960,56 @@ function fire(origin, dir) {
 const reach = (h, p) => Math.hypot(h.x - p.x, h.z - p.z) < 0.45 && h.y - p.y > -0.4 && h.y - p.y < 1.7;  // generous downward reach for seated play
 function pickLoot(item) {
   const si = stash.indexOf(item); if (si >= 0) { stash.splice(si, 1); layoutStash(); }
-  if (item.name === 'AMMO BOX') { R.spare += 20; removeItem(item); say('+20 ROUNDS'); sfx('click'); return; }
-  scene.add(item.mesh); item.state = 'inv'; item.mesh.visible = false; inv.push(item); say('+ ' + item.name); sfx('pick');
+  if (item.name === 'AMMO BOX') { R.spare += 20; removeItem(item); say('+20 ROUNDS TO AMMO POUCH'); sfx('click'); return; }
+  if (si >= 0) { stash.push(item); layoutStash(); }
+  if (packAdd(item)) { say('+ ' + item.name + ' (PACK ' + packUsed() + '/' + PACK_CELLS + ')'); sfx('pick'); }
 }
+const rightSide = p => (p.x - belt.position.x) * Math.cos(bodyYaw) - (p.z - belt.position.z) * Math.sin(bodyYaw) > 0;   // right of the body centre line
+function otherHandKnife(g) { for (const [h, it] of held) if (h !== g && it.name === 'KNIFE') return true; return false; }
+function headPose() { const M = eyeWorld(0); _eye.setFromMatrixPosition(M); _hf.set(0, 0, -1).transformDirection(M); _hf.y = 0; _hf.normalize(); }
 function handGrab(g) {
   g.getWorldPosition(_a);
+  if (held.has(g) || rounds.has(g) || PK.g === g) return;
   if (R.hand && R.hand !== g) { rifle.localToWorld(_b.set(0, 0.012, -0.3)); if (_a.distanceTo(_b) < 0.3) { R.support = g; return; } }
-  if (!R.hand && !R.stowed && (reach(_a, rifle.position) || reach(_a, rifle.localToWorld(_b.set(0, 0, -0.35))))) { R.hand = g; R.support = null; R.stock = false; R.prev.copy(_a); return; }
-  const c = nearCarcass(_a, 0.9); if (c) { vr.dress.set(g, { c, t: 0 }); return; }          // hold grip on a kill to field-dress it
+  const foot = mode === 'foot';
+  if (foot && !R.hand && R.slung && slotPos(SLING).distanceTo(_a) < SLING.r && rightSide(_a)) { R.slung = false; R.hand = g; R.support = null; R.stock = false; R.prev.copy(_a); tick(g); sfx('pick'); return; }   // rifle off the sling
+  if (!R.hand && !R.stowed && !R.slung && (reach(_a, rifle.position) || reach(_a, rifle.localToWorld(_b.set(0, 0, -0.35))))) { R.hand = g; R.support = null; R.stock = false; R.prev.copy(_a); return; }
+  if (foot && PK.state !== 'worn') {             // take an item out of the open bag, or pick the bag back up
+    let bi = null, bd = 0.1; for (const it of inv) { const d = it.mesh.getWorldPosition(_b).distanceTo(_a); if (d < bd) { bd = d; bi = it; } }
+    if (bi) { holdItem(g, bi); say('FROM PACK: ' + bi.name); return; }
+    if (PK.state === 'open' && PK.mesh.localToWorld(_b.copy(PK_HANDLE)).distanceTo(_a) < 0.13) { setPack('held', g); PK.front = true; tick(g); return; }   // grab it by the near rim / strap
+  }
+  if (foot) {                                    // belt: sheath / pouches / loose-round ammo pouch
+    for (const s of SLOTS) if (!s.rifle && s.item && slotPos(s).distanceTo(_a) < s.r) { const it = s.item; holdItem(g, it); say('DRAWN ' + it.name); return; }
+    if (AMMO_P.o.getWorldPosition(_b).distanceTo(_a) < SLOT_R) { takeRound(g); return; }
+    if (PK.state === 'worn') { headPose(); if (behindShoulder(_a, _eye, _hf)) { setPack('held', g); sfx('pick'); tick(g); return; } }   // over the shoulder = pack strap
+  }
+  const c = nearCarcass(_a, 0.9);
+  if (c) { if (otherHandKnife(g)) { vr.dress.set(g, { c, t: 0 }); say('DRESSING...'); } else say('NEED THE KNIFE (OTHER HAND) - OR SLICE WITH IT'); return; }
   for (const it of loot) if ((it.state === 'world' || it.state === 'stash') && reach(_a, it.mesh.position)) {
     if (it.name === 'AMMO BOX') pickLoot(it); else holdItem(g, it); return; }
-  const M = eyeWorld(0); _eye.setFromMatrixPosition(M); _hf.set(0, 0, -1).transformDirection(M);
-  _b.subVectors(_a, _eye); if (_b.y > -0.2 && _b.dot(_hf) < 0) {                          // reach over your shoulder = backpack
-    if (inv.length) { const it = inv.shift(); holdItem(g, it); say('FROM PACK: ' + it.name); } else say('PACK EMPTY'); }
 }
 function dropRifle() {
   rifle.getWorldDirection(_d); const yaw = Math.atan2(_d.x, _d.z);   // getWorldDirection returns +z
   R.hand = R.support = null;
   rifle.position.y = groundY(rifle.position.x, rifle.position.z) + 0.04; rifle.rotation.set(0, yaw, Math.PI / 2, 'YXZ');
 }
-function handRelease(g) { if (R.support === g) R.support = null; if (R.hand === g) dropRifle(); releaseHeld(g); vr.dress.delete(g); }
+function handRelease(g) {       // called every frame the grip is up: keep it cheap / idempotent
+  if (R.support === g) R.support = null;
+  if (R.hand === g) { if (slingNear(g.getWorldPosition(_a))) { slingRifle(); tick(g); } else dropRifle(); }
+  if (PK.g === g) { g.getWorldPosition(_a); headPose(); setPack(PK.front && !behindShoulder(_a, _eye, _hf) ? 'open' : 'worn'); }
+  if (held.size) releaseHeld(g); if (rounds.size) dropRound(g); vr.dress.delete(g);
+}
 
 // desktop
 const keys = {};
 addEventListener('keydown', e => {
   keys[e.code] = true;
   if (e.repeat) return;
-  if (e.code === 'KeyR') resetFlight();
+  if (e.code === 'KeyR') { if (mode === 'foot' && R.hand === 'desk') loadRound(); else resetFlight(); }
+  if (mode === 'foot' && e.code === 'KeyI') setPack(PK.state === 'worn' ? 'open' : 'worn');
+  if (mode === 'foot' && /^Digit[1-4]$/.test(e.code)) deskSlot(+e.code[5] - 1);
+  if (mode === 'foot' && e.code === 'KeyV') deskKnifeUse();
   if (e.code === 'KeyC') recenter();
   if (e.code === 'KeyF') mode === 'plane' ? exitPlane() : board();
   if (mode === 'foot' && e.code === 'KeyX' && R.hand) cycleLever();
@@ -999,8 +1027,9 @@ addEventListener('contextmenu', e => e.preventDefault());
 addEventListener('mouseup', e => { if (e.button === 2) R.ads = false; });
 addEventListener('mousedown', e => {
   if (e.button === 2) { R.ads = true; return; }                                   // hold right mouse = aim down the sights
-  if (document.pointerLockElement !== renderer.domElement || mode !== 'foot' || R.hand !== 'desk') return;
-  camera.getWorldPosition(_a); camera.getWorldDirection(_d); fire(_a.clone(), _d.clone());
+  if (document.pointerLockElement !== renderer.domElement || mode !== 'foot') return;
+  if (R.hand !== 'desk') { if (deskKnife) deskKnifeUse(); return; }
+  const live = R.chambered; camera.getWorldPosition(_a); camera.getWorldDirection(_d); fire(_a.clone(), _d.clone()); if (live) R.recT = 0;
 });
 addEventListener('mousemove', e => {
   if (document.pointerLockElement !== renderer.domElement) return;
@@ -1010,8 +1039,8 @@ function desktopGrab() {
   if (R.hand === 'desk') { R.hand = null; dropRifle(); return; }
   camera.getWorldPosition(_a);
   const near = p => Math.hypot(_a.x - p.x, _a.z - p.z) < 2.5;
-  if (!R.stowed && near(rifle.position)) { R.hand = 'desk'; return; }
-  const c = nearCarcass(_a, 2.5); if (c) { deskDress = { c, t: 0 }; say('HOLD G TO FIELD-DRESS'); return; }
+  if (!R.stowed && !R.slung && near(rifle.position)) { R.hand = 'desk'; deskKnife = false; return; }
+  const c = nearCarcass(_a, 2.5); if (c) { if (!hasKnife()) { say('NEED A KNIFE'); return; } deskDress = { c, t: 0 }; say('HOLD G TO FIELD-DRESS'); return; }
   let bi = null, bd = 2.5;
   for (const it of loot) if (it.state === 'world' || it.state === 'stash') { const d = Math.hypot(_a.x - it.mesh.position.x, _a.z - it.mesh.position.z); if (d < bd) { bd = d; bi = it; } }
   if (bi) pickLoot(bi);
@@ -1033,7 +1062,7 @@ function footDesktop(dt) {
   const k = c => keys[c] ? 1 : 0;
   walk((k('KeyW') | k('ArrowUp')) - (k('KeyS') | k('ArrowDown')), (k('KeyD') | k('ArrowRight')) - (k('KeyA') | k('ArrowLeft')),
        footRig.rotation.y + lookYaw, WALK * (k('ShiftLeft') ? 2 : 1), dt);
-  if (deskDress) { if (!keys.KeyG) deskDress = null; else if ((deskDress.t += dt) >= 2) { dressAnimal(deskDress.c); deskDress = null; } }
+  if (deskDress) { if (!keys[deskDress.key || 'KeyG']) deskDress = null; else if ((deskDress.t += dt) >= 2) { dressAnimal(deskDress.c, true); deskDress = null; } }
 }
 
 // VR controllers (grip space; parented to the cockpit rig, or to the foot rig when walking)
@@ -1110,19 +1139,23 @@ function footXR(dt) {
     if (pressedEdge(gp, 1, h + 'sq')) handGrab(g);
     if (!sq) handRelease(g);
     const trig = pressedEdge(gp, 0, h + 'trig'), btn = !!gp.buttons[4]?.pressed && !vr.prev[h + 'btn']; vr.prev[h + 'btn'] = !!gp.buttons[4]?.pressed;
-    if (R.hand === g) { if (trig) { muzzle.getWorldPosition(_a); rifle.getWorldDirection(_d).negate(); fire(_a.clone(), _d.clone()); } if (btn) cycleLever(); }
-    else if (btn && R.hand) loadRound();          // other hand's A/X while holding the rifle = thumb a round into the tube
+    if (R.hand === g) { if (trig) {             // bullet uses the pre-recoil pose
+        const live = R.chambered; _a.copy(muzzle.position).applyQuaternion(R.baseQ).add(R.baseP); _d.set(0, 0, -1).applyQuaternion(R.baseQ);
+        fire(_a.clone(), _d.clone());
+        if (live) { R.recT = 0; pulse(g, RECOIL.hapticMain, RECOIL.hapticMainMs); if (R.support) pulse(R.support, RECOIL.hapticSupport, RECOIL.hapticSupportMs); } }
+      if (btn) cycleLever(); }
+    else if (btn && PK.state !== 'worn') setPack('worn');   // other hand's A/X: close + wear the pack
     else if (btn) recenter();
   }
   // smooth locomotion (head-relative) + snap turn
   const dz = v => Math.abs(v) < 0.15 ? 0 : v;
   const M = eyeWorld(0); _d.set(0, 0, -1).transformDirection(M); const yaw = Math.atan2(-_d.x, -_d.z);
-  const moving = !!(dz(lx) || dz(ly));
+  const moving = !!(dz(lx) || dz(ly)); vr.moving = moving;
   if (!moving) vr.sprint = false;                                 // sprint (L stick click) lasts until the stick re-centres
   if (moving) walk(-dz(ly), dz(lx), yaw, WALK * (vr.sprint ? 2 : 1), dt);
   if (Math.abs(rx) > 0.7 && !vr.snap) {
     vr.snap = true; const ang = -Math.sign(rx) * Math.PI / 6; _w.setFromMatrixPosition(M);
-    footRig.position.sub(_w).applyAxisAngle(_up, ang).add(_w); footRig.rotation.y += ang;
+    footRig.position.sub(_w).applyAxisAngle(_up, ang).add(_w); footRig.rotation.y += ang; bodyYaw += ang;
   } else if (Math.abs(rx) < 0.3) vr.snap = false;
 }
 function updateFoot(dt) {
@@ -1130,9 +1163,10 @@ function updateFoot(dt) {
   footRig.position.y = groundY(_w.x, _w.z) + EYE;
   ctl.elev = ctl.ail = ctl.rud = 0; ctl.brake = 1;               // parking brake while you're out
   if (Math.hypot(_w.x - CABIN_DOOR.x, _w.z - CABIN_DOOR.z) < 6) {  // at the cabin: stash loot, top up the tube
-    if (R.tube < 7 && R.hand) { R.tube = 7; say('RIFLE RELOADED'); }
+    if (R.spare < POUCH_REFILL) { R.spare = POUCH_REFILL; say('AMMO POUCH REFILLED'); }
   }
 }
+const _ks = new THREE.Vector3();
 const STOCK_IN = 0.2, STOCK_OUT = 0.27, ROT_DEADZONE = 0.1 * Math.PI / 180;
 const _f = new THREE.Vector3(), _u = new THREE.Vector3(), _r = new THREE.Vector3(), _eye = new THREE.Vector3(), _hf = new THREE.Vector3(), _hu = new THREE.Vector3(), _tq = new THREE.Quaternion();
 function aimQuat(f, up, out) {    // rifle -z along f, roll taken from the primary hand's up
@@ -1140,6 +1174,7 @@ function aimQuat(f, up, out) {    // rifle -z along f, roll taken from the prima
   _u.crossVectors(_r, f); _f.copy(f).negate(); _m4.makeBasis(_r, _u, _f); return out.setFromRotationMatrix(_m4);
 }
 function updateRifle(dt) {
+  if (R.slung) { SLING.o.updateWorldMatrix(true, false); SLING.o.matrixWorld.decompose(rifle.position, rifle.quaternion, _ks); rifle.visible = mode === 'foot'; }
   if (R.hand === 'desk') {
     camera.updateMatrixWorld(); camera.getWorldQuaternion(rifle.quaternion);
     rifle.position.copy(camera.localToWorld(R.ads ? _a.set(0, -SIGHT_Y, -CHEEK_Z) : _a.set(0.13, -0.17, -0.32)));
@@ -1170,6 +1205,12 @@ function updateRifle(dt) {
     R.flickCool -= dt;
     if (R.flickCool <= 0 && R.vel.y < -1.6 && (R.vel.x * _d.x + R.vel.z * _d.z) > 0.4) { cycleLever(); R.flickCool = 0.45; }
   }
+  if (R.hand) {             // recoil: visual-only offset on top of the rebuilt pose (springs back, no drift)
+    R.baseP.copy(rifle.position); R.baseQ.copy(rifle.quaternion);
+    if (R.recT < 0.3) { R.recT += dt; const t = R.recT, k = t < RECOIL.up ? t / RECOIL.up : Math.exp(-(t - RECOIL.up) / RECOIL.decay);
+      const m = k * (R.hand === 'desk' ? RECOIL.desk : R.stock ? RECOIL.stock : R.support ? RECOIL.twoHand : 1);
+      rifle.rotateX(RECOIL.rise * m); rifle.translateZ(RECOIL.kick * m); }
+  }
   // hands: hide controller hands that hold the rifle (clear sight line), show small gloves under the wood instead
   let leftOnRifle = false;
   for (const g of grips) { const on = R.hand === g || R.support === g; if (g.userData.hand) g.userData.hand.visible = !on; if (on && g.userData.src?.handedness === 'left') leftOnRifle = true; }
@@ -1195,8 +1236,8 @@ function updateWorld(dt, t) {
 const hud = document.getElementById('hud'), cross = document.getElementById('cross');
 function statusText() {
   return `HP ${P.hp.toFixed(0)}  FOOD ${P.food.toFixed(0)}  FUEL ${(fuel / FUEL_MAX * 100).toFixed(0)}%\n` +
-    `AMMO ${R.tube}+${R.chambered ? 1 : 0} / ${R.spare}${R.hand ? '' : R.stowed ? ' (stowed)' : ' (not held)'}\n` +
-    `PACK ${inv.length}${inv.length ? ' (' + inv.map(i => i.name).join(', ') + ')' : ''}  STASH ${stash.length}` + (msgT > 0 ? '\n' + msg : '');
+    `AMMO ${R.tube}+${R.chambered ? 1 : 0} POUCH ${R.spare}${R.hand ? '' : R.slung ? ' (slung)' : R.stowed ? ' (stowed)' : ' (not held)'}\n` +
+    `PACK ${packUsed()}/${PACK_CELLS} STASH ${stash.length}` + (msgT > 0 ? '\n' + msg : '');
 }
 function drawWrist() {
   wctx.fillStyle = P.hurtT > 0 ? '#a00' : '#111'; wctx.fillRect(0, 0, 256, 128); wctx.font = '18px monospace';
@@ -1232,7 +1273,7 @@ const ITEM = {
 const itemRes = {}, redMat = mat(0xcc1111);
 const res = n => itemRes[n] || (itemRes[n] = { g: new THREE.BoxGeometry(...ITEM[n].sz), m: mat(ITEM[n].col) });
 function makeItem(name, x, y, z) {
-  const r = res(name), m = new THREE.Mesh(r.g, r.m); m.position.set(x, y + ITEM[name].sz[1] / 2, z); scene.add(m);
+  const m = name === 'KNIFE' ? knifeMesh() : new THREE.Mesh(res(name).g, res(name).m); m.position.set(x, y + ITEM[name].sz[1] / 2, z); scene.add(m);
   if (name === 'MEDKIT') box(0.31, 0.06, 0.02, redMat, 0, 0, 0.05, m);
   const it = { name, mesh: m, h: ITEM[name].sz[1], state: 'world', fuel: name === 'FUEL CAN' ? CAN_L : 0, cook: 0 };
   loot.push(it); return it;
@@ -1241,10 +1282,12 @@ function removeItem(it) {
   it.state = 'gone'; it.mesh.removeFromParent();
   for (const L of [inv, stash, loot]) { const i = L.indexOf(it); if (i >= 0) L.splice(i, 1); }
   for (const [g, h] of held) if (h === it) held.delete(g);
+  for (const s of SLOTS) if (s.item === it) s.item = null;
+  falling.delete(it); layoutPack();
 }
 function layoutStash() {   // bench holds 4, the rest go on the ground beside it
   stash.forEach((it, k) => {
-    scene.add(it.mesh); it.state = 'stash'; it.mesh.visible = true; it.mesh.rotation.set(0, 0, 0);
+    scene.add(it.mesh); it.state = 'stash'; it.mesh.visible = true; it.mesh.rotation.set(0, 0, 0); it.mesh.scale.setScalar(1); falling.delete(it);
     if (k < 4) it.mesh.position.set(28.5, 0.45 + it.h / 2, -15.9 - k * 0.42);
     else { const x = 27.7 - Math.floor((k - 4) / 4) * 0.45, z = -15.9 - ((k - 4) % 4) * 0.42; it.mesh.position.set(x, groundY(x, z) + it.h / 2, z); }
   });
@@ -1252,15 +1295,21 @@ function layoutStash() {   // bench holds 4, the rest go on the ground beside it
 const held = new Map();       // VR grip -> item held in that hand
 function holdItem(g, it) {
   const si = stash.indexOf(it); if (si >= 0) { stash.splice(si, 1); layoutStash(); }
-  const ii = inv.indexOf(it); if (ii >= 0) inv.splice(ii, 1);
-  it.state = 'held'; g.add(it.mesh); it.mesh.position.set(0, -0.01, -0.07); it.mesh.rotation.set(0, 0, 0); it.mesh.visible = true;
-  held.set(g, it); sfx('pick');
+  const ii = inv.indexOf(it); if (ii >= 0) { inv.splice(ii, 1); layoutPack(); }
+  for (const s of SLOTS) if (s.item === it) s.item = null;
+  falling.delete(it);
+  it.state = 'held'; g.add(it.mesh); it.mesh.scale.setScalar(1); it.mesh.position.set(0, -0.01, it.name === 'KNIFE' ? 0.01 : -0.07); it.mesh.rotation.set(0, 0, 0); it.mesh.visible = true; it.prevTip = null;
+  held.set(g, it); sfx('pick'); tick(g);
 }
-function releaseHeld(g) {
+function releaseHeld(g) {      // open bag > belt slot > cabin bench > falls to the ground
   const it = held.get(g); if (!it) return; held.delete(g);
-  it.mesh.getWorldPosition(_b); scene.add(it.mesh);
-  if (Math.hypot(_b.x - BENCH.x, _b.z - BENCH.z) < 1.3) { stash.push(it); layoutStash(); say('STASHED ' + it.name); }
-  else { it.state = 'inv'; it.mesh.visible = false; inv.push(it); say('PACKED ' + it.name); }
+  const p = it.mesh.getWorldPosition(V3()), q = it.mesh.getWorldQuaternion(new THREE.Quaternion());
+  scene.add(it.mesh); it.mesh.position.copy(p); it.mesh.quaternion.copy(q); it.prevTip = null;
+  if (mode !== 'foot') { if (packAdd(it)) return; }
+  else if (PK.state !== 'worn' && PK.g !== g && packCenter().distanceTo(p) < PACK_DROP_R) { if (packAdd(it)) { say('PACKED ' + it.name + ' (' + packUsed() + '/' + PACK_CELLS + ')'); sfx('pick'); tick(g); return; } }
+  const sl = slotFor(it.name, p); if (sl) { toSlot(sl, it); tick(g); return; }
+  if (Math.hypot(p.x - BENCH.x, p.z - BENCH.z) < 1.3) { stash.push(it); layoutStash(); say('STASHED ' + it.name); return; }
+  it.state = 'world'; it.vel = (g.userData.vel || V3()).clone().clampLength(0, 8); falling.add(it);
 }
 function consume(it) {
   const d = ITEM[it.name];
@@ -1292,7 +1341,10 @@ function hurt(n) {
   P.hurtT = 0.35;
 }
 function die() {
-  for (const it of [...inv]) removeItem(it); for (const [, it] of held) removeItem(it);
+  for (const it of [...inv]) if (it !== knife) removeItem(it); for (const [, it] of held) if (it !== knife) removeItem(it);
+  for (const [g, it] of held) if (it === knife) held.delete(g);
+  if (knife && ['world', 'held', 'inv'].includes(knife.state)) { const ii = inv.indexOf(knife); if (ii >= 0) inv.splice(ii, 1); layoutPack(); toSlot(SLOTS[0], knife, true); }
+  for (const g of grips) dropRound(g);
   P.hp = 70; P.food = 60; resetFlight(); fuel = FUEL_MAX;
   for (const z of ZS) if (z.state === 'chase') z.state = 'wander';
   say('YOU DIED - BACK AT THE STRIP');
@@ -1308,7 +1360,7 @@ function useItemDesktop() {        // E on foot: refuel from a can next to the p
 function stashPackDesktop() {
   camera.getWorldPosition(_a);
   if (Math.hypot(_a.x - BENCH.x, _a.z - BENCH.z) > 4) { say('STASH IS THE BENCH BY THE CABIN DOOR'); return; }
-  const n = inv.length; for (const it of inv) stash.push(it); inv.length = 0; layoutStash(); say('STASHED ' + n + ' (TOTAL ' + stash.length + ')');
+  const n = inv.length; for (const it of inv) stash.push(it); inv.length = 0; layoutStash(); layoutPack(); say('STASHED ' + n + ' (TOTAL ' + stash.length + ')');
 }
 function updateItems(dt) {
   for (const [g, it] of held) {
@@ -1316,6 +1368,7 @@ function updateItems(dt) {
     const M = eyeWorld(0); _a.setFromMatrixPosition(M); _w.set(0, 1, 0).transformDirection(M); _a.addScaledVector(_w, -0.08);   // mouth
     const d = ITEM[it.name];
     if ((d.food || d.heal) && _b.distanceTo(_a) < 0.18) { consume(it); continue; }
+    if (it.name === 'KNIFE') knifeTick(g, it, dt);
     if (it.name === 'FUEL CAN' && nearCap(_b, 0.45)) pour(it, dt);
     if (it.name === 'RAW MEAT' && _b.distanceTo(FIRE_C) < 0.8) { cookTick(it, dt); g.userData.src?.gamepad?.hapticActuators?.[0]?.pulse?.(0.1, 20); }
   }
@@ -1518,10 +1571,10 @@ for (let k = 0; k < N_RAB; k++) { let x, z; do { const an = Math.random() * 6.3,
   const a = { kind: 'rabbit', hit: aHit, hx: x, hz: z, away: 0 }; animalAt(a, x, z); ANIM.push(a); }
 function scare(a, sx, sz) { if (a.state === 'dead' || a.state === 'gone') return; a.state = 'flee'; a.t = a.kind === 'deer' ? 7 + Math.random() * 3 : 3; a.fx = sx; a.fz = sz; }
 function nearCarcass(p, r) { for (const a of ANIM) if (a.state === 'dead' && Math.hypot(a.x - p.x, a.z - p.z) < r && p.y - a.y < 2) return a; return null; }
-function dressAnimal(a) {
-  a.state = 'gone'; const n = a.kind === 'deer' ? 3 : 1;
-  for (let i = 0; i < n; i++) { const it = makeItem('RAW MEAT', 0, 0, 0); it.state = 'inv'; it.mesh.visible = false; inv.push(it); }
-  say('+' + n + ' RAW MEAT (COOK AT THE FIRE PIT)'); sfx('pick');
+function dressAnimal(a, toPack) {
+  a.state = 'gone'; const n = a.kind === 'deer' ? 3 : 1; let packed = 0;
+  for (let i = 0; i < n; i++) { const x = a.x + (i - 1) * 0.25, z = a.z + 0.3, it = makeItem('RAW MEAT', x, groundY(x, z), z); if (toPack && packAdd(it)) packed++; }
+  say('+' + n + ' RAW MEAT ' + (toPack ? (packed < n ? '(PACK FULL - REST ON GROUND)' : 'IN PACK') : 'ON THE GROUND')); sfx('pick');
 }
 function updateAnimals(dt) {
   const pp = playerPos(), foot = mode === 'foot', V = ac.out.V || 0;
@@ -1590,6 +1643,236 @@ function updateSurvival(dt) {
 }
 const hurtDiv = document.getElementById('hurt');
 
+
+// ================= v0.6: Tabor-style backpack, utility belt, knife, recoil, physical reloading =================
+// ---- tunables ----
+const BELT_DROP = 0.55;              // belt height = head height minus this (m)
+const BODY_TURN = Math.PI / 4;       // body/belt only turns when the head looks further than this off the body heading (or when walking)
+const SLOT_R = 0.12, BACK_R = 0.22;  // release/grab radius for belt slots, and for the sling + pack behind the shoulders (m)
+const PACK_DROP_R = 0.24, PACK_CELLS = 9;   // drop-into-open-bag radius (m); 3x3 grid
+const KNIFE_SPEED = 2.0, KNIFE_SLICE_SPEED = 1.0, KNIFE_SLICES = 3;   // m/s tip speed to stab zombies / to slice a carcass; slices to dress
+const LOAD_DIST = 0.045, POUCH_REFILL = 30;  // cartridge tip -> loading gate distance (m); cabin tops the ammo pouch up to this
+const RECOIL = { rise: 0.16, kick: 0.055, up: 0.025, decay: 0.05, stock: 0.35, twoHand: 0.75, desk: 0.6,   // rad, m, attack s, decay tau s, multipliers
+                 hapticMain: 1.0, hapticMainMs: 70, hapticSupport: 0.45, hapticSupportMs: 45 };
+const SMALL = new Set(['MEDKIT', 'RAW MEAT', 'COOKED MEAT']);      // fits a belt pouch
+const cellsOf = n => (n === 'FUEL CAN' || n === 'FOOD CRATE') ? 2 : 1;
+ITEM['KNIFE'] = { sz: [0.05, 0.03, 0.3], col: 0xc8c8c8 };
+const pulse = (g, a, ms) => g?.userData?.src?.gamepad?.hapticActuators?.[0]?.pulse?.(a, ms);
+const tick = g => pulse(g, 0.4, 20);
+const V3 = () => new THREE.Vector3();
+Object.assign(R, { slung: false, spent: false, recT: 1, baseP: V3(), baseQ: new THREE.Quaternion() });
+const GATE = new THREE.Vector3(0.019, 0.002, -0.125), EJECT = new THREE.Vector3(0, 0.055, -0.11);
+{ const g = new THREE.Mesh(new THREE.BoxGeometry(0.003, 0.012, 0.024), mat(0x9a8040)); g.position.copy(GATE); g.position.x -= 0.0015; rifle.add(g); }  // loading gate
+// ---- brass: cartridges in hand, loading, ejected cases ----
+const brassM = mat(0xd8a640), leadM = mat(0x8a8a8a);
+const roundG = new THREE.CylinderGeometry(0.0055, 0.0055, 0.05, 6).rotateX(Math.PI / 2), tipG = new THREE.ConeGeometry(0.0055, 0.016, 6).rotateX(-Math.PI / 2);
+function roundMesh() { const m = new THREE.Mesh(roundG, brassM), t = new THREE.Mesh(tipG, leadM); t.position.z = -0.033; m.add(t); return m; }
+const ROUND_TIP = new THREE.Vector3(0, 0, -0.041);
+const rounds = new Map(), loading = [], cases = [];
+for (let i = 0; i < 6; i++) { const m = roundMesh(); m.visible = false; scene.add(m); cases.push({ m, v: V3(), t: 0 }); }
+let caseIdx = 0;
+function ejectCase(live) {
+  const c = cases[caseIdx++ % cases.length]; c.m.children[0].visible = live; c.m.visible = true; c.t = 3;
+  rifle.localToWorld(c.m.position.copy(EJECT)); c.m.quaternion.copy(rifle.quaternion);
+  c.v.set(0.9 + Math.random() * 0.4, 2.4 + Math.random() * 0.6, 0.3).applyQuaternion(rifle.quaternion);
+}
+function updateBrass(dt) {
+  for (const c of cases) if (c.t > 0) {
+    c.t -= dt; const g = groundY(c.m.position.x, c.m.position.z) + 0.006;
+    if (c.m.position.y > g) { c.v.y -= 9.81 * dt; c.m.position.addScaledVector(c.v, dt); c.m.rotation.x += 14 * dt; c.m.rotation.y += 9 * dt; }
+    if (c.m.position.y <= g) { c.m.position.y = g; c.v.set(0, 0, 0); }
+    if (c.t <= 0) c.m.visible = false;
+  }
+  for (let i = loading.length - 1; i >= 0; i--) { const L = loading[i]; L.t += dt; const k = Math.min(1, L.t / 0.15);
+    L.m.position.set(GATE.x + 0.02 * (1 - k), GATE.y, GATE.z + 0.03 - 0.07 * k);
+    if (k >= 1) { L.m.removeFromParent(); loading.splice(i, 1); } }
+  for (const [g, m] of rounds) {
+    const tip = m.localToWorld(_kt.copy(ROUND_TIP));
+    if (rifle.visible && !R.stowed && !R.slung && tip.distanceTo(rifle.localToWorld(_kg.copy(GATE))) < LOAD_DIST) {
+      if (R.tube >= 7) { if (msgT <= 0) say('TUBE FULL'); continue; }
+      R.tube++; rounds.delete(g); rifle.add(m); m.quaternion.identity(); loading.push({ m, t: 0 });
+      sfx('click', _kg); pulse(g, 0.6, 30); if (R.hand && R.hand !== 'desk') pulse(R.hand, 0.3, 25); say('LOADED ' + R.tube + '/7');
+    }
+  }
+}
+const _kt = V3(), _kg = V3(), _kp = V3();
+function takeRound(g) { if (R.spare <= 0) { say('AMMO POUCH EMPTY'); return; } R.spare--; const m = roundMesh(); g.add(m); m.position.set(0, -0.01, -0.03); rounds.set(g, m); sfx('pick'); tick(g); }
+function dropRound(g) { const m = rounds.get(g); if (!m) return; rounds.delete(g); m.removeFromParent(); R.spare++; }
+
+// ---- body heading + belt ----
+let bodyYaw = 0;
+const belt = new THREE.Group(); belt.visible = false; scene.add(belt);
+const leather = new THREE.MeshLambertMaterial({ color: 0x5a3a1e, side: THREE.DoubleSide, flatShading: true }), canvasM = mat(0x5d6340), hlM = new THREE.MeshBasicMaterial({ color: 0x7dff7a, wireframe: true });
+belt.add(new THREE.Mesh(new THREE.CylinderGeometry(0.165, 0.165, 0.05, 10, 1, true), leather));
+const SLOTS = [
+  { name: 'SHEATH', p: [-0.175, -0.05, 0.0], fits: n => n === 'KNIFE', r: SLOT_R },
+  { name: 'POUCH',  p: [-0.11, -0.02, -0.14], fits: n => SMALL.has(n), r: SLOT_R },
+  { name: 'POUCH',  p: [0.11, -0.02, -0.14], fits: n => SMALL.has(n), r: SLOT_R },
+  { name: 'SLING',  p: [0.1, 0.12, 0.16], rifle: true, r: BACK_R },
+];
+const AMMO_P = { o: new THREE.Object3D() }; AMMO_P.o.position.set(0.175, -0.03, -0.02); belt.add(AMMO_P.o);
+box(0.05, 0.07, 0.07, leather, 0, -0.01, 0, AMMO_P.o);
+for (let i = 0; i < 4; i++) { const r = roundMesh(); r.rotation.x = Math.PI / 2; r.position.set(-0.012 + i * 0.008, 0.03, 0); AMMO_P.o.add(r); }   // cartridge tips poking out
+for (const s of SLOTS) {
+  s.o = new THREE.Object3D(); s.o.position.set(...s.p); belt.add(s.o); s.w = V3(); s.item = null;
+  if (s.name === 'POUCH') box(0.1, 0.08, 0.06, canvasM, 0, -0.02, 0, s.o);
+  if (s.name === 'SHEATH') box(0.035, 0.2, 0.05, leather, 0, -0.1, 0, s.o);
+  s.hl = new THREE.Mesh(new THREE.BoxGeometry(s.rifle ? 0.16 : 0.11, s.rifle ? 0.16 : 0.11, s.rifle ? 0.16 : 0.11), hlM); s.hl.visible = false; s.o.add(s.hl);
+}
+const SLING = SLOTS[3]; SLING.o.rotation.set(Math.PI / 2 - 0.2, 0, -0.35);   // rifle muzzle-up across the back, over the right shoulder
+const SLING_GRAB = new THREE.Vector3(0, 0, -0.35);                          // forend: what your hand finds over the shoulder
+function slotPos(s) { return s.rifle ? s.o.localToWorld(s.w.copy(SLING_GRAB)) : s.o.getWorldPosition(s.w); }
+function slotFor(name, p) { if (mode !== 'foot') return null; for (const s of SLOTS) if (!s.rifle && !s.item && s.fits(name) && slotPos(s).distanceTo(p) < s.r) return s; return null; }
+function toSlot(s, it, quiet) {
+  s.item = it; it.state = 'belt'; falling.delete(it); s.o.add(it.mesh); it.mesh.visible = true;
+  if (it.name === 'KNIFE') { it.mesh.scale.setScalar(1); it.mesh.position.set(0, 0.02, 0); it.mesh.rotation.set(-Math.PI / 2, 0, 0); }
+  else { const sz = ITEM[it.name].sz, k = 0.085 / Math.max(...sz); it.mesh.scale.setScalar(k); it.mesh.position.set(0, 0.03, 0); it.mesh.rotation.set(0, 0, 0); }
+  if (!quiet) { say((it.name === 'KNIFE' ? 'SHEATHED ' : 'POUCHED ') + it.name); sfx('click'); }
+}
+function slingRifle() { R.hand = R.support = null; R.slung = true; rifle.visible = true; say('RIFLE SLUNG'); sfx('click'); }
+const slingNear = p => mode === 'foot' && !R.slung && slotPos(SLING).distanceTo(p) < SLING.r;
+
+// ---- backpack ----
+const PK = { state: 'worn', g: null, front: false, mesh: new THREE.Group(), c: V3() };
+{ const B = new THREE.Group(), W = 0.36, D = 0.3, H = 0.14, t = 0.012;
+  box(W, t, D, canvasM, 0, 0, 0, B); box(W, H, t, canvasM, 0, H / 2, -D / 2, B); box(W, H, t, canvasM, 0, H / 2, D / 2, B);
+  box(t, H, D, canvasM, -W / 2, H / 2, 0, B); box(t, H, D, canvasM, W / 2, H / 2, 0, B);
+  box(0.3, 0.012, 0.012, leather, 0, H + 0.01, D / 2 + 0.01, B);   // top strap
+  mergeInto(B, PK.mesh);
+  PK.hl = new THREE.Mesh(new THREE.BoxGeometry(W + 0.02, H, D + 0.02), hlM); PK.hl.position.y = H / 2; PK.hl.visible = false; PK.mesh.add(PK.hl);
+  PK.mesh.visible = false; scene.add(PK.mesh); }
+function packLayout(list) { let c = 0; const pos = []; for (const it of list) { const k = cellsOf(it.name); if (k === 2 && c % 3 === 2) c++; if (c + k > PACK_CELLS) return null; pos.push(c); c += k; } return pos; }
+function packUsed() { let c = 0; for (const it of inv) { const k = cellsOf(it.name); if (k === 2 && c % 3 === 2) c++; c += k; } return c; }
+function layoutPack() {
+  const pos = packLayout(inv) || [];
+  inv.forEach((it, i) => {
+    const c = pos[i] ?? 0, k = cellsOf(it.name), col = c % 3, row = Math.floor(c / 3), sz = ITEM[it.name].sz;
+    const side = sz[1] > sz[0], kn = it.name === 'KNIFE';             // tall things (fuel can) lie on their side; knife lies across its cell
+    const dx = kn ? sz[2] : side ? sz[1] : sz[0], dy = side ? sz[0] : sz[1], dz = kn ? sz[0] : sz[2];
+    const s = Math.min((k * 0.11 - 0.015) / dx, 0.08 / dz, 0.11 / dy);
+    PK.mesh.add(it.mesh); it.state = 'inv'; falling.delete(it); it.mesh.visible = PK.state !== 'worn';
+    it.mesh.scale.setScalar(s); it.mesh.rotation.set(0, kn ? Math.PI / 2 : 0, side && !kn ? Math.PI / 2 : 0);
+    it.mesh.position.set((col + (k - 1) / 2 - 1) * 0.11, 0.012 + dy * s / 2, (row - 1) * 0.09);
+  });
+}
+function packAdd(it) { if (!packLayout([...inv, it])) { say('PACK FULL'); return false; } inv.push(it); layoutPack(); return true; }
+function setPack(st, g = null) {
+  PK.state = st; PK.g = g; PK.front = false;
+  for (const it of inv) it.mesh.visible = st !== 'worn';
+  if (st === 'worn') { say('PACK ON'); sfx('pick'); } else if (st === 'open' || st === 'held') say('PACK OPEN ' + packUsed() + '/' + PACK_CELLS);
+}
+const PK_HANDLE = new THREE.Vector3(0, 0.15, 0.17);
+function packCenter() { return PK.mesh.localToWorld(PK.c.set(0, 0.05, 0)); }
+const behindShoulder = (p, eye, hf) => { _kp.subVectors(p, eye); return _kp.y > -0.25 && _kp.dot(hf) < -0.03 && _kp.length() < 0.5; };
+
+// ---- knife ----
+function knifeMesh() {
+  const g = new THREE.Group(), steelL = mat(0xc9ccd0), wood = mat(0x3b2414), dark = mat(0x222222);
+  box(0.022, 0.03, 0.11, wood, 0, 0, 0.0, g);           // handle (sits in the palm)
+  box(0.05, 0.012, 0.012, dark, 0, 0, -0.06, g);        // guard
+  box(0.024, 0.026, 0.016, dark, 0, 0, 0.062, g);       // pommel
+  box(0.004, 0.032, 0.15, steelL, 0, 0.002, -0.14, g);  // blade
+  const tip = box(0.004, 0.024, 0.03, steelL, 0, -0.003, -0.222, g); tip.rotation.x = -0.45;   // clip point
+  const m = new THREE.Group(); mergeInto(g, m); return m;
+}
+const KNIFE_TIP = new THREE.Vector3(0, 0, -0.23);
+let knife = null, deskKnife = false;
+const hasKnife = () => knife && knife.state !== 'gone' && (knife.state === 'belt' || knife.state === 'inv' || knife.state === 'held');
+function giveKnife() { knife = makeItem('KNIFE', 0, 0, 0); toSlot(SLOTS[0], knife, true); }
+function knifeTick(g, it, dt) {
+  const tip = it.mesh.localToWorld(_kt.copy(KNIFE_TIP));
+  if (!it.prevTip) it.prevTip = tip.clone();
+  const sp = tip.distanceTo(it.prevTip) / Math.max(dt, 1e-3); it.prevTip.copy(tip); it.cool = (it.cool || 0) - dt;
+  if (it.cool > 0) return;
+  if (sp > KNIFE_SPEED) for (const z of ZS) {
+    if (z.state === 'dead' || z.state === 'off' || Math.hypot(z.x - tip.x, z.z - tip.z) > 1) continue;
+    const cy = Math.cos(z.yaw), sy = Math.sin(z.yaw);
+    for (const [lx, ly, lz, r, part] of ZSPH) {
+      const wx = z.x + lx * cy + lz * sy, wy = z.y + ly, wz = z.z - lx * sy + lz * cy;
+      if (Math.hypot(wx - tip.x, wy - tip.y, wz - tip.z) < r + 0.04) { knifeHit(z, part); it.cool = 0.35; pulse(g, 0.9, 50); return; }
+    }
+  }
+  if (sp > KNIFE_SLICE_SPEED) { const a = nearCarcass(tip, 0.75); if (a && tip.y - a.y < 0.9) {
+    it.slices = it.sliceA === a ? (it.slices || 0) + 1 : 1; it.sliceA = a; it.cool = 0.25; sfx('hit', tip); pulse(g, 0.5, 30);
+    if (it.slices >= KNIFE_SLICES) { dressAnimal(a); it.slices = 0; } else say('SLICE ' + it.slices + '/' + KNIFE_SLICES);
+  } }
+}
+function knifeHit(z, part) { z.hit(part === 'head' ? 'head' : 'legs'); if (z.state === 'dead') say(part === 'head' ? 'KNIFE KILL' : 'ZOMBIE DOWN'); }   // head = kill, body = 1 damage
+function deskKnifeUse() {          // desktop V / click with knife drawn: dress a kill, else stab what is in front
+  if (!hasKnife()) { say('NO KNIFE'); return; }
+  camera.getWorldPosition(_a); const c = nearCarcass(_a, 2.5);
+  if (c) { deskDress = { c, t: 0, key: 'KeyV' }; say('HOLD V TO FIELD-DRESS'); return; }
+  camera.getWorldDirection(_d); const h = creatureHit(_a.clone(), _d.clone(), 1.8);
+  sfx('pick'); if (deskKnife) knifeMeshDesk.rotation.x = -0.9;
+  if (h && ZS.includes(h.c)) knifeHit(h.c, h.part); else if (h) h.c.hit('vitals');
+}
+const knifeMeshDesk = knifeMesh(); knifeMeshDesk.visible = false; camera.add(knifeMeshDesk); knifeMeshDesk.position.set(0.16, -0.17, -0.3);
+function deskSlot(n) {               // desktop 1-4
+  const s = SLOTS[n];
+  if (n === 0) {
+    if (!hasKnife()) { say('NO KNIFE'); return; }
+    deskKnife = !deskKnife; if (deskKnife && R.hand === 'desk') { if (!R.slung) slingRifle(); }
+    say(deskKnife ? 'KNIFE DRAWN (CLICK / V TO USE)' : 'KNIFE AWAY'); sfx('click'); return;
+  }
+  if (n === 3) {
+    if (R.hand === 'desk') slingRifle(); else if (R.slung) { R.slung = false; R.hand = 'desk'; deskKnife = false; say('RIFLE IN HAND'); sfx('click'); } else say('NO RIFLE');
+    return;
+  }
+  if (s.item) { consume(s.item); return; }
+  const it = inv.find(i => s.fits(i.name)); if (it) { inv.splice(inv.indexOf(it), 1); layoutPack(); toSlot(s, it); } else say('POUCH EMPTY (MEDKIT / MEAT FIT)');
+}
+
+// ---- dropped items fall onto the terrain ----
+const falling = new Set();
+function updateFalling(dt) {
+  for (const it of falling) {
+    it.vel.y -= 9.81 * dt; it.mesh.position.addScaledVector(it.vel, dt);
+    const g = groundY(it.mesh.position.x, it.mesh.position.z) + it.h / 2;
+    if (it.mesh.position.y <= g) { it.mesh.position.y = g; const yaw = it.mesh.rotation.y; it.mesh.rotation.set(0, yaw, 0); falling.delete(it); sfx('pick', it.mesh.position); }
+  }
+}
+
+// ---- per-frame: body, belt, pack, highlights, hand velocity ----
+function updateGear(dt) {
+  const foot = mode === 'foot', xr = renderer.xr.isPresenting;
+  belt.visible = foot;
+  knifeMeshDesk.visible = !xr && foot && deskKnife && hasKnife();
+  if (knifeMeshDesk.visible) knifeMeshDesk.rotation.x *= Math.exp(-dt * 10);
+  if (foot) {
+    let hy;
+    if (xr) { const M = eyeWorld(0); _hf.set(0, 0, -1).transformDirection(M); hy = Math.atan2(-_hf.x, -_hf.z); _eye.setFromMatrixPosition(M); }
+    else { camera.getWorldPosition(_eye); camera.getWorldDirection(_hf); hy = footRig.rotation.y + lookYaw; bodyYaw = hy; }
+    const d = turn(0, hy - bodyYaw, 9);
+    if (vr.moving) bodyYaw = turn(bodyYaw, hy, 6 * dt); else if (Math.abs(d) > BODY_TURN) bodyYaw += d - Math.sign(d) * BODY_TURN;
+    belt.position.set(_eye.x, _eye.y - BELT_DROP, _eye.z); belt.rotation.y = bodyYaw; belt.updateMatrixWorld(true);
+    _hf.y = 0; _hf.normalize();
+    // pack
+    if (PK.state === 'held') {
+      PK.g.getWorldPosition(_kp); PK.mesh.position.set(_kp.x, _kp.y - 0.1, _kp.z); PK.mesh.rotation.set(0, bodyYaw, 0);
+      _kg.subVectors(_kp, _eye); if (_kg.dot(_hf) > 0.15) PK.front = true;
+      else if (PK.front && behindShoulder(_kp, _eye, _hf)) { tick(PK.g); setPack('worn'); }
+    } else if (PK.state === 'open') {
+      PK.mesh.position.set(_eye.x - Math.sin(bodyYaw) * 0.4, _eye.y - 0.5, _eye.z - Math.cos(bodyYaw) * 0.4); PK.mesh.rotation.set(0, bodyYaw, 0);
+    } else { belt.localToWorld(PK.mesh.position.set(0, 0.3, 0.2)); PK.mesh.rotation.set(-0.15, bodyYaw, 0); }
+    PK.mesh.visible = PK.state !== 'worn' || xr;   // worn pack sits behind you (hidden on desktop so it never blocks the view)
+    PK.mesh.updateMatrixWorld(true);
+  } else { PK.mesh.visible = false; if (PK.state !== 'worn') setPack('worn'); }
+  // highlights: where a held thing would go if you let go now
+  for (const s of SLOTS) s.hl.visible = false; PK.hl.visible = false;
+  for (const g of grips) {
+    if (g.userData.prevP) { g.getWorldPosition(_kp); (g.userData.vel ||= V3()).subVectors(_kp, g.userData.prevP).divideScalar(Math.max(dt, 1e-3)); g.userData.prevP.copy(_kp); }
+    else g.userData.prevP = g.getWorldPosition(V3());
+  }
+  if (!foot) return;
+  for (const [g, it] of held) {
+    it.mesh.getWorldPosition(_kp);
+    if (PK.state !== 'worn' && PK.g !== g && packCenter().distanceTo(_kp) < PACK_DROP_R) { PK.hl.visible = true; continue; }
+    const s = slotFor(it.name, _kp); if (s) s.hl.visible = true;
+  }
+  if (R.hand && R.hand !== 'desk' && slingNear(R.hand.getWorldPosition(_kp))) SLING.hl.visible = true;
+}
+giveKnife();
+
 // ======================= LOOP =======================
 const clock = new THREE.Clock();
 let fpsFrames = 0, fpsT = 0, instT = 0;
@@ -1604,6 +1887,7 @@ renderer.setAnimationLoop(() => {
     camera.rotation.set(lookPitch, lookYaw, 0, 'YXZ');
   }
   if (mode === 'foot') updateFoot(dt);
+  updateGear(dt);
   cross.style.display = !xr && mode === 'foot' ? 'block' : 'none';
   if (!ac.crashed) {
     const n = Math.max(1, Math.ceil(dt / C.MAX_DT - 1e-6));
@@ -1624,7 +1908,7 @@ renderer.setAnimationLoop(() => {
   fpsFrames++; fpsT += dt; instT += dt;
   if (fpsT >= 1) { fps = Math.round(fpsFrames / fpsT); fpsFrames = 0; fpsT = 0; }
   updateRifle(dt); updateWorld(dt, clock.elapsedTime);
-  updateSurvival(dt); updateZombies(dt); updateAnimals(dt); updateItems(dt); updateSpots(dt); updateAudio(dt);
+  updateSurvival(dt); updateZombies(dt); updateAnimals(dt); updateItems(dt); updateBrass(dt); updateFalling(dt); updateSpots(dt); updateAudio(dt);
   if (instT > 0.1) { instT = 0; drawInstruments(ac); drawWrist(); }
   renderer.render(scene, camera);
 });
