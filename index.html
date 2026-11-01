@@ -20,7 +20,7 @@
 </script>
 </head>
 <body>
-<div id="info">BUSH PILOT VR v0.14 - PA-18 Super Cub prototype (v0.14: rivers, lakes, thirst + canteen; v0.13: day / night, dusk deadline, lights, sleep; v0.12: natural gunshot, ambient sound, clouds; v0.11: Cub + rifle proportions from reference; v0.10.1: smoother stock; v0.10: performance pass, crouch / jump, more zombies, force grab)
+<div id="info">BUSH PILOT VR v0.15 - PA-18 Super Cub prototype (v0.14: rivers, lakes, thirst + canteen; v0.13: day / night, dusk deadline, lights, sleep; v0.12: natural gunshot, ambient sound, clouds; v0.11: Cub + rifle proportions from reference; v0.10.1: smoother stock; v0.10: performance pass, crouch / jump, more zombies, force grab)
 RIFLE (VR): A/X on the rifle hand = work the lever (tap = full stroke, hold = keep it open) or flick the rifle down-forward, or grab the lever loop with your other hand and work it yourself;
   lever open = no shot; a short stroke won't feed. Load: tip of a round into the gate (right side) - it snaps in; keep grip held and go back to the pouch for the next one.
   Hold the right stick IN (click) + push it up/down while holding the rifle (right hand) = grip angle. Let go of the wrist with a hand on the forend = it stays in that hand.
@@ -1928,6 +1928,157 @@ function updateWater(dt) {
     if (P.thirst < 20 && P.thirst > 0 && !W.warned) { W.warned = true; say('THIRSTY - DRINK SOON'); } if (P.thirst > 30) W.warned = false; }
 }
 
+// ================= v0.15: forests (more conifers, deciduous groves, feathered forest edges) + seven new points of interest =================
+// Everything static here is world-space and merged into ONE mesh per material (a handful of draw calls for all seven sites).
+// Own seeded RNG so the existing world (trees, cans, creatures) keeps its exact layout.
+const POI_R = (() => { let s = 0x5eed15; return () => { s = (s + 0x6D2B79F5) | 0; let t = Math.imul(s ^ (s >>> 15), 1 | s); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; })();
+const POIS = [], GROVES = [];
+const LODGE = { x: -380, z: -2440, a: 1.83, hl: 140, hw: 10 };   // backcountry lodge strip (valley floor, 2.4 km N of home; ~2 m of rise over 280 m)
+{
+  const G = new THREE.Group();
+  const M = { wood: mat(0x6b4a2f), log: mat(0x5a3d24), dark: mat(0x3b3b3b), white: mat(0xd8d4c8), red: mat(0x8a2a22), metal: mat(0x6d747b),
+              glass: mat(0x223344), yellow: mat(0xd9a31a), blue: mat(0x2f5f8f), stone: mat(0x77746d), rail: mat(0x8a7356) };
+  const ROOFG = new THREE.CylinderGeometry(1, 1, 1, 3).rotateZ(Math.PI / 2).rotateX(-Math.PI / 2).translate(0, 0.5, 0).scale(1, 1 / 1.5, 1 / 1.732);   // gable prism: length x, height y, width z
+  const W = (o, lx, lz) => { const c = Math.cos(o.a), s = Math.sin(o.a); return [o.x + lx * c + lz * s, o.z - lx * s + lz * c]; };
+  const part = (o, w, h, d, m, lx, ly, lz, ry = 0, rx = 0, rz = 0) => { const [x, z] = W(o, lx, lz); const b = box(w, h, d, m, x, o.y + ly, z, G); b.rotation.set(rx, o.a + ry, rz, 'YXZ'); return b; };
+  const roof = (o, len, h, wid, m, lx, ly, lz, ry = 0) => { const [x, z] = W(o, lx, lz); const r = new THREE.Mesh(ROOFG, m); r.position.set(x, o.y + ly, z); r.rotation.y = o.a + ry; r.scale.set(len, h, wid); G.add(r); return r; };
+  const geo = (g, m, o, lx, ly, lz, ry = 0, rx = 0, rz = 0) => { const [x, z] = W(o, lx, lz); const r = new THREE.Mesh(g, m); r.position.set(x, o.y + ly, z); r.rotation.set(rx, o.a + ry, rz, 'YXZ'); G.add(r); return r; };
+  const seat = (o, hw, hd) => { let m = 1e9; for (const [a, b] of [[-hw, -hd], [hw, -hd], [-hw, hd], [hw, hd], [0, 0]]) { const [x, z] = W(o, a, b); m = Math.min(m, groundY(x, z)); } o.y = m; return o; };
+  const house = (o, w, h, d, wall, rf, roofH, lx = 0, lz = 0, ry = 0) => {   // walls sunk 1.5 m (uneven ground), gable roof along local x
+    const q = { x: W(o, lx, lz)[0], z: W(o, lx, lz)[1], a: o.a + ry, y: o.y }; part(q, w, h + 1.5, d, wall, 0, h / 2 - 0.75, 0);
+    roof(q, w + 0.6, roofH, d + 0.8, rf, 0, h, 0); return q; };
+  const slot = (o, lx, lz) => { const [x, z] = W(o, lx, lz); return [x, groundY(x, z), z]; };
+  const site = (name, label, o, table, sl, nz) => { const s = { name, poi: label, x: o.x, z: o.z, table, slots: sl.map(([a, b]) => slot(o, a, b)), nz }; SPOTS.push(s); POIS.push(s); return s; };
+
+  // 1. fire lookout tower on the slope above the ridge strip: legs reach the ground individually (steep ground)
+  { const o = { x: -2310, z: -300, a: 0.3, y: 0 }; let top = -1e9; const legs = [];
+    for (const [a, b] of [[-2.2, -2.2], [2.2, -2.2], [-2.2, 2.2], [2.2, 2.2]]) { const [x, z] = W(o, a, b), g = groundY(x, z); legs.push([a, b, g]); top = Math.max(top, g); }
+    const dk = top + 11;
+    for (const [a, b, g] of legs) { part(o, 0.28, dk - g + 0.6, 0.28, M.wood, a, (dk + g) / 2 - 0.3, b); }
+    for (const f of [0.35, 0.7]) { const y = top + 11 * f - 1; part(o, 4.6, 0.15, 0.15, M.wood, 0, y, -2.2); part(o, 4.6, 0.15, 0.15, M.wood, 0, y, 2.2); part(o, 0.15, 0.15, 4.6, M.wood, -2.2, y, 0); part(o, 0.15, 0.15, 4.6, M.wood, 2.2, y, 0); }
+    for (let k = 0; k < 5; k++) part(o, 1.0, 0.1, 2.6, M.wood, 3.0, dk - 1.6 - k * 2.0, (k % 2 ? 1 : -1) * 0.4, 0, (k % 2 ? 0.75 : -0.75));   // zig-zag stair flights
+    part(o, 6.0, 0.25, 6.0, M.wood, 0, dk, 0);                                  // catwalk
+    part(o, 4.4, 1.1, 4.4, M.wood, 0, dk + 0.68, 0); part(o, 4.3, 1.1, 4.3, M.glass, 0, dk + 1.78, 0);   // cab: boarded lower half, glass band
+    geo(new THREE.ConeGeometry(3.6, 1.5, 4), M.dark, o, 0, dk + 3.05, 0, Math.PI / 4);
+    o.y = 0; site('LOOKOUT', 'fire lookout', o, ['FOOD CRATE', 'AMMO BOX', 'MEDKIT'], [[-3.2, -1.5], [-3.4, 0.5], [-1, 3.5]], 3); }
+
+  // 2. gas station / general store beside the east road
+  { const o = seat({ x: 1060, z: 20, a: 0 }, 5, 8);
+    part(o, 9, 5.5, 7, M.white, 0, 2, -4); part(o, 9.1, 0.6, 7.1, M.red, 0, 3.6, -4); part(o, 9.4, 0.25, 7.4, M.dark, 0, 4.05, -4);
+    part(o, 1.2, 2.2, 0.06, M.glass, -2.5, 1.1, -0.47); part(o, 3.2, 1.4, 0.06, M.glass, 1.6, 1.6, -0.47);
+    part(o, 10, 0.4, 6, M.white, 0, 4.6, 6); part(o, 10.1, 0.25, 6.1, M.red, 0, 4.35, 6);
+    for (const [a, b] of [[-4.5, 3.5], [4.5, 3.5], [-4.5, 8.5], [4.5, 8.5]]) part(o, 0.25, 6, 0.25, M.metal, a, 1.6, b);
+    part(o, 7, 0.4, 1.4, M.stone, 0, 0, 6); for (const a of [-2, 2]) { part(o, 0.7, 1.7, 0.45, M.red, a, 0.95, 6); part(o, 0.5, 0.35, 0.47, M.white, a, 1.45, 6); }
+    part(o, 0.3, 8.5, 0.3, M.metal, 6.5, 3, 10); part(o, 2.6, 1.3, 0.25, M.yellow, 6.5, 6.9, 10);
+    site('GAS STATION', 'gas / store', o, ['FUEL CAN', 'FOOD CRATE', 'FUEL CAN', 'AMMO BOX'], [[-1.2, 0.4], [3.5, 0.6], [2.7, 6.6], [-3.6, 1.0]], 5); }
+
+  // 3. crashed plane: fuselage nose-down in the trees, one wing torn off, tail up
+  { const o = seat({ x: -2660, z: -1360, a: 1.1 }, 4, 5);
+    part(o, 1.25, 1.35, 7.2, M.white, 0, 0.65, 0, 0, 0.22, 0.35); part(o, 1.27, 0.25, 6.2, M.blue, 0, 0.45, 0.2, 0, 0.22, 0.35);
+    part(o, 1.4, 1.2, 1.2, M.dark, -0.2, 0.0, -3.8, 0.3, 0.5, 0.6);                      // crumpled nose / engine
+    part(o, 9.5, 0.15, 1.6, M.white, 3.8, 1.25, -0.9, 0.05, 0, 0.18);                    // right wing, still on
+    part(o, 4.2, 0.15, 1.5, M.white, -6.5, 0.3, 3.5, 0.9, 0.1, 0.35);                    // left wing, torn off
+    part(o, 0.12, 1.5, 1.2, M.white, 0.1, 2.1, 3.9, 0, 0.22, 0.35); part(o, 3.2, 0.1, 0.8, M.white, 0.3, 1.5, 3.7, 0, 0.2, 0.05);
+    part(o, 0.1, 1.9, 0.18, M.dark, 0.4, 0.4, -4.6, 0, 0.6, 1.2);                       // bent prop blade
+    site('WRECK', 'plane wreck', o, ['MEDKIT', 'FUEL CAN', 'FOOD CRATE'], [[1.6, 0.8], [-1.8, -1.2], [1.4, 3.2]], 3); }
+
+  // 4. hunting cabin 100 m from the NW lake, facing the water: porch, drying rack, woodpile
+  { const o = seat({ x: -1300, z: 2850, a: Math.atan2(110, -250) }, 3.5, 3.5);
+    house(o, 5, 2.6, 4, M.log, M.dark, 1.8); part(o, 5.4, 0.15, 1.8, M.wood, 0, 0.25, 2.9); part(o, 1, 2.0, 0.06, M.dark, 0.8, 1.0, 2.02);
+    part(o, 0.8, 4.8, 0.8, M.stone, -2.3, 2.4, -1); for (const a of [-1.2, 1.2]) part(o, 0.12, 2.2, 0.12, M.wood, a + 4.5, 1.1, 1);
+    part(o, 2.6, 0.1, 0.1, M.wood, 4.5, 2.15, 1); for (const a of [-0.7, 0, 0.7]) part(o, 0.18, 0.5, 0.08, M.red, 4.5 + a, 1.8, 1);
+    for (let k = 0; k < 4; k++) part(o, 1.6, 0.22, 0.22, M.log, -4.2, 0.12 + k * 0.22, -1 + (k % 2) * 0.1);
+    site('HUNT CABIN', 'hunting cabin', o, ['AMMO BOX', 'FOOD CRATE', 'RAW MEAT', 'MEDKIT'], [[-1.4, 3.2], [1.6, 3.4], [4.5, 1.5], [-2.2, 3.6]], 3); }
+
+  // 5. ranch: house, big red barn, two rail corrals, water trough
+  { const o = seat({ x: 1200, z: 2020, a: 0.4 }, 18, 12);
+    house(o, 8, 3.2, 6, M.white, M.red, 2.2, -12, -2); house(o, 10, 6, 8, M.red, M.dark, 3.4, 4, -4);
+    part(o, 2.6, 3.6, 0.06, M.dark, 4, 1.8, 0.03);
+    const corral = (cx, cz, w, d) => { for (const [a, b, len, rot] of [[cx, cz - d / 2, w, 0], [cx, cz + d / 2, w, 0], [cx - w / 2, cz, d, Math.PI / 2], [cx + w / 2, cz, d, Math.PI / 2]]) {
+        for (const y of [0.55, 1.1]) part(o, len, 0.1, 0.08, M.rail, a, y, b, rot);
+        for (let t = -len / 2; t <= len / 2 + 0.01; t += 4) part(o, 0.16, 1.5, 0.16, M.rail, rot ? a : a + t, 0.5, rot ? b + t : b); } };
+    corral(8, 14, 24, 14); corral(-8, 14, 10, 10);
+    part(o, 2.4, 0.5, 0.7, M.metal, 2, 0.25, 9);
+    site('RANCH', 'ranch', o, ['FUEL CAN', 'FOOD CRATE', 'AMMO BOX', 'RAW MEAT'], [[2, 1.2], [6, 1.5], [-12, 1.6], [-10, 2]], 6); }
+
+  // 6. country church: white nave, steeple + spire, little graveyard
+  { const o = seat({ x: -500, z: 700, a: -0.3 }, 4, 9);
+    part(o, 7, 6.5, 13, M.white, 0, 2.5, 0); roof(o, 13.6, 4.2, 7.8, M.dark, 0, 5, 0, Math.PI / 2);
+    part(o, 3, 10.5, 3, M.white, 0, 4.5, 7.5); geo(new THREE.ConeGeometry(2.3, 5.5, 4), M.dark, o, 0, 12.5, 7.5, Math.PI / 4);
+    part(o, 0.15, 1.6, 0.15, M.dark, 0, 16, 7.5); part(o, 0.8, 0.15, 0.15, M.dark, 0, 16.3, 7.5);
+    part(o, 1.6, 2.6, 0.06, M.dark, 0, 1.3, 9.02); for (const a of [-3.52, 3.52]) for (const b of [-3.5, 0.5]) part(o, 0.06, 2, 1, M.glass, a, 2.6, b);
+    for (let k = 0; k < 10; k++) part(o, 0.55, 0.8, 0.15, M.stone, 7 + (k % 5) * 1.6, 0.2, -4 + Math.floor(k / 5) * 2.4, (POI_R() - 0.5) * 0.3, (POI_R() - 0.5) * 0.2);
+    site('CHURCH', 'church', o, ['FOOD CRATE', 'MEDKIT', 'AMMO BOX'], [[-1.5, 10], [1.5, 10.2], [5, -4]], 5); }
+
+  // 7. backcountry lodge strip: 280 x 20 m grass, white end markers, windsock, log lodge + fuel shed on the south side
+  { const L = LODGE, ax = Math.sin(L.a), az = Math.cos(L.a), px = az, pz = -ax;    // axis + perpendicular (south side = -perp)
+    const pos = [], uv = [], n = 28;
+    for (let i = 0; i < n; i++) for (const [s0, s1] of [[i, i + 1]]) {
+      const v = (s, w) => { const x = L.x + ax * (s / n * 2 - 1) * L.hl + px * w, z = L.z + az * (s / n * 2 - 1) * L.hl + pz * w; return [x, groundY(x, z) + 0.1, z]; };
+      const a0 = v(s0, -L.hw), a1 = v(s0, L.hw), b0 = v(s1, -L.hw), b1 = v(s1, L.hw);
+      pos.push(...a0, ...b0, ...a1, ...a1, ...b0, ...b1); uv.push(0, s0 / n, 0, s1 / n, 1, s0 / n, 1, s0 / n, 0, s1 / n, 1, s1 / n); }
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.computeVertexNormals();
+    if (g.attributes.normal.array[1] < 0) { for (let i = 0; i < pos.length; i += 9) for (let k = 0; k < 3; k++) { const t = pos[i + 3 + k]; pos[i + 3 + k] = pos[i + 6 + k]; pos[i + 6 + k] = t; }
+      g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.computeVertexNormals(); }   // make sure it faces up
+    const sm = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ color: 0x86a650, map: grainTexture([4, 50]), polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 })); scene.add(sm);
+    const o = { x: L.x, z: L.z, a: L.a + Math.PI / 2, y: 0 };    // local x = across the strip, local z = along it
+    for (const e of [-1, 1]) for (let w = -8; w <= 8.1; w += 4) { const [x, z] = W(o, w, e * L.hl); const b = box(2, 0.12, 0.7, M.white, x, groundY(x, z) + 0.12, z, G); b.rotation.y = o.a; }
+    { const [x, z] = W(o, -16, -L.hl + 40), y = groundY(x, z);
+      const mp = box(0.1, 5, 0.1, M.metal, x, y + 2.5, z, G); void mp;
+      const mk = new THREE.Mesh(new THREE.ConeGeometry(0.35, 2.4, 8, 1, true).rotateZ(Math.PI / 2 + 0.25).translate(1.2, -0.3, 0), new THREE.MeshLambertMaterial({ color: 0xff6a13, side: THREE.DoubleSide }));
+      mk.position.set(x, y + 4.9, z); mk.rotation.y = 2.2; scene.add(mk); }
+    const lo = seat({ x: L.x - px * 42, z: L.z - pz * 42, a: Math.atan2(px, pz) }, 7, 6);   // faces the strip
+    house(lo, 12, 3.6, 8, M.log, M.dark, 2.8); part(lo, 12.4, 0.15, 2.4, M.wood, 0, 0.3, 5.2);
+    for (const a of [-5.8, 0, 5.8]) part(lo, 0.2, 3.4, 0.2, M.log, a, 1.9, 6.2); part(lo, 12.6, 0.12, 2.8, M.dark, 0, 3.6, 5.4, 0, -0.18);
+    part(lo, 1.1, 2.2, 0.06, M.dark, 0, 1.1, 4.02); part(lo, 0.9, 6.2, 0.9, M.stone, 6.4, 3.1, -1);
+    house(lo, 3.4, 2.4, 2.8, M.wood, M.metal, 1.0, 11, 1);                                // fuel shed
+    const drum = new THREE.CylinderGeometry(0.3, 0.3, 0.9, 8);
+    for (const [a, b] of [[12.9, 0.4], [12.9, 1.1], [13.6, 0.7]]) geo(drum, M.red, lo, a, 0.45, b);
+    site('LODGE', 'lodge', lo, ['FUEL CAN', 'FUEL CAN', 'FOOD CRATE', 'MEDKIT'], [[12.6, 2.4], [10, 2.6], [-2, 5.4], [2.5, 5.6]], 4); }
+
+  { G.updateMatrixWorld(true); const gs = [];   // one vertex-coloured mesh for all seven sites = one draw call
+    for (const o of G.children) { const g = (o.geometry.index ? o.geometry.toNonIndexed() : o.geometry.clone()).applyMatrix4(o.matrix);
+      for (const k of Object.keys(g.attributes)) if (k !== 'position') g.deleteAttribute(k); g.computeVertexNormals();
+      const n = g.attributes.position.count, c = o.material.color, col = new Float32Array(n * 3); for (let i = 0; i < n; i++) col.set([c.r, c.g, c.b], i * 3);
+      g.setAttribute('color', new THREE.BufferAttribute(col, 3)); gs.push(g); }
+    const mm = new THREE.Mesh(mergeGeometries(gs), new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true })); scene.add(mm); shootables.push(mm); }
+  for (const s of POIS) { spawnSpot(s, true); s.away = 0; }
+
+  // ---- forests: deciduous groves on the valley floor + extra conifers feathering the forest edge down onto the benches ----
+  const clearOf = (x, z, r) => Math.abs(x) < 70 + r && z > -700 - r && z < 300 + r ||                                    // home strip + its approaches
+    Math.hypot(x - MEADOW.x, z - MEADOW.z) < 260 + r || Math.hypot(x - PAD.x, z - PAD.z) < 220 + r ||
+    segD(x, z, [LODGE.x - Math.sin(LODGE.a) * 420, LODGE.z - Math.cos(LODGE.a) * 420, LODGE.x + Math.sin(LODGE.a) * 420, LODGE.z + Math.cos(LODGE.a) * 420]) < 40 + r ||
+    POIS.some(s => Math.hypot(x - s.x, z - s.z) < 45 + r) || FARMS.some(([a, b]) => Math.hypot(x - a, z - b) < 40 + r) || inLake(x, z) ||
+    ROADS.some(rd => rd.some((p, i) => i && segD(x, z, [rd[i - 1][0], rd[i - 1][1], p[0], p[1]]) < 10 + r));
+  const dec = [[], [], []], trunks = [];
+  for (let tries = 0; GROVES.length < 55 && tries < 4000; tries++) {
+    const x = (POI_R() - 0.5) * 7000, z = (POI_R() - 0.5) * 6400, h = groundY(x, z);
+    if (h > 70 || clearOf(x, z, 25) || waterDist(x, z) < 15) continue;
+    const gr = { x, z, n: 0 }; GROVES.push(gr); const cnt = 8 + Math.floor(POI_R() * 14), hue = POI_R();
+    for (let k = 0; k < cnt; k++) { const tx = x + (POI_R() - 0.5) * 70, tz = z + (POI_R() - 0.5) * 70; if (clearOf(tx, tz, 0) || waterDist(tx, tz) < 5) continue;
+      const ty = groundY(tx, tz), s = 0.8 + POI_R() * 0.6, c = hue < 0.2 ? 2 : (POI_R() < 0.5 ? 0 : 1);
+      dec[c].push([tx, ty + 4.2 * s, tz, POI_R() * 6, 2.6 * s, 2.3 * s, 2.6 * s]); trunks.push([tx, ty + 1.6 * s, tz, 0, s, s, s]); gr.n++; } }
+  const crown = new THREE.IcosahedronGeometry(1, 0);
+  instanced(crown, mat(0x4f7a32), dec[0], { lod: 2500 }); instanced(crown, mat(0x6f8a2e), dec[1], { lod: 2500 }); instanced(crown, mat(0xb08a2a), dec[2], { lod: 2500 });
+  instanced(new THREE.BoxGeometry(0.35, 3.2, 0.35), mat(0x4a3520), trunks, { lod: 2500 });
+  const con2 = [];
+  for (let i = 0; i < 60000 && con2.length < 2400; i++) {
+    const x = (POI_R() - 0.5) * 2 * (T_OUT - 100), z = (POI_R() - 0.5) * 2 * (T_OUT - 100), h = groundY(x, z);
+    if (h < 25 || h > 850 + 80 * Math.sin(x * 0.0021 + z * 0.0013) || nearMeadow(x, z, 40)) continue;
+    const ny = terrainNormal(x, z)[1]; if (ny < 0.72 || ny > 0.995) continue;
+    if (h < 90 && POI_R() > (h - 25) / 65) continue;                                       // feather the edge: sparser toward the valley floor
+    if (h < 140 && (clearOf(x, z, 0) || waterDist(x, z) < 6)) continue;
+    const s = (h < 90 ? 1.0 : 1.4) + POI_R() * 1.3; con2.push([x, h + 4.5 * s, z, POI_R() * 6, s, s * (1.1 + POI_R() * 0.5), s]);
+  }
+  { const w = POIS.find(p => p.name === 'WRECK'); for (let k = 0; k < 28; k++) { const a = POI_R() * 6.283, r = 14 + POI_R() * 45, x = w.x + Math.cos(a) * r, z = w.z + Math.sin(a) * r, h = groundY(x, z), s = 1.2 + POI_R() * 1.2;
+    con2.push([x, h + 4.5 * s, z, POI_R() * 6, s, s * 1.3, s]); } }   // the wreck came down into a stand of timber
+  instanced(new THREE.ConeGeometry(2.2, 9, 5, 1, true), mat(0x2a5030), con2, { lod: 4000 });
+}
+let _lcT = 0; const _lcP = new THREE.Vector3();
+function cullLoot(dt) {   // loose loot lying in the world is invisible (and costs no draw call) beyond 400 m; re-checked twice a second
+  if ((_lcT -= dt) > 0) return; _lcT = 0.5; camera.getWorldPosition(_lcP);
+  for (const it of loot) if (it.state === 'world' && !falling.has(it)) it.mesh.visible = Math.abs(it.mesh.position.x - _lcP.x) + Math.abs(it.mesh.position.z - _lcP.z) < 560 && it.mesh.position.distanceToSquared(_lcP) < 160000;
+}
 // ---- v0.12 clouds: low-poly flat-shaded cumulus, one instanced draw call, drifting; fade out near the camera (no hard pop) ----
 const CLOUDS = (() => {
   let sd = 917; const r = () => (sd = (sd * 16807) % 2147483647) / 2147483647;     // own seed: the world rand() stream is untouched
@@ -2017,6 +2168,7 @@ const ZS = [];
 const N_CABZ = 2, N_NIGHTZ = 14, Z_SLEEP_R = 500, Z_SLEEP_DT = 1;   // beyond 500 m (and not chasing) a zombie only thinks once a second
 const ZSITES = [{ name: 'FARMHOUSE', x: PAD_HOUSE.x - 6, z: PAD_HOUSE.z, r: 25, n: 10, away: 0 }];
 for (const [nm, n] of [['TRUCK', 6], ['BARN', 5], ['RIDGE STRIP', 5]]) { const sp = SPOTS.find(s => s.name === nm); if (sp) ZSITES.push({ name: nm, x: sp.x, z: sp.z, r: 22, n, away: 0 }); }
+for (const sp of POIS) ZSITES.push({ name: sp.name, x: sp.x, z: sp.z, r: 24, n: sp.nz, away: 0 });   // v0.15 points of interest
 for (const i of [1, 2, 3, 4]) ZSITES.push({ name: 'FARM ' + i, x: FARMS[i][0], z: FARMS[i][1], r: 30, n: 2, away: 0 });
 for (const [r, k] of [[0, 3], [0, 4], [1, 0], [1, 4], [2, 0], [2, 1]]) ZSITES.push({ name: 'ROAD', x: ROADS[r][k][0], z: ROADS[r][k][1], r: 80, n: 1, away: 0, road: true });   // lone wanderers, all >600 m from the cabin
 const N_SITEZ = ZSITES.reduce((a, s) => a + s.n, 0), NZ = N_SITEZ + N_CABZ + N_NIGHTZ;
@@ -2832,8 +2984,18 @@ function drawMap() {
     hand('paddock', px + 46, py - 14, 19); hand('zeds?', px + 40, py + 10, 19, '#8a1a10', 0.1); }
   for (const [fx, fz] of FARMS) { const [px, py] = W2([fx, fz]); x.fillRect(px - 3 + j(0.5), py - 3, 6, 6); x.strokeRect(px + 3, py - 4, 4, 7); }
   hand('farms', X(560), Z(560), 15, '#3b2a1a', -0.15);
+  x.fillStyle = 'rgba(40,80,30,0.55)'; for (const g of GROVES) if (g.n > 3) { const [px, py] = W2([g.x, g.z]); for (let k = 0; k < 3; k++) { x.beginPath(); x.arc(px + (k - 1) * 4 + j(1), py + (k % 2) * 3 + j(1), 2.6, 0, 7); x.fill(); } }
+  x.fillStyle = '#1e1810';
+  { const L = LODGE, ax = Math.sin(L.a), az = Math.cos(L.a), [p0x, p0y] = W2([L.x - ax * L.hl, L.z - az * L.hl]), [p1x, p1y] = W2([L.x + ax * L.hl, L.z + az * L.hl]);
+    x.save(); x.lineWidth = 7; x.strokeStyle = '#1e1810'; x.beginPath(); x.moveTo(p0x, p0y); x.lineTo(p1x, p1y); x.stroke(); x.lineWidth = 4; x.strokeStyle = '#d9cfae'; x.stroke(); x.restore();
+    hand('lodge strip', (p0x + p1x) / 2, (p0y + p1y) / 2 - 16, 16); }
   for (const s of SPOTS) {
     const [px, py] = W2([s.x, s.z]);
+    if (s.poi) { x.strokeRect(px - 4, py - 4, 8, 8); if (s.name === 'LOOKOUT') { x.beginPath(); x.moveTo(px, py - 12); x.lineTo(px - 4, py - 4); x.lineTo(px + 4, py - 4); x.closePath(); x.fill(); }
+      if (s.name === 'CHURCH') { x.fillRect(px - 0.75, py - 13, 1.5, 9); x.fillRect(px - 3.5, py - 10, 7, 1.5); }
+      if (s.name === 'WRECK') { x.font = `bold 18px ${HAND}`; x.fillStyle = '#8a1a10'; x.fillText('x', px - 4, py + 6); x.fillStyle = '#1e1810'; }
+      const off = { LODGE: [0, 22], LOOKOUT: [-58, -2], 'GAS STATION': [6, 16], 'HUNT CABIN': [-34, -14] }[s.name] || [0, -14];
+      hand(s.poi, px + off[0], py + off[1], 16, s.name === 'WRECK' ? '#8a1a10' : '#1e1810'); }
     if (s.name === 'TRUCK') { x.strokeRect(px - 6, py - 3, 12, 6); x.beginPath(); x.arc(px - 3, py + 4, 2, 0, 7); x.arc(px + 4, py + 4, 2, 0, 7); x.fill();
       hand('old truck', px - 52, py - 6, 17); hand('fuel?', px - 46, py + 12, 17, '#8a1a10'); }
     if (s.name === 'BARN') { hand('barn', px + 26, py + 14, 17); hand('fuel?', px + 30, py + 30, 17, '#8a1a10'); }
@@ -3209,7 +3371,7 @@ renderer.setAnimationLoop(() => {
   fpsFrames++; fpsT += dt; instT += dt;
   if (fpsT >= 1) { fps = Math.round(fpsFrames / fpsT); fpsFrames = 0; fpsT = 0; }
   updateRifle(dt); updateBullets(dt); updateFX(dt); updateSmoke(dt); updateWorld(dt, clock.elapsedTime);
-  updateSurvival(dt); updateZombies(dt); updateAnimals(dt); updateItems(dt); CLOUDS.tick(dt); updateDay(dt); updateWater(dt); updateForce(dt); updateBrass(dt); updateFalling(dt); updateSpots(dt); updateAudio(dt);
+  updateSurvival(dt); updateZombies(dt); updateAnimals(dt); updateItems(dt); CLOUDS.tick(dt); updateDay(dt); updateWater(dt); cullLoot(dt); updateForce(dt); updateBrass(dt); updateFalling(dt); updateSpots(dt); updateAudio(dt);
   panelUpdate(ac, dt); compassCard.rotation.y = IN.hdg;
   if (instT > 0.1) { instT = 0; drawWrist(); }
   if ((chunkT += dt) > 0.2) { chunkT = 0; updateChunks(); }
