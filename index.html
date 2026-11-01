@@ -20,7 +20,7 @@
 </script>
 </head>
 <body>
-<div id="info">BUSH PILOT VR v0.16 - PA-18 Super Cub prototype (v0.14: rivers, lakes, thirst + canteen; v0.13: day / night, dusk deadline, lights, sleep; v0.12: natural gunshot, ambient sound, clouds; v0.11: Cub + rifle proportions from reference; v0.10.1: smoother stock; v0.10: performance pass, crouch / jump, more zombies, force grab)
+<div id="info">BUSH PILOT VR v0.17 - PA-18 Super Cub prototype (v0.17: low-poly item models; v0.16: crafting, campfires, traps, spoilage, stamina; v0.15: 7 new places + lodge strip, forests; v0.14: rivers, lakes, thirst + canteen; v0.13: day / night, dusk deadline, lights, sleep; v0.12: natural gunshot, ambient sound, clouds; v0.11: Cub + rifle proportions from reference; v0.10.1: smoother stock; v0.10: performance pass, crouch / jump, more zombies, force grab)
 RIFLE (VR): A/X on the rifle hand = work the lever (tap = full stroke, hold = keep it open) or flick the rifle down-forward, or grab the lever loop with your other hand and work it yourself;
   lever open = no shot; a short stroke won't feed. Load: tip of a round into the gate (right side) - it snaps in; keep grip held and go back to the pouch for the next one.
   Hold the right stick IN (click) + push it up/down while holding the rifle (right hand) = grip angle. Let go of the wrist with a hand on the forend = it stays in that hand.
@@ -1658,13 +1658,79 @@ const ITEM = {
   'CANTEEN':     { sz: [0.13, 0.17, 0.06], col: 0x55623a, tool: true },
 };
 const itemRes = {}, redMat = mat(0xcc1111), glowM = new THREE.MeshBasicMaterial({ color: 0x6b6250 });   // v0.13 lantern glass / torch lens (lit = bright)
-const res = n => itemRes[n] || (itemRes[n] = { g: new THREE.BoxGeometry(...ITEM[n].sz), m: mat(ITEM[n].col) });
+// ---- v0.17 low-poly item models: each item is ONE merged, vertex-coloured, flat-shaded mesh (1 draw call), built once per item type and shared;
+//      every model stays inside its old box size (ITEM[n].sz, centred) so packing, holding, belts and throwing are unchanged ----
+const ITEM_VM = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true });
+const _ic = new THREE.Color();
+function partGeo(p) {   // [kind, a, b, c, x, y, z, col, rx, ry, rz]
+  const [k, a, b, c, x, y, z, col, rx = 0, ry = 0, rz = 0] = p;
+  let g = k === 'b' ? new THREE.BoxGeometry(a, b, c)                                  // box w h d
+    : k === 'c' ? new THREE.CylinderGeometry(a, a, b, c | 0 || 8)                       // cylinder r len segs (axis y)
+    : k === 't' ? new THREE.CylinderGeometry(a[0], a[1], b, c | 0 || 8)                 // tapered cylinder [rTop, rBot] len segs
+    : k === 'k' ? new THREE.ConeGeometry(a, b, c | 0 || 4)                              // cone r h segs
+    : k === 'r' ? new THREE.TorusGeometry(a, b, 3, c | 0 || 10).rotateX(Math.PI / 2)     // ring r tube segs (flat)
+    : new THREE.DodecahedronGeometry(a, 0).scale(1, b, c);                               // 'd' rock r yScale zScale
+  g = g.toNonIndexed(); g.deleteAttribute('uv');
+  g.rotateX(rx); g.rotateY(ry); g.rotateZ(rz); g.translate(x, y, z);
+  _ic.set(col); const n = g.attributes.position.count, cc = new Float32Array(n * 3);
+  for (let i = 0; i < n; i++) { cc[i * 3] = _ic.r; cc[i * 3 + 1] = _ic.g; cc[i * 3 + 2] = _ic.b; }
+  g.setAttribute('color', new THREE.BufferAttribute(cc, 3)); return g;
+}
+const H = Math.PI / 2;
+const meatParts = (c, fat, bone) => [['c', 0.058, 0.05, 7, 0, -0.005, 0, c, 0, 0.3, 0], ['b', 0.05, 0.045, 0.02, 0.05, -0.006, 0.035, fat, 0, 0.5, 0],
+  ['c', 0.011, 0.05, 5, 0.06, -0.005, -0.03, bone, H, 0.9, 0]];
+const MODELS = {
+  'FUEL CAN': [['b', 0.16, 0.26, 0.28, 0, -0.03, 0, 0xc0251b], ['b', 0.17, 0.02, 0.29, 0, 0.1, 0, 0xa01e16], ['b', 0.17, 0.02, 0.29, 0, -0.15, 0, 0xa01e16],
+    ['b', 0.006, 0.2, 0.025, 0.083, -0.03, 0, 0x8e1a13, 0.62], ['b', 0.006, 0.2, 0.025, 0.083, -0.03, 0, 0x8e1a13, -0.62],
+    ['b', 0.006, 0.2, 0.025, -0.083, -0.03, 0, 0x8e1a13, 0.62], ['b', 0.006, 0.2, 0.025, -0.083, -0.03, 0, 0x8e1a13, -0.62],
+    ['b', 0.025, 0.05, 0.02, 0, 0.12, 0.06, 0xa01e16], ['b', 0.025, 0.05, 0.02, 0, 0.12, -0.02, 0xa01e16], ['b', 0.025, 0.02, 0.1, 0, 0.15, 0.02, 0xa01e16],
+    ['c', 0.022, 0.05, 6, 0, 0.13, -0.1, 0x3a3a3a, -0.4]],
+  'AMMO BOX': [['b', 0.3, 0.12, 0.14, 0, -0.02, 0, 0x4b5a2a], ['b', 0.305, 0.03, 0.145, 0, 0.055, 0, 0x3f4c23], ['b', 0.11, 0.012, 0.02, 0, 0.075, 0, 0x2a2a2a],
+    ['b', 0.012, 0.05, 0.03, -0.144, 0.03, 0, 0x2a2a2a], ['b', 0.13, 0.035, 0.003, 0, -0.01, 0.0715, 0xd8c060], ['b', 0.13, 0.035, 0.003, 0, -0.01, -0.0715, 0xd8c060]],
+  'FOOD CRATE': (() => { const p = [['b', 0.27, 0.22, 0.33, 0, 0, 0, 0x6e5434]], L = 0x9b7a4a, D = 0x8a6a3e;
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) p.push(['b', 0.035, 0.24, 0.035, sx * 0.1325, 0, sz * 0.1625, L]);
+    for (const sy of [-1, 1]) for (const s of [-1, 1]) { p.push(['b', 0.03, 0.035, 0.3, s * 0.135, sy * 0.1025, 0, L]); p.push(['b', 0.24, 0.035, 0.03, 0, sy * 0.1025, s * 0.165, L]); }
+    for (const s of [-1, 1]) { p.push(['b', 0.008, 0.06, 0.3, s * 0.142, 0, 0, D]); p.push(['b', 0.24, 0.06, 0.008, 0, 0, s * 0.172, D]); }
+    p.push(['b', 0.2, 0.008, 0.29, 0, 0.116, 0, D]); return p; })(),
+  'MEDKIT': [['b', 0.3, 0.18, 0.1, 0, -0.01, 0, 0xeeeeee], ['b', 0.31, 0.02, 0.102, 0, 0.0, 0, 0xcfcfcf], ['b', 0.1, 0.02, 0.02, 0, 0.09, 0, 0x555555],
+    ['b', 0.08, 0.026, 0.004, 0, -0.01, 0.051, 0xcc1111], ['b', 0.026, 0.08, 0.004, 0, -0.01, 0.051, 0xcc1111],
+    ['b', 0.08, 0.026, 0.004, 0, -0.01, -0.051, 0xcc1111], ['b', 0.026, 0.08, 0.004, 0, -0.01, -0.051, 0xcc1111]],
+  'RAW MEAT': meatParts(0xb0303a, 0xe8d6c0, 0xe8e2d0), 'COOKED MEAT': meatParts(0x6b3a1e, 0xa8743c, 0xd8cdb0),
+  'SMOKED MEAT': [['b', 0.15, 0.015, 0.035, 0, -0.015, -0.035, 0x4a2412, 0, 0.1], ['b', 0.15, 0.015, 0.035, 0, 0.0, 0.0, 0x5a2c16, 0, -0.08], ['b', 0.14, 0.015, 0.035, 0, 0.015, 0.035, 0x40200f, 0, 0.12]],
+  'LANTERN': [['c', 0.06, 0.035, 8, 0, -0.1, 0, 0x3b3f36], ['t', [0.02, 0.064], 0.04, 8, 0, 0.08, 0, 0x3b3f36],
+    ...[[1, 1], [1, -1], [-1, 1], [-1, -1]].map(([a, b]) => ['b', 0.012, 0.15, 0.012, a * 0.045, -0.01, b * 0.045, 0x2b2e28]),
+    ['c', 0.012, 0.02, 6, 0, 0.107, 0, 0x2b2e28], ['b', 0.1, 0.008, 0.01, 0, 0.116, 0, 0x2b2e28], ['b', 0.008, 0.03, 0.01, 0.05, 0.1, 0, 0x2b2e28], ['b', 0.008, 0.03, 0.01, -0.05, 0.1, 0, 0x2b2e28]],
+  'TORCH': [['c', 0.019, 0.16, 8, 0, 0, 0.02, 0x2f353b, H], ['t', [0.0225, 0.019], 0.035, 8, 0, 0, -0.08, 0x3a4148, H], ['b', 0.012, 0.008, 0.02, 0, 0.02, 0.0, 0x8a2a20],
+    ['c', 0.02, 0.012, 8, 0, 0, 0.095, 0x22272b, H]],
+  'CANTEEN': [['c', 0.062, 0.055, 10, 0, -0.022, 0, 0x55623a, H], ['c', 0.064, 0.012, 10, 0, -0.022, 0, 0x7a7d78, H], ['c', 0.016, 0.03, 6, 0, 0.055, 0, 0x7a7d78],
+    ['c', 0.019, 0.016, 6, 0, 0.076, 0, 0x222222], ['b', 0.012, 0.03, 0.01, 0.055, 0.04, 0, 0x3a3f2a]],
+  'BANDAGE': [['c', 0.029, 0.09, 8, 0, -0.001, 0, 0xeeeae0, 0, 0, H], ['c', 0.012, 0.092, 6, 0, -0.001, 0, 0xbab5a6, 0, 0, H], ['b', 0.07, 0.004, 0.04, 0.0, -0.028, 0.03, 0xe2ddd0]],
+  'STICKS': [['c', 0.014, 0.5, 5, 0, -0.012, 0, 0x6b4a2a, H], ['c', 0.012, 0.44, 5, 0.022, -0.016, 0.02, 0x5d3f23, H, 0.02], ['c', 0.012, 0.46, 5, -0.022, -0.016, -0.02, 0x7a5532, H, -0.02],
+    ['c', 0.011, 0.4, 5, 0.0, 0.012, 0.01, 0x664427, H, 0.03]],
+  'STONES': [['d', 0.05, 0.75, 0.9, -0.025, -0.012, 0.0, 0x85827a], ['d', 0.035, 0.8, 1, 0.04, -0.022, 0.025, 0x6f6c66], ['d', 0.03, 0.9, 1, 0.025, -0.025, -0.035, 0x9a968c]],
+  'CLOTH': [['b', 0.22, 0.02, 0.18, 0, -0.01, 0, 0xc9b98f], ['b', 0.2, 0.018, 0.16, 0.005, 0.01, 0.005, 0xb5a37a], ['b', 0.04, 0.006, 0.17, -0.09, 0.02, 0, 0xa5946c]],
+  'WIRE': [['r', 0.068, 0.007, 10, 0, -0.01, 0, 0x9aa0a6], ['r', 0.062, 0.007, 10, 0, 0.004, 0, 0x8a9096], ['r', 0.056, 0.007, 10, 0, 0.016, 0, 0xa4aab0]],
+  'NAILS': [['b', 0.1, 0.05, 0.07, 0, -0.005, 0, 0x8a6c42], ['b', 0.06, 0.03, 0.002, 0, -0.005, 0.0355, 0xd8d0b8], ['b', 0.004, 0.04, 0.004, 0.02, 0.02, 0.01, 0x3c3f44, 0.3],
+    ['b', 0.004, 0.04, 0.004, -0.015, 0.02, -0.01, 0x3c3f44, -0.25, 0, 0.3]],
+  'BOARDS': [['b', 0.13, 0.019, 0.8, -0.003, -0.01, 0, 0xa5814f], ['b', 0.12, 0.019, 0.72, 0.008, 0.01, 0.03, 0x8f6d3e, 0, 0.04]],
+  'CHARCOAL': [['d', 0.035, 0.8, 1, -0.02, -0.01, 0.01, 0x1b1b1b], ['d', 0.03, 0.8, 1, 0.025, -0.012, -0.015, 0x262626], ['d', 0.025, 0.9, 1, 0.01, 0.015, 0.02, 0x141414]],
+  'CAMPFIRE KIT': [...[[-0.04, -0.035], [0, -0.04], [0.04, -0.035], [-0.02, 0.0], [0.02, 0.0], [0, 0.035]].map(([z, y], i) => ['c', 0.02, 0.28, 5, 0, y, z, [0x6b4a2a, 0x5d3f23, 0x7a5532][i % 3], 0, 0, H]),
+    ['c', 0.065, 0.025, 8, -0.08, -0.01, 0, 0xc9b98f, 0, 0, H], ['c', 0.065, 0.025, 8, 0.08, -0.01, 0, 0xc9b98f, 0, 0, H]],
+  'SNARE': [['r', 0.06, 0.004, 10, 0, -0.02, 0, 0x8d9298], ['b', 0.05, 0.004, 0.004, 0.065, -0.02, 0, 0x8d9298], ['b', 0.02, 0.02, 0.17, 0.08, -0.014, 0, 0x6b4a2a]],
+  'SPIKE TRAP': (() => { const p = [['b', 0.6, 0.03, 0.1, 0, -0.045, -0.22, 0x7a5a32], ['b', 0.6, 0.03, 0.1, 0, -0.045, 0.22, 0x7a5a32], ['b', 0.1, 0.03, 0.6, 0, -0.045, 0, 0x6a4c2a],
+      ['b', 0.1, 0.03, 0.6, -0.22, -0.045, 0, 0x6a4c2a], ['b', 0.1, 0.03, 0.6, 0.22, -0.045, 0, 0x6a4c2a]];
+    for (const a of [-0.22, 0, 0.22]) for (const b of [-0.22, 0, 0.22]) p.push(['k', 0.02, 0.09, 4, a, 0.015, b, 0x9a8f7a]); return p; })(),
+  'WATER FILTER': [['c', 0.034, 0.11, 8, 0, -0.015, 0, 0x3d5a6b], ['c', 0.038, 0.02, 8, 0, 0.05, 0, 0xdedede], ['c', 0.038, 0.015, 8, 0, -0.072, 0, 0xdedede],
+    ['c', 0.008, 0.02, 5, 0, 0.07, 0, 0x2a2a2a], ['b', 0.02, 0.06, 0.004, 0, -0.01, 0.035, 0xe8e0a0]],
+  'CLEANING KIT': [['b', 0.17, 0.035, 0.07, -0.01, -0.002, 0, 0x2f3b2a], ['b', 0.17, 0.008, 0.072, -0.01, 0.014, -0.005, 0x26301f], ['c', 0.004, 0.2, 5, 0, 0.0, 0.03, 0x707070, 0, 0, H],
+    ['c', 0.007, 0.012, 6, 0.094, 0.0, 0.03, 0xb08d40, 0, 0, H]],
+};
+const LAN_GLASS = new THREE.CylinderGeometry(0.036, 0.04, 0.13, 8);
+const res = n => itemRes[n] || (itemRes[n] = MODELS[n] ? { g: mergeGeometries(MODELS[n].map(partGeo)), m: ITEM_VM } : { g: new THREE.BoxGeometry(...ITEM[n].sz), m: mat(ITEM[n].col) });
 function makeItem(name, x, y, z) {
   const m = name === 'KNIFE' ? knifeMesh() : new THREE.Mesh(res(name).g, res(name).m); m.position.set(x, y + ITEM[name].sz[1] / 2, z); scene.add(m);
-  if (name === 'MEDKIT') box(0.31, 0.06, 0.02, redMat, 0, 0, 0.05, m);
-  if (name === 'LANTERN') { m.userData.glow = box(0.1, 0.12, 0.1, glowM, 0, 0, 0, m); box(0.15, 0.03, 0.15, res('LANTERN').m, 0, 0.13, 0, m); box(0.02, 0.06, 0.02, res('LANTERN').m, 0, 0.17, 0, m); }
-  if (name === 'CANTEEN') box(0.03, 0.03, 0.03, mat(0x222222), 0, 0.1, 0, m);
-  if (name === 'TORCH') { m.userData.glow = box(0.05, 0.05, 0.012, glowM, 0, 0, -0.1, m); }
+  if (name === 'LANTERN') m.userData.glow = new THREE.Mesh(LAN_GLASS, glowM).translateY(-0.01), m.add(m.userData.glow);   // v0.17 glass chimney inside the cage
+  if (name === 'TORCH') { m.userData.glow = box(0.036, 0.036, 0.006, glowM, 0, 0, -0.098, m); }
   const it = { name, mesh: m, h: ITEM[name].sz[1], state: 'world', fuel: name === 'FUEL CAN' ? CAN_L : 0, cook: 0, water: name === 'CANTEEN' ? 4 : 0, dirty: false };
   loot.push(it); return it;
 }
@@ -1722,7 +1788,7 @@ function pour(it, dt) {
 }
 function cookTick(it, dt) {
   it.cook += dt; if (Math.random() < dt * 2) sfx('sizzle', FIRE_C);
-  if (it.cook >= 4) { it.name = 'COOKED MEAT'; it.mesh.material = res('COOKED MEAT').m; say('MEAT COOKED'); }
+  if (it.cook >= 4) { it.name = 'COOKED MEAT'; it.mesh.geometry = res('COOKED MEAT').g; it.mesh.material = res('COOKED MEAT').m; say('MEAT COOKED'); }
 }
 function loadRound() {
   if (R.tube >= 7) { say('TUBE FULL'); return; } if (R.spare <= 0) { say('NO SPARE AMMO'); return; }
@@ -1782,7 +1848,7 @@ function updateItems(dt) {
   if (mode === 'foot') {             // desktop-friendly: standing at the fire slowly cooks raw meat in your pack
     camera.getWorldPosition(_a);
     const raw = inv.find(i => i.name === 'RAW MEAT');
-    if (raw && nearFireXZ(_a, 2.5)) { if ((deskCook += dt) >= 4) { deskCook = 0; raw.cook = 4; raw.name = 'COOKED MEAT'; raw.mesh.material = res('COOKED MEAT').m; say('MEAT COOKED'); sfx('sizzle', FIRE_C); } }
+    if (raw && nearFireXZ(_a, 2.5)) { if ((deskCook += dt) >= 4) { deskCook = 0; raw.cook = 4; raw.name = 'COOKED MEAT'; raw.mesh.geometry = res('COOKED MEAT').g; raw.mesh.material = res('COOKED MEAT').m; say('MEAT COOKED'); sfx('sizzle', FIRE_C); } }
     else deskCook = 0;
   }
 }
