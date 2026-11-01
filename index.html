@@ -20,7 +20,7 @@
 </script>
 </head>
 <body>
-<div id="info">BUSH PILOT VR v0.11 - PA-18 Super Cub prototype (v0.11: Cub + rifle proportions from reference; v0.10.1: smoother stock; v0.10: performance pass, crouch / jump, more zombies, force grab)
+<div id="info">BUSH PILOT VR v0.12 - PA-18 Super Cub prototype (v0.12: natural gunshot, ambient sound, clouds; v0.11: Cub + rifle proportions from reference; v0.10.1: smoother stock; v0.10: performance pass, crouch / jump, more zombies, force grab)
 RIFLE (VR): A/X on the rifle hand = work the lever (tap = full stroke, hold = keep it open) or flick the rifle down-forward, or grab the lever loop with your other hand and work it yourself;
   lever open = no shot; a short stroke won't feed. Load: tip of a round into the gate (right side) - it snaps in; keep grip held and go back to the pouch for the next one.
   Hold the right stick IN (click) + push it up/down while holding the rifle (right hand) = grip angle. Let go of the wrist with a hand on the forend = it stays in that hand.
@@ -1147,14 +1147,15 @@ function audioGraph() {
   SND.rumbG = gain(0); loopNoise().connect(filt('lowpass', 90, 1)).connect(SND.rumbG).connect(SND.master);
   const ho = A.createOscillator(); ho.type = 'sawtooth'; ho.frequency.value = 470; ho.start();
   SND.hornG = gain(0); ho.connect(filt('bandpass', 950, 3)).connect(SND.hornG).connect(SND.master);
-  // v0.9: valley reverb for the gunshot - diffuse tail + discrete echoes off the ridges, darkened (one convolver, only the shot feeds it)
-  const sr = A.sampleRate, n = Math.floor(sr * 2.6), ir = A.createBuffer(2, n, sr);
-  const taps = [[0.34, 0.55], [0.62, 0.4], [0.97, 0.3], [1.38, 0.2], [1.9, 0.12]];
-  for (let ch = 0; ch < 2; ch++) { const d = ir.getChannelData(ch); let lp = 0;
-    for (let i = 0; i < n; i++) { const tt = i / sr; let x = tt > 0.03 ? (Math.random() * 2 - 1) * 0.16 * Math.exp(-tt / 0.55) : 0;
-      for (const [at, amp] of taps) { const u = tt - at - ch * 0.017; if (u > 0 && u < 0.25) x += (Math.random() * 2 - 1) * amp * Math.exp(-u / 0.05); }
-      lp += (x - lp) * (0.12 + 0.1 * Math.exp(-tt * 2)); d[i] = lp; } }
-  SND.verb = A.createConvolver(); SND.verb.buffer = ir; SND.verb.connect(gain(1.1)).connect(SND.master);
+  // v0.12: ambient beds (very quiet): wind (rises with height above the valley, ducked under the engine), crickets (dusk/night), water (rivers)
+  SND.amb = gain(0.55); SND.amb.connect(SND.master);
+  SND.ambWLP = filt('lowpass', 380, 0.5); SND.ambW = gain(0); loopNoise().connect(SND.ambWLP).connect(SND.ambW).connect(SND.amb);
+  const wl = A.createOscillator(); wl.frequency.value = 0.07; const wlg = gain(120); wl.connect(wlg).connect(SND.ambWLP.frequency); wl.start();   // slow gusts
+  const cr = A.createOscillator(); cr.frequency.value = 4300; const crAM = gain(0), crL = A.createOscillator(); crL.type = 'square'; crL.frequency.value = 26;
+  const crP = A.createOscillator(); crP.type = 'square'; crP.frequency.value = 1.7; const crPg = gain(0.5);
+  crL.connect(crAM.gain); crP.connect(crPg).connect(crAM.gain); cr.connect(crAM); SND.crG = gain(0); crAM.connect(SND.crG).connect(SND.amb); cr.start(); crL.start(); crP.start();
+  SND.waterG = gain(0); const wf = filt('bandpass', 700, 0.9); loopNoise().connect(wf).connect(SND.waterG).connect(SND.amb);
+  const wfl = A.createOscillator(); wfl.frequency.value = 0.9; const wflg = gain(260); wfl.connect(wflg).connect(wf.frequency); wfl.start();   // burble
 }
 function mkPanner(ref, roll) {
   const p = actx.createPanner(); p.panningModel = 'equalpower'; p.distanceModel = 'inverse'; p.refDistance = ref; p.rolloffFactor = roll; p.maxDistance = 2000; return p;
@@ -1180,14 +1181,22 @@ function sfx(kind, pos, delay = 0) {
   };
   const ping = (f, len, vol, at = 0, type = 'sine') => { const o = A.createOscillator(), g = A.createGain(); o.type = type; o.frequency.setValueAtTime(f, t + at); o.frequency.exponentialRampToValueAtTime(f * 0.97, t + at + len);
     g.gain.setValueAtTime(vol, t + at); g.gain.exponentialRampToValueAtTime(0.001, t + at + len); o.connect(g).connect(out); o.start(t + at); o.stop(t + at + len + 0.02); return g; };
-  if (kind === 'bang') {        // layered: sharp crack + blast body + low thump, all fed to the valley reverb/echo
-    const send = A.createGain(); send.gain.value = 0.9; if (SND.verb) send.connect(SND.verb);
-    burst(0.035, 1, 1.0, 'highpass', 2400).connect(send);
-    burst(0.3, 1, 0.95, 'lowpass', 1500).connect(send);
-    burst(0.12, 1, 0.5, 'bandpass', 500).connect(send);
+  if (kind === 'bang') {        // v0.12: natural - sharp crack + blast body + low boom + a very short dark tail (no echo / reverb)
+    burst(0.035, 1, 1.0, 'highpass', 2400);
+    burst(0.25, 1, 0.9, 'lowpass', 1500);
+    burst(0.12, 1, 0.5, 'bandpass', 500);
+    burst(0.45, 1, 0.16, 'lowpass', 650, 0.04);
     const o = A.createOscillator(), g = A.createGain(); o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(38, t + 0.25);
-    g.gain.setValueAtTime(0.95, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.3); o.connect(g).connect(out); g.connect(send); o.start(t); o.stop(t + 0.32);
+    g.gain.setValueAtTime(0.95, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.3); o.connect(g).connect(out); o.start(t); o.stop(t + 0.32);
   }
+  else if (kind === 'bird') {   // short procedural song: a few fast sweeping chirps
+    const n = 3 + Math.floor(Math.random() * 4), f = 2600 + Math.random() * 2200;
+    for (let i = 0; i < n; i++) { const at = i * (0.09 + Math.random() * 0.06), o = A.createOscillator(), g = A.createGain(), f0 = f * (0.9 + Math.random() * 0.25);
+      o.frequency.setValueAtTime(f0, t + at); o.frequency.exponentialRampToValueAtTime(f0 * (Math.random() < 0.5 ? 1.35 : 0.7), t + at + 0.06);
+      g.gain.setValueAtTime(0.0001, t + at); g.gain.linearRampToValueAtTime(0.25, t + at + 0.01); g.gain.exponentialRampToValueAtTime(0.0005, t + at + 0.07);
+      o.connect(g).connect(out); o.start(t + at); o.stop(t + at + 0.08); }
+  }
+  else if (kind === 'owl') { for (const [at, len] of [[0, 0.35], [0.55, 0.18], [0.78, 0.5]]) tone('sine', 400, 360, len, 0.5, at); }
   else if (kind === 'levOpen') { burst(0.018, 1, 0.45, 'highpass', 3200); burst(0.05, 1, 0.35, 'bandpass', 1500, 0.01); ping(2350, 0.07, 0.07, 0.005, 'triangle'); }   // metallic clack + ring
   else if (kind === 'levClose') { burst(0.03, 1, 0.55, 'bandpass', 900); burst(0.02, 1, 0.45, 'highpass', 2600, 0.012); ping(1800, 0.09, 0.08, 0.012, 'triangle'); }
   else if (kind === 'clack') { burst(0.04, 1, 0.35, 'highpass', 1800); burst(0.05, 1, 0.4, 'bandpass', 1200, 0.14); }
@@ -1228,6 +1237,21 @@ function updateAudio(dt) {
   SND.rumbG.gain.setTargetAtTime(inPlane && o.wow ? Math.min(1, V / 12) * 0.3 : 0, t, 0.05);
   const aStall = C.ALPHA_STALL - C.FLAP_DALPHA * Math.sin((o.flap || 0) * Math.PI / 180) / Math.sin(50 * Math.PI / 180);
   SND.hornG.gain.setTargetAtTime(inPlane && !o.wow && V > 5 && o.alpha > aStall - 0.035 ? 0.06 : 0, t, 0.03);   // horn ~2 deg before the break
+  ambientAudio(dt, t, inPlane);
+}
+// v0.12 ambience. TOD.day / TOD.dusk / TOD.night (0..1) are driven by the day cycle (v0.13); water by the river distance (v0.14)
+const TOD = { day: 1, dusk: 0, night: 0 }, AMB = { bird: 4, owl: 20, water: 0 };
+function ambientAudio(dt, t, inPlane) {
+  const ey = _lp.y, gy = groundY(_lp.x, _lp.z), agl = Math.max(0, ey - gy), eng = inPlane ? 0.25 + 0.75 * (1 - clamp((ac.out.rpm || 0) / 900, 0, 1)) : 1;
+  SND.ambW.gain.setTargetAtTime((0.035 + 0.05 * clamp(gy / 900, 0, 1) + 0.03 * clamp(agl / 300, 0, 1)) * eng, t, 0.8);   // wind: ridges / height, ducked under the engine
+  SND.crG.gain.setTargetAtTime(0.012 * Math.max(TOD.dusk, TOD.night * 0.6) * eng * (agl < 30 ? 1 : 0), t, 1.5);
+  SND.waterG.gain.setTargetAtTime(0.05 * AMB.water * eng, t, 0.6);
+  const quiet = !inPlane || (ac.out.rpm || 0) < 200, onGround = agl < 40;
+  if ((AMB.bird -= dt) < 0) { AMB.bird = 3 + Math.random() * 9;
+    const trees = gy > 60 && gy < 950 || TREES.some(p => Math.abs(p[0] - _lp.x) + Math.abs(p[2] - _lp.z) < 150);
+    if (quiet && onGround && trees && TOD.day > 0.5) { const a = Math.random() * 6.28, d = 15 + Math.random() * 30; sfx('bird', _sv.set(_lp.x + Math.cos(a) * d, ey + 4 + Math.random() * 6, _lp.z + Math.sin(a) * d)); } }
+  if ((AMB.owl -= dt) < 0) { AMB.owl = 25 + Math.random() * 40;
+    if (quiet && onGround && TOD.night > 0.6) { const a = Math.random() * 6.28; sfx('owl', _sv.set(_lp.x + Math.cos(a) * 80, ey + 10, _lp.z + Math.sin(a) * 80)); } }
 }
 
 function recenter() {
@@ -1784,6 +1808,39 @@ function spawnSpot(s, full) {
   s.table.forEach((n, i) => { if (full || i === 0 || Math.random() < 0.7) { const [x, y, z] = s.slots[i]; s.items.push(makeItem(n, x, y, z)); } });
 }
 for (const s of SPOTS) { spawnSpot(s, true); s.away = 0; }
+
+// ---- v0.12 clouds: low-poly flat-shaded cumulus, one instanced draw call, drifting; fade out near the camera (no hard pop) ----
+const CLOUDS = (() => {
+  let sd = 917; const r = () => (sd = (sd * 16807) % 2147483647) / 2147483647;     // own seed: the world rand() stream is untouched
+  const parts = [];
+  for (const [x, y, z, s] of [[0, 0, 0, 1], [0.55, -0.1, 0.1, 0.75], [-0.6, -0.12, -0.05, 0.7], [0.15, 0.25, -0.2, 0.7], [-0.2, 0.05, 0.45, 0.62], [0.9, -0.22, -0.3, 0.5], [-1.0, -0.25, 0.3, 0.45]]) {
+    const g = new THREE.IcosahedronGeometry(s, s > 0.65 ? 1 : 0); g.translate(x, y, z); parts.push(g); }
+  const geo = mergeGeometries(parts.map(g => g.toNonIndexed())), p = geo.attributes.position;
+  for (let i = 0; i < p.count; i++) p.setY(i, Math.max(p.getY(i), -0.28));          // flat cumulus bases
+  geo.computeVertexNormals();
+  const m = new THREE.MeshLambertMaterial({ color: 0xffffff, emissive: 0x5a6670, flatShading: true, transparent: true });
+  m.onBeforeCompile = sh => {
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying float vCD;').replace('#include <project_vertex>', '#include <project_vertex>\nvCD = -mvPosition.z;');
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying float vCD;').replace('#include <dithering_fragment>', '#include <dithering_fragment>\ngl_FragColor.a *= smoothstep(60.0, 260.0, vCD);');
+  };
+  const list = [];
+  for (let i = 0; i < 46; i++) {                       // scattered 1,500-3,000 ft over the valley
+    const x = (r() - 0.5) * 9000, z = (r() - 0.5) * 9000, w = 160 + r() * 260;
+    list.push({ x, y: 460 + r() * 450, z, sx: w, sy: w * (0.35 + r() * 0.2), sz: w * (0.6 + r() * 0.3), ry: r() * 6.3 });
+  }
+  for (let k = 0, n = 0; k < 3000 && n < 12; k++) {    // caps on the high peaks
+    const x = (r() - 0.5) * 2 * (T_OUT - 300), z = (r() - 0.5) * 2 * (T_OUT - 300), h = groundY(x, z);
+    if (h < 900) continue; const w = 180 + r() * 160; list.push({ x, y: h + 60 + r() * 80, z, sx: w, sy: w * 0.3, sz: w * 0.7, ry: r() * 6.3, cap: true }); n++;
+  }
+  const im = new THREE.InstancedMesh(geo, m, list.length); im.frustumCulled = false; im.renderOrder = 2; scene.add(im);
+  const W = { x: 2.2, z: -1.1 }, HALF = 4800;          // gentle drift (m/s); valley clouds wrap round the map, caps stay on their peaks
+  const upd = (t) => list.forEach((c, i) => {
+    let x = c.x, z = c.z; if (!c.cap) { x = ((c.x + W.x * t + HALF) % (2 * HALF) + 2 * HALF) % (2 * HALF) - HALF; z = ((c.z + W.z * t + HALF) % (2 * HALF) + 2 * HALF) % (2 * HALF) - HALF; }
+    else x += Math.sin(t * 0.01 + i) * 30;
+    _m4.compose(_v.set(x, c.y, z), _q.setFromAxisAngle(_up, c.ry), _s.set(c.sx, c.sy, c.sz)); im.setMatrixAt(i, _m4); });
+  upd(0); let T = 0, acc = 1;
+  return { im, list, tick(dt) { T += dt; if ((acc += dt) > 0.5) { acc = 0; upd(T); im.instanceMatrix.needsUpdate = true; } } };
+})();
 
 // ---- creatures: instanced, vertex-coloured, merged bodies + procedural limb swing ----
 const vcMat = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true });
@@ -2906,7 +2963,7 @@ renderer.setAnimationLoop(() => {
   fpsFrames++; fpsT += dt; instT += dt;
   if (fpsT >= 1) { fps = Math.round(fpsFrames / fpsT); fpsFrames = 0; fpsT = 0; }
   updateRifle(dt); updateBullets(dt); updateFX(dt); updateSmoke(dt); updateWorld(dt, clock.elapsedTime);
-  updateSurvival(dt); updateZombies(dt); updateAnimals(dt); updateItems(dt); updateForce(dt); updateBrass(dt); updateFalling(dt); updateSpots(dt); updateAudio(dt);
+  updateSurvival(dt); updateZombies(dt); updateAnimals(dt); updateItems(dt); CLOUDS.tick(dt); updateForce(dt); updateBrass(dt); updateFalling(dt); updateSpots(dt); updateAudio(dt);
   panelUpdate(ac, dt); compassCard.rotation.y = IN.hdg;
   if (instT > 0.1) { instT = 0; drawWrist(); }
   if ((chunkT += dt) > 0.2) { chunkT = 0; updateChunks(); }
