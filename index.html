@@ -20,7 +20,7 @@
 </script>
 </head>
 <body>
-<div id="info">BUSH PILOT VR v0.9 - PA-18 Super Cub prototype (gunplay pass: real lever stroke, projectile ballistics zeroed at 50 m, recoil, hit effects)
+<div id="info">BUSH PILOT VR v0.9.1 - PA-18 Super Cub prototype (gunplay pass: real lever stroke, projectile ballistics zeroed at 50 m, recoil, hit effects)
 RIFLE (VR): A/X on the rifle hand = work the lever (tap = full stroke, hold = keep it open) or flick the rifle down-forward, or grab the lever loop with your other hand and work it yourself;
   lever open = no shot; a short stroke won't feed. Load: tip of a round into the gate (right side) - it snaps in; keep grip held and go back to the pouch for the next one.
   Right stick up/down while holding it (right hand) = grip angle. Let go of the wrist with a hand on the forend = it stays in that hand.
@@ -1013,7 +1013,7 @@ let lookYaw = 0, lookPitch = 0, needRecenter = 0, crashTimer = 0;
 let mode = 'plane';                                 // 'plane' | 'foot'
 const footRig = new THREE.Group(); scene.add(footRig);
 const EYE = 1.6, WALK = 2.2;                          // on-foot eye height (m) and walk speed (m/s)
-const R = { hand: null, support: null, chambered: false, tube: 7, leverT: 0, flashT: 0, stowed: false, prev: new THREE.Vector3(), vel: new THREE.Vector3(), flickCool: 0,
+const R = { stockW: 0, stockD: 9, hand: null, support: null, chambered: false, tube: 7, leverT: 0, flashT: 0, stowed: false, prev: new THREE.Vector3(), vel: new THREE.Vector3(), flickCool: 0,
             stock: false, ads: false, lastQ: new THREE.Quaternion() };
 let msg = '', msgT = 0;
 const say = m => { msg = m; msgT = 3; };
@@ -1384,7 +1384,7 @@ function updateFoot(dt) {
   }
 }
 const _ks = new THREE.Vector3();
-const STOCK_IN = 0.2, STOCK_OUT = 0.27, ROT_DEADZONE = 0.1 * Math.PI / 180;
+const _sq = new THREE.Quaternion(), _sp = new THREE.Vector3();
 const _f = new THREE.Vector3(), _u = new THREE.Vector3(), _r = new THREE.Vector3(), _eye = new THREE.Vector3(), _hf = new THREE.Vector3(), _hu = new THREE.Vector3(), _tq = new THREE.Quaternion();
 function aimQuat(f, up, out) {    // rifle -z along f, roll taken from the primary hand's up
   _r.crossVectors(f, up); if (_r.lengthSq() < 1e-4) _r.crossVectors(f, _up); _r.normalize();
@@ -1395,27 +1395,37 @@ function updateRifle(dt) {
   if (R.hand === 'desk') {
     camera.updateWorldMatrix(true, false); camera.getWorldQuaternion(_tq);
     _tp.copy(camera.localToWorld(R.ads ? _a.set(0, -SIGHT_Y, -CHEEK_Z) : _a.set(0.13, -0.17, -0.32)));
-    R.stock = false; rifleHold(dt);
+    R.stock = false; R.stockW = 0; rifleHold(dt);
   } else if (R.hand) {
     // zero-lag: this frame's grip + eye poses (XR updates them before this callback), rifle posed right before render
     const g = R.hand; g.getWorldPosition(_a); g.getWorldQuaternion(_qa);
     _q1.copy(_qa).multiply(_gq.setFromAxisAngle(_xAxis, gripPitch * D2R));      // controller grip -> rifle wrist angle
-    if (R.free) { _tq.copy(_qa).multiply(R.freeQ); _tp.copy(R.freeP).applyQuaternion(_qa).add(_a); }
+    if (R.free) { _tq.copy(_qa).multiply(R.freeQ); _tp.copy(R.freeP).applyQuaternion(_qa).add(_a); R.stockW = 0; R.stock = false; }
     else {
       _hu.set(0, 1, 0).applyQuaternion(_q1);
       const M = eyeWorld(g.userData.src?.handedness === 'left' ? 0 : 1);      // sighting eye on the rifle-hand side
       _eye.setFromMatrixPosition(M); _hf.set(0, 0, -1).transformDirection(M); _w.set(0, 1, 0).transformDirection(M);
-      // virtual stock: grip hand near where it sits with the butt shouldered and the eye on the sights (hysteresis)
+      // virtual stock (v0.9.1: progressive). Shoulder point = where the rear (grip) hand sits with the butt in the shoulder and the cheek on the comb:
+      // CHEEK_Z ahead of the sighting eye, SIGHT_Y below it, in the eye's vertical plane (eye directly over the sight line).
       _b.copy(_eye).addScaledVector(_hf, CHEEK_Z).addScaledVector(_w, -SIGHT_Y);
-      R.stock = _a.distanceTo(_b) < (R.stock ? STOCK_OUT : STOCK_IN);
-      if (R.support) R.support.getWorldPosition(_b);
-      if (R.stock) {            // aim = eye -> sight line above the support hand (or the grip hand one-handed); cheek weld puts the eye on the sights
+      const dS = _a.distanceTo(_b), wT = 1 - smooth01(clamp((dS - GUN.stockFull) / (GUN.stockEngage - GUN.stockFull), 0, 1));
+      R.stockD = dS;
+      // unshouldered pose: two-hand aim (grip -> forend hand) or the bare grip
+      if (R.support) { R.support.getWorldPosition(_b); _d.subVectors(_b, _a).normalize(); aimQuat(_d, _hu, _tq).multiply(SUPPORT_TILT); }
+      else _tq.copy(_q1);
+      _tp.copy(_a);
+      if (wT > 0 || R.stockW > 0) {   // shouldered pose: eye -> sight line above the support hand (or grip hand); cheek weld puts the eye on the sights
         if (!R.support) _b.copy(_a);
         _b.addScaledVector(_hu, SIGHT_Y);
         _d.subVectors(_b, _eye); if (_d.lengthSq() < 0.0064) _d.copy(_hf); _d.normalize();
-        aimQuat(_d, _hu, _tq); _tp.copy(_eye).sub(_v.set(0, SIGHT_Y, CHEEK_Z).applyQuaternion(_tq));
-      } else if (R.support) { _d.subVectors(_b, _a).normalize(); aimQuat(_d, _hu, _tq).multiply(SUPPORT_TILT); _tp.copy(_a); }
-      else { _tq.copy(_q1); _tp.copy(_a); }
+        aimQuat(_d, _hu, _sq); _sp.copy(_eye).sub(_v.set(0, SIGHT_Y, CHEEK_Z).applyQuaternion(_sq));
+        // the stock's own pull is rate-capped so the rifle never moves toward the face faster than ~1.5 cm / 1 deg per frame
+        const dp = _sp.distanceTo(_tp), da = _sq.angleTo(_tq);
+        const maxDw = Math.min(dp > 1e-6 ? GUN.stockCapPos / dp : 1, da > 1e-6 ? GUN.stockCapRot * D2R / da : 1);
+        R.stockW += clamp(wT - R.stockW, -maxDw, maxDw);
+        _tq.slerp(_sq, R.stockW); _tp.lerp(_sp, R.stockW);
+      }
+      R.stock = R.stockW > 0.5;
     }
     // lever flick: quick downward-forward snap of the rifle hand
     R.vel.subVectors(_a, R.prev).divideScalar(Math.max(dt, 1e-3)); R.prev.copy(_a);
@@ -1423,7 +1433,7 @@ function updateRifle(dt) {
     R.flickCool -= dt;
     if (!R.levHand && R.flickCool <= 0 && R.vel.y < -1.6 && (R.vel.x * _d.x + R.vel.z * _d.z) > 0.4) { cycleLever(); R.flickCool = 0.45; }
     rifleHold(dt);
-  } else { R.sig = ''; R.baseP.copy(rifle.position); R.baseQ.copy(rifle.quaternion); R.wantFire = false; if (R.levHand) R.levHand = null; }
+  } else { R.sig = ''; R.stockW = 0; R.stock = false; R.baseP.copy(rifle.position); R.baseQ.copy(rifle.quaternion); R.wantFire = false; if (R.levHand) R.levHand = null; }
   R.wantFire = false;
   // hands: hide controller hands that hold the rifle (clear sight line), show small gloves under the wood instead
   let leftOnRifle = false;
@@ -1992,7 +2002,11 @@ function dropRound(g) { const m = rounds.get(g); if (!m) return; rounds.delete(g
 const GUN = {
   gripPitchDeg: -40,   // controller grip -> rifle wrist angle (deg, - = muzzle down). Right stick up/down while holding the rifle (right hand) = 5 deg steps, saved
   handoffBlend: 0.08,  // s: support hand grabs / lets go, hand-offs - old pose melts into the new one (no snaps)
-  stockBlend: 0.10,    // s: virtual stock engage / disengage (and desktop ADS)
+  stockBlend: 0.10,    // s: desktop ADS in/out blend
+  stockEngage: 0.12,   // m: rear hand this close to the shoulder/cheek point -> virtual stock starts pulling in (weight 0)
+  stockFull: 0.05,     // m: ... this close -> fully shouldered (weight 1). Smoothstep in between, no timed pop
+  stockCapPos: 0.015,  // m/frame: max movement the stock pull itself may add (hand motion passes straight through)
+  stockCapRot: 1.0,    // deg/frame: max rotation the stock pull itself may add
   pickupBlend: 0.12,   // s: rifle flies into the hand on pick-up
   inertiaWn: 55,       // rad/s: one-handed muzzle lag spring (critically damped; higher = lighter rifle, 0 = off). None two-handed / shouldered
   leverTime: 0.12,     // s per half stroke (open, then close)
@@ -2067,9 +2081,45 @@ const FX = {
   metal: (p, d) => emit(4, p, 0xd8d8d0, { v: _v.set(-d.x, 1, -d.z), rnd: 2.5, s0: 0.012, s1: 0.008, life: 0.4, drag: 0.5, grav: 9.8 }),
   blood: (p, d) => { emit(10, p, 0x5c0a0a, { v: _v.set(d.x * 1.6, 0.6, d.z * 1.6), rnd: 1.3, s0: 0.03, s1: 0.02, life: 0.9, drag: 0.6, grav: 9.8, spin: 15 });
                      emit(4, p, 0x420606, { v: _v.set(d.x * 0.8, 0.2, d.z * 0.8), rnd: 0.4, s0: 0.05, s1: 0.13, life: 0.5, drag: 4, grav: 0.5 }); },
-  smoke: (p, d) => emit(7, p, 0xb9b7ae, { v: _v.copy(d).multiplyScalar(3.5), rnd: 0.35, s0: 0.03, s1: 0.26, life: 2.6, drag: 2.6, grav: -0.25, spin: 1 }),
-  wisp: p => emit(2, p, 0xc4c2ba, { v: _v.set(0, 0.25, 0), rnd: 0.08, s0: 0.015, s1: 0.08, life: 1.4, drag: 1.5, grav: -0.2, spin: 1 }),
+  smoke: (p, d) => puff(3, p, d, SMOKE.muzzle),
+  wisp: p => puff(1, p, null, SMOKE.wisp),
 };
+// ---- v0.9.1 gun smoke: a few soft, nearly transparent point sprites (one draw call), fading out near the eyes ----
+const SMOKE = {
+  muzzle: { a0: 0.10, life: 1.3, s0: 0.05, s1: 0.22, out: 2.2, up: 0.35, rnd: 0.12, drag: 2.4 },   // a0 = start opacity, sizes in m
+  wisp:   { a0: 0.05, life: 1.0, s0: 0.03, s1: 0.09, out: 0, up: 0.22, rnd: 0.04, drag: 1.5 },
+  nearCull: 0.30, nearFade: 0.55,   // m from the eyes: invisible inside nearCull, full opacity beyond nearFade
+};
+const SMN = 24, smGeo = new THREE.BufferGeometry(), smPos = new Float32Array(SMN * 3), smCol = new Float32Array(SMN * 4), smSize = new Float32Array(SMN);
+smGeo.setAttribute('position', new THREE.BufferAttribute(smPos, 3)); smGeo.setAttribute('color', new THREE.BufferAttribute(smCol, 4)); smGeo.setAttribute('psize', new THREE.BufferAttribute(smSize, 1));
+const smMat = new THREE.PointsMaterial({ size: 1, vertexColors: true, transparent: true, depthWrite: false, sizeAttenuation: true,
+  map: (() => { const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'), gr = x.createRadialGradient(32, 32, 0, 32, 32, 32);
+    gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.5, 'rgba(255,255,255,0.45)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = gr; x.fillRect(0, 0, 64, 64); return new THREE.CanvasTexture(c); })() });
+smMat.onBeforeCompile = sh => { sh.vertexShader = sh.vertexShader.replace('uniform float size;', 'uniform float size;\nattribute float psize;').replace('gl_PointSize = size;', 'gl_PointSize = size * psize;'); };
+const smPts = new THREE.Points(smGeo, smMat); smPts.frustumCulled = false; smPts.renderOrder = 5; scene.add(smPts);
+const SMP = Array.from({ length: SMN }, () => ({ t: 0, life: 0, p: V3(), v: V3(), o: null, k: 1 })); let smIdx = 0, smLive = 0;
+for (let i = 0; i < SMN; i++) smPos[i * 3 + 1] = -1e4;
+const _se = V3();
+function eyePos(v) { return renderer.xr.isPresenting ? v.setFromMatrixPosition(eyeWorld(0)) : camera.getWorldPosition(v); }
+function puff(n, p, d, o) {
+  eyePos(_se); if (p.distanceTo(_se) < SMOKE.nearCull * 0.6) return;            // never spawn in your face
+  for (let k = 0; k < n; k++) { const q = SMP[smIdx++ % SMN]; q.t = 0; q.life = o.life * (0.8 + Math.random() * 0.4); q.o = o; q.k = 0.7 + Math.random() * 0.6;
+    q.p.copy(p); if (d) q.p.addScaledVector(d, 0.04 + k * 0.05);                   // start just past the muzzle, strung out down range
+    q.v.set(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).multiplyScalar(2 * o.rnd); if (d) q.v.addScaledVector(d, o.out * (1 - k * 0.25)); q.v.y += o.up; }
+  smLive = 3;
+}
+function updateSmoke(dt) {
+  if (smLive <= 0) return; let any = false; eyePos(_se);
+  for (let i = 0; i < SMN; i++) { const q = SMP[i];
+    if (q.life <= 0 || (q.t += dt) >= q.life) { if (q.life > 0) { q.life = 0; smCol[i * 4 + 3] = 0; smPos[i * 3 + 1] = -1e4; } continue; } any = true;
+    const o = q.o, u = q.t / q.life; q.v.multiplyScalar(Math.exp(-o.drag * dt)); q.v.y += 0.25 * dt; q.v.addScaledVector(WIND, dt * 1.2);   // rises and drifts downwind
+    q.p.addScaledVector(q.v, dt);
+    const near = smooth01(clamp((q.p.distanceTo(_se) - SMOKE.nearCull) / (SMOKE.nearFade - SMOKE.nearCull), 0, 1));
+    const a = o.a0 * q.k * Math.min(1, q.t * 12) * (1 - u) * (1 - u) * near;     // quick fade-in, quadratic fade-out, faded near the eyes
+    smPos.set([q.p.x, q.p.y, q.p.z], i * 3); smCol.set([0.82, 0.81, 0.78, a], i * 4); smSize[i] = (o.s0 + (o.s1 - o.s0) * Math.sqrt(u)) * q.k;
+  }
+  smGeo.attributes.position.needsUpdate = smGeo.attributes.color.needsUpdate = smGeo.attributes.psize.needsUpdate = true; if (!any) smLive--;
+}
 
 // ---- ballistics: fast projectile, gravity + drag, fixed 1/240 s steps, exact segment hits ----
 const BH = 1 / 240, BORE_BELOW = SIGHT_Y - muzzle.position.y;   // bore is 3 cm under the sight line
@@ -2171,22 +2221,22 @@ function shoot() {
   R.flashT = 0.045; flash.visible = flashSpr.visible = true; flash.rotation.z = flashSpr.material.rotation = Math.random() * 6.3;
   FX.smoke(_kp, _v.set(0, 0, -1).applyQuaternion(_qb));
   sfx('bang'); alertNoise(_kp);
-  const m = (g === 'desk' ? RECOIL2.desk : R.stock ? RECOIL2.stock : R.support ? RECOIL2.twoHand : 1), j = 1 + (Math.random() - 0.5) * 2 * RECOIL2.random;
+  const mFree = R.support ? RECOIL2.twoHand : 1, m = (g === 'desk' ? RECOIL2.desk : mFree + (RECOIL2.stock - mFree) * (R.stockW || 0)), j = 1 + (Math.random() - 0.5) * 2 * RECOIL2.random;
   R.rec.av += RECOIL2.rise * m * j; R.rec.yv += (Math.random() - 0.5) * 2 * RECOIL2.yaw * m; R.rec.zv += RECOIL2.kick * m * j;
   if (g !== 'desk') { pulse(g, RECOIL.hapticMain, RECOIL.hapticMainMs); if (R.support) pulse(R.support, RECOIL.hapticSupport, RECOIL.hapticSupportMs); }
 }
 const _qb = new THREE.Quaternion(), _qi = new THREE.Quaternion(), _qe = new THREE.Quaternion(), _ev = V3(), _q1 = new THREE.Quaternion(), _gq = new THREE.Quaternion(), _tp = V3(), _pv = V3(), _pv2 = V3();
 function springStep(x, v, wn, z, h) { return v + (-wn * wn * x - 2 * z * wn * v) * h; }
 function rifleHold(dt) {      // called by updateRifle once this frame's target pose (_tq/_tp) is known
-  const sig = [R.hand === 'desk' ? 'd' : R.hand ? R.hand.id || 'h' : '', R.support ? 's' : '', R.stock ? 'k' : '', R.free ? 'f' : '', R.hand === 'desk' && R.ads ? 'a' : ''].join();
+  const sig = [R.hand === 'desk' ? 'd' : R.hand ? R.hand.id || 'h' : '', R.support ? 's' : '', '', R.free ? 'f' : '', R.hand === 'desk' && R.ads ? 'a' : ''].join();
   if (sig !== R.sig) {           // hold changed: start from where the rifle was drawn last frame and melt the offset away
     const wasHeld = !!R.sig;
-    R.blendDur = !wasHeld ? GUN.pickupBlend : (R.sig.includes('k') !== sig.includes('k') || R.sig.includes('a') !== sig.includes('a')) ? GUN.stockBlend : GUN.handoffBlend;
+    R.blendDur = !wasHeld ? GUN.pickupBlend : R.sig.includes('a') !== sig.includes('a') ? GUN.stockBlend : GUN.handoffBlend;
     R.offQ.copy(R.baseQ).multiply(_qi.copy(_tq).invert()); R.offP.subVectors(R.baseP, _tp); R.blendT = 0; R.sig = sig;
   }
   if (R.blendT < R.blendDur) { R.blendT += dt; const k = 1 - smooth01(Math.min(1, R.blendT / R.blendDur));
     _qe.identity().slerp(R.offQ, k); _tq.premultiply(_qe); _tp.addScaledVector(R.offP, k); }
-  const oneHand = R.hand !== 'desk' && !R.support && !R.stock && GUN.inertiaWn > 0;
+  const oneHand = R.hand !== 'desk' && !R.support && GUN.inertiaWn > 0 && R.stockW < 0.999;   // inertia fades out as the stock pulls in
   if (oneHand) {                 // critically damped rotational lag (heavy rifle in one hand). Hand angular velocity is fed forward,
     const n = 4, h = dt / n, wn = GUN.inertiaWn;   // so a steady swing has zero lag - only starts/stops show the weight
     if (!R.tqP) R.tqP = new THREE.Quaternion().copy(_tq), R.ht = V3();
@@ -2202,7 +2252,7 @@ function rifleHold(dt) {      // called by updateRifle once this frame's target 
       const w = R.iw.length(); if (w > 1e-9) { _qe.setFromAxisAngle(_ev.copy(R.iw).divideScalar(w), w * h); R.iq.premultiply(_qe).normalize(); }
     }
   } else { R.iq.copy(_tq); R.iw.set(0, 0, 0); R.tqOk = false; }
-  rifle.quaternion.copy(oneHand ? R.iq : _tq); rifle.position.copy(_tp);
+  rifle.quaternion.copy(oneHand ? _qe.copy(R.iq).slerp(_tq, R.stockW || 0) : _tq); rifle.position.copy(_tp);
   R.baseP.copy(rifle.position); R.baseQ.copy(rifle.quaternion); rifle.updateMatrixWorld();
   updateLever(dt);
   if (R.wantFire) shoot();
@@ -2211,8 +2261,8 @@ function rifleHold(dt) {      // called by updateRifle once this frame's target 
   for (let i = 0; i < n; i++) { rc.av = springStep(rc.a, rc.av, RECOIL2.wn, RECOIL2.zeta, h); rc.a += rc.av * h; rc.yv = springStep(rc.y, rc.yv, RECOIL2.wn, RECOIL2.zeta, h); rc.y += rc.yv * h;
     rc.zv = springStep(rc.z, rc.zv, RECOIL2.kwn, RECOIL2.kzeta, h); rc.z += rc.zv * h; }
   if (Math.abs(rc.a) + Math.abs(rc.z) + Math.abs(rc.y) > 1e-5) {
-    _pv.set(0, -0.04, R.stock ? 0.3 : 0).applyQuaternion(rifle.quaternion);
-    rifle.rotateX(rc.a); rifle.rotateY(rc.y); _pv2.set(0, -0.04, R.stock ? 0.3 : 0).applyQuaternion(rifle.quaternion); rifle.position.add(_pv).sub(_pv2);
+    const pz = 0.3 * (R.hand === 'desk' ? 0 : R.stockW || 0); _pv.set(0, -0.04, pz).applyQuaternion(rifle.quaternion);
+    rifle.rotateX(rc.a); rifle.rotateY(rc.y); _pv2.set(0, -0.04, pz).applyQuaternion(rifle.quaternion); rifle.position.add(_pv).sub(_pv2);
     rifle.translateZ(rc.z);
   }
 }
@@ -2605,7 +2655,7 @@ renderer.setAnimationLoop(() => {
 
   fpsFrames++; fpsT += dt; instT += dt;
   if (fpsT >= 1) { fps = Math.round(fpsFrames / fpsT); fpsFrames = 0; fpsT = 0; }
-  updateRifle(dt); updateBullets(dt); updateFX(dt); updateWorld(dt, clock.elapsedTime);
+  updateRifle(dt); updateBullets(dt); updateFX(dt); updateSmoke(dt); updateWorld(dt, clock.elapsedTime);
   updateSurvival(dt); updateZombies(dt); updateAnimals(dt); updateItems(dt); updateBrass(dt); updateFalling(dt); updateSpots(dt); updateAudio(dt);
   panelUpdate(ac, dt); compassCard.rotation.y = IN.hdg;
   if (instT > 0.1) { instT = 0; drawWrist(); }
