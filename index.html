@@ -8,6 +8,8 @@
   body { margin:0; overflow:hidden; background:#000; font-family:sans-serif; }
   #info { position:absolute; top:8px; left:8px; color:#fff; font-size:12px; line-height:1.4;
           background:rgba(0,0,0,.5); padding:6px 9px; border-radius:4px; pointer-events:none; white-space:pre; }
+  #hud { position:absolute; bottom:8px; left:8px; color:#9f9; font:13px monospace; background:rgba(0,0,0,.5); padding:4px 8px; white-space:pre; pointer-events:none; }
+  #cross { position:absolute; left:50%; top:50%; width:4px; height:4px; margin:-2px; background:#fff; border-radius:2px; display:none; pointer-events:none; }
 </style>
 <script type="importmap">
 { "imports": {
@@ -17,11 +19,16 @@
 </script>
 </head>
 <body>
-<div id="info">BUSH PILOT VR v0.2 - flight prototype (PA-18 Super Cub)
-Desktop: click to mouse-look | W/S or Up/Down pitch | A/D or Left/Right roll
-Q/E rudder | Shift/Ctrl throttle up/down (also = / -) | B brakes | R reset | C recenter view
-VR: RIGHT grip = grab stick, LEFT grip = grab throttle, left stick X = rudder,
-left trigger = brakes, A/X/Y = recenter, B = reset to strip</div>
+<div id="info">BUSH PILOT VR v0.3 - PA-18 Super Cub prototype
+FLY (desktop): click to mouse-look | W/S pitch | A/D roll | Q/E rudder | Shift/Ctrl (or = / -) throttle
+  B brakes | F get out (stopped + idle) | R reset to strip | C recenter
+ON FOOT (desktop): WASD walk (Shift run) | F board (within 3 m) | G grab rifle/loot (G again drops rifle)
+  click fire | X work lever
+VR FLY: R grip = stick, L grip = throttle, L stick X = rudder, L trigger = brakes, Y = get out, A/X = recenter, B = reset
+VR FOOT: L stick walk, R stick snap turn 30, grip = grab, other grip on forend = steady, trigger = fire,
+  A/X on rifle hand or flick rifle down-forward = lever, Y = board, B = reset
+Loot: smoke + orange tarp ~3.6 km SE (paddock ~170 m, bumpy). Walk within 6 m of cabin door to stash.</div>
+<div id="hud"></div><div id="cross"></div>
 <script type="module">
 import * as THREE from 'three';
 import { VRButton } from 'three/addons/webxr/VRButton.js';
@@ -138,7 +145,16 @@ const qRotInv = (q, v) => qRot([-q[0], -q[1], -q[2], q[3]], v);
 const qAxis = (ax, ang) => { const s = Math.sin(ang / 2); return [ax[0] * s, ax[1] * s, ax[2] * s, Math.cos(ang / 2)]; };
 
 // Grass strip runs from z=+10 to z=-300 along x=0 (take off towards -z).
+const PAD = { x: 2400, z: -2700 };   // off-field paddock centre (~3.6 km SE of the cabin strip), long axis along z
 function terrainHeight(x, z) {
+  const h = baseHeight(x, z);
+  const dx = Math.max(0, Math.abs(x - PAD.x) - 50), dz = Math.max(0, Math.abs(z - PAD.z) - 85);
+  if (dx > 150 || dz > 150) return h;
+  const t = smooth(Math.hypot(dx, dz) / 150);
+  const bumps = 0.07 * Math.sin(x * 0.9 + z * 0.31) * Math.sin(z * 0.73) + 0.04 * Math.sin(z * 2.1 + x * 1.3);  // rough paddock
+  return h * t + (PAD_H + bumps) * (1 - t);
+}
+function baseHeight(x, z) {
   const h = 22 * Math.sin(x * 0.0019 + 1.3) * Math.cos(z * 0.0016 + 0.4)
           + 10 * Math.sin(x * 0.0052 + z * 0.0037)
           + 4 * Math.cos(x * 0.012 - z * 0.009)
@@ -146,6 +162,7 @@ function terrainHeight(x, z) {
   const dx = Math.max(0, Math.abs(x) - 60), dz = Math.max(0, z - 60, -380 - z);
   return h * smooth(Math.hypot(dx, dz) / 220);   // flat plateau around the strip
 }
+const PAD_H = baseHeight(PAD.x, PAD.z);
 function terrainNormal(x, z) {
   const e = 1;
   return vNorm([-(terrainHeight(x + e, z) - terrainHeight(x - e, z)) / (2 * e), 1,
@@ -459,6 +476,82 @@ const lines = [];   // merged line segments (fence wires + power lines): one dra
     new THREE.MeshLambertMaterial({ color: 0xff6a13, side: THREE.DoubleSide })); sock.position.set(19, 4.9, -40); sock.rotation.y = 0.6; scene.add(sock);
 }
 
+// ================= v0.3: off-field paddock + loot, cabin stash, tin cans, Winchester =================
+const CABIN_DOOR = new THREE.Vector3(28.4, 0, -15);
+const shootables = [];
+const loot = [], inv = [], stash = [];
+const cans = [];
+let smoke, smokeBase;
+{
+  shootables.push(box(0.06, 2.0, 1.0, mat(0x2e2015), 28.97, 1.0, -15, scene));        // cabin door
+  shootables.push(box(0.45, 0.45, 1.7, mat(0x5b4128), 28.5, 0.225, -16.4, scene));    // stash bench
+  // tin-can range: 5 posts NE of the cabin
+  const cpost = [];
+  for (let i = 0; i < 5; i++) {
+    const z = -28 - i * 2; cpost.push([46, 0, z, 0, 1, 1, 1]);
+    const c = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.12, 8), mat(0xc4c4c4));
+    c.position.set(46, 1.36, z); c.userData = { can: true, home: c.position.clone(), vel: null, t: 0 };
+    scene.add(c); cans.push(c); shootables.push(c);
+  }
+  instanced(new THREE.BoxGeometry(0.12, 1.3, 0.12).translate(0, 0.65, 0), mat(0x6e5a44), cpost);
+
+  // off-field paddock (bumpy, ~170 m between fences) with abandoned farmhouse
+  const py = PAD_H;
+  const pg = new THREE.Mesh(new THREE.PlaneGeometry(24, 170).rotateX(-Math.PI / 2),
+    new THREE.MeshLambertMaterial({ color: 0xa3a05e, map: grainTexture([4, 28]), polygonOffset: true, polygonOffsetFactor: -2 }));
+  pg.position.set(PAD.x, py + 0.03, PAD.z); scene.add(pg);
+  const fp = [], tr = [];
+  for (const e of [-1, 1]) {
+    for (let x = PAD.x - 48; x <= PAD.x + 48; x += 4) fp.push([x, py, PAD.z + e * 90, 0, 1, 1, 1]);
+    for (let k = 0; k < 9; k++) { const x = PAD.x - 40 + k * 10 + rand() * 4, z = PAD.z + e * (110 + rand() * 20), s = 0.9 + rand() * 0.6; tr.push([x, groundY(x, z) + 6 * s, z, 0, s, s, s]); }
+  }
+  instanced(new THREE.BoxGeometry(0.12, 1.3, 0.12).translate(0, 0.65, 0), mat(0x6e5a44), fp);
+  instanced(new THREE.ConeGeometry(2.2, 7, 6), mat(0x2f5a2c), tr);
+  const hx = PAD.x + 34, hz = PAD.z + 20;
+  shootables.push(box(8, 4.5, 9, mat(0x8d8a80), hx + 4, py + 2.25, hz, scene));
+  const hr = new THREE.Mesh(new THREE.ConeGeometry(6.6, 2.6, 4), mat(0x55504a));
+  hr.position.set(hx + 4, py + 5.8, hz); hr.rotation.set(0, Math.PI / 4, 0.07); hr.scale.set(0.95, 1, 1.05); scene.add(hr);
+  box(0.8, 3, 0.8, mat(0x6a3b2c), hx + 6, py + 5.5, hz + 3, scene);                    // chimney
+  shootables.push(box(0.8, 0.9, 1.8, mat(0x4f3a26), hx - 1.2, py + 0.45, hz, scene));   // porch workbench
+  const tarp = new THREE.Mesh(new THREE.PlaneGeometry(8, 5).rotateX(-Math.PI / 2),
+    new THREE.MeshLambertMaterial({ color: 0xff5a00, emissive: 0x7a2600, polygonOffset: true, polygonOffsetFactor: -4 }));
+  tarp.position.set(PAD.x - 20, py + 0.1, PAD.z - 40); tarp.rotation.y = 0.3; scene.add(tarp);
+  smoke = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1, 1),
+    new THREE.MeshLambertMaterial({ color: 0xc8c8c8, transparent: true, opacity: 0.45, depthWrite: false }), 14);
+  smoke.frustumCulled = false; scene.add(smoke); smokeBase = new THREE.Vector3(hx + 6, py + 7, hz + 3);
+
+  // loot on the workbench (real-world sizes)
+  const defs = [['FUEL CAN', [0.18, 0.32, 0.28], 0xc0251b], ['AMMO BOX', [0.3, 0.16, 0.14], 0x4b5a2a],
+                ['FOOD CRATE', [0.3, 0.24, 0.36], 0x9b7a4a], ['MEDKIT', [0.3, 0.2, 0.1], 0xeeeeee]];
+  defs.forEach(([name, sz, col], i) => {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(...sz), mat(col));
+    m.position.set(hx - 1.2, py + 0.9 + sz[1] / 2, hz - 0.6 + i * 0.4); scene.add(m); shootables.push(m);
+    if (name === 'MEDKIT') box(0.31, 0.06, 0.02, mat(0xcc1111), 0, 0, 0.05, m);
+    loot.push({ name, mesh: m, h: sz[1], state: 'world' });
+  });
+}
+// Winchester lever-action (origin = grip hand, barrel along -z)
+const rifle = new THREE.Group(), lever = new THREE.Group(), muzzle = new THREE.Object3D();
+{
+  const wood = mat(0x7a4a22), steel = mat(0x2b2b2e);
+  box(0.04, 0.09, 0.32, wood, 0, -0.035, 0.2, rifle);                    // stock
+  box(0.036, 0.07, 0.17, steel, 0, 0, -0.06, rifle);                     // receiver
+  const brl = new THREE.Mesh(new THREE.CylinderGeometry(0.011, 0.011, 0.56, 6).rotateX(Math.PI / 2), steel); brl.position.set(0, 0.018, -0.42); rifle.add(brl);
+  const tube = new THREE.Mesh(new THREE.CylinderGeometry(0.009, 0.009, 0.44, 6).rotateX(Math.PI / 2), steel); tube.position.set(0, -0.008, -0.37); rifle.add(tube);
+  box(0.034, 0.035, 0.24, wood, 0, -0.01, -0.27, rifle);                 // forend
+  box(0.004, 0.02, 0.01, steel, 0, 0.035, -0.69, rifle);                 // front sight
+  box(0.012, 0.015, 0.008, steel, 0, 0.036, -0.2, rifle);                // rear sight
+  lever.position.set(0, -0.035, -0.1); rifle.add(lever); box(0.012, 0.05, 0.13, steel, 0, -0.025, 0.07, lever);
+  muzzle.position.set(0, 0.018, -0.71); rifle.add(muzzle);
+  scene.add(rifle);
+}
+const flash = new THREE.Mesh(new THREE.ConeGeometry(0.045, 0.16, 6).rotateX(-Math.PI / 2).translate(0, 0, -0.08), new THREE.MeshBasicMaterial({ color: 0xffc040 }));
+flash.visible = false; muzzle.add(flash);
+const rifleHome = () => { rifle.position.set(28.75, 0.36, -13.6); rifle.rotation.set(1.3, 0, -0.12, 'YXZ'); rifle.visible = true; };
+rifleHome();
+const markers = Array.from({ length: 8 }, () => { const m = new THREE.Mesh(new THREE.SphereGeometry(0.05, 6, 4), new THREE.MeshBasicMaterial({ color: 0xffee33 })); m.visible = false; m.userData.t = 0; scene.add(m); return m; });
+let markerIdx = 0;
+
 // ---- aircraft (body frame = physics frame) ----
 const plane = new THREE.Group(); scene.add(plane);
 const yellow = mat(0xf2c12e), dark = mat(0x262626), grey = mat(0x6d6d6d), tube = mat(0x9a9a9a), black = mat(0x111111);
@@ -542,7 +635,7 @@ function drawInstruments(a) {
   gauge(320, 'VSI FPM', fpm, -2000, 2000, 500, (fpm >= 0 ? '+' : '') + (Math.round(fpm / 10) * 10));
   gauge(448, 'RPM', o.rpm || 0, 0, 3000, 500, ((o.rpm || 0)).toFixed(0));
   ix.fillStyle = a.crashed ? '#f44' : '#9f9'; ix.font = '14px monospace'; ix.textAlign = 'left';
-  ix.fillText(a.crashed ? 'CRASH: ' + a.crashReason : `FPS ${fps}  THR ${(a.ctl.throttle * 100).toFixed(0)}%${a.ctl.brake > 0.05 ? '  BRAKE' : ''}${o.stall > 0.3 ? '  STALL' : ''}`, 8, 150);
+  ix.fillText(a.crashed ? 'CRASH: ' + a.crashReason : (msgT > 0 && mode === 'plane' ? msg : `FPS ${fps}  THR ${(a.ctl.throttle * 100).toFixed(0)}%${a.ctl.brake > 0.05 ? '  BRK' : ''}${o.stall > 0.3 ? '  STALL' : ''}  INV ${inv.length} STASH ${stash.length}`), 8, 150);
   itex.needsUpdate = true;
 }
 
@@ -557,6 +650,24 @@ addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; cam
 const ac = createAircraft();
 const ctl = ac.ctl;
 let lookYaw = 0, lookPitch = 0, needRecenter = 0, crashTimer = 0;
+let mode = 'plane';                                 // 'plane' | 'foot'
+const footRig = new THREE.Group(); scene.add(footRig);
+const EYE = 1.6, WALK = 2.2;                          // on-foot eye height (m) and walk speed (m/s)
+const R = { hand: null, support: null, chambered: false, tube: 7, leverT: 0, flashT: 0, stowed: false, prev: new THREE.Vector3(), vel: new THREE.Vector3(), flickCool: 0 };
+let msg = '', msgT = 0;
+const say = m => { msg = m; msgT = 3; };
+const _a = new THREE.Vector3(), _b = new THREE.Vector3(), _w = new THREE.Vector3(), _d = new THREE.Vector3(), _qa = new THREE.Quaternion();
+
+// sound (tiny noise bursts)
+let actx = null;
+const audioInit = () => { if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)(); if (actx.state === 'suspended') actx.resume(); };
+addEventListener('click', audioInit); addEventListener('keydown', audioInit);
+function sfx(kind) {
+  if (!actx) return;
+  const bang = kind === 'bang', len = bang ? 0.4 : 0.03, b = actx.createBuffer(1, Math.floor(actx.sampleRate * len), actx.sampleRate), d = b.getChannelData(0);
+  for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, bang ? 5 : 1);
+  const s = actx.createBufferSource(), g = actx.createGain(); s.buffer = b; g.gain.value = bang ? 0.9 : 0.25; s.connect(g).connect(actx.destination); s.start();
+}
 
 function recenter() {
   if (!renderer.xr.isPresenting) { lookYaw = lookPitch = 0; return; }
@@ -565,24 +676,100 @@ function recenter() {
   xrOffset.quaternion.copy(yq);
   xrOffset.position.copy(camera.position).applyQuaternion(yq).negate();
 }
-function resetFlight() { resetAircraft(ac); crashTimer = 0; }
-renderer.xr.addEventListener('sessionstart', () => { needRecenter = 5; });
+function toPlane() { rig.add(xrOffset); mode = 'plane'; ctl.brake = 0; lookYaw = lookPitch = 0; needRecenter = renderer.xr.isPresenting ? 2 : 0; }
+function resetFlight() {
+  if (mode === 'foot') toPlane();
+  if (R.hand) { R.hand = R.support = null; rifleHome(); }
+  resetAircraft(ac); crashTimer = 0;
+}
+function exitPlane() {
+  if (!((ac.out.V || 0) < 1 && ctl.throttle < 0.05 && !ac.crashed)) { say('STOP + IDLE TO EXIT'); return; }
+  const s = qRot(ac.q, [-2.2, 0, -0.3]), f = qRot(ac.q, [0, 0, -1]), yaw = Math.atan2(-f[0], -f[2]);
+  const x = ac.pos[0] + s[0], z = ac.pos[2] + s[2];
+  footRig.position.set(x, groundY(x, z) + EYE, z); footRig.rotation.set(0, yaw, 0);
+  footRig.add(xrOffset); mode = 'foot'; lookYaw = lookPitch = 0; needRecenter = renderer.xr.isPresenting ? 2 : 0;
+  ctl.elev = ctl.ail = ctl.rud = 0;
+  if (R.stowed) {           // rifle comes out with you, leaning upright in front of you
+    R.stowed = false; const rx = x - Math.sin(yaw) * 0.7, rz = z - Math.cos(yaw) * 0.7;
+    rifle.position.set(rx, groundY(rx, rz) + 0.36, rz); rifle.rotation.set(1.3, yaw, 0, 'YXZ'); rifle.visible = true;
+  }
+}
+function board() {
+  camera.getWorldPosition(_w); const door = qRot(ac.q, [-0.6, 0, 0]);
+  if (Math.hypot(_w.x - ac.pos[0] - door[0], _w.z - ac.pos[2] - door[2]) > 3) { say('TOO FAR FROM PLANE'); return; }
+  if (R.hand) { R.hand = R.support = null; R.stowed = true; rifle.visible = false; say('RIFLE STOWED'); }
+  toPlane();
+}
+renderer.xr.addEventListener('sessionstart', () => { needRecenter = 5; audioInit(); });
 renderer.xr.addEventListener('sessionend', () => { xrOffset.position.set(0, 0, 0); xrOffset.quaternion.identity(); camera.position.set(0, 0, 0); });
+
+// ---- rifle ----
+function cycleLever() {
+  if (R.leverT > 0) return;
+  R.leverT = 0.3; sfx('click');
+  if (!R.chambered && R.tube > 0) { R.tube--; R.chambered = true; }
+}
+function fire(origin, dir) {
+  if (!R.chambered) { sfx('click'); return; }
+  R.chambered = false; R.flashT = 0.06; flash.visible = true; sfx('bang');
+  const ray = new THREE.Raycaster(origin, dir, 0.05, 400);
+  let best = null;
+  const hits = ray.intersectObjects(shootables, false);
+  if (hits.length) best = { p: hits[0].point, d: hits[0].distance, obj: hits[0].object };
+  for (let d = 0.5; d < (best ? best.d : 400); d += 0.5) {           // terrain: cheap ray-march
+    const x = origin.x + dir.x * d, y = origin.y + dir.y * d, z = origin.z + dir.z * d, g = groundY(x, z);
+    if (y < g) { best = { p: new THREE.Vector3(x, g + 0.02, z), d, obj: null }; break; }
+  }
+  if (!best) return;
+  const m = markers[markerIdx++ % markers.length]; m.position.copy(best.p); m.visible = true; m.userData.t = 4;
+  if (best.obj && best.obj.userData.can && !best.obj.userData.vel) {
+    best.obj.userData.vel = dir.clone().multiplyScalar(5).add(new THREE.Vector3(0, 2.5, 0)); best.obj.userData.t = 10;
+  }
+}
+const reach = (h, p) => Math.hypot(h.x - p.x, h.z - p.z) < 0.45 && h.y - p.y > -0.4 && h.y - p.y < 1.7;  // generous downward reach for seated play
+function pickLoot(item) { item.state = 'inv'; item.mesh.visible = false; inv.push(item); say('+ ' + item.name); }
+function handGrab(g) {
+  g.getWorldPosition(_a);
+  if (R.hand && R.hand !== g) { rifle.localToWorld(_b.set(0, 0, -0.3)); if (_a.distanceTo(_b) < 0.3) R.support = g; return; }
+  if (!R.hand && !R.stowed && (reach(_a, rifle.position) || reach(_a, rifle.localToWorld(_b.set(0, 0, -0.35))))) { R.hand = g; R.support = null; R.prev.copy(_a); return; }
+  for (const it of loot) if (it.state === 'world' && reach(_a, it.mesh.position)) { pickLoot(it); return; }
+}
+function dropRifle() {
+  rifle.getWorldDirection(_d); const yaw = Math.atan2(_d.x, _d.z);   // getWorldDirection returns +z
+  R.hand = R.support = null;
+  rifle.position.y = groundY(rifle.position.x, rifle.position.z) + 0.04; rifle.rotation.set(0, yaw, Math.PI / 2, 'YXZ');
+}
+function handRelease(g) { if (R.support === g) R.support = null; if (R.hand === g) dropRifle(); }
 
 // desktop
 const keys = {};
 addEventListener('keydown', e => {
   keys[e.code] = true;
+  if (e.repeat) return;
   if (e.code === 'KeyR') resetFlight();
   if (e.code === 'KeyC') recenter();
+  if (e.code === 'KeyF') mode === 'plane' ? exitPlane() : board();
+  if (mode === 'foot' && e.code === 'KeyX' && R.hand) cycleLever();
+  if (mode === 'foot' && e.code === 'KeyG') desktopGrab();
   if (e.code.startsWith('Arrow') || e.code === 'Space') e.preventDefault();
 });
 addEventListener('keyup', e => { keys[e.code] = false; });
 renderer.domElement.addEventListener('click', () => { if (!renderer.xr.isPresenting) renderer.domElement.requestPointerLock(); });
+addEventListener('mousedown', () => {
+  if (document.pointerLockElement !== renderer.domElement || mode !== 'foot' || R.hand !== 'desk') return;
+  camera.getWorldPosition(_a); camera.getWorldDirection(_d); fire(_a.clone(), _d.clone());
+});
 addEventListener('mousemove', e => {
   if (document.pointerLockElement !== renderer.domElement) return;
   lookYaw -= e.movementX * 0.0025; lookPitch = clamp(lookPitch - e.movementY * 0.0025, -1.4, 1.4);
 });
+function desktopGrab() {
+  if (R.hand === 'desk') { R.hand = null; dropRifle(); return; }
+  camera.getWorldPosition(_a);
+  const near = p => Math.hypot(_a.x - p.x, _a.z - p.z) < 2.5;
+  if (!R.stowed && near(rifle.position)) { R.hand = 'desk'; return; }
+  for (const it of loot) if (it.state === 'world' && near(it.mesh.position)) { pickLoot(it); return; }
+}
 const approach = (x, t, rate, dt) => x + clamp(t - x, -rate * dt, rate * dt);
 function desktopInput(dt) {
   const k = c => keys[c] ? 1 : 0;
@@ -592,17 +779,32 @@ function desktopInput(dt) {
   ctl.throttle = clamp(ctl.throttle + ((k('ShiftLeft') | k('ShiftRight') | k('Equal')) - (k('ControlLeft') | k('ControlRight') | k('Minus'))) * 0.6 * dt, 0, 1);
   ctl.brake = k('KeyB');
 }
+function walk(fwd, right, yaw, speed, dt) {
+  const s = Math.sin(yaw), c = Math.cos(yaw);
+  footRig.position.x += (-s * fwd + c * right) * speed * dt; footRig.position.z += (-c * fwd - s * right) * speed * dt;
+}
+function footDesktop(dt) {
+  const k = c => keys[c] ? 1 : 0;
+  walk((k('KeyW') | k('ArrowUp')) - (k('KeyS') | k('ArrowDown')), (k('KeyD') | k('ArrowRight')) - (k('KeyA') | k('ArrowLeft')),
+       footRig.rotation.y + lookYaw, WALK * (k('ShiftLeft') ? 2 : 1), dt);
+}
 
-// VR controllers (grip space, parented to the cockpit so they ride with the aircraft)
+// VR controllers (grip space; parented to the cockpit rig, or to the foot rig when walking)
 const STICK_RANGE = 0.12, THROTTLE_TRAVEL = 0.15;  // m of hand travel for full deflection / full throttle
+const wc = document.createElement('canvas'); wc.width = 256; wc.height = 96;
+const wctx = wc.getContext('2d'), wtex = new THREE.CanvasTexture(wc); wtex.colorSpace = THREE.SRGBColorSpace;
+const wrist = new THREE.Mesh(new THREE.PlaneGeometry(0.11, 0.041), new THREE.MeshBasicMaterial({ map: wtex }));
+wrist.position.set(0, 0.035, 0.07); wrist.rotation.x = -1.0;
 const grips = [0, 1].map(i => {
   const g = renderer.xr.getControllerGrip(i);
-  g.addEventListener('connected', e => { g.userData.src = e.data; });
+  g.addEventListener('connected', e => { g.userData.src = e.data; if (e.data.handedness === 'left') g.add(wrist); });
   g.addEventListener('disconnected', () => { g.userData.src = null; });
   const h = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.05, 0.1), mat(0x3a3a3a)); g.add(h);
   xrOffset.add(g); return g;
 });
-const vr = { stick: false, stick0: new THREE.Vector3(), thr: false, thr0: 0, thrZ: 0, prev: {} };
+const vignette = new THREE.Mesh(new THREE.RingGeometry(0.07, 0.6, 24), new THREE.MeshBasicMaterial({ color: 0, transparent: true, opacity: 0, depthTest: false }));
+vignette.position.z = -0.1; vignette.renderOrder = 999; vignette.visible = false; camera.add(vignette);
+const vr = { stick: false, stick0: new THREE.Vector3(), thr: false, thr0: 0, thrZ: 0, prev: {}, snap: false };
 const _p = new THREE.Vector3();
 function pressedEdge(gp, i, id) { const p = !!gp.buttons[i]?.pressed, r = p && !vr.prev[id]; vr.prev[id] = p; return r; }
 function xrInput(dt) {
@@ -628,10 +830,90 @@ function xrInput(dt) {
       const x = gp.axes[2] || 0;
       ctl.rud = Math.abs(x) > 0.08 ? Math.sign(x) * (Math.abs(x) - 0.08) / 0.92 : 0;
       ctl.brake = gp.buttons[0]?.value || 0;
-      if (pressedEdge(gp, 4, 'X') | pressedEdge(gp, 5, 'Y')) recenter();
+      if (pressedEdge(gp, 4, 'X')) recenter();
+      if (pressedEdge(gp, 5, 'Y')) exitPlane();
     }
   }
   if (!stickHeld) { const f = Math.exp(-dt * 8); ctl.elev *= f; ctl.ail *= f; }  // spring back to centre
+  vr.stickPrevHeld = stickHeld;
+}
+function footXR(dt) {
+  let lx = 0, ly = 0, rx = 0;
+  vr.stick = vr.thr = false;
+  for (const g of grips) {
+    const src = g.userData.src; if (!src || !src.gamepad) continue;
+    const gp = src.gamepad, h = src.handedness, sq = !!gp.buttons[1]?.pressed;
+    if (h === 'left') { lx = gp.axes[2] || 0; ly = gp.axes[3] || 0; if (pressedEdge(gp, 5, 'Y')) board(); pressedEdge(gp, 4, 'X'); }
+    else { rx = gp.axes[2] || 0; if (pressedEdge(gp, 5, 'B')) resetFlight(); pressedEdge(gp, 4, 'A'); }
+    if (pressedEdge(gp, 1, h + 'sq')) handGrab(g);
+    if (!sq) handRelease(g);
+    const trig = pressedEdge(gp, 0, h + 'trig'), btn = !!gp.buttons[4]?.pressed && !vr.prev[h + 'btn']; vr.prev[h + 'btn'] = !!gp.buttons[4]?.pressed;
+    if (R.hand === g) { if (trig) { muzzle.getWorldPosition(_a); rifle.getWorldDirection(_d).negate(); fire(_a.clone(), _d.clone()); } if (btn) cycleLever(); }
+    else if (btn) recenter();
+  }
+  // smooth locomotion (head-relative) + snap turn
+  const dz = v => Math.abs(v) < 0.15 ? 0 : v;
+  camera.getWorldDirection(_d); const yaw = Math.atan2(-_d.x, -_d.z);
+  const moving = !!(dz(lx) || dz(ly));
+  if (moving) walk(-dz(ly), dz(lx), yaw, WALK, dt);
+  if (Math.abs(rx) > 0.7 && !vr.snap) {
+    vr.snap = true; const ang = -Math.sign(rx) * Math.PI / 6; camera.getWorldPosition(_w);
+    footRig.position.sub(_w).applyAxisAngle(_up, ang).add(_w); footRig.rotation.y += ang;
+  } else if (Math.abs(rx) < 0.3) vr.snap = false;
+  const m = vignette.material; m.opacity += ((moving ? 0.85 : 0) - m.opacity) * Math.min(1, dt * 8); vignette.visible = m.opacity > 0.02;
+}
+function updateFoot(dt) {
+  camera.getWorldPosition(_w);
+  footRig.position.y = groundY(_w.x, _w.z) + EYE;
+  ctl.elev = ctl.ail = ctl.rud = 0; ctl.brake = 1;               // parking brake while you're out
+  if (Math.hypot(_w.x - CABIN_DOOR.x, _w.z - CABIN_DOOR.z) < 6) {  // at the cabin: stash loot, top up the tube
+    if (inv.length) {
+      for (const it of inv) { const k = stash.length; it.state = 'stash'; it.mesh.visible = true; it.mesh.position.set(28.5, 0.45 + it.h / 2, -15.9 - k * 0.42); stash.push(it); }
+      say('STASHED ' + inv.length + ' (TOTAL ' + stash.length + ')'); inv.length = 0;
+    }
+    if (R.tube < 7 && R.hand) { R.tube = 7; say('RIFLE RELOADED'); }
+  }
+}
+function updateRifle(dt) {
+  if (R.hand === 'desk') {
+    rifle.position.copy(camera.localToWorld(_a.set(0.13, -0.17, -0.32))); camera.getWorldQuaternion(rifle.quaternion);
+  } else if (R.hand) {
+    R.hand.getWorldPosition(_a); R.hand.getWorldQuaternion(_qa);
+    if (R.support) { R.support.getWorldPosition(_b); _w.set(0, 1, 0).applyQuaternion(_qa); _m4.lookAt(_a, _b, _w); rifle.quaternion.setFromRotationMatrix(_m4); }
+    else rifle.quaternion.copy(_qa);
+    rifle.position.copy(_a);
+    // lever flick: quick downward-forward snap of the rifle hand
+    R.vel.subVectors(_a, R.prev).divideScalar(Math.max(dt, 1e-3)); R.prev.copy(_a);
+    rifle.getWorldDirection(_d).negate();
+    R.flickCool -= dt;
+    if (R.flickCool <= 0 && R.vel.y < -1.6 && (R.vel.x * _d.x + R.vel.z * _d.z) > 0.4) { cycleLever(); R.flickCool = 0.45; }
+  }
+  if (R.leverT > 0) { R.leverT -= dt; lever.rotation.x = -Math.sin(Math.max(0, R.leverT) / 0.3 * Math.PI) * 0.9; }
+  if (R.flashT > 0 && (R.flashT -= dt) <= 0) flash.visible = false;
+}
+function updateWorld(dt, t) {
+  for (const c of cans) { const u = c.userData;
+    if (u.vel) { u.vel.y -= 9.81 * dt; c.position.addScaledVector(u.vel, dt); c.rotation.x += 9 * dt;
+      const g = groundY(c.position.x, c.position.z) + 0.04; if (c.position.y < g) { c.position.y = g; u.vel.set(0, 0, 0); } }
+    if (u.t > 0 && (u.t -= dt) <= 0) { u.vel = null; c.position.copy(u.home); c.rotation.set(0, 0, 0); } }
+  for (const m of markers) if (m.visible && (m.userData.t -= dt) <= 0) m.visible = false;
+  for (let i = 0; i < 14; i++) {               // smoke plume from the abandoned farmhouse chimney
+    const ph = (t * 0.05 + i / 14) % 1, s = 1.5 + ph * 9;
+    _m4.compose(_v.set(smokeBase.x + ph * 30 + Math.sin(i * 2.1) * 2, smokeBase.y + ph * 80, smokeBase.z + Math.cos(i * 1.7) * 2), _q.identity(), _s.set(s, s, s));
+    smoke.setMatrixAt(i, _m4);
+  }
+  smoke.instanceMatrix.needsUpdate = true;
+  if (msgT > 0) msgT -= dt;
+}
+const hud = document.getElementById('hud'), cross = document.getElementById('cross');
+function statusText() {
+  return `INV ${inv.length}${inv.length ? ' (' + inv.map(i => i.name).join(', ') + ')' : ''}  STASH ${stash.length}` +
+    (R.hand || mode === 'foot' ? `\nWINCHESTER ${R.tube}+${R.chambered ? 1 : 0}${R.hand ? '' : R.stowed ? ' (stowed)' : ' (not held)'}` : '') + (msgT > 0 ? '\n' + msg : '');
+}
+function drawWrist() {
+  wctx.fillStyle = '#111'; wctx.fillRect(0, 0, 256, 96); wctx.fillStyle = '#9f9'; wctx.font = '18px monospace';
+  statusText().replace(/ \(.*?\)/, '').split('\n').forEach((l, i) => wctx.fillText(l.slice(0, 22), 8, 26 + i * 28));
+  wtex.needsUpdate = true; hud.textContent = statusText();
 }
 
 // ======================= LOOP =======================
@@ -639,13 +921,16 @@ const clock = new THREE.Clock();
 let fpsFrames = 0, fpsT = 0, instT = 0;
 renderer.setAnimationLoop(() => {
   const dt = Math.min(clock.getDelta(), 0.05);
-  if (renderer.xr.isPresenting) {
-    xrInput(dt);
+  const xr = renderer.xr.isPresenting;
+  if (xr) {
+    mode === 'plane' ? xrInput(dt) : footXR(dt);
     if (needRecenter > 0 && --needRecenter === 0) recenter();
   } else {
-    desktopInput(dt);
+    mode === 'plane' ? desktopInput(dt) : footDesktop(dt);
     camera.rotation.set(lookPitch, lookYaw, 0, 'YXZ');
   }
+  if (mode === 'foot') updateFoot(dt);
+  cross.style.display = !xr && mode === 'foot' ? 'block' : 'none';
   if (!ac.crashed) {
     const n = Math.max(1, Math.ceil(dt / C.MAX_DT - 1e-6));
     for (let i = 0; i < n; i++) stepAircraft(ac, dt / n);
@@ -658,7 +943,8 @@ renderer.setAnimationLoop(() => {
 
   fpsFrames++; fpsT += dt; instT += dt;
   if (fpsT >= 1) { fps = Math.round(fpsFrames / fpsT); fpsFrames = 0; fpsT = 0; }
-  if (instT > 0.1) { instT = 0; drawInstruments(ac); }
+  updateRifle(dt); updateWorld(dt, clock.elapsedTime);
+  if (instT > 0.1) { instT = 0; drawInstruments(ac); drawWrist(); }
   renderer.render(scene, camera);
 });
 </script>
