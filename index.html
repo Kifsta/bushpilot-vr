@@ -20,7 +20,9 @@
 </script>
 </head>
 <body>
-<div id="info">BUSH PILOT VR v0.7 - PA-18 Super Cub prototype (Tabor-style backpack, utility belt, knife, recoil, hand reloading)
+<div id="info">BUSH PILOT VR v0.8 - PA-18 Super Cub prototype (paper map, six-pack panel, stick stays where you leave it)
+MAP: M = show/hide (desktop) | VR: reach to the pocket on the LEFT side of the pack (left hip / lower back), grip to pull it out; grab the far edge with the other hand to hold it open;
+  let go at the pocket (or over the open pack) = stow, in the cockpit = clips to the left wall, anywhere else = drops
 FLY (desktop): click to mouse-look | W/S pitch | A/D roll | Q/E rudder | Shift/Ctrl (or = / -) throttle
   [ / ] flaps up / down a notch (0-15-30-50) | B brakes | F get out (stopped + idle) | R reset (refuels) | C recenter
 ON FOOT (desktop): WASD walk (Shift sprint) | F board | G grab rifle / pick up loot into pack (hold G on a kill = dress, needs knife)
@@ -478,6 +480,9 @@ function instanced(geo, material, list) {
 }
 const onStrip = (x, z, m = 0) => Math.abs(x) < 16 + m && z > -315 - m && z < 25 + m;
 const nearStrip = (rMax, rMin = 25) => { const a = rand() * Math.PI * 2, d = rMin + rMax * Math.pow(rand(), 1.8); return [Math.cos(a) * d, Math.sin(a) * d - 145]; };
+const ROAD_NS = [[780, -2600], [760, -1200], [800, -300], [780, 80], [740, 900], [820, 2200]];
+const ROADS = [[[29, -15], [120, -20], [400, 60], [780, 80], [1400, 40], [2600, 120]], ROAD_NS, [[-900, 2000], [-700, 700], [-500, 300], [-300, 330], [29, -15]]];
+const FARMS = [[420, 110], [820, -700], [700, 950], [1500, 10], [-560, 330], [810, -2000], [-820, 1500]];
 const BARN_SPOT = [];   // v0.5 loot spot beside one barn
 const lines = [];   // merged line segments (fence wires + power lines): one draw call
 {
@@ -524,12 +529,9 @@ const lines = [];   // merged line segments (fence wires + power lines): one dra
       const A = P(ax + nx, az + nz), B = P(ax - nx, az - nz), Cc = P(bx + nx, bz + nz), D = P(bx - nx, bz - nz);
       rv.push(...A, ...B, ...Cc, ...B, ...D, ...Cc);
     } } };
-  const ROAD_NS = [[780, -2600], [760, -1200], [800, -300], [780, 80], [740, 900], [820, 2200]];
   const roadX = z => { for (let i = 0; i < ROAD_NS.length - 1; i++) { const [x0, z0] = ROAD_NS[i], [x1, z1] = ROAD_NS[i + 1];
     if (z <= z1) return x0 + (x1 - x0) * (z - z0) / (z1 - z0); } return ROAD_NS[ROAD_NS.length - 1][0]; };
-  road([[29, -15], [120, -20], [400, 60], [780, 80], [1400, 40], [2600, 120]]);
-  road(ROAD_NS);
-  road([[-900, 2000], [-700, 700], [-500, 300], [-300, 330], [29, -15]]);
+  for (const r of ROADS) road(r);
   const rg = new THREE.BufferGeometry(); rg.setAttribute('position', new THREE.Float32BufferAttribute(rv, 3)); rg.computeVertexNormals();
   scene.add(new THREE.Mesh(rg, new THREE.MeshLambertMaterial({ color: 0x8c7552, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2 })));
 
@@ -550,7 +552,7 @@ const lines = [];   // merged line segments (fence wires + power lines): one dra
   scene.add(new THREE.LineSegments(lg, new THREE.LineBasicMaterial({ color: 0x2b2b2b })));
 
   // farmsteads: house, barn, silo (known sizes)
-  const farms = [[420, 110], [820, -700], [700, 950], [1500, 10], [-560, 330], [810, -2000], [-820, 1500]];
+  const farms = FARMS;
   const house = [], hroof = [], barn = [], broof = [], silo = [], cap = [];
   for (const [fx, fz] of farms) {
     const r = rand() * 6, c = Math.cos(r), s = Math.sin(r), at = (dx, dz) => [fx + dx * c + dz * s, fz - dx * s + dz * c];
@@ -829,45 +831,171 @@ rod([0, 0, 0], [0, 0.46, 0], 0.014, dark, stick);
 const knob = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.1, 6), black); knob.position.y = 0.48; stick.add(knob);
 const throttleKnob = box(0.045, 0.06, 0.04, mat(0x222222), -0.35, 0.02, 0);
 
-// instruments (canvas texture)
-const ic = document.createElement('canvas'); ic.width = 592; ic.height = 160;
-const ix = ic.getContext('2d');
-const itex = new THREE.CanvasTexture(ic); itex.colorSpace = THREE.SRGBColorSpace; itex.anisotropy = 4;
-const instr = new THREE.Mesh(new THREE.PlaneGeometry(0.694, 0.1875), new THREE.MeshBasicMaterial({ map: itex }));
-instr.position.set(0, 0.02, -0.597); plane.add(instr);
-function gauge(cx, label, v, min, max, step, text, full) {
-  const cy = 64, r = 58, a0 = full ? -Math.PI / 2 : 0.75 * Math.PI, sweep = full ? 2 * Math.PI : 1.5 * Math.PI;
-  const ang = x => a0 + (clamp(x, min, max) - min) / (max - min) * sweep;
-  ix.fillStyle = '#0b0b0b'; ix.beginPath(); ix.arc(cx, cy, r, 0, 7); ix.fill();
-  ix.strokeStyle = '#ddd'; ix.lineWidth = 2; ix.fillStyle = '#ddd'; ix.font = '12px sans-serif'; ix.textAlign = 'center';
-  for (let x = min; x <= max + 1e-6; x += step) {
-    const a = ang(x); ix.beginPath(); ix.moveTo(cx + Math.cos(a) * (r - 3), cy + Math.sin(a) * (r - 3));
-    ix.lineTo(cx + Math.cos(a) * (r - 11), cy + Math.sin(a) * (r - 11)); ix.stroke();
+// instruments (v0.8): classic six-pack in the standard T + tach, fuel, flaps, warnings. One small canvas texture per gauge;
+// the attitude / heading / turn coordinator redraw at ~36 Hz, the rest at ~12 Hz. Dial faces are pre-rendered once.
+const GS = 256, GAUGE_D = 0.112, PANEL_Z = -0.597, D2R = Math.PI / 180;
+const ANISO = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+function gaugeTex(w, h, x, y, pw, ph) {
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = ANISO;
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(pw, ph), new THREE.MeshBasicMaterial({ map: t })); m.position.set(x, y, PANEL_Z); plane.add(m);
+  return { c, x: c.getContext('2d'), t, m };
+}
+function dial(draw) {   // pre-rendered face: bezel + whatever draw() adds, centred at 0,0
+  const c = document.createElement('canvas'); c.width = c.height = GS; const x = c.getContext('2d'); x.translate(GS / 2, GS / 2);
+  x.fillStyle = '#2a2a2a'; x.fillRect(-GS / 2, -GS / 2, GS, GS);
+  x.fillStyle = '#0d0d0d'; x.beginPath(); x.arc(0, 0, 124, 0, 7); x.fill(); x.strokeStyle = '#666'; x.lineWidth = 4; x.stroke();
+  x.textAlign = 'center'; x.textBaseline = 'middle'; draw && draw(x); return c;
+}
+function ticks(x, a, v0, v1, step, len, w, r = 118, col = '#eee') {
+  x.strokeStyle = col; x.lineWidth = w;
+  for (let v = v0; v <= v1 + 1e-6; v += step) { const t = a(v); x.beginPath(); x.moveTo(Math.cos(t) * r, Math.sin(t) * r); x.lineTo(Math.cos(t) * (r - len), Math.sin(t) * (r - len)); x.stroke(); }
+}
+function nums(x, a, v0, v1, step, fmt, r = 86, font = 'bold 26px sans-serif') {
+  x.fillStyle = '#eee'; x.font = font;
+  for (let v = v0; v <= v1 + 1e-6; v += step) { const t = a(v); x.fillText(fmt(v), Math.cos(t) * r, Math.sin(t) * r); }
+}
+function arc(x, a, v0, v1, r, w, col) { x.strokeStyle = col; x.lineWidth = w; x.beginPath(); x.arc(0, 0, r, a(v0), a(v1)); x.stroke(); }
+function label(x, t, y, font = 'bold 15px sans-serif') { x.fillStyle = '#ccc'; x.font = font; x.fillText(t, 0, y); }
+function needle(x, ang, len, w, col = '#f4f4f4', tail = 20) {
+  x.save(); x.rotate(ang); x.fillStyle = col; x.beginPath();
+  x.moveTo(-tail, -w); x.lineTo(len - 12, -w * 0.55); x.lineTo(len, 0); x.lineTo(len - 12, w * 0.55); x.lineTo(-tail, w); x.fill(); x.restore();
+}
+const hub = x => { x.fillStyle = '#444'; x.beginPath(); x.arc(0, 0, 9, 0, 7); x.fill(); };
+// value -> canvas angle (0 = 3 o'clock, clockwise)
+const aASI = v => -Math.PI / 2 + clamp(v, 0, 165) / 170 * 2 * Math.PI;
+const aALT = (v, full) => -Math.PI / 2 + v / full * 2 * Math.PI;
+const aVSI = v => Math.PI + clamp(v, -2000, 2000) / 2000 * 0.9 * Math.PI;
+const aRPM = v => 0.75 * Math.PI + clamp(v, 0, 3000) / 3000 * 1.5 * Math.PI;
+const aFUEL = f => 0.75 * Math.PI + clamp(f, 0, 1) * 1.5 * Math.PI;
+const FACE = {
+  asi: dial(x => { arc(x, aASI, 33, 70, 96, 10, '#f0f0f0'); arc(x, aASI, 42, 120, 108, 10, '#2fae3a'); arc(x, aASI, 120, 153, 108, 10, '#e8c020');
+    x.strokeStyle = '#e52'; x.lineWidth = 6; const t = aASI(153); x.beginPath(); x.moveTo(Math.cos(t) * 122, Math.sin(t) * 122); x.lineTo(Math.cos(t) * 92, Math.sin(t) * 92); x.stroke();
+    ticks(x, aASI, 20, 160, 5, 8, 2, 120); ticks(x, aASI, 20, 160, 10, 16, 3, 120); nums(x, aASI, 20, 160, 20, v => v, 76); label(x, 'MPH', -28); label(x, 'AIRSPEED', 34, 'bold 13px sans-serif'); }),
+  alt: dial(x => { ticks(x, v => aALT(v, 1000), 0, 980, 20, 8, 2); ticks(x, v => aALT(v, 1000), 0, 900, 100, 18, 4); nums(x, v => aALT(v, 10), 0, 9, 1, v => v, 88, 'bold 30px sans-serif');
+    label(x, 'ALT', -42); label(x, '100 FEET', -24, 'bold 12px sans-serif');
+    x.fillStyle = '#000'; x.fillRect(-34, 40, 68, 26); x.strokeStyle = '#888'; x.lineWidth = 2; x.strokeRect(-34, 40, 68, 26); x.fillStyle = '#eee'; x.font = 'bold 18px monospace'; x.fillText('29.92', 0, 54); }),
+  vsi: dial(x => { ticks(x, aVSI, -2000, 2000, 100, 8, 2); ticks(x, aVSI, -2000, 2000, 500, 18, 4); nums(x, aVSI, -2000, 2000, 500, v => Math.abs(v / 100), 84);
+    label(x, 'UP', -40); label(x, 'DN', 40); label(x, 'VERTICAL SPEED', -14, 'bold 11px sans-serif'); label(x, '100 FT/MIN', 14, 'bold 11px sans-serif'); }),
+  tc: dial(x => { x.strokeStyle = '#eee'; x.lineWidth = 5;
+    for (const a of [0, Math.PI, 18 * D2R, Math.PI - 18 * D2R]) { x.beginPath(); x.moveTo(Math.cos(a) * 118, Math.sin(a) * 118); x.lineTo(Math.cos(a) * 100, Math.sin(a) * 100); x.stroke(); }
+    x.fillStyle = '#eee'; x.font = 'bold 22px sans-serif'; x.fillText('L', -96, 62); x.fillText('R', 96, 62);
+    label(x, 'TURN COORDINATOR', -62, 'bold 12px sans-serif'); label(x, '2 MIN', -44, 'bold 12px sans-serif');
+    x.fillStyle = '#1d2a1d'; x.beginPath(); x.roundRect(-66, 64, 132, 30, 15); x.fill(); x.strokeStyle = '#999'; x.lineWidth = 2; x.stroke();
+    x.strokeStyle = '#000'; x.lineWidth = 3; for (const s of [-1, 1]) { x.beginPath(); x.moveTo(s * 15, 64); x.lineTo(s * 15, 94); x.stroke(); } }),
+  hi: dial(),
+  ai: dial(),
+  rpm: dial(x => { arc(x, aRPM, 1800, C.RPM_REDLINE - 50, 108, 10, '#2fae3a'); x.strokeStyle = '#e52'; x.lineWidth = 6; const t = aRPM(C.RPM_REDLINE);
+    x.beginPath(); x.moveTo(Math.cos(t) * 122, Math.sin(t) * 122); x.lineTo(Math.cos(t) * 92, Math.sin(t) * 92); x.stroke();
+    ticks(x, aRPM, 0, 3000, 100, 8, 2); ticks(x, aRPM, 0, 3000, 500, 16, 4); nums(x, aRPM, 0, 3000, 500, v => v / 100, 80); label(x, 'RPM', -30); label(x, 'x100', 40, 'bold 13px sans-serif'); }),
+  fuel: dial(x => { arc(x, aFUEL, 0, 0.15, 108, 10, '#e52'); ticks(x, aFUEL, 0, 1, 0.25, 18, 4); x.fillStyle = '#eee'; x.font = 'bold 28px sans-serif';
+    x.fillText('E', Math.cos(aFUEL(0)) * 84, Math.sin(aFUEL(0)) * 84); x.fillText('F', Math.cos(aFUEL(1)) * 84, Math.sin(aFUEL(1)) * 84); x.fillText('½', 0, -84); label(x, 'FUEL', -36); }),
+};
+const COLS = [-0.245, -0.125, -0.005], ROWS = [0.068, -0.058];
+const G = {
+  asi: gaugeTex(GS, GS, COLS[0], ROWS[0], GAUGE_D, GAUGE_D), ai: gaugeTex(GS, GS, COLS[1], ROWS[0], GAUGE_D, GAUGE_D), alt: gaugeTex(GS, GS, COLS[2], ROWS[0], GAUGE_D, GAUGE_D),
+  tc: gaugeTex(GS, GS, COLS[0], ROWS[1], GAUGE_D, GAUGE_D), hi: gaugeTex(GS, GS, COLS[1], ROWS[1], GAUGE_D, GAUGE_D), vsi: gaugeTex(GS, GS, COLS[2], ROWS[1], GAUGE_D, GAUGE_D),
+  rpm: gaugeTex(GS, GS, 0.12, ROWS[0], 0.098, 0.098), fuel: gaugeTex(GS, GS, 0.12, ROWS[1], 0.098, 0.098),
+  info: gaugeTex(256, 384, 0.27, 0.005, 0.16, 0.24),
+};
+// flight state the gauges read (pure functions of the aircraft state, also used by the headless check)
+const IN = { pitch: 0, roll: 0, hdg: 0, rate: 0, ball: 0, prevHdg: null, prevVel: null };
+function attitude(a) {
+  const f = qRot(a.q, [0, 0, -1]), r = qRot(a.q, [1, 0, 0]), u = qRot(a.q, [0, 1, 0]);
+  return { pitch: Math.asin(clamp(f[1], -1, 1)), roll: Math.atan2(-r[1], u[1]), hdg: (Math.atan2(f[0], -f[2]) + 2 * Math.PI) % (2 * Math.PI) };   // hdg: 0 = north (-z), 90 = east (+x)
+}
+function instUpdate(a, dt) {   // every physics frame: filtered turn rate (deg/s) and slip-skid ball (-1..1, +right)
+  const t = attitude(a); Object.assign(IN, { pitch: t.pitch, roll: t.roll, hdg: t.hdg });
+  if (dt > 0 && IN.prevHdg !== null) {
+    let dh = t.hdg - IN.prevHdg; dh -= Math.round(dh / (2 * Math.PI)) * 2 * Math.PI;
+    const k = 1 - Math.exp(-dt * 4); IN.rate += (dh / dt / D2R - IN.rate) * k;
+    const acc = vScale(vSub(a.vel, IN.prevVel), 1 / dt), sf = qRotInv(a.q, [acc[0], acc[1] + 9.81, acc[2]]);   // specific force, body axes
+    const tgt = clamp(-Math.atan2(sf[0], Math.max(sf[1], 0.5)) / 0.2, -1, 1);   // ball hangs opposite the lateral specific force; full tube ~11 deg
+    IN.ball += (tgt - IN.ball) * (1 - Math.exp(-dt * 5));
   }
-  ix.fillText(label, cx, cy - 18); ix.font = 'bold 15px sans-serif'; ix.fillText(text, cx, cy + 32);
-  const a = ang(v); ix.strokeStyle = '#fff'; ix.lineWidth = 4; ix.beginPath(); ix.moveTo(cx, cy);
-  ix.lineTo(cx + Math.cos(a) * (r - 8), cy + Math.sin(a) * (r - 8)); ix.stroke();
+  IN.prevHdg = t.hdg; IN.prevVel = a.vel.slice();
 }
-let fps = 0;
-function drawInstruments(a) {
-  const fr = fuel / FUEL_MAX;
-  const o = a.out, mph = (o.V || 0) * 2.23694, ft = a.pos[1] * 3.28084, fpm = (o.vs || 0) * 196.85;
-  ix.fillStyle = '#222'; ix.fillRect(0, 0, 592, 160);
-  // ASI green arc 45-110 mph
-  ix.strokeStyle = '#2a2'; ix.lineWidth = 5; ix.beginPath();
-  ix.arc(64, 64, 52, 0.75 * Math.PI + 45 / 140 * 1.5 * Math.PI, 0.75 * Math.PI + 110 / 140 * 1.5 * Math.PI); ix.stroke();
-  gauge(64, 'MPH', mph, 0, 140, 10, mph.toFixed(0));
-  gauge(192, 'ALT FT', ((ft % 1000) + 1000) % 1000, 0, 1000, 100, ft.toFixed(0), true);
-  gauge(320, 'VSI FPM', fpm, -2000, 2000, 500, (fpm >= 0 ? '+' : '') + (Math.round(fpm / 10) * 10));
-  gauge(448, 'RPM', o.rpm || 0, 0, 3000, 500, ((o.rpm || 0)).toFixed(0));
-  ix.fillStyle = a.crashed ? '#f44' : '#9f9'; ix.font = '14px monospace'; ix.textAlign = 'left';
-  ix.fillText(a.crashed ? 'CRASH: ' + a.crashReason : (msgT > 0 && mode === 'plane' ? msg : `FPS ${fps}  THR ${(a.ctl.throttle * 100).toFixed(0)}%  FLAP ${FLAP_DEG[flapNotch]}${a.ctl.brake > 0.05 ? '  BRK' : ''}${o.stall > 0.3 ? '  STALL' : ''}${ac.engineOut && fuel <= 0 ? '  NO FUEL' : fr < 0.15 ? '  LOW FUEL' : ''}  HP ${P.hp.toFixed(0)}`), 8, 150);
-                                                     // fuel gauge (bar)
-  ix.fillStyle = '#0b0b0b'; ix.fillRect(526, 14, 56, 110); ix.fillStyle = fr < 0.15 ? '#f44' : '#ddd';
-  ix.fillRect(532, 20 + 98 * (1 - fr), 44, 98 * fr); ix.font = '12px sans-serif'; ix.textAlign = 'center'; ix.fillStyle = '#ddd';
-  ix.fillText('FUEL', 554, 138); ix.fillText((fuel / 3.785).toFixed(1) + ' gal', 554, 154);
-  itex.needsUpdate = true;
+function drawAI() {
+  const x = G.ai.x; x.save(); x.drawImage(FACE.ai, 0, 0); x.translate(GS / 2, GS / 2);
+  x.save(); x.beginPath(); x.arc(0, 0, 118, 0, 7); x.clip();
+  x.rotate(-IN.roll); const py = IN.pitch / D2R * 3.4; x.translate(0, py);
+  x.fillStyle = '#2f78c8'; x.fillRect(-300, -600, 600, 600); x.fillStyle = '#7a4a22'; x.fillRect(-300, 0, 600, 600);
+  x.strokeStyle = '#fff'; x.lineWidth = 3; x.beginPath(); x.moveTo(-300, 0); x.lineTo(300, 0); x.stroke();
+  x.lineWidth = 2; x.fillStyle = '#fff'; x.font = 'bold 14px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle';
+  for (let p = -30; p <= 30; p += 5) { if (!p) continue; const y = -p * 3.4, w = p % 10 ? 14 : 30; x.beginPath(); x.moveTo(-w, y); x.lineTo(w, y); x.stroke();
+    if (!(p % 10)) { x.fillText(Math.abs(p), -w - 14, y); x.fillText(Math.abs(p), w + 14, y); } }
+  x.translate(0, -py); x.fillStyle = '#fff'; x.beginPath(); x.moveTo(0, -100); x.lineTo(-8, -86); x.lineTo(8, -86); x.fill();   // sky (bank) pointer
+  x.restore();
+  x.strokeStyle = '#fff'; x.lineWidth = 3;   // fixed bank scale
+  for (const b of [-60, -30, -20, -10, 10, 20, 30, 60, -45, 45]) { const t = -Math.PI / 2 + b * D2R, L = Math.abs(b) % 30 ? 10 : 18; x.beginPath(); x.moveTo(Math.cos(t) * 118, Math.sin(t) * 118); x.lineTo(Math.cos(t) * (118 - L), Math.sin(t) * (118 - L)); x.stroke(); }
+  x.fillStyle = '#ff8c1a'; x.beginPath(); x.moveTo(0, -104); x.lineTo(-9, -120); x.lineTo(9, -120); x.fill();
+  x.fillRect(-70, -3, 42, 6); x.fillRect(28, -3, 42, 6); x.beginPath(); x.moveTo(-28, -3); x.lineTo(0, 14); x.lineTo(28, -3); x.lineTo(28, 3); x.lineTo(0, 20); x.lineTo(-28, 3); x.fill();
+  x.beginPath(); x.arc(0, 0, 4, 0, 7); x.fill(); x.restore(); G.ai.t.needsUpdate = true;
 }
+const HI_LBL = { 0: 'N', 90: 'E', 180: 'S', 270: 'W' };
+function drawHI() {
+  const x = G.hi.x; x.save(); x.drawImage(FACE.hi, 0, 0); x.translate(GS / 2, GS / 2);
+  x.save(); x.rotate(-IN.hdg); x.strokeStyle = '#eee'; x.fillStyle = '#eee'; x.textAlign = 'center'; x.textBaseline = 'middle';
+  for (let d = 0; d < 360; d += 5) { const L = d % 10 ? 8 : 16; x.lineWidth = d % 10 ? 2 : 3; x.save(); x.rotate(d * D2R);
+    x.beginPath(); x.moveTo(0, -112); x.lineTo(0, -112 + L); x.stroke();
+    if (!(d % 30)) { x.font = HI_LBL[d] ? 'bold 30px sans-serif' : 'bold 24px sans-serif'; x.fillText(HI_LBL[d] || d / 10, 0, -78); }
+    x.restore(); }
+  x.restore();
+  x.fillStyle = '#ff8c1a'; x.beginPath(); x.moveTo(0, -112); x.lineTo(-9, -126); x.lineTo(9, -126); x.fill();   // lubber mark
+  x.fillRect(-2.5, -36, 5, 66); x.fillRect(-34, -8, 68, 6); x.fillRect(-14, 22, 28, 5);                       // little aircraft
+  x.restore(); G.hi.t.needsUpdate = true;
+}
+function drawTC() {
+  const x = G.tc.x; x.save(); x.drawImage(FACE.tc, 0, 0); x.translate(GS / 2, GS / 2);
+  x.fillStyle = '#111'; x.beginPath(); x.arc(IN.ball * 50, 79, 12, 0, 7); x.fill(); x.strokeStyle = '#888'; x.lineWidth = 1.5; x.stroke();   // ball
+  x.save(); x.rotate(clamp(IN.rate / 3, -2.2, 2.2) * 18 * D2R); x.fillStyle = '#f4f4f4';                                                // standard rate = 18 deg mark
+  x.fillRect(-100, -4, 200, 8); x.beginPath(); x.arc(0, 0, 13, 0, 7); x.fill(); x.fillRect(-3, -26, 6, 22); x.restore();
+  x.restore(); G.tc.t.needsUpdate = true;
+}
+function drawSlow(a) {
+  const o = a.out, mph = (o.V || 0) * 2.23694, ft = a.pos[1] * 3.28084, fpm = (o.vs || 0) * 196.85, fr = fuel / FUEL_MAX;
+  const put = (g, face, fn) => { const x = g.x; x.save(); x.drawImage(face, 0, 0); x.translate(GS / 2, GS / 2); fn(x); hub(x); x.restore(); g.t.needsUpdate = true; };
+  put(G.asi, FACE.asi, x => needle(x, aASI(mph), 108, 7));
+  put(G.alt, FACE.alt, x => { const f = Math.max(ft, 0);
+    needle(x, aALT(f % 100000, 100000), 116, 2.5, '#ddd', 0); needle(x, aALT(f % 10000, 10000), 70, 9, '#f4f4f4', 14); needle(x, aALT(f % 1000, 1000), 108, 6, '#f4f4f4', 22); });
+  put(G.vsi, FACE.vsi, x => needle(x, aVSI(fpm), 106, 7));
+  put(G.rpm, FACE.rpm, x => needle(x, aRPM(o.rpm || 0), 104, 7));
+  put(G.fuel, FACE.fuel, x => { needle(x, aFUEL(fr), 100, 7, fr < 0.15 ? '#f55' : '#f4f4f4'); x.fillStyle = '#ddd'; x.font = 'bold 20px sans-serif'; x.textAlign = 'center'; x.fillText((fuel / 3.785).toFixed(1) + ' GAL', 0, 52); });
+  const x = G.info.x; x.fillStyle = '#2a2a2a'; x.fillRect(0, 0, 256, 384); x.textAlign = 'center'; x.textBaseline = 'middle';
+  x.fillStyle = '#0d0d0d'; x.fillRect(8, 8, 240, 120); x.fillStyle = '#ccc'; x.font = 'bold 22px sans-serif'; x.fillText('FLAPS', 128, 30);
+  FLAP_DEG.forEach((d, i) => { const on = i === flapNotch, cx = 40 + i * 58; x.fillStyle = on ? '#ffd23a' : '#555'; x.beginPath(); x.arc(cx, 70, 14, 0, 7); x.fill();
+    x.fillStyle = on ? '#fff' : '#999'; x.font = 'bold 18px sans-serif'; x.fillText(d, cx, 106); });
+  x.fillStyle = '#0d0d0d'; x.fillRect(8, 138, 240, 238);
+  const warn = [];
+  if (a.crashed) warn.push(['CRASH', '#f44']); if (o.stall > 0.3) warn.push(['STALL', '#f44']);
+  if (ac.engineOut && fuel <= 0) warn.push(['NO FUEL', '#f44']); else if (fr < 0.15) warn.push(['LOW FUEL', '#fa3']);
+  if (a.ctl.brake > 0.05) warn.push(['BRAKES', '#fa3']);
+  x.font = 'bold 34px sans-serif'; warn.slice(0, 3).forEach(([t, c], i) => { x.fillStyle = c; x.fillText(t, 128, 170 + i * 40); });
+  x.fillStyle = '#9f9'; x.font = 'bold 20px monospace';
+  const lines = a.crashed ? [a.crashReason.slice(0, 18), a.crashReason.slice(18, 36)] : (msgT > 0 && mode === 'plane' ? [msg.slice(0, 18), msg.slice(18, 36)] : []);
+  lines.push(`THR ${(a.ctl.throttle * 100).toFixed(0)}%  HP ${P.hp.toFixed(0)}`, `FPS ${fps}`);
+  lines.slice(-4).forEach((l, i) => x.fillText(l, 128, 290 + i * 24 - (lines.length > 2 ? 24 : 0)));
+  G.info.t.needsUpdate = true;
+}
+let fps = 0, instFast = 0, instSlow = 0;
+function panelUpdate(a, dt) {
+  instUpdate(a, dt);
+  if ((instFast += dt) >= 1 / 36) { instFast = 0; drawAI(); drawHI(); drawTC(); }
+  if ((instSlow += dt) >= 1 / 12) { instSlow = 0; drawSlow(a); }
+}
+// wet compass on the windshield top bow: card stays pointing north (reads backwards, like the real thing)
+const compassCard = (() => {
+  const c = document.createElement('canvas'); c.width = 512; c.height = 64; const x = c.getContext('2d');
+  x.fillStyle = '#111'; x.fillRect(0, 0, 512, 64); x.fillStyle = '#eee'; x.strokeStyle = '#eee'; x.textAlign = 'center'; x.textBaseline = 'middle';
+  for (let d = 0; d < 360; d += 5) { const u = ((360 - d) % 360) / 360 * 512; x.lineWidth = d % 10 ? 1 : 2; x.beginPath(); x.moveTo(u, 0); x.lineTo(u, d % 10 ? 10 : 16); x.stroke();
+    if (!(d % 30)) { x.font = 'bold 26px sans-serif'; const s = HI_LBL[d] || String(d / 10); x.fillText(s, u, 40); if (u < 20) x.fillText(s, u + 512, 40); } }
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = ANISO;
+  const g = new THREE.Group(); g.position.set(0, 0.875, -0.9); plane.add(g);
+  box(0.06, 0.012, 0.05, mat(0x151515), 0, 0.022, 0, g);                         // bracket to the top bow
+  box(0.003, 0.03, 0.003, mat(0xff8c1a), 0, 0, 0.029, g);                        // lubber line
+  const card = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.02, 20, 1, true), new THREE.MeshBasicMaterial({ map: t })); g.add(card);
+  return card;
+})();
 
 // ---- camera rig: eye point in the front seat ----
 const rig = new THREE.Group(); rig.position.set(0, 0.4, 0.15); plane.add(rig);
@@ -984,6 +1112,7 @@ function recenter() {
 }
 function toPlane() { if (R.slung) { R.slung = false; R.stowed = true; rifle.visible = false; } deskKnife = false; rig.add(xrOffset); mode = 'plane'; ctl.brake = 0; lookYaw = lookPitch = 0; needRecenter = renderer.xr.isPresenting ? 2 : 0; }
 function resetFlight() {
+  IN.prevHdg = null;
   if (mode === 'foot') toPlane();
   if (R.hand) { R.hand = R.support = null; rifleHome(); }
   resetAircraft(ac); crashTimer = 0; flapNotch = 0; fuel = FUEL_MAX;
@@ -1047,6 +1176,7 @@ function headPose() { const M = eyeWorld(0); _eye.setFromMatrixPosition(M); _hf.
 function handGrab(g) {
   g.getWorldPosition(_a);
   if (held.has(g) || rounds.has(g) || PK.g === g) return;
+  if (R.hand !== g && !held.has(g) && mapGrab(g, _a)) return;   // v0.8 map (pocket / ground / clip / other edge)
   if (R.hand && R.hand !== g) { rifle.localToWorld(_b.set(0, 0.012, -0.3)); if (_a.distanceTo(_b) < 0.3) { R.support = g; return; } }
   const foot = mode === 'foot';
   if (foot && !R.hand && R.slung && slotPos(SLING).distanceTo(_a) < SLING.r && rightSide(_a)) { R.slung = false; R.hand = g; R.support = null; R.stock = false; R.prev.copy(_a); tick(g); sfx('pick'); return; }   // rifle off the sling
@@ -1075,7 +1205,7 @@ function handRelease(g) {       // called every frame the grip is up: keep it ch
   if (R.support === g) R.support = null;
   if (R.hand === g) { if (slingNear(g.getWorldPosition(_a))) { slingRifle(); tick(g); } else dropRifle(); }
   if (PK.g === g) { g.getWorldPosition(_a); headPose(); setPack(PK.front && !behindShoulder(_a, _eye, _hf) ? 'open' : 'worn'); }
-  if (held.size) releaseHeld(g); if (rounds.size) dropRound(g); vr.dress.delete(g);
+  if (held.size) releaseHeld(g); if (rounds.size) dropRound(g); vr.dress.delete(g); mapRelease(g);
 }
 
 // desktop
@@ -1087,6 +1217,7 @@ addEventListener('keydown', e => {
   if (mode === 'foot' && e.code === 'KeyI') setPack(PK.state === 'worn' ? 'open' : 'worn');
   if (mode === 'foot' && /^Digit[1-4]$/.test(e.code)) deskSlot(+e.code[5] - 1);
   if (mode === 'foot' && e.code === 'KeyV') deskKnifeUse();
+  if (e.code === 'KeyM') mapDesk();
   if (e.code === 'KeyC') recenter();
   if (e.code === 'KeyF') mode === 'plane' ? exitPlane() : board();
   if (mode === 'foot' && e.code === 'KeyX' && R.hand) cycleLever();
@@ -1173,8 +1304,9 @@ function xrInput(dt) {
     const src = g.userData.src; if (!src || !src.gamepad) continue;
     const gp = src.gamepad, squeeze = !!gp.buttons[1]?.pressed;
     _p.copy(g.position).applyQuaternion(xrOffset.quaternion);   // hand position in cockpit axes
+    if (mapCockpit(g, squeeze, src.handedness === 'right' ? vr.stick : vr.thr || vr.flap)) { if (src.handedness === 'right') vr.stick = false; else vr.thr = vr.flap = false; continue; }
     if (src.handedness === 'right') {
-      if (squeeze && !vr.stick) { vr.stick = true; vr.stick0.copy(_p); }
+      if (squeeze && !vr.stick) { vr.stick = true; vr.stick0.set(_p.x - ctl.ail * STICK_RANGE, _p.y, _p.z - ctl.elev * STICK_RANGE); }   // v0.8: pick up from the current deflection
       if (!squeeze) vr.stick = false;
       if (vr.stick) {
         stickHeld = true;
@@ -1202,7 +1334,7 @@ function xrInput(dt) {
       if (pressedEdge(gp, 5, 'Y')) exitPlane();
     }
   }
-  if (!stickHeld) { const f = Math.exp(-dt * 8); ctl.elev *= f; ctl.ail *= f; }  // spring back to centre
+  // v0.8: no spring-back - the stick stays where you let go (reset / crash re-centre it)
   vr.stickPrevHeld = stickHeld;
 }
 function footXR(dt) {
@@ -1982,6 +2114,179 @@ function updateGear(dt) {
 }
 giveKnife();
 
+// ================= v0.8: rough paper map (drawn once at load from the terrain), side pocket on the pack =================
+const MAP_W = 1024, MAP_H = 768, MAP_X = 5000, MAP_Z = 3750, MAP_PX = MAP_W / (2 * MAP_X);   // ~9.8 m per pixel, north (-z) up
+const MAP_SHEET = [0.4, 0.3], MAP_POCKET_R = 0.13, MAP_CLIP = { p: [-0.355, 0.24, -0.24], ry: 0.8, s: 0.6 };
+function drawMap() {
+  const c = document.createElement('canvas'); c.width = MAP_W; c.height = MAP_H; const x = c.getContext('2d');
+  let sd = 4242; const r = () => ((sd = (sd * 16807) % 2147483647) / 2147483647), j = k => (r() - 0.5) * 2 * k;   // own seed: world rand() untouched
+  const X = wx => (wx + MAP_X) * MAP_PX, Z = wz => (wz + MAP_Z) * MAP_PX;
+  const HAND = "'Segoe Print','Bradley Hand','Comic Sans MS','Comic Neue',cursive";
+  // paper: aged tint, darker edges, fibres, stains + coffee ring
+  x.fillStyle = '#d9c79b'; x.fillRect(0, 0, MAP_W, MAP_H);
+  let g = x.createRadialGradient(MAP_W / 2, MAP_H / 2, MAP_H * 0.25, MAP_W / 2, MAP_H / 2, MAP_W * 0.68);
+  g.addColorStop(0, 'rgba(255,248,225,0.35)'); g.addColorStop(1, 'rgba(110,75,35,0.45)'); x.fillStyle = g; x.fillRect(0, 0, MAP_W, MAP_H);
+  for (let i = 0; i < 2500; i++) { x.fillStyle = r() < 0.5 ? 'rgba(90,60,25,0.07)' : 'rgba(255,255,240,0.09)'; x.fillRect(r() * MAP_W, r() * MAP_H, 1 + r() * 3, 1); }
+  for (let i = 0; i < 9; i++) { const cx = r() * MAP_W, cy = r() * MAP_H, rr = 20 + r() * 70; g = x.createRadialGradient(cx, cy, 0, cx, cy, rr);
+    g.addColorStop(0, 'rgba(130,90,40,0.13)'); g.addColorStop(0.8, 'rgba(130,90,40,0.06)'); g.addColorStop(1, 'rgba(130,90,40,0)'); x.fillStyle = g; x.fillRect(cx - rr, cy - rr, rr * 2, rr * 2); }
+  x.strokeStyle = 'rgba(110,70,30,0.25)'; x.lineWidth = 4; x.beginPath(); x.arc(860, 640, 46, 0.3, 5.9); x.stroke();
+  // heights on a 4 px grid (from the same formula the world uses)
+  const S = 4, NX = MAP_W / S + 1, NZ = MAP_H / S + 1, H = new Float32Array(NX * NZ);
+  for (let k = 0; k < NZ; k++) for (let i = 0; i < NX; i++) H[k * NX + i] = rawHeight(i * S / MAP_PX - MAP_X, k * S / MAP_PX - MAP_Z);
+  const h = (i, k) => H[clamp(k, 0, NZ - 1) * NX + clamp(i, 0, NX - 1)];
+  // hachures: short pencil strokes down the fall line on steep ground, heavier on high ridges
+  x.lineCap = 'round';
+  for (let py = 6; py < MAP_H; py += 7) for (let px = 6; px < MAP_W; px += 7) {
+    const qx = px + j(2), qy = py + j(2), i = Math.round(qx / S), k = Math.round(qy / S);
+    const gx = (h(i + 1, k) - h(i - 1, k)) / (2 * S / MAP_PX), gz = (h(i, k + 1) - h(i, k - 1)) / (2 * S / MAP_PX), sl = Math.hypot(gx, gz);
+    if (sl < 0.32 || r() > 0.55 + sl * 0.3) continue;
+    const L = Math.min(9, 3 + sl * 5), ux = -gx / sl, uz = -gz / sl;
+    x.strokeStyle = `rgba(70,50,30,${Math.min(0.55, 0.18 + sl * 0.25 + (h(i, k) > 800 ? 0.12 : 0))})`; x.lineWidth = 1;
+    x.beginPath(); x.moveTo(qx, qy); x.lineTo(qx + ux * L + j(1), qy + uz * L + j(1)); x.stroke();
+  }
+  // contours every ~150 m (marching squares, wobbled); every 4th heavier
+  const seg = []; for (let lv = 150; lv < 1300; lv += 150) {
+    x.strokeStyle = lv % 600 ? 'rgba(120,70,30,0.55)' : 'rgba(100,55,20,0.8)'; x.lineWidth = lv % 600 ? 1.1 : 1.9; x.beginPath();
+    for (let k = 0; k < NZ - 1; k++) for (let i = 0; i < NX - 1; i++) {
+      const a = h(i, k) - lv, b = h(i + 1, k) - lv, cc = h(i + 1, k + 1) - lv, d = h(i, k + 1) - lv;
+      seg.length = 0; const e = (p, q, x0, y0, x1, y1) => { if ((p > 0) !== (q > 0)) { const t = p / (p - q); seg.push((x0 + (x1 - x0) * t) * S, (y0 + (y1 - y0) * t) * S); } };
+      e(a, b, i, k, i + 1, k); e(b, cc, i + 1, k, i + 1, k + 1); e(cc, d, i + 1, k + 1, i, k + 1); e(d, a, i, k + 1, i, k);
+      for (let m = 0; m + 3 < seg.length; m += 4) { x.moveTo(seg[m] + j(0.7), seg[m + 1] + j(0.7)); x.lineTo(seg[m + 2] + j(0.7), seg[m + 3] + j(0.7)); }
+    }
+    x.stroke();
+  }
+  const wob = (pts, k = 2.5, step = 14) => { x.beginPath(); pts.forEach(([px, py], n) => {
+    if (!n) { x.moveTo(px, py); return; } const [ax, ay] = pts[n - 1], L = Math.hypot(px - ax, py - ay), m = Math.max(1, Math.round(L / step));
+    for (let t = 1; t <= m; t++) x.lineTo(ax + (px - ax) * t / m + (t < m ? j(k) : 0), ay + (py - ay) * t / m + (t < m ? j(k) : 0)); }); x.stroke(); };
+  const W2 = ([wx, wz]) => [X(wx), Z(wz)];
+  const hand = (t, px, py, size = 22, col = '#2b2116', rot = 0) => {   // letter-by-letter with a little jitter
+    x.save(); x.translate(px, py); x.rotate(rot + j(0.04)); x.font = `${size}px ${HAND}`; x.fillStyle = col; x.textBaseline = 'middle';
+    let cx = -x.measureText(t).width / 2; for (const ch of t) { x.save(); x.translate(cx, j(1.2)); x.rotate(j(0.08)); x.fillText(ch, 0, 0); x.restore(); cx += x.measureText(ch).width; }
+    x.restore(); };
+  // water: river gorge draining south from the main valley, creeks down the side drainages
+  x.strokeStyle = 'rgba(40,90,170,0.85)'; x.lineWidth = 2.6;
+  const river = []; for (let wz = 600; wz >= -MAP_Z - 50; wz -= 120) river.push([X(-60 + 40 * Math.sin(wz * 0.004) + 25 * Math.sin(wz * 0.013) - (wz > -300 ? 120 : 0)), Z(wz)]);
+  wob(river, 3, 10); x.lineWidth = 1.5;
+  for (const v of VALLEY.slice(4)) wob([W2([v[2], v[3]]), W2([(v[0] + v[2]) / 2 + 60, (v[1] + v[3]) / 2]), W2([v[0], v[1]])], 4, 10);
+  hand('gorge', X(140), Z(-3300), 20, 'rgba(40,90,170,0.9)', 1.45); hand('creek', X(-1500), Z(3200), 17, 'rgba(40,90,170,0.9)', -1.2);
+  // roads: dashed
+  x.strokeStyle = '#3b2a1a'; x.lineWidth = 2; x.setLineDash([9, 7]); for (const rd of ROADS) wob(rd.map(W2), 1.5, 12); x.setLineDash([]);
+  // symbols
+  x.strokeStyle = '#1e1810'; x.fillStyle = '#1e1810'; x.lineWidth = 2;
+  const strip = (cx, cz, len, txt, dx = 34, dy = 0) => { const [px, py] = W2([cx, cz]), L = len * MAP_PX / 2;
+    x.lineWidth = 2; x.strokeRect(px - 4 + j(0.5), py - L, 8, 2 * L); for (let t = -L + 5; t < L; t += 7) { x.beginPath(); x.moveTo(px - 2, py + t); x.lineTo(px + 2, py + t + 2); x.stroke(); }
+    hand(txt, px + dx, py + dy, 19); };
+  strip(0, -145, 310, 'STRIP', -40, 6);
+  { const [px, py] = W2([32, -15]); x.lineWidth = 2; x.beginPath(); x.moveTo(px + 6, py + 3); x.lineTo(px + 6, py - 6); x.lineTo(px + 12, py - 12); x.lineTo(px + 18, py - 6); x.lineTo(px + 18, py + 3); x.closePath(); x.stroke();
+    hand('HOME', px + 44, py - 10, 24, '#7a1c10', -0.05); }
+  strip(MEADOW.x, MEADOW.z, 2 * MEADOW.hl, 'ridge strip', 66, -6);
+  hand(`~${Math.round(MEADOW_H * 3.281 / 100) * 100}' short!`, X(MEADOW.x) + 66, Z(MEADOW.z) + 18, 16);
+  { const [px, py] = W2([PAD.x, PAD.z]); x.lineWidth = 1.5; x.strokeRect(px - 5, py - 9, 10, 18); x.fillRect(px + 3, py - 1, 6, 5);
+    hand('paddock', px + 46, py - 14, 19); hand('zeds?', px + 40, py + 10, 19, '#8a1a10', 0.1); }
+  for (const [fx, fz] of FARMS) { const [px, py] = W2([fx, fz]); x.fillRect(px - 3 + j(0.5), py - 3, 6, 6); x.strokeRect(px + 3, py - 4, 4, 7); }
+  hand('farms', X(560), Z(560), 15, '#3b2a1a', -0.15);
+  for (const s of SPOTS) {
+    const [px, py] = W2([s.x, s.z]);
+    if (s.name === 'TRUCK') { x.strokeRect(px - 6, py - 3, 12, 6); x.beginPath(); x.arc(px - 3, py + 4, 2, 0, 7); x.arc(px + 4, py + 4, 2, 0, 7); x.fill();
+      hand('old truck', px - 52, py - 6, 17); hand('fuel?', px - 46, py + 12, 17, '#8a1a10'); }
+    if (s.name === 'BARN') { hand('barn', px + 26, py + 14, 17); hand('fuel?', px + 30, py + 30, 17, '#8a1a10'); }
+    if (s.name === 'RIDGE STRIP') { x.beginPath(); x.arc(px, py, 5, 0, 7); x.stroke(); hand('cache - fuel?', px + 30, py + 44, 16, '#8a1a10'); }
+  }
+  // passes: ")(" at the saddle (highest point along each pass line), clamped onto the sheet
+  for (const p of PASSES) {
+    let best = null; for (let t = 0; t <= 1; t += 0.025) { const wx = p[0] + (p[2] - p[0]) * t, wz = p[1] + (p[3] - p[1]) * t, hh = rawHeight(wx, wz); if (!best || hh > best[2]) best = [wx, wz, hh]; }
+    const px = clamp(X(best[0]), 40, MAP_W - 40), py = clamp(Z(best[1]), 40, MAP_H - 40), ang = Math.atan2(p[3] - p[1], p[2] - p[0]);
+    x.save(); x.translate(px, py); x.rotate(ang + Math.PI / 2); x.font = `bold 30px ${HAND}`; x.fillStyle = '#1e1810'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(')(', 0, 0); x.restore();
+    hand(`pass ${Math.round(best[2] * 3.281 / 100) * 100}'`, px + (px > MAP_W - 120 ? -60 : 56), py + 22, 16);
+  }
+  // highest few peaks: little triangles with rough heights in feet
+  const peaks = []; for (let k = 6; k < NZ - 6; k += 6) for (let i = 6; i < NX - 6; i += 6) { let mi = i, mk = k;
+    for (let a = -6; a <= 6; a++) for (let b = -6; b <= 6; b++) if (h(i + a, k + b) > h(mi, mk)) { mi = i + a; mk = k + b; }
+    let pk = true; for (let a = -8; a <= 8 && pk; a++) for (let b = -8; b <= 8; b++) if (h(mi + a, mk + b) > h(mi, mk)) { pk = false; break; }
+    if (pk && h(mi, mk) > 600 && mi * S > 30 && mi * S < MAP_W - 30 && mk * S > 30 && mk * S < MAP_H - 30 && !peaks.some(q => Math.hypot(q[0] - mi * S, q[1] - mk * S) < 60)) peaks.push([mi * S, mk * S, h(mi, mk)]); }
+  peaks.sort((a, b) => b[2] - a[2]).slice(0, 7).forEach(([px, py, hh]) => { x.beginPath(); x.moveTo(px, py - 7); x.lineTo(px - 6, py + 4); x.lineTo(px + 6, py + 4); x.closePath(); x.fill();
+    hand(String(Math.round(hh * 3.281 / 100) * 100), px, py + 16, 14); });
+  // north arrow, scale bar, title, notes
+  x.lineWidth = 2.5; wob([[952, 120], [952, 40]], 1.5, 20); x.beginPath(); x.moveTo(952, 34); x.lineTo(942, 56); x.lineTo(962, 56); x.closePath(); x.fill(); hand('N', 952, 18, 30);
+  const km = 1000 * MAP_PX; x.lineWidth = 2; wob([[40, 728], [40 + 2 * km, 728]], 1, 30);
+  for (let t = 0; t <= 2; t++) { x.beginPath(); x.moveTo(40 + t * km, 720); x.lineTo(40 + t * km, 736); x.stroke(); }
+  x.fillRect(40, 726, km, 4); hand('0', 40, 746, 15); hand('1 km', 40 + km, 746, 15); hand('2', 40 + 2 * km, 746, 15);
+  hand('VALLEY - rough!', 150, 30, 30, '#2b2116', -0.03); hand('contours ~500 ft', 140, 64, 16);
+  hand('river runs S', X(320), Z(-2600), 15, 'rgba(40,90,170,0.95)', 1.5);
+  hand('watch the ridges', X(-3300), Z(-2600), 17, '#2b2116', -0.2);
+  // fold creases (light + shadow) last
+  for (const [x0, y0, x1, y1] of [[MAP_W / 2, 0, MAP_W / 2, MAP_H], [0, MAP_H / 2, MAP_W, MAP_H / 2], [MAP_W / 4, 0, MAP_W / 4, MAP_H], [3 * MAP_W / 4, 0, 3 * MAP_W / 4, MAP_H]]) {
+    x.strokeStyle = 'rgba(255,250,235,0.35)'; x.lineWidth = 2; x.beginPath(); x.moveTo(x0 - 1, y0); x.lineTo(x1 - 1, y1); x.stroke();
+    x.strokeStyle = 'rgba(80,55,25,0.22)'; x.lineWidth = 1.5; x.beginPath(); x.moveTo(x0 + 1, y0); x.lineTo(x1 + 1, y1); x.stroke(); }
+  return c;
+}
+const MAP = { state: 'pocket', g: null, g2: null, desk: false, canvas: drawMap() };
+{
+  const t = new THREE.CanvasTexture(MAP.canvas); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = Math.min(16, renderer.capabilities.getMaxAnisotropy());
+  const paper = new THREE.MeshLambertMaterial({ color: 0xcdbb8e });
+  MAP.sheet = new THREE.Group();
+  MAP.sheet.add(new THREE.Mesh(new THREE.PlaneGeometry(...MAP_SHEET), new THREE.MeshBasicMaterial({ map: t, color: 0xf0f0f0 })));
+  MAP.sheet.add(new THREE.Mesh(new THREE.PlaneGeometry(...MAP_SHEET).rotateY(Math.PI), paper));
+  MAP.sheet.visible = false; scene.add(MAP.sheet);
+  MAP.fold = new THREE.Group(); box(0.1, 0.012, 0.15, paper, 0, 0, 0, MAP.fold); box(0.06, 0.013, 0.004, mat(0x7a5a3a), 0, 0, 0.03, MAP.fold);   // folded, pencil-mark on the cover
+  MAP.item = { mesh: MAP.fold, h: 0.012, vel: V3() };
+  MAP.pocket = new THREE.Group(); MAP.pocket.position.set(-0.2, -0.15, 0.02); PK.mesh.add(MAP.pocket);   // long pocket down the left side of the pack; grab point low = left hip / lower back when worn
+  box(0.03, 0.26, 0.11, canvasM, 0, 0.05, 0, MAP.pocket); box(0.032, 0.03, 0.112, leather, 0, 0.165, 0, MAP.pocket);
+  MAP.clip = new THREE.Group(); MAP.clip.position.set(...MAP_CLIP.p); MAP.clip.rotation.set(-0.15, MAP_CLIP.ry, 0, 'YXZ'); plane.add(MAP.clip);   // left cockpit wall
+  box(0.06, 0.02, 0.012, mat(0x777777), 0, 0.095, -0.004, MAP.clip);                                                                             // the clip
+}
+function mapStow(where) {   // 'pocket' | 'clip' | 'world'
+  MAP.state = where; MAP.g = MAP.g2 = null; falling.delete(MAP.item);
+  MAP.sheet.visible = where === 'clip'; MAP.fold.visible = where !== 'clip';
+  if (where === 'pocket') { MAP.pocket.add(MAP.fold); MAP.fold.position.set(0, 0.17, 0); MAP.fold.rotation.set(0, 0, Math.PI / 2); }
+  if (where === 'clip') { MAP.clip.add(MAP.sheet); MAP.sheet.position.set(0, 0, 0); MAP.sheet.rotation.set(0, 0, 0); MAP.sheet.scale.setScalar(MAP_CLIP.s); }
+}
+function mapHold(g) {
+  MAP.state = 'held'; MAP.g = g; MAP.g2 = null; MAP.desk = false; falling.delete(MAP.item); MAP.fold.removeFromParent(); MAP.fold.visible = false;
+  scene.add(MAP.sheet); MAP.sheet.scale.setScalar(1); MAP.sheet.visible = true; sfx('pick'); tick(g); say('MAP');
+}
+const mapPocketPos = () => MAP.pocket.getWorldPosition(_kp);
+function mapGrab(g, p) {   // VR grip; true if the map took the grab
+  if (MAP.g === g || MAP.g2 === g) return true;
+  if (MAP.state === 'held' && !MAP.g2 && MAP.sheet.getWorldPosition(_kg).distanceTo(p) < 0.3) { MAP.g2 = g; tick(g); return true; }   // other edge: hold it with both hands
+  if (MAP.state === 'pocket' && mode === 'foot' && (PK.state !== 'worn' || renderer.xr.isPresenting) && mapPocketPos().distanceTo(p) < MAP_POCKET_R) { mapHold(g); return true; }
+  if (MAP.state === 'world' && MAP.fold.position.distanceTo(p) < 0.25) { mapHold(g); return true; }
+  if (MAP.state === 'clip' && MAP.clip.getWorldPosition(_kg).distanceTo(p) < MAP_POCKET_R) { mapHold(g); return true; }
+  return false;
+}
+function mapRelease(g) {
+  if (MAP.g2 === g) { MAP.g2 = null; return; }
+  if (MAP.g !== g) return;
+  if (MAP.g2) { MAP.g = MAP.g2; MAP.g2 = null; return; }
+  const p = g.getWorldPosition(V3());
+  if (mode === 'plane') { mapStow('clip'); tick(g); say('MAP CLIPPED'); return; }
+  if (mapPocketPos().distanceTo(p) < MAP_POCKET_R + 0.03 || (PK.state !== 'worn' && packCenter().distanceTo(p) < PACK_DROP_R)) { mapStow('pocket'); tick(g); sfx('click'); say('MAP STOWED'); return; }
+  if (MAP.clip.getWorldPosition(_kg).distanceTo(p) < MAP_POCKET_R) { mapStow('clip'); tick(g); say('MAP CLIPPED'); return; }
+  MAP.state = 'world'; MAP.g = null; MAP.sheet.visible = false; scene.add(MAP.fold); MAP.fold.visible = true; MAP.fold.position.copy(p); MAP.fold.rotation.set(0, Math.random() * 6, 0);
+  MAP.item.vel.copy(g.userData.vel || V3()).clampLength(0, 8); falling.add(MAP.item);
+}
+function mapCockpit(g, squeeze, busy) {   // plane mode: a hand holding the map isn't flying; grab it off the wall clip
+  if (MAP.g === g) { if (!squeeze) mapRelease(g); return true; }
+  if (squeeze && !busy && MAP.state === 'clip' && MAP.clip.getWorldPosition(_kg).distanceTo(g.getWorldPosition(_kp)) < MAP_POCKET_R) { mapHold(g); return true; }
+  return false;
+}
+function mapDesk() {   // desktop M
+  if (MAP.state === 'world') { camera.getWorldPosition(_a); if (_a.distanceTo(MAP.fold.position) < 2.5) mapStow('pocket'); else { say('MAP IS ON THE GROUND'); return; } }
+  MAP.desk = !MAP.desk; if (!MAP.desk) { if (MAP.state === 'clip') mapStow('clip'); else MAP.sheet.visible = false; }
+}
+const _mx = V3(), _my = V3(), _mz = V3(), _mm = new THREE.Matrix4();
+function updateMap() {   // after the plane pose is set (grips ride the cockpit)
+  if (MAP.desk && !renderer.xr.isPresenting) { camera.add(MAP.sheet); MAP.sheet.visible = true; MAP.sheet.scale.setScalar(1); MAP.sheet.position.set(0, -0.02, -0.43); MAP.sheet.rotation.set(0, 0, 0); return; }
+  if (MAP.state !== 'held') return;
+  const E = eyeWorld(0); _eye.setFromMatrixPosition(E); _hf.set(0, 0, -1).transformDirection(E); _hf.y = 0; _hf.normalize();
+  const right = _mx.set(-_hf.z, 0, _hf.x), c = MAP.g.getWorldPosition(_kp);
+  if (MAP.g2) { const p2 = MAP.g2.getWorldPosition(_kg); _my.subVectors(p2, c); if (_my.dot(right) < 0) _my.negate(); right.copy(_my.normalize()); c.add(p2).multiplyScalar(0.5); c.y += 0.03; }
+  else { const left = MAP.g.userData.src?.handedness !== 'right'; c.addScaledVector(right, left ? 0.17 : -0.17); c.y += 0.07; }   // hand holds the near edge
+  _mz.subVectors(_eye, c); _mz.addScaledVector(right, -_mz.dot(right)).normalize(); _my.crossVectors(_mz, right);
+  _mm.makeBasis(right, _my, _mz); MAP.sheet.position.copy(c); MAP.sheet.quaternion.setFromRotationMatrix(_mm);
+}
+mapStow('pocket');
+
 // ======================= LOOP =======================
 const clock = new THREE.Clock();
 let fpsFrames = 0, fpsT = 0, instT = 0;
@@ -2005,6 +2310,7 @@ renderer.setAnimationLoop(() => {
   planeObstacles(dt);
 
   plane.position.fromArray(ac.pos); plane.quaternion.fromArray(ac.q);
+  updateMap();
   prop.rotation.z += (ac.out.rpm || 0) / 60 * 2 * Math.PI * dt * 0.13;   // aliased-looking slow spin
   stick.rotation.set(ctl.elev * 0.3, 0, -ctl.ail * 0.3);
   throttleKnob.position.z = 0.06 - ctl.throttle * 0.2;
@@ -2018,7 +2324,8 @@ renderer.setAnimationLoop(() => {
   if (fpsT >= 1) { fps = Math.round(fpsFrames / fpsT); fpsFrames = 0; fpsT = 0; }
   updateRifle(dt); updateWorld(dt, clock.elapsedTime);
   updateSurvival(dt); updateZombies(dt); updateAnimals(dt); updateItems(dt); updateBrass(dt); updateFalling(dt); updateSpots(dt); updateAudio(dt);
-  if (instT > 0.1) { instT = 0; drawInstruments(ac); drawWrist(); }
+  panelUpdate(ac, dt); compassCard.rotation.y = IN.hdg;
+  if (instT > 0.1) { instT = 0; drawWrist(); }
   renderer.render(scene, camera);
 });
 </script>
