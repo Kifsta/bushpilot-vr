@@ -20,7 +20,7 @@
 </script>
 </head>
 <body>
-<div id="info">BUSH PILOT VR v0.10.1 - PA-18 Super Cub prototype (v0.10.1: smoother virtual stock; v0.10: performance pass, crouch / jump, more zombies, force grab)
+<div id="info">BUSH PILOT VR v0.11 - PA-18 Super Cub prototype (v0.11: Cub + rifle proportions from reference; v0.10.1: smoother stock; v0.10: performance pass, crouch / jump, more zombies, force grab)
 RIFLE (VR): A/X on the rifle hand = work the lever (tap = full stroke, hold = keep it open) or flick the rifle down-forward, or grab the lever loop with your other hand and work it yourself;
   lever open = no shot; a short stroke won't feed. Load: tip of a round into the gate (right side) - it snaps in; keep grip held and go back to the pouch for the next one.
   Hold the right stick IN (click) + push it up/down while holding the rifle (right hand) = grip angle. Let go of the wrist with a hand on the forend = it stays in that hand.
@@ -669,7 +669,7 @@ const SIGHT_Y = 0.062, CHEEK_Z = 0.2;         // cheek weld: the eye sits on the
 const rifle = new THREE.Group(), lever = new THREE.Group(), bolt = new THREE.Group(), muzzle = new THREE.Object3D();
 const handR = new THREE.Group(), handS = new THREE.Group();   // small gloves drawn on the rifle (below the sight line)
 {
-  const wood = mat(0x6e3b1b), steel = mat(0x1e1f22), glove = mat(0x4a3b2c);
+  const wood = mat(0x8a4a1e), steel = mat(0x2c3442), glove = mat(0x4a3b2c);
   const brass = new THREE.MeshBasicMaterial({ color: 0xffd36a });
   const cc = document.createElement('canvas'); cc.width = cc.height = 32; const cx = cc.getContext('2d');
   cx.fillStyle = '#59616e'; cx.fillRect(0, 0, 32, 32);
@@ -679,30 +679,39 @@ const handR = new THREE.Group(), handS = new THREE.Group();   // small gloves dr
   const caseCol = new THREE.MeshLambertMaterial({ map: ctex, flatShading: true });   // case-hardened colours
   const S = new THREE.Group();
   const cyl = (r, len, seg, m, y, z) => { const o = new THREE.Mesh(new THREE.CylinderGeometry(r, r, len, seg).rotateX(Math.PI / 2), m); o.position.set(0, y, z); S.add(o); return o; };
-  box(0.034, 0.062, 0.17, caseCol, 0, 0.019, -0.105, S);                    // receiver
+  // v0.11: proportions from Neil's reference - round barrel over a full-length tube joined by a muzzle band, short deep square
+  // forend with a band at its front, tall boxy receiver, big loop lever, straight-grip stock with a pronounced drop, crescent buttplate.
+  // Sight line, bead, buckhorn, gate, lever pivot, loop grab point, grip and butt position unchanged.
+  void caseCol;
+  box(0.034, 0.066, 0.155, steel, 0, 0.019, -0.0975, S);                    // receiver: flat-sided, blued (top 0.052 stays under the sight line)
+  box(0.03, 0.012, 0.05, steel, 0, -0.016, -0.04, S);                       // lower tang / trigger plate
+  box(0.012, 0.006, 0.035, steel, 0, 0.045, 0.004, S);                      // upper tang into the wrist
   box(0.008, 0.016, 0.012, steel, 0, 0.049, -0.012, S);                     // hammer (top stays under the sight line)
-  box(0.004, 0.016, 0.006, steel, 0, -0.019, -0.035, S);                    // trigger
-  cyl(0.011, 0.51, 8, steel, 0.032, -0.445).rotation.z = Math.PI / 8;       // octagonal 20" barrel
-  cyl(0.0085, 0.49, 6, steel, 0.0125, -0.435);                              // full-length magazine tube
-  cyl(0.0095, 0.02, 6, steel, 0.0125, -0.675);                              // tube cap
-  box(0.036, 0.036, 0.23, wood, 0, 0.012, -0.305, S);                       // walnut forend
-  box(0.038, 0.05, 0.012, steel, 0, 0.021, -0.425, S);                      // forend cap / rear band
-  box(0.03, 0.044, 0.01, steel, 0, 0.022, -0.64, S);                        // front barrel band
+  box(0.004, 0.018, 0.006, steel, 0, -0.026, -0.035, S);                    // trigger
+  cyl(0.0105, 0.53, 10, steel, 0.032, -0.44);                               // round 20" barrel
+  cyl(0.0085, 0.51, 8, steel, 0.0105, -0.43);                               // full-length magazine tube (ends just short of the muzzle)
+  box(0.026, 0.04, 0.014, steel, 0, 0.022, -0.678, S);                      // muzzle band / tube cap joining barrel + tube
+  box(0.04, 0.05, 0.2, wood, 0, 0.012, -0.275, S);                          // short, deep, squared walnut forend
+  box(0.042, 0.054, 0.014, steel, 0, 0.013, -0.38, S);                      // barrel band at the forend front
   box(0.003, 0.017, 0.012, steel, 0, 0.0515, -0.695, S);                    // front sight blade
   const bead = new THREE.Mesh(new THREE.SphereGeometry(0.0035, 6, 4), brass); bead.position.set(0, SIGHT_Y, -0.695); S.add(bead);
   box(0.024, 0.013, 0.012, steel, 0, 0.0495, -0.33, S);                     // rear sight base, notch bottom at y 0.056
   for (const sx of [-1, 1]) box(0.007, 0.02, 0.006, steel, sx * 0.0095, 0.064, -0.33, S).rotation.z = -sx * 0.4;  // buckhorn ears
-  taper(-0.02, 0.09, [0.03, 0.03, -0.02], [0.032, 0.024, -0.036], wood, S);       // straight-grip wrist
-  taper(0.09, 0.325, [0.034, 0.024, -0.036], [0.04, 0.016, -0.1], wood, S);        // buttstock with drop at heel
-  taper(0.325, 0.334, [0.041, 0.019, -0.104], [0.041, 0.019, -0.104], steel, S);   // crescent buttplate
-  box(0.034, 0.01, 0.022, steel, 0, 0.019, 0.338, S); box(0.034, 0.012, 0.024, steel, 0, -0.1, 0.339, S);  // heel + toe horns
+  taper(-0.02, 0.09, [0.028, 0.045, -0.02], [0.03, 0.026, -0.042], wood, S);       // slim straight-grip wrist, comb drops away behind the tang
+  taper(0.09, 0.322, [0.032, 0.026, -0.042], [0.04, -0.006, -0.106], wood, S);     // buttstock: pronounced drop at the heel
+  for (let i = 0; i < 4; i++) {                                                     // curved (crescent) steel buttplate
+    const y0 = -0.006 - i * 0.025, y1 = y0 - 0.025, zc = t => 0.329 - 0.009 * Math.sin(Math.PI * (t + 0.006) / 0.1);
+    const z0 = zc(-y0 - 0.006), z1 = zc(-y1 - 0.006);
+    const p = box(0.041, Math.hypot(0.025, z1 - z0) + 0.002, 0.007, steel, 0, (y0 + y1) / 2, (z0 + z1) / 2 + 0.004, S); p.rotation.x = Math.atan2(z0 - z1, 0.025);
+  }
+  box(0.034, 0.008, 0.02, steel, 0, -0.004, 0.331, S); box(0.034, 0.01, 0.022, steel, 0, -0.106, 0.333, S);  // heel + toe horns
   mergeInto(S, rifle);
   // loop lever (pivots at the front of the receiver; swings down and forward when cycled) and sliding bolt
   lever.position.set(0, -0.012, -0.17); rifle.add(lever);
   box(0.01, 0.01, 0.15, steel, 0, -0.005, 0.075, lever);
   box(0.01, 0.034, 0.01, steel, 0, -0.024, 0.06, lever);
-  box(0.01, 0.01, 0.11, steel, 0, -0.04, 0.11, lever);
-  const loop = new THREE.Mesh(new THREE.TorusGeometry(0.026, 0.005, 4, 10).rotateY(Math.PI / 2), steel); loop.position.set(0, -0.032, 0.188); lever.add(loop);
+  box(0.01, 0.01, 0.1, steel, 0, -0.044, 0.105, lever);
+  const loop = new THREE.Mesh(new THREE.TorusGeometry(0.03, 0.005, 4, 12).rotateY(Math.PI / 2).scale(1, 1.05, 1.45), steel); loop.position.set(0, -0.032, 0.19); lever.add(loop);   // v0.11: big loop
   bolt.position.set(0, 0.046, -0.1); rifle.add(bolt); box(0.012, 0.012, 0.11, steel, 0, 0, 0, bolt);
   box(0.03, 0.045, 0.085, glove, 0.008, -0.047, 0.04, handR); rifle.add(handR);
   box(0.03, 0.04, 0.09, glove, -0.01, -0.032, -0.3, handS); rifle.add(handS);
@@ -750,19 +759,20 @@ function mergeInto(src, dst) {   // merge a group's direct mesh children into on
   for (const [m, gs] of byMat) dst.add(new THREE.Mesh(mergeGeometries(gs), m));
 }
 const PS = new THREE.Group(); partsRoot = PS;
+const DIHED = 1 * Math.PI / 180, wingY = x => 0.94 + (Math.abs(x) - 0.42) * Math.tan(DIHED);   // v0.11: 1 deg dihedral
 // wings: rounded tips, cut back to the rear spar where the flaps (inboard) and ailerons (outboard) hang
 for (const sx of [-1, 1]) {
   const s = new THREE.Shape(); s.moveTo(sx * 0.42, -0.94); s.lineTo(sx * 4.95, -0.94);
   s.quadraticCurveTo(sx * 5.35, -0.94, sx * 5.35, -0.15); s.quadraticCurveTo(sx * 5.35, 0.64, sx * 4.95, 0.64);
   s.lineTo(sx * 4.95, 0.30); s.lineTo(sx * 0.42, 0.30);
-  PS.add(new THREE.Mesh(extrude(s, 0.12).rotateX(Math.PI / 2).translate(0, 1.06, 0), yellow));
+  PS.add(new THREE.Mesh(extrude(s, 0.12).rotateX(Math.PI / 2).translate(-sx * 0.42, 0, 0).rotateZ(sx * DIHED).translate(sx * 0.42, 1.06, 0), yellow));
 }
 box(0.84, 0.01, 1.58, glass, 0, 1.0, -0.15);                                      // skylight over the cabin
 // V struts + jury struts, cabin frame
 for (const sx of [-1, 1]) {
   for (const z of [-0.7, 0.2]) {
-    const A = [sx * 0.38, -0.45, -0.45], B = [sx * 2.9, 0.94, z]; rod(A, B, 0.025, tube);
-    const t = 0.55, P = A.map((v, i) => v + (B[i] - v) * t); rod(P, [P[0] * 0.8, 0.94, P[2]], 0.012, tube);   // jury strut
+    const A = [sx * 0.38, -0.45, -0.45], B = [sx * 3.2, wingY(3.2), z]; rod(A, B, 0.025, tube);
+    const t = 0.55, P = A.map((v, i) => v + (B[i] - v) * t); rod(P, [P[0] * 0.8, wingY(P[0] * 0.8), P[2]], 0.012, tube);   // jury strut
   }
   rod([sx * 0.38, 0.1, -1.15], [sx * 0.38, 0.95, -0.92], 0.018, tube);        // windshield posts (slanted)
   rod([sx * 0.38, 0.94, -0.92], [sx * 0.38, 0.94, 0.75], 0.02, tube);          // top longeron
@@ -776,27 +786,27 @@ for (const sx of [-1, 1]) {
     box(0.02, 0.45, 0.55, yellow, 0.39, -0.28, 1.025); box(0.02, 0.45, 0.1, yellow, 0.39, -0.28, -0.6);  // right side around the door
   }
   // split-axle gear with bungees and big tundra tyres
-  const ax = [sx * 0.82, -0.95, -0.45];
-  rod([sx * 0.3, -0.52, -0.8], ax, 0.026, tube); rod([sx * 0.3, -0.52, -0.1], ax, 0.026, tube); rod([0, -0.53, -0.45], ax, 0.022, tube);
-  box(0.09, 0.07, 0.12, black, sx * 0.32, -0.52, -0.12);                       // bungee wraps
-  const prof = [[0.12, -0.165], [0.28, -0.175], [0.37, -0.14], [0.405, -0.05], [0.405, 0.05], [0.37, 0.14], [0.28, 0.175], [0.12, 0.165]];
+  const ax = [sx * 0.74, -0.91, -0.45];
+  rod([sx * 0.3, -0.52, -0.6], ax, 0.026, tube); rod([sx * 0.3, -0.52, 0.18], ax, 0.026, tube); rod([0, -0.53, -0.3], ax, 0.022, tube);
+  box(0.09, 0.07, 0.12, black, sx * 0.32, -0.52, 0.16);                        // bungee wraps
+  const prof = [[0.13, -0.2], [0.3, -0.22], [0.4, -0.18], [0.44, -0.065], [0.44, 0.065], [0.4, 0.18], [0.3, 0.22], [0.13, 0.2]];   // v0.11: ~35" x 17" tundras
   const ty = new THREE.Mesh(new THREE.LatheGeometry(prof.map(p => new THREE.Vector2(p[0], p[1])), 12).rotateZ(Math.PI / 2), black);
-  ty.position.set(sx * 0.95, -0.95, -0.45); PS.add(ty);
-  const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.34, 8).rotateZ(Math.PI / 2), grey); hub.position.copy(ty.position); PS.add(hub);
+  ty.position.set(sx * 0.95, -0.91, -0.45); PS.add(ty);
+  const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.42, 8).rotateZ(Math.PI / 2), grey); hub.position.copy(ty.position); PS.add(hub);
   // exposed cylinder heads with fins, exhaust stacks
-  for (const z of [-1.5, -1.85]) {
+  for (const z of [-1.1, -1.38]) {
     box(0.1, 0.13, 0.13, grey, sx * 0.36, -0.18, z);
     for (const y of [-0.13, -0.18, -0.23]) box(0.112, 0.012, 0.15, dark, sx * 0.365, y, z);
   }
-  rod([sx * 0.2, -0.45, -1.75], [sx * 0.24, -0.63, -1.05], 0.022, dark);
-  box(0.14, 0.09, 0.01, black, sx * 0.17, -0.12, -2.205);                       // nose-bowl air intakes
+  rod([sx * 0.2, -0.45, -1.3], [sx * 0.24, -0.63, -0.7], 0.022, dark);
+  box(0.14, 0.09, 0.01, black, sx * 0.17, -0.12, -1.755);                       // nose-bowl air intakes
   // tail feathers wires
-  rod([sx * 0.8, 0.25, 4.75], [0, 0.85, 4.85], 0.006, tube); rod([sx * 0.8, 0.25, 4.75], [0, 0.03, 4.6], 0.01, tube);
+  rod([sx * 0.8, 0.15, 4.35], [0, 0.95, 4.45], 0.006, tube); rod([sx * 0.8, 0.13, 4.35], [0, -0.05, 4.1], 0.01, tube);
 }
 rod([-0.38, 0.94, -0.92], [0.38, 0.94, -0.92], 0.02, tube); rod([-0.38, 0.94, 0.75], [0.38, 0.94, 0.75], 0.02, tube);
 { const ws = box(0.76, 0.89, 0.005, glass, 0, 0.525, -1.035); ws.rotation.x = Math.atan2(0.23, 0.85); }  // slanted windshield
-taper(-2.2, -0.62, [0.62, 0.02, -0.46], [0.78, 0.12, -0.55], yellow);             // cowling
-taper(1.3, 5.15, [0.78, 0.94, -0.55], [0.1, 0.36, 0.06], yellow);                 // rear fuselage (boxy, tapering)
+taper(-1.75, -0.62, [0.66, 0.04, -0.46], [0.78, 0.12, -0.55], yellow);            // cowling (v0.11: short, blunt)
+taper(1.3, 4.75, [0.78, 0.94, -0.55], [0.1, 0.36, 0.06], yellow);                 // rear fuselage (boxy, tapering; belly rises to the tail)
 box(0.78, 0.02, 0.66, yellow, 0, 0.95, 0.97);                                    // cabin roof behind the wing
 box(0.76, 0.04, 2.0, dark, 0, -0.52, 0.3);                                       // floor
 box(0.74, 0.28, 0.04, dark, 0, 0.0, -0.62);                                      // panel
@@ -804,25 +814,25 @@ box(0.48, 0.55, 0.06, grey, 0, -0.18, 0.45);                                    
 box(0.55, 0.1, 0.45, grey, 0, -0.38, 1.0); box(0.55, 0.5, 0.06, grey, 0, -0.1, 1.25);  // rear seat (tandem)
 box(0.03, 0.02, 0.24, grey, -0.35, -0.02, -0.17);                                // throttle quadrant slot
 box(0.01, 0.3, 0.3, dark, -0.375, -0.1, 0.34);                                   // flap handle quadrant
-PS.add(new THREE.Mesh(new THREE.ConeGeometry(0.11, 0.2, 8).rotateX(-Math.PI / 2), dark).translateY(-0.2).translateZ(-2.3));  // spinner
+PS.add(new THREE.Mesh(new THREE.ConeGeometry(0.11, 0.2, 8).rotateX(-Math.PI / 2), dark).translateY(-0.2).translateZ(-1.85));  // spinner
 { // fin (rounded) and stabiliser
-  const f = new THREE.Shape(); f.moveTo(4.4, 0.42); f.lineTo(5.0, 0.36); f.lineTo(5.0, 1.17); f.lineTo(4.86, 1.16); f.lineTo(4.4, 0.42);
+  const f = new THREE.Shape(); f.moveTo(3.45, 0.6); f.lineTo(4.62, 0.38); f.lineTo(4.62, 1.38); f.lineTo(4.4, 1.38); f.quadraticCurveTo(4.3, 1.37, 4.22, 1.28); f.lineTo(3.45, 0.6);   // v0.11: tall swept fin
   PS.add(new THREE.Mesh(extrude(f, 0.05).rotateY(-Math.PI / 2).translate(0.025, 0, 0), yellow));
-  const st = new THREE.Shape(); st.moveTo(-1.5, 4.55); st.lineTo(1.5, 4.55); st.quadraticCurveTo(1.65, 4.6, 1.65, 4.8); st.lineTo(1.65, 5.0);
-  st.lineTo(-1.65, 5.0); st.lineTo(-1.65, 4.8); st.quadraticCurveTo(-1.65, 4.6, -1.5, 4.55);
-  PS.add(new THREE.Mesh(extrude(st, 0.04).rotateX(Math.PI / 2).translate(0, 0.27, 0), yellow));
-  rod([0, 0.05, 4.65], [0, -0.38, 4.45], 0.015, dark);                              // tailwheel spring
+  const st = new THREE.Shape(); st.moveTo(-1.42, 4.0); st.lineTo(1.42, 4.0); st.quadraticCurveTo(1.6, 4.02, 1.6, 4.2); st.lineTo(1.6, 4.55);
+  st.lineTo(-1.6, 4.55); st.lineTo(-1.6, 4.2); st.quadraticCurveTo(-1.6, 4.02, -1.42, 4.0);
+  PS.add(new THREE.Mesh(extrude(st, 0.04).rotateX(Math.PI / 2).translate(0, 0.17, 0), yellow));   // v0.11: 3.2 m stab, low on the tail cone
+  rod([0, -0.03, 4.12], [0, -0.4, 4.42], 0.015, dark);                              // tailwheel leaf spring (raked aft)
   const tw = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.06, 8).rotateZ(Math.PI / 2), black); tw.position.set(0, -0.45, 4.45); PS.add(tw);
 }
 // black lightning-bolt stripe down each side (skips the right door, which carries its own piece)
 for (const sx of [-1, 1]) {
-  const path = [[-2.15, -0.16], [2.0, -0.12], [2.28, 0.08], [2.45, -0.05], [4.95, 0.2]], pts = [];
+  const path = [[-1.7, -0.16], [2.0, -0.12], [2.28, 0.08], [2.45, -0.05], [4.55, 0.21]], pts = [];
   for (let i = 0; i < path.length - 1; i++) { const [z0, y0] = path[i], [z1, y1] = path[i + 1], n = Math.max(1, Math.ceil(Math.abs(z1 - z0) / 0.2));
     for (let k = 0; k < n; k++) pts.push([z0 + (z1 - z0) * k / n, y0 + (y1 - y0) * k / n]); }
   pts.push(path[path.length - 1]);
-  const hw = z => z < -0.62 ? 0.31 + 0.08 * (z + 2.2) / 1.58 : z < 1.3 ? 0.40 : 0.39 - 0.34 * (z - 1.3) / 3.85;
+  const hw = z => z < -0.62 ? 0.33 + 0.06 * (z + 1.75) / 1.13 : z < 1.3 ? 0.40 : 0.39 - 0.34 * (z - 1.3) / 3.45;
   const pos = [], idx = [];
-  pts.forEach(([z, y], i) => { const h = 0.07 * clamp(Math.min((z + 2.2) / 0.6, (5.0 - z) / 1.2), 0.25, 1), x = sx * (hw(z) + 0.006);
+  pts.forEach(([z, y], i) => { const h = 0.07 * clamp(Math.min((z + 1.75) / 0.6, (4.6 - z) / 1.2), 0.25, 1), x = sx * (hw(z) + 0.006);
     pos.push(x, y + h / 2, z, x, y - h / 2, z);
     if (i && !(sx > 0 && z > -0.55 && pts[i - 1][0] < 0.75)) idx.push(2 * i - 2, 2 * i - 1, 2 * i, 2 * i - 1, 2 * i + 1, 2 * i); });
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
@@ -832,13 +842,13 @@ partsRoot = plane;
 mergeInto(PS, plane);
 // moving surfaces
 const flapGrp = new THREE.Group(); flapGrp.position.set(0, 0.995, 0.30); plane.add(flapGrp);
-box(2.16, 0.035, 0.34, yellow, -1.52, 0, 0.17, flapGrp); box(2.16, 0.035, 0.34, yellow, 1.52, 0, 0.17, flapGrp);
-const ails = [-1, 1].map(sx => { const g = new THREE.Group(); g.position.set(sx * 3.78, 0.995, 0.30); plane.add(g); box(2.3, 0.035, 0.34, yellow, 0, 0, 0.17, g); return g; });
-const elevGrp = new THREE.Group(); elevGrp.position.set(0, 0.25, 5.0); plane.add(elevGrp);
-elevGrp.add(new THREE.Mesh(extrude([-1, 1].map(sx => { const e = new THREE.Shape(); e.moveTo(sx * 0.05, 0); e.lineTo(sx * 1.65, 0); e.lineTo(sx * 1.65, 0.18);
-  e.quadraticCurveTo(sx * 1.62, 0.36, sx * 1.3, 0.36); e.lineTo(sx * 0.05, 0.36); return e; }), 0.035).rotateX(Math.PI / 2).translate(0, 0.0175, 0), yellow));
-const rudGrp = new THREE.Group(); rudGrp.position.set(0, 0, 5.0); plane.add(rudGrp);
-{ const r = new THREE.Shape(); r.moveTo(0, 1.17); r.quadraticCurveTo(0.4, 1.2, 0.42, 0.85); r.lineTo(0.4, 0.3); r.lineTo(0.28, 0.1); r.lineTo(0, 0.1); r.lineTo(0, 1.17);
+for (const sx of [-1, 1]) box(2.16, 0.035, 0.34, yellow, sx * 1.52, wingY(1.52) - 0.94, 0.17, flapGrp).rotation.z = sx * DIHED;
+const ails = [-1, 1].map(sx => { const g = new THREE.Group(); g.position.set(sx * 3.78, 0.995 + wingY(3.78) - 0.94, 0.30); plane.add(g); box(2.3, 0.035, 0.34, yellow, 0, 0, 0.17, g).rotation.z = sx * DIHED; return g; });
+const elevGrp = new THREE.Group(); elevGrp.position.set(0, 0.15, 4.55); plane.add(elevGrp);
+elevGrp.add(new THREE.Mesh(extrude([-1, 1].map(sx => { const e = new THREE.Shape(); e.moveTo(sx * 0.05, 0); e.lineTo(sx * 1.6, 0); e.lineTo(sx * 1.6, 0.2);
+  e.quadraticCurveTo(sx * 1.58, 0.4, sx * 1.28, 0.4); e.lineTo(sx * 0.05, 0.4); return e; }), 0.035).rotateX(Math.PI / 2).translate(0, 0.0175, 0), yellow));
+const rudGrp = new THREE.Group(); rudGrp.position.set(0, 0, 4.62); plane.add(rudGrp);
+{ const r = new THREE.Shape(); r.moveTo(0, 1.38); r.quadraticCurveTo(0.34, 1.4, 0.38, 1.12); r.lineTo(0.38, 0.22); r.lineTo(0.28, 0.02); r.lineTo(0, 0.04); r.lineTo(0, 1.38);   // big rudder
   rudGrp.add(new THREE.Mesh(extrude(r, 0.035).rotateY(-Math.PI / 2).translate(0.0175, 0, 0), yellow)); }
 // right side: lower door hinges down, upper window hinges up under the wing
 const door = new THREE.Group(); door.position.set(0.39, -0.505, 0); plane.add(door);
@@ -848,7 +858,7 @@ box(0.006, 0.97, 1.3, glass, 0, -0.49, 0.1, win); box(0.02, 0.025, 1.3, yellow, 
 let doorT = 0;
 const prop = new THREE.Mesh(new THREE.CircleGeometry(0.95, 16),
   new THREE.MeshBasicMaterial({ color: 0x222222, transparent: true, opacity: 0.18, side: THREE.DoubleSide, depthWrite: false }));
-prop.position.set(0, -0.2, -2.35); plane.add(prop);
+prop.position.set(0, -0.2, -1.9); plane.add(prop);
 const blade = box(0.09, 1.9, 0.03, dark, 0, 0, 0.01, prop); blade.visible = true;
 
 // flap handle (left wall, Johnson-bar style): pull up through notches 0 / 1 / 2 / 3 = 0 / 15 / 30 / 50 deg
