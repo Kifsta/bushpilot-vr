@@ -20,28 +20,31 @@
 </script>
 </head>
 <body>
-<div id="info">BUSH PILOT VR v0.9.1 - PA-18 Super Cub prototype (gunplay pass: real lever stroke, projectile ballistics zeroed at 50 m, recoil, hit effects)
+<div id="info">BUSH PILOT VR v0.10 - PA-18 Super Cub prototype (v0.10: performance pass, crouch / jump, more zombies, force grab)
 RIFLE (VR): A/X on the rifle hand = work the lever (tap = full stroke, hold = keep it open) or flick the rifle down-forward, or grab the lever loop with your other hand and work it yourself;
   lever open = no shot; a short stroke won't feed. Load: tip of a round into the gate (right side) - it snaps in; keep grip held and go back to the pouch for the next one.
-  Right stick up/down while holding it (right hand) = grip angle. Let go of the wrist with a hand on the forend = it stays in that hand.
+  Hold the right stick IN (click) + push it up/down while holding the rifle (right hand) = grip angle. Let go of the wrist with a hand on the forend = it stays in that hand.
 MAP: M = show/hide (desktop) | VR: reach to the pocket on the LEFT side of the pack (left hip / lower back), grip to pull it out; grab the far edge with the other hand to hold it open;
   let go at the pocket (or over the open pack) = stow, in the cockpit = clips to the left wall, anywhere else = drops
 FLY (desktop): click to mouse-look | W/S pitch | A/D roll | Q/E rudder | Shift/Ctrl (or = / -) throttle
-  [ / ] flaps up / down a notch (0-15-30-50) | B brakes | F get out (stopped + idle) | R reset (refuels) | C recenter
+  [ / ] flaps up / down a notch (0-15-30-50) | B brakes | F get out (stopped + idle) | R reset (refuels) | Home recenter
 ON FOOT (desktop): WASD walk (Shift sprint) | F board | G grab rifle / pick up loot into pack (hold G on a kill = dress, needs knife)
   click fire | hold right mouse aim | X lever | Z or R load a round from the pouch | E eat / refuel | T stash pack at the bench
+  C (hold) crouch | Space jump | hold G while looking at a loose item up to 8 m away = force-pull it to you
   I open/close pack | 1 knife draw/away (click or V = stab; V on a kill = dress) | 2 / 3 belt pouches (use, or fill from pack) | 4 sling/unsling rifle
 VR FLY: R grip = stick, L grip = throttle (or flap handle at its knob, left wall by your hip),
   L stick X = rudder, L trigger = brakes, Y = get out, A/X = recenter, B = reset
-VR FOOT: L stick walk (click = sprint), R stick snap turn, grip = grab/hold, other grip on forend = steady, rifle to cheek = stock,
+VR FOOT: L stick walk (click = sprint), R stick left/right = snap turn, hold down = crouch, push up = jump, grip = grab/hold, other grip on forend = steady, rifle to cheek = stock,
   trigger = fire, A/X on rifle hand or flick or grab the loop = lever, Y = board.
   Reload: grip the ammo pouch on your right hip = one cartridge, touch its tip to the loading gate (right side of the receiver).
+  FORCE GRAB: point an empty hand at a loose item 0.5-8 m away (it glows), squeeze grip, flick your hand back - it flies to you; keep grip held to catch it.
   Belt: knife sheath left hip, 2 pouches front, rifle sling over the right shoulder - let go of a thing near its slot (green box) to holster it.
   Pack: grip over either shoulder, pull it round to the front; let go = it hovers open at your chest. Drop items in, grip minis to take out.
   Push it back over your shoulder (or A/X on the free hand) to wear it. Let go of items anywhere else = they drop on the ground.
   Knife: stab zombies (head = kill), slice across a kill 3x (or hold grip on it with the knife in the other hand) = meat.
   Hold food to your mouth = eat | fuel can to the wing filler cap = refuel | raw meat over the fire pit = cook | cabin bench = stash
-Loot: paddock farmhouse (smoke + orange tarp ~3.6 km SE, zombies!), red truck on the N-S dirt road, a barn east along the road, ridge-top strip ~2.2 km W (~2400 ft up, lean-to cache).
+Loot: paddock farmhouse (smoke + orange tarp ~3.6 km SE, zombies!), red truck on the N-S dirt road, a barn east along the road, ridge-top strip ~2.2 km W (~2400 ft up, lean-to cache). Zombies: a pack at the farmhouse, groups at the truck, barn and ridge cache,
+  a few at the farms and lone ones along the roads. The cabin is mostly safe.
 </div>
 <div id="hud"></div><div id="cross"></div><div id="hurt"></div>
 <script type="module">
@@ -380,7 +383,7 @@ document.body.appendChild(VRButton.createButton(renderer));
 const SKY = 0xa9c8de;
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(SKY);
-scene.fog = new THREE.Fog(SKY, 1500, 10000);
+scene.fog = new THREE.Fog(SKY, 1200, 8500);   // v0.10: tighter haze = shorter draw distance (far plane 9 km)
 scene.add(new THREE.HemisphereLight(0xdfefff, 0x56603a, 1.2));
 const sun = new THREE.DirectionalLight(0xfff1dc, 2.0); sun.position.set(300, 500, 200); scene.add(sun);
 
@@ -399,6 +402,22 @@ function grainTexture(repeat) {  // 64x64 canvas noise, mipmapped; averages out 
 }
 const nearMeadow = (x, z, m = 0) => Math.abs(x - MEADOW.x) < MEADOW.hw + m && Math.abs(z - MEADOW.z) < MEADOW.hl + m;
 let terrainMesh;
+function splitTiles(geo, tile) {   // non-indexed triangle soup -> one geometry per tile (by triangle centroid)
+  const pos = geo.attributes.position, names = Object.keys(geo.attributes), buckets = new Map();
+  for (let i = 0; i < pos.count; i += 3) {
+    const cx = (pos.getX(i) + pos.getX(i + 1) + pos.getX(i + 2)) / 3, cz = (pos.getZ(i) + pos.getZ(i + 1) + pos.getZ(i + 2)) / 3;
+    const k = Math.floor(cx / tile) + ',' + Math.floor(cz / tile); (buckets.get(k) || buckets.set(k, []).get(k)).push(i);
+  }
+  const out = [];
+  for (const tris of buckets.values()) {
+    const g = new THREE.BufferGeometry();
+    for (const n of names) { const a = geo.attributes[n], sz = a.itemSize, arr = new Float32Array(tris.length * 3 * sz); let o = 0;
+      for (const i of tris) { arr.set(a.array.subarray(i * sz, (i + 3) * sz), o); o += 3 * sz; }
+      g.setAttribute(n, new THREE.BufferAttribute(arr, sz)); }
+    g.computeBoundingSphere(); out.push(g);
+  }
+  return out;
+}
 {
   const pal = [[0.25, 0.45, 0.30], [0.23, 0.40, 0.26], [0.13, 0.45, 0.42], [0.09, 0.35, 0.33], [0.28, 0.35, 0.22]];
   const cc = new THREE.Color(), e1 = new THREE.Vector3(), e2 = new THREE.Vector3(), n = new THREE.Vector3();
@@ -437,8 +456,10 @@ let terrainMesh;
     }
     geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
     geo.computeVertexNormals();
-    const m = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true, map: grainTexture([size / 6, size / 6]) }));
-    scene.add(m); return m;
+    const material = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true, map: grainTexture([size / 6, size / 6]) });
+    const tiles = (inner ? splitTiles(geo, 3000) : [geo]);          // v0.10: tiles so the GPU only gets what's in view
+    for (const g of tiles) scene.add(new THREE.Mesh(g, material));
+    return tiles;
   };
   terrainMesh = build(2 * T_IN, 2 * T_IN / T_C1, true);
   build(2 * T_OUT, 2 * T_OUT / T_C2, false);
@@ -454,9 +475,6 @@ const TREES = []; let CABIN_MESH = null;   // v0.9: bullets hit trunks / crowns 
   CABIN_MESH = cabin; roof.position.set(32, 4, -15); roof.rotation.y = Math.PI / 4; roof.scale.set(1, 1, 0.85); scene.add(roof);
 
   const N = 300;
-  const trunk = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.25, 0.35, 3, 5), mat(0x4a3520), N);
-  const crown = new THREE.InstancedMesh(new THREE.ConeGeometry(2.2, 7, 6), mat(0x2f5a2c), N);
-  const m4 = new THREE.Matrix4(), s = new THREE.Vector3(), pos = new THREE.Vector3(), qq = new THREE.Quaternion();
   let n = 0;
   while (n < N) {
     const cx = (rand() - 0.5) * 2400, cz = (rand() - 0.5) * 2400 - 200;
@@ -465,23 +483,37 @@ const TREES = []; let CABIN_MESH = null;   // v0.9: bullets hit trunks / crowns 
       const x = cx + (rand() - 0.5) * 60, z = cz + (rand() - 0.5) * 60;
       if (Math.abs(x) < 45 && z > -340 && z < 40) continue;        // keep strip clear
       const sc = 0.7 + rand() * 0.8, y = groundY(x, z);
-      s.set(sc, sc, sc);
-      trunk.setMatrixAt(n, m4.compose(pos.set(x, y + 1.5 * sc, z), qq, s));
-      crown.setMatrixAt(n, m4.compose(pos.set(x, y + 6 * sc, z), qq, s)); TREES.push([x, y, z, sc]);
+      TREES.push([x, y, z, sc]);
       n++;
     }
   }
-  scene.add(trunk, crown);
 }
 
 // ================= v0.2: ground detail & scale cues (visual only, no collision) =================
 const _m4 = new THREE.Matrix4(), _s = new THREE.Vector3(), _v = new THREE.Vector3(), _q = new THREE.Quaternion(), _e = new THREE.Euler();
 // list entries: [x, y, z, rotY, sx, sy, sz]
-function instanced(geo, material, list) {
+// v0.10: with opts { far, lod } the instance buffer is compacted on the CPU by distance from the camera (rebuilt only after
+// ~40 m of camera travel): instances beyond `far` are dropped, beyond `lod` only every 3rd is kept. Still ONE draw call per type.
+const CHUNKS = [];
+function instanced(geo, material, list, opt) {
   const im = new THREE.InstancedMesh(geo, material, list.length);
   list.forEach((o, i) => { _q.setFromEuler(_e.set(0, o[3], 0)); im.setMatrixAt(i, _m4.compose(_v.set(o[0], o[1], o[2]), _q, _s.set(o[4], o[5], o[6]))); });
-  scene.add(im); return im;
+  scene.add(im);
+  if (opt && list.length) { im.instanceMatrix.setUsage(THREE.DynamicDrawUsage); im.frustumCulled = false;
+    CHUNKS.push({ im, full: im.instanceMatrix.array.slice(), xz: Float32Array.from(list.flatMap(o => [o[0], o[2]])), far: opt.far || Infinity, lod: opt.lod || Infinity, n: list.length }); }
+  return im;
 }
+const _cp = new THREE.Vector3(), _cpLast = new THREE.Vector3(1e9, 0, 0);
+function updateChunks(force) {
+  camera.getWorldPosition(_cp); if (!force && Math.hypot(_cp.x - _cpLast.x, _cp.z - _cpLast.z) < 40) return; _cpLast.copy(_cp);
+  for (const k of CHUNKS) { const A = k.im.instanceMatrix.array, f2 = k.far * k.far, l2 = k.lod * k.lod; let c = 0;
+    for (let i = 0; i < k.n; i++) { const dx = k.xz[i * 2] - _cp.x, dz = k.xz[i * 2 + 1] - _cp.z, d2 = dx * dx + dz * dz;
+      if (d2 > f2 || (d2 > l2 && i % 3)) continue;
+      if (c !== i) A.set(k.full.subarray(i * 16, i * 16 + 16), c * 16); c++; }
+    k.im.count = c; k.im.instanceMatrix.needsUpdate = true; }
+}
+instanced(new THREE.CylinderGeometry(0.25, 0.35, 3, 5), mat(0x4a3520), TREES.map(([x, y, z, sc]) => [x, y + 1.5 * sc, z, 0, sc, sc, sc]), { far: 3000 });   // strip trees (distance-culled in v0.10)
+instanced(new THREE.ConeGeometry(2.2, 7, 6), mat(0x2f5a2c), TREES.map(([x, y, z, sc]) => [x, y + 6 * sc, z, 0, sc, sc, sc]), { lod: 4000 });
 const onStrip = (x, z, m = 0) => Math.abs(x) < 16 + m && z > -315 - m && z < 25 + m;
 const nearStrip = (rMax, rMin = 25) => { const a = rand() * Math.PI * 2, d = rMin + rMax * Math.pow(rand(), 1.8); return [Math.cos(a) * d, Math.sin(a) * d - 145]; };
 const ROAD_NS = [[780, -2600], [760, -1200], [800, -300], [780, 80], [740, 900], [820, 2200]];
@@ -496,8 +528,8 @@ const lines = [];   // merged line segments (fence wires + power lines): one dra
     const s = 0.4 + rand() * 0.8; bush.push([x, groundY(x, z) + 0.3 * s, z, rand() * 6, s * (0.8 + rand() * 0.5), s * 0.75, s]); }
   for (let i = 0; i < 700; i++) { const [x, z] = nearStrip(2200); if (onStrip(x, z, 4)) continue;
     const s = 0.2 + rand() * 0.7; rock.push([x, groundY(x, z) + 0.1 * s, z, rand() * 6, s * (0.7 + rand() * 0.6), s * 0.6, s]); }
-  instanced(new THREE.IcosahedronGeometry(1, 0), mat(0x4d6b32), bush);
-  instanced(new THREE.DodecahedronGeometry(1, 0), mat(0x8a8780), rock);
+  instanced(new THREE.IcosahedronGeometry(1, 0), mat(0x4d6b32), bush, { far: 1800 });
+  instanced(new THREE.DodecahedronGeometry(1, 0), mat(0x8a8780), rock, { far: 1800 });
 
   // round hay bales (1.5 m dia x 1.2 m) in clusters in fields
   const bale = [];
@@ -917,73 +949,127 @@ function instUpdate(a, dt) {   // every physics frame: filtered turn rate (deg/s
   }
   IN.prevHdg = t.hdg; IN.prevVel = a.vel.slice();
 }
-function drawAI() {
-  const x = G.ai.x; x.save(); x.drawImage(FACE.ai, 0, 0); x.translate(GS / 2, GS / 2);
-  x.save(); x.beginPath(); x.arc(0, 0, 118, 0, 7); x.clip();
-  x.rotate(-IN.roll); const py = IN.pitch / D2R * 3.4; x.translate(0, py);
-  x.fillStyle = '#2f78c8'; x.fillRect(-300, -600, 600, 600); x.fillStyle = '#7a4a22'; x.fillRect(-300, 0, 600, 600);
-  x.strokeStyle = '#fff'; x.lineWidth = 3; x.beginPath(); x.moveTo(-300, 0); x.lineTo(300, 0); x.stroke();
-  x.lineWidth = 2; x.fillStyle = '#fff'; x.font = 'bold 14px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle';
-  for (let p = -30; p <= 30; p += 5) { if (!p) continue; const y = -p * 3.4, w = p % 10 ? 14 : 30; x.beginPath(); x.moveTo(-w, y); x.lineTo(w, y); x.stroke();
-    if (!(p % 10)) { x.fillText(Math.abs(p), -w - 14, y); x.fillText(Math.abs(p), w + 14, y); } }
-  x.translate(0, -py); x.fillStyle = '#fff'; x.beginPath(); x.moveTo(0, -100); x.lineTo(-8, -86); x.lineTo(8, -86); x.fill();   // sky (bank) pointer
-  x.restore();
-  x.strokeStyle = '#fff'; x.lineWidth = 3;   // fixed bank scale
-  for (const b of [-60, -30, -20, -10, 10, 20, 30, 60, -45, 45]) { const t = -Math.PI / 2 + b * D2R, L = Math.abs(b) % 30 ? 10 : 18; x.beginPath(); x.moveTo(Math.cos(t) * 118, Math.sin(t) * 118); x.lineTo(Math.cos(t) * (118 - L), Math.sin(t) * (118 - L)); x.stroke(); }
-  x.fillStyle = '#ff8c1a'; x.beginPath(); x.moveTo(0, -104); x.lineTo(-9, -120); x.lineTo(9, -120); x.fill();
-  x.fillRect(-70, -3, 42, 6); x.fillRect(28, -3, 42, 6); x.beginPath(); x.moveTo(-28, -3); x.lineTo(0, 14); x.lineTo(28, -3); x.lineTo(28, 3); x.lineTo(0, 20); x.lineTo(-28, 3); x.fill();
-  x.beginPath(); x.arc(0, 0, 4, 0, 7); x.fill(); x.restore(); G.ai.t.needsUpdate = true;
+// v0.10 perf: dial faces are uploaded ONCE; needles, the attitude card, the heading card and the turn-coordinator
+// symbol/ball are tiny meshes moved every frame. No canvas redraws / texture uploads while flying
+// (v0.9 re-uploaded 3 gauges at 36 Hz + 6 at 12 Hz, each with a mipmap rebuild: ~11 Mpx/s).
+// All the solid-colour parts (needles, hubs, ball, turn symbol, sky pointer) are ONE dynamic mesh (~400 verts rewritten per frame = 1 draw call).
+const gSc = g => g.m.geometry.parameters.width / GS;                    // canvas px -> metres
+const GP = [];
+function gPart(g, geo, col, z) {
+  const ng = geo.index ? geo.toNonIndexed() : geo, p = ng.attributes.position, xy = new Float32Array(p.count * 2);
+  for (let i = 0; i < p.count; i++) { xy[i * 2] = p.getX(i); xy[i * 2 + 1] = p.getY(i); }
+  const part = { xy, sc: gSc(g), cx: g.m.position.x, cy: g.m.position.y, z: g.m.position.z + z, rotation: { z: 0 }, position: { x: 0, y: 0 }, color: new THREE.Color(col) };
+  GP.push(part); return part;
 }
+function gMesh(g, geo, material, z) { const m = new THREE.Mesh(geo, material); m.scale.setScalar(gSc(g)); m.position.z = z; g.m.add(m); return m; }
+let gpPos, gpCol;
+function gpBuild() {
+  const n = GP.reduce((a, p) => a + p.xy.length / 2, 0), geo = new THREE.BufferGeometry();
+  gpPos = new THREE.BufferAttribute(new Float32Array(n * 3), 3).setUsage(THREE.DynamicDrawUsage); gpCol = new THREE.BufferAttribute(new Float32Array(n * 3), 3).setUsage(THREE.DynamicDrawUsage);
+  geo.setAttribute('position', gpPos); geo.setAttribute('color', gpCol);
+  const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.DoubleSide })); m.frustumCulled = false; plane.add(m);
+}
+function gpUpdate() {
+  const A = gpPos.array, C = gpCol.array; let o = 0;
+  for (const p of GP) { const c = Math.cos(p.rotation.z) * p.sc, s = Math.sin(p.rotation.z) * p.sc, ox = p.cx + p.position.x, oy = p.cy + p.position.y, { r, g, b } = p.color;
+    for (let i = 0; i < p.xy.length; i += 2) { const x = p.xy[i], y = p.xy[i + 1];
+      A[o] = ox + x * c - y * s; A[o + 1] = oy + x * s + y * c; A[o + 2] = p.z; C[o] = r; C[o + 1] = g; C[o + 2] = b; o += 3; } }
+  gpPos.needsUpdate = gpCol.needsUpdate = true;
+}
+function needleGeo(len, w, tail) { const sh = new THREE.Shape(); sh.moveTo(-tail, -w); sh.lineTo(len - 12, -w * 0.55); sh.lineTo(len, 0); sh.lineTo(len - 12, w * 0.55); sh.lineTo(-tail, w); sh.closePath(); return new THREE.ShapeGeometry(sh); }
+const NEEDLE_M = 0xf4f4f4, HUB_M = 0x444444, HUB_G = new THREE.CircleGeometry(9, 12);
+const gNeedle = (g, len, w, material = NEEDLE_M, tail = 20, z = 0.0006) => gPart(g, needleGeo(len, w, tail), material, z);
+const gHub = g => gPart(g, HUB_G, HUB_M, 0.0012);
+function faceOnce(g, face, extra) { const x = g.x; x.save(); x.drawImage(face, 0, 0); x.translate(GS / 2, GS / 2); if (extra) extra(x); x.restore(); g.t.needsUpdate = true; }
 const HI_LBL = { 0: 'N', 90: 'E', 180: 'S', 270: 'W' };
-function drawHI() {
-  const x = G.hi.x; x.save(); x.drawImage(FACE.hi, 0, 0); x.translate(GS / 2, GS / 2);
-  x.save(); x.rotate(-IN.hdg); x.strokeStyle = '#eee'; x.fillStyle = '#eee'; x.textAlign = 'center'; x.textBaseline = 'middle';
+const ND = {};
+{
+  for (const k of ['asi', 'alt', 'vsi', 'rpm', 'tc', 'ai']) faceOnce(G[k], FACE[k]);
+  ND.asi = gNeedle(G.asi, 108, 7); gHub(G.asi);
+  ND.alt = [gNeedle(G.alt, 116, 2.5, 0xdddddd, 0, 0.0004), gNeedle(G.alt, 70, 9, NEEDLE_M, 14, 0.0006), gNeedle(G.alt, 108, 6, NEEDLE_M, 22, 0.0008)]; gHub(G.alt);
+  ND.vsi = gNeedle(G.vsi, 106, 7); gHub(G.vsi);
+  ND.rpm = gNeedle(G.rpm, 104, 7); gHub(G.rpm);
+  ND.fuel = gNeedle(G.fuel, 100, 7); gHub(G.fuel);
+  // turn coordinator: ball (with its rim) + the little aeroplane
+  ND.ball = [gPart(G.tc, new THREE.CircleGeometry(12, 16), 0x111111, 0.0005), gPart(G.tc, new THREE.RingGeometry(12, 13.5, 16), 0x888888, 0.0006)];
+  for (const b of ND.ball) b.position.y = -79 * gSc(G.tc);
+  ND.tcSym = gPart(G.tc, mergeGeometries([new THREE.PlaneGeometry(200, 8), new THREE.CircleGeometry(13, 16), new THREE.PlaneGeometry(6, 22).translate(0, 15, 0)]), NEEDLE_M, 0.0008);
+  // heading indicator: lubber + aircraft on the static face, a transparent rotating card on top
+  faceOnce(G.hi, FACE.hi, x => { x.fillStyle = '#ff8c1a'; x.beginPath(); x.moveTo(0, -112); x.lineTo(-9, -126); x.lineTo(9, -126); x.fill();
+    x.fillRect(-2.5, -36, 5, 66); x.fillRect(-34, -8, 68, 6); x.fillRect(-14, 22, 28, 5); });
+  const hc = document.createElement('canvas'); hc.width = hc.height = GS; const x = hc.getContext('2d'); x.translate(GS / 2, GS / 2);
+  x.strokeStyle = '#eee'; x.fillStyle = '#eee'; x.textAlign = 'center'; x.textBaseline = 'middle';
   for (let d = 0; d < 360; d += 5) { const L = d % 10 ? 8 : 16; x.lineWidth = d % 10 ? 2 : 3; x.save(); x.rotate(d * D2R);
     x.beginPath(); x.moveTo(0, -112); x.lineTo(0, -112 + L); x.stroke();
     if (!(d % 30)) { x.font = HI_LBL[d] ? 'bold 30px sans-serif' : 'bold 24px sans-serif'; x.fillText(HI_LBL[d] || d / 10, 0, -78); }
     x.restore(); }
-  x.restore();
-  x.fillStyle = '#ff8c1a'; x.beginPath(); x.moveTo(0, -112); x.lineTo(-9, -126); x.lineTo(9, -126); x.fill();   // lubber mark
-  x.fillRect(-2.5, -36, 5, 66); x.fillRect(-34, -8, 68, 6); x.fillRect(-14, 22, 28, 5);                       // little aircraft
-  x.restore(); G.hi.t.needsUpdate = true;
+  const ht = new THREE.CanvasTexture(hc); ht.colorSpace = THREE.SRGBColorSpace; ht.anisotropy = ANISO;
+  ND.hiCard = gMesh(G.hi, new THREE.PlaneGeometry(GS, GS), new THREE.MeshBasicMaterial({ map: ht, transparent: true }), 0.0005);
+  // attitude indicator: a long sky/ground card scrolled + rotated through the texture matrix inside a circle,
+  // then a static transparent overlay (bank scale, orange symbol) and a rotating sky pointer
+  const ac2 = document.createElement('canvas'); ac2.width = 256; ac2.height = 1024; const y = ac2.getContext('2d'); y.translate(128, 512);
+  y.fillStyle = '#2f78c8'; y.fillRect(-128, -512, 256, 512); y.fillStyle = '#7a4a22'; y.fillRect(-128, 0, 256, 512);
+  y.strokeStyle = '#fff'; y.lineWidth = 3; y.beginPath(); y.moveTo(-128, 0); y.lineTo(128, 0); y.stroke();
+  y.lineWidth = 2; y.fillStyle = '#fff'; y.font = 'bold 14px sans-serif'; y.textAlign = 'center'; y.textBaseline = 'middle';
+  for (let p = -30; p <= 30; p += 5) { if (!p) continue; const yy = -p * 3.4, w = p % 10 ? 14 : 30; y.beginPath(); y.moveTo(-w, yy); y.lineTo(w, yy); y.stroke();
+    if (!(p % 10)) { y.fillText(Math.abs(p), -w - 14, yy); y.fillText(Math.abs(p), w + 14, yy); } }
+  const at = new THREE.CanvasTexture(ac2); at.colorSpace = THREE.SRGBColorSpace; at.anisotropy = ANISO; at.matrixAutoUpdate = false;
+  ND.aiTex = at; ND.aiCard = gMesh(G.ai, new THREE.CircleGeometry(118, 40), new THREE.MeshBasicMaterial({ map: at }), 0.0004);
+  const sp = new THREE.Shape(); sp.moveTo(0, 100); sp.lineTo(-8, 86); sp.lineTo(8, 86); sp.closePath();
+  ND.skyPtr = gPart(G.ai, new THREE.ShapeGeometry(sp), NEEDLE_M, 0.0006);
+  const oc = document.createElement('canvas'); oc.width = oc.height = GS; const o = oc.getContext('2d'); o.translate(GS / 2, GS / 2);
+  o.strokeStyle = '#fff'; o.lineWidth = 3;
+  for (const b of [-60, -30, -20, -10, 10, 20, 30, 60, -45, 45]) { const t = -Math.PI / 2 + b * D2R, L = Math.abs(b) % 30 ? 10 : 18; o.beginPath(); o.moveTo(Math.cos(t) * 118, Math.sin(t) * 118); o.lineTo(Math.cos(t) * (118 - L), Math.sin(t) * (118 - L)); o.stroke(); }
+  o.fillStyle = '#ff8c1a'; o.beginPath(); o.moveTo(0, -104); o.lineTo(-9, -120); o.lineTo(9, -120); o.fill();
+  o.fillRect(-70, -3, 42, 6); o.fillRect(28, -3, 42, 6); o.beginPath(); o.moveTo(-28, -3); o.lineTo(0, 14); o.lineTo(28, -3); o.lineTo(28, 3); o.lineTo(0, 20); o.lineTo(-28, 3); o.fill();
+  o.beginPath(); o.arc(0, 0, 4, 0, 7); o.fill();
+  const ot = new THREE.CanvasTexture(oc); ot.colorSpace = THREE.SRGBColorSpace; ot.anisotropy = ANISO;
+  gMesh(G.ai, new THREE.PlaneGeometry(GS, GS), new THREE.MeshBasicMaterial({ map: ot, transparent: true }), 0.0008);
+  gpBuild();
+  for (const t of [G.info.t, G.fuel.t]) { t.generateMipmaps = false; t.minFilter = THREE.LinearFilter; }   // the only gauge textures still redrawn (on change)
 }
-function drawTC() {
-  const x = G.tc.x; x.save(); x.drawImage(FACE.tc, 0, 0); x.translate(GS / 2, GS / 2);
-  x.fillStyle = '#111'; x.beginPath(); x.arc(IN.ball * 50, 79, 12, 0, 7); x.fill(); x.strokeStyle = '#888'; x.lineWidth = 1.5; x.stroke();   // ball
-  x.save(); x.rotate(clamp(IN.rate / 3, -2.2, 2.2) * 18 * D2R); x.fillStyle = '#f4f4f4';                                                // standard rate = 18 deg mark
-  x.fillRect(-100, -4, 200, 8); x.beginPath(); x.arc(0, 0, 13, 0, 7); x.fill(); x.fillRect(-3, -26, 6, 22); x.restore();
-  x.restore(); G.tc.t.needsUpdate = true;
+const _aiA = new THREE.Matrix3().set(236, 0, -118, 0, 236, -118, 0, 0, 1), _aiF = new THREE.Matrix3().set(1, 0, 0, 0, -1, 0, 0, 0, 1),
+      _aiT = new THREE.Matrix3().set(1 / 256, 0, 0.5, 0, -1 / 1024, 0.5, 0, 0, 1), _aiR = new THREE.Matrix3(), _aiS = new THREE.Matrix3();
+function aiMatrix(pitch, roll) {   // circle uv -> card canvas px (same mapping as the old 2D draw: rotate(-roll), translate(0, pitch*3.4))
+  const c = Math.cos(roll), s = Math.sin(roll), py = pitch / D2R * 3.4;
+  _aiR.set(c, -s, 0, s, c, 0, 0, 0, 1); _aiS.set(1, 0, 0, 0, 1, -py, 0, 0, 1);
+  ND.aiTex.matrix.copy(_aiT).multiply(_aiS).multiply(_aiR).multiply(_aiF).multiply(_aiA);
 }
-function drawSlow(a) {
-  const o = a.out, mph = (o.V || 0) * 2.23694, ft = a.pos[1] * 3.28084, fpm = (o.vs || 0) * 196.85, fr = fuel / FUEL_MAX;
-  const put = (g, face, fn) => { const x = g.x; x.save(); x.drawImage(face, 0, 0); x.translate(GS / 2, GS / 2); fn(x); hub(x); x.restore(); g.t.needsUpdate = true; };
-  put(G.asi, FACE.asi, x => needle(x, aASI(mph), 108, 7));
-  put(G.alt, FACE.alt, x => { const f = Math.max(ft, 0);
-    needle(x, aALT(f % 100000, 100000), 116, 2.5, '#ddd', 0); needle(x, aALT(f % 10000, 10000), 70, 9, '#f4f4f4', 14); needle(x, aALT(f % 1000, 1000), 108, 6, '#f4f4f4', 22); });
-  put(G.vsi, FACE.vsi, x => needle(x, aVSI(fpm), 106, 7));
-  put(G.rpm, FACE.rpm, x => needle(x, aRPM(o.rpm || 0), 104, 7));
-  put(G.fuel, FACE.fuel, x => { needle(x, aFUEL(fr), 100, 7, fr < 0.15 ? '#f55' : '#f4f4f4'); x.fillStyle = '#ddd'; x.font = 'bold 20px sans-serif'; x.textAlign = 'center'; x.fillText((fuel / 3.785).toFixed(1) + ' GAL', 0, 52); });
+let fuelKey = '', infoKey = '', infoT = 1;
+const FT = { frm: 0, cpu: 0, max: 0, n: 0, sf: 0, sc: 0, sm: 0, t: 0 };   // frame time readout (ms, averaged over ~0.5 s)
+function drawInfo(a) {
+  const o = a.out, fr = fuel / FUEL_MAX, warn = [];
+  if (a.crashed) warn.push(['CRASH', '#f44']); if (o.stall > 0.3) warn.push(['STALL', '#f44']);
+  if (ac.engineOut && fuel <= 0) warn.push(['NO FUEL', '#f44']); else if (fr < 0.15) warn.push(['LOW FUEL', '#fa3']);
+  if (a.ctl.brake > 0.05) warn.push(['BRAKES', '#fa3']);
+  const lines = a.crashed ? [a.crashReason.slice(0, 18), a.crashReason.slice(18, 36)] : (msgT > 0 && mode === 'plane' ? [msg.slice(0, 18), msg.slice(18, 36)] : []);
+  lines.push(`THR ${(a.ctl.throttle * 100).toFixed(0)}%  HP ${P.hp.toFixed(0)}`, `FPS ${fps} ${FT.frm.toFixed(1)}ms`, `CPU ${FT.cpu.toFixed(1)} MAX ${FT.max.toFixed(1)}`);
+  const key = flapNotch + '|' + warn.map(w => w[0]).join() + '|' + lines.join('|');
+  if (key === infoKey) return; infoKey = key;
   const x = G.info.x; x.fillStyle = '#2a2a2a'; x.fillRect(0, 0, 256, 384); x.textAlign = 'center'; x.textBaseline = 'middle';
   x.fillStyle = '#0d0d0d'; x.fillRect(8, 8, 240, 120); x.fillStyle = '#ccc'; x.font = 'bold 22px sans-serif'; x.fillText('FLAPS', 128, 30);
   FLAP_DEG.forEach((d, i) => { const on = i === flapNotch, cx = 40 + i * 58; x.fillStyle = on ? '#ffd23a' : '#555'; x.beginPath(); x.arc(cx, 70, 14, 0, 7); x.fill();
     x.fillStyle = on ? '#fff' : '#999'; x.font = 'bold 18px sans-serif'; x.fillText(d, cx, 106); });
   x.fillStyle = '#0d0d0d'; x.fillRect(8, 138, 240, 238);
-  const warn = [];
-  if (a.crashed) warn.push(['CRASH', '#f44']); if (o.stall > 0.3) warn.push(['STALL', '#f44']);
-  if (ac.engineOut && fuel <= 0) warn.push(['NO FUEL', '#f44']); else if (fr < 0.15) warn.push(['LOW FUEL', '#fa3']);
-  if (a.ctl.brake > 0.05) warn.push(['BRAKES', '#fa3']);
-  x.font = 'bold 34px sans-serif'; warn.slice(0, 3).forEach(([t, c], i) => { x.fillStyle = c; x.fillText(t, 128, 170 + i * 40); });
+  x.font = 'bold 34px sans-serif'; warn.slice(0, 2).forEach(([t, c], i) => { x.fillStyle = c; x.fillText(t, 128, 166 + i * 38); });
   x.fillStyle = '#9f9'; x.font = 'bold 20px monospace';
-  const lines = a.crashed ? [a.crashReason.slice(0, 18), a.crashReason.slice(18, 36)] : (msgT > 0 && mode === 'plane' ? [msg.slice(0, 18), msg.slice(18, 36)] : []);
-  lines.push(`THR ${(a.ctl.throttle * 100).toFixed(0)}%  HP ${P.hp.toFixed(0)}`, `FPS ${fps}`);
-  lines.slice(-4).forEach((l, i) => x.fillText(l, 128, 290 + i * 24 - (lines.length > 2 ? 24 : 0)));
+  const L = lines.slice(-4); L.forEach((l, i) => x.fillText(l, 128, 364 - (L.length - 1 - i) * 24));
   G.info.t.needsUpdate = true;
 }
-let fps = 0, instFast = 0, instSlow = 0;
+let fps = 0;
 function panelUpdate(a, dt) {
   instUpdate(a, dt);
-  if ((instFast += dt) >= 1 / 36) { instFast = 0; drawAI(); drawHI(); drawTC(); }
-  if ((instSlow += dt) >= 1 / 12) { instSlow = 0; drawSlow(a); }
+  const o = a.out, mph = (o.V || 0) * 2.23694, ft = Math.max(a.pos[1] * 3.28084, 0), fpm = (o.vs || 0) * 196.85, fr = fuel / FUEL_MAX;
+  ND.asi.rotation.z = -aASI(mph);
+  ND.alt[0].rotation.z = -aALT(ft % 100000, 100000); ND.alt[1].rotation.z = -aALT(ft % 10000, 10000); ND.alt[2].rotation.z = -aALT(ft % 1000, 1000);
+  ND.vsi.rotation.z = -aVSI(fpm); ND.rpm.rotation.z = -aRPM(o.rpm || 0);
+  ND.fuel.rotation.z = -aFUEL(fr); ND.fuel.color.setHex(fr < 0.15 ? 0xff5555 : 0xf4f4f4);
+  const gal = (fuel / 3.785).toFixed(1);
+  if (gal !== fuelKey) { fuelKey = gal; faceOnce(G.fuel, FACE.fuel, x => { x.fillStyle = '#ddd'; x.font = 'bold 20px sans-serif'; x.textAlign = 'center'; x.fillText(gal + ' GAL', 0, 52); }); }
+  ND.ball[0].position.x = ND.ball[1].position.x = IN.ball * 50 * gSc(G.tc); ND.tcSym.rotation.z = -clamp(IN.rate / 3, -2.2, 2.2) * 18 * D2R;   // standard rate = 18 deg mark
+  ND.hiCard.rotation.z = IN.hdg;
+  aiMatrix(IN.pitch, IN.roll); ND.skyPtr.rotation.z = IN.roll; gpUpdate();
+  if ((infoT += dt) >= 0.25) { infoT = 0; drawInfo(a); }
 }
 // wet compass on the windshield top bow: card stays pointing north (reads backwards, like the real thing)
 const compassCard = (() => {
@@ -1227,7 +1313,8 @@ addEventListener('keydown', e => {
   if (mode === 'foot' && /^Digit[1-4]$/.test(e.code)) deskSlot(+e.code[5] - 1);
   if (mode === 'foot' && e.code === 'KeyV') deskKnifeUse();
   if (e.code === 'KeyM') mapDesk();
-  if (e.code === 'KeyC') recenter();
+  if (e.code === 'Home') recenter();                       // v0.10: C is crouch now
+  if (mode === 'foot' && e.code === 'Space') jump();
   if (e.code === 'KeyF') mode === 'plane' ? exitPlane() : board();
   if (mode === 'foot' && e.code === 'KeyX' && R.hand) cycleLever();
   if (mode === 'foot' && e.code === 'KeyG') desktopGrab();
@@ -1260,7 +1347,7 @@ function desktopGrab() {
   const c = nearCarcass(_a, 2.5); if (c) { if (!hasKnife()) { say('NEED A KNIFE'); return; } deskDress = { c, t: 0 }; say('HOLD G TO FIELD-DRESS'); return; }
   let bi = null, bd = 2.5;
   for (const it of loot) if (it.state === 'world' || it.state === 'stash') { const d = Math.hypot(_a.x - it.mesh.position.x, _a.z - it.mesh.position.z); if (d < bd) { bd = d; bi = it; } }
-  if (bi) pickLoot(bi);
+  if (bi) pickLoot(bi); else { fgDesk.on = true; fgDesk.tgt = null; fgDesk.t = 0; }   // nothing in reach: hold G to pull what you're looking at
 }
 const approach = (x, t, rate, dt) => x + clamp(t - x, -rate * dt, rate * dt);
 function desktopInput(dt) {
@@ -1278,14 +1365,15 @@ function walk(fwd, right, yaw, speed, dt) {
 function footDesktop(dt) {
   const k = c => keys[c] ? 1 : 0;
   walk((k('KeyW') | k('ArrowUp')) - (k('KeyS') | k('ArrowDown')), (k('KeyD') | k('ArrowRight')) - (k('KeyA') | k('ArrowLeft')),
-       footRig.rotation.y + lookYaw, WALK * (k('ShiftLeft') ? 2 : 1), dt);
+       footRig.rotation.y + lookYaw, WALK * (k('ShiftLeft') ? 2 : 1) * crouchWalk(), dt);
+  P.crouchIn = !!keys.KeyC;
   if (deskDress) { if (!keys[deskDress.key || 'KeyG']) deskDress = null; else if ((deskDress.t += dt) >= 2) { dressAnimal(deskDress.c, true); deskDress = null; } }
 }
 
 // VR controllers (grip space; parented to the cockpit rig, or to the foot rig when walking)
 const STICK_RANGE = 0.12, THROTTLE_TRAVEL = 0.15;  // m of hand travel for full deflection / full throttle
 const wc = document.createElement('canvas'); wc.width = 256; wc.height = 128;
-const wctx = wc.getContext('2d'), wtex = new THREE.CanvasTexture(wc); wtex.colorSpace = THREE.SRGBColorSpace;
+const wctx = wc.getContext('2d'), wtex = new THREE.CanvasTexture(wc); wtex.colorSpace = THREE.SRGBColorSpace; wtex.generateMipmaps = false; wtex.minFilter = THREE.LinearFilter;
 const wrist = new THREE.Mesh(new THREE.PlaneGeometry(0.11, 0.055), new THREE.MeshBasicMaterial({ map: wtex }));
 wrist.position.set(0, 0.035, 0.07); wrist.rotation.x = -1.0;
 const grips = [0, 1].map(i => {
@@ -1347,20 +1435,21 @@ function xrInput(dt) {
   vr.stickPrevHeld = stickHeld;
 }
 function footXR(dt) {
-  let lx = 0, ly = 0, rx = 0;
+  let lx = 0, ly = 0, rx = 0, ry = 0, rClick = false;
   vr.stick = vr.thr = false;
   for (const g of grips) {
     const src = g.userData.src; if (!src || !src.gamepad) continue;
     const gp = src.gamepad, h = src.handedness, sq = !!gp.buttons[1]?.pressed;
     if (h === 'left') { lx = gp.axes[2] || 0; ly = gp.axes[3] || 0; if (pressedEdge(gp, 5, 'Y')) board(); pressedEdge(gp, 4, 'X'); if (pressedEdge(gp, 3, 'LS')) vr.sprint = true; }
-    else { rx = gp.axes[2] || 0; if (pressedEdge(gp, 5, 'B')) resetFlight(); pressedEdge(gp, 4, 'A'); }
+    else { rx = gp.axes[2] || 0; ry = gp.axes[3] || 0; rClick = !!gp.buttons[3]?.pressed; if (pressedEdge(gp, 5, 'B')) resetFlight(); pressedEdge(gp, 4, 'A'); }
     if (pressedEdge(gp, 1, h + 'sq')) handGrab(g);
     if (!sq) handRelease(g);
     const trig = pressedEdge(gp, 0, h + 'trig'), btn = !!gp.buttons[4]?.pressed && !vr.prev[h + 'btn']; vr.prev[h + 'btn'] = !!gp.buttons[4]?.pressed;
     if (R.hand === g) {
       if (trig) R.wantFire = true;                // shot leaves in updateRifle from this frame's pose (no one-frame lag)
       R.levHold = !!gp.buttons[4]?.pressed; if (btn) cycleLever();
-      if (h === 'right') { const ry = gp.axes[3] || 0; if (Math.abs(ry) > 0.75 && !R.gripAdj) { R.gripAdj = true; adjustGrip(ry < 0 ? 5 : -5); } else if (Math.abs(ry) < 0.3) R.gripAdj = false; } }
+      if (h === 'right' && gp.buttons[3]?.pressed) { const ay = gp.axes[3] || 0;   // v0.10: grip angle = HOLD the right stick in (click) + push up/down
+        if (Math.abs(ay) > 0.75 && !R.gripAdj) { R.gripAdj = true; adjustGrip(ay < 0 ? 5 : -5); } else if (Math.abs(ay) < 0.3) R.gripAdj = false; } }
     else if (btn && PK.state !== 'worn') setPack('worn');   // other hand's A/X: close + wear the pack
     else if (btn) recenter();
   }
@@ -1369,15 +1458,26 @@ function footXR(dt) {
   const M = eyeWorld(0); _d.set(0, 0, -1).transformDirection(M); const yaw = Math.atan2(-_d.x, -_d.z);
   const moving = !!(dz(lx) || dz(ly)); vr.moving = moving;
   if (!moving) vr.sprint = false;                                 // sprint (L stick click) lasts until the stick re-centres
-  if (moving) walk(-dz(ly), dz(lx), yaw, WALK * (vr.sprint ? 2 : 1), dt);
-  if (Math.abs(rx) > 0.7 && !vr.snap) {
+  if (moving) walk(-dz(ly), dz(lx), yaw, WALK * (vr.sprint ? 2 : 1) * crouchWalk(), dt);
+  // v0.10 right stick: hold down = crouch, push up = jump (unless the stick is clicked in for the rifle grip-angle adjust)
+  const ax = Math.abs(rx), ay = Math.abs(ry), vert = ay > ax;
+  P.crouchIn = !rClick && vert && ry > 0.6;
+  if (!rClick && vert && ry < -0.7) { if (!vr.jumpLatch) { vr.jumpLatch = true; jump(); } } else if (ry > -0.3) vr.jumpLatch = false;
+  if (ax > 0.7 && ax > ay && !vr.snap) {
     vr.snap = true; const ang = -Math.sign(rx) * Math.PI / 6; _w.setFromMatrixPosition(M);
     footRig.position.sub(_w).applyAxisAngle(_up, ang).add(_w); footRig.rotation.y += ang; bodyYaw += ang;
   } else if (Math.abs(rx) < 0.3) vr.snap = false;
 }
+// v0.10: crouch (right stick down / C) and a small hop (right stick up / Space). Real crouching still works: it's head tracking on top.
+const CROUCH_DROP = 0.5, CROUCH_TIME = 0.15, JUMP_H = 0.4, CROUCH_WALK = 0.5;
+const crouchK = () => smooth01(P.crouchT);
+const crouchWalk = () => 1 - (1 - CROUCH_WALK) * crouchK();
+function jump() { if (mode !== 'foot' || P.jy > 0 || P.jv !== 0) return; P.jv = Math.sqrt(2 * 9.81 * JUMP_H); }   // grounded only: no double jump
 function updateFoot(dt) {
   camera.getWorldPosition(_w);
-  footRig.position.y = groundY(_w.x, _w.z) + EYE;
+  P.crouchT = clamp(P.crouchT + (P.crouchIn ? 1 : -1) * dt / CROUCH_TIME, 0, 1);
+  if (P.jv !== 0 || P.jy > 0) { P.jv -= 9.81 * dt; P.jy += P.jv * dt; if (P.jy <= 0) { P.jy = 0; P.jv = 0; sfx('leaves'); } }   // lands on the terrain under you
+  footRig.position.y = groundY(_w.x, _w.z) + EYE - CROUCH_DROP * crouchK() + P.jy;
   ctl.elev = ctl.ail = ctl.rud = 0; ctl.brake = 1;               // parking brake while you're out
   if (Math.hypot(_w.x - CABIN_DOOR.x, _w.z - CABIN_DOOR.z) < 6) {  // at the cabin: stash loot, top up the tube
     if (R.spare < POUCH_REFILL) { R.spare = POUCH_REFILL; say('AMMO POUCH REFILLED'); }
@@ -1465,17 +1565,20 @@ function statusText() {
     `AMMO ${R.tube}+${R.chambered ? 1 : 0} POUCH ${R.spare}${R.hand ? '' : R.slung ? ' (slung)' : R.stowed ? ' (stowed)' : ' (not held)'}\n` +
     `PACK ${packUsed()}/${PACK_CELLS} STASH ${stash.length}` + (msgT > 0 ? '\n' + msg : '');
 }
-function drawWrist() {
+let wristKey = '';
+function drawWrist() {   // v0.10: only re-uploads when something on it changed
+  const st = statusText(), key = st + '|' + (P.hurtT > 0) + '|' + Math.round(P.hp * 2.4) + '|' + Math.round(P.food * 2.4);
+  if (key === wristKey) return; wristKey = key;
   wctx.fillStyle = P.hurtT > 0 ? '#a00' : '#111'; wctx.fillRect(0, 0, 256, 128); wctx.font = '18px monospace';
   wctx.fillStyle = '#333'; wctx.fillRect(8, 4, 240, 6); wctx.fillRect(8, 12, 240, 6);
   wctx.fillStyle = '#e33'; wctx.fillRect(8, 4, 2.4 * P.hp, 6); wctx.fillStyle = '#eb3'; wctx.fillRect(8, 12, 2.4 * P.food, 6);
   wctx.fillStyle = '#9f9';
-  statusText().replace(/ \(.*?\)/, '').split('\n').forEach((l, i) => wctx.fillText(l.slice(0, 22), 8, 40 + i * 26));
-  wtex.needsUpdate = true; hud.textContent = statusText();
+  st.replace(/ \(.*?\)/, '').split('\n').forEach((l, i) => wctx.fillText(l.slice(0, 22), 8, 40 + i * 26));
+  wtex.needsUpdate = true; hud.textContent = st;
 }
 
 // ================= v0.5: survival (health / hunger / fuel), items, zombies, game animals =================
-const P = { hp: 100, food: 100, hurtT: 0 };
+const P = { hp: 100, food: 100, hurtT: 0, crouchIn: false, crouchT: 0, jy: 0, jv: 0 };   // v0.10: crouch / jump state
 const HUNGER_RATE = 100 / (20 * 60);          // full -> empty in 20 min
 const STARVE_RATE = 0.5, REGEN_RATE = 0.1;    // hp/s when starving / when fed (food > 50)
 const FUEL_MAX = 136, BURN_FULL = FUEL_MAX / (25 * 60), CAN_L = 40, POUR_RATE = 10;  // 36 gal; full power empties it in 25 min
@@ -1661,7 +1764,7 @@ const fireFl = [];
     const ny = terrainNormal(x, z)[1]; if (ny < 0.74 || ny > 0.985) continue;
     const s = 1.6 + rand() * 1.4; con.push([x, h + 4.5 * s, z, rand() * 6, s, s * (1.1 + rand() * 0.5), s]);
   }
-  instanced(new THREE.ConeGeometry(2.2, 9, 5, 1, true), mat(0x23452b), con);
+  instanced(new THREE.ConeGeometry(2.2, 9, 5, 1, true), mat(0x23452b), con, { lod: 4000 });
 }
 function spawnSpot(s, full) {
   s.items = [];
@@ -1721,15 +1824,28 @@ function alertNoise(o) {
 const ZSPH = [[0, 1.7, -0.06, 0.15, 'head'], [0, 1.3, 0, 0.27, 'torso'], [0, 0.95, 0, 0.22, 'hips'], [0, 0.45, 0, 0.2, 'legs']];
 const Z_HP = 3, Z_SPEED = 1.2, Z_LUNGE = 3.2, Z_SIGHT = 40, Z_DPS = 6;
 const ZS = [];
-const N_PADZ = 5, N_CABZ = 2;
+// v0.10: zombie sites. Each has a home + roam radius; dead ones respawn after the player has been >500 m away for 3 min.
+const N_CABZ = 2, Z_SLEEP_R = 500, Z_SLEEP_DT = 1;   // beyond 500 m (and not chasing) a zombie only thinks once a second
+const ZSITES = [{ name: 'FARMHOUSE', x: PAD_HOUSE.x - 6, z: PAD_HOUSE.z, r: 25, n: 10, away: 0 }];
+for (const [nm, n] of [['TRUCK', 6], ['BARN', 5], ['RIDGE STRIP', 5]]) { const sp = SPOTS.find(s => s.name === nm); if (sp) ZSITES.push({ name: nm, x: sp.x, z: sp.z, r: 22, n, away: 0 }); }
+for (const i of [1, 2, 3, 4]) ZSITES.push({ name: 'FARM ' + i, x: FARMS[i][0], z: FARMS[i][1], r: 30, n: 2, away: 0 });
+for (const [r, k] of [[0, 3], [0, 4], [1, 0], [1, 4], [2, 0], [2, 1]]) ZSITES.push({ name: 'ROAD', x: ROADS[r][k][0], z: ROADS[r][k][1], r: 80, n: 1, away: 0, road: true });   // lone wanderers, all >600 m from the cabin
+const N_SITEZ = ZSITES.reduce((a, s) => a + s.n, 0), NZ = N_SITEZ + N_CABZ;
 const zBody = imesh([vbox(0.34, 0.22, 0.2, 0, 0.95, 0, 0x34333d), vbox(0.42, 0.55, 0.24, 0, 1.33, 0.03, 0x56603f, -0.15),
                      vbox(0.21, 0.24, 0.22, 0, 1.72, -0.07, 0x8ea074), vbox(0.12, 0.04, 0.02, 0, 1.66, -0.185, 0x2a1414),
-                     vbox(0.04, 0.03, 0.02, -0.05, 1.75, -0.185, 0xd8e070), vbox(0.04, 0.03, 0.02, 0.05, 1.75, -0.185, 0xd8e070)], N_PADZ + N_CABZ);
-const zArm = imesh([vbox(0.1, 0.62, 0.1, 0, -0.31, 0, 0x6b7a55)], (N_PADZ + N_CABZ) * 2);
-const zLeg = imesh([vbox(0.14, 0.86, 0.15, 0, -0.43, 0, 0x34333d)], (N_PADZ + N_CABZ) * 2);
+                     vbox(0.04, 0.03, 0.02, -0.05, 1.75, -0.185, 0xd8e070), vbox(0.04, 0.03, 0.02, 0.05, 1.75, -0.185, 0xd8e070)], NZ);
+const zArm = imesh([vbox(0.1, 0.62, 0.1, 0, -0.31, 0, 0x6b7a55)], NZ * 2);
+const zLeg = imesh([vbox(0.14, 0.86, 0.15, 0, -0.43, 0, 0x34333d)], NZ * 2);
 function zAt(z, x, zz, st) { Object.assign(z, { x, z: zz, y: groundY(x, zz), yaw: Math.random() * 6.3, hp: Z_HP, state: st, t: Math.random() * 4, fall: 0, ph: Math.random() * 6, mv: 0, lunge: 0, cd: 2, tx: x, tz: zz, deadT: 0, groanT: 2 + Math.random() * 6, atk: 0, flinch: 0, fv: 0, fdir: 1, pvx: 0, pvz: 0, hs: false, sink: 0, droll: 0 }); }
-for (let i = 0; i < N_PADZ + N_CABZ; i++) {
-  const z = { cabin: i >= N_PADZ, hx: PAD_HOUSE.x - 6, hz: PAD_HOUSE.z, hit(part, dir) {
+function zHome(z) {   // (re)spawn somewhere around its site, never inside the farmhouse
+  const s = z.site; let x, zz, k = 0;
+  do { const a = Math.random() * 6.283, d = s.r * (0.2 + 0.8 * Math.random()); x = s.x + Math.cos(a) * d; zz = s.z + Math.sin(a) * d; }
+  while (Math.abs(x - PAD_HOUSE.x) < 6 && Math.abs(zz - PAD_HOUSE.z) < 6 && ++k < 30);
+  zAt(z, x, zz, s.road ? 'wander' : 'idle'); z.hx = s.x; z.hz = s.z;
+}
+const zSites = []; for (const s of ZSITES) for (let k = 0; k < s.n; k++) zSites.push(s);
+for (let i = 0; i < NZ; i++) {
+  const z = { cabin: i >= N_SITEZ, site: zSites[i] || null, hx: 30, hz: -15, hit(part, dir) {
     if (this.state === 'dead') return;
     if (!dir) sfx('hit', _sv.set(this.x, this.y + 1.2, this.z));
     this.hp -= part === 'head' ? 99 : part === 'torso' ? 1.5 : 1; this.state = 'chase';
@@ -1738,11 +1854,10 @@ for (let i = 0; i < N_PADZ + N_CABZ; i++) {
     this.flinch = 1; this.lunge = 0;
     if (this.hp <= 0) { this.state = 'dead'; this.deadT = 0; this.fall = 0; this.fv = 0; this.hs = part === 'head'; this.droll = (Math.random() - 0.5) * 0.5; say(part === 'head' ? 'HEADSHOT' : 'ZOMBIE DOWN'); }
   } };
-  if (z.cabin) zAt(z, 0, 0, 'off');
-  else { let x, zz; do { x = z.hx + (Math.random() - 0.5) * 50; zz = z.hz + (Math.random() - 0.5) * 50; } while (Math.abs(x - PAD_HOUSE.x) < 6 && Math.abs(zz - PAD_HOUSE.z) < 6); zAt(z, x, zz, 'idle'); }
+  if (z.cabin) zAt(z, 0, 0, 'off'); else zHome(z);
   ZS.push(z);
 }
-let cabSpawnT = 120 + Math.random() * 120, padAway = 0;
+let cabSpawnT = 120 + Math.random() * 120;
 function updateZombies(dt) {
   const pp = playerPos(), foot = mode === 'foot', target = foot || (ac.out.wow > 0);   // airborne: nothing to chase
   // rare cabin visitors: every few minutes near the cabin, sometimes 1-2 wander in from the bush
@@ -1751,10 +1866,18 @@ function updateZombies(dt) {
     if (Math.random() < 0.5) { const n = 1 + (Math.random() < 0.4); let k = 0;
       for (const z of ZS) if (z.cabin && z.state === 'off' && k < n) { const a = Math.random() * 6.3, d = 90 + Math.random() * 40; zAt(z, 30 + Math.cos(a) * d, -15 + Math.sin(a) * d, 'wander'); z.hx = 30; z.hz = -15; k++; } }
   }
-  padAway = Math.hypot(pp.x - PAD_HOUSE.x, pp.z - PAD_HOUSE.z) > 500 ? padAway + dt : 0;
-  for (let i = 0; i < ZS.length; i++) {
-    const z = ZS[i];
-    if (z.state === 'off') { zBody.setMatrixAt(i, HIDE); for (const k of [0, 1]) { zArm.setMatrixAt(i * 2 + k, HIDE); zLeg.setMatrixAt(i * 2 + k, HIDE); } continue; }
+  for (const s of ZSITES) s.away = Math.hypot(pp.x - s.x, pp.z - s.z) > 500 ? s.away + dt : 0;
+  for (let i = 0; i < ZS.length; i++) { const z = ZS[i];
+    if (z.state !== 'off' && z.state !== 'chase' && Math.hypot(pp.x - z.x, pp.z - z.z) > Z_SLEEP_R) {   // asleep: think once a second
+      z.sleepT = (z.sleepT || 0) + dt; if (z.sleepT < Z_SLEEP_DT) continue; zStep(z, i, z.sleepT, pp, foot, target); z.sleepT = 0; zMoved = true; continue; }
+    z.sleepT = 0; zStep(z, i, dt, pp, foot, target); zMoved = true;
+  }
+  if (zMoved) zBody.instanceMatrix.needsUpdate = zArm.instanceMatrix.needsUpdate = zLeg.instanceMatrix.needsUpdate = true;
+  zMoved = false;
+}
+let zMoved = true;
+function zStep(z, i, dt, pp, foot, target) {
+    if (z.state === 'off') { zBody.setMatrixAt(i, HIDE); for (const k of [0, 1]) { zArm.setMatrixAt(i * 2 + k, HIDE); zLeg.setMatrixAt(i * 2 + k, HIDE); } return; }
     const dx = pp.x - z.x, dz = pp.z - z.z, d = Math.hypot(dx, dz);
     let spd = 0;
     if (z.state === 'dead') {
@@ -1764,7 +1887,7 @@ function updateZombies(dt) {
       else if (z.fv) { z.fv += 9 * dt; z.fall = Math.min(1.5, z.fall + z.fv * dt); if (z.fall >= 1.5) { z.fall = 1.5; z.fv = 0; } }   // small bounce
       z.x += z.pvx * dt; z.z += z.pvz * dt; z.pvx *= Math.exp(-5 * dt); z.pvz *= Math.exp(-5 * dt);
       if (z.cabin && z.deadT > 60) z.state = 'off';
-      if (!z.cabin && padAway > 180) { let x, zz; do { x = z.hx + (Math.random() - 0.5) * 50; zz = z.hz + (Math.random() - 0.5) * 50; } while (Math.abs(x - PAD_HOUSE.x) < 6 && Math.abs(zz - PAD_HOUSE.z) < 6); zAt(z, x, zz, 'idle'); }
+      if (!z.cabin && z.site.away > 180) zHome(z);
     } else {
       if ((z.state === 'idle' || z.state === 'wander') && target && d < Z_SIGHT) { z.state = 'chase'; sfx('groan', _sv.set(z.x, z.y + 1.6, z.z)); }
       if (z.state === 'chase' && (!target || d > 120)) { z.state = 'wander'; z.tx = z.hx; z.tz = z.hz; }
@@ -1778,7 +1901,7 @@ function updateZombies(dt) {
         if (foot && d < 1.15) { z.atk = 1; hurt(Z_DPS * dt); }
       } else {
         z.t -= dt;
-        if (z.t <= 0) { if (z.state === 'idle') { z.state = 'wander'; z.tx = z.hx + (Math.random() - 0.5) * 50; z.tz = z.hz + (Math.random() - 0.5) * 50; z.t = 15; } else { z.state = 'idle'; z.t = 3 + Math.random() * 6; } }
+        if (z.t <= 0) { if (z.state === 'idle') { z.state = 'wander'; const rr = z.site ? z.site.r : 25; z.tx = z.hx + (Math.random() - 0.5) * 2 * rr; z.tz = z.hz + (Math.random() - 0.5) * 2 * rr; z.t = 15; } else { z.state = 'idle'; z.t = 3 + Math.random() * 6; } }
         if (z.state === 'wander') { z.yaw = turn(z.yaw, yawTo(z.x, z.z, z.tx, z.tz), 1.5 * dt); spd = Math.hypot(z.tx - z.x, z.tz - z.z) > 1 ? 0.5 : 0; }
       }
       z.x -= Math.sin(z.yaw) * spd * dt; z.z -= Math.cos(z.yaw) * spd * dt;
@@ -1795,8 +1918,6 @@ function updateZombies(dt) {
     const arm = dead ? 0.3 : z.atk ? 1.3 + Math.sin(performance.now() * 0.015) * 0.5 : 1.25 + Math.sin(z.ph * 0.5) * 0.15;
     limb(zArm, i * 2, -0.27, 1.55, 0.02, arm + sw * 0.3); limb(zArm, i * 2 + 1, 0.27, 1.55, 0.02, arm - sw * 0.3 + (z.atk ? 0.6 : 0));
     limb(zLeg, i * 2, -0.1, 0.88, 0, dead ? 0 : sw); limb(zLeg, i * 2 + 1, 0.1, 0.88, 0, dead ? 0 : -sw);
-  }
-  zBody.instanceMatrix.needsUpdate = zArm.instanceMatrix.needsUpdate = zLeg.instanceMatrix.needsUpdate = true;
 }
 // zombies vs the plane on the ground: no damage to you inside, but they get in the way of a takeoff roll
 function planeObstacles(dt) {
@@ -2620,11 +2741,126 @@ function updateMap() {   // after the plane pose is set (grips ride the cockpit)
 }
 mapStow('pocket');
 
+// ================= v0.10: force grab (gravity-glove style) =================
+// Point a free hand at a loose thing 0.5-8 m away (it glows), squeeze grip to lock on, flick the hand back toward you:
+// it arcs to your hand and is caught if grip is still held (otherwise it lands near you). Desktop: hold G while looking at it.
+const FG = { cone: 8 * D2R, minD: 0.5, maxD: 8, flick: 1.3, catchR: 0.32, deskHold: 0.25 };
+const fgGlowTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'), g = x.createRadialGradient(32, 32, 0, 32, 32, 32);
+  g.addColorStop(0, 'rgba(255,240,200,0.9)'); g.addColorStop(0.45, 'rgba(255,220,150,0.35)'); g.addColorStop(1, 'rgba(255,200,120,0)'); x.fillStyle = g; x.fillRect(0, 0, 64, 64);
+  return new THREE.CanvasTexture(c); })();
+const fgGlow = [0, 1, 2].map(() => { const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: fgGlowTex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0.5 }));
+  sp.visible = false; scene.add(sp); return sp; });
+const rays = [0, 1].map(i => { const c = renderer.xr.getController(i); xrOffset.add(c); return c; });   // target-ray spaces (same index as grips)
+const FGS = [{}, {}], fgFly = [], fgDesk = { on: false, t: 0, tgt: null };
+const _fo = new THREE.Vector3(), _fd = new THREE.Vector3(), _fp = new THREE.Vector3(), _fv = new THREE.Vector3(), _fh = new THREE.Vector3(), FGC = [];
+function fgCands() {   // loose things only: no controls, zombies or carcasses
+  FGC.length = 0;
+  for (const it of loot) if (it.state === 'world' || it.state === 'stash') FGC.push({ k: 'item', it, m: it.mesh, r: 0.25 });
+  if (!R.hand && !R.slung && !R.stowed && !R.fly && rifle.visible) FGC.push({ k: 'rifle', m: rifle, r: 0.45 });
+  if (MAP.state === 'world') FGC.push({ k: 'map', m: MAP.fold, r: 0.18 });
+  for (const c of cans) if (!c.userData.heldBy && !c.userData.fly) FGC.push({ k: 'can', m: c, r: 0.08 });
+  return FGC;
+}
+function fgPick(o, d) {
+  let best = null, bs = Infinity;
+  for (const c of fgCands()) { c.m.getWorldPosition(_fp); _fv.subVectors(_fp, o); const dist = _fv.length(); if (dist < FG.minD || dist > FG.maxD) continue;
+    const ang = Math.acos(clamp(_fv.dot(d) / dist, -1, 1)) - Math.atan(c.r / dist);   // the item's size counts
+    if (ang > FG.cone) continue; const sc = ang + dist * 0.003; if (sc < bs) { bs = sc; best = c; } }
+  return best;
+}
+const fgStill = c => c.k === 'item' ? (c.it.state === 'world' || c.it.state === 'stash') : c.k === 'rifle' ? !R.hand && !R.slung && !R.stowed && !R.fly : c.k === 'map' ? MAP.state === 'world' : !c.m.userData.heldBy && !c.m.userData.fly;
+function handFree(g) { return R.hand !== g && R.support !== g && R.levHand !== g && !held.has(g) && !rounds.has(g) && PK.g !== g && MAP.g !== g && MAP.g2 !== g && !g.userData.can && !vr.dress.has(g) && !fgFly.some(f => f.g === g); }
+const _fk = new THREE.Vector3(), _fgq = new THREE.Quaternion();
+function fgHandPos(g, out) { if (g === 'desk') { camera.getWorldPosition(out); return out.add(_fk.set(0, -0.3, -0.45).applyQuaternion(camera.getWorldQuaternion(_fgq))); } return g.getWorldPosition(out); }
+function fgLaunch(c, g) {
+  const m = c.m, p = m.getWorldPosition(new THREE.Vector3());
+  if (c.k === 'item') { const it = c.it; falling.delete(it); const si = stash.indexOf(it); if (si >= 0) { stash.splice(si, 1); layoutStash(); } it.state = 'pulled'; }
+  if (c.k === 'rifle') R.fly = true;
+  if (c.k === 'map') { falling.delete(MAP.item); MAP.state = 'pulled'; }
+  if (c.k === 'can') { const u = m.userData; u.vel = null; u.t = 0; u.fly = true; }
+  scene.attach(m);
+  const tgt = fgHandPos(g, new THREE.Vector3()); tgt.y += 0.15;
+  const dist = p.distanceTo(tgt), T = clamp(0.35 + dist * 0.05, 0.4, 0.8);
+  const v = tgt.sub(p).divideScalar(T); v.y += 0.5 * 9.81 * T;                     // ballistic arc that ends at the hand
+  fgFly.push({ c, g, p, v, t: 0, T, spin: new THREE.Vector3((Math.random() - 0.5) * 4, (Math.random() - 0.5) * 6, (Math.random() - 0.5) * 4).multiplyScalar(c.k === 'rifle' ? 0.25 : 1) });
+  sfx('leaf', p); if (g !== 'desk') pulse(g, 0.5, 30);
+}
+function fgCatch(f) {
+  const { c, g } = f, m = c.m;
+  if (g === 'desk') {
+    if (c.k === 'item') { c.it.state = 'world'; pickLoot(c.it); if (c.it.state === 'world') return fgLand(f); }
+    else if (c.k === 'rifle') { R.fly = false; R.hand = 'desk'; deskKnife = false; sfx('pick'); }
+    else if (c.k === 'map') { MAP.state = 'world'; mapStow('pocket'); say('MAP STOWED'); sfx('pick'); }
+    else return fgLand(f);
+    return;
+  }
+  if (c.k === 'item') { c.it.state = 'world'; holdItem(g, c.it); }
+  else if (c.k === 'rifle') { R.fly = false; R.hand = g; R.support = null; R.stock = false; R.free = false; g.getWorldPosition(R.prev); tick(g); sfx('pick'); }
+  else if (c.k === 'map') { MAP.state = 'world'; mapHold(g); }
+  else { const u = m.userData; u.fly = false; u.heldBy = g; g.userData.can = m; g.add(m); m.position.set(0, -0.01, -0.05); m.rotation.set(0, 0, 0); sfx('pick'); }
+  pulse(g, 0.8, 40);
+}
+function fgLand(f) {   // grip let go mid-flight (or nothing to catch with): it falls near you
+  const { c } = f, m = c.m;
+  if (c.k === 'item') { c.it.state = 'world'; c.it.vel = f.v.clone().multiplyScalar(0.3); falling.add(c.it); }
+  else if (c.k === 'rifle') { R.fly = false; dropRifle(); }
+  else if (c.k === 'map') { MAP.state = 'world'; MAP.item.vel.copy(f.v).multiplyScalar(0.3); falling.add(MAP.item); }
+  else { const u = m.userData; u.fly = false; u.vel = f.v.clone().multiplyScalar(0.4); u.av = new THREE.Vector3(3, 2, 1); u.t = 30; }
+}
+function fgGripHeld(g) { return g === 'desk' ? !!keys.KeyG : !!g.userData.src?.gamepad?.buttons[1]?.pressed; }
+function updateForce(dt) {
+  const foot = mode === 'foot', xr = renderer.xr.isPresenting; let gl = 0;
+  const glow = (c, hot) => { if (!c || gl > 2) return; const sp = fgGlow[gl++]; c.m.getWorldPosition(sp.position); sp.visible = true;
+    sp.scale.setScalar(c.r * (hot ? 3.4 + Math.sin(performance.now() * 0.02) * 0.4 : 2.6)); sp.material.opacity = hot ? 0.75 : 0.4; };
+  // VR hands
+  for (let i = 0; i < 2; i++) {
+    const g = grips[i], st = FGS[i], src = g.userData.src, sq = fgGripHeld(g);
+    if (g.userData.can && !sq) { const m = g.userData.can, u = m.userData; scene.attach(m); u.heldBy = null; g.userData.can = null;   // throw the can
+      u.vel = (g.userData.vel || new THREE.Vector3()).clone().clampLength(0, 12); u.av = new THREE.Vector3(4, 1, 2); u.t = 30; }
+    if (!(xr && foot && src && handFree(g))) { st.tgt = st.lock = null; st.sq = sq; continue; }
+    const ray = rays[i]; ray.getWorldPosition(_fo); _fd.set(0, 0, -1).transformDirection(ray.matrixWorld);
+    if (st.lock) {
+      if (!sq || !fgStill(st.lock)) st.lock = null;
+      else { const v = g.userData.vel; st.lock.m.getWorldPosition(_fp); g.getWorldPosition(_fh);
+        if (v) { _fv.subVectors(_fh, _fp).setY(0).normalize(); if (v.dot(_fv) > FG.flick || v.y > FG.flick * 1.2) { fgLaunch(st.lock, g); st.lock = null; } } }
+      glow(st.lock, true); st.sq = sq; continue;
+    }
+    const t = sq ? null : fgPick(_fo, _fd);
+    if (t && (!st.tgt || st.tgt.m !== t.m)) pulse(g, 0.12, 12);                           // tick when a new thing lights up
+    if (sq && !st.sq && st.tgt && fgStill(st.tgt)) { st.lock = st.tgt; pulse(g, 0.3, 20); }  // squeeze = lock on
+    if (!sq) st.tgt = t;
+    glow(st.lock || st.tgt, !!st.lock); st.sq = sq;
+  }
+  // desktop: hold G while looking at it
+  if (!xr && foot && fgDesk.on) {
+    if (!keys.KeyG || R.hand === 'desk') fgDesk.on = false;
+    else { camera.getWorldPosition(_fo); camera.getWorldDirection(_fd);
+      if (!fgDesk.tgt || !fgStill(fgDesk.tgt)) { fgDesk.tgt = fgPick(_fo, _fd); fgDesk.t = 0; }
+      if (fgDesk.tgt && (fgDesk.t += dt) >= FG.deskHold) { fgLaunch(fgDesk.tgt, 'desk'); fgDesk.on = false; fgDesk.tgt = null; }
+      else glow(fgDesk.tgt, true); }
+  }
+  for (let k = gl; k < 3; k++) fgGlow[k].visible = false;
+  // things in flight
+  for (let i = fgFly.length - 1; i >= 0; i--) {
+    const f = fgFly[i], m = f.c.m;
+    if (f.c.k === 'rifle' && R.hand) { R.fly = false; fgFly.splice(i, 1); continue; }   // grabbed some other way mid-air
+    if (f.c.k === 'item' && f.c.it.state !== 'pulled') { fgFly.splice(i, 1); continue; }
+    const hold = fgGripHeld(f.g), hp = fgHandPos(f.g, _fh);
+    f.t += dt; f.v.y -= 9.81 * dt;
+    if (hold && f.t > f.T * 0.45) { const rem = Math.max(0.06, f.T - f.t); _fv.subVectors(hp, f.p).divideScalar(rem); f.v.lerp(_fv, Math.min(1, dt * 12)); }   // homes on a moving hand
+    f.p.addScaledVector(f.v, dt); m.position.copy(f.p);
+    m.rotation.x += f.spin.x * dt; m.rotation.y += f.spin.y * dt; m.rotation.z += f.spin.z * dt;
+    if (hold && f.p.distanceTo(hp) < FG.catchR) { fgFly.splice(i, 1); fgCatch(f); continue; }
+    if ((f.v.y < 0 && f.p.y < groundY(f.p.x, f.p.z) + 0.05) || f.t > 4) { fgFly.splice(i, 1); fgLand(f); }
+  }
+}
+
 // ======================= LOOP =======================
 const clock = new THREE.Clock();
 let fpsFrames = 0, fpsT = 0, instT = 0;
+let chunkT = 1;
 renderer.setAnimationLoop(() => {
-  const dt = Math.min(clock.getDelta(), 0.05);
+  const t0 = performance.now(), rawDt = clock.getDelta(), dt = Math.min(rawDt, 0.05);
   const xr = renderer.xr.isPresenting;
   if (xr) {
     mode === 'plane' ? xrInput(dt) : footXR(dt);
@@ -2656,10 +2892,14 @@ renderer.setAnimationLoop(() => {
   fpsFrames++; fpsT += dt; instT += dt;
   if (fpsT >= 1) { fps = Math.round(fpsFrames / fpsT); fpsFrames = 0; fpsT = 0; }
   updateRifle(dt); updateBullets(dt); updateFX(dt); updateSmoke(dt); updateWorld(dt, clock.elapsedTime);
-  updateSurvival(dt); updateZombies(dt); updateAnimals(dt); updateItems(dt); updateBrass(dt); updateFalling(dt); updateSpots(dt); updateAudio(dt);
+  updateSurvival(dt); updateZombies(dt); updateAnimals(dt); updateItems(dt); updateForce(dt); updateBrass(dt); updateFalling(dt); updateSpots(dt); updateAudio(dt);
   panelUpdate(ac, dt); compassCard.rotation.y = IN.hdg;
   if (instT > 0.1) { instT = 0; drawWrist(); }
+  if ((chunkT += dt) > 0.2) { chunkT = 0; updateChunks(); }
   renderer.render(scene, camera);
+  const cpu = performance.now() - t0;            // JS + draw submission (GPU time isn't visible from here)
+  FT.sf += rawDt * 1000; FT.sc += cpu; FT.sm = Math.max(FT.sm, rawDt * 1000); FT.n++;
+  if ((FT.t += rawDt) >= 0.5) { FT.frm = FT.sf / FT.n; FT.cpu = FT.sc / FT.n; FT.max = FT.sm; FT.sf = FT.sc = FT.sm = FT.n = 0; FT.t = 0; }
 });
 </script>
 </body>
