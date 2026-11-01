@@ -17,7 +17,7 @@
 </script>
 </head>
 <body>
-<div id="info">BUSH PILOT VR - flight prototype (PA-18 Super Cub)
+<div id="info">BUSH PILOT VR v0.2 - flight prototype (PA-18 Super Cub)
 Desktop: click to mouse-look | W/S or Up/Down pitch | A/D or Left/Right roll
 Q/E rudder | Shift/Ctrl throttle up/down (also = / -) | B brakes | R reset | C recenter view
 VR: RIGHT grip = grab stick, LEFT grip = grab throttle, left stick X = rudder,
@@ -285,9 +285,27 @@ const sun = new THREE.DirectionalLight(0xfff1dc, 2.0); sun.position.set(300, 500
 const mat = c => new THREE.MeshLambertMaterial({ color: c, flatShading: true });
 let seed = 12345; const rand = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
 
-// ---- terrain: flat-shaded grid with patchwork field colours ----
+// ---- terrain: flat-shaded grid with patchwork field colours + tiling grain ----
+const TSIZE = 6000, TSEG = 150, TCELL = TSIZE / TSEG;
+function groundY(x, z) {  // exact height of the rendered (triangulated) terrain mesh, for placing objects
+  const fx = (x + TSIZE / 2) / TCELL, fz = (z + TSIZE / 2) / TCELL, ix = Math.floor(fx), iz = Math.floor(fz), u = fx - ix, v = fz - iz;
+  const X = ix * TCELL - TSIZE / 2, Z = iz * TCELL - TSIZE / 2;
+  const ha = terrainHeight(X, Z), hb = terrainHeight(X, Z + TCELL), hd = terrainHeight(X + TCELL, Z);
+  if (u + v <= 1) return ha + u * (hd - ha) + v * (hb - ha);
+  const hc = terrainHeight(X + TCELL, Z + TCELL);
+  return hc + (1 - u) * (hb - hc) + (1 - v) * (hd - hc);
+}
+function grainTexture(repeat) {  // 64x64 canvas noise, mipmapped; averages out (fades) with distance
+  const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'), d = x.createImageData(64, 64);
+  for (let i = 0; i < 4096; i++) { const v = 205 + Math.floor(rand() * 50); d.data[i * 4] = v; d.data[i * 4 + 1] = v; d.data[i * 4 + 2] = v - 10; d.data[i * 4 + 3] = 255; }
+  x.putImageData(d, 0, 0);
+  for (let i = 0; i < 16; i++) { x.fillStyle = rand() < 0.5 ? 'rgba(70,55,30,0.13)' : 'rgba(255,255,220,0.10)'; x.beginPath(); x.arc(rand() * 64, rand() * 64, 3 + rand() * 9, 0, 7); x.fill(); }
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(...repeat);
+  t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t;
+}
+let terrainMesh;
 {
-  const SIZE = 6000, SEG = 150;
+  const SIZE = TSIZE, SEG = TSEG;
   const g = new THREE.PlaneGeometry(SIZE, SIZE, SEG, SEG).rotateX(-Math.PI / 2);
   const p = g.attributes.position;
   for (let i = 0; i < p.count; i++) p.setY(i, terrainHeight(p.getX(i), p.getZ(i)));
@@ -297,17 +315,18 @@ let seed = 12345; const rand = () => ((seed = (seed * 16807) % 2147483647) / 214
   for (let i = 0; i < q.count; i += 3) {
     const x = (q.getX(i) + q.getX(i + 1) + q.getX(i + 2)) / 3, z = (q.getZ(i) + q.getZ(i + 1) + q.getZ(i + 2)) / 3;
     const f = Math.abs(Math.floor(x / 260) * 73856093 ^ Math.floor(z / 220) * 19349663) % pal.length;
-    const h = pal[f]; cc.setHSL(h[0], h[1], h[2] * (0.92 + 0.16 * rand()));
+    const h = pal[f]; cc.setHSL(h[0], h[1], h[2] * 1.1 * (0.92 + 0.16 * rand()));
     for (let k = 0; k < 3; k++) col.set([cc.r, cc.g, cc.b], (i + k) * 3);
   }
   geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
   geo.computeVertexNormals();
-  scene.add(new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true })));
+  terrainMesh = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true, map: grainTexture([1000, 1000]) }));
+  scene.add(terrainMesh);
 }
 // grass strip, cabin, trees
 {
   const strip = new THREE.Mesh(new THREE.PlaneGeometry(24, 310).rotateX(-Math.PI / 2),
-    new THREE.MeshLambertMaterial({ color: 0x6f9a45, polygonOffset: true, polygonOffsetFactor: -2 }));
+    new THREE.MeshLambertMaterial({ color: 0x7aa84c, map: grainTexture([4, 52]), polygonOffset: true, polygonOffsetFactor: -2 }));
   strip.position.set(0, 0.03, -145); scene.add(strip);
   const cabin = new THREE.Mesh(new THREE.BoxGeometry(6, 3, 5), mat(0x6b4a2f)); cabin.position.set(32, 1.5, -15); scene.add(cabin);
   const roof = new THREE.Mesh(new THREE.ConeGeometry(4.8, 2, 4), mat(0x3b3b3b));
@@ -324,7 +343,7 @@ let seed = 12345; const rand = () => ((seed = (seed * 16807) % 2147483647) / 214
     for (let k = 0; k < cnt && n < N; k++) {
       const x = cx + (rand() - 0.5) * 60, z = cz + (rand() - 0.5) * 60;
       if (Math.abs(x) < 45 && z > -340 && z < 40) continue;        // keep strip clear
-      const sc = 0.7 + rand() * 0.8, y = terrainHeight(x, z);
+      const sc = 0.7 + rand() * 0.8, y = groundY(x, z);
       s.set(sc, sc, sc);
       trunk.setMatrixAt(n, m4.compose(pos.set(x, y + 1.5 * sc, z), qq, s));
       crown.setMatrixAt(n, m4.compose(pos.set(x, y + 6 * sc, z), qq, s));
@@ -332,6 +351,112 @@ let seed = 12345; const rand = () => ((seed = (seed * 16807) % 2147483647) / 214
     }
   }
   scene.add(trunk, crown);
+}
+
+// ================= v0.2: ground detail & scale cues (visual only, no collision) =================
+const _m4 = new THREE.Matrix4(), _s = new THREE.Vector3(), _v = new THREE.Vector3(), _q = new THREE.Quaternion(), _e = new THREE.Euler();
+// list entries: [x, y, z, rotY, sx, sy, sz]
+function instanced(geo, material, list) {
+  const im = new THREE.InstancedMesh(geo, material, list.length);
+  list.forEach((o, i) => { _q.setFromEuler(_e.set(0, o[3], 0)); im.setMatrixAt(i, _m4.compose(_v.set(o[0], o[1], o[2]), _q, _s.set(o[4], o[5], o[6]))); });
+  scene.add(im); return im;
+}
+const onStrip = (x, z, m = 0) => Math.abs(x) < 16 + m && z > -315 - m && z < 25 + m;
+const nearStrip = (rMax, rMin = 25) => { const a = rand() * Math.PI * 2, d = rMin + rMax * Math.pow(rand(), 1.8); return [Math.cos(a) * d, Math.sin(a) * d - 145]; };
+const lines = [];   // merged line segments (fence wires + power lines): one draw call
+{
+  // bushes / shrubs (0.4-1.2 m) and rocks, denser near the strip
+  const bush = [], rock = [];
+  for (let i = 0; i < 1800; i++) { const [x, z] = nearStrip(2600); if (onStrip(x, z, 6)) continue;
+    const s = 0.4 + rand() * 0.8; bush.push([x, groundY(x, z) + 0.3 * s, z, rand() * 6, s * (0.8 + rand() * 0.5), s * 0.75, s]); }
+  for (let i = 0; i < 700; i++) { const [x, z] = nearStrip(2200); if (onStrip(x, z, 4)) continue;
+    const s = 0.2 + rand() * 0.7; rock.push([x, groundY(x, z) + 0.1 * s, z, rand() * 6, s * (0.7 + rand() * 0.6), s * 0.6, s]); }
+  instanced(new THREE.IcosahedronGeometry(1, 0), mat(0x4d6b32), bush);
+  instanced(new THREE.DodecahedronGeometry(1, 0), mat(0x8a8780), rock);
+
+  // round hay bales (1.5 m dia x 1.2 m) in clusters in fields
+  const bale = [];
+  for (let c = 0; c < 18; c++) { const [cx, cz] = nearStrip(1500, 120);
+    for (let k = 0; k < 5 + rand() * 8; k++) { const x = cx + (rand() - 0.5) * 70, z = cz + (rand() - 0.5) * 70; if (onStrip(x, z, 10)) continue;
+      bale.push([x, groundY(x, z) + 0.72, z, rand() * 6, 1, 1, 1]); } }
+  instanced(new THREE.CylinderGeometry(0.75, 0.75, 1.2, 8).rotateZ(Math.PI / 2), mat(0xc9ad5a), bale);
+
+  // fence posts (1.3 m, every 4 m) along patchwork field boundaries + 2 wires
+  const post = [];
+  for (let f = 0; f < 22; f++) {
+    const alongX = rand() < 0.5, line = (Math.floor((rand() - 0.5) * 10) + 0.0) * (alongX ? 220 : 260);
+    const start = (rand() - 0.5) * 2400, len = 150 + rand() * 450;
+    let prev = null;
+    for (let d = 0; d < len; d += 4) {
+      const x = alongX ? start + d : line, z = alongX ? line : start + d;
+      if (onStrip(x, z, 10)) { prev = null; continue; }
+      const y = groundY(x, z); post.push([x, y, z, 0, 1, 1, 1]);
+      if (prev) for (const h of [0.75, 1.2]) lines.push(prev[0], prev[1] + h, prev[2], x, y + h, z);
+      prev = [x, y, z];
+    }
+  }
+  instanced(new THREE.BoxGeometry(0.12, 1.3, 0.12).translate(0, 0.65, 0), mat(0x6e5a44), post);
+
+  // dirt roads (4 m ribbons following the ground)
+  const rv = [];
+  const road = pts => { for (let i = 0; i < pts.length - 1; i++) {
+    const [x0, z0] = pts[i], [x1, z1] = pts[i + 1], L = Math.hypot(x1 - x0, z1 - z0), n = Math.ceil(L / 8);
+    const nx = -(z1 - z0) / L * 2, nz = (x1 - x0) / L * 2;
+    for (let k = 0; k < n; k++) {
+      const a = k / n, b = (k + 1) / n, ax = x0 + (x1 - x0) * a, az = z0 + (z1 - z0) * a, bx = x0 + (x1 - x0) * b, bz = z0 + (z1 - z0) * b;
+      const P = (x, z) => [x, groundY(x, z) + 0.12, z];
+      const A = P(ax + nx, az + nz), B = P(ax - nx, az - nz), Cc = P(bx + nx, bz + nz), D = P(bx - nx, bz - nz);
+      rv.push(...A, ...B, ...Cc, ...B, ...D, ...Cc);
+    } } };
+  const ROAD_NS = [[780, -2600], [760, -1200], [800, -300], [780, 80], [740, 900], [820, 2200]];
+  const roadX = z => { for (let i = 0; i < ROAD_NS.length - 1; i++) { const [x0, z0] = ROAD_NS[i], [x1, z1] = ROAD_NS[i + 1];
+    if (z <= z1) return x0 + (x1 - x0) * (z - z0) / (z1 - z0); } return ROAD_NS[ROAD_NS.length - 1][0]; };
+  road([[29, -15], [120, -20], [400, 60], [780, 80], [1400, 40], [2600, 120]]);
+  road(ROAD_NS);
+  road([[-900, 2000], [-700, 700], [-500, 300], [-300, 330], [29, -15]]);
+  const rg = new THREE.BufferGeometry(); rg.setAttribute('position', new THREE.Float32BufferAttribute(rv, 3)); rg.computeVertexNormals();
+  scene.add(new THREE.Mesh(rg, new THREE.MeshLambertMaterial({ color: 0x8c7552, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2 })));
+
+  // power poles (10 m, every 60 m) along the N-S road, 3 sagging wires
+  const pole = [], arm = []; let prevTop = null;
+  for (let z = -2500; z <= 2100; z += 60) {
+    const x = roadX(z) + 8, y = groundY(x, z);
+    pole.push([x, y, z, 0, 1, 1, 1]); arm.push([x, y + 9.4, z, 0, 1, 1, 1]);
+    if (prevTop) for (const dx of [-0.9, 0, 0.9]) {
+      const mx = (prevTop[0] + x) / 2 + dx, my = (prevTop[1] + y) / 2 + 9.5 - 0.8, mz = (prevTop[2] + z) / 2;
+      lines.push(prevTop[0] + dx, prevTop[1] + 9.5, prevTop[2], mx, my, mz, mx, my, mz, x + dx, y + 9.5, z);
+    }
+    prevTop = [x, y, z];
+  }
+  instanced(new THREE.CylinderGeometry(0.12, 0.16, 10, 5).translate(0, 5, 0), mat(0x5a4632), pole);
+  instanced(new THREE.BoxGeometry(2.2, 0.12, 0.12), mat(0x5a4632), arm);
+  const lg = new THREE.BufferGeometry(); lg.setAttribute('position', new THREE.Float32BufferAttribute(lines, 3));
+  scene.add(new THREE.LineSegments(lg, new THREE.LineBasicMaterial({ color: 0x2b2b2b })));
+
+  // farmsteads: house, barn, silo (known sizes)
+  const farms = [[420, 110], [820, -700], [700, 950], [1500, 10], [-560, 330], [810, -2000], [-820, 1500]];
+  const house = [], hroof = [], barn = [], broof = [], silo = [], cap = [];
+  for (const [fx, fz] of farms) {
+    const r = rand() * 6, c = Math.cos(r), s = Math.sin(r), at = (dx, dz) => [fx + dx * c + dz * s, fz - dx * s + dz * c];
+    let [x, z] = at(0, 0); let y = groundY(x, z); house.push([x, y + 2.5, z, r, 8, 5, 10]); hroof.push([x, y + 5, z, r, 8.4, 2.5, 10.4]);
+    [x, z] = at(25, 5); y = groundY(x, z); barn.push([x, y + 3.5, z, r, 12, 7, 18]); broof.push([x, y + 7, z, r, 12.6, 4, 18.6]);
+    [x, z] = at(36, -8); y = groundY(x, z); silo.push([x, y + 7, z, 0, 1, 1, 1]); cap.push([x, y + 14, z, 0, 1, 1, 1]);
+  }
+  const prism = new THREE.CylinderGeometry(0.5, 0.5, 1, 3).rotateX(Math.PI / 2).rotateZ(Math.PI).translate(0, 0.25, 0);
+  prism.scale(1 / 0.866, 1 / 0.75, 1);  // unit-ish triangular prism: width 1 (x), height 1, length 1 (z)
+  instanced(new THREE.BoxGeometry(1, 1, 1), mat(0xd9d4c7), house); instanced(prism, mat(0x4a4a4a), hroof);
+  instanced(new THREE.BoxGeometry(1, 1, 1), mat(0x8e2f24), barn); instanced(prism, mat(0x5b5b5b), broof);
+  instanced(new THREE.CylinderGeometry(3, 3, 14, 10), mat(0xb8bcc0), silo); instanced(new THREE.SphereGeometry(3, 10, 4, 0, Math.PI * 2, 0, Math.PI / 2), mat(0x9aa0a5), cap);
+
+  // strip: white tyre edge markers every 30 m, threshold bars both ends, windsock
+  const tyre = [], bar = [];
+  for (let z = 10; z >= -300; z -= 30) for (const x of [-13, 13]) tyre.push([x, 0.15, z, 0, 1, 1, 1]);
+  for (const z of [13, -303]) for (let x = -10.5; x <= 10.6; x += 3) bar.push([x, 0.06, z, 0, 1, 1, 1]);
+  instanced(new THREE.TorusGeometry(0.4, 0.15, 5, 10).rotateX(Math.PI / 2), mat(0xf2f2f2), tyre);
+  instanced(new THREE.BoxGeometry(2.2, 0.1, 0.8), mat(0xf2f2f2), bar);
+  const wpole = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.06, 5, 5).translate(0, 2.5, 0), mat(0x999999)); wpole.position.set(19, 0, -40); scene.add(wpole);
+  const sock = new THREE.Mesh(new THREE.ConeGeometry(0.35, 2.4, 8, 1, true).rotateZ(Math.PI / 2 + 0.25).translate(1.2, -0.3, 0),
+    new THREE.MeshLambertMaterial({ color: 0xff6a13, side: THREE.DoubleSide })); sock.position.set(19, 4.9, -40); sock.rotation.y = 0.6; scene.add(sock);
 }
 
 // ---- aircraft (body frame = physics frame) ----
