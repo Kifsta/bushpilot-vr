@@ -20,7 +20,7 @@
 </script>
 </head>
 <body>
-<div id="info">BUSH PILOT VR v0.6 - PA-18 Super Cub prototype (Tabor-style backpack, utility belt, knife, recoil, hand reloading)
+<div id="info">BUSH PILOT VR v0.7 - PA-18 Super Cub prototype (Tabor-style backpack, utility belt, knife, recoil, hand reloading)
 FLY (desktop): click to mouse-look | W/S pitch | A/D roll | Q/E rudder | Shift/Ctrl (or = / -) throttle
   [ / ] flaps up / down a notch (0-15-30-50) | B brakes | F get out (stopped + idle) | R reset (refuels) | C recenter
 ON FOOT (desktop): WASD walk (Shift sprint) | F board | G grab rifle / pick up loot into pack (hold G on a kill = dress, needs knife)
@@ -36,7 +36,7 @@ VR FOOT: L stick walk (click = sprint), R stick snap turn, grip = grab/hold, oth
   Push it back over your shoulder (or A/X on the free hand) to wear it. Let go of items anywhere else = they drop on the ground.
   Knife: stab zombies (head = kill), slice across a kill 3x (or hold grip on it with the knife in the other hand) = meat.
   Hold food to your mouth = eat | fuel can to the wing filler cap = refuel | raw meat over the fire pit = cook | cabin bench = stash
-Loot: paddock farmhouse (smoke + orange tarp ~3.6 km SE, zombies!), red truck on the N-S dirt road, a barn east along the road.
+Loot: paddock farmhouse (smoke + orange tarp ~3.6 km SE, zombies!), red truck on the N-S dirt road, a barn east along the road, ridge-top strip ~2.2 km W (~2400 ft up, lean-to cache).
 </div>
 <div id="hud"></div><div id="cross"></div><div id="hurt"></div>
 <script type="module">
@@ -164,14 +164,6 @@ const qAxis = (ax, ang) => { const s = Math.sin(ang / 2); return [ax[0] * s, ax[
 
 // Grass strip runs from z=+10 to z=-300 along x=0 (take off towards -z).
 const PAD = { x: 2400, z: -2700 };   // off-field paddock centre (~3.6 km SE of the cabin strip), long axis along z
-function terrainHeight(x, z) {
-  const h = baseHeight(x, z);
-  const dx = Math.max(0, Math.abs(x - PAD.x) - 50), dz = Math.max(0, Math.abs(z - PAD.z) - 85);
-  if (dx > 150 || dz > 150) return h;
-  const t = smooth(Math.hypot(dx, dz) / 150);
-  const bumps = 0.07 * Math.sin(x * 0.9 + z * 0.31) * Math.sin(z * 0.73) + 0.04 * Math.sin(z * 2.1 + x * 1.3);  // rough paddock
-  return h * t + (PAD_H + bumps) * (1 - t);
-}
 function baseHeight(x, z) {
   const h = 22 * Math.sin(x * 0.0019 + 1.3) * Math.cos(z * 0.0016 + 0.4)
           + 10 * Math.sin(x * 0.0052 + z * 0.0037)
@@ -180,7 +172,74 @@ function baseHeight(x, z) {
   const dx = Math.max(0, Math.abs(x) - 60), dz = Math.max(0, z - 60, -380 - z);
   return h * smooth(Math.hypot(dx, dz) / 220);   // flat plateau around the strip
 }
+// v0.7: mountain-ringed valley. Valley floor = union of capsules (main valley, arms, south river gorge, drainages);
+// mountains rise with distance from the floor: ridged value-noise 350-1250 m, lowered through a few passes.
+const VALLEY = [   // [x0, z0, x1, z1, radius]: flat-ish valley floor
+  [300, 2600, 300, -3000, 1700], [800, -1200, 2500, -2800, 750], [800, 80, 2800, 120, 550],
+  [0, -2800, 0, -16000, 600],                                    // river gorge draining south (keeps the strip's departure corridor low)
+  [-700, 700, -1500, 3800, 450],                                 // NW valley arm
+  [2600, 1600, 4800, 3400, 220], [-1300, -1600, -3600, -3000, 220], [1900, -3300, 2600, -5200, 200], [-1500, 2200, -4200, 2600, 200],   // side drainages
+];
+const PASSES = [[1500, 2600, 3400, 5800], [-1200, -800, -5400, -1700], [3000, -2700, 6400, -3700]];   // saddles to fly through
+const MEADOW = { x: -2240, z: -340, hl: 150, hw: 18, blend: 110 };   // ridge-top backcountry strip (long axis along z)
+function segD(x, z, s) {
+  const dx = s[2] - s[0], dz = s[3] - s[1], t = clamp(((x - s[0]) * dx + (z - s[1]) * dz) / (dx * dx + dz * dz), 0, 1);
+  return Math.hypot(x - s[0] - dx * t, z - s[1] - dz * t);
+}
+function hash2(i, j) { let h = (i * 374761393 + j * 668265263) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; }
+function vnoise(x, z) {
+  const i = Math.floor(x), j = Math.floor(z), u = x - i, v = z - j, su = u * u * (3 - 2 * u), sv = v * v * (3 - 2 * v);
+  const a = hash2(i, j), b = hash2(i + 1, j), c = hash2(i, j + 1), d = hash2(i + 1, j + 1);
+  return a + (b - a) * su + (c - a) * sv + (a - b - c + d) * su * sv;
+}
+function ridged(x, z) {   // sharp ridgelines: 1-|2n-1| squared, octaves weighted by the previous one
+  let s = 0, amp = 0.55, f = 1 / 2300, w = 1;
+  for (let o = 0; o < 4; o++) { let n = 1 - Math.abs(2 * vnoise(x * f + o * 17.3, z * f - o * 9.1) - 1); n *= n; s += n * amp * w; w = clamp(n * 1.6, 0, 1); amp *= 0.5; f *= 2.1; }
+  return s;
+}
+function mountainMask(x, z) { let d = 1e9; for (const s of VALLEY) d = Math.min(d, segD(x, z, s) - s[4]); return d <= 0 ? 0 : smooth(d / 1300); }
+function mountain(x, z) {
+  const m = mountainMask(x, z); if (m === 0) return 0;
+  let p = 1; for (const s of PASSES) p = Math.min(p, 0.36 + 0.64 * smooth(segD(x, z, s) / 520));
+  return m * p * (350 + 900 * ridged(x, z));
+}
+function rawHeight(x, z) {   // the smooth height formula (mesh vertices sample this)
+  let h = baseHeight(x, z) + mountain(x, z);
+  let dx = Math.max(0, Math.abs(x - PAD.x) - 50), dz = Math.max(0, Math.abs(z - PAD.z) - 85);
+  if (dx < 150 && dz < 150) {
+    const t = smooth(Math.hypot(dx, dz) / 150);
+    const bumps = 0.07 * Math.sin(x * 0.9 + z * 0.31) * Math.sin(z * 0.73) + 0.04 * Math.sin(z * 2.1 + x * 1.3);  // rough paddock
+    h = h * t + (PAD_H + bumps) * (1 - t);
+  }
+  dx = Math.max(0, Math.abs(x - MEADOW.x) - MEADOW.hw); dz = Math.max(0, Math.abs(z - MEADOW.z) - MEADOW.hl);
+  if (dx < MEADOW.blend && dz < MEADOW.blend) {
+    const t = smooth(Math.hypot(dx, dz) / MEADOW.blend);
+    h = h * t + (MEADOW_H + 0.05 * Math.sin(x * 0.8 + z * 0.4) * Math.sin(z * 0.6)) * (1 - t);
+  }
+  return h;
+}
 const PAD_H = baseHeight(PAD.x, PAD.z);
+const MEADOW_H = baseHeight(MEADOW.x, MEADOW.z) + mountain(MEADOW.x, MEADOW.z);
+// Ground = the rendered mesh exactly (piecewise-linear triangles), so wheels, feet and objects all sit on what you see.
+// Inner 6x6 km at 40 m cells, outer 12x12 km ring at 120 m cells; inner seam vertices follow the coarse edge (no cracks).
+const T_IN = 3000, T_OUT = 6000, T_C1 = 40, T_C2 = 120;
+function vertH(X, Z) {
+  const ax = Math.abs(X), az = Math.abs(Z);
+  if (ax <= T_IN && az <= T_IN && (ax === T_IN || az === T_IN)) {
+    if (ax === T_IN && (Z + T_IN) % T_C2) { const z0 = Math.floor((Z + T_IN) / T_C2) * T_C2 - T_IN, t = (Z - z0) / T_C2; return rawHeight(X, z0) * (1 - t) + rawHeight(X, z0 + T_C2) * t; }
+    if (az === T_IN && (X + T_IN) % T_C2) { const x0 = Math.floor((X + T_IN) / T_C2) * T_C2 - T_IN, t = (X - x0) / T_C2; return rawHeight(x0, Z) * (1 - t) + rawHeight(x0 + T_C2, Z) * t; }
+  }
+  return rawHeight(X, Z);
+}
+function terrainHeight(x, z) {
+  const c = Math.abs(x) <= T_IN && Math.abs(z) <= T_IN ? T_C1 : T_C2;
+  const fx = (x + T_OUT) / c, fz = (z + T_OUT) / c, ix = Math.floor(fx), iz = Math.floor(fz), u = fx - ix, v = fz - iz;
+  const X = ix * c - T_OUT, Z = iz * c - T_OUT;
+  const ha = vertH(X, Z), hb = vertH(X, Z + c), hd = vertH(X + c, Z);
+  if (u + v <= 1) return ha + u * (hd - ha) + v * (hb - ha);
+  const hc = vertH(X + c, Z + c);
+  return hc + (1 - u) * (hb - hc) + (1 - v) * (hd - hc);
+}
 function terrainNormal(x, z) {
   const e = 1;
   return vNorm([-(terrainHeight(x + e, z) - terrainHeight(x - e, z)) / (2 * e), 1,
@@ -316,23 +375,15 @@ document.body.appendChild(VRButton.createButton(renderer));
 const SKY = 0xa9c8de;
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(SKY);
-scene.fog = new THREE.Fog(SKY, 500, 4500);
+scene.fog = new THREE.Fog(SKY, 1500, 10000);
 scene.add(new THREE.HemisphereLight(0xdfefff, 0x56603a, 1.2));
 const sun = new THREE.DirectionalLight(0xfff1dc, 2.0); sun.position.set(300, 500, 200); scene.add(sun);
 
 const mat = c => new THREE.MeshLambertMaterial({ color: c, flatShading: true });
 let seed = 12345; const rand = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
 
-// ---- terrain: flat-shaded grid with patchwork field colours + tiling grain ----
-const TSIZE = 6000, TSEG = 150, TCELL = TSIZE / TSEG;
-function groundY(x, z) {  // exact height of the rendered (triangulated) terrain mesh, for placing objects
-  const fx = (x + TSIZE / 2) / TCELL, fz = (z + TSIZE / 2) / TCELL, ix = Math.floor(fx), iz = Math.floor(fz), u = fx - ix, v = fz - iz;
-  const X = ix * TCELL - TSIZE / 2, Z = iz * TCELL - TSIZE / 2;
-  const ha = terrainHeight(X, Z), hb = terrainHeight(X, Z + TCELL), hd = terrainHeight(X + TCELL, Z);
-  if (u + v <= 1) return ha + u * (hd - ha) + v * (hb - ha);
-  const hc = terrainHeight(X + TCELL, Z + TCELL);
-  return hc + (1 - u) * (hb - hc) + (1 - v) * (hd - hc);
-}
+// ---- terrain: flat-shaded inner grid + coarse outer ring; colours by height/slope (fields, forest, rock, snow) ----
+const groundY = terrainHeight;   // v0.7: physics ground == rendered mesh
 function grainTexture(repeat) {  // 64x64 canvas noise, mipmapped; averages out (fades) with distance
   const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'), d = x.createImageData(64, 64);
   for (let i = 0; i < 4096; i++) { const v = 205 + Math.floor(rand() * 50); d.data[i * 4] = v; d.data[i * 4 + 1] = v; d.data[i * 4 + 2] = v - 10; d.data[i * 4 + 3] = 255; }
@@ -341,25 +392,51 @@ function grainTexture(repeat) {  // 64x64 canvas noise, mipmapped; averages out 
   const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(...repeat);
   t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t;
 }
+const nearMeadow = (x, z, m = 0) => Math.abs(x - MEADOW.x) < MEADOW.hw + m && Math.abs(z - MEADOW.z) < MEADOW.hl + m;
 let terrainMesh;
 {
-  const SIZE = TSIZE, SEG = TSEG;
-  const g = new THREE.PlaneGeometry(SIZE, SIZE, SEG, SEG).rotateX(-Math.PI / 2);
-  const p = g.attributes.position;
-  for (let i = 0; i < p.count; i++) p.setY(i, terrainHeight(p.getX(i), p.getZ(i)));
-  const geo = g.toNonIndexed(); g.dispose();
-  const q = geo.attributes.position, col = new Float32Array(q.count * 3), cc = new THREE.Color();
   const pal = [[0.25, 0.45, 0.30], [0.23, 0.40, 0.26], [0.13, 0.45, 0.42], [0.09, 0.35, 0.33], [0.28, 0.35, 0.22]];
-  for (let i = 0; i < q.count; i += 3) {
-    const x = (q.getX(i) + q.getX(i + 1) + q.getX(i + 2)) / 3, z = (q.getZ(i) + q.getZ(i + 1) + q.getZ(i + 2)) / 3;
-    const f = Math.abs(Math.floor(x / 260) * 73856093 ^ Math.floor(z / 220) * 19349663) % pal.length;
-    const h = pal[f]; cc.setHSL(h[0], h[1], h[2] * 1.1 * (0.92 + 0.16 * rand()));
-    for (let k = 0; k < 3; k++) col.set([cc.r, cc.g, cc.b], (i + k) * 3);
-  }
-  geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
-  geo.computeVertexNormals();
-  terrainMesh = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true, map: grainTexture([1000, 1000]) }));
-  scene.add(terrainMesh);
+  const cc = new THREE.Color(), e1 = new THREE.Vector3(), e2 = new THREE.Vector3(), n = new THREE.Vector3();
+  const build = (size, seg, inner) => {
+    const g = new THREE.PlaneGeometry(size, size, seg, seg).rotateX(-Math.PI / 2);
+    const p = g.attributes.position;
+    for (let i = 0; i < p.count; i++) p.setY(i, inner ? vertH(Math.round(p.getX(i)), Math.round(p.getZ(i))) : rawHeight(p.getX(i), p.getZ(i)));
+    let geo = g.toNonIndexed(); g.dispose();
+    let q = geo.attributes.position;
+    if (!inner) {   // drop the hole covered by the fine inner grid
+      const keep = [], uv = geo.attributes.uv, kuv = [];
+      for (let i = 0; i < q.count; i += 3) {
+        const x = (q.getX(i) + q.getX(i + 1) + q.getX(i + 2)) / 3, z = (q.getZ(i) + q.getZ(i + 1) + q.getZ(i + 2)) / 3;
+        if (Math.abs(x) < T_IN && Math.abs(z) < T_IN) continue;
+        for (let k = 0; k < 3; k++) { keep.push(q.getX(i + k), q.getY(i + k), q.getZ(i + k)); kuv.push(uv.getX(i + k), uv.getY(i + k)); }
+      }
+      geo.dispose(); geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.Float32BufferAttribute(keep, 3)); geo.setAttribute('uv', new THREE.Float32BufferAttribute(kuv, 2));
+      q = geo.attributes.position;
+    }
+    const col = new Float32Array(q.count * 3);
+    for (let i = 0; i < q.count; i += 3) {
+      const x = (q.getX(i) + q.getX(i + 1) + q.getX(i + 2)) / 3, z = (q.getZ(i) + q.getZ(i + 1) + q.getZ(i + 2)) / 3;
+      const h = (q.getY(i) + q.getY(i + 1) + q.getY(i + 2)) / 3;
+      e1.set(q.getX(i + 1) - q.getX(i), q.getY(i + 1) - q.getY(i), q.getZ(i + 1) - q.getZ(i));
+      e2.set(q.getX(i + 2) - q.getX(i), q.getY(i + 2) - q.getY(i), q.getZ(i + 2) - q.getZ(i));
+      const ny = Math.abs(n.crossVectors(e1, e2).normalize().y), j = 0.92 + 0.16 * rand();
+      const snow = 930 + 110 * Math.sin(x * 0.0021 + z * 0.0013);
+      if (h > snow && ny > 0.55) cc.setRGB(0.93 * j, 0.95 * j, 0.98 * j);                    // snow
+      else if (ny < 0.74 || h > snow + 120) cc.setHSL(0.08, 0.06, 0.40 * j);                // grey rock faces
+      else if (ny < 0.93 || h > 130) cc.setHSL(0.30, 0.38, (h > 700 ? 0.21 : 0.17) * j);   // conifer forest slopes
+      else if (mountainMask(x, z) > 0.02 || nearMeadow(x, z, 120)) cc.setHSL(0.20, 0.40, 0.33 * j);   // upland meadow grass
+      else { const f = Math.abs(Math.floor(x / 260) * 73856093 ^ Math.floor(z / 220) * 19349663) % pal.length;   // valley patchwork fields
+        const hp = pal[f]; cc.setHSL(hp[0], hp[1], hp[2] * 1.1 * j); }
+      for (let k = 0; k < 3; k++) col.set([cc.r, cc.g, cc.b], (i + k) * 3);
+    }
+    geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    geo.computeVertexNormals();
+    const m = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true, map: grainTexture([size / 6, size / 6]) }));
+    scene.add(m); return m;
+  };
+  terrainMesh = build(2 * T_IN, 2 * T_IN / T_C1, true);
+  build(2 * T_OUT, 2 * T_OUT / T_C2, false);
 }
 // grass strip, cabin, trees
 {
@@ -795,7 +872,7 @@ function drawInstruments(a) {
 // ---- camera rig: eye point in the front seat ----
 const rig = new THREE.Group(); rig.position.set(0, 0.4, 0.15); plane.add(rig);
 const xrOffset = new THREE.Group(); rig.add(xrOffset);          // recenter offset for headset pose
-const camera = new THREE.PerspectiveCamera(75, innerWidth / innerHeight, 0.05, 6000);
+const camera = new THREE.PerspectiveCamera(75, innerWidth / innerHeight, 0.05, 14000);
 xrOffset.add(camera);
 addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
 
@@ -1404,6 +1481,38 @@ const fireFl = [];
   SPOTS.push({ name: 'TRUCK', x: tx, z: tz, table: ['FUEL CAN', 'FOOD CRATE', 'FUEL CAN'],
                slots: [[-0.5, 0.88, 0.2], [0.4, 0.88, 0.6], [0, 0.88, 1.5]].map(p => truck.localToWorld(new THREE.Vector3(...p)).toArray()) });
   if (BARN_SPOT.length) SPOTS.push({ name: 'BARN', x: BARN_SPOT[1][0], z: BARN_SPOT[1][2], table: ['FUEL CAN', 'FOOD CRATE', 'AMMO BOX'], slots: BARN_SPOT });
+
+  // v0.7 ridge-top backcountry strip (~300 m, 2.2 km W of the cabin, ~730 m up): tyre markers, windsock, lean-to with a loot crate
+  const my = MEADOW_H, mx = MEADOW.x, mz = MEADOW.z;
+  const ms = new THREE.Mesh(new THREE.PlaneGeometry(20, 2 * MEADOW.hl).rotateX(-Math.PI / 2),
+    new THREE.MeshLambertMaterial({ color: 0x8aa354, map: grainTexture([4, 50]), polygonOffset: true, polygonOffsetFactor: -2 }));
+  ms.position.set(mx, my + 0.08, mz); scene.add(ms);
+  const mt = [], mb = [], cue = [];
+  for (let z = -MEADOW.hl + 5; z <= MEADOW.hl - 5; z += 30) for (const x of [-11, 11]) mt.push([mx + x, my + 0.15, mz + z, 0, 1, 1, 1]);
+  for (const z of [-MEADOW.hl, MEADOW.hl]) for (let x = -9; x <= 9.1; x += 3) mb.push([mx + x, my + 0.1, mz + z, 0, 1, 1, 1]);
+  for (let i = 0; i < 70; i++) { const side = rand() < 0.5 ? -1 : 1, x = mx + side * (16 + rand() * 30), z = mz + (rand() - 0.5) * 2 * (MEADOW.hl + 30), s = 0.4 + rand() * 0.7;
+    cue.push([x, groundY(x, z) + 0.3 * s, z, rand() * 6, s, s * 0.75, s]); }   // scrub along the edges: height-judgement cues
+  instanced(new THREE.TorusGeometry(0.4, 0.15, 5, 10).rotateX(Math.PI / 2), mat(0xf2f2f2), mt);
+  instanced(new THREE.BoxGeometry(2.2, 0.1, 0.8), mat(0xf2f2f2), mb);
+  instanced(new THREE.IcosahedronGeometry(1, 0), mat(0x4d6b32), cue);
+  const mp = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.06, 5, 5).translate(0, 2.5, 0), mat(0x999999)); mp.position.set(mx + 16, my, mz + 100); scene.add(mp);
+  const mk = new THREE.Mesh(new THREE.ConeGeometry(0.35, 2.4, 8, 1, true).rotateZ(Math.PI / 2 + 0.25).translate(1.2, -0.3, 0),
+    new THREE.MeshLambertMaterial({ color: 0xff6a13, side: THREE.DoubleSide })); mk.position.set(mx + 16, my + 4.9, mz + 100); mk.rotation.y = 0.6; scene.add(mk);
+  const sx = mx + 24, sz = mz + 120, sy = groundY(sx, sz);
+  box(4, 0.15, 3.2, mat(0x5b5b5b), sx, sy + 2.5, sz, scene).rotation.z = 0.18;                  // lean-to roof
+  for (const [dx, dz] of [[-1.8, -1.4], [-1.8, 1.4], [1.8, -1.4], [1.8, 1.4]]) box(0.15, 2.4, 0.15, mat(0x5a4632), sx + dx, sy + 1.2, sz + dz, scene);
+  SPOTS.push({ name: 'RIDGE STRIP', x: sx, z: sz, table: ['FUEL CAN', 'FOOD CRATE', 'AMMO BOX'],
+               slots: [[sx - 0.8, sy, sz - 0.6], [sx + 0.6, sy, sz], [sx - 0.4, sy, sz + 0.9]] });
+
+  // v0.7 conifers on the mountain slopes (one instanced draw call, open 5-sided cones)
+  const con = [];
+  for (let i = 0; i < 40000 && con.length < 3200; i++) {
+    const x = (rand() - 0.5) * 2 * (T_OUT - 100), z = (rand() - 0.5) * 2 * (T_OUT - 100), h = groundY(x, z);
+    if (h < 70 || h > 900 + 80 * Math.sin(x * 0.0021 + z * 0.0013) || nearMeadow(x, z, 40)) continue;
+    const ny = terrainNormal(x, z)[1]; if (ny < 0.74 || ny > 0.985) continue;
+    const s = 1.6 + rand() * 1.4; con.push([x, h + 4.5 * s, z, rand() * 6, s, s * (1.1 + rand() * 0.5), s]);
+  }
+  instanced(new THREE.ConeGeometry(2.2, 9, 5, 1, true), mat(0x23452b), con);
 }
 function spawnSpot(s, full) {
   s.items = [];
