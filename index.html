@@ -20,7 +20,7 @@
 </script>
 </head>
 <body>
-<div id="info">BUSH PILOT VR v0.15 - PA-18 Super Cub prototype (v0.14: rivers, lakes, thirst + canteen; v0.13: day / night, dusk deadline, lights, sleep; v0.12: natural gunshot, ambient sound, clouds; v0.11: Cub + rifle proportions from reference; v0.10.1: smoother stock; v0.10: performance pass, crouch / jump, more zombies, force grab)
+<div id="info">BUSH PILOT VR v0.16 - PA-18 Super Cub prototype (v0.14: rivers, lakes, thirst + canteen; v0.13: day / night, dusk deadline, lights, sleep; v0.12: natural gunshot, ambient sound, clouds; v0.11: Cub + rifle proportions from reference; v0.10.1: smoother stock; v0.10: performance pass, crouch / jump, more zombies, force grab)
 RIFLE (VR): A/X on the rifle hand = work the lever (tap = full stroke, hold = keep it open) or flick the rifle down-forward, or grab the lever loop with your other hand and work it yourself;
   lever open = no shot; a short stroke won't feed. Load: tip of a round into the gate (right side) - it snaps in; keep grip held and go back to the pouch for the next one.
   Hold the right stick IN (click) + push it up/down while holding the rifle (right hand) = grip angle. Let go of the wrist with a hand on the forend = it stays in that hand.
@@ -47,6 +47,9 @@ VR FOOT: L stick walk (click = sprint), R stick left/right = snap turn, hold dow
   Sleep after 17:30: grip the cabin door handle (desktop N at the door) = skip to dawn (costs food). At night zombies see further, move faster and come out everywhere.
   WATER (v0.14): H2O bar (blue) empties in 15 min, then you lose health. Canteen on the right hip: hold it to your mouth = drink, dip it in a river / lake or hold it at the
   rain barrel (cabin, clean, refills slowly) = fill. River water is raw (may make you sick) - hold it at the pot on the fire pit 5 s = boil. Desktop: E fills / boils / drinks.
+  CRAFT (v0.16): sticks / stones / cloth / wire / nails / boards / charcoal go into a pouch when grabbed. Workbench on the cabin's south wall: point a hand at a recipe + trigger (desktop K, then 1-0).
+    Field crafting anywhere: trigger with one hand on the watch (opens a board in front of you). Drop a campfire kit / snare / spike trap on the ground to set it (desktop P).
+    Food spoils (raw ~2 days, cooked ~3, smoked ~10). Sprint and jump use stamina (white bar). Lantern needs lamp oil. Rifle fouls after ~60 shots: cleaning kit against it (desktop E).
   Hold food to your mouth = eat | fuel can to the wing filler cap = refuel | raw meat over the fire pit = cook | cabin bench = stash
 Loot: paddock farmhouse (smoke + orange tarp ~3.6 km SE, zombies!), red truck on the N-S dirt road, a barn east along the road, ridge-top strip ~2.2 km W (~2400 ft up, lean-to cache). Zombies: a pack at the farmhouse, groups at the truck, barn and ridge cache,
   a few at the farms and lone ones along the roads. The cabin is mostly safe.
@@ -1299,6 +1302,7 @@ renderer.xr.addEventListener('sessionend', () => { xrOffset.position.set(0, 0, 0
 // ---- rifle ----
 const reach = (h, p) => Math.hypot(h.x - p.x, h.z - p.z) < 0.45 && h.y - p.y > -0.4 && h.y - p.y < 1.7;  // generous downward reach for seated play
 function pickLoot(item) {
+  if (ITEM[item.name].mat) { const si = stash.indexOf(item); if (si >= 0) { stash.splice(si, 1); layoutStash(); } pouchAdd(item); return; }   // v0.16 materials pouch
   const si = stash.indexOf(item); if (si >= 0) { stash.splice(si, 1); layoutStash(); }
   if (item.name === 'AMMO BOX') { R.spare += 20; removeItem(item); say('+20 ROUNDS TO AMMO POUCH'); sfx('click'); return; }
   if (si >= 0) { stash.push(item); layoutStash(); }
@@ -1351,6 +1355,7 @@ const keys = {};
 addEventListener('keydown', e => {
   keys[e.code] = true;
   if (e.repeat) return;
+  if (craftKey(e)) return;   // v0.16 crafting keys (K list, 1-0 craft, P place)
   if (e.code === 'KeyR') { if (mode === 'foot' && R.hand === 'desk') loadRound(); else resetFlight(); }
   if (mode === 'foot' && e.code === 'KeyI') setPack(PK.state === 'worn' ? 'open' : 'worn');
   if (mode === 'foot' && /^Digit[1-4]$/.test(e.code)) deskSlot(+e.code[5] - 1);
@@ -1410,7 +1415,7 @@ function walk(fwd, right, yaw, speed, dt) {
 function footDesktop(dt) {
   const k = c => keys[c] ? 1 : 0;
   walk((k('KeyW') | k('ArrowUp')) - (k('KeyS') | k('ArrowDown')), (k('KeyD') | k('ArrowRight')) - (k('KeyA') | k('ArrowLeft')),
-       footRig.rotation.y + lookYaw, WALK * (k('ShiftLeft') ? 2 : 1) * crouchWalk(), dt);
+       footRig.rotation.y + lookYaw, WALK * (k('ShiftLeft') && sprintOK() ? 2 : 1) * crouchWalk(), dt);
   P.crouchIn = !!keys.KeyC;
   if (deskDress) { if (!keys[deskDress.key || 'KeyG']) deskDress = null; else if ((deskDress.t += dt) >= 2) { dressAnimal(deskDress.c, true); deskDress = null; } }
 }
@@ -1491,6 +1496,7 @@ function footXR(dt) {
     if (!sq) handRelease(g);
     const trig = pressedEdge(gp, 0, h + 'trig'), btn = !!gp.buttons[4]?.pressed && !vr.prev[h + 'btn']; vr.prev[h + 'btn'] = !!gp.buttons[4]?.pressed;
     if (trig && held.get(g)?.name === 'TORCH') toggleTorch();
+    else if (trig && R.hand !== g && mode === 'foot') craftTrigger(g);   // v0.16 craft boards / watch
     if (R.hand === g) {
       if (trig) R.wantFire = true;                // shot leaves in updateRifle from this frame's pose (no one-frame lag)
       R.levHold = !!gp.buttons[4]?.pressed; if (btn) cycleLever();
@@ -1504,7 +1510,7 @@ function footXR(dt) {
   const M = eyeWorld(0); _d.set(0, 0, -1).transformDirection(M); const yaw = Math.atan2(-_d.x, -_d.z);
   const moving = !!(dz(lx) || dz(ly)); vr.moving = moving;
   if (!moving) vr.sprint = false;                                 // sprint (L stick click) lasts until the stick re-centres
-  if (moving) walk(-dz(ly), dz(lx), yaw, WALK * (vr.sprint ? 2 : 1) * crouchWalk(), dt);
+  if (moving) walk(-dz(ly), dz(lx), yaw, WALK * (vr.sprint && sprintOK() ? 2 : 1) * crouchWalk(), dt);
   // v0.10 right stick: hold down = crouch, push up = jump (unless the stick is clicked in for the rifle grip-angle adjust)
   const ax = Math.abs(rx), ay = Math.abs(ry), vert = ay > ax;
   P.crouchIn = !rClick && vert && ry > 0.6;
@@ -1518,7 +1524,7 @@ function footXR(dt) {
 const CROUCH_DROP = 0.5, CROUCH_TIME = 0.15, JUMP_H = 0.4, CROUCH_WALK = 0.5;
 const crouchK = () => smooth01(P.crouchT);
 const crouchWalk = () => 1 - (1 - CROUCH_WALK) * crouchK();
-function jump() { if (mode !== 'foot' || P.jy > 0 || P.jv !== 0) return; P.jv = Math.sqrt(2 * 9.81 * JUMP_H); }   // grounded only: no double jump
+function jump() { if (mode !== 'foot' || P.jy > 0 || P.jv !== 0) return; if (P.stam < 10) { say('TOO TIRED TO JUMP'); return; } P.stam -= 10; P.jv = Math.sqrt(2 * 9.81 * JUMP_H); }   // grounded only: no double jump
 function updateFoot(dt) {
   camera.getWorldPosition(_w);
   P.crouchT = clamp(P.crouchT + (P.crouchIn ? 1 : -1) * dt / CROUCH_TIME, 0, 1);
@@ -1610,20 +1616,20 @@ function updateWorld(dt, t) {
 }
 const hud = document.getElementById('hud'), cross = document.getElementById('cross');
 function statusText() {
-  return `HP ${P.hp.toFixed(0)} FOOD ${P.food.toFixed(0)} H2O ${P.thirst.toFixed(0)}\n` +
+  return `HP ${P.hp.toFixed(0)} FOOD ${P.food.toFixed(0)} H2O ${P.thirst.toFixed(0)} STA ${Math.round(P.stam / 5) * 5}\n` +
     `AMMO ${R.tube}+${R.chambered ? 1 : 0} POUCH ${R.spare}${R.hand ? '' : R.slung ? ' (slung)' : R.stowed ? ' (stowed)' : ' (not held)'}\n` +
     `FUEL ${(fuel / FUEL_MAX * 100).toFixed(0)}% PACK ${packUsed()}/${PACK_CELLS} STASH ${stash.length}` + (msgT > 0 ? '\n' + msg : '');
 }
 let wristKey = '', hudT = '';
 function drawWrist() {   // v0.10: only re-uploads when something on it changed
-  const st = statusText(), key = st + '|' + (P.hurtT > 0) + '|' + Math.round(P.hp * 2.4) + '|' + Math.round(P.food * 2.4) + '|' + Math.round(P.thirst * 2.4);
-  if (key === wristKey) { if (hudT !== clockStr()) { hudT = clockStr(); hud.textContent = st + '\n' + hudT; } return; } wristKey = key;
+  const st = statusText(), key = st + '|' + (P.hurtT > 0) + '|' + Math.round(P.hp * 2.4) + '|' + Math.round(P.food * 2.4) + '|' + Math.round(P.thirst * 2.4) + '|' + Math.round(P.stam / 4) + P.winded + CRAFT.desk + CRAFT.key;
+  if (key === wristKey) { if (hudT !== clockStr()) { hudT = clockStr(); hud.textContent = st + '\n' + hudT + (CRAFT.desk ? deskCraftText() : ''); } return; } wristKey = key;
   wctx.fillStyle = P.hurtT > 0 ? '#a00' : '#111'; wctx.fillRect(0, 0, 256, 128); wctx.font = '18px monospace';
-  wctx.fillStyle = '#333'; wctx.fillRect(8, 4, 240, 6); wctx.fillRect(8, 12, 240, 6); wctx.fillRect(8, 20, 240, 6);
-  wctx.fillStyle = '#e33'; wctx.fillRect(8, 4, 2.4 * P.hp, 6); wctx.fillStyle = '#eb3'; wctx.fillRect(8, 12, 2.4 * P.food, 6); wctx.fillStyle = '#4af'; wctx.fillRect(8, 20, 2.4 * P.thirst, 6);
+  wctx.fillStyle = '#333'; wctx.fillRect(8, 4, 240, 6); wctx.fillRect(8, 12, 240, 6); wctx.fillRect(8, 20, 240, 6); wctx.fillRect(8, 28, 240, 4);
+  wctx.fillStyle = '#e33'; wctx.fillRect(8, 4, 2.4 * P.hp, 6); wctx.fillStyle = '#eb3'; wctx.fillRect(8, 12, 2.4 * P.food, 6); wctx.fillStyle = '#4af'; wctx.fillRect(8, 20, 2.4 * P.thirst, 6); wctx.fillStyle = P.winded ? '#a64' : '#ddd'; wctx.fillRect(8, 28, 2.4 * P.stam, 4);
   wctx.fillStyle = '#9f9';
-  st.replace(/ \(.*?\)/, '').split('\n').forEach((l, i) => wctx.fillText(l.slice(0, 22), 8, 40 + i * 26));
-  wtex.needsUpdate = true; hud.textContent = st + '\n' + clockStr();
+  st.replace(/ \(.*?\)/, '').split('\n').forEach((l, i) => wctx.fillText(l.slice(0, 22), 8, 48 + i * 26));
+  wtex.needsUpdate = true; hud.textContent = st + '\n' + clockStr() + (CRAFT.desk ? deskCraftText() : '');
 }
 
 // ================= v0.5: survival (health / hunger / fuel), items, zombies, game animals =================
@@ -1678,6 +1684,7 @@ function layoutStash() {   // bench holds 4, the rest go on the ground beside it
 }
 const held = new Map();       // VR grip -> item held in that hand
 function holdItem(g, it) {
+  if (ITEM[it.name].mat) { const si = stash.indexOf(it); if (si >= 0) { stash.splice(si, 1); layoutStash(); } pouchAdd(it); tick(g); return; }   // v0.16 materials pouch
   const si = stash.indexOf(it); if (si >= 0) { stash.splice(si, 1); layoutStash(); }
   const ii = inv.indexOf(it); if (ii >= 0) { inv.splice(ii, 1); layoutPack(); }
   for (const s of SLOTS) if (s.item === it) s.item = null;
@@ -1697,6 +1704,7 @@ function releaseHeld(g) {      // open bag > belt slot > cabin bench > falls to 
   it.state = 'world'; it.vel = (g.userData.vel || V3()).clone().clampLength(0, 8); falling.add(it);
 }
 function consume(it) {
+  if (it.spoiled) { P.food = Math.min(100, P.food + 5); hurt(6); P.sickT = 90; say('SPOILED ' + it.name + ' - YOU FEEL SICK'); sfx('eat'); removeItem(it); return; }   // v0.16
   const d = ITEM[it.name];
   if (d.food) P.food = Math.min(100, P.food + d.food);
   if (d.heal) P.hp = Math.min(100, P.hp + d.heal);
@@ -1737,18 +1745,18 @@ function die() {
   say('YOU DIED - BACK AT THE STRIP');
 }
 function useItemDesktop() {        // E on foot: refuel from a can next to the plane, else eat / heal
-  camera.getWorldPosition(_a);
+  camera.getWorldPosition(_a); if (useCraftedDesktop()) return;
   const ct = CANTEEN_IT && CANTEEN_IT.state !== 'gone' ? CANTEEN_IT : null;   // v0.14 water: fill at the barrel / water, boil at the fire, drink when thirsty
   if (ct) {
     if (Math.hypot(_a.x - BARREL.x, _a.z - BARREL.z) < 2.5 && ct.water < CANTEEN_MAX) { fillCanteen(ct, true); return; }
     if (waterDist(_a.x, _a.z) < 4 && (ct.water < CANTEEN_MAX || !ct.dirty) && !(ct.water >= CANTEEN_MAX)) { fillCanteen(ct, false); return; }
-    if (Math.hypot(_a.x - FIRE.x, _a.z - FIRE.z) < 2.5 && ct.dirty && ct.water > 0) { boilCanteen(ct); return; }
+    if (nearFireXZ(_a, 2.5) && ct.dirty && ct.water > 0) { boilCanteen(ct); return; }
     if (P.thirst < 85 && ct.water > 0) { drinkSip(ct); return; }
   }
   const can = inv.find(i => i.name === 'FUEL CAN');
   if (can && Math.hypot(_a.x - ac.pos[0], _a.z - ac.pos[2]) < 4) { if (fuel >= FUEL_MAX - 0.01) { say('TANK FULL'); return; } pour(can, 99); return; }
-  const want = P.hp < 60 && inv.find(i => i.name === 'MEDKIT') ||
-    ['COOKED MEAT', 'FOOD CRATE', 'RAW MEAT'].map(n => inv.find(i => i.name === n)).find(Boolean);
+  const want = P.hp < 60 && inv.find(i => i.name === 'MEDKIT') || P.hp < 85 && inv.find(i => i.name === 'BANDAGE') ||
+    ['COOKED MEAT', 'SMOKED MEAT', 'FOOD CRATE', 'RAW MEAT'].map(n => inv.find(i => i.name === n && !i.spoiled)).find(Boolean);
   if (want) consume(want); else say('NOTHING TO USE');
 }
 function stashPackDesktop() {
@@ -1765,7 +1773,7 @@ function updateItems(dt) {
     if (it.name === 'CANTEEN') canteenTick(g, it, dt, _a, _b);
     if (it.name === 'KNIFE') knifeTick(g, it, dt);
     if (it.name === 'FUEL CAN' && nearCap(_b, 0.45)) pour(it, dt);
-    if (it.name === 'RAW MEAT' && _b.distanceTo(FIRE_C) < 0.8) { cookTick(it, dt); g.userData.src?.gamepad?.hapticActuators?.[0]?.pulse?.(0.1, 20); }
+    if (it.name === 'RAW MEAT' && nearFire(_b, 0.8)) { cookTick(it, dt); g.userData.src?.gamepad?.hapticActuators?.[0]?.pulse?.(0.1, 20); }
   }
   for (const [g, d] of vr.dress) {
     d.t += dt; g.userData.src?.gamepad?.hapticActuators?.[0]?.pulse?.(0.25, 30);
@@ -1774,7 +1782,7 @@ function updateItems(dt) {
   if (mode === 'foot') {             // desktop-friendly: standing at the fire slowly cooks raw meat in your pack
     camera.getWorldPosition(_a);
     const raw = inv.find(i => i.name === 'RAW MEAT');
-    if (raw && Math.hypot(_a.x - FIRE.x, _a.z - FIRE.z) < 2.5) { if ((deskCook += dt) >= 4) { deskCook = 0; raw.cook = 4; raw.name = 'COOKED MEAT'; raw.mesh.material = res('COOKED MEAT').m; say('MEAT COOKED'); sfx('sizzle', FIRE_C); } }
+    if (raw && nearFireXZ(_a, 2.5)) { if ((deskCook += dt) >= 4) { deskCook = 0; raw.cook = 4; raw.name = 'COOKED MEAT'; raw.mesh.material = res('COOKED MEAT').m; say('MEAT COOKED'); sfx('sizzle', FIRE_C); } }
     else deskCook = 0;
   }
 }
@@ -1904,6 +1912,7 @@ function fillCanteen(c, clean) {
   if (clean) { const n = Math.min(CANTEEN_MAX - c.water, Math.floor(W.barrel)); if (n <= 0) { say(c.water >= CANTEEN_MAX ? 'CANTEEN FULL' : 'RAIN BARREL EMPTY - IT REFILLS SLOWLY'); return; }
     if (c.dirty && c.water > 0) { say('CANTEEN HAS RAW WATER - BOIL IT OR DRINK IT FIRST'); return; }
     c.water += n; W.barrel -= n; c.dirty = false; say('FILLED FROM THE RAIN BARREL (CLEAN)'); }
+  else if (carried('WATER FILTER')) { if (c.water >= CANTEEN_MAX && !c.dirty) { say('CANTEEN FULL'); return; } c.water = CANTEEN_MAX; c.dirty = false; say('FILLED THROUGH THE FILTER - CLEAN'); }   // v0.16
   else { if (c.water >= CANTEEN_MAX && c.dirty) { say('CANTEEN FULL'); return; } c.water = CANTEEN_MAX; c.dirty = true; say('CANTEEN FILLED - RAW WATER, BOIL IT TO BE SAFE'); }
   sfx('pour');
 }
@@ -1914,7 +1923,7 @@ function canteenTick(g, c, dt, mouth, p) {   // held canteen: mouth = drink, in 
   const wd = waterDist(p.x, p.z), wl = waterLevel(p.x, p.z);
   const atBarrel = Math.hypot(p.x - BARREL.x, p.z - BARREL.z) < 0.4 && p.y < BARREL.y + 1.1;
   if ((wd < 1 && p.y < wl + 0.25) || atBarrel) { if ((W.fillT += dt) > 1) { W.fillT = -99; fillCanteen(c, atBarrel); tick(g); } } else W.fillT = 0;
-  if (p.distanceTo(POT) < 0.4 && c.dirty) { if ((W.boilT += dt) > 5) { W.boilT = 0; boilCanteen(c); tick(g); } else if (Math.random() < dt * 2) sfx('sizzle', FIRE_C); } else W.boilT = 0;
+  if ((p.distanceTo(POT) < 0.4 || nearFire(p, 0.5)) && c.dirty) { if ((W.boilT += dt) > 5) { W.boilT = 0; boilCanteen(c); tick(g); } else if (Math.random() < dt * 2) sfx('sizzle', FIRE_C); } else W.boilT = 0;
 }
 function updateWater(dt) {
   WATER.tick(dt);
@@ -2077,7 +2086,7 @@ const LODGE = { x: -380, z: -2440, a: 1.83, hl: 140, hw: 10 };   // backcountry 
 let _lcT = 0; const _lcP = new THREE.Vector3();
 function cullLoot(dt) {   // loose loot lying in the world is invisible (and costs no draw call) beyond 400 m; re-checked twice a second
   if ((_lcT -= dt) > 0) return; _lcT = 0.5; camera.getWorldPosition(_lcP);
-  for (const it of loot) if (it.state === 'world' && !falling.has(it)) it.mesh.visible = Math.abs(it.mesh.position.x - _lcP.x) + Math.abs(it.mesh.position.z - _lcP.z) < 560 && it.mesh.position.distanceToSquared(_lcP) < 160000;
+  for (const it of loot) if (it.state === 'world' && !falling.has(it)) it.mesh.visible = Math.abs(it.mesh.position.x - _lcP.x) + Math.abs(it.mesh.position.z - _lcP.z) < 560 && it.mesh.position.distanceToSquared(_lcP) < (ITEM[it.name].mat ? 3600 : 160000);   // v0.16 crafting materials: 60 m
 }
 // ---- v0.12 clouds: low-poly flat-shaded cumulus, one instanced draw call, drifting; fade out near the camera (no hard pop) ----
 const CLOUDS = (() => {
@@ -2677,7 +2686,8 @@ function shoot() {
   if (!R.cocked) { pulse(g, 0.1, 8); return; }              // hammer already down
   R.cocked = false;
   if (!R.chambered) { sfx('dry'); pulse(g, 0.35, 14); return; }
-  R.chambered = false; R.spent = true;
+  if ((R.foul || 0) > 60 && Math.random() < 0.06) { sfx('dry'); pulse(g, 0.35, 14); say('MISFIRE - RIFLE IS FOULED, CLEAN IT (CYCLE THE LEVER)'); return; }   // v0.16 fouling
+  R.chambered = false; R.spent = true; R.foul = (R.foul || 0) + 1; if (R.foul === 60) say('RIFLE GETTING FOULED - CRAFT A CLEANING KIT');
   if (g === 'desk') { camera.getWorldQuaternion(_qb); camera.getWorldPosition(_kp).add(_v.set(0, -BORE_BELOW, -0.6).applyQuaternion(_qb)); }   // bore under the crosshair
   else { _qb.copy(rifle.quaternion); _kp.copy(muzzle.position).applyQuaternion(_qb).add(rifle.position); }
   spawnBullet(_kp, _qb);
@@ -3314,7 +3324,7 @@ function updateDay(dt) {
   const foot = mode === 'foot', xr = renderer.xr.isPresenting, dark = 1 - TOD.day;
   PL.intensity = 0; SL.intensity = 0;
   const lan = LANTERN_IT && LANTERN_IT.state !== 'gone' && LANTERN_IT.mesh.parent && LANTERN_IT.state !== 'pack' && LANTERN_IT.mesh.visible;
-  const lanLit = lan && dark > 0.3;
+  const lanLit = lan && dark > 0.3 && !(LANTERN_IT.oil <= 0);
   if (LANTERN_IT) LANTERN_IT.mesh.userData.glow.material = lanLit ? LAMP_ON : glowM;
   if (mode === 'plane' && dark > 0.3) { plane.localToWorld(PL.position.set(0, 0.25, -0.42)); PL.distance = 1.3; PL.color.setHex(0xff9a50); PL.intensity = 0.35 * dark; }   // panel glow
   else if (lanLit && LANTERN_IT.mesh.getWorldPosition(_b).distanceTo(_a) < 80) { PL.position.copy(_b); PL.distance = 16; PL.color.setHex(0xffc06a); PL.intensity = 4 * dark; }
@@ -3334,6 +3344,192 @@ function updateDay(dt) {
 }
 const LAMP_ON = new THREE.MeshBasicMaterial({ color: 0xffe2a0 });
 
+// ================= v0.16: crafting (cabin workbench + field crafting), gatherable materials, traps / snares / campfires, spoilage, stamina, lamp oil, rifle fouling =================
+const C16_R = (() => { let s = 0x16c4af7; return () => { s = (s + 0x6D2B79F5) | 0; let t = Math.imul(s ^ (s >>> 15), 1 | s); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; })();
+const MAT_NAMES = ['STICKS', 'STONES', 'CLOTH', 'WIRE', 'NAILS', 'BOARDS', 'CHARCOAL'], MAT_ABBR = { STICKS: 'Stk', STONES: 'Stn', CLOTH: 'Clo', WIRE: 'Wir', NAILS: 'Nal', BOARDS: 'Brd', CHARCOAL: 'Chr' };
+Object.assign(ITEM, {
+  'STICKS': { sz: [0.07, 0.06, 0.5], col: 0x6b4a2a, mat: 1 }, 'STONES': { sz: [0.14, 0.1, 0.12], col: 0x85827a, mat: 1 }, 'CLOTH': { sz: [0.22, 0.04, 0.18], col: 0xc9b98f, mat: 1 },
+  'WIRE': { sz: [0.16, 0.04, 0.16], col: 0x9aa0a6, mat: 1 }, 'NAILS': { sz: [0.1, 0.06, 0.07], col: 0x3c3f44, mat: 1 }, 'BOARDS': { sz: [0.14, 0.04, 0.8], col: 0xa5814f, mat: 1 },
+  'CHARCOAL': { sz: [0.1, 0.07, 0.08], col: 0x1b1b1b, mat: 1 },
+  'BANDAGE': { sz: [0.1, 0.06, 0.1], col: 0xeeeae0, heal: 20 }, 'SMOKED MEAT': { sz: [0.16, 0.05, 0.12], col: 0x4a2412, food: 30 },
+  'CAMPFIRE KIT': { sz: [0.3, 0.14, 0.2], col: 0x5a4028, tool: true }, 'SNARE': { sz: [0.18, 0.05, 0.18], col: 0x8d9298, tool: true },
+  'SPIKE TRAP': { sz: [0.6, 0.12, 0.6], col: 0x7a5a32, tool: true }, 'WATER FILTER': { sz: [0.08, 0.16, 0.08], col: 0x3d5a6b, tool: true },
+  'CLEANING KIT': { sz: [0.2, 0.04, 0.08], col: 0x2f3b2a, tool: true },
+});
+for (const n of ['BANDAGE', 'SMOKED MEAT', 'CLEANING KIT', 'WATER FILTER']) SMALL.add(n);
+const MATS = Object.fromEntries(MAT_NAMES.map(n => [n, 0]));     // materials pouch: stacks, takes no pack cells
+const SPOIL_H = { 'RAW MEAT': 48, 'COOKED MEAT': 72, 'SMOKED MEAT': 240 }, SPOIL_M = mat(0x6f7a4a);
+const gameHours = () => DAY.n * 24 + DAY.h;
+function pouchAdd(it) { MATS[it.name]++; removeItem(it); say('+1 ' + it.name + ' (' + MATS[it.name] + ')'); sfx('pick'); CRAFT.key = ''; }
+const carried = n => inv.find(i => i.name === n) || [...held.values()].find(i => i.name === n) || SLOTS.find(s => s.item && s.item.name === n)?.item;
+// ---- workbench on the south wall of the cabin, with the recipe board above it ----
+const WB = new THREE.Vector3(31.5, 0, -18.4); WB.y = groundY(WB.x, WB.z);
+{ const wood = mat(0x5b4128);
+  shootables.push(box(1.7, 0.08, 0.8, wood, WB.x, WB.y + 0.9, WB.z, scene));
+  for (const [a, b] of [[-0.75, -0.32], [0.75, -0.32], [-0.75, 0.32], [0.75, 0.32]]) box(0.08, 0.9, 0.08, wood, WB.x + a, WB.y + 0.45, WB.z + b, scene);
+  box(0.9, 0.62, 0.04, mat(0x3a2c1c), WB.x, WB.y + 1.55, -17.53, scene); }
+const CRAFT = { open: null, hover: -1, key: '', rack: false, desk: false, fieldP: new THREE.Vector3(), deskSel: 0 };
+const CR_C = document.createElement('canvas'); CR_C.width = 256; CR_C.height = 320;
+const CR_X = CR_C.getContext('2d'), CR_T = new THREE.CanvasTexture(CR_C); CR_T.colorSpace = THREE.SRGBColorSpace; CR_T.generateMipmaps = false; CR_T.minFilter = THREE.LinearFilter;
+const CR_W = 0.4, CR_H = 0.5;
+const benchPanel = new THREE.Mesh(new THREE.PlaneGeometry(CR_W * 1.25, CR_H * 1.25), new THREE.MeshBasicMaterial({ map: CR_T }));
+benchPanel.position.set(WB.x, WB.y + 1.55, -17.555); benchPanel.rotation.y = Math.PI; scene.add(benchPanel);
+const fieldPanel = new THREE.Mesh(benchPanel.geometry, benchPanel.material); fieldPanel.visible = false; scene.add(fieldPanel);
+const RECIPES = [
+  { n: 'BANDAGE', need: { CLOTH: 1 }, field: 1, out: 'BANDAGE' },
+  { n: 'MEDKIT (SPLINT)', need: { CLOTH: 2, STICKS: 1, BOARDS: 1 }, out: 'MEDKIT' },
+  { n: 'CAMPFIRE KIT', need: { STICKS: 3, STONES: 2 }, field: 1, out: 'CAMPFIRE KIT' },
+  { n: 'SNARE', need: { WIRE: 1, STICKS: 1 }, field: 1, out: 'SNARE' },
+  { n: 'SPIKE TRAP', need: { BOARDS: 1, NAILS: 2, STICKS: 2 }, out: 'SPIKE TRAP' },
+  { n: 'WATER FILTER', need: { CLOTH: 1, CHARCOAL: 2, STONES: 1 }, out: 'WATER FILTER' },
+  { n: 'SMOKING RACK', need: { STICKS: 4, WIRE: 1 }, once: 1 },
+  { n: 'SMOKED MEAT', need: { CHARCOAL: 1 }, item: ['RAW MEAT', 'COOKED MEAT'], rack: 1, out: 'SMOKED MEAT' },
+  { n: 'LAMP OIL (1 L FUEL)', item: ['FUEL CAN'], oil: 1 },
+  { n: 'CLEANING KIT', need: { CLOTH: 1, STICKS: 1 }, field: 1, out: 'CLEANING KIT' },
+];
+const atBench = p => Math.hypot(p.x - WB.x, p.z - WB.z) < 2.6;
+const findIng = (names, bench) => { for (const n of names) { const it = inv.find(i => i.name === n && !i.spoiled) || [...held.values()].find(i => i.name === n && !i.spoiled) || (bench && stash.find(i => i.name === n && !i.spoiled)); if (it) return it; } return null; };
+function canCraft(r, bench) {
+  if (!r.field && !bench) return 'AT THE BENCH';
+  if (r.once && CRAFT.rack) return 'BUILT';
+  if (r.rack && !CRAFT.rack) return 'NEEDS RACK';
+  for (const [k, v] of Object.entries(r.need || {})) if (MATS[k] < v) return 'NEED ' + k;
+  if (r.item && !findIng(r.item, bench)) return 'NEED ' + r.item[0];
+  if (r.oil && (!LANTERN_IT || LANTERN_IT.state === 'gone')) return 'NO LANTERN';
+  return '';
+}
+function craft(i, bench) {
+  const r = RECIPES[i]; if (!r) return; const why = canCraft(r, bench); if (why) { say('CAN\'T CRAFT ' + r.n + ': ' + why); sfx('dry'); return; }
+  for (const [k, v] of Object.entries(r.need || {})) MATS[k] -= v;
+  if (r.item) { const it = findIng(r.item, bench); if (r.oil) { it.fuel -= 1; if (it.fuel <= 0.01) removeItem(it); } else { const si = stash.indexOf(it); removeItem(it); if (si >= 0) layoutStash(); } }
+  if (r.oil) { LANTERN_IT.oil = LAMP_OIL; say('LANTERN REFILLED (' + LAMP_OIL + ' H OF LIGHT)'); }
+  else if (r.once) { CRAFT.rack = true; RACK.visible = true; say('SMOKING RACK BUILT BY THE FIRE PIT'); }
+  else {
+    camera.getWorldPosition(_a);
+    const it = makeItem(r.out, bench ? WB.x - 0.5 + (C16_R() * 1.0) : _a.x, bench ? WB.y + 0.94 : groundY(_a.x, _a.z), bench ? WB.z - 0.15 : _a.z);
+    if (bench) say('CRAFTED ' + r.out + ' - ON THE BENCH');
+    else if (packAdd(it)) say('CRAFTED ' + r.out + ' (IN PACK)'); else { it.mesh.position.y = groundY(_a.x, _a.z) + it.h / 2; say('CRAFTED ' + r.out + ' (AT YOUR FEET)'); }
+  }
+  sfx('gate'); CRAFT.key = '';
+}
+function drawCraft(bench) {
+  const key = (bench ? 'B' : 'F') + CRAFT.hover + MAT_NAMES.map(n => MATS[n]).join() + RECIPES.map(r => canCraft(r, bench)).join() + inv.length + stash.length + (CRAFT.desk ? CRAFT.deskSel : '');
+  if (key === CRAFT.key) return; CRAFT.key = key; const x = CR_X;
+  x.fillStyle = '#2a2116'; x.fillRect(0, 0, 256, 320); x.fillStyle = '#e8d9b0'; x.font = 'bold 16px monospace'; x.textAlign = 'left';
+  x.fillText(bench ? 'WORKBENCH' : 'FIELD CRAFT', 8, 18);
+  x.font = '11px monospace'; x.fillStyle = '#b8a880'; x.fillText(MAT_NAMES.map(n => MAT_ABBR[n] + MATS[n]).join(' '), 8, 33);
+  RECIPES.forEach((r, i) => { const y = 40 + i * 28, why = canCraft(r, bench);
+    if (i === CRAFT.hover || (CRAFT.desk && i === CRAFT.deskSel)) { x.fillStyle = '#5a4a2a'; x.fillRect(2, y, 252, 27); }
+    x.fillStyle = why ? '#8a7f6a' : '#9fe07a'; x.font = 'bold 13px monospace'; x.fillText((i + 1) % 10 + ' ' + r.n, 6, y + 12);
+    x.font = '10px monospace'; x.fillStyle = why ? '#c08060' : '#cfc3a0';
+    x.fillText((Object.entries(r.need || {}).map(([k, v]) => v + ' ' + k).concat(r.item ? [r.item.join('/')] : []).join(' + ') || '') + (why ? '  [' + why + ']' : ''), 18, y + 24); });
+  CR_T.needsUpdate = true;
+}
+// VR: trigger with one hand on the other wrist's watch = open / close the field-craft board; point at a row + trigger = craft (bench board too)
+const _cl = new THREE.Vector3(), _ct = new THREE.Vector3();
+function craftRow(g, panel) { if (!panel.visible) return -1; g.localToWorld(_ct.set(0, 0, -0.06)); panel.worldToLocal(_cl.copy(_ct));
+  if (Math.abs(_cl.z) > 0.07 || Math.abs(_cl.x) > CR_W / 2 || Math.abs(_cl.y) > CR_H / 2) return -1;
+  const py = (CR_H / 2 - _cl.y) / CR_H * 320; const i = Math.floor((py - 40) / 28); return i >= 0 && i < RECIPES.length ? i : -1; }
+function craftTrigger(g) {
+  watch.getWorldPosition(_a); g.localToWorld(_ct.set(0, 0, -0.03));
+  if (_ct.distanceTo(_a) < 0.09 && mode === 'foot') { openField(!fieldPanel.visible); return true; }
+  for (const [p, bench] of [[benchPanel, true], [fieldPanel, false]]) { const i = craftRow(g, p); if (i >= 0) { camera.getWorldPosition(_a); craft(i, bench || atBench(_a)); tick(g); return true; } }
+  return false;
+}
+function openField(on) {
+  fieldPanel.visible = on; if (!on) return;
+  const M = eyeWorld(0); _a.setFromMatrixPosition(M); _d.set(0, 0, -1).transformDirection(M); _d.y = 0; _d.normalize();
+  fieldPanel.position.copy(_a).addScaledVector(_d, 0.5).y -= 0.25; fieldPanel.lookAt(_a.x, fieldPanel.position.y, _a.z); CRAFT.fieldP.copy(_a); CRAFT.key = ''; sfx('click');
+}
+// desktop: K opens the list (bench list at the bench), 1-0 craft that row, K / Esc closes
+function craftKey(e) {
+  if (mode !== 'foot') return false;
+  if (e.code === 'KeyK') { CRAFT.desk = !CRAFT.desk; CRAFT.key = ''; if (CRAFT.desk) { camera.getWorldPosition(_a); say((atBench(_a) ? 'WORKBENCH' : 'FIELD CRAFT') + ': PRESS 1-0 TO CRAFT, K TO CLOSE'); } return true; }
+  if (CRAFT.desk && (e.code === 'Escape')) { CRAFT.desk = false; return true; }
+  if (CRAFT.desk && /^Digit[0-9]$/.test(e.code)) { const i = (+e.code[5] + 9) % 10; CRAFT.deskSel = i; camera.getWorldPosition(_a); craft(i, atBench(_a)); return true; }
+  if (e.code === 'KeyP') { placeDesktop(); return true; }
+  return false;
+}
+function deskCraftText() { camera.getWorldPosition(_a); const b = atBench(_a);
+  return '\n' + (b ? 'WORKBENCH' : 'FIELD CRAFT') + '  ' + MAT_NAMES.map(n => MAT_ABBR[n] + MATS[n]).join(' ') + '\n' + RECIPES.map((r, i) => { const w = canCraft(r, b); return ((i + 1) % 10) + ' ' + r.n + (w ? '  - ' + w : '  OK'); }).join('\n'); }
+function placeDesktop() {   // P: set down a campfire kit / spike trap / snare from the pack, 1.5 m in front of you
+  const it = ['CAMPFIRE KIT', 'SPIKE TRAP', 'SNARE'].map(n => inv.find(i => i.name === n)).find(Boolean); if (!it) { say('NOTHING TO PLACE (CAMPFIRE KIT / SPIKE TRAP / SNARE)'); return; }
+  camera.getWorldPosition(_a); _d.set(0, 0, -1).applyQuaternion(camera.getWorldQuaternion(_q)); _d.y = 0; _d.normalize();
+  const x = _a.x + _d.x * 1.5, z = _a.z + _d.z * 1.5; inv.splice(inv.indexOf(it), 1); layoutPack();
+  scene.add(it.mesh); it.mesh.visible = true; it.mesh.rotation.set(0, 0, 0); it.mesh.scale.setScalar(1); it.mesh.position.set(x, groundY(x, z) + it.h / 2, z); it.state = 'world'; sfx('pick');
+}
+function useCraftedDesktop() {   // E: cleaning kit when the rifle is fouled
+  const k = inv.find(i => i.name === 'CLEANING KIT'); if (k && (R.foul || 0) > 5) { cleanRifle(k); return true; } return false;
+}
+function cleanRifle(k) { R.foul = 0; k.uses = (k.uses ?? 3) - 1; say('RIFLE CLEANED' + (k.uses > 0 ? ' (KIT: ' + k.uses + ' LEFT)' : ' - KIT USED UP')); sfx('levClose'); if (k.uses <= 0) removeItem(k); }
+// ---- campfires (from a kit), the smoking rack, snares, spike traps ----
+const FIRES = [], fireMatA = fireFl[0].material, fireMatB = fireFl[1].material, FIRE_GEO_A = fireFl[0].geometry, FIRE_GEO_B = fireFl[1].geometry;
+function makeFire(x, z) {
+  if (FIRES.length >= 3) { const f = FIRES.shift(); f.g.removeFromParent(); }
+  const y = groundY(x, z), g = new THREE.Group(); g.position.set(x, y, z); scene.add(g);
+  for (let i = 0; i < 6; i++) { const a = i / 6 * 6.283; box(0.16, 0.1, 0.14, mat(0x6f6c66), Math.cos(a) * 0.4, 0.05, Math.sin(a) * 0.4, g).rotation.y = a; }
+  box(0.5, 0.08, 0.08, mat(0x4a3520), 0, 0.06, 0, g).rotation.y = 0.5; box(0.5, 0.08, 0.08, mat(0x4a3520), 0, 0.1, 0, g).rotation.y = -0.6;
+  const a = new THREE.Mesh(FIRE_GEO_A, fireMatA), b = new THREE.Mesh(FIRE_GEO_B, fireMatB); a.position.y = b.position.y = 0.1; a.scale.setScalar(0.8); b.scale.setScalar(0.8); g.add(a, b);
+  FIRES.push({ g, fl: [a, b], p: new THREE.Vector3(x, y, z), c: new THREE.Vector3(x, y + 0.3, z), t: 15 * 60 }); say('CAMPFIRE LIT - COOK, BOIL WATER, MAKES CHARCOAL'); sfx('sizzle', new THREE.Vector3(x, y, z));
+}
+function nearFire(p, r) { if (p.distanceTo(FIRE_C) < r) return true; for (const f of FIRES) if (p.distanceTo(f.c) < r) return true; return false; }
+function nearFireXZ(p, r) { if (Math.hypot(p.x - FIRE.x, p.z - FIRE.z) < r) return true; for (const f of FIRES) if (Math.hypot(p.x - f.p.x, p.z - f.p.z) < r) return true; return false; }
+const RACK = new THREE.Group(); RACK.position.set(FIRE.x + 1.4, FIRE.y, FIRE.z + 0.4); RACK.visible = false; scene.add(RACK);
+{ const w = mat(0x4a3520); for (const s of [-0.6, 0.6]) box(0.06, 1.3, 0.06, w, s, 0.65, 0, RACK); box(1.3, 0.05, 0.05, w, 0, 1.25, 0, RACK);
+  for (const s of [-0.35, 0, 0.35]) box(0.1, 0.3, 0.03, mat(0x4a2412), s, 1.05, 0, RACK); }
+const LAMP_OIL = 10;   // game hours of light per fill (about one night)
+let c16T = 0, charT = 60, oilWarn = false;
+function craftTick(dt) {
+  // hover highlight + panel visibility
+  camera.getWorldPosition(_a); const bench = atBench(_a);
+  if (fieldPanel.visible && (_a.distanceTo(CRAFT.fieldP) > 2.5 || mode !== 'foot')) fieldPanel.visible = false;
+  let hv = -1; if (renderer.xr.isPresenting) for (const g of grips) { if (R.hand === g) continue; const i = Math.max(craftRow(g, benchPanel), craftRow(g, fieldPanel)); if (i >= 0) hv = i; }
+  CRAFT.hover = hv; if (_a.distanceTo(benchPanel.position) < 6 || fieldPanel.visible || CRAFT.desk) drawCraft(fieldPanel.visible && !bench ? false : bench || !fieldPanel.visible);
+  // flames
+  for (const f of FIRES) { const fl = 0.7 + Math.random() * 0.3; f.fl[0].scale.set(fl, 0.65 + Math.random() * 0.3, fl); f.fl[1].scale.set(fl, 0.55 + Math.random() * 0.4, fl); }
+  // lantern oil
+  if (LANTERN_IT && LANTERN_IT.oil === undefined) LANTERN_IT.oil = LAMP_OIL;
+  if (LANTERN_IT && LANTERN_IT.mesh.userData.glow.material === LAMP_ON) { LANTERN_IT.oil = Math.max(0, LANTERN_IT.oil - hourRate(DAY.h) * dt); if (LANTERN_IT.oil <= 0 && !oilWarn) { oilWarn = true; say('LANTERN OUT OF OIL - LAMP OIL AT THE WORKBENCH (NEEDS A FUEL CAN)'); } }
+  if (LANTERN_IT && LANTERN_IT.oil > 0) oilWarn = false;
+  // held cleaning kit against the rifle (VR)
+  for (const [g, it] of held) if (it.name === 'CLEANING KIT' && (R.foul || 0) > 5 && it.mesh.getWorldPosition(_b).distanceTo(rifle.position) < 0.35) { if ((it.cT = (it.cT || 0) + dt) > 1.5) { it.cT = 0; cleanRifle(it); tick(g); } }
+  if ((c16T -= dt) > 0) return; const st = 0.25 - c16T; c16T = 0.25;
+  const now = gameHours();
+  for (let i = FIRES.length - 1; i >= 0; i--) { const f = FIRES[i]; f.t -= st; if (f.t <= 0) { f.g.removeFromParent(); FIRES.splice(i, 1); makeItem('CHARCOAL', f.p.x + 0.5, f.p.y, f.p.z); makeItem('CHARCOAL', f.p.x - 0.4, f.p.y, f.p.z + 0.3); } }
+  if ((charT -= st) <= 0) { charT = 150; if (loot.filter(it => it.name === 'CHARCOAL' && it.state === 'world' && it.mesh.position.distanceTo(FIRE) < 3).length < 2) makeItem('CHARCOAL', FIRE.x + 0.8 + C16_R() * 0.4, groundY(FIRE.x + 1, FIRE.z - 0.6), FIRE.z - 0.6 - C16_R() * 0.4); }
+  for (const it of [...loot]) {   // loot holds every item (world, pack, stash, held)
+    if (SPOIL_H[it.name]) { if (it.bornName !== it.name) { it.bornName = it.name; it.born = now; it.spoiled = false; }
+      if (!it.spoiled && now - it.born > SPOIL_H[it.name]) { it.spoiled = true; it.mesh.material = SPOIL_M; } }
+    if (it.state !== 'world' || falling.has(it)) { if (it.name === 'SNARE') it.armT = undefined; continue; }
+    if (it.name === 'CAMPFIRE KIT') { const p = it.mesh.position.clone(); removeItem(it); makeFire(p.x, p.z); continue; }
+    if (it.name === 'SNARE') { if (it.armT === undefined) { it.armT = 180 + C16_R() * 180; say('SNARE SET'); }
+      else if (it.armT > 0 && (it.armT -= st) <= 0) { const p = it.mesh.position; makeItem('RAW MEAT', p.x + 0.3, groundY(p.x + 0.3, p.z), p.z); if (p.distanceTo(_a) < 150) say('SNARE CAUGHT A RABBIT'); } }
+    if (it.name === 'SPIKE TRAP') { const p = it.mesh.position;
+      for (const z of ZS) if (z.state !== 'dead' && z.state !== 'off' && Math.abs(z.x - p.x) < 0.8 && Math.abs(z.z - p.z) < 0.8) { z.hp = Math.min(z.hp, 0.5); z.hit('torso', null); it.uses = (it.uses ?? 3) - 1;
+        if (it.uses <= 0) { removeItem(it); say('SPIKE TRAP BROKE'); break; } } }
+  }
+}
+// ---- stamina: sprinting and jumping cost it; it comes back slower when hungry, thirsty or sick ----
+P.stam = 100; P.winded = false; P.sprintF = false;
+function sprintOK() { P.sprintF = true; return !P.winded; }
+function staminaTick(dt) {
+  if (P.sprintF && !P.winded) P.stam = Math.max(0, P.stam - 9 * dt);
+  else P.stam = Math.min(100, P.stam + (P.food < 25 || P.thirst < 25 || P.sickT > 0 ? 3.5 : 7) * dt);
+  if (P.stam <= 0 && !P.winded) { P.winded = true; say('WINDED - CATCH YOUR BREATH'); } if (P.winded && P.stam > 35) P.winded = false;
+  P.sprintF = false;
+}
+// ---- gatherables: sticks + stones round home and in the groves / by the water, salvage (cloth, wire, nails, boards) at the farms and points of interest ----
+{
+  const put = (n, x, z) => makeItem(n, x, groundY(x, z), z);
+  for (const [n, x, z] of [['STICKS', 26, -23.5], ['STICKS', 21.5, -18.5], ['STICKS', 37.5, -21], ['STONES', 25.6, -23], ['STONES', 22, -22.4], ['BOARDS', 36.2, -17.2], ['CHARCOAL', 24.9, -20.2]]) put(n, x, z);
+  makeItem('CLOTH', WB.x + 0.45, WB.y + 0.94, WB.z + 0.1);
+  for (const g of GROVES.slice(0, 24)) put('STICKS', g.x + (C16_R() - 0.5) * 20, g.z + (C16_R() - 0.5) * 20);
+  for (const z of [-120, 160, 420, -900, 1300]) put('STONES', RIVER_X(z) + 13 + C16_R() * 3, z);
+  const SALV = { 'FARMHOUSE': ['CLOTH', 'NAILS', 'WIRE'], 'TRUCK': ['WIRE', 'CLOTH'], 'BARN': ['BOARDS', 'NAILS', 'WIRE'], 'RIDGE STRIP': ['CLOTH'],
+    'LOOKOUT': ['WIRE', 'CLOTH'], 'GAS STATION': ['NAILS', 'WIRE', 'CLOTH', 'NAILS'], 'WRECK': ['WIRE', 'WIRE', 'CLOTH'], 'HUNT CABIN': ['CLOTH', 'STICKS', 'BOARDS'],
+    'RANCH': ['BOARDS', 'BOARDS', 'WIRE', 'NAILS'], 'CHURCH': ['CLOTH', 'CLOTH', 'BOARDS', 'NAILS'], 'LODGE': ['BOARDS', 'CLOTH', 'NAILS', 'STONES'] };
+  for (const s of SPOTS) for (const [k, n] of (SALV[s.name] || []).entries()) { const a = k * 1.9 + C16_R(), r = 5 + C16_R() * 4; put(n, s.x + Math.cos(a) * r, s.z + Math.sin(a) * r); }
+}
 // ======================= LOOP =======================
 const clock = new THREE.Clock();
 let fpsFrames = 0, fpsT = 0, instT = 0;
@@ -3371,7 +3567,7 @@ renderer.setAnimationLoop(() => {
   fpsFrames++; fpsT += dt; instT += dt;
   if (fpsT >= 1) { fps = Math.round(fpsFrames / fpsT); fpsFrames = 0; fpsT = 0; }
   updateRifle(dt); updateBullets(dt); updateFX(dt); updateSmoke(dt); updateWorld(dt, clock.elapsedTime);
-  updateSurvival(dt); updateZombies(dt); updateAnimals(dt); updateItems(dt); CLOUDS.tick(dt); updateDay(dt); updateWater(dt); cullLoot(dt); updateForce(dt); updateBrass(dt); updateFalling(dt); updateSpots(dt); updateAudio(dt);
+  updateSurvival(dt); updateZombies(dt); updateAnimals(dt); updateItems(dt); CLOUDS.tick(dt); updateDay(dt); updateWater(dt); cullLoot(dt); craftTick(dt); staminaTick(dt); updateForce(dt); updateBrass(dt); updateFalling(dt); updateSpots(dt); updateAudio(dt);
   panelUpdate(ac, dt); compassCard.rotation.y = IN.hdg;
   if (instT > 0.1) { instT = 0; drawWrist(); }
   if ((chunkT += dt) > 0.2) { chunkT = 0; updateChunks(); }
