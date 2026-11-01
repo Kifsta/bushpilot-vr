@@ -20,7 +20,7 @@
 </script>
 </head>
 <body>
-<div id="info">BUSH PILOT VR v0.12 - PA-18 Super Cub prototype (v0.12: natural gunshot, ambient sound, clouds; v0.11: Cub + rifle proportions from reference; v0.10.1: smoother stock; v0.10: performance pass, crouch / jump, more zombies, force grab)
+<div id="info">BUSH PILOT VR v0.13 - PA-18 Super Cub prototype (v0.13: day / night, dusk deadline, lights, sleep; v0.12: natural gunshot, ambient sound, clouds; v0.11: Cub + rifle proportions from reference; v0.10.1: smoother stock; v0.10: performance pass, crouch / jump, more zombies, force grab)
 RIFLE (VR): A/X on the rifle hand = work the lever (tap = full stroke, hold = keep it open) or flick the rifle down-forward, or grab the lever loop with your other hand and work it yourself;
   lever open = no shot; a short stroke won't feed. Load: tip of a round into the gate (right side) - it snaps in; keep grip held and go back to the pouch for the next one.
   Hold the right stick IN (click) + push it up/down while holding the rifle (right hand) = grip angle. Let go of the wrist with a hand on the forend = it stays in that hand.
@@ -42,6 +42,9 @@ VR FOOT: L stick walk (click = sprint), R stick left/right = snap turn, hold dow
   Pack: grip over either shoulder, pull it round to the front; let go = it hovers open at your chest. Drop items in, grip minis to take out.
   Push it back over your shoulder (or A/X on the free hand) to wear it. Let go of items anywhere else = they drop on the ground.
   Knife: stab zombies (head = kill), slice across a kill 3x (or hold grip on it with the knife in the other hand) = meat.
+  NIGHT (v0.13): day 06:00-19:00 = 30 min, night = 12 min; watch on the left wrist (amber = sunset soon). Torch on the left hip: hold it + trigger (desktop L) = on/off.
+  Lantern hangs by the cabin door (lit after dusk) - carry it, hang it back on the hook. Cockpit: landing-light switch below the fuel gauge (grip it; desktop L).
+  Sleep after 17:30: grip the cabin door handle (desktop N at the door) = skip to dawn (costs food). At night zombies see further, move faster and come out everywhere.
   Hold food to your mouth = eat | fuel can to the wing filler cap = refuel | raw meat over the fire pit = cook | cabin bench = stash
 Loot: paddock farmhouse (smoke + orange tarp ~3.6 km SE, zombies!), red truck on the N-S dirt road, a barn east along the road, ridge-top strip ~2.2 km W (~2400 ft up, lean-to cache). Zombies: a pack at the farmhouse, groups at the truck, barn and ridge cache,
   a few at the farms and lone ones along the roads. The cabin is mostly safe.
@@ -384,7 +387,7 @@ const SKY = 0xa9c8de;
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(SKY);
 scene.fog = new THREE.Fog(SKY, 1200, 8500);   // v0.10: tighter haze = shorter draw distance (far plane 9 km)
-scene.add(new THREE.HemisphereLight(0xdfefff, 0x56603a, 1.2));
+const hemi = new THREE.HemisphereLight(0xdfefff, 0x56603a, 1.2); scene.add(hemi);
 const sun = new THREE.DirectionalLight(0xfff1dc, 2.0); sun.position.set(300, 500, 200); scene.add(sun);
 
 const mat = c => new THREE.MeshLambertMaterial({ color: c, flatShading: true });
@@ -1347,6 +1350,8 @@ addEventListener('keydown', e => {
   if (mode === 'foot' && /^Digit[1-4]$/.test(e.code)) deskSlot(+e.code[5] - 1);
   if (mode === 'foot' && e.code === 'KeyV') deskKnifeUse();
   if (e.code === 'KeyM') mapDesk();
+  if (e.code === 'KeyL') { if (mode === 'plane') toggleLanding(); else toggleTorch(); }
+  if (e.code === 'KeyN') trySleep();
   if (e.code === 'Home') recenter();                       // v0.10: C is crouch now
   if (mode === 'foot' && e.code === 'Space') jump();
   if (e.code === 'KeyF') mode === 'plane' ? exitPlane() : board();
@@ -1476,9 +1481,10 @@ function footXR(dt) {
     const gp = src.gamepad, h = src.handedness, sq = !!gp.buttons[1]?.pressed;
     if (h === 'left') { lx = gp.axes[2] || 0; ly = gp.axes[3] || 0; if (pressedEdge(gp, 5, 'Y')) board(); pressedEdge(gp, 4, 'X'); if (pressedEdge(gp, 3, 'LS')) vr.sprint = true; }
     else { rx = gp.axes[2] || 0; ry = gp.axes[3] || 0; rClick = !!gp.buttons[3]?.pressed; if (pressedEdge(gp, 5, 'B')) resetFlight(); pressedEdge(gp, 4, 'A'); }
-    if (pressedEdge(gp, 1, h + 'sq')) handGrab(g);
+    if (pressedEdge(gp, 1, h + 'sq')) { if (!doorGrab(g) && !(mode === 'plane' && ldgSwitchTouch(g))) handGrab(g); }
     if (!sq) handRelease(g);
     const trig = pressedEdge(gp, 0, h + 'trig'), btn = !!gp.buttons[4]?.pressed && !vr.prev[h + 'btn']; vr.prev[h + 'btn'] = !!gp.buttons[4]?.pressed;
+    if (trig && held.get(g)?.name === 'TORCH') toggleTorch();
     if (R.hand === g) {
       if (trig) R.wantFire = true;                // shot leaves in updateRifle from this frame's pose (no one-frame lag)
       R.levHold = !!gp.buttons[4]?.pressed; if (btn) cycleLever();
@@ -1602,16 +1608,16 @@ function statusText() {
     `AMMO ${R.tube}+${R.chambered ? 1 : 0} POUCH ${R.spare}${R.hand ? '' : R.slung ? ' (slung)' : R.stowed ? ' (stowed)' : ' (not held)'}\n` +
     `PACK ${packUsed()}/${PACK_CELLS} STASH ${stash.length}` + (msgT > 0 ? '\n' + msg : '');
 }
-let wristKey = '';
+let wristKey = '', hudT = '';
 function drawWrist() {   // v0.10: only re-uploads when something on it changed
   const st = statusText(), key = st + '|' + (P.hurtT > 0) + '|' + Math.round(P.hp * 2.4) + '|' + Math.round(P.food * 2.4);
-  if (key === wristKey) return; wristKey = key;
+  if (key === wristKey) { if (hudT !== clockStr()) { hudT = clockStr(); hud.textContent = st + '\n' + hudT; } return; } wristKey = key;
   wctx.fillStyle = P.hurtT > 0 ? '#a00' : '#111'; wctx.fillRect(0, 0, 256, 128); wctx.font = '18px monospace';
   wctx.fillStyle = '#333'; wctx.fillRect(8, 4, 240, 6); wctx.fillRect(8, 12, 240, 6);
   wctx.fillStyle = '#e33'; wctx.fillRect(8, 4, 2.4 * P.hp, 6); wctx.fillStyle = '#eb3'; wctx.fillRect(8, 12, 2.4 * P.food, 6);
   wctx.fillStyle = '#9f9';
   st.replace(/ \(.*?\)/, '').split('\n').forEach((l, i) => wctx.fillText(l.slice(0, 22), 8, 40 + i * 26));
-  wtex.needsUpdate = true; hud.textContent = st;
+  wtex.needsUpdate = true; hud.textContent = st + '\n' + clockStr();
 }
 
 // ================= v0.5: survival (health / hunger / fuel), items, zombies, game animals =================
@@ -1635,12 +1641,16 @@ const ITEM = {
   'MEDKIT':      { sz: [0.3, 0.2, 0.1], col: 0xeeeeee, heal: 50 },
   'RAW MEAT':    { sz: [0.16, 0.06, 0.12], col: 0xb0303a, food: 15, risk: 0.2 },
   'COOKED MEAT': { sz: [0.16, 0.06, 0.12], col: 0x6b3a1e, food: 35 },
+  'LANTERN':     { sz: [0.13, 0.24, 0.13], col: 0x3b3f36, tool: true },
+  'TORCH':       { sz: [0.045, 0.045, 0.2], col: 0x2f353b, tool: true },
 };
-const itemRes = {}, redMat = mat(0xcc1111);
+const itemRes = {}, redMat = mat(0xcc1111), glowM = new THREE.MeshBasicMaterial({ color: 0x6b6250 });   // v0.13 lantern glass / torch lens (lit = bright)
 const res = n => itemRes[n] || (itemRes[n] = { g: new THREE.BoxGeometry(...ITEM[n].sz), m: mat(ITEM[n].col) });
 function makeItem(name, x, y, z) {
   const m = name === 'KNIFE' ? knifeMesh() : new THREE.Mesh(res(name).g, res(name).m); m.position.set(x, y + ITEM[name].sz[1] / 2, z); scene.add(m);
   if (name === 'MEDKIT') box(0.31, 0.06, 0.02, redMat, 0, 0, 0.05, m);
+  if (name === 'LANTERN') { m.userData.glow = box(0.1, 0.12, 0.1, glowM, 0, 0, 0, m); box(0.15, 0.03, 0.15, res('LANTERN').m, 0, 0.13, 0, m); box(0.02, 0.06, 0.02, res('LANTERN').m, 0, 0.17, 0, m); }
+  if (name === 'TORCH') { m.userData.glow = box(0.05, 0.05, 0.012, glowM, 0, 0, -0.1, m); }
   const it = { name, mesh: m, h: ITEM[name].sz[1], state: 'world', fuel: name === 'FUEL CAN' ? CAN_L : 0, cook: 0 };
   loot.push(it); return it;
 }
@@ -1674,6 +1684,7 @@ function releaseHeld(g) {      // open bag > belt slot > cabin bench > falls to 
   if (mode !== 'foot') { if (packAdd(it)) return; }
   else if (PK.state !== 'worn' && PK.g !== g && packCenter().distanceTo(p) < PACK_DROP_R) { if (packAdd(it)) { say('PACKED ' + it.name + ' (' + packUsed() + '/' + PACK_CELLS + ')'); sfx('pick'); tick(g); return; } }
   const sl = slotFor(it.name, p); if (sl) { toSlot(sl, it); tick(g); return; }
+  if (it.name === 'LANTERN' && p.distanceTo(LANTERN_HOOK) < 0.45) { hangLantern(it); tick(g); return; }
   if (Math.hypot(p.x - BENCH.x, p.z - BENCH.z) < 1.3) { stash.push(it); layoutStash(); say('STASHED ' + it.name); return; }
   it.state = 'world'; it.vel = (g.userData.vel || V3()).clone().clampLength(0, 8); falling.add(it);
 }
@@ -1815,7 +1826,7 @@ const CLOUDS = (() => {
   const parts = [];
   for (const [x, y, z, s] of [[0, 0, 0, 1], [0.55, -0.1, 0.1, 0.75], [-0.6, -0.12, -0.05, 0.7], [0.15, 0.25, -0.2, 0.7], [-0.2, 0.05, 0.45, 0.62], [0.9, -0.22, -0.3, 0.5], [-1.0, -0.25, 0.3, 0.45]]) {
     const g = new THREE.IcosahedronGeometry(s, s > 0.65 ? 1 : 0); g.translate(x, y, z); parts.push(g); }
-  const geo = mergeGeometries(parts.map(g => g.toNonIndexed())), p = geo.attributes.position;
+  const geo = mergeGeometries(parts.map(g => g.index ? g.toNonIndexed() : g)), p = geo.attributes.position;
   for (let i = 0; i < p.count; i++) p.setY(i, Math.max(p.getY(i), -0.28));          // flat cumulus bases
   geo.computeVertexNormals();
   const m = new THREE.MeshLambertMaterial({ color: 0xffffff, emissive: 0x5a6670, flatShading: true, transparent: true });
@@ -1886,7 +1897,7 @@ function creatureHit(o, d, maxD) {
 const PP = new THREE.Vector3();
 function playerPos() { if (mode === 'plane') PP.set(ac.pos[0], ac.pos[1], ac.pos[2]); else camera.getWorldPosition(PP); return PP; }
 function alertNoise(o) {
-  for (const z of ZS) if ((z.state === 'idle' || z.state === 'wander') && Math.hypot(z.x - o.x, z.z - o.z) < 150) z.state = 'chase';
+  for (const z of ZS) if ((z.state === 'idle' || z.state === 'wander') && Math.hypot(z.x - o.x, z.z - o.z) < 150 + 150 * TOD.night) z.state = 'chase';   // v0.13: a shot carries further at night
   for (const a of ANIM) if (a.state !== 'dead' && a.state !== 'gone' && Math.hypot(a.x - o.x, a.z - o.z) < 250) scare(a, o.x, o.z);
 }
 
@@ -1895,12 +1906,12 @@ const ZSPH = [[0, 1.7, -0.06, 0.15, 'head'], [0, 1.3, 0, 0.27, 'torso'], [0, 0.9
 const Z_HP = 3, Z_SPEED = 1.2, Z_LUNGE = 3.2, Z_SIGHT = 40, Z_DPS = 6;
 const ZS = [];
 // v0.10: zombie sites. Each has a home + roam radius; dead ones respawn after the player has been >500 m away for 3 min.
-const N_CABZ = 2, Z_SLEEP_R = 500, Z_SLEEP_DT = 1;   // beyond 500 m (and not chasing) a zombie only thinks once a second
+const N_CABZ = 2, N_NIGHTZ = 14, Z_SLEEP_R = 500, Z_SLEEP_DT = 1;   // beyond 500 m (and not chasing) a zombie only thinks once a second
 const ZSITES = [{ name: 'FARMHOUSE', x: PAD_HOUSE.x - 6, z: PAD_HOUSE.z, r: 25, n: 10, away: 0 }];
 for (const [nm, n] of [['TRUCK', 6], ['BARN', 5], ['RIDGE STRIP', 5]]) { const sp = SPOTS.find(s => s.name === nm); if (sp) ZSITES.push({ name: nm, x: sp.x, z: sp.z, r: 22, n, away: 0 }); }
 for (const i of [1, 2, 3, 4]) ZSITES.push({ name: 'FARM ' + i, x: FARMS[i][0], z: FARMS[i][1], r: 30, n: 2, away: 0 });
 for (const [r, k] of [[0, 3], [0, 4], [1, 0], [1, 4], [2, 0], [2, 1]]) ZSITES.push({ name: 'ROAD', x: ROADS[r][k][0], z: ROADS[r][k][1], r: 80, n: 1, away: 0, road: true });   // lone wanderers, all >600 m from the cabin
-const N_SITEZ = ZSITES.reduce((a, s) => a + s.n, 0), NZ = N_SITEZ + N_CABZ;
+const N_SITEZ = ZSITES.reduce((a, s) => a + s.n, 0), NZ = N_SITEZ + N_CABZ + N_NIGHTZ;
 const zBody = imesh([vbox(0.34, 0.22, 0.2, 0, 0.95, 0, 0x34333d), vbox(0.42, 0.55, 0.24, 0, 1.33, 0.03, 0x56603f, -0.15),
                      vbox(0.21, 0.24, 0.22, 0, 1.72, -0.07, 0x8ea074), vbox(0.12, 0.04, 0.02, 0, 1.66, -0.185, 0x2a1414),
                      vbox(0.04, 0.03, 0.02, -0.05, 1.75, -0.185, 0xd8e070), vbox(0.04, 0.03, 0.02, 0.05, 1.75, -0.185, 0xd8e070)], NZ);
@@ -1915,7 +1926,7 @@ function zHome(z) {   // (re)spawn somewhere around its site, never inside the f
 }
 const zSites = []; for (const s of ZSITES) for (let k = 0; k < s.n; k++) zSites.push(s);
 for (let i = 0; i < NZ; i++) {
-  const z = { cabin: i >= N_SITEZ, site: zSites[i] || null, hx: 30, hz: -15, hit(part, dir) {
+  const z = { cabin: i >= N_SITEZ, night: i >= N_SITEZ + N_CABZ, site: zSites[i] || null, hx: 30, hz: -15, hit(part, dir) {
     if (this.state === 'dead') return;
     if (!dir) sfx('hit', _sv.set(this.x, this.y + 1.2, this.z));
     this.hp -= part === 'head' ? 99 : part === 'torso' ? 1.5 : 1; this.state = 'chase';
@@ -1934,7 +1945,7 @@ function updateZombies(dt) {
   if (Math.hypot(pp.x - 30, pp.z + 15) < 600 && (cabSpawnT -= dt) <= 0) {
     cabSpawnT = 240 + Math.random() * 240;
     if (Math.random() < 0.5) { const n = 1 + (Math.random() < 0.4); let k = 0;
-      for (const z of ZS) if (z.cabin && z.state === 'off' && k < n) { const a = Math.random() * 6.3, d = 90 + Math.random() * 40; zAt(z, 30 + Math.cos(a) * d, -15 + Math.sin(a) * d, 'wander'); z.hx = 30; z.hz = -15; k++; } }
+      for (const z of ZS) if (z.cabin && !z.night && z.state === 'off' && k < n) { const a = Math.random() * 6.3, d = 90 + Math.random() * 40; zAt(z, 30 + Math.cos(a) * d, -15 + Math.sin(a) * d, 'wander'); z.hx = 30; z.hz = -15; k++; } }
   }
   for (const s of ZSITES) s.away = Math.hypot(pp.x - s.x, pp.z - s.z) > 500 ? s.away + dt : 0;
   for (let i = 0; i < ZS.length; i++) { const z = ZS[i];
@@ -1959,7 +1970,7 @@ function zStep(z, i, dt, pp, foot, target) {
       if (z.cabin && z.deadT > 60) z.state = 'off';
       if (!z.cabin && z.site.away > 180) zHome(z);
     } else {
-      if ((z.state === 'idle' || z.state === 'wander') && target && d < Z_SIGHT) { z.state = 'chase'; sfx('groan', _sv.set(z.x, z.y + 1.6, z.z)); }
+      if ((z.state === 'idle' || z.state === 'wander') && target && d < Z_SIGHT * (1 + 0.75 * TOD.night) + (LIGHTS.lit ? 35 * TOD.night : 0)) { z.state = 'chase'; sfx('groan', _sv.set(z.x, z.y + 1.6, z.z)); }
       if (z.state === 'chase' && (!target || d > 120)) { z.state = 'wander'; z.tx = z.hx; z.tz = z.hz; }
       if (z.cabin && z.state !== 'chase' && d > 700) z.state = 'off';
       z.atk = 0;
@@ -1967,7 +1978,7 @@ function zStep(z, i, dt, pp, foot, target) {
         z.yaw = turn(z.yaw, yawTo(z.x, z.z, pp.x, pp.z), 3 * dt);
         const stop = foot ? 0.8 : 2.6;
         z.cd -= dt; if (z.lunge > 0) z.lunge -= dt; else if (z.cd <= 0 && d < 7 && d > 2) { z.lunge = 0.7; z.cd = 3 + Math.random() * 3; }
-        if (d > stop) spd = (z.lunge > 0 ? Z_LUNGE : Z_SPEED) * (1 - 0.9 * z.flinch);   // a hit stops them for a beat
+        if (d > stop) spd = (z.lunge > 0 ? Z_LUNGE + 0.8 * TOD.night : Z_SPEED + 0.4 * TOD.night) * (1 - 0.9 * z.flinch);   // v0.13 night: walk 1.6, lunge 4.0   // a hit stops them for a beat
         if (foot && d < 1.15) { z.atk = 1; hurt(Z_DPS * dt); }
       } else {
         z.t -= dt;
@@ -2475,6 +2486,7 @@ const SLOTS = [
   { name: 'POUCH',  p: [-0.11, -0.02, -0.14], fits: n => SMALL.has(n), r: SLOT_R },
   { name: 'POUCH',  p: [0.11, -0.02, -0.14], fits: n => SMALL.has(n), r: SLOT_R },
   { name: 'SLING',  p: [0.1, 0.12, 0.16], rifle: true, r: BACK_R },
+  { name: 'TORCH',  p: [-0.16, -0.03, 0.12], fits: n => n === 'TORCH', r: SLOT_R },   // v0.13: torch clip, left hip behind the sheath
 ];
 const AMMO_P = { o: new THREE.Object3D() }; AMMO_P.o.position.set(0.175, -0.03, -0.02); belt.add(AMMO_P.o);
 box(0.05, 0.07, 0.07, leather, 0, -0.01, 0, AMMO_P.o);
@@ -2491,9 +2503,10 @@ function slotPos(s) { return s.rifle ? s.o.localToWorld(s.w.copy(SLING_GRAB)) : 
 function slotFor(name, p) { if (mode !== 'foot') return null; for (const s of SLOTS) if (!s.rifle && !s.item && s.fits(name) && slotPos(s).distanceTo(p) < s.r) return s; return null; }
 function toSlot(s, it, quiet) {
   s.item = it; it.state = 'belt'; falling.delete(it); s.o.add(it.mesh); it.mesh.visible = true;
-  if (it.name === 'KNIFE') { it.mesh.scale.setScalar(1); it.mesh.position.set(0, 0.02, 0); it.mesh.rotation.set(-Math.PI / 2, 0, 0); }
+  if (it.name === 'TORCH') { it.mesh.scale.setScalar(1); it.mesh.position.set(0, -0.06, 0); it.mesh.rotation.set(-Math.PI / 2, 0, 0); }
+  else if (it.name === 'KNIFE') { it.mesh.scale.setScalar(1); it.mesh.position.set(0, 0.02, 0); it.mesh.rotation.set(-Math.PI / 2, 0, 0); }
   else { const sz = ITEM[it.name].sz, k = 0.085 / Math.max(...sz); it.mesh.scale.setScalar(k); it.mesh.position.set(0, 0.03, 0); it.mesh.rotation.set(0, 0, 0); }
-  if (!quiet) { say((it.name === 'KNIFE' ? 'SHEATHED ' : 'POUCHED ') + it.name); sfx('click'); }
+  if (!quiet) { say((it.name === 'KNIFE' ? 'SHEATHED ' : it.name === 'TORCH' ? 'CLIPPED ' : 'POUCHED ') + it.name); sfx('click'); }
 }
 function slingRifle() { R.hand = R.support = null; R.free = false; R.levHand = null; R.slung = true; rifle.visible = true; say('RIFLE SLUNG'); sfx('click'); }
 const slingNear = p => mode === 'foot' && !R.slung && slotPos(SLING).distanceTo(p) < SLING.r;
@@ -2926,6 +2939,129 @@ function updateForce(dt) {
   }
 }
 
+// ================= v0.13: day / night cycle (dusk deadline), stars + moon, watch, lantern / torch / landing light, night zombies, sleep =================
+const DAY = { h: 9.5, n: 1, k5: -1, warn: '' };              // starts mid-morning. Daylight 06:00-19:00 = 30 real min, night 19:00-06:00 = 12 real min
+const hourRate = h => (h >= 6 && h < 19 ? 13 / 1800 : 11 / 720);
+function clockStr() { const m = Math.floor(DAY.h * 60) % 1440; return `DAY ${DAY.n}  ${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}` + (DAY.h >= 17.5 && DAY.h < 19 ? '  SUNSET SOON' : DAY.h >= 19 || DAY.h < 6 ? '  NIGHT' : ''); }
+const SKY_DAY = new THREE.Color(SKY), SKY_GLOW = new THREE.Color(0xd98b62), SKY_NIGHT = new THREE.Color(0x0a1122), _skc = new THREE.Color();
+const HEMI_DAY = new THREE.Color(0xdfefff), HEMI_NIGHT = new THREE.Color(0x5a6a9a), SUN_LOW = new THREE.Color(0xffa060), SUN_HI = new THREE.Color(0xfff1dc), MOON_C = new THREE.Color(0x9fb3ff);
+const sunDir = new THREE.Vector3(), moonDir = new THREE.Vector3();
+// stars (one draw call, no fog) + moon disc; both follow the camera
+const stars = (() => { const n = 700, p = new Float32Array(n * 3); let sd = 4242; const r = () => (sd = (sd * 16807) % 2147483647) / 2147483647;
+  for (let i = 0; i < n; i++) { const a = r() * 6.283, y = 0.05 + 0.95 * r() ** 0.7, c = Math.sqrt(1 - y * y); p.set([Math.cos(a) * c * 7000, y * 7000, Math.sin(a) * c * 7000], i * 3); }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(p, 3));
+  const m = new THREE.Points(g, new THREE.PointsMaterial({ color: 0xdfe6ff, size: 2, sizeAttenuation: false, fog: false, transparent: true, opacity: 0, depthWrite: false }));
+  m.frustumCulled = false; m.visible = false; scene.add(m); return m; })();
+const moon = new THREE.Mesh(new THREE.CircleGeometry(150, 14), new THREE.MeshBasicMaterial({ color: 0xf2efe0, fog: false, transparent: true, opacity: 0, depthWrite: false }));
+moon.visible = false; scene.add(moon);
+// max two dynamic lights, always in the scene (no shader recompiles): PL = lantern or cockpit panel glow, SL = torch or landing light
+const LIGHTS = { lit: false, torch: false, landing: false };
+const PL = new THREE.PointLight(0xffc06a, 0, 16, 1.5); scene.add(PL);
+const SL = new THREE.SpotLight(0xfff2da, 0, 70, 0.42, 0.45, 1.3); scene.add(SL, SL.target);
+const LDG_SW = new THREE.Vector3(0.12, -0.135, PANEL_Z + 0.012);
+const ldgSw = new THREE.Group(); ldgSw.position.copy(LDG_SW); plane.add(ldgSw);
+box(0.03, 0.02, 0.006, mat(0x222222), 0, 0, -0.004, ldgSw); const ldgTog = box(0.006, 0.006, 0.022, mat(0xd8d8d8), 0, 0, 0.008, ldgSw);
+function toggleLanding() { LIGHTS.landing = !LIGHTS.landing; ldgTog.rotation.x = LIGHTS.landing ? -0.5 : 0.5; sfx('click'); say(LIGHTS.landing ? 'LANDING LIGHT ON' : 'LANDING LIGHT OFF'); }
+ldgTog.rotation.x = 0.5;
+function ldgSwitchTouch(g) { g.getWorldPosition(_a); if (plane.localToWorld(_b.copy(LDG_SW)).distanceTo(_a) < 0.08) { toggleLanding(); tick(g); return true; } return false; }
+let TORCH_IT = null, LANTERN_IT = null;
+function toggleTorch() { if (!TORCH_IT || TORCH_IT.state === 'gone') { say('NO TORCH'); return; } LIGHTS.torch = !LIGHTS.torch; sfx('click'); say(LIGHTS.torch ? 'TORCH ON' : 'TORCH OFF'); }
+const LANTERN_HOOK = new THREE.Vector3(28.86, groundY(28.86, -13.7) + 2.0, -13.7);
+box(0.02, 0.02, 0.12, mat(0x222222), 28.94, LANTERN_HOOK.y + 0.14, -13.7, scene);   // the hook by the door
+function hangLantern(it) { it.state = 'world'; falling.delete(it); scene.add(it.mesh); it.mesh.position.copy(LANTERN_HOOK); it.mesh.rotation.set(0, 0, 0); it.mesh.scale.setScalar(1); say('LANTERN HUNG'); sfx('click'); }
+LANTERN_IT = makeItem('LANTERN', 0, 0, 0); hangLantern(LANTERN_IT); msgT = 0;
+TORCH_IT = makeItem('TORCH', 0, 0, 0); toSlot(SLOTS[4], TORCH_IT, true);
+// wristwatch (64 px canvas, redrawn every 5 game minutes)
+const wcw = document.createElement('canvas'); wcw.width = wcw.height = 64; const wcx = wcw.getContext('2d');
+const wtexW = new THREE.CanvasTexture(wcw); wtexW.colorSpace = THREE.SRGBColorSpace; wtexW.generateMipmaps = false; wtexW.minFilter = THREE.LinearFilter;
+const watch = new THREE.Mesh(new THREE.CircleGeometry(0.021, 16), new THREE.MeshBasicMaterial({ map: wtexW })); watch.position.set(0.078, 0, 0.001); wrist.add(watch);
+function drawWatch() {
+  const h = DAY.h, x = wcx, warn = h >= 17.5 && h < 19, night = h >= 19 || h < 6;
+  x.fillStyle = warn ? '#c77a12' : night ? '#7a1a1a' : '#666'; x.fillRect(0, 0, 64, 64);
+  x.fillStyle = '#141414'; x.beginPath(); x.arc(32, 32, 28, 0, 6.283); x.fill();
+  x.strokeStyle = '#bbb'; x.lineWidth = 2; for (let i = 0; i < 12; i++) { const a = i / 12 * 6.283; x.beginPath(); x.moveTo(32 + Math.sin(a) * 24, 32 - Math.cos(a) * 24); x.lineTo(32 + Math.sin(a) * 27, 32 - Math.cos(a) * 27); x.stroke(); }
+  x.fillStyle = night ? '#cfd8ff' : '#ffd040'; x.beginPath(); x.arc(32, 15, 3.5, 0, 6.283); x.fill();          // sun / moon
+  x.fillStyle = warn || night ? '#ffb040' : '#9f9'; x.font = 'bold 11px monospace'; x.textAlign = 'center'; x.fillText(clockStr().split('  ')[1], 32, 52);
+  const ha = (h % 12) / 12 * 6.283, ma = (h % 1) * 6.283;
+  x.strokeStyle = '#eee'; x.lineWidth = 3.5; x.beginPath(); x.moveTo(32, 32); x.lineTo(32 + Math.sin(ha) * 13, 32 - Math.cos(ha) * 13); x.stroke();
+  x.lineWidth = 2; x.beginPath(); x.moveTo(32, 32); x.lineTo(32 + Math.sin(ma) * 21, 32 - Math.cos(ma) * 21); x.stroke();
+  wtexW.needsUpdate = true;
+}
+// sleep: shut yourself in the cabin (door on the west side) after 17:30 = skip to dawn
+const SLEEP = { t: 0 };
+const fadeM = new THREE.Mesh(new THREE.SphereGeometry(0.4, 8, 6), new THREE.MeshBasicMaterial({ color: 0, transparent: true, opacity: 0, side: THREE.BackSide, depthTest: false, depthWrite: false, fog: false }));
+fadeM.renderOrder = 999; fadeM.visible = false; camera.add(fadeM);
+const DOOR_HANDLE = new THREE.Vector3(28.92, groundY(28.92, -14.62) + 1.0, -14.62);
+function doorGrab(g) { if (mode !== 'foot' || held.has(g)) return false; g.getWorldPosition(_a); if (_a.distanceTo(DOOR_HANDLE) > 0.35) return false; tick(g); trySleep(); return true; }
+function trySleep() {
+  if (mode !== 'foot' || SLEEP.t) return; camera.getWorldPosition(_a);
+  if (Math.hypot(_a.x - CABIN_DOOR.x, _a.z - CABIN_DOOR.z) > 3.5) { say('SLEEP: GO TO THE CABIN DOOR'); return; }
+  if (DAY.h >= 6 && DAY.h < 17.5) { say('NOT TIRED - SLEEP AFTER 17:30'); return; }
+  if (ZS.some(z => z.state === 'chase' && Math.hypot(z.x - _a.x, z.z - _a.z) < 25)) { say("CAN'T SLEEP - ZOMBIES CLOSE"); return; }
+  SLEEP.t = 0.001; sfx('click'); say('DOOR SHUT - SLEEPING...');
+}
+function wakeUp() {
+  if (DAY.h >= 6) DAY.n++; DAY.h = 6.05; P.food = Math.max(5, P.food - 30); P.hp = Math.min(100, P.hp + 25); if (typeof P.thirst === 'number') P.thirst = Math.max(5, P.thirst - 35);
+  for (const z of ZS) if (z.cabin && z.state !== 'off') z.state = 'off';
+  say('DAWN - DAY ' + DAY.n);
+}
+let nSpawnT = 8;
+function nightZombies(dt) {
+  const pp = playerPos();
+  if (TOD.night > 0.5) {
+    if ((nSpawnT -= dt) > 0) return; nSpawnT = 10 + Math.random() * 12;
+    const z = ZS.find(o => o.night && o.state === 'off'); if (!z) return;
+    const nearCab = Math.hypot(pp.x - 30, pp.z + 15) < 500 && Math.random() < 0.4, cx = nearCab ? 30 : pp.x, cz = nearCab ? -15 : pp.z;
+    const a = Math.random() * 6.283, d = nearCab ? 50 + Math.random() * 70 : 110 + Math.random() * 170;
+    zAt(z, cx + Math.cos(a) * d, cz + Math.sin(a) * d, 'wander'); z.hx = z.tx = pp.x; z.hz = z.tz = pp.z; z.t = 30;   // they drift toward where you are
+  } else if (TOD.day > 0.2) { for (const z of ZS) if (z.night && z.state !== 'off' && z.state !== 'chase' && Math.random() < dt / 25) z.state = 'off'; }   // thinning at dawn
+}
+function updateDay(dt) {
+  if (SLEEP.t) { SLEEP.t += dt; fadeM.visible = true; const t = SLEEP.t;
+    if (t > 1.2 && !SLEEP.done) { SLEEP.done = true; wakeUp(); }
+    fadeM.material.opacity = t < 1 ? t : t < 1.8 ? 1 : Math.max(0, 1 - (t - 1.8) / 1.2);
+    if (t > 3) { SLEEP.t = 0; SLEEP.done = false; fadeM.visible = false; } }
+  const h0 = DAY.h; DAY.h += hourRate(DAY.h) * dt; if (DAY.h >= 24) { DAY.h -= 24; DAY.n++; }
+  for (const [hh, m] of [[17.5, 'SUNSET IN 90 MIN - HEAD FOR SHELTER'], [19, 'NIGHTFALL - THEY SEE FURTHER AND MOVE FASTER'], [6, 'DAWN']]) if (h0 < hh && DAY.h >= hh) { say(m); sfx('click'); }
+  const a = (DAY.h - 6) / 13 * Math.PI, el = Math.sin(a);    // sunrise 06:00 east, sunset 19:00 west
+  sunDir.set(Math.cos(a), Math.max(el, -1), 0.35).normalize();
+  TOD.day = clamp((el + 0.05) / 0.25, 0, 1); TOD.night = 1 - clamp((el + 0.25) / 0.2, 0, 1); TOD.dusk = DAY.h > 12 ? (1 - TOD.day) * (1 - TOD.night) + TOD.night * 0.3 : 0;
+  const glow = (1 - TOD.day) * (1 - TOD.night);
+  if (el > -0.05) _skc.copy(SKY_GLOW).lerp(SKY_DAY, clamp((el + 0.05) / 0.25, 0, 1)); else _skc.copy(SKY_NIGHT).lerp(SKY_GLOW, clamp((el + 0.25) / 0.2, 0, 1));
+  scene.background.copy(_skc); scene.fog.color.copy(_skc);
+  hemi.intensity = 0.2 + 1.0 * TOD.day + 0.15 * glow; hemi.color.copy(HEMI_NIGHT).lerp(HEMI_DAY, TOD.day);
+  if (el > -0.05) { sun.color.copy(SUN_LOW).lerp(SUN_HI, clamp(el / 0.3, 0, 1)); sun.intensity = 2.0 * clamp((el + 0.05) / 0.3, 0, 1); sun.position.copy(sunDir).multiplyScalar(500); }
+  else { moonDir.set(-sunDir.x, 0.5 + 0.5 * TOD.night, -0.35).normalize(); sun.color.copy(MOON_C); sun.intensity = 0.35 * TOD.night; sun.position.copy(moonDir).multiplyScalar(500); }
+  CLOUDS.im.material.emissive.setRGB(0.35, 0.4, 0.44).multiplyScalar(0.12 + 0.88 * TOD.day);
+  CLOUDS.im.material.color.setRGB(1, 1, 1).lerp(SKY_GLOW, 0.45 * glow).multiplyScalar(0.25 + 0.75 * Math.max(TOD.day, glow));
+  camera.getWorldPosition(_a);
+  stars.visible = moon.visible = TOD.night > 0.02;
+  if (stars.visible) { stars.position.copy(_a); stars.material.opacity = TOD.night;
+    moonDir.set(-sunDir.x, 0.45, -0.5).normalize(); moon.position.copy(_a).addScaledVector(moonDir, 6500); moon.lookAt(_a); moon.material.opacity = TOD.night; }
+  // lights
+  const foot = mode === 'foot', xr = renderer.xr.isPresenting, dark = 1 - TOD.day;
+  PL.intensity = 0; SL.intensity = 0;
+  const lan = LANTERN_IT && LANTERN_IT.state !== 'gone' && LANTERN_IT.mesh.parent && LANTERN_IT.state !== 'pack' && LANTERN_IT.mesh.visible;
+  const lanLit = lan && dark > 0.3;
+  if (LANTERN_IT) LANTERN_IT.mesh.userData.glow.material = lanLit ? LAMP_ON : glowM;
+  if (mode === 'plane' && dark > 0.3) { plane.localToWorld(PL.position.set(0, 0.25, -0.42)); PL.distance = 1.3; PL.color.setHex(0xff9a50); PL.intensity = 0.35 * dark; }   // panel glow
+  else if (lanLit && LANTERN_IT.mesh.getWorldPosition(_b).distanceTo(_a) < 80) { PL.position.copy(_b); PL.distance = 16; PL.color.setHex(0xffc06a); PL.intensity = 4 * dark; }
+  const tOk = LIGHTS.torch && TORCH_IT && (TORCH_IT.state === 'held' || TORCH_IT.state === 'belt' || TORCH_IT.state === 'world');
+  if (TORCH_IT) TORCH_IT.mesh.userData.glow.material = tOk ? LAMP_ON : glowM;
+  if (tOk && foot) {
+    if (!xr && TORCH_IT.state !== 'world') { SL.position.copy(_a).y -= 0.25; _d.set(0, 0, -1).applyQuaternion(camera.getWorldQuaternion(_q)); }
+    else { TORCH_IT.mesh.getWorldPosition(SL.position); _d.set(0, 0, -1).applyQuaternion(TORCH_IT.mesh.getWorldQuaternion(_q)); }
+    SL.target.position.copy(SL.position).addScaledVector(_d, 10); SL.distance = 70; SL.angle = 0.42; SL.intensity = 14;
+  } else if (LIGHTS.landing) {
+    plane.localToWorld(SL.position.set(-1.6, 0.85, -0.55)); plane.localToWorld(SL.target.position.set(-1.6, -2.2, -30)); SL.distance = 260; SL.angle = 0.3; SL.intensity = 220;
+  }
+  SL.target.updateMatrixWorld();
+  LIGHTS.lit = (tOk && foot) || (lan && LANTERN_IT.state === 'held');
+  nightZombies(dt);
+  const k5 = Math.floor(DAY.h * 12); if (k5 !== DAY.k5) { DAY.k5 = k5; drawWatch(); }
+}
+const LAMP_ON = new THREE.MeshBasicMaterial({ color: 0xffe2a0 });
+
 // ======================= LOOP =======================
 const clock = new THREE.Clock();
 let fpsFrames = 0, fpsT = 0, instT = 0;
@@ -2963,7 +3099,7 @@ renderer.setAnimationLoop(() => {
   fpsFrames++; fpsT += dt; instT += dt;
   if (fpsT >= 1) { fps = Math.round(fpsFrames / fpsT); fpsFrames = 0; fpsT = 0; }
   updateRifle(dt); updateBullets(dt); updateFX(dt); updateSmoke(dt); updateWorld(dt, clock.elapsedTime);
-  updateSurvival(dt); updateZombies(dt); updateAnimals(dt); updateItems(dt); CLOUDS.tick(dt); updateForce(dt); updateBrass(dt); updateFalling(dt); updateSpots(dt); updateAudio(dt);
+  updateSurvival(dt); updateZombies(dt); updateAnimals(dt); updateItems(dt); CLOUDS.tick(dt); updateDay(dt); updateForce(dt); updateBrass(dt); updateFalling(dt); updateSpots(dt); updateAudio(dt);
   panelUpdate(ac, dt); compassCard.rotation.y = IN.hdg;
   if (instT > 0.1) { instT = 0; drawWrist(); }
   if ((chunkT += dt) > 0.2) { chunkT = 0; updateChunks(); }
