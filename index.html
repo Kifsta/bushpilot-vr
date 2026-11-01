@@ -20,7 +20,7 @@
 </script>
 </head>
 <body>
-<div id="info">BUSH PILOT VR v0.17 - PA-18 Super Cub prototype (v0.17: low-poly item models; v0.16: crafting, campfires, traps, spoilage, stamina; v0.15: 7 new places + lodge strip, forests; v0.14: rivers, lakes, thirst + canteen; v0.13: day / night, dusk deadline, lights, sleep; v0.12: natural gunshot, ambient sound, clouds; v0.11: Cub + rifle proportions from reference; v0.10.1: smoother stock; v0.10: performance pass, crouch / jump, more zombies, force grab)
+<div id="info">BUSH PILOT VR v0.17.1 - PA-18 Super Cub prototype (v0.17.1: cabin windows reshaped; v0.17: low-poly item models; v0.16: crafting, campfires, traps, spoilage, stamina; v0.15: 7 new places + lodge strip, forests; v0.14: rivers, lakes, thirst + canteen; v0.13: day / night, dusk deadline, lights, sleep; v0.12: natural gunshot, ambient sound, clouds; v0.11: Cub + rifle proportions from reference; v0.10.1: smoother stock; v0.10: performance pass, crouch / jump, more zombies, force grab)
 RIFLE (VR): A/X on the rifle hand = work the lever (tap = full stroke, hold = keep it open) or flick the rifle down-forward, or grab the lever loop with your other hand and work it yourself;
   lever open = no shot; a short stroke won't feed. Load: tip of a round into the gate (right side) - it snaps in; keep grip held and go back to the pouch for the next one.
   Hold the right stick IN (click) + push it up/down while holding the rifle (right hand) = grip angle. Let go of the wrist with a hand on the forend = it stays in that hand.
@@ -740,7 +740,23 @@ rifleHome();
 // v0.4: Cub-like low-poly PA-18. Static parts are built into PS then merged to one mesh per material (few draw calls).
 const plane = new THREE.Group(); scene.add(plane);
 const yellow = mat(0xf6c419), dark = mat(0x262626), grey = mat(0x6d6d6d), tube = mat(0x9a9a9a), black = mat(0x111111);
-const glass = new THREE.MeshBasicMaterial({ color: 0xcfe3f0, transparent: true, opacity: 0.09, depthWrite: false, side: THREE.DoubleSide });
+const glass = new THREE.MeshBasicMaterial({ color: 0x26323f, transparent: true, opacity: 0.72, depthWrite: false });   // v0.17.1 dark tinted glass: single-sided panes facing OUT, so from inside the cabin they are invisible (clear view)
+// v0.17.1 cabin side helpers: polygons are [z, y] lists on the fuselage side; sx = -1 left / +1 right
+const sideShape = (pts, sx) => new THREE.Shape(pts.map(([z, y]) => new THREE.Vector2(sx < 0 ? z : -z, y)));
+const sideMap = (g, sx, x0) => g.rotateY(sx < 0 ? -Math.PI / 2 : Math.PI / 2).translate(sx * x0, 0, 0);
+function growPoly(P, w) {   // convex polygon grown outward by w
+  let a = 0; P.forEach((p, i) => { const q = P[(i + 1) % P.length]; a += p[0] * q[1] - q[0] * p[1]; });
+  const L = P.map((p, i) => { const q = P[(i + 1) % P.length], dx = q[0] - p[0], dy = q[1] - p[1], l = Math.hypot(dx, dy), k = a > 0 ? 1 : -1;
+    return [p[0] + k * dy / l * w, p[1] - k * dx / l * w, dx, dy]; });
+  return L.map((l, i) => { const m = L[(i + L.length - 1) % L.length], t = ((l[0] - m[0]) * l[3] - (l[1] - m[1]) * l[2]) / (m[2] * l[3] - m[3] * l[2]); return [m[0] + m[2] * t, m[1] + m[3] * t]; });
+}
+const sidePane = (pts, sx, m, parent) => { const o = new THREE.Mesh(sideMap(new THREE.ShapeGeometry(sideShape(pts, sx)), sx, 0.392), m); parent.add(o); return o; };
+const sideSkin = (pts, holes, sx, m, parent, x0 = 0.38, d = 0.02) => { const sh = sideShape(pts, sx); for (const h of holes) sh.holes.push(sideShape(h, sx));
+  const o = new THREE.Mesh(sideMap(extrude(sh, d), sx, x0), m); parent.add(o); return o; };
+const sideFrame = (pts, sx, parent, w = 0.03) => sideSkin(growPoly(pts, w), [pts], sx, dark, parent, 0.378, 0.026);
+const SILL = 0.12, SILL_Z = -1.15 + (SILL - 0.1) / 0.85 * 0.23, LOW_H = SILL + 0.505;   // window sill height; front pane corner sits on the windscreen post line
+const WIN_F = [[SILL_Z, SILL], [0.35, SILL], [0.35, 0.94], [-0.92, 0.94]], WIN_Q = [[0.47, SILL + 0.05], [1.08, SILL + 0.05], [0.92, 0.88], [0.47, 0.88]];   // front door window (sloped front = windscreen post), rear quarter
+const WIN_FS = [[SILL_Z, SILL], [-0.55, SILL], [-0.55, 0.94], [-0.92, 0.94]], WIN_D = [[-0.55, SILL], [0.35, SILL], [0.35, 0.94], [-0.55, 0.94]];   // right side: fixed front pane + door window (hinges up)
 const boltMat = new THREE.MeshLambertMaterial({ color: 0x111111, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2 });
 var partsRoot = plane;
 function box(w, h, d, m, x, y, z, parent = partsRoot) { const o = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); o.position.set(x, y, z); parent.add(o); return o; }
@@ -779,7 +795,7 @@ for (const sx of [-1, 1]) {
   s.lineTo(sx * 4.95, 0.30); s.lineTo(sx * 0.42, 0.30);
   PS.add(new THREE.Mesh(extrude(s, 0.12).rotateX(Math.PI / 2).translate(-sx * 0.42, 0, 0).rotateZ(sx * DIHED).translate(sx * 0.42, 1.06, 0), yellow));
 }
-box(0.84, 0.01, 1.58, glass, 0, 1.0, -0.15);                                      // skylight over the cabin
+PS.add(new THREE.Mesh(new THREE.PlaneGeometry(0.84, 1.22).rotateX(-Math.PI / 2).translate(0, 1.062, -0.31), glass));   // skylight in the roof between the wing roots (faces up)
 // V struts + jury struts, cabin frame
 for (const sx of [-1, 1]) {
   for (const z of [-0.7, 0.2]) {
@@ -788,14 +804,16 @@ for (const sx of [-1, 1]) {
   }
   rod([sx * 0.38, 0.1, -1.15], [sx * 0.38, 0.95, -0.92], 0.018, tube);        // windshield posts (slanted)
   rod([sx * 0.38, 0.94, -0.92], [sx * 0.38, 0.94, 0.75], 0.02, tube);          // top longeron
-  rod([sx * 0.38, -0.05, 0.75], [sx * 0.38, 0.94, 0.75], 0.02, tube);          // door post
-  box(0.02, 0.99, 0.55, yellow, sx * 0.39, 0.445, 1.025);                       // rear cabin side
+  // v0.17.1 cabin sides: level sill a bit above mid-fuselage, windows in the upper part only, dark frames, yellow skin round the rear quarter window
+  sideSkin([[0.35, SILL], [1.3, SILL], [1.3, 0.94], [0.35, 0.94]], [WIN_Q], sx, yellow, PS);     // skin between the door post and the rear fuselage
+  if (SILL > 0.08) sideSkin([[SILL_Z, 0.05], [-0.62, 0.05], [-0.62, SILL], [SILL_Z, SILL]], [], sx, yellow, PS);  // below the sill ahead of the firewall
+  sidePane(WIN_Q, sx, glass, PS); sideFrame(WIN_Q, sx, PS);
   if (sx < 0) {
-    rod([-0.38, -0.05, -0.62], [-0.38, -0.05, 1.3], 0.02, tube);               // left window sill
-    box(0.02, 0.45, 1.95, yellow, -0.39, -0.28, 0.33);                          // left lower side
-    box(0.006, 0.97, 1.3, glass, -0.39, 0.445, 0.1);                            // left window
+    box(0.02, LOW_H, 1.95, yellow, -0.39, (SILL - 0.505) / 2, 0.33);                       // left lower side (up to the sill)
+    sidePane(WIN_F, sx, glass, PS); sideFrame(WIN_F, sx, PS);                   // left front window
   } else {
-    box(0.02, 0.45, 0.55, yellow, 0.39, -0.28, 1.025); box(0.02, 0.45, 0.1, yellow, 0.39, -0.28, -0.6);  // right side around the door
+    box(0.02, LOW_H, 0.95, yellow, 0.39, (SILL - 0.505) / 2, 0.825); box(0.02, LOW_H, 0.1, yellow, 0.39, (SILL - 0.505) / 2, -0.6);  // right side around the door
+    sidePane(WIN_FS, sx, glass, PS); sideFrame(WIN_FS, sx, PS);                // right fixed front pane
   }
   // split-axle gear with bungees and big tundra tyres
   const ax = [sx * 0.74, -0.91, -0.45];
@@ -816,7 +834,7 @@ for (const sx of [-1, 1]) {
   rod([sx * 0.8, 0.15, 4.35], [0, 0.95, 4.45], 0.006, tube); rod([sx * 0.8, 0.13, 4.35], [0, -0.05, 4.1], 0.01, tube);
 }
 rod([-0.38, 0.94, -0.92], [0.38, 0.94, -0.92], 0.02, tube); rod([-0.38, 0.94, 0.75], [0.38, 0.94, 0.75], 0.02, tube);
-{ const ws = box(0.76, 0.89, 0.005, glass, 0, 0.525, -1.035); ws.rotation.x = Math.atan2(0.23, 0.85); }  // slanted windshield
+{ const ws = new THREE.Mesh(new THREE.PlaneGeometry(0.76, 0.89).rotateY(Math.PI), glass); ws.position.set(0, 0.525, -1.035); ws.rotation.x = Math.atan2(0.23, 0.85); PS.add(ws); }  // raked windscreen, faces forward
 taper(-1.75, -0.62, [0.66, 0.04, -0.46], [0.78, 0.12, -0.55], yellow);            // cowling (v0.11: short, blunt)
 taper(1.3, 4.75, [0.78, 0.94, -0.55], [0.1, 0.36, 0.06], yellow);                 // rear fuselage (boxy, tapering; belly rises to the tail)
 box(0.78, 0.02, 0.66, yellow, 0, 0.95, 0.97);                                    // cabin roof behind the wing
@@ -846,7 +864,7 @@ for (const sx of [-1, 1]) {
   const pos = [], idx = [];
   pts.forEach(([z, y], i) => { const h = 0.07 * clamp(Math.min((z + 1.75) / 0.6, (4.6 - z) / 1.2), 0.25, 1), x = sx * (hw(z) + 0.006);
     pos.push(x, y + h / 2, z, x, y - h / 2, z);
-    if (i && !(sx > 0 && z > -0.55 && pts[i - 1][0] < 0.75)) idx.push(2 * i - 2, 2 * i - 1, 2 * i, 2 * i - 1, 2 * i + 1, 2 * i); });
+    if (i && !(sx > 0 && z > -0.55 && pts[i - 1][0] < 0.35)) idx.push(2 * i - 2, 2 * i - 1, 2 * i, 2 * i - 1, 2 * i + 1, 2 * i); });
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
   PS.add(new THREE.Mesh(g, boltMat));
 }
@@ -864,9 +882,9 @@ const rudGrp = new THREE.Group(); rudGrp.position.set(0, 0, 4.62); plane.add(rud
   rudGrp.add(new THREE.Mesh(extrude(r, 0.035).rotateY(-Math.PI / 2).translate(0.0175, 0, 0), yellow)); }
 // right side: lower door hinges down, upper window hinges up under the wing
 const door = new THREE.Group(); door.position.set(0.39, -0.505, 0); plane.add(door);
-box(0.02, 0.45, 1.3, yellow, 0, 0.225, 0.1, door); box(0.004, 0.07, 1.3, boltMat, 0.012, 0.367, 0.1, door);
+box(0.02, LOW_H, 0.9, yellow, 0, LOW_H / 2, -0.1, door); box(0.004, 0.07, 0.9, boltMat, 0.012, 0.367, -0.1, door);   // v0.17.1: door up to the sill
 const win = new THREE.Group(); win.position.set(0.39, 0.94, 0); plane.add(win);
-box(0.006, 0.97, 1.3, glass, 0, -0.49, 0.1, win); box(0.02, 0.025, 1.3, yellow, 0, -0.975, 0.1, win);
+sidePane(WIN_D, 1, glass, win).geometry.translate(-0.39, -0.94, 0); sideFrame(WIN_D, 1, win).geometry.translate(-0.39, -0.94, 0);   // v0.17.1 door window (sill to wing)
 let doorT = 0;
 const prop = new THREE.Mesh(new THREE.CircleGeometry(0.95, 16),
   new THREE.MeshBasicMaterial({ color: 0x222222, transparent: true, opacity: 0.18, side: THREE.DoubleSide, depthWrite: false }));
@@ -2197,6 +2215,7 @@ function vbox(w, h, d, x, y, z, col, rx = 0) {
 }
 function imesh(geos, count) {
   const m = new THREE.InstancedMesh(mergeGeometries(geos), vcMat, count); m.frustumCulled = false;
+  for (let i = 0; i < count; i++) m.setMatrixAt(i, HIDE);   // v0.17.1: start hidden (identity = a body at the world origin, i.e. in the parked Cub's cockpit, until the first AI step)
   m.instanceMatrix.setUsage(THREE.DynamicDrawUsage); scene.add(m); return m;
 }
 const ONE = new THREE.Vector3(1, 1, 1), HIDE = new THREE.Matrix4().makeScale(0, 0, 0);
