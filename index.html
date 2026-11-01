@@ -20,7 +20,7 @@
 </script>
 </head>
 <body>
-<div id="info">BUSH PILOT VR v0.13 - PA-18 Super Cub prototype (v0.13: day / night, dusk deadline, lights, sleep; v0.12: natural gunshot, ambient sound, clouds; v0.11: Cub + rifle proportions from reference; v0.10.1: smoother stock; v0.10: performance pass, crouch / jump, more zombies, force grab)
+<div id="info">BUSH PILOT VR v0.14 - PA-18 Super Cub prototype (v0.14: rivers, lakes, thirst + canteen; v0.13: day / night, dusk deadline, lights, sleep; v0.12: natural gunshot, ambient sound, clouds; v0.11: Cub + rifle proportions from reference; v0.10.1: smoother stock; v0.10: performance pass, crouch / jump, more zombies, force grab)
 RIFLE (VR): A/X on the rifle hand = work the lever (tap = full stroke, hold = keep it open) or flick the rifle down-forward, or grab the lever loop with your other hand and work it yourself;
   lever open = no shot; a short stroke won't feed. Load: tip of a round into the gate (right side) - it snaps in; keep grip held and go back to the pouch for the next one.
   Hold the right stick IN (click) + push it up/down while holding the rifle (right hand) = grip angle. Let go of the wrist with a hand on the forend = it stays in that hand.
@@ -45,6 +45,8 @@ VR FOOT: L stick walk (click = sprint), R stick left/right = snap turn, hold dow
   NIGHT (v0.13): day 06:00-19:00 = 30 min, night = 12 min; watch on the left wrist (amber = sunset soon). Torch on the left hip: hold it + trigger (desktop L) = on/off.
   Lantern hangs by the cabin door (lit after dusk) - carry it, hang it back on the hook. Cockpit: landing-light switch below the fuel gauge (grip it; desktop L).
   Sleep after 17:30: grip the cabin door handle (desktop N at the door) = skip to dawn (costs food). At night zombies see further, move faster and come out everywhere.
+  WATER (v0.14): H2O bar (blue) empties in 15 min, then you lose health. Canteen on the right hip: hold it to your mouth = drink, dip it in a river / lake or hold it at the
+  rain barrel (cabin, clean, refills slowly) = fill. River water is raw (may make you sick) - hold it at the pot on the fire pit 5 s = boil. Desktop: E fills / boils / drinks.
   Hold food to your mouth = eat | fuel can to the wing filler cap = refuel | raw meat over the fire pit = cook | cabin bench = stash
 Loot: paddock farmhouse (smoke + orange tarp ~3.6 km SE, zombies!), red truck on the N-S dirt road, a barn east along the road, ridge-top strip ~2.2 km W (~2400 ft up, lean-to cache). Zombies: a pack at the farmhouse, groups at the truck, barn and ridge cache,
   a few at the farms and lone ones along the roads. The cabin is mostly safe.
@@ -227,10 +229,14 @@ function rawHeight(x, z) {   // the smooth height formula (mesh vertices sample 
     const t = smooth(Math.hypot(dx, dz) / MEADOW.blend);
     h = h * t + (MEADOW_H + 0.05 * Math.sin(x * 0.8 + z * 0.4) * Math.sin(z * 0.6)) * (1 - t);
   }
+  if (typeof LAKES !== 'undefined') for (const L of LAKES) { const d = Math.hypot(x - L.x, z - L.z); if (d < L.r + 500) h = Math.min(h, L.h - 2.5 * (1 - Math.min(1, d / L.r) ** 2) + Math.max(0, d - L.r) * 0.12); }
   return h;
 }
 const PAD_H = baseHeight(PAD.x, PAD.z);
 const MEADOW_H = baseHeight(MEADOW.x, MEADOW.z) + mountain(MEADOW.x, MEADOW.z);
+// v0.14: lakes dug into the valley floor (level = lowest point of the natural rim, so the water never floats)
+const LAKES = [{ x: -1190, z: 2600, r: 170, name: 'NW LAKE' }, { x: 1600, z: -1500, r: 210, name: 'EAST LAKE' }];
+for (const L of LAKES) { let m = 1e9; for (let k = 0; k < 32; k++) { const a = k / 32 * 6.283, x = L.x + Math.cos(a) * L.r, z = L.z + Math.sin(a) * L.r; m = Math.min(m, baseHeight(x, z) + mountain(x, z)); } L.h = m - 0.4; }
 // Ground = the rendered mesh exactly (piecewise-linear triangles), so wheels, feet and objects all sit on what you see.
 // Inner 6x6 km at 40 m cells, outer 12x12 km ring at 120 m cells; inner seam vertices follow the coarse edge (no cracks).
 const T_IN = 3000, T_OUT = 6000, T_C1 = 40, T_C2 = 120;
@@ -1604,24 +1610,24 @@ function updateWorld(dt, t) {
 }
 const hud = document.getElementById('hud'), cross = document.getElementById('cross');
 function statusText() {
-  return `HP ${P.hp.toFixed(0)}  FOOD ${P.food.toFixed(0)}  FUEL ${(fuel / FUEL_MAX * 100).toFixed(0)}%\n` +
+  return `HP ${P.hp.toFixed(0)} FOOD ${P.food.toFixed(0)} H2O ${P.thirst.toFixed(0)}\n` +
     `AMMO ${R.tube}+${R.chambered ? 1 : 0} POUCH ${R.spare}${R.hand ? '' : R.slung ? ' (slung)' : R.stowed ? ' (stowed)' : ' (not held)'}\n` +
-    `PACK ${packUsed()}/${PACK_CELLS} STASH ${stash.length}` + (msgT > 0 ? '\n' + msg : '');
+    `FUEL ${(fuel / FUEL_MAX * 100).toFixed(0)}% PACK ${packUsed()}/${PACK_CELLS} STASH ${stash.length}` + (msgT > 0 ? '\n' + msg : '');
 }
 let wristKey = '', hudT = '';
 function drawWrist() {   // v0.10: only re-uploads when something on it changed
-  const st = statusText(), key = st + '|' + (P.hurtT > 0) + '|' + Math.round(P.hp * 2.4) + '|' + Math.round(P.food * 2.4);
+  const st = statusText(), key = st + '|' + (P.hurtT > 0) + '|' + Math.round(P.hp * 2.4) + '|' + Math.round(P.food * 2.4) + '|' + Math.round(P.thirst * 2.4);
   if (key === wristKey) { if (hudT !== clockStr()) { hudT = clockStr(); hud.textContent = st + '\n' + hudT; } return; } wristKey = key;
   wctx.fillStyle = P.hurtT > 0 ? '#a00' : '#111'; wctx.fillRect(0, 0, 256, 128); wctx.font = '18px monospace';
-  wctx.fillStyle = '#333'; wctx.fillRect(8, 4, 240, 6); wctx.fillRect(8, 12, 240, 6);
-  wctx.fillStyle = '#e33'; wctx.fillRect(8, 4, 2.4 * P.hp, 6); wctx.fillStyle = '#eb3'; wctx.fillRect(8, 12, 2.4 * P.food, 6);
+  wctx.fillStyle = '#333'; wctx.fillRect(8, 4, 240, 6); wctx.fillRect(8, 12, 240, 6); wctx.fillRect(8, 20, 240, 6);
+  wctx.fillStyle = '#e33'; wctx.fillRect(8, 4, 2.4 * P.hp, 6); wctx.fillStyle = '#eb3'; wctx.fillRect(8, 12, 2.4 * P.food, 6); wctx.fillStyle = '#4af'; wctx.fillRect(8, 20, 2.4 * P.thirst, 6);
   wctx.fillStyle = '#9f9';
   st.replace(/ \(.*?\)/, '').split('\n').forEach((l, i) => wctx.fillText(l.slice(0, 22), 8, 40 + i * 26));
   wtex.needsUpdate = true; hud.textContent = st + '\n' + clockStr();
 }
 
 // ================= v0.5: survival (health / hunger / fuel), items, zombies, game animals =================
-const P = { hp: 100, food: 100, hurtT: 0, crouchIn: false, crouchT: 0, jy: 0, jv: 0 };   // v0.10: crouch / jump state
+const P = { hp: 100, food: 100, thirst: 100, sickT: 0, hurtT: 0, crouchIn: false, crouchT: 0, jy: 0, jv: 0 };   // v0.10: crouch / jump state
 const HUNGER_RATE = 100 / (20 * 60);          // full -> empty in 20 min
 const STARVE_RATE = 0.5, REGEN_RATE = 0.1;    // hp/s when starving / when fed (food > 50)
 const FUEL_MAX = 136, BURN_FULL = FUEL_MAX / (25 * 60), CAN_L = 40, POUR_RATE = 10;  // 36 gal; full power empties it in 25 min
@@ -1643,6 +1649,7 @@ const ITEM = {
   'COOKED MEAT': { sz: [0.16, 0.06, 0.12], col: 0x6b3a1e, food: 35 },
   'LANTERN':     { sz: [0.13, 0.24, 0.13], col: 0x3b3f36, tool: true },
   'TORCH':       { sz: [0.045, 0.045, 0.2], col: 0x2f353b, tool: true },
+  'CANTEEN':     { sz: [0.13, 0.17, 0.06], col: 0x55623a, tool: true },
 };
 const itemRes = {}, redMat = mat(0xcc1111), glowM = new THREE.MeshBasicMaterial({ color: 0x6b6250 });   // v0.13 lantern glass / torch lens (lit = bright)
 const res = n => itemRes[n] || (itemRes[n] = { g: new THREE.BoxGeometry(...ITEM[n].sz), m: mat(ITEM[n].col) });
@@ -1650,8 +1657,9 @@ function makeItem(name, x, y, z) {
   const m = name === 'KNIFE' ? knifeMesh() : new THREE.Mesh(res(name).g, res(name).m); m.position.set(x, y + ITEM[name].sz[1] / 2, z); scene.add(m);
   if (name === 'MEDKIT') box(0.31, 0.06, 0.02, redMat, 0, 0, 0.05, m);
   if (name === 'LANTERN') { m.userData.glow = box(0.1, 0.12, 0.1, glowM, 0, 0, 0, m); box(0.15, 0.03, 0.15, res('LANTERN').m, 0, 0.13, 0, m); box(0.02, 0.06, 0.02, res('LANTERN').m, 0, 0.17, 0, m); }
+  if (name === 'CANTEEN') box(0.03, 0.03, 0.03, mat(0x222222), 0, 0.1, 0, m);
   if (name === 'TORCH') { m.userData.glow = box(0.05, 0.05, 0.012, glowM, 0, 0, -0.1, m); }
-  const it = { name, mesh: m, h: ITEM[name].sz[1], state: 'world', fuel: name === 'FUEL CAN' ? CAN_L : 0, cook: 0 };
+  const it = { name, mesh: m, h: ITEM[name].sz[1], state: 'world', fuel: name === 'FUEL CAN' ? CAN_L : 0, cook: 0, water: name === 'CANTEEN' ? 4 : 0, dirty: false };
   loot.push(it); return it;
 }
 function removeItem(it) {
@@ -1718,16 +1726,25 @@ function hurt(n) {
   P.hurtT = 0.35;
 }
 function die() {
-  for (const it of [...inv]) if (it !== knife) removeItem(it); for (const [, it] of held) if (it !== knife) removeItem(it);
-  for (const [g, it] of held) if (it === knife) held.delete(g);
+  const keep = it => it === knife || it === TORCH_IT || it === CANTEEN_IT;   // v0.14: belt kit (knife, torch, canteen) stays with you
+  for (const it of [...inv]) if (!keep(it)) removeItem(it); for (const [, it] of held) if (!keep(it)) removeItem(it);
+  for (const [g, it] of held) if (keep(it)) held.delete(g);
+  for (const [it, si] of [[TORCH_IT, 4], [CANTEEN_IT, 5]]) if (it && ['world', 'held', 'inv'].includes(it.state)) { const ii = inv.indexOf(it); if (ii >= 0) inv.splice(ii, 1); scene.add(it.mesh); toSlot(SLOTS[si], it, true); }
   if (knife && ['world', 'held', 'inv'].includes(knife.state)) { const ii = inv.indexOf(knife); if (ii >= 0) inv.splice(ii, 1); layoutPack(); toSlot(SLOTS[0], knife, true); }
   for (const g of grips) dropRound(g);
-  P.hp = 70; P.food = 60; resetFlight(); fuel = FUEL_MAX;
+  P.hp = 70; P.food = 60; P.thirst = 70; resetFlight(); fuel = FUEL_MAX;
   for (const z of ZS) if (z.state === 'chase') z.state = 'wander';
   say('YOU DIED - BACK AT THE STRIP');
 }
 function useItemDesktop() {        // E on foot: refuel from a can next to the plane, else eat / heal
   camera.getWorldPosition(_a);
+  const ct = CANTEEN_IT && CANTEEN_IT.state !== 'gone' ? CANTEEN_IT : null;   // v0.14 water: fill at the barrel / water, boil at the fire, drink when thirsty
+  if (ct) {
+    if (Math.hypot(_a.x - BARREL.x, _a.z - BARREL.z) < 2.5 && ct.water < CANTEEN_MAX) { fillCanteen(ct, true); return; }
+    if (waterDist(_a.x, _a.z) < 4 && (ct.water < CANTEEN_MAX || !ct.dirty) && !(ct.water >= CANTEEN_MAX)) { fillCanteen(ct, false); return; }
+    if (Math.hypot(_a.x - FIRE.x, _a.z - FIRE.z) < 2.5 && ct.dirty && ct.water > 0) { boilCanteen(ct); return; }
+    if (P.thirst < 85 && ct.water > 0) { drinkSip(ct); return; }
+  }
   const can = inv.find(i => i.name === 'FUEL CAN');
   if (can && Math.hypot(_a.x - ac.pos[0], _a.z - ac.pos[2]) < 4) { if (fuel >= FUEL_MAX - 0.01) { say('TANK FULL'); return; } pour(can, 99); return; }
   const want = P.hp < 60 && inv.find(i => i.name === 'MEDKIT') ||
@@ -1745,6 +1762,7 @@ function updateItems(dt) {
     const M = eyeWorld(0); _a.setFromMatrixPosition(M); _w.set(0, 1, 0).transformDirection(M); _a.addScaledVector(_w, -0.08);   // mouth
     const d = ITEM[it.name];
     if ((d.food || d.heal) && _b.distanceTo(_a) < 0.18) { consume(it); continue; }
+    if (it.name === 'CANTEEN') canteenTick(g, it, dt, _a, _b);
     if (it.name === 'KNIFE') knifeTick(g, it, dt);
     if (it.name === 'FUEL CAN' && nearCap(_b, 0.45)) pour(it, dt);
     if (it.name === 'RAW MEAT' && _b.distanceTo(FIRE_C) < 0.8) { cookTick(it, dt); g.userData.src?.gamepad?.hapticActuators?.[0]?.pulse?.(0.1, 20); }
@@ -1819,6 +1837,96 @@ function spawnSpot(s, full) {
   s.table.forEach((n, i) => { if (full || i === 0 || Math.random() < 0.7) { const [x, y, z] = s.slots[i]; s.items.push(makeItem(n, x, y, z)); } });
 }
 for (const s of SPOTS) { spawnSpot(s, true); s.away = 0; }
+
+// ---- v0.14 water: main river (north valley -> south gorge), creeks down the side drainages, two lakes (dug into the terrain in rawHeight) ----
+const RIVER_X = z => -60 + 40 * Math.sin(z * 0.004) + 25 * Math.sin(z * 0.013) - 120 * smooth(clamp((z + 700) / 400, 0, 1));
+const WATERWAYS = [];   // { pts: [[x, z]...], hw }
+{ const p = []; for (let z = 2400; z >= -5900; z -= 12) p.push([RIVER_X(z), z]); WATERWAYS.push({ pts: p, hw: 9, name: 'river' }); }
+for (const v of VALLEY.slice(4)) {    // creek: head of the drainage -> a kink -> its mouth
+  const k = [[v[2], v[3]], [(v[0] + v[2]) / 2 + 60, (v[1] + v[3]) / 2], [v[0], v[1]]], p = [];
+  for (let s = 0; s < 2; s++) { const [ax, az] = k[s], [bx, bz] = k[s + 1], n = Math.ceil(Math.hypot(bx - ax, bz - az) / 12);
+    for (let i = 0; i < n; i++) { const t = i / n, w = Math.sin(t * Math.PI) * 18 * Math.sin(i * 0.21); p.push([ax + (bx - ax) * t + w * (bz - az) / (n * 12), az + (bz - az) * t - w * (bx - ax) / (n * 12)]); } }
+  p.push(k[2]); WATERWAYS.push({ pts: p, hw: 3, name: 'creek' });
+}
+const inLake = (x, z) => LAKES.find(L => Math.hypot(x - L.x, z - L.z) < L.r);
+function waterDist(x, z) {   // metres to the nearest water edge (<= 0 = in it), coarse-prefiltered
+  let best = 1e9;
+  for (const L of LAKES) best = Math.min(best, Math.hypot(x - L.x, z - L.z) - L.r);
+  for (const w of WATERWAYS) { const P = w.pts;
+    for (let i = 0; i < P.length - 1; i += 8) { const a = P[i], b = P[Math.min(i + 8, P.length - 1)];
+      if (Math.abs(x - a[0]) + Math.abs(z - a[1]) > 400 + best) continue;
+      for (let j = i; j < Math.min(i + 8, P.length - 1); j++) best = Math.min(best, segD(x, z, [P[j][0], P[j][1], P[j + 1][0], P[j + 1][1]]) - w.hw); } }
+  return best;
+}
+const waterLevel = (x, z) => { const L = inLake(x, z); return L ? L.h - 0.2 : groundY(x, z) + 0.3; };
+const WATER = (() => {
+  const U = { t: { value: 0 } };
+  const m = new THREE.MeshLambertMaterial({ color: 0x3f7896, emissive: 0x0d2230, flatShading: true, transparent: true, opacity: 0.88, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 });
+  m.onBeforeCompile = sh => { sh.uniforms.wT = U.t;
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nuniform float wT;').replace('#include <begin_vertex>',
+      '#include <begin_vertex>\nvec4 wp = modelMatrix * vec4(position, 1.0); transformed.y += 0.06 * sin(wp.x * 0.35 + wT * 1.7) + 0.05 * sin(wp.z * 0.41 - wT * 1.3);'); };
+  const pos = [];
+  const tri = (a, b, c) => pos.push(...a, ...b, ...c);
+  for (const w of WATERWAYS) { const P = w.pts;
+    for (let i = 0; i < P.length - 1; i++) {
+      const [ax, az] = P[i], [bx, bz] = P[i + 1]; if (inLake(ax, az) && inLake(bx, bz)) continue;
+      const nrm = j => { const p = P[Math.max(0, j - 1)], q = P[Math.min(P.length - 1, j + 1)], dx = q[0] - p[0], dz = q[1] - p[1], L = Math.hypot(dx, dz) || 1; return [-dz / L * w.hw, dx / L * w.hw]; };   // shared cross-sections: no seams
+      const [nx, nz] = nrm(i), [mx, mz] = nrm(i + 1);
+      const v = (x, z) => [x, groundY(x, z) + (w.hw > 5 ? 0.7 : 0.45), z];
+      const a0 = v(ax - nx, az - nz), a1 = v(ax, az), a2 = v(ax + nx, az + nz), b0 = v(bx - mx, bz - mz), b1 = v(bx, bz), b2 = v(bx + mx, bz + mz);
+      tri(a0, a1, b0); tri(a1, b1, b0); tri(a1, a2, b1); tri(a2, b2, b1);   // wound to face up
+    } }
+  for (const L of LAKES) { const n = 20, R = L.r + 25;
+    for (let k = 0; k < n; k++) { const a0 = k / n * 6.283, a1 = (k + 1) / n * 6.283;
+      tri([L.x, L.h - 0.2, L.z], [L.x + Math.cos(a1) * R, L.h - 0.2, L.z + Math.sin(a1) * R], [L.x + Math.cos(a0) * R, L.h - 0.2, L.z + Math.sin(a0) * R]); } }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.computeVertexNormals();
+  const mesh = new THREE.Mesh(g, m); mesh.renderOrder = 1; scene.add(mesh);
+  return { mesh, tris: pos.length / 9, tick(dt) { U.t.value += dt; } };
+})();
+// rain barrel by the cabin (refills over time) + a pot on the fire pit (boils water)
+const BARREL = new THREE.Vector3(35.6, groundY(35.6, -12) , -12);
+{ const b = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.29, 0.9, 8), mat(0x5a3b22)); b.position.copy(BARREL).y += 0.45; scene.add(b);
+  for (const y of [0.15, 0.75]) { const r = new THREE.Mesh(new THREE.CylinderGeometry(0.33, 0.33, 0.04, 8), mat(0x2b2b2b)); r.position.copy(BARREL).y += y; scene.add(r); }
+  const wtop = new THREE.Mesh(new THREE.CircleGeometry(0.28, 8).rotateX(-Math.PI / 2), new THREE.MeshLambertMaterial({ color: 0x3f7896, flatShading: true })); wtop.position.copy(BARREL).y += 0.8; scene.add(wtop); BARREL.top = wtop; }
+const POT = FIRE_C.clone().add(new THREE.Vector3(0, 0.25, 0));
+{ const p = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.13, 0.18, 8, 1, true), mat(0x3a3a3a)); p.material.side = THREE.DoubleSide; p.position.copy(POT); scene.add(p);
+  box(0.9, 0.03, 0.03, mat(0x2b2b2b), POT.x, POT.y + 0.35, POT.z, scene); for (const s of [-1, 1]) box(0.03, 0.75, 0.03, mat(0x2b2b2b), POT.x + s * 0.45, POT.y - 0.02, POT.z, scene); }
+const W = { barrel: 4, barrelT: 0, tick: 0, sipT: 0, fillT: 0, boilT: 0 };    // barrel holds 4 canteen sips of clean rainwater
+const CANTEEN_MAX = 4, SIP = 25, THIRST_RATE = 100 / (15 * 60), PARCH_RATE = 0.5;
+function drinkSip(c) {
+  if (c.water <= 0) { say('CANTEEN EMPTY - FILL IT AT WATER OR THE RAIN BARREL'); return false; }
+  c.water--; P.thirst = Math.min(100, P.thirst + SIP); sfx('eat');
+  if (c.dirty && Math.random() < 0.3) { hurt(8); P.sickT = 60; say('BAD WATER - YOU FEEL SICK (BOIL IT AT THE FIRE)'); }
+  else say('DRANK  H2O ' + P.thirst.toFixed(0) + '  (' + c.water + '/' + CANTEEN_MAX + ' LEFT)');
+  return true;
+}
+function fillCanteen(c, clean) {
+  if (clean) { const n = Math.min(CANTEEN_MAX - c.water, Math.floor(W.barrel)); if (n <= 0) { say(c.water >= CANTEEN_MAX ? 'CANTEEN FULL' : 'RAIN BARREL EMPTY - IT REFILLS SLOWLY'); return; }
+    if (c.dirty && c.water > 0) { say('CANTEEN HAS RAW WATER - BOIL IT OR DRINK IT FIRST'); return; }
+    c.water += n; W.barrel -= n; c.dirty = false; say('FILLED FROM THE RAIN BARREL (CLEAN)'); }
+  else { if (c.water >= CANTEEN_MAX && c.dirty) { say('CANTEEN FULL'); return; } c.water = CANTEEN_MAX; c.dirty = true; say('CANTEEN FILLED - RAW WATER, BOIL IT TO BE SAFE'); }
+  sfx('pour');
+}
+function boilCanteen(c) { if (!c.dirty || c.water <= 0) { say(c.water <= 0 ? 'CANTEEN EMPTY' : 'ALREADY CLEAN'); return; } c.dirty = false; say('WATER BOILED - SAFE TO DRINK'); sfx('sizzle', FIRE_C); }
+function canteenTick(g, c, dt, mouth, p) {   // held canteen: mouth = drink, in water / at the barrel = fill, over the fire pot = boil
+  if (p.distanceTo(mouth) < 0.2) { if ((W.sipT -= dt) <= 0) { W.sipT = 1.2; if (P.thirst < 99) drinkSip(c); else say('NOT THIRSTY'); } return; }
+  W.sipT = 0.3;
+  const wd = waterDist(p.x, p.z), wl = waterLevel(p.x, p.z);
+  const atBarrel = Math.hypot(p.x - BARREL.x, p.z - BARREL.z) < 0.4 && p.y < BARREL.y + 1.1;
+  if ((wd < 1 && p.y < wl + 0.25) || atBarrel) { if ((W.fillT += dt) > 1) { W.fillT = -99; fillCanteen(c, atBarrel); tick(g); } } else W.fillT = 0;
+  if (p.distanceTo(POT) < 0.4 && c.dirty) { if ((W.boilT += dt) > 5) { W.boilT = 0; boilCanteen(c); tick(g); } else if (Math.random() < dt * 2) sfx('sizzle', FIRE_C); } else W.boilT = 0;
+}
+function updateWater(dt) {
+  WATER.tick(dt);
+  if ((W.barrelT += dt) > 90) { W.barrelT = 0; W.barrel = Math.min(CANTEEN_MAX, W.barrel + 1); }
+  BARREL.top.visible = W.barrel >= 1;
+  P.thirst = Math.max(0, P.thirst - THIRST_RATE * (SLEEP.t ? 0 : 1) * dt);
+  if (P.thirst <= 0) P.hp -= PARCH_RATE * dt;
+  if (P.sickT > 0) { P.sickT -= dt; P.food = Math.max(0, P.food - 0.05 * dt); }
+  if ((W.tick -= dt) <= 0) { W.tick = 0.5; const pp = playerPos(), d = waterDist(pp.x, pp.z); AMB.water = clamp(1 - d / 70, 0, 1) * (mode === 'plane' && !ac.out.wow ? 0 : 1);
+    if (mode === 'plane' && ac.out.wow && !ac.crashed && inLake(ac.pos[0], ac.pos[2]) && (ac.out.V || 0) > 1) crash(ac, 'Ran into the lake - no floats on this Cub');
+    if (P.thirst < 20 && P.thirst > 0 && !W.warned) { W.warned = true; say('THIRSTY - DRINK SOON'); } if (P.thirst > 30) W.warned = false; }
+}
 
 // ---- v0.12 clouds: low-poly flat-shaded cumulus, one instanced draw call, drifting; fade out near the camera (no hard pop) ----
 const CLOUDS = (() => {
@@ -2487,6 +2595,7 @@ const SLOTS = [
   { name: 'POUCH',  p: [0.11, -0.02, -0.14], fits: n => SMALL.has(n), r: SLOT_R },
   { name: 'SLING',  p: [0.1, 0.12, 0.16], rifle: true, r: BACK_R },
   { name: 'TORCH',  p: [-0.16, -0.03, 0.12], fits: n => n === 'TORCH', r: SLOT_R },   // v0.13: torch clip, left hip behind the sheath
+  { name: 'CANTEEN', p: [0.16, -0.04, 0.12], fits: n => n === 'CANTEEN', r: SLOT_R },  // v0.14: canteen, right hip behind the ammo pouch
 ];
 const AMMO_P = { o: new THREE.Object3D() }; AMMO_P.o.position.set(0.175, -0.03, -0.02); belt.add(AMMO_P.o);
 box(0.05, 0.07, 0.07, leather, 0, -0.01, 0, AMMO_P.o);
@@ -2504,9 +2613,10 @@ function slotFor(name, p) { if (mode !== 'foot') return null; for (const s of SL
 function toSlot(s, it, quiet) {
   s.item = it; it.state = 'belt'; falling.delete(it); s.o.add(it.mesh); it.mesh.visible = true;
   if (it.name === 'TORCH') { it.mesh.scale.setScalar(1); it.mesh.position.set(0, -0.06, 0); it.mesh.rotation.set(-Math.PI / 2, 0, 0); }
+  else if (it.name === 'CANTEEN') { it.mesh.scale.setScalar(1); it.mesh.position.set(0, -0.07, 0); it.mesh.rotation.set(0, Math.PI / 2, 0); }
   else if (it.name === 'KNIFE') { it.mesh.scale.setScalar(1); it.mesh.position.set(0, 0.02, 0); it.mesh.rotation.set(-Math.PI / 2, 0, 0); }
   else { const sz = ITEM[it.name].sz, k = 0.085 / Math.max(...sz); it.mesh.scale.setScalar(k); it.mesh.position.set(0, 0.03, 0); it.mesh.rotation.set(0, 0, 0); }
-  if (!quiet) { say((it.name === 'KNIFE' ? 'SHEATHED ' : it.name === 'TORCH' ? 'CLIPPED ' : 'POUCHED ') + it.name); sfx('click'); }
+  if (!quiet) { say((it.name === 'KNIFE' ? 'SHEATHED ' : it.name === 'TORCH' || it.name === 'CANTEEN' ? 'CLIPPED ' : 'POUCHED ') + it.name); sfx('click'); }
 }
 function slingRifle() { R.hand = R.support = null; R.free = false; R.levHand = null; R.slung = true; rifle.visible = true; say('RIFLE SLUNG'); sfx('click'); }
 const slingNear = p => mode === 'foot' && !R.slung && slotPos(SLING).distanceTo(p) < SLING.r;
@@ -2703,9 +2813,8 @@ function drawMap() {
     x.restore(); };
   // water: river gorge draining south from the main valley, creeks down the side drainages
   x.strokeStyle = 'rgba(40,90,170,0.85)'; x.lineWidth = 2.6;
-  const river = []; for (let wz = 600; wz >= -MAP_Z - 50; wz -= 120) river.push([X(-60 + 40 * Math.sin(wz * 0.004) + 25 * Math.sin(wz * 0.013) - (wz > -300 ? 120 : 0)), Z(wz)]);
-  wob(river, 3, 10); x.lineWidth = 1.5;
-  for (const v of VALLEY.slice(4)) wob([W2([v[2], v[3]]), W2([(v[0] + v[2]) / 2 + 60, (v[1] + v[3]) / 2]), W2([v[0], v[1]])], 4, 10);
+  for (const w of WATERWAYS) { x.lineWidth = w.hw > 5 ? 2.6 : 1.5; wob(w.pts.filter((p, i) => i % 10 === 0 || i === w.pts.length - 1).map(W2), w.hw > 5 ? 2 : 3, 10); }
+  x.fillStyle = 'rgba(40,90,170,0.55)'; for (const L of LAKES) { const [px, py] = W2([L.x, L.z]); x.beginPath(); x.ellipse(px, py, L.r * MAP_PX, L.r * MAP_PX * 0.9, 0.3, 0, 6.283); x.fill(); x.stroke(); hand(L.name.toLowerCase(), px, py + L.r * MAP_PX + 12, 15, 'rgba(40,90,170,0.95)'); }
   hand('gorge', X(140), Z(-3300), 20, 'rgba(40,90,170,0.9)', 1.45); hand('creek', X(-1500), Z(3200), 17, 'rgba(40,90,170,0.9)', -1.2);
   // roads: dashed
   x.strokeStyle = '#3b2a1a'; x.lineWidth = 2; x.setLineDash([9, 7]); for (const rd of ROADS) wob(rd.map(W2), 1.5, 12); x.setLineDash([]);
@@ -2964,13 +3073,14 @@ box(0.03, 0.02, 0.006, mat(0x222222), 0, 0, -0.004, ldgSw); const ldgTog = box(0
 function toggleLanding() { LIGHTS.landing = !LIGHTS.landing; ldgTog.rotation.x = LIGHTS.landing ? -0.5 : 0.5; sfx('click'); say(LIGHTS.landing ? 'LANDING LIGHT ON' : 'LANDING LIGHT OFF'); }
 ldgTog.rotation.x = 0.5;
 function ldgSwitchTouch(g) { g.getWorldPosition(_a); if (plane.localToWorld(_b.copy(LDG_SW)).distanceTo(_a) < 0.08) { toggleLanding(); tick(g); return true; } return false; }
-let TORCH_IT = null, LANTERN_IT = null;
+let TORCH_IT = null, LANTERN_IT = null, CANTEEN_IT = null;
 function toggleTorch() { if (!TORCH_IT || TORCH_IT.state === 'gone') { say('NO TORCH'); return; } LIGHTS.torch = !LIGHTS.torch; sfx('click'); say(LIGHTS.torch ? 'TORCH ON' : 'TORCH OFF'); }
 const LANTERN_HOOK = new THREE.Vector3(28.86, groundY(28.86, -13.7) + 2.0, -13.7);
 box(0.02, 0.02, 0.12, mat(0x222222), 28.94, LANTERN_HOOK.y + 0.14, -13.7, scene);   // the hook by the door
 function hangLantern(it) { it.state = 'world'; falling.delete(it); scene.add(it.mesh); it.mesh.position.copy(LANTERN_HOOK); it.mesh.rotation.set(0, 0, 0); it.mesh.scale.setScalar(1); say('LANTERN HUNG'); sfx('click'); }
 LANTERN_IT = makeItem('LANTERN', 0, 0, 0); hangLantern(LANTERN_IT); msgT = 0;
 TORCH_IT = makeItem('TORCH', 0, 0, 0); toSlot(SLOTS[4], TORCH_IT, true);
+CANTEEN_IT = makeItem('CANTEEN', 0, 0, 0); toSlot(SLOTS[5], CANTEEN_IT, true);
 // wristwatch (64 px canvas, redrawn every 5 game minutes)
 const wcw = document.createElement('canvas'); wcw.width = wcw.height = 64; const wcx = wcw.getContext('2d');
 const wtexW = new THREE.CanvasTexture(wcw); wtexW.colorSpace = THREE.SRGBColorSpace; wtexW.generateMipmaps = false; wtexW.minFilter = THREE.LinearFilter;
@@ -3099,7 +3209,7 @@ renderer.setAnimationLoop(() => {
   fpsFrames++; fpsT += dt; instT += dt;
   if (fpsT >= 1) { fps = Math.round(fpsFrames / fpsT); fpsFrames = 0; fpsT = 0; }
   updateRifle(dt); updateBullets(dt); updateFX(dt); updateSmoke(dt); updateWorld(dt, clock.elapsedTime);
-  updateSurvival(dt); updateZombies(dt); updateAnimals(dt); updateItems(dt); CLOUDS.tick(dt); updateDay(dt); updateForce(dt); updateBrass(dt); updateFalling(dt); updateSpots(dt); updateAudio(dt);
+  updateSurvival(dt); updateZombies(dt); updateAnimals(dt); updateItems(dt); CLOUDS.tick(dt); updateDay(dt); updateWater(dt); updateForce(dt); updateBrass(dt); updateFalling(dt); updateSpots(dt); updateAudio(dt);
   panelUpdate(ac, dt); compassCard.rotation.y = IN.hdg;
   if (instT > 0.1) { instT = 0; drawWrist(); }
   if ((chunkT += dt) > 0.2) { chunkT = 0; updateChunks(); }
