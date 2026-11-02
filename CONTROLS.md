@@ -97,6 +97,16 @@ Nothing to learn: the knife, hatchet, fuel can, medkit, bandages, water jug, tor
 - Aim small: a head or heart/lung (behind the front leg) hit kills outright; a body hit only wounds (deer 2, stag 3, wolf 2, fox 1, cattle 4–5 body hits).
 - Dress a carcass as before (hold grip on it with the knife in the other hand, or slice it). Meat: deer 3, stag 4, fox 1, cow/bull 6, horse 5, donkey 4. Wolves give a **WOLF PELT** (3 lb) instead of meat.
 
+## Fuel (v0.31)
+| | VR | Desktop |
+|---|---|---|
+| Fill a can at a drum / depot tap | Hold the can to the pump spout or tap (3 L/s) | E near it with a can |
+| Siphon a car, truck or the wreck | Hose in one hand at the filler, can in the other held lower (1.5 s to start, then 0.6 L/s) | E near it with a hose + can (E again stops; stay within 3 m) |
+| Pour into the Cub | Tip the can over a wing filler (more tilt = faster) | E by the plane with a can |
+| Fill the generator | Tip the can at its cap | E at the generator with a can |
+- Blue drums = avgas, red = mogas. Cars and the truck hold mogas: keep it under ~20% of what's in the tanks or the engine stumbles at full power.
+- Spare litres and the mogas % are on the W&B card and the fuel gauge.
+
 ## Fortify (v0.30)
 | | VR | Desktop |
 |---|---|---|

@@ -2,6 +2,21 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.31 – Fuel economy
+- **Avgas is scarce now.** Loot cans are part-full (6–24 L) or empty, and a looted can only comes back 30% of the time. A reset (R / crash) no longer fills the tanks: you keep what you had, topped up to a quarter if nearly dry; the same after dying.
+- **Where fuel comes from**:
+  - **Drums** (blue = avgas, red = mogas) with a hand pump: two at the home strip (30 L and empty), one at the ridge strip (35 L), the lodge's three (60, 25, 0 L), four in the new hangar (80/50/20/0 L) and six at the fuel depot. Hold a can to the spout (3 L/s), or `E` on desktop.
+  - **Hangar** on the east side of the Dry Fork strip (new POI, 3 zombies): open to the strip, drums, bench and shelves, a hose and two cans.
+  - **Fuel depot** next to it (new POI, guarded by 10 zombies): fenced yard with a west gate, a 300 L avgas tank and a 500 L mogas tank on saddles with taps, a guard shack, sandbags, a floodlight and drums.
+  - **Siphoning** with a new **hose** item (1.2 lb; at gas stations, the ranch, the barn, the truck, town gas stations, the hangar and the depot): the plane wreck still has 45 L of avgas in its right wing; the truck (35 L) and the parked town cars (6–30 L each) have **mogas**. In VR, hold the hose to the filler with one hand and the can in the other, lower than the tank: 1.5 s of sucking, then 0.6 L/s. On desktop, `E` with a hose and a can starts or stops it (stay within 3 m).
+- **Pouring**: in VR you now tip the can over the wing filler; the flow builds from 40° to full at 90°, and you see the stream. Empty cans are kept (refill them) instead of vanishing.
+- **Mogas**: the tanks track how much car fuel is in them (it burns off in proportion). Above ~20% mogas the engine can stumble at high power (cough, a moment of lost power), so mix it with avgas. The HUD, fuel gauge (`MOGAS n%`) and W&B card show the mix.
+- **Countable fuel**: the W&B card lists mogas % and the spare litres in your cans, and every can weighs what's in it (0.72 kg/L). Trading with survivors is not in yet.
+- The burn rate is unchanged and the physics regression md5 is the same.
+- **Rendering**: all drums are one instanced mesh (+1 draw call, ~5k triangles); the stream and hose are drawn only while used.
+  - Standard views: on foot 98 / 271,386, town 77 / 244,662, cockpit 132 / 272,086, 600 m up 163 / 279,672 (v0.30: 97 / 266,206, 75 / 239,278, 131 / 266,906, 162 / 274,492).
+- Known limits: no trading yet; tanks and drums are simple shapes; you walk through the depot fence.
+
 ## v0.30 – Fortify the cabin
 - **Build it up with your hands.** Carry a **hammer** plus **boards** and **nails** near the cabin and green ghosts show where the next piece goes (red = no boards left). Grip at a ghost to hold a board there; it snaps into place. Swing the hammer onto each nail head: harder swings drive a nail further (2–4 hits); a weak swing in VR can bend a nail, which pops out and gets replaced. Let go before it's nailed and the board drops (unused nails come back).
 - **21 build spots, 182 pieces**:
