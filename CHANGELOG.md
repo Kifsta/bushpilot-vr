@@ -2,6 +2,26 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Every version leaves the flight model untouched: `node physics-test.mjs | md5sum` = `f1e1607f804bf17b4877bad1bf04feaa`.
 
+## v0.18 – Cub rebuilt to real PA-18-150 dimensions
+- New low-poly exterior modelled from a PA-18 three-view and published data:
+  - span 10.73 m, length 6.88 m, height about 2.05 m, wing area 16.58 m² (Jane's/Wikipedia, NASM);
+  - 1.6 m chord, 1.84° incidence, 0.75° dihedral (Piper rigging instructions, owner manual);
+  - 1.88 m (74 in) prop (TCDS 1A2).
+- Estimated from the three-view: cabin width about 0.70 m, cowl, fin, rudder and stab (about 2.9 m), strut attach points, window and door lines.
+- Shape:
+  - narrow slab-sided fuselage with the cabin top level with the wing, and a long rear fuselage that tapers to the tail post;
+  - real cowl with cheeks, inlets, carb intake, exhaust and spinner;
+  - V lift struts with jury struts; wings with rounded tip bows;
+  - strut-braced stab, with an elevator cut out for the rudder; rounded fin and rudder;
+  - tundra tyres on the existing gear points, and a tail spring and wheel on the physics tail point.
+- Glazing: tinted windscreen, front door window, rear quarter window and skylight. The split door on the right (lower half and upper window) still opens.
+- Paint: Cub yellow with the black lightning stripe, which breaks at the door.
+- Display only: the exterior is drawn 4° nose-up and 0.14 m lower about the main axle. On the ground it sits at about 13° like the real one (the physics gear gives 9.3°), and the real-length tail reaches the physics tail wheel. The flight model is unchanged.
+- Cockpit refit into the narrower cabin: panel, seats, stick, throttle, flap lever, map clip, landing light switch and the pilot eye point all moved together, pilot in the front seat.
+  - The view is narrower than v0.17.1 because the real cowl, cabin width and skylight are smaller: open-view ahead 41.5% vs 47.3%, to the sides 25–36% vs 36–38%.
+  - Opening the door still gives the full view down.
+- Exterior is merged meshes: draw calls 111 / 142 / 92 (cockpit / altitude / on foot) vs 112 / 144 / 93. Triangles about the same (+10 to +130 of about 250k).
+
 ## v0.17.1 – Cub cabin windows reshaped
 - Windows now match a real Super Cub: a raked windscreen, a front door window whose sloped front edge follows the windscreen post, a smaller rear quarter window, dark frames, a skylight under the wing, and dark blue-grey tinted glass instead of the pale full-height box.
 - The level sill sits at about mid-fuselage (one `SILL` constant). The forward view over the cowl is unchanged. The side view starts higher than v0.17's near-floor-to-roof glass (open-view ~37% vs ~52% at the side windows); open the door for a full view down.

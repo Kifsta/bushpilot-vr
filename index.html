@@ -20,7 +20,7 @@
 </script>
 </head>
 <body>
-<div id="info">BUSH PILOT VR v0.17.1 - PA-18 Super Cub prototype (v0.17.1: cabin windows reshaped; v0.17: low-poly item models; v0.16: crafting, campfires, traps, spoilage, stamina; v0.15: 7 new places + lodge strip, forests; v0.14: rivers, lakes, thirst + canteen; v0.13: day / night, dusk deadline, lights, sleep; v0.12: natural gunshot, ambient sound, clouds; v0.11: Cub + rifle proportions from reference; v0.10.1: smoother stock; v0.10: performance pass, crouch / jump, more zombies, force grab)
+<div id="info">BUSH PILOT VR v0.18 - PA-18 Super Cub prototype (v0.18: Cub rebuilt to real PA-18 dimensions; v0.17.1: cabin windows reshaped; v0.17: low-poly item models; v0.16: crafting, campfires, traps, spoilage, stamina; v0.15: 7 new places + lodge strip, forests; v0.14: rivers, lakes, thirst + canteen; v0.13: day / night, dusk deadline, lights, sleep; v0.12: natural gunshot, ambient sound, clouds; v0.11: Cub + rifle proportions from reference; v0.10.1: smoother stock; v0.10: performance pass, crouch / jump, more zombies, force grab)
 RIFLE (VR): A/X on the rifle hand = work the lever (tap = full stroke, hold = keep it open) or flick the rifle down-forward, or grab the lever loop with your other hand and work it yourself;
   lever open = no shot; a short stroke won't feed. Load: tip of a round into the gate (right side) - it snaps in; keep grip held and go back to the pouch for the next one.
   Hold the right stick IN (click) + push it up/down while holding the rifle (right hand) = grip angle. Let go of the wrist with a hand on the forend = it stays in that hand.
@@ -750,13 +750,11 @@ function growPoly(P, w) {   // convex polygon grown outward by w
     return [p[0] + k * dy / l * w, p[1] - k * dx / l * w, dx, dy]; });
   return L.map((l, i) => { const m = L[(i + L.length - 1) % L.length], t = ((l[0] - m[0]) * l[3] - (l[1] - m[1]) * l[2]) / (m[2] * l[3] - m[3] * l[2]); return [m[0] + m[2] * t, m[1] + m[3] * t]; });
 }
-const sidePane = (pts, sx, m, parent) => { const o = new THREE.Mesh(sideMap(new THREE.ShapeGeometry(sideShape(pts, sx)), sx, 0.392), m); parent.add(o); return o; };
-const sideSkin = (pts, holes, sx, m, parent, x0 = 0.38, d = 0.02) => { const sh = sideShape(pts, sx); for (const h of holes) sh.holes.push(sideShape(h, sx));
+const SKIN_X = 0.33, PANE_X = 0.352;   // v0.18: real ~0.70 m wide cabin (outer skin at +-0.35)
+const sidePane = (pts, sx, m, parent) => { const o = new THREE.Mesh(sideMap(new THREE.ShapeGeometry(sideShape(pts, sx)), sx, PANE_X), m); parent.add(o); return o; };
+const sideSkin = (pts, holes, sx, m, parent, x0 = SKIN_X, d = 0.02) => { const sh = sideShape(pts, sx); for (const h of holes) sh.holes.push(sideShape(h, sx));
   const o = new THREE.Mesh(sideMap(extrude(sh, d), sx, x0), m); parent.add(o); return o; };
-const sideFrame = (pts, sx, parent, w = 0.03) => sideSkin(growPoly(pts, w), [pts], sx, dark, parent, 0.378, 0.026);
-const SILL = 0.12, SILL_Z = -1.15 + (SILL - 0.1) / 0.85 * 0.23, LOW_H = SILL + 0.505;   // window sill height; front pane corner sits on the windscreen post line
-const WIN_F = [[SILL_Z, SILL], [0.35, SILL], [0.35, 0.94], [-0.92, 0.94]], WIN_Q = [[0.47, SILL + 0.05], [1.08, SILL + 0.05], [0.92, 0.88], [0.47, 0.88]];   // front door window (sloped front = windscreen post), rear quarter
-const WIN_FS = [[SILL_Z, SILL], [-0.55, SILL], [-0.55, 0.94], [-0.92, 0.94]], WIN_D = [[-0.55, SILL], [0.35, SILL], [0.35, 0.94], [-0.55, 0.94]];   // right side: fixed front pane + door window (hinges up)
+const sideFrame = (pts, sx, parent, w = 0.025) => sideSkin(growPoly(pts, w), [pts], sx, dark, parent, 0.345, 0.012);
 const boltMat = new THREE.MeshLambertMaterial({ color: 0x111111, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2 });
 var partsRoot = plane;
 function box(w, h, d, m, x, y, z, parent = partsRoot) { const o = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); o.position.set(x, y, z); parent.add(o); return o; }
@@ -786,133 +784,183 @@ function mergeInto(src, dst) {   // merge a group's direct mesh children into on
   }
   for (const [m, gs] of byMat) dst.add(new THREE.Mesh(mergeGeometries(gs), m));
 }
-const PS = new THREE.Group(); partsRoot = PS;
-const DIHED = 1 * Math.PI / 180, wingY = x => 0.94 + (Math.abs(x) - 0.42) * Math.tan(DIHED);   // v0.11: 1 deg dihedral
-// wings: rounded tips, cut back to the rear spar where the flaps (inboard) and ailerons (outboard) hang
-for (const sx of [-1, 1]) {
-  const s = new THREE.Shape(); s.moveTo(sx * 0.42, -0.94); s.lineTo(sx * 4.95, -0.94);
-  s.quadraticCurveTo(sx * 5.35, -0.94, sx * 5.35, -0.15); s.quadraticCurveTo(sx * 5.35, 0.64, sx * 4.95, 0.64);
-  s.lineTo(sx * 4.95, 0.30); s.lineTo(sx * 0.42, 0.30);
-  PS.add(new THREE.Mesh(extrude(s, 0.12).rotateX(Math.PI / 2).translate(-sx * 0.42, 0, 0).rotateZ(sx * DIHED).translate(sx * 0.42, 1.06, 0), yellow));
+// ---- v0.18: exterior rebuilt at real PA-18-150 dimensions (Jane's / Piper / FAA TCDS 1A2 numbers + the Wikimedia 3-view; see CHANGELOG) ----
+// Everything is modelled in the 3-view's frame ("drawing frame": level datum, wing LE at z -0.50, stock main axle at y -0.91, 1 unit = 1 m),
+// then the whole airframe is pitched CUB_PITCH nose-up about the main axle and dropped CUB_DROP, so the real-length fuselage sits on the
+// physics tail-wheel point (physics ground attitude 9.3 deg + 4 = 13.3 deg on the ground, real Cub ~13.7) without touching the flight model.
+const DEG = Math.PI / 180, CUB_PITCH = 4 * DEG, CUB_DROP = 0.14;
+const cubG = new THREE.Group(); cubG.position.set(0, -0.91 - CUB_DROP, -0.45); cubG.rotation.x = CUB_PITCH; plane.add(cubG);
+const cubD = new THREE.Group(); cubD.position.set(0, 0.91, 0.45); cubG.add(cubD);
+cubG.updateMatrix(); cubD.updateMatrix();
+const CUB_M = new THREE.Matrix4().multiplyMatrices(cubG.matrix, cubD.matrix);
+const D2B = (x, z, y) => new THREE.Vector3(x, y, z).applyMatrix4(CUB_M);   // drawing frame (x, z, y) -> body frame
+const CK = D2B(0, -0.20, 0.70).sub(new THREE.Vector3(0, 0.4, 0.15));      // eye over the front seat (TCDS +11 in): the whole cockpit kit moves by CK from its v0.17 place
+function polyMesh(faces, m, parent = partsRoot) {   // faces: [[x,y,z] convex polygon, outward [x,y,z]]; flat-shaded, each triangle turned to face outward
+  const pos = [], A = new THREE.Vector3(), B = new THREE.Vector3(), C3 = new THREE.Vector3(), O = new THREE.Vector3();
+  for (const [f, out] of faces) for (let i = 1; i < f.length - 1; i++) {
+    let a = f[0], b = f[i], c = f[i + 1]; A.fromArray(a); B.fromArray(b).sub(A); C3.fromArray(c).sub(A);
+    if (B.cross(C3).dot(O.fromArray(out)) < 0) [b, c] = [c, b];
+    pos.push(...a, ...b, ...c);
+  }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.computeVertexNormals();
+  const o = new THREE.Mesh(g, m); parent.add(o); return o;
 }
-PS.add(new THREE.Mesh(new THREE.PlaneGeometry(0.84, 1.22).rotateX(-Math.PI / 2).translate(0, 1.062, -0.31), glass));   // skylight in the roof between the wing roots (faces up)
-// V struts + jury struts, cabin frame
+const ctr = r => r.reduce((s, p) => [s[0] + p[0] / r.length, s[1] + p[1] / r.length, s[2] + p[2] / r.length], [0, 0, 0]);
+const sub3 = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+function loftRings(R, m, capA = true, capB = true, parent = partsRoot) {   // closed rings of equal length -> skin (+ end caps)
+  const F = [], n = R[0].length;
+  for (let i = 0; i < R.length - 1; i++) { const ax = ctr(R[i].concat(R[i + 1]));
+    for (let j = 0; j < n; j++) { const k = (j + 1) % n, q = [R[i][j], R[i + 1][j], R[i + 1][k], R[i][k]]; F.push([q, sub3(ctr(q), ax)]); } }
+  if (capA) F.push([R[0], sub3(ctr(R[0]), ctr(R[1]))]);
+  if (capB) F.push([R[R.length - 1], sub3(ctr(R[R.length - 1]), ctr(R[R.length - 2]))]);
+  return polyMesh(F, m, parent);
+}
+// fuselage section: right half bottom-centre -> top-centre (flat slab side, small chine, rounded turtle deck), mirrored
+const sec = (z, hw, yt, yb, deck = 0.1, cb = 0.04) => { const h = [[0, yb], [hw * 0.8, yb], [hw, yb + cb], [hw, yt - deck], [hw * 0.62, yt - deck * 0.2], [0, yt]];
+  return h.concat(h.slice(1, -1).reverse().map(([x, y]) => [-x, y])).map(([x, y]) => [x, y, z]); };
+// wing: chord 1.60 (LE z -0.50 .. TE 1.10), incidence 1.84 deg, dihedral 0.75 deg, USA 35B-like flat-bottomed section 0.19 m thick
+const CHORD = 1.6, LE_Z = -0.5, WING_Y = 0.96, INC = 1.84 * DEG, DIH = 0.75 * DEG, ROOT_X = 0.30, HINGE_Z = 0.74, TIP_X = 5.37;
+const wy = (x, z) => WING_Y + (Math.abs(x) - ROOT_X) * Math.tan(DIH) - (z - LE_Z) * Math.tan(INC);   // wing bottom surface height
+const AF = [[0, 0.045], [0.035, 0.115], [0.15, 0.175], [0.33, 0.19], [0.55, 0.17], [0.775, 0.115], [0.775, 0], [0.33, 0], [0.07, 0.004], [0.015, 0.012]];   // ahead of the flap / aileron hinge
+const AFT = [[0, 0.045], [0.035, 0.115], [0.15, 0.175], [0.33, 0.19], [0.55, 0.17], [0.775, 0.115], [1, 0.03], [1, 0], [0.775, 0], [0.33, 0], [0.07, 0.004], [0.015, 0.012]];   // full chord (tip bow)
+const wRing = (x, af, zLE = LE_Z, c = CHORD, k = 1) => af.map(([f, t]) => { const z = zLE + f * c; return [x, wy(x, z) + (1 - k) * 0.09 + t * k, z]; });
+const PS = new THREE.Group(), PD = new THREE.Group(); partsRoot = PD;
+// cabin outline on each side (drawing frame [z, y]) and its glazing
+const CAB = [[-1.11, -0.28], [0.17, -0.35], [1.10, -0.23], [1.10, wy(0, 1.10)], [-0.50, WING_Y], [-1.11, 0.535]];
+const W_SCR = [[-1.06, 0.525], [-0.71, 0.385], [-0.40, 0.925], [-0.53, 0.94]];        // windscreen side wrap (ahead of the door post)
+const W_FRT = [[-0.67, 0.38], [0.28, 0.38], [0.28, 0.92], [-0.36, 0.92]];              // front side window = right-side upper door window
+const W_RR = [[0.48, 0.40], [0.98, 0.40], [1.05, 0.87], [0.48, 0.885]];                 // rear side window
+const DOOR_LO = [[-0.67, -0.20], [0.28, -0.22], [0.28, 0.375], [-0.67, 0.375]];        // right lower door (hinges down)
+const DOOR_HOLE = [[-0.67, -0.20], [0.28, -0.22], [0.28, 0.92], [-0.36, 0.92], [-0.67, 0.38]];
 for (const sx of [-1, 1]) {
-  for (const z of [-0.7, 0.2]) {
-    const A = [sx * 0.38, -0.45, -0.45], B = [sx * 3.2, wingY(3.2), z]; rod(A, B, 0.025, tube);
-    const t = 0.55, P = A.map((v, i) => v + (B[i] - v) * t); rod(P, [P[0] * 0.8, wingY(P[0] * 0.8), P[2]], 0.012, tube);   // jury strut
+  sideSkin(CAB, sx < 0 ? [W_SCR, W_FRT, W_RR] : [W_SCR, DOOR_HOLE, W_RR], sx, yellow, PD);
+  for (const w of sx < 0 ? [W_SCR, W_FRT, W_RR] : [W_SCR, W_RR]) { sidePane(w, sx, glass, PD); sideFrame(w, sx, PD); }
+}
+polyMesh([[[[-0.35, -0.28, -1.11], [0.35, -0.28, -1.11], [0.35, -0.35, 0.17], [-0.35, -0.35, 0.17]], [0, -1, 0]],
+  [[[-0.35, -0.35, 0.17], [0.35, -0.35, 0.17], [0.35, -0.23, 1.10], [-0.35, -0.23, 1.10]], [0, -1, 0]]], yellow);   // cabin belly
+polyMesh([[[[-0.35, 0.535, -1.08], [0.35, 0.535, -1.08], [0.35, WING_Y, -0.50], [-0.35, WING_Y, -0.50]], [0, 0.8, -0.6]]], glass);   // one-piece windscreen (faces out)
+polyMesh([[[[-0.31, WING_Y, -0.50], [0.31, WING_Y, -0.50], [0.31, 1.13, -0.30], [-0.31, 1.13, -0.30]], [0, 0.7, -0.7]],
+  [[[-0.31, 1.13, -0.30], [0.31, 1.13, -0.30], [0.31, 1.13, 0.30], [-0.31, 1.13, 0.30]], [0, 1, 0]]], glass);   // skylight between the wing roots
+taper(0.30, 1.10, [0.62, 1.135, 1.115], [0.62, wy(0, 1.1) + 0.03, wy(0, 1.1) + 0.01], yellow);   // centre-section fairing behind the skylight
+rod([-0.35, WING_Y - 0.01, -0.51], [0.35, WING_Y - 0.01, -0.51], 0.015, dark);                   // windscreen top bow
+box(0.66, 0.02, 1.75, dark, 0, -0.26, -0.125);                                                  // cabin floor
+box(0.66, 1.12, 0.02, dark, 0, 0.34, 1.08);                                                      // baggage bulkhead
+// cowling (O-320: cheeks over the cylinders, blunt nose bowl) and rear fuselage (slab sides, turtle deck, tapering to the sternpost)
+loftRings([sec(-1.86, 0.27, 0.40, -0.19, 0.16, 0.10), sec(-1.76, 0.35, 0.44, -0.23, 0.14, 0.08), sec(-1.45, 0.40, 0.48, -0.26, 0.10, 0.06), sec(-1.11, 0.35, 0.535, -0.28, 0.0, 0.04)], yellow);
+loftRings([sec(1.10, 0.35, wy(0, 1.1), -0.23, 0.02), sec(1.66, 0.296, 0.89, -0.15), sec(2.27, 0.236, 0.85, -0.04), sec(2.88, 0.177, 0.83, 0.05, 0.09),
+  sec(3.49, 0.117, 0.80, 0.16, 0.07), sec(4.00, 0.068, 0.78, 0.24, 0.05), sec(4.39, 0.03, 0.76, 0.31, 0.03)], yellow, false, true);
+for (const sx of [-1, 1]) box(0.13, 0.075, 0.012, black, sx * 0.15, 0.24, -1.866);           // nose-bowl cooling inlets beside the prop hub
+box(0.09, 0.06, 0.012, black, 0, -0.10, -1.866);                                               // carb air intake
+rod([0.12, -0.24, -1.35], [0.16, -0.40, -0.95], 0.024, dark);                                 // exhaust
+PD.add(new THREE.Mesh(new THREE.ConeGeometry(0.085, 0.17, 8).rotateX(-Math.PI / 2), dark).translateY(0.24).translateZ(-2.0));   // spinner / prop hub
+// wings: root to the aileron end (fixed part ahead of the hinge), then the rounded tip bow at full chord
+for (const sx of [-1, 1]) {
+  loftRings([wRing(sx * ROOT_X, AF), wRing(sx * 4.97, AF)], yellow);
+  loftRings([wRing(sx * 4.96, AFT), wRing(sx * 5.20, AFT, -0.43, 1.43, 0.82), wRing(sx * 5.32, AFT, -0.28, 1.06, 0.55), wRing(sx * TIP_X, AFT, -0.14, 0.76, 0.3)], yellow);
+  // V lift struts (lower longeron fitting -> front / rear spar at 3.27 m) with jury struts (1.76 m), from the 3-view front view
+  const A = [sx * 0.35, -0.33, 0.17];
+  for (const z of [-0.25, 0.55]) {
+    const B = [sx * 3.27, wy(3.27, z), z]; rod(A, B, 0.024, tube);
+    const t = (1.76 - 0.35) / (3.27 - 0.35), P = A.map((v, i) => v + (B[i] - v) * t); rod(P, [sx * 1.76, wy(1.76, z), z], 0.011, tube);
   }
-  rod([sx * 0.38, 0.1, -1.15], [sx * 0.38, 0.95, -0.92], 0.018, tube);        // windshield posts (slanted)
-  rod([sx * 0.38, 0.94, -0.92], [sx * 0.38, 0.94, 0.75], 0.02, tube);          // top longeron
-  // v0.17.1 cabin sides: level sill a bit above mid-fuselage, windows in the upper part only, dark frames, yellow skin round the rear quarter window
-  sideSkin([[0.35, SILL], [1.3, SILL], [1.3, 0.94], [0.35, 0.94]], [WIN_Q], sx, yellow, PS);     // skin between the door post and the rear fuselage
-  if (SILL > 0.08) sideSkin([[SILL_Z, 0.05], [-0.62, 0.05], [-0.62, SILL], [SILL_Z, SILL]], [], sx, yellow, PS);  // below the sill ahead of the firewall
-  sidePane(WIN_Q, sx, glass, PS); sideFrame(WIN_Q, sx, PS);
-  if (sx < 0) {
-    box(0.02, LOW_H, 1.95, yellow, -0.39, (SILL - 0.505) / 2, 0.33);                       // left lower side (up to the sill)
-    sidePane(WIN_F, sx, glass, PS); sideFrame(WIN_F, sx, PS);                   // left front window
-  } else {
-    box(0.02, LOW_H, 0.95, yellow, 0.39, (SILL - 0.505) / 2, 0.825); box(0.02, LOW_H, 0.1, yellow, 0.39, (SILL - 0.505) / 2, -0.6);  // right side around the door
-    sidePane(WIN_FS, sx, glass, PS); sideFrame(WIN_FS, sx, PS);                // right fixed front pane
-  }
-  // split-axle gear with bungees and big tundra tyres
-  const ax = [sx * 0.74, -0.91, -0.45];
-  rod([sx * 0.3, -0.52, -0.6], ax, 0.026, tube); rod([sx * 0.3, -0.52, 0.18], ax, 0.026, tube); rod([0, -0.53, -0.3], ax, 0.022, tube);
-  box(0.09, 0.07, 0.12, black, sx * 0.32, -0.52, 0.16);                        // bungee wraps
-  const prof = [[0.13, -0.2], [0.3, -0.22], [0.4, -0.18], [0.44, -0.065], [0.44, 0.065], [0.4, 0.18], [0.3, 0.22], [0.13, 0.2]];   // v0.11: ~35" x 17" tundras
+  // tail: lower struts to the bottom longeron, wires up to the fin
+  rod([sx * 0.80, 0.635, 4.05], [sx * 0.03, 0.27, 4.15], 0.011, tube); rod([sx * 0.80, 0.69, 4.05], [0, 1.30, 4.30], 0.005, tube);
+}
+{ // fin (rounded, rudder hinge at the sternpost z 4.39) and stabiliser (2.9 m span, y 0.66)
+  const f = new THREE.Shape(); f.moveTo(3.50, 0.79); f.lineTo(3.62, 0.85); f.lineTo(3.85, 1.10); f.lineTo(4.05, 1.45); f.lineTo(4.18, 1.68); f.lineTo(4.30, 1.82); f.lineTo(4.39, 1.83); f.lineTo(4.39, 0.76); f.lineTo(3.50, 0.79);
+  PD.add(new THREE.Mesh(extrude(f, 0.05).rotateY(-Math.PI / 2).translate(0.025, 0, 0), yellow));
+  const st = new THREE.Shape(); st.moveTo(-1.10, 3.55); st.lineTo(1.10, 3.55); st.quadraticCurveTo(1.45, 3.57, 1.45, 3.95); st.lineTo(1.45, 4.39);
+  st.lineTo(-1.45, 4.39); st.lineTo(-1.45, 3.95); st.quadraticCurveTo(-1.45, 3.57, -1.10, 3.55);
+  PD.add(new THREE.Mesh(extrude(st, 0.05).rotateX(Math.PI / 2).translate(0, 0.685, 0), yellow));
+}
+// black lightning stripe down each side (the right door carries its own piece)
+const hwAt = z => { const T = [[-1.86, 0.27], [-1.76, 0.35], [-1.45, 0.40], [-1.11, 0.35], [1.10, 0.35], [4.39, 0.03]];
+  for (let i = 0; i < T.length - 1; i++) if (z <= T[i + 1][0]) return T[i][1] + (T[i + 1][1] - T[i][1]) * (z - T[i][0]) / (T[i + 1][0] - T[i][0]); return 0.03; };
+const STRIPE = [[-1.82, 0.12], [-1.11, 0.14], [1.6, 0.20], [1.95, 0.42], [2.10, 0.30], [4.30, 0.58]];
+for (const sx of [-1, 1]) {
+  const pts = [];
+  for (let i = 0; i < STRIPE.length - 1; i++) { const [z0, y0] = STRIPE[i], [z1, y1] = STRIPE[i + 1], n = Math.max(1, Math.ceil(Math.abs(z1 - z0) / 0.6));
+    for (let k = 0; k < n; k++) pts.push([z0 + (z1 - z0) * k / n, y0 + (y1 - y0) * k / n]); }
+  pts.push(STRIPE[STRIPE.length - 1]);
+  for (const zc of [-1.76, -1.45, -0.67, 0.28, 1.66, 2.27, 2.88, 3.49, 4.0]) if (!pts.some(p => Math.abs(p[0] - zc) < 0.02)) { const i = pts.findIndex(p => p[0] > zc), a = pts[i - 1], b = pts[i]; pts.splice(i, 0, [zc, a[1] + (b[1] - a[1]) * (zc - a[0]) / (b[0] - a[0])]); }
+  const pos = [], idx = [];
+  pts.forEach(([z, y], i) => { const h = 0.07 * clamp(Math.min((z + 1.82) / 0.5, (4.35 - z) / 1.2), 0.25, 1), x = sx * (hwAt(z) + 0.004);
+    pos.push(x, y + h / 2, z, x, y - h / 2, z);
+    if (i && !(sx > 0 && z > -0.67 && pts[i - 1][0] < 0.28)) idx.push(2 * i - 2, 2 * i - 1, 2 * i, 2 * i - 1, 2 * i + 1, 2 * i); });
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
+  PD.add(new THREE.Mesh(g, boltMat));
+}
+// bake the drawing-frame parts into the body frame
+for (const o of [...PD.children]) { o.updateMatrix(); o.geometry = (o.geometry.index ? o.geometry.toNonIndexed() : o.geometry).applyMatrix4(new THREE.Matrix4().multiplyMatrices(CUB_M, o.matrix));
+  o.position.set(0, 0, 0); o.rotation.set(0, 0, 0); o.scale.set(1, 1, 1); PS.add(o); }
+partsRoot = PS;
+// body-frame parts: split-axle gear + big tundra tyres exactly on the physics gear points, Scott tail wheel on the physics tail point
+for (const sx of [-1, 1]) {
+  const ax = [sx * 0.74, -0.91, -0.45], fr = D2B(sx * 0.30, -0.75, -0.30).toArray(), rr = D2B(sx * 0.30, 0.10, -0.33).toArray(), hg = D2B(sx * 0.04, -0.36, -0.40).toArray();
+  rod(fr, ax, 0.026, tube); rod(rr, ax, 0.03, tube); rod(hg, ax, 0.022, tube);
+  box(0.08, 0.07, 0.11, black, rr[0] + (ax[0] - rr[0]) * 0.2, rr[1] + (ax[1] - rr[1]) * 0.2, rr[2] + (ax[2] - rr[2]) * 0.2);   // bungee wraps
+  const prof = [[0.13, -0.2], [0.3, -0.22], [0.4, -0.18], [0.44, -0.065], [0.44, 0.065], [0.4, 0.18], [0.3, 0.22], [0.13, 0.2]];   // ~35" x 17" tundras
   const ty = new THREE.Mesh(new THREE.LatheGeometry(prof.map(p => new THREE.Vector2(p[0], p[1])), 12).rotateZ(Math.PI / 2), black);
   ty.position.set(sx * 0.95, -0.91, -0.45); PS.add(ty);
   const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.42, 8).rotateZ(Math.PI / 2), grey); hub.position.copy(ty.position); PS.add(hub);
-  // exposed cylinder heads with fins, exhaust stacks
-  for (const z of [-1.1, -1.38]) {
-    box(0.1, 0.13, 0.13, grey, sx * 0.36, -0.18, z);
-    for (const y of [-0.13, -0.18, -0.23]) box(0.112, 0.012, 0.15, dark, sx * 0.365, y, z);
-  }
-  rod([sx * 0.2, -0.45, -1.3], [sx * 0.24, -0.63, -0.7], 0.022, dark);
-  box(0.14, 0.09, 0.01, black, sx * 0.17, -0.12, -1.755);                       // nose-bowl air intakes
-  // tail feathers wires
-  rod([sx * 0.8, 0.15, 4.35], [0, 0.95, 4.45], 0.006, tube); rod([sx * 0.8, 0.13, 4.35], [0, -0.05, 4.1], 0.01, tube);
 }
-rod([-0.38, 0.94, -0.92], [0.38, 0.94, -0.92], 0.02, tube); rod([-0.38, 0.94, 0.75], [0.38, 0.94, 0.75], 0.02, tube);
-{ const ws = new THREE.Mesh(new THREE.PlaneGeometry(0.76, 0.89).rotateY(Math.PI), glass); ws.position.set(0, 0.525, -1.035); ws.rotation.x = Math.atan2(0.23, 0.85); PS.add(ws); }  // raked windscreen, faces forward
-taper(-1.75, -0.62, [0.66, 0.04, -0.46], [0.78, 0.12, -0.55], yellow);            // cowling (v0.11: short, blunt)
-taper(1.3, 4.75, [0.78, 0.94, -0.55], [0.1, 0.36, 0.06], yellow);                 // rear fuselage (boxy, tapering; belly rises to the tail)
-box(0.78, 0.02, 0.66, yellow, 0, 0.95, 0.97);                                    // cabin roof behind the wing
-box(0.76, 0.04, 2.0, dark, 0, -0.52, 0.3);                                       // floor
-box(0.74, 0.28, 0.04, dark, 0, 0.0, -0.62);                                      // panel
-box(0.48, 0.55, 0.06, grey, 0, -0.18, 0.45);                                     // front seat back
-box(0.55, 0.1, 0.45, grey, 0, -0.38, 1.0); box(0.55, 0.5, 0.06, grey, 0, -0.1, 1.25);  // rear seat (tandem)
-box(0.03, 0.02, 0.24, grey, -0.35, -0.02, -0.17);                                // throttle quadrant slot
-box(0.01, 0.3, 0.3, dark, -0.375, -0.1, 0.34);                                   // flap handle quadrant
-PS.add(new THREE.Mesh(new THREE.ConeGeometry(0.11, 0.2, 8).rotateX(-Math.PI / 2), dark).translateY(-0.2).translateZ(-1.85));  // spinner
-{ // fin (rounded) and stabiliser
-  const f = new THREE.Shape(); f.moveTo(3.45, 0.6); f.lineTo(4.62, 0.38); f.lineTo(4.62, 1.38); f.lineTo(4.4, 1.38); f.quadraticCurveTo(4.3, 1.37, 4.22, 1.28); f.lineTo(3.45, 0.6);   // v0.11: tall swept fin
-  PS.add(new THREE.Mesh(extrude(f, 0.05).rotateY(-Math.PI / 2).translate(0.025, 0, 0), yellow));
-  const st = new THREE.Shape(); st.moveTo(-1.42, 4.0); st.lineTo(1.42, 4.0); st.quadraticCurveTo(1.6, 4.02, 1.6, 4.2); st.lineTo(1.6, 4.55);
-  st.lineTo(-1.6, 4.55); st.lineTo(-1.6, 4.2); st.quadraticCurveTo(-1.6, 4.02, -1.42, 4.0);
-  PS.add(new THREE.Mesh(extrude(st, 0.04).rotateX(Math.PI / 2).translate(0, 0.17, 0), yellow));   // v0.11: 3.2 m stab, low on the tail cone
-  rod([0, -0.03, 4.12], [0, -0.4, 4.42], 0.015, dark);                              // tailwheel leaf spring (raked aft)
-  const tw = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.06, 8).rotateZ(Math.PI / 2), black); tw.position.set(0, -0.45, 4.45); PS.add(tw);
-}
-// black lightning-bolt stripe down each side (skips the right door, which carries its own piece)
-for (const sx of [-1, 1]) {
-  const path = [[-1.7, -0.16], [2.0, -0.12], [2.28, 0.08], [2.45, -0.05], [4.55, 0.21]], pts = [];
-  for (let i = 0; i < path.length - 1; i++) { const [z0, y0] = path[i], [z1, y1] = path[i + 1], n = Math.max(1, Math.ceil(Math.abs(z1 - z0) / 0.2));
-    for (let k = 0; k < n; k++) pts.push([z0 + (z1 - z0) * k / n, y0 + (y1 - y0) * k / n]); }
-  pts.push(path[path.length - 1]);
-  const hw = z => z < -0.62 ? 0.33 + 0.06 * (z + 1.75) / 1.13 : z < 1.3 ? 0.40 : 0.39 - 0.34 * (z - 1.3) / 3.45;
-  const pos = [], idx = [];
-  pts.forEach(([z, y], i) => { const h = 0.07 * clamp(Math.min((z + 1.75) / 0.6, (4.6 - z) / 1.2), 0.25, 1), x = sx * (hw(z) + 0.006);
-    pos.push(x, y + h / 2, z, x, y - h / 2, z);
-    if (i && !(sx > 0 && z > -0.55 && pts[i - 1][0] < 0.35)) idx.push(2 * i - 2, 2 * i - 1, 2 * i, 2 * i - 1, 2 * i + 1, 2 * i); });
-  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
-  PS.add(new THREE.Mesh(g, boltMat));
-}
+rod(D2B(0, 4.05, 0.26).toArray(), [0, -0.38, 4.40], 0.016, dark); rod([0, -0.38, 4.40], [0, -0.45, 4.45], 0.014, dark);   // tail-wheel leaf spring + fork
+{ const tw = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.06, 8).rotateZ(Math.PI / 2), black); tw.position.set(0, -0.45, 4.45); PS.add(tw); }
+// cockpit interior (moves with the eye point: CK)
+box(0.66, 0.28, 0.04, dark, 0, 0.0 + CK.y, -0.62 + CK.z);                                      // panel
+box(0.66, 0.02, 0.24, dark, 0, 0.15 + CK.y, -0.74 + CK.z);                                     // glare shield
+box(0.48, 0.55, 0.06, grey, 0, -0.18 + CK.y, 0.45 + CK.z);                                     // front seat back
+box(0.48, 0.1, 0.42, grey, 0, -0.32, 0.03 + CK.z + 0.21);                                      // front seat cushion
+box(0.55, 0.1, 0.45, grey, 0, -0.38 + CK.y, 1.0 + CK.z); box(0.55, 0.5, 0.06, grey, 0, -0.1 + CK.y, 1.25 + CK.z);   // rear seat (tandem)
+box(0.03, 0.02, 0.24, grey, -0.30, -0.02 + CK.y, -0.17 + CK.z);                                // throttle quadrant slot
+box(0.01, 0.3, 0.3, dark, -0.325, -0.1 + CK.y, 0.34 + CK.z);                                   // flap handle quadrant
 partsRoot = plane;
 mergeInto(PS, plane);
-// moving surfaces
-const flapGrp = new THREE.Group(); flapGrp.position.set(0, 0.995, 0.30); plane.add(flapGrp);
-for (const sx of [-1, 1]) box(2.16, 0.035, 0.34, yellow, sx * 1.52, wingY(1.52) - 0.94, 0.17, flapGrp).rotation.z = sx * DIHED;
-const ails = [-1, 1].map(sx => { const g = new THREE.Group(); g.position.set(sx * 3.78, 0.995 + wingY(3.78) - 0.94, 0.30); plane.add(g); box(2.3, 0.035, 0.34, yellow, 0, 0, 0.17, g).rotation.z = sx * DIHED; return g; });
-const elevGrp = new THREE.Group(); elevGrp.position.set(0, 0.15, 4.55); plane.add(elevGrp);
-elevGrp.add(new THREE.Mesh(extrude([-1, 1].map(sx => { const e = new THREE.Shape(); e.moveTo(sx * 0.05, 0); e.lineTo(sx * 1.6, 0); e.lineTo(sx * 1.6, 0.2);
-  e.quadraticCurveTo(sx * 1.58, 0.4, sx * 1.28, 0.4); e.lineTo(sx * 0.05, 0.4); return e; }), 0.035).rotateX(Math.PI / 2).translate(0, 0.0175, 0), yellow));
-const rudGrp = new THREE.Group(); rudGrp.position.set(0, 0, 4.62); plane.add(rudGrp);
-{ const r = new THREE.Shape(); r.moveTo(0, 1.38); r.quadraticCurveTo(0.34, 1.4, 0.38, 1.12); r.lineTo(0.38, 0.22); r.lineTo(0.28, 0.02); r.lineTo(0, 0.04); r.lineTo(0, 1.38);   // big rudder
+// moving surfaces (drawing frame, inside cubD)
+const flapGrp = new THREE.Group(); flapGrp.position.set(0, wy(ROOT_X, HINGE_Z) + 0.04, HINGE_Z); cubD.add(flapGrp);
+for (const sx of [-1, 1]) { const b = box(2.25, 0.06, 0.36, yellow, sx * 1.455, (1.455 - ROOT_X) * Math.tan(DIH), 0.18, flapGrp); b.rotation.set(INC, 0, sx * DIH); }
+const ails = [-1, 1].map(sx => { const g = new THREE.Group(); g.position.set(sx * 3.785, wy(3.785, HINGE_Z) + 0.04, HINGE_Z); cubD.add(g);
+  box(2.33, 0.06, 0.36, yellow, 0, 0, 0.18, g).rotation.set(INC, 0, sx * DIH); return g; });
+const elevGrp = new THREE.Group(); elevGrp.position.set(0, 0.66, 4.39); cubD.add(elevGrp);
+elevGrp.add(new THREE.Mesh(extrude([-1, 1].map(sx => { const e = new THREE.Shape(); e.moveTo(sx * 0.05, 0); e.lineTo(sx * 1.45, 0); e.lineTo(sx * 1.43, 0.23);
+  e.quadraticCurveTo(sx * 1.36, 0.47, sx * 1.05, 0.49); e.lineTo(sx * 0.24, 0.49); e.lineTo(sx * 0.05, 0); return e; }), 0.035).rotateX(Math.PI / 2).translate(0, 0.0175, 0), yellow));
+const rudGrp = new THREE.Group(); rudGrp.position.set(0, 0, 4.39); cubD.add(rudGrp);
+{ const r = new THREE.Shape(); r.moveTo(0, 1.83); r.lineTo(0.08, 1.80); r.lineTo(0.23, 1.64); r.lineTo(0.41, 1.32); r.lineTo(0.51, 1.06); r.lineTo(0.54, 0.86);
+  r.lineTo(0.50, 0.62); r.lineTo(0.33, 0.42); r.lineTo(0.12, 0.32); r.lineTo(0, 0.31); r.lineTo(0, 1.83);   // big rounded Cub rudder
   rudGrp.add(new THREE.Mesh(extrude(r, 0.035).rotateY(-Math.PI / 2).translate(0.0175, 0, 0), yellow)); }
 // right side: lower door hinges down, upper window hinges up under the wing
-const door = new THREE.Group(); door.position.set(0.39, -0.505, 0); plane.add(door);
-box(0.02, LOW_H, 0.9, yellow, 0, LOW_H / 2, -0.1, door); box(0.004, 0.07, 0.9, boltMat, 0.012, 0.367, -0.1, door);   // v0.17.1: door up to the sill
-const win = new THREE.Group(); win.position.set(0.39, 0.94, 0); plane.add(win);
-sidePane(WIN_D, 1, glass, win).geometry.translate(-0.39, -0.94, 0); sideFrame(WIN_D, 1, win).geometry.translate(-0.39, -0.94, 0);   // v0.17.1 door window (sill to wing)
+const door = new THREE.Group(); door.position.set(0.35, -0.21, 0); cubD.add(door);
+sideSkin(DOOR_LO, [], 1, yellow, door).geometry.translate(-0.35, 0.21, 0); box(0.004, 0.065, 0.95, boltMat, 0.002, 0.21 + 0.155, -0.195, door);   // door + its stripe piece
+const win = new THREE.Group(); win.position.set(0.35, 0.92, 0); cubD.add(win);
+sidePane(W_FRT, 1, glass, win).geometry.translate(-0.35, -0.92, 0); sideFrame(W_FRT, 1, win).geometry.translate(-0.35, -0.92, 0);
 let doorT = 0;
-const prop = new THREE.Mesh(new THREE.CircleGeometry(0.95, 16),
+const prop = new THREE.Mesh(new THREE.CircleGeometry(0.94, 16),   // 74 in prop
   new THREE.MeshBasicMaterial({ color: 0x222222, transparent: true, opacity: 0.18, side: THREE.DoubleSide, depthWrite: false }));
-prop.position.set(0, -0.2, -1.9); plane.add(prop);
-const blade = box(0.09, 1.9, 0.03, dark, 0, 0, 0.01, prop); blade.visible = true;
+prop.position.set(0, 0.24, -1.93); cubD.add(prop);
+const blade = box(0.10, 1.88, 0.03, dark, 0, 0, 0.01, prop); blade.visible = true;
 
 // flap handle (left wall, Johnson-bar style): pull up through notches 0 / 1 / 2 / 3 = 0 / 15 / 30 / 50 deg
-const FLAP_PIVOT = new THREE.Vector3(-0.34, -0.22, 0.42), FLAP_DEG = [0, 15, 30, 50], FLAP_STEP = 25 * Math.PI / 180, FLAP_REACH = 0.1;
+const FLAP_PIVOT = new THREE.Vector3(-0.30, -0.22 + CK.y, 0.42 + CK.z), FLAP_DEG = [0, 15, 30, 50], FLAP_STEP = 25 * Math.PI / 180, FLAP_REACH = 0.1;
 const flapLever = new THREE.Group(); flapLever.position.copy(FLAP_PIVOT); plane.add(flapLever);
 rod([0, 0, 0], [0, 0, -0.24], 0.011, grey, flapLever);
 const flapKnob = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.08, 6).rotateX(Math.PI / 2), black); flapKnob.position.z = -0.25; flapLever.add(flapKnob);
 let flapNotch = 0;
 
 // stick (pivot near floor) and throttle (left wall)
-const STICK_PIVOT = new THREE.Vector3(0, -0.5, -0.15);
+const STICK_PIVOT = new THREE.Vector3(0, -0.5 + CK.y, -0.15 + CK.z);
 const stick = new THREE.Group(); stick.position.copy(STICK_PIVOT); plane.add(stick);
 rod([0, 0, 0], [0, 0.46, 0], 0.014, dark, stick);
 const knob = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.1, 6), black); knob.position.y = 0.48; stick.add(knob);
-const throttleKnob = box(0.045, 0.06, 0.04, mat(0x222222), -0.35, 0.02, 0);
+const throttleKnob = box(0.045, 0.06, 0.04, mat(0x222222), -0.30, 0.02 + CK.y, CK.z);
 
 // instruments (v0.8): classic six-pack in the standard T + tach, fuel, flaps, warnings. One small canvas texture per gauge;
 // the attitude / heading / turn coordinator redraw at ~36 Hz, the rest at ~12 Hz. Dial faces are pre-rendered once.
-const GS = 256, GAUGE_D = 0.112, PANEL_Z = -0.597, D2R = Math.PI / 180;
+const GS = 256, GAUGE_D = 0.112, PANEL_Z = -0.597 + CK.z, D2R = Math.PI / 180;
 const ANISO = Math.min(8, renderer.capabilities.getMaxAnisotropy());
 function gaugeTex(w, h, x, y, pw, ph) {
   const c = document.createElement('canvas'); c.width = w; c.height = h;
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = ANISO;
-  const m = new THREE.Mesh(new THREE.PlaneGeometry(pw, ph), new THREE.MeshBasicMaterial({ map: t })); m.position.set(x, y, PANEL_Z); plane.add(m);
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(pw, ph), new THREE.MeshBasicMaterial({ map: t })); m.position.set(x, y + CK.y, PANEL_Z); plane.add(m);
   return { c, x: c.getContext('2d'), t, m };
 }
 function dial(draw) {   // pre-rendered face: bezel + whatever draw() adds, centred at 0,0
@@ -965,12 +1013,12 @@ const FACE = {
   fuel: dial(x => { arc(x, aFUEL, 0, 0.15, 108, 10, '#e52'); ticks(x, aFUEL, 0, 1, 0.25, 18, 4); x.fillStyle = '#eee'; x.font = 'bold 28px sans-serif';
     x.fillText('E', Math.cos(aFUEL(0)) * 84, Math.sin(aFUEL(0)) * 84); x.fillText('F', Math.cos(aFUEL(1)) * 84, Math.sin(aFUEL(1)) * 84); x.fillText('½', 0, -84); label(x, 'FUEL', -36); }),
 };
-const COLS = [-0.245, -0.125, -0.005], ROWS = [0.068, -0.058];
+const COLS = [-0.265, -0.145, -0.025], ROWS = [0.068, -0.058];
 const G = {
   asi: gaugeTex(GS, GS, COLS[0], ROWS[0], GAUGE_D, GAUGE_D), ai: gaugeTex(GS, GS, COLS[1], ROWS[0], GAUGE_D, GAUGE_D), alt: gaugeTex(GS, GS, COLS[2], ROWS[0], GAUGE_D, GAUGE_D),
   tc: gaugeTex(GS, GS, COLS[0], ROWS[1], GAUGE_D, GAUGE_D), hi: gaugeTex(GS, GS, COLS[1], ROWS[1], GAUGE_D, GAUGE_D), vsi: gaugeTex(GS, GS, COLS[2], ROWS[1], GAUGE_D, GAUGE_D),
-  rpm: gaugeTex(GS, GS, 0.12, ROWS[0], 0.098, 0.098), fuel: gaugeTex(GS, GS, 0.12, ROWS[1], 0.098, 0.098),
-  info: gaugeTex(256, 384, 0.27, 0.005, 0.16, 0.24),
+  rpm: gaugeTex(GS, GS, 0.10, ROWS[0], 0.098, 0.098), fuel: gaugeTex(GS, GS, 0.10, ROWS[1], 0.098, 0.098),
+  info: gaugeTex(256, 384, 0.25, 0.005, 0.15, 0.225),
 };
 // flight state the gauges read (pure functions of the aircraft state, also used by the headless check)
 const IN = { pitch: 0, roll: 0, hdg: 0, rate: 0, ball: 0, prevHdg: null, prevVel: null };
@@ -1118,7 +1166,7 @@ const compassCard = (() => {
   for (let d = 0; d < 360; d += 5) { const u = ((360 - d) % 360) / 360 * 512; x.lineWidth = d % 10 ? 1 : 2; x.beginPath(); x.moveTo(u, 0); x.lineTo(u, d % 10 ? 10 : 16); x.stroke();
     if (!(d % 30)) { x.font = 'bold 26px sans-serif'; const s = HI_LBL[d] || String(d / 10); x.fillText(s, u, 40); if (u < 20) x.fillText(s, u + 512, 40); } }
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = ANISO;
-  const g = new THREE.Group(); g.position.set(0, 0.875, -0.9); plane.add(g);
+  const g = new THREE.Group(); g.position.copy(D2B(0, -0.56, 0.905)); plane.add(g);
   box(0.06, 0.012, 0.05, mat(0x151515), 0, 0.022, 0, g);                         // bracket to the top bow
   box(0.003, 0.03, 0.003, mat(0xff8c1a), 0, 0, 0.029, g);                        // lubber line
   const card = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.02, 20, 1, true), new THREE.MeshBasicMaterial({ map: t })); g.add(card);
@@ -1126,7 +1174,7 @@ const compassCard = (() => {
 })();
 
 // ---- camera rig: eye point in the front seat ----
-const rig = new THREE.Group(); rig.position.set(0, 0.4, 0.15); plane.add(rig);
+const rig = new THREE.Group(); rig.position.set(0, 0.4 + CK.y, 0.15 + CK.z); plane.add(rig);
 const xrOffset = new THREE.Group(); rig.add(xrOffset);          // recenter offset for headset pose
 const camera = new THREE.PerspectiveCamera(75, innerWidth / innerHeight, 0.05, 14000);
 xrOffset.add(camera);
@@ -1660,7 +1708,7 @@ R.spare = 14;
 const BENCH = new THREE.Vector3(28.5, 0, -16.4);
 const FIRE = new THREE.Vector3(24, 0, -21); FIRE.y = groundY(FIRE.x, FIRE.z);
 const FIRE_C = FIRE.clone().add(new THREE.Vector3(0, 0.35, 0));
-const CAPS = [new THREE.Vector3(-0.62, 1.04, -0.35), new THREE.Vector3(0.62, 1.04, -0.35)];   // wing-root tank filler caps
+const CAPS = [-1, 1].map(sx => D2B(sx * 0.62, -0.20, wy(0.62, -0.20) + 0.18));   // wing-root tank filler caps
 for (const c of CAPS) { const m = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.03, 8), mat(0xb8b8b8)); m.position.copy(c); plane.add(m); }
 
 // ---- items ----
@@ -3011,7 +3059,7 @@ giveKnife();
 
 // ================= v0.8: rough paper map (drawn once at load from the terrain), side pocket on the pack =================
 const MAP_W = 1024, MAP_H = 768, MAP_X = 5000, MAP_Z = 3750, MAP_PX = MAP_W / (2 * MAP_X);   // ~9.8 m per pixel, north (-z) up
-const MAP_SHEET = [0.4, 0.3], MAP_POCKET_R = 0.13, MAP_CLIP = { p: [-0.355, 0.24, -0.24], ry: 0.8, s: 0.6 };
+const MAP_SHEET = [0.4, 0.3], MAP_POCKET_R = 0.13, MAP_CLIP = { p: [-0.25, 0.14 + CK.y, -0.24 + CK.z], ry: 0.8, s: 0.6 };
 function drawMap() {
   const c = document.createElement('canvas'); c.width = MAP_W; c.height = MAP_H; const x = c.getContext('2d');
   let sd = 4242; const r = () => ((sd = (sd * 16807) % 2147483647) / 2147483647), j = k => (r() - 0.5) * 2 * k;   // own seed: world rand() untouched
@@ -3324,7 +3372,7 @@ moon.visible = false; scene.add(moon);
 const LIGHTS = { lit: false, torch: false, landing: false };
 const PL = new THREE.PointLight(0xffc06a, 0, 16, 1.5); scene.add(PL);
 const SL = new THREE.SpotLight(0xfff2da, 0, 70, 0.42, 0.45, 1.3); scene.add(SL, SL.target);
-const LDG_SW = new THREE.Vector3(0.12, -0.135, PANEL_Z + 0.012);
+const LDG_SW = new THREE.Vector3(0.10, -0.135 + CK.y, PANEL_Z + 0.012);
 const ldgSw = new THREE.Group(); ldgSw.position.copy(LDG_SW); plane.add(ldgSw);
 box(0.03, 0.02, 0.006, mat(0x222222), 0, 0, -0.004, ldgSw); const ldgTog = box(0.006, 0.006, 0.022, mat(0xd8d8d8), 0, 0, 0.008, ldgSw);
 function toggleLanding() { LIGHTS.landing = !LIGHTS.landing; ldgTog.rotation.x = LIGHTS.landing ? -0.5 : 0.5; sfx('click'); say(LIGHTS.landing ? 'LANDING LIGHT ON' : 'LANDING LIGHT OFF'); }
@@ -3411,7 +3459,7 @@ function updateDay(dt) {
   const lan = LANTERN_IT && LANTERN_IT.state !== 'gone' && LANTERN_IT.mesh.parent && LANTERN_IT.state !== 'pack' && LANTERN_IT.mesh.visible;
   const lanLit = lan && dark > 0.3 && !(LANTERN_IT.oil <= 0);
   if (LANTERN_IT) LANTERN_IT.mesh.userData.glow.material = lanLit ? LAMP_ON : glowM;
-  if (mode === 'plane' && dark > 0.3) { plane.localToWorld(PL.position.set(0, 0.25, -0.42)); PL.distance = 1.3; PL.color.setHex(0xff9a50); PL.intensity = 0.35 * dark; }   // panel glow
+  if (mode === 'plane' && dark > 0.3) { plane.localToWorld(PL.position.set(0, 0.25 + CK.y, -0.42 + CK.z)); PL.distance = 1.3; PL.color.setHex(0xff9a50); PL.intensity = 0.35 * dark; }   // panel glow
   else if (lanLit && LANTERN_IT.mesh.getWorldPosition(_b).distanceTo(_a) < 80) { PL.position.copy(_b); PL.distance = 16; PL.color.setHex(0xffc06a); PL.intensity = 4 * dark; }
   const tOk = LIGHTS.torch && TORCH_IT && (TORCH_IT.state === 'held' || TORCH_IT.state === 'belt' || TORCH_IT.state === 'world');
   if (TORCH_IT) TORCH_IT.mesh.userData.glow.material = tOk ? LAMP_ON : glowM;
@@ -3420,7 +3468,7 @@ function updateDay(dt) {
     else { TORCH_IT.mesh.getWorldPosition(SL.position); _d.set(0, 0, -1).applyQuaternion(TORCH_IT.mesh.getWorldQuaternion(_q)); }
     SL.target.position.copy(SL.position).addScaledVector(_d, 10); SL.distance = 70; SL.angle = 0.42; SL.intensity = 14;
   } else if (LIGHTS.landing) {
-    plane.localToWorld(SL.position.set(-1.6, 0.85, -0.55)); plane.localToWorld(SL.target.position.set(-1.6, -2.2, -30)); SL.distance = 260; SL.angle = 0.3; SL.intensity = 220;
+    plane.localToWorld(SL.position.set(-1.6, 0.80, -0.42)); plane.localToWorld(SL.target.position.set(-1.6, -2.2, -30)); SL.distance = 260; SL.angle = 0.3; SL.intensity = 220;
   }
   SL.target.updateMatrixWorld();
   LIGHTS.lit = (tOk && foot) || (lan && LANTERN_IT.state === 'held');
@@ -3642,7 +3690,7 @@ renderer.setAnimationLoop(() => {
   updateMap();
   prop.rotation.z += (ac.out.rpm || 0) / 60 * 2 * Math.PI * dt * 0.13;   // aliased-looking slow spin
   stick.rotation.set(ctl.elev * 0.3, 0, -ctl.ail * 0.3);
-  throttleKnob.position.z = 0.06 - ctl.throttle * 0.2;
+  throttleKnob.position.z = 0.06 + CK.z - ctl.throttle * 0.2;
   flapLever.rotation.x = vr.flap ? vr.flapAng : flapNotch * FLAP_STEP;
   flapGrp.rotation.x = ac.flap * Math.PI / 180;
   ails[0].rotation.x = ctl.ail * 0.35; ails[1].rotation.x = -ctl.ail * 0.35;
