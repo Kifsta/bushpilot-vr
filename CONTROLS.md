@@ -97,6 +97,21 @@ Nothing to learn: the knife, hatchet, fuel can, medkit, bandages, water jug, tor
 - Aim small: a head or heart/lung (behind the front leg) hit kills outright; a body hit only wounds (deer 2, stag 3, wolf 2, fox 1, cattle 4–5 body hits).
 - Dress a carcass as before (hold grip on it with the knife in the other hand, or slice it). Meat: deer 3, stag 4, fox 1, cow/bull 6, horse 5, donkey 4. Wolves give a **WOLF PELT** (3 lb) instead of meat.
 
+## Fortify (v0.30)
+| | VR | Desktop |
+|---|---|---|
+| See where pieces go | Carry a hammer and boards near the cabin: green ghosts (red = out of boards) | same |
+| Put a board up | Grip at a ghost; the board snaps into place in your hand | G looking at the ghost |
+| Nail it | Swing the hammer onto each nail head (hard = faster; weak swings can bend a nail) | V |
+| Let it go | Let go of grip before it's nailed: it drops, unused nails come back | G again |
+| Repair | Swing at the nails of a loose / damaged board | V looking at it |
+| Gate | Grip the latch | G on the latch |
+| Generator / radio | Grip the switch / the radio dial | E near it |
+| Fuel the generator | Hold a fuel can at its cap | E with a fuel can |
+- Nails come in boxes of 20 (or craft 10 from 1 wire at the bench vise), boards in bundles of 2. Hammers at gas stations, the ranch, the barn and the Cutler feed store; generators at gas stations.
+- Zombies climb slowly through fence panels and bash window and door boards at night. Keep an ear out and nail loose boards back.
+- Rain catcher = faster barrel refills, smokehouse = slow spoilage, generator = yard light and radio.
+
 ## Bow (v0.29)
 | | VR | Desktop |
 |---|---|---|

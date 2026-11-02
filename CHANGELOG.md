@@ -2,6 +2,24 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.30 – Fortify the cabin
+- **Build it up with your hands.** Carry a **hammer** plus **boards** and **nails** near the cabin and green ghosts show where the next piece goes (red = no boards left). Grip at a ghost to hold a board there; it snaps into place. Swing the hammer onto each nail head: harder swings drive a nail further (2–4 hits); a weak swing in VR can bend a nail, which pops out and gets replaced. Let go before it's nailed and the board drops (unused nails come back).
+- **21 build spots, 182 pieces**:
+  - North and east windows (new frames and dark glass, 2 boards each) and the door (3 boards).
+  - A fenced yard (14 panels round the cabin) with a **gate** on the west side; grip the latch to swing it open or shut.
+  - **Rain catcher** over the barrel: 2 rails plus a tarp (1 cloth, ties itself on). The barrel refills every 30 s instead of 90 s.
+  - **Smokehouse** (3 walls and a roof): food in it (or in the bench stash once it's built) stops ageing.
+  - **Generator shed** (2 walls and a roof). Carry a **generator** there and let go in the shed (48 lb, too big for the pack; on desktop G drags it in from up to 40 m once the shed is built). It burns 0.8 L of fuel a game hour (holds 12 L); pour a fuel can at its cap. Flip the switch for a yard light.
+  - **Cabin radio** on the bench: needs the generator running. Static now, and the odd broken message (the story comes in v0.33).
+  - **Bench vise** (shelf and apron): unlocks the field guide recipe **NAILS (x10)** = 1 wire (needs the vise).
+- **Zombies vs. the fort**: a built fence panel slows a zombie to 30% while it climbs through and takes 4 hp/s. At night they go for the window and door boards (6 hp/s); you hear the bashing up to 120 m away. Damaged boards hang loose with nails sticking out: hammer them back in to repair. Sleeping with every window and the door boarded is safe (+10 health) and a fence soaks up more of the damage; an open gap may let something in. The wake-up message reports what broke.
+- **Where to get things**: 6 hammers (gas station and ranch POIs, Cutler feed store, barn, …), 3 generators (gas stations), extra boards at the barn and the cabin woodpile. Nails come in boxes of 20, boards in bundles of 2. Weights in the W&B: nail 0.05 lb, board 3 lb, hammer 1.5 lb, generator 48 lb.
+- **Desktop**: `G` at a ghost holds a board (G again lets it fall); `V` nails it or repairs a loose one (and is a hammer melee hit with no hatchet); `G` on the latch opens the gate; `E` at the radio or generator switches it (with a fuel can, E at the generator fills it).
+- **Sounds**: nail hits (rising pitch as it goes in), bent nail, board bash, generator hum, radio static.
+- **Rendering**: every built piece, nail and post is one instanced mesh (one draw call, ~2.2k triangles at full build); ghosts are a second instanced mesh drawn only while you carry a hammer near the cabin.
+  - Standard views: on foot 97 / 266,206, town 75 / 239,278, cockpit 131 / 266,906, 600 m up 162 / 274,492 (v0.29: 94 / 263,974, 72 / 236,838, 128 / 264,674, 161 / 272,308). The extra calls are the fort mesh plus the new loot lying near each view.
+- Known limits: you walk through fences and boards (zombies don't); pieces are boxes for now, ready to swap for bought models.
+
 ## v0.29 – Physical bow
 - **A recurve bow you draw with your own hands.** Grip the bow in one hand. With the other, reach over your right shoulder to the quiver for an arrow, or just grab the string near the nock point (an arrow nocks itself from the quiver; an arrow in your hand nocks when you bring its nock within 12 cm of the string).
   - Pull back toward your face: the string bends to your fingers and the limbs flex. Up to 0.7 m of draw gives up to 60 m/s (speed grows with draw). Let go of grip to loose; the bow hand keeps the bow.
