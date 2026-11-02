@@ -2,6 +2,16 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.35 – Settings menu, real shadows, grass, belt swap, propeller fix
+- **Settings menu** (field guide GUIDE page → SETTINGS ›, or desktop ` / F2). 14 options: shadows OFF/LOW/HIGH, render scale 70–140 %, foveation, draw distance, tree density, grass, clouds, haze, MSAA, refresh rate 72/90/120, haptics (moved here), comfort vignette, snap 30°/45°/smooth turning, and an FPS/ms/draw-call counter. Saved in this browser (`bp_gfx`); `?gfx=k:v,...` overrides for testing. **Defaults are the v0.34 look and cost**, so turn things up one at a time with the FPS counter on to see what the Quest can take.
+- **Real sun shadows** (off by default). A shadow map follows you on foot, or the plane in flight, and snaps to texels so it doesn't shimmer. LOW is 1024 px over ±28 m; HIGH is a soft 2048 px over ±64 m. The Cub, cabin, trees, props and zombies cast shadows; terrain only receives them.
+- **Grass** (off by default): instanced 5-blade tufts round you, tinted to the ground underneath. They only grow on fields, meadows and forest floor, not on the strip, wheat, dirt, rock, snow, water or floors. They rebuild in slices as you walk, so there's no frame hitch, and switch off above 40 m AGL.
+- **Clouds HIGH** adds a second, drifting cloud layer.
+- **Belt swap:** the **knife is now on your RIGHT hip** and the **canteen on your LEFT**. The ammo pouch sits just behind the knife.
+- **Propeller fix:** it is now a proper twisted, two-blade wooden/metal prop with yellow tips. It stops at a random angle, and the grey disc only fades in once it's spinning (it used to show as a grey disc even when stopped).
+- Perf (headless, defaults, draw calls / tris): foot 96 / 271 k, town 80 / 245 k, cockpit 130 / 272 k, alt 161 / 280 k. That's 2 fewer calls than v0.34 everywhere. With shadows+grass+clouds HIGH, the main pass adds +1 call and +15 k tris; the shadow pass is extra and costs about one more depth render of the nearby casters.
+- Physics md5 unchanged; wb test passes.
+
 ## v0.34 – Solid fences and a full world save
 - **Built fort pieces are solid on foot.** You can't walk through nailed fence panels, door boards, the smokehouse or generator-shed walls, or the gate when it's shut. Open the gate (E nearby, or the latch in VR) to go through. Ghost (unbuilt) pieces and the open gate stay passable. The **fuel depot's chain-link fence** is solid too; go in through the gap on its west side.
 - **You never get trapped.** If you nail up a panel while standing in it, you get pushed out to whichever side you're nearer. Cabin walls stay passable, as before. Boarding the door from outside just keeps you outside. Zombie movement is unchanged. The check is a cheap circle-vs-board test that only runs near the fort and the depot.

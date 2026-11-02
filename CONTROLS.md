@@ -58,7 +58,7 @@ Shutdown: throttle idle, mixture CUTOFF (it stops), mags OFF, master OFF, fuel O
 | | VR | Desktop |
 |---|---|---|
 | Walk / sprint | Left stick, click it to sprint (uses stamina) | WASD, Shift sprint |
-| Turn | Right stick left / right (snap) | Mouse |
+| Turn | Right stick left / right (snap 30°, or 45° snap / smooth in Settings) | Mouse |
 | Crouch / jump | Right stick down / up | Hold C / Space |
 | Get back in the plane | Y | F |
 | Pick up / hold | Grip | G (looks at item) |
@@ -74,7 +74,7 @@ Shutdown: throttle idle, mixture CUTOFF (it stops), mags OFF, master OFF, fuel O
 - After ~60 shots it can misfire; hold a cleaning kit against it for a moment (desktop E).
 
 ## Knife, map, light
-- Knife on the left hip (desktop 1, then click or V). Slice a kill 3 times, or hold grip on it with the knife in the other hand, to get meat.
+- Knife on the RIGHT hip since v0.35 (canteen on the left; desktop 1, then click or V). Slice a kill 3 times, or hold grip on it with the knife in the other hand, to get meat.
 
 ## Melee (v0.26)
 - **Knife**: a hit depends on how fast and which way the blade moves. Swing it fast (over ~2 m/s) for a **slash**: damage grows with speed and is much bigger on the head. Thrust it point-first for a **stab**: head or chest = kill, hips and legs hurt. A stab **sticks**: the knife rides in the body (and falls with it), so pull your hand back ~16 cm to free it, or let go.
@@ -96,6 +96,26 @@ Nothing to learn: the knife, hatchet, fuel can, medkit, bandages, water jug, tor
 - **Farm animals** (cows, a bull, horses, donkeys) stand round the farms and the ranch. They never attack; they're just meat if you need it.
 - Aim small: a head or heart/lung (behind the front leg) hit kills outright; a body hit only wounds (deer 2, stag 3, wolf 2, fox 1, cattle 4–5 body hits).
 - Dress a carcass as before (hold grip on it with the knife in the other hand, or slice it). Meat: deer 3, stag 4, fox 1, cow/bull 6, horse 5, donkey 4. Wolves give a **WOLF PELT** (3 lb) instead of meat.
+
+## Settings (v0.35)
+Field guide → GUIDE tab → **SETTINGS ›** (or the second-last page). Poke a row to cycle it; saved in this browser (`bp_gfx`). Desktop: **`** (backquote) or **F2** opens the settings panel, **F3** toggles the FPS counter, Esc closes. URL override for testing: `?gfx=shadows:2,grass:2,clouds:2`.
+| Setting | Options | Notes |
+|---|---|---|
+| Shadows | OFF / LOW / HIGH | real sun shadow map following you (LOW 1024 px ±28 m, HIGH 2048 px soft ±64 m) |
+| Render scale | 70–140 % | VR framebuffer scale, applies next time you enter VR |
+| Foveation | OFF / LOW / MEDIUM / HIGH | Quest fixed foveation |
+| Draw distance | NEAR / MEDIUM / NORMAL / FAR | chunks, rocks, trees and haze |
+| Tree density | SPARSE / MEDIUM / FULL | |
+| Grass | OFF / LOW / HIGH | instanced tufts around you, only on fields/meadows/forest floor |
+| Clouds | OFF / NORMAL / HIGH | HIGH adds a second drifting layer |
+| Haze | LIGHT / NORMAL / THICK | fog distance |
+| Anti-aliasing | OFF / MSAA | applies after a reload |
+| Refresh rate | AUTO / 72 / 90 / 120 | Quest 3 |
+| Haptics | OFF … 100 % | moved here from the GUIDE page |
+| Comfort vignette | OFF / LIGHT / STRONG | darkens the edges while you move or turn on foot |
+| Turning | SNAP 30° / SNAP 45° / SMOOTH | right stick |
+| FPS counter | OFF / ON | fps, ms, CPU ms, draw calls, triangles, on the lower left of your view |
+Defaults = the v0.34 look and cost (shadows off, grass off).
 
 ## Saving (v0.34)
 | | VR | Desktop |
@@ -167,7 +187,7 @@ Nothing to learn: the knife, hatchet, fuel can, medkit, bandages, water jug, tor
 ## Survival
 - Watch on the left wrist: time (amber = sunset soon), health, food, water (blue) and stamina (white).
 - Be home before dark: zombies get faster and bolder and respawn at night. Sleep after 17:30 by gripping the cabin door handle (desktop N at the door).
-- Water: canteen on the right hip. Fill at the rain barrel (clean) or a river or lake (raw: boil it at the fire pit pot, or carry a water filter). Desktop E fills, boils and drinks.
+- Water: canteen on the LEFT hip (v0.35; the knife moved to the RIGHT hip, ammo pouch just behind it). Fill at the rain barrel (clean) or a river or lake (raw: boil it at the fire pit pot, or carry a water filter). Desktop E fills, boils and drinks.
 - Food: raw meat over a fire cooks it. Food spoils (raw ~2 days, cooked ~3, smoked ~10); spoiled food makes you sick.
 - Fuel: hold the fuel can to the wing filler cap (desktop E).
 - Towns (v0.22): Cutler (south), Dry Fork (east, with a grass strip you can land on) and Hollis (north) are on the map. Walk in through the doors; the loot is on shelves and counters. Expect zombies inside, and more after dark.
