@@ -2,6 +2,18 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.41 – Tools
+- **Binoculars** (fire lookout, ranger station): in VR hold them up to your eyes for a 7x view inside a dark ring (the world around stays still, so it is comfortable); desktop **7** zooms. They name the place you are looking at, its distance, and how many dead are moving there. They clip to a new chest-strap home on the harness.
+- **Flare gun + flares** (medevac crash, strongboxes): fire it up and a red flare hangs under a chute for ~30 s. Every walking zombie within 250 m heads for it, except ones already right on you. One shell at a time: an empty pull reloads from a box of FLARES (3 per box) in your kit. Desktop **8**.
+- **Crowbar** (sawmill, a car on the east road) and **six steel strongboxes**, padlocked: in the Cutler and Hollis sheriff's offices, the ranger station, the mine, the motel office and the army checkpoint. Put the claw to the lock and pull the trigger: three heaves and the hasp tears out. Inside are ammo, medkits, flares, a water filter or lamp oil. Desktop **C** within reach. Opened boxes stay open in your save.
+- **Handheld radio** (checkpoint, ranger station): the cabin set's broadcasts anywhere. Trigger or desktop **9**. It clips to the left chest strap.
+- **Fishing rod** (campground, hunting cabin): telescopes out in your hand. Face open water and trigger to cast a float. When it bobs under ("A BITE!"), trigger again within ~2.5 s: usually a trout or grayling, i.e. raw meat at your feet. Walking off reels in. Desktop **0**.
+- **Map pencil** (cabin workbench): trigger or desktop **H** marks a numbered grey X on your map where you stand. You get 12; the oldest is rubbed out.
+- Field guide: a TOOLS YOU CAN FIND page (TOOLS tab) and entries for every new item; weights on the W&B card; flares and the pencil fit belt pouches.
+- Save: strongbox state and pencil marks are saved. Older saves get the tools placed in the world on load.
+- Fix: a saved item count (a box of flares, a single board) no longer overwrites the item's name in the save, which had made such items vanish on load.
+- Perf: foot/cockpit/alt unchanged. Town view +11 draw calls (the Cutler sheriff's strongbox).
+
 ## v0.40 – Lived-in towns, roadside detail and a journal
 
 Props and placement, not fidelity: the towns now look like people lived there and left in a hurry.

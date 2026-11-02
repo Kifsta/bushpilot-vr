@@ -225,6 +225,18 @@ Defaults = the v0.34 look and cost (shadows off, grass off).
 - The radio (cabin) and COM (Cub) give the next lead every other call.
 - Halvorsen station has its own gravel strip, about 340 m long, with a windsock and avgas.
 
+## Tools (v0.41)
+| Tool | VR | Desktop (on foot, carried) |
+|---|---|---|
+| Binoculars | hold them up to your eyes | 7 (toggle zoom) |
+| Flare gun | point + trigger (an empty pull reloads from FLARES) | 8 |
+| Crowbar | claw to a strongbox lock + trigger x3 | C (within ~2.5 m) |
+| Handheld radio | trigger | 9 |
+| Fishing rod | face water + trigger to cast; trigger again on "A BITE!" | 0 |
+| Map pencil | trigger = X on your map | H |
+
+Harness: binoculars on the chest strap and the radio on the left chest strap (hold them there and let go). Flares and the pencil fit belt pouches.
+
 ## Journal (v0.40)
 
 - Field guide → the JOURNAL page, just before Settings (Guide tab). It lists every town and place. A place ticks itself off when you walk, drive or fly low (under 150 m) near it.
