@@ -74,7 +74,16 @@ Shutdown: throttle idle, mixture CUTOFF (it stops), mags OFF, master OFF, fuel O
 - After ~60 shots it can misfire; hold a cleaning kit against it for a moment (desktop E).
 
 ## Knife, map, light
-- Knife on the left hip (desktop 1, then click or V). Head stab = kill. Slice a kill 3 times, or hold grip on it with the knife in the other hand, to get meat.
+- Knife on the left hip (desktop 1, then click or V). Slice a kill 3 times, or hold grip on it with the knife in the other hand, to get meat.
+
+## Melee (v0.26)
+- **Knife**: a hit depends on how fast and which way the blade moves. Swing it fast (over ~2 m/s) for a **slash**: damage grows with speed and is much bigger on the head. Thrust it point-first for a **stab**: head or chest = kill, hips and legs hurt. A stab **sticks**: the knife rides in the body (and falls with it), so pull your hand back ~16 cm to free it, or let go.
+- **Hatchet / fire axe**: found in each town (feed store / gas station) and at a few points of interest. Hold it like the knife and swing hard: big damage, a head chop kills, a hard body chop knocks them flat. Chop a tree trunk 3 times to drop a bundle of **sticks**. Desktop: V chops what you're looking at (zombie or tree) while it's in your pack and the knife is away.
+- **Butt-stroke**: with the rifle in your hand, swing the stock end fast into a zombie (desktop: V with the rifle up). A blow to the head knocks it down.
+- **Shove**: push an empty hand hard straight out at a zombie's body (desktop Q). It costs 20 stamina and staggers it back. Shove a staggered zombie again and it goes down. When you're tired, the shove is weak.
+- **Reactions**: zombies flinch at small hits. Strong hits stagger them and knock them back. Knocked-down zombies fall flat, then get back up after about 3 s. Dead ones fall with their arms flung out.
+- **Grabs**: stay within arm's reach of a zombie for about 0.8 s and it grabs you. You move at 15% speed and take more damage. Break free with a shove or a solid stab or hit.
+- You feel every hit through the controllers, each hit has its own sound, and blood or wood chips fly.
 - Map: pocket on the left side of the pack (desktop M). Grab the far edge with the other hand to open it. In the plane it rides in the holder on the left cockpit wall (the same map; it moves there when you board and back to the pack when you get out).
 - Torch on the left hip: hold it and pull the trigger (desktop L). The lantern stays at the cabin and needs lamp oil.
 

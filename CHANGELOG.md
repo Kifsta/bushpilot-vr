@@ -2,6 +2,38 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.26 – Better melee combat
+- **Physics-driven knife.**
+  - Damage and type now come from the knife tip's real velocity, not just contact.
+  - **Slash**: the tip moves over 2.0 m/s. Damage = 0.7 × location × speed factor (speed/3, clamped 0.7–2). Locations: head 2.5×, torso 1×, hips 0.8×, legs 0.55×.
+  - **Stab**: the tip moves over 1.6 m/s with its velocity within ~40° of the blade axis. Head or torso = kill; hips 0.7 and legs 0.4 of a zombie's HP.
+  - Stabs **stick**: the blade is held in the body's frame and follows it while it falls. Pull the hand 16 cm from where it went in to free it, with a sound, a buzz and a little blood. Letting go also frees it. A live zombie with a blade in it stays held in place.
+  - The desktop stab uses the same rules.
+- **Stagger, knockback, knockdown.**
+  - Strong hits (slash over 4 m/s, hatchet, butt, shove) set a stagger timer that stops the zombie walking or attacking, and push it back along the blow.
+  - A knockdown topples it with the same falling-weight motion the dead use. It lies flat, then gets back up after about 3 s.
+  - The hit spheres follow the body down, so you can finish it on the ground.
+  - Dead and knocked-down zombies fling their arms up mid-fall and splay their legs (a cheap ragdoll look, no extra draw calls).
+- **Hatchet / fire axe** (2.5 lb):
+  - one per town (on the floor of the feed store or gas station) and at the first four points of interest;
+  - a swing over 2.4 m/s hits for 1.4 × location × speed; a head chop kills and a body chop over 5 m/s knocks down;
+  - it chops strip trees and all grove trunks: 3 chops on the same tree drop a STICKS bundle at its base, with wood-chip particles.
+- **Rifle butt-stroke.** The stock end (rifle space 0, −0.05, +0.33) is a club over 2.4 m/s: knockback, stagger, and a head blow knocks down. Both hands buzz.
+- **Shove.**
+  - An empty hand moving over 1.8 m/s mostly forward, within 30 cm of a zombie's head, torso or hips.
+  - It costs 20 stamina, staggers 0.9 s and pushes back about 0.4 m. A second shove on a staggered zombie knocks it down.
+  - With under 20 stamina you get a weak shove.
+- **Zombie grab.** A chasing zombie within arm's reach for 0.8 s grabs you:
+  - walking drops to 15% and its damage is 1.5×;
+  - the controllers pulse and the "GRABBED" message repeats;
+  - a full shove, a stagger-level hit or any hit of 1+ damage breaks it, and you then get a 1.5 s grace before it can grab again.
+- **Feedback.**
+  - New sounds: stab, slash, chop, shove, unstick and swish (any held weapon over 3.5 m/s).
+  - Per-hit haptics.
+  - One 64-instance particle mesh for blood and wood chips, hidden when idle, so idle draw calls are unchanged.
+- **Desktop.** Q = shove; V = butt-stroke with the rifle up, otherwise a hatchet chop if you carry one, otherwise the knife. V on a kill still dresses it.
+- **Unchanged.** Physics md5 is the same; draw calls are the same as v0.25 (foot 95, cockpit 129, alt 162).
+
 ## v0.25 – Cargo loading + weight and balance
 - **Load loot into the plane.**
   - Hold an item over the **rear seat**, the **rear floor** or the new **baggage bay** behind the rear seat, and let go. It sits where you put it, stacking on top of other cargo when there's room. If a zone is full, the item is refused and stays out.
