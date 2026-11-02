@@ -90,6 +90,13 @@ Shutdown: throttle idle, mixture CUTOFF (it stops), mags OFF, master OFF, fuel O
 ## Item models (v0.27)
 Nothing to learn: the knife, hatchet, fuel can, medkit, bandages, water jug, torch, pot and campfires now use real models but are picked up, worn, packed and used exactly as before. The radios, compasses, batteries, cans and matchboxes on town shop counters are decoration.
 
+## Animals (v0.28)
+- **Deer and stags** graze in herds of 4–5 (one stag each). **Foxes** roam the open country. All of them bolt when they see or hear you: standing up you're spotted at ~30 m (deer) / ~22 m (fox), sprinting doubles that, crouching halves it, and a rise in the ground between you hides you. Gunshots and the plane scatter them too.
+- **Wolves** live in packs of 2–4 at dens in the woods (450–1700 m from the cabin). By day they lie up and only come for you if you walk right up to them; at dusk and at night they roam and will pick you up at ~120 m (closer if you crouch), fan out and bite (−7 health a bite, with a buzz). A shot at night draws them; by day it scares them off. Shoot them, stab or slash them with the knife, or chop with the hatchet. Kill half the pack and the rest run. They leave you alone once you're in the plane.
+- **Farm animals** (cows, a bull, horses, donkeys) stand round the farms and the ranch. They never attack; they're just meat if you need it.
+- Aim small: a head or heart/lung (behind the front leg) hit kills outright; a body hit only wounds (deer 2, stag 3, wolf 2, fox 1, cattle 4–5 body hits).
+- Dress a carcass as before (hold grip on it with the knife in the other hand, or slice it). Meat: deer 3, stag 4, fox 1, cow/bull 6, horse 5, donkey 4. Wolves give a **WOLF PELT** (3 lb) instead of meat.
+
 ## Survival
 - Watch on the left wrist: time (amber = sunset soon), health, food, water (blue) and stamina (white).
 - Be home before dark: zombies get faster and bolder and respawn at night. Sleep after 17:30 by gripping the cabin door handle (desktop N at the door).

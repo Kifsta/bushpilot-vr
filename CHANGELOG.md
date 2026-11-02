@@ -2,7 +2,34 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
-## v0.27 – Item models
+## v0.28 – Animals
+- **Animated animals** from Quaternius' *Ultimate Animated Animals* (CC0, see CREDITS.md): deer, stags, foxes, wolves, cows, a bull, horses and donkeys. Each is one skinned mesh with idle, eating, walk, gallop, attack, death and hit-flinch clips. The mixer cross-fades between them (0.3 s; 0.15 s into attack/death), and walk/gallop playback speed follows the animal's ground speed.
+- **Deer herds** keep their old behaviour; each herd now has a stag (3 hits, 4 meat).
+- **Foxes** (6) live in the open country. They are quick and skittish and give 1 meat.
+- **Wolves**: 3–4 packs of 2–4 at dens in the woods, 450–1700 m from the cabin.
+  - By day they lie up near the den. At dusk and at night they roam and sense you at ~120 m with line of sight (by day ~28 m).
+  - They fan out round you, close in at 7.5 m/s and bite (−7 health every 1.3 s per wolf, with haptics and "WOLF BITE").
+  - A shot at night brings the pack; by day it scatters them. Hurting one sets the whole pack on you. With half the pack dead, the rest run. They give up past 220 m or once you're in the plane, and they run from a low pass.
+  - A wolf gives a **WOLF PELT** (new item, 3 lb), no meat.
+- **Farm stock**: 2–3 animals at three farms and the ranch (12 in all). They graze round a spot and never attack, and they run when hurt or shot at. Meat: cow/bull 6, horse 5, donkey 4.
+- **Noise and sight**:
+  - Sprinting (over 3 m/s) doubles the distance animals notice you at; crouching halves it.
+  - A terrain check (every ~0.6 s) means a rise between you and a deer hides you, except within 12 m.
+  - Gunshots (250 m) and the plane (90 m, low and fast) scare everything.
+- **Hits**:
+  - With a model, the hit spheres (head, heart/lungs, body ×2) follow the animated skeleton, so a grazing head or a falling body is where it looks. Far away, bind-pose spheres are used instead.
+  - The knife (slash or stab, same speed rules as zombies, blade doesn't stick) and the hatchet now hurt animals, with blood and haptics.
+- **Performance**:
+  - Only the nearest 16 animals within 150 m get a model. They're re-picked every 0.2 s from per-species pools (SkeletonUtils clones that share geometry and the item material; no shadows). If a species' pool is full, the next-nearest animal of another species gets the model.
+  - Models past 60 m animate every 3rd frame. Past 150 m deer go back to the old instanced box deer, and the others aren't drawn.
+  - Cost:
+    - 1 draw call and 1.8–3.7k triangles per animal on screen;
+    - `updateAnimals` 0.11 → 0.16 ms/frame with 16 animated (desktop Chrome; skeleton updates 0.03 ms more);
+    - standard views unchanged: on foot 94 / 263,974, town 72 / 236,838, cockpit 128 / 264,674, 600 m up 161 / 272,308.
+  - Files: `assets/animals/*.glb`, 8 × 136–165 KB (1.2 MB), loaded in the background (~1.5 s).
+  - If the files can't load, the box deer stay and there are simply no foxes, wolves or stock.
+- Not used: Husky and Shiba Inu (dogs), Alpaca, Horse_White (a recolour). The rabbits stay the small instanced ones.
+
 - **Real models for the main items**, from Quaternius' *Survival Pack* (CC0, see CREDITS.md): knife, hatchet, fuel can, medkit, bandages, water jug, torch, the cabin's cooking pot, the cabin fire-pit logs and every campfire you build.
   - Each model is fitted to the item's existing size box, so pouches, the pack grid, the belt, cargo stacking, weights and behaviours are unchanged.
   - The knife keeps its tip where the stab test expects it (−0.237 m) with the handle centred in the fist. The hatchet keeps its length (0.43 m) and its edge point is inside the new head.
