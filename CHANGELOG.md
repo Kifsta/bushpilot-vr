@@ -2,6 +2,22 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.40 – Lived-in towns, roadside detail and a journal
+
+Props and placement, not fidelity: the towns now look like people lived there and left in a hurry.
+
+- **Towns (Cutler, Dry Fork, Hollis):** wooden power poles with crossarms and sagging wires down both sides of the main street; street lamps; a green town sign with the population at both ends; a ROAD CLOSED barricade of striped sawhorses at one end and a sandbag line with a plywood QUARANTINE board at the other.
+- **Houses:** a mailbox at the gate, a shed out back (it is solid), and a washing line with clothes still on it.
+- **Shops:** a dumpster with bin bags spilling out.
+- **Spray paint on walls** ("HELP", "SAFE ZONE - EAST PASS", "WE'RE IN THE CHURCH", "K-12?? HALVORSEN LIED"...). It is one transparent decal per wall.
+- **On the street:** paper and clothes, two bodies with blood stains, a wrecked car with both doors open, and a burned-out barrel.
+- **Roads:** a power line on poles runs along the main east road and the north–south road (147 poles, one instanced draw call, with wires that sag between them). It leaves gaps through towns, places and the home strip, and over water.
+- **Roadside:** farm mailboxes with family names at the end of each farm track; a green guide sign at the crossroads (HOLLIS 2.6 km / CUTLER 1.6 km / DRY FORK 2.0 km, and on the back HOME STRIP, CHURCH and SAFE ZONE: EAST PASS); seven cars abandoned on the roads, some in the ditch, with doors open and bags dropped beside them.
+- **Journal (UI):** a new field-guide page before Settings lists every town and place (22) with a tick box. A place ticks itself off when you walk, drive or fly low (under 150 m) near it, and you see "NEW PLACE: PINE MOTEL (5 of 22 in your journal)". Visited places get a green tick on the map. The right page shows both story threads (Sarah, and the Halvorsen file) with what is done, plus the day count.
+- **Save:** a new `vis` list. Older saves load with an empty journal.
+- **Perf (desktop test views, calls / tris):** foot 105 / 312k, town 88 / 277k, cockpit 139 / 313k, alt 169 / 319k. That is up from 102 / 304k, 80 / 265k, 136 / 304k and 167 / 311k. The town view gets about 8 draw calls for signs and spray decals.
+- **Physics:** the md5 is unchanged and the W&B test passes.
+
 ## v0.39 – Six new places
 
 New points of interest. Each one has its own map label, loot spots and zombies, and trees are cleared off it. Each place is a single merged mesh, distance-culled like the towns, with painted signs.

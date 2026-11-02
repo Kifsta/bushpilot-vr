@@ -225,6 +225,12 @@ Defaults = the v0.34 look and cost (shadows off, grass off).
 - The radio (cabin) and COM (Cub) give the next lead every other call.
 - Halvorsen station has its own gravel strip, about 340 m long, with a windsock and avgas.
 
+## Journal (v0.40)
+
+- Field guide → the JOURNAL page, just before Settings (Guide tab). It lists every town and place. A place ticks itself off when you walk, drive or fly low (under 150 m) near it.
+- The map shows a green tick next to each place you have visited. The right-hand page lists the Sarah and Halvorsen leads found so far.
+- Towns now have barricades, power lines, sheds and wrecks. Sheds and wrecked cars are solid. The crossroads guide sign gives the distances to each town.
+
 ## New places (v0.39)
 
 - River bridge (church road), Clearwater sawmill (river, north of home), Silver King mine (west plateau), Pine Ridge ranger station, East Lake campground, Pine Motel (north road). All are on the map.
