@@ -2,6 +2,40 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Every version leaves the flight model untouched: `node physics-test.mjs | md5sum` = `f1e1607f804bf17b4877bad1bf04feaa`.
 
+## v0.19 – Cub fidelity: engine start and shutdown, opening windows, checklist, map holder
+- The plane now starts cold and dark with the engine off, at first load and after a reset or crash. The start is a real procedure.
+  - A labelled switch strip sits under the left half of the panel: MASTER, MAGS (OFF / R / L / BOTH), START, PRIMER, FUEL valve, MIXTURE (in = rich, out = cutoff) and CARB HEAT (in = cold, out = hot).
+  - VR: reach a control and squeeze grip. Switches and knobs toggle, the mags key steps OFF > R > L > BOTH > OFF, each squeeze of the primer is one stroke, and START cranks for as long as you hold it.
+  - Desktop: U fuel, O master, Y mixture, H carb heat, I mags, P primer, hold Space to crank.
+  - Cranking turns the prop slowly with a starter whine and chuffing. When it catches, it fires, flares to about 1,100 rpm and settles at about 650–780 rpm, depending on how far the throttle is cracked.
+  - In the tests, the checklist start (2 primes, throttle about 10%) catches after 0.9 s of cranking.
+- How it fails:
+  - It will not start with the fuel valve off, the mags off, the mixture at cutoff or the master off. The starter does nothing with the master off.
+  - Over-priming floods it. Seven strokes would not start in 8 s of cranking. Full throttle while cranking clears it, and it caught after a further 7 s.
+  - A cold engine with no prime is a hard start (8.4 s of cranking). A warm engine starts with 0–1 strokes (2.8 s with none, 0.9 s with one).
+  - After about 6 s of failed cranking, a hint says why (for example "COLD: PRIME 2-3 STROKES" or "FLOODED: THROTTLE FULL + CRANK").
+- How it stops:
+  - The normal shutdown is mixture cutoff, which stops it in 1.5 s. Mags OFF stops it at once. With the fuel valve off it runs about 5 s on what is in the lines, then stops.
+  - Master OFF does not stop it, since the magnetos run the engine.
+  - Getting out with it running shuts it down.
+  - Carb heat and a single mag show a small rpm drop on the tach.
+- The tach, prop, engine sound and ambient ducking now follow the engine's displayed rpm.
+- The panel display shows ENGINE OFF or CRANKING, and the desktop status line shows ENG RUN / CRANK / OFF.
+- Laminated checklist card in a holder under the right half of the panel. Squeeze it to hold it up and read it; let go and it snaps back. Desktop: J shows and hides it.
+- Opening windows:
+  - Right upper door window: grab its handle and swing it out and up. Past about 70% it swings up and latches under the wing.
+  - Right lower door half: folds down. Past halfway it drops fully open.
+  - Left front and left rear windows slide aft on outer tracks. Grab the handle and drag; they stay where you leave them.
+  - Desktop: 1 right window, 2 lower door, 3 left front, 4 left rear.
+  - Wind noise rises with how far the windows are open, prop wash included.
+  - Getting out still opens the door automatically.
+- Map holder: a leather board with a pocket lip behind the existing wall clip.
+  - It holds the same single map (shared, not a second copy). The map moves from your pack to the holder when you board, and back to the pack when you get out.
+  - Pull it out, read it and let go in the cockpit, and it snaps back as before.
+- Fix: in VR the landing-light switch can now be flipped while seated. The old touch check only ran on foot.
+- Cost: cockpit draw calls 111 > 125, alt 142 > 156, on foot unchanged (92). About 500 more triangles. No per-frame texture uploads.
+- The flight model is unchanged (same md5). Engine state only gates the existing engine-out input.
+
 ## v0.18.2 – cockpit parts mounted to the wall
 - Fix: the small grey bar floating in the left window opening was the map clip. It was still in its v0.17 spot, 8 cm inside the new narrower cabin wall at sill height.
   - It now lies flat on the left wall below the windscreen-side sill, ahead of the throttle, 2 mm off the skin. The clipped map sheet lies flat on the wall under it.

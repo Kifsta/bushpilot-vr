@@ -9,7 +9,31 @@
 | Flaps (0-15-30-50) | Grab the flap handle (left wall, by your hip) | [ and ] |
 | Brakes | Left trigger | B |
 | Get out (stopped, idle) | Y | F |
+| Landing light | Squeeze the switch under the panel | L |
 | Reset / recentre | B = reset (refuels), A / X = recentre | R reset, Home recentre |
+
+## Engine start / shutdown (v0.19: the plane starts cold and dark)
+| | VR (Quest) | Desktop |
+|---|---|---|
+| Fuel valve ON / OFF | Squeeze grip on the red lever (switch strip under the left of the panel) | U |
+| Master ON / OFF | Squeeze the red rocker | O |
+| Mixture RICH (in) / CUTOFF (out) | Squeeze the red knob | Y |
+| Carb heat COLD (in) / HOT (out) | Squeeze the black knob | H |
+| Primer (one stroke per squeeze) | Squeeze the chrome T-handle | P |
+| Mags OFF > R > L > BOTH | Squeeze the key (each squeeze = next position) | I |
+| Starter | Squeeze and hold the red START button | Hold Space |
+| Checklist card | Squeeze it (under the right of the panel); let go to put it back | J |
+
+Start: fuel ON, master ON, mixture RICH, carb heat COLD, prime 2–3 strokes (cold) or 0–1 (warm), throttle cracked (~10%), mags BOTH, hold the starter until it runs (~700 rpm).
+Flooded? Throttle full and crank, then pull the throttle back when it fires.
+Shutdown: throttle idle, mixture CUTOFF (it stops), mags OFF, master OFF, fuel OFF.
+
+## Windows and door (v0.19)
+| | VR | Desktop |
+|---|---|---|
+| Right upper window (latches under the wing) | Grab its handle, swing it out and up | 1 |
+| Right lower door half (folds down) | Grab its handle, push it out | 2 |
+| Left front / rear window (slide aft) | Grab the handle and drag | 3 / 4 |
 
 ## On foot
 | | VR | Desktop |
@@ -32,7 +56,7 @@
 
 ## Knife, map, light
 - Knife on the left hip (desktop 1, then click or V). Head stab = kill. Slice a kill 3 times, or hold grip on it with the knife in the other hand, to get meat.
-- Map: pocket on the left side of the pack (desktop M). Grab the far edge with the other hand to open it.
+- Map: pocket on the left side of the pack (desktop M). Grab the far edge with the other hand to open it. In the plane it rides in the holder on the left cockpit wall (the same map; it moves there when you board and back to the pack when you get out).
 - Torch on the left hip: hold it and pull the trigger (desktop L). The lantern stays at the cabin and needs lamp oil.
 
 ## Survival

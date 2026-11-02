@@ -20,7 +20,7 @@
 </script>
 </head>
 <body>
-<div id="info">BUSH PILOT VR v0.18.2 - PA-18 Super Cub prototype (v0.18.2: map clip on the cockpit wall; v0.18.1: side windows open from inside, sill z-fighting fixed; v0.18: Cub rebuilt to real PA-18 dimensions; v0.17.1: cabin windows reshaped; v0.17: low-poly item models; v0.16: crafting, campfires, traps, spoilage, stamina; v0.15: 7 new places + lodge strip, forests; v0.14: rivers, lakes, thirst + canteen; v0.13: day / night, dusk deadline, lights, sleep; v0.12: natural gunshot, ambient sound, clouds; v0.11: Cub + rifle proportions from reference; v0.10.1: smoother stock; v0.10: performance pass, crouch / jump, more zombies, force grab)
+<div id="info">BUSH PILOT VR v0.19 - PA-18 Super Cub prototype (v0.19: engine start/shutdown, opening windows, checklist, map holder; v0.18.2: map clip on the cockpit wall; v0.18.1: side windows open from inside, sill z-fighting fixed; v0.18: Cub rebuilt to real PA-18 dimensions; v0.17.1: cabin windows reshaped; v0.17: low-poly item models; v0.16: crafting, campfires, traps, spoilage, stamina; v0.15: 7 new places + lodge strip, forests; v0.14: rivers, lakes, thirst + canteen; v0.13: day / night, dusk deadline, lights, sleep; v0.12: natural gunshot, ambient sound, clouds; v0.11: Cub + rifle proportions from reference; v0.10.1: smoother stock; v0.10: performance pass, crouch / jump, more zombies, force grab)
 RIFLE (VR): A/X on the rifle hand = work the lever (tap = full stroke, hold = keep it open) or flick the rifle down-forward, or grab the lever loop with your other hand and work it yourself;
   lever open = no shot; a short stroke won't feed. Load: tip of a round into the gate (right side) - it snaps in; keep grip held and go back to the pouch for the next one.
   Hold the right stick IN (click) + push it up/down while holding the rifle (right hand) = grip angle. Let go of the wrist with a hand on the forend = it stays in that hand.
@@ -834,7 +834,7 @@ const DOOR_LO = [[-0.67, -0.20], [0.28, -0.22], [0.28, 0.375], [-0.67, 0.375]]; 
 const DOOR_HOLE = [[-0.67, -0.20], [0.28, -0.22], [0.28, 0.92], [-0.36, 0.92], [-0.67, 0.38]];
 for (const sx of [-1, 1]) {
   sideSkin(CAB, sx < 0 ? [W_SCR, W_FRT, W_RR] : [W_SCR, DOOR_HOLE, W_RR], sx, yellow, PD);
-  for (const w of sx < 0 ? [W_SCR, W_FRT, W_RR] : [W_SCR, W_RR]) { sidePane(w, sx, glass, PD); sideFrame(w, sx, PD); }
+  for (const w of sx < 0 ? [W_SCR, W_FRT, W_RR] : [W_SCR, W_RR]) { if (sx > 0 || w === W_SCR) sidePane(w, sx, glass, PD); sideFrame(w, sx, PD); }   // v0.19: left side windows are sliding panes (see v0.19 block)
 }
 polyMesh([[[[-0.35, -0.28, -1.11], [0.35, -0.28, -1.11], [0.35, -0.35, 0.17], [-0.35, -0.35, 0.17]], [0, -1, 0]],
   [[[-0.35, -0.35, 0.17], [0.35, -0.35, 0.17], [0.35, -0.23, 1.10], [-0.35, -0.23, 1.10]], [0, -1, 0]]], yellow);   // cabin belly
@@ -913,7 +913,9 @@ box(0.48, 0.55, 0.06, grey, 0, -0.18 + CK.y, 0.45 + CK.z);                      
 box(0.48, 0.1, 0.42, grey, 0, -0.32, 0.03 + CK.z + 0.21);                                      // front seat cushion
 box(0.55, 0.1, 0.45, grey, 0, -0.38 + CK.y, 1.0 + CK.z); box(0.55, 0.5, 0.06, grey, 0, -0.1 + CK.y, 1.25 + CK.z);   // rear seat (tandem)
 box(0.042, 0.02, 0.24, grey, -0.305, -0.02 + CK.y, -0.17 + CK.z);                              // throttle quadrant slot (v0.18.2: reaches the wall, 4 mm off the skin)
-box(0.015, 0.3, 0.3, dark, -0.3185, -0.1 + CK.y, 0.34 + CK.z);   // v0.18.2: 4 mm off the skin, 0.5 mm clear of the flap lever                                   // flap handle quadrant
+box(0.015, 0.3, 0.3, dark, -0.3185, -0.1 + CK.y, 0.34 + CK.z);
+box(0.30, 0.12, 0.03, dark, -0.165, -0.20 + CK.y, -0.618 + CK.z);                              // v0.19 engine switch strip under the left half of the panel
+box(0.18, 0.17, 0.03, dark, 0.22, -0.225 + CK.y, -0.618 + CK.z);                               // v0.19 checklist card holder under the right half   // v0.18.2: 4 mm off the skin, 0.5 mm clear of the flap lever                                   // flap handle quadrant
 partsRoot = plane;
 mergeInto(PS, plane);
 // moving surfaces (drawing frame, inside cubD)
@@ -1129,6 +1131,7 @@ function drawInfo(a) {
   const o = a.out, fr = fuel / FUEL_MAX, warn = [];
   if (a.crashed) warn.push(['CRASH', '#f44']); if (o.stall > 0.3) warn.push(['STALL', '#f44']);
   if (ac.engineOut && fuel <= 0) warn.push(['NO FUEL', '#f44']); else if (fr < 0.15) warn.push(['LOW FUEL', '#fa3']);
+  if (!ENG.running && !a.crashed) warn.push([ENG.cranking ? 'CRANKING' : 'ENGINE OFF', '#fa3']);
   if (a.ctl.brake > 0.05) warn.push(['BRAKES', '#fa3']);
   const lines = a.crashed ? [a.crashReason.slice(0, 18), a.crashReason.slice(18, 36)] : (msgT > 0 && mode === 'plane' ? [msg.slice(0, 18), msg.slice(18, 36)] : []);
   lines.push(`THR ${(a.ctl.throttle * 100).toFixed(0)}%  HP ${P.hp.toFixed(0)}`, `FPS ${fps} ${FT.frm.toFixed(1)}ms`, `CPU ${FT.cpu.toFixed(1)} MAX ${FT.max.toFixed(1)}`);
@@ -1150,7 +1153,7 @@ function panelUpdate(a, dt) {
   const o = a.out, mph = (o.V || 0) * 2.23694, ft = Math.max(a.pos[1] * 3.28084, 0), fpm = (o.vs || 0) * 196.85, fr = fuel / FUEL_MAX;
   ND.asi.rotation.z = -aASI(mph);
   ND.alt[0].rotation.z = -aALT(ft % 100000, 100000); ND.alt[1].rotation.z = -aALT(ft % 10000, 10000); ND.alt[2].rotation.z = -aALT(ft % 1000, 1000);
-  ND.vsi.rotation.z = -aVSI(fpm); ND.rpm.rotation.z = -aRPM(o.rpm || 0);
+  ND.vsi.rotation.z = -aVSI(fpm); ND.rpm.rotation.z = -aRPM(ENG.rpm);
   ND.fuel.rotation.z = -aFUEL(fr); ND.fuel.color.setHex(fr < 0.15 ? 0xff5555 : 0xf4f4f4);
   const gal = (fuel / 3.785).toFixed(1);
   if (gal !== fuelKey) { fuelKey = gal; faceOnce(G.fuel, FACE.fuel, x => { x.fillStyle = '#ddd'; x.font = 'bold 20px sans-serif'; x.textAlign = 'center'; x.fillText(gal + ' GAL', 0, 52); }); }
@@ -1224,6 +1227,8 @@ function audioGraph() {
   SND.windBP = filt('bandpass', 500, 0.6); SND.windG = gain(0); loopNoise().connect(SND.windBP).connect(SND.windG).connect(SND.master);
   SND.rumbG = gain(0); loopNoise().connect(filt('lowpass', 90, 1)).connect(SND.rumbG).connect(SND.master);
   const ho = A.createOscillator(); ho.type = 'sawtooth'; ho.frequency.value = 470; ho.start();
+  SND.stO = A.createOscillator(); SND.stO.type = 'sawtooth'; SND.stO.frequency.value = 70; SND.stO.start(); SND.stG = gain(0);   // v0.19 starter motor
+  SND.stO.connect(filt('bandpass', 650, 1.4)).connect(SND.stG).connect(SND.engPan);
   SND.hornG = gain(0); ho.connect(filt('bandpass', 950, 3)).connect(SND.hornG).connect(SND.master);
   // v0.12: ambient beds (very quiet): wind (rises with height above the valley, ducked under the engine), crickets (dusk/night), water (rivers)
   SND.amb = gain(0.55); SND.amb.connect(SND.master);
@@ -1289,6 +1294,7 @@ function sfx(kind, pos, delay = 0) {
   else if (kind === 'flesh') { burst(0.09, 1, 0.6, 'lowpass', 520); ping(110, 0.08, 0.25, 0, 'sine'); }
   else if (kind === 'tick') ping(1500, 0.035, 0.05);                                   // subtle hit confirm
   else if (kind === 'click') burst(0.03, 1, 0.25, 'highpass', 2500);
+  else if (kind === 'catch') { burst(0.16, 1, 0.7, 'lowpass', 420); burst(0.12, 1, 0.5, 'lowpass', 360, 0.1); burst(0.12, 1, 0.55, 'lowpass', 480, 0.19); burst(0.1, 1, 0.4, 'lowpass', 400, 0.27); }   // v0.19 first firing
   else if (kind === 'pick') burst(0.06, 1, 0.2, 'bandpass', 700);
   else if (kind === 'eat') for (let i = 0; i < 3; i++) burst(0.06, 1, 0.3, 'bandpass', 1800 + i * 400, i * 0.16);
   else if (kind === 'pour') burst(0.12, 1, 0.15, 'bandpass', 300 + Math.random() * 400);
@@ -1305,13 +1311,14 @@ function updateAudio(dt) {
   if (L.positionX) { L.positionX.value = _lp.x; L.positionY.value = _lp.y; L.positionZ.value = _lp.z; L.forwardX.value = _lf.x; L.forwardY.value = _lf.y; L.forwardZ.value = _lf.z; L.upX.value = _lu.x; L.upY.value = _lu.y; L.upZ.value = _lu.z; }
   else { L.setPosition(_lp.x, _lp.y, _lp.z); L.setOrientation(_lf.x, _lf.y, _lf.z, _lu.x, _lu.y, _lu.z); }
   plane.localToWorld(_sv.set(0, 0.2, -1.6)); setPos(SND.engPan, _sv);
-  const rpm = o.rpm || 0, pn = clamp((ac.power - C.IDLE_POWER) / (1 - C.IDLE_POWER), 0, 1);
+  const rpm = ENG.rpm, pn = clamp((ac.power - C.IDLE_POWER) / (1 - C.IDLE_POWER), 0, 1);
   SND.o1.frequency.setTargetAtTime(Math.max(rpm, 30) / 30, t, 0.04); SND.o2.frequency.setTargetAtTime(Math.max(rpm, 30) / 60, t, 0.04);
   SND.engLP.frequency.setTargetAtTime(180 + rpm * 0.22 + pn * 250, t, 0.08);
-  SND.engGain.gain.setTargetAtTime(ac.engineOut || ac.crashed ? 0 : 0.07 + 0.11 * pn, t, ac.engineOut ? 0.03 : 0.1);
+  SND.engGain.gain.setTargetAtTime(ac.crashed ? 0 : !ac.engineOut ? 0.07 + 0.11 * pn : ENG.cranking ? 0.05 : 0, t, ac.engineOut && !ENG.cranking ? 0.03 : 0.1);
+  SND.stG.gain.setTargetAtTime(ENG.cranking ? 0.16 : 0, t, 0.04); SND.stO.frequency.setTargetAtTime(ENG.cranking ? 105 + ENG.rpm * 0.25 : 70, t, 0.25);   // v0.19 starter whine
   const inPlane = mode === 'plane', V = o.V || 0;
   SND.windBP.frequency.setTargetAtTime(250 + V * 22, t, 0.2);
-  SND.windG.gain.setTargetAtTime(inPlane ? Math.min(0.2, (V / 48) ** 2 * 0.16) : 0, t, 0.2);
+  SND.windG.gain.setTargetAtTime(inPlane ? Math.min(0.2, (V / 48) ** 2 * 0.16) + WIN.open * Math.min(0.14, ((V + ENG.rpm / 2300 * 22) / 48) ** 2 * 0.22) : 0, t, 0.2);   // v0.19: louder with windows open (incl. prop wash)
   SND.rumbG.gain.setTargetAtTime(inPlane && o.wow ? Math.min(1, V / 12) * 0.3 : 0, t, 0.05);
   const aStall = C.ALPHA_STALL - C.FLAP_DALPHA * Math.sin((o.flap || 0) * Math.PI / 180) / Math.sin(50 * Math.PI / 180);
   SND.hornG.gain.setTargetAtTime(inPlane && !o.wow && V > 5 && o.alpha > aStall - 0.035 ? 0.06 : 0, t, 0.03);   // horn ~2 deg before the break
@@ -1320,11 +1327,11 @@ function updateAudio(dt) {
 // v0.12 ambience. TOD.day / TOD.dusk / TOD.night (0..1) are driven by the day cycle (v0.13); water by the river distance (v0.14)
 const TOD = { day: 1, dusk: 0, night: 0 }, AMB = { bird: 4, owl: 20, water: 0 };
 function ambientAudio(dt, t, inPlane) {
-  const ey = _lp.y, gy = groundY(_lp.x, _lp.z), agl = Math.max(0, ey - gy), eng = inPlane ? 0.25 + 0.75 * (1 - clamp((ac.out.rpm || 0) / 900, 0, 1)) : 1;
+  const ey = _lp.y, gy = groundY(_lp.x, _lp.z), agl = Math.max(0, ey - gy), eng = inPlane ? 0.25 + 0.75 * (1 - clamp(ENG.rpm / 900, 0, 1)) : 1;
   SND.ambW.gain.setTargetAtTime((0.035 + 0.05 * clamp(gy / 900, 0, 1) + 0.03 * clamp(agl / 300, 0, 1)) * eng, t, 0.8);   // wind: ridges / height, ducked under the engine
   SND.crG.gain.setTargetAtTime(0.012 * Math.max(TOD.dusk, TOD.night * 0.6) * eng * (agl < 30 ? 1 : 0), t, 1.5);
   SND.waterG.gain.setTargetAtTime(0.05 * AMB.water * eng, t, 0.6);
-  const quiet = !inPlane || (ac.out.rpm || 0) < 200, onGround = agl < 40;
+  const quiet = !inPlane || ENG.rpm < 200, onGround = agl < 40;
   if ((AMB.bird -= dt) < 0) { AMB.bird = 3 + Math.random() * 9;
     const trees = gy > 60 && gy < 950 || TREES.some(p => Math.abs(p[0] - _lp.x) + Math.abs(p[2] - _lp.z) < 150);
     if (quiet && onGround && trees && TOD.day > 0.5) { const a = Math.random() * 6.28, d = 15 + Math.random() * 30; sfx('bird', _sv.set(_lp.x + Math.cos(a) * d, ey + 4 + Math.random() * 6, _lp.z + Math.sin(a) * d)); } }
@@ -1339,12 +1346,14 @@ function recenter() {
   xrOffset.quaternion.copy(yq);
   xrOffset.position.copy(camera.position).applyQuaternion(yq).negate();
 }
-function toPlane() { if (R.slung) { R.slung = false; R.stowed = true; rifle.visible = false; } deskKnife = false; rig.add(xrOffset); mode = 'plane'; ctl.brake = 0; lookYaw = lookPitch = 0; needRecenter = renderer.xr.isPresenting ? 2 : 0; }
+function toPlane() { if (R.slung) { R.slung = false; R.stowed = true; rifle.visible = false; } deskKnife = false; rig.add(xrOffset); mode = 'plane'; ctl.brake = 0; lookYaw = lookPitch = 0; needRecenter = renderer.xr.isPresenting ? 2 : 0;
+  if (MAP.state === 'pocket') mapStow('clip'); }   // v0.19: map rides in the cockpit holder while you fly
 function resetFlight() {
   IN.prevHdg = null;
   if (mode === 'foot') toPlane();
   if (R.hand) { R.hand = R.support = null; rifleHome(); }
   resetAircraft(ac); crashTimer = 0; flapNotch = 0; fuel = FUEL_MAX;
+  engColdDark(); cardHome(); CKH.clear(); WIN.rup = WIN.rlo = WIN.lf = WIN.lr = 0; WIN.tgt = {};   // v0.19: back to cold and dark
 }
 function exitPlane() {
   if (!((ac.out.V || 0) < 1 && ctl.throttle < 0.05 && !ac.crashed)) { say('STOP + IDLE TO EXIT'); return; }
@@ -1355,6 +1364,8 @@ function exitPlane() {
   ctl.elev = ctl.ail = ctl.rud = 0;
   bodyYaw = yaw;
   if (R.stowed) { R.stowed = false; R.slung = true; rifle.visible = true; }   // rifle comes out with you on the sling
+  if (ENG.running) { ENG.running = false; say('ENGINE SHUT DOWN'); } ENG.starterVR = false; CKH.clear(); cardHome();   // v0.19
+  if (MAP.state === 'clip') mapStow('pocket');                                // the shared map comes with you
 }
 function board() {
   camera.getWorldPosition(_w); const dp = qRot(ac.q, [0.6, 0, 0]);
@@ -1422,6 +1433,7 @@ addEventListener('keydown', e => {
   keys[e.code] = true;
   if (e.repeat) return;
   if (craftKey(e)) return;   // v0.16 crafting keys (K list, 1-0 craft, P place)
+  if (engKey(e)) return;     // v0.19 cockpit keys (U O Y H I P J, 1-4 windows; Space = starter, held)
   if (e.code === 'KeyR') { if (mode === 'foot' && R.hand === 'desk') loadRound(); else resetFlight(); }
   if (mode === 'foot' && e.code === 'KeyI') setPack(PK.state === 'worn' ? 'open' : 'worn');
   if (mode === 'foot' && /^Digit[1-4]$/.test(e.code)) deskSlot(+e.code[5] - 1);
@@ -1518,8 +1530,10 @@ function xrInput(dt) {
     const gp = src.gamepad, squeeze = !!gp.buttons[1]?.pressed;
     _p.copy(g.position).applyQuaternion(xrOffset.quaternion);   // hand position in cockpit axes
     if (mapCockpit(g, squeeze, src.handedness === 'right' ? vr.stick : vr.thr || vr.flap)) { if (src.handedness === 'right') vr.stick = false; else vr.thr = vr.flap = false; continue; }
+    const busy = ckHand(g, squeeze, 'ck' + src.handedness);   // v0.19: a hand on a switch / window handle / checklist isn't on the stick or throttle
+    if (busy) { if (src.handedness === 'right') vr.stick = false; else vr.thr = vr.flap = false; }
     if (src.handedness === 'right') {
-      if (squeeze && !vr.stick) { vr.stick = true; vr.stick0.set(_p.x - ctl.ail * STICK_RANGE, _p.y, _p.z - ctl.elev * STICK_RANGE); }   // v0.8: pick up from the current deflection
+      if (squeeze && !vr.stick && !busy) { vr.stick = true; vr.stick0.set(_p.x - ctl.ail * STICK_RANGE, _p.y, _p.z - ctl.elev * STICK_RANGE); }   // v0.8: pick up from the current deflection
       if (!squeeze) vr.stick = false;
       if (vr.stick) {
         stickHeld = true;
@@ -1529,7 +1543,7 @@ function xrInput(dt) {
       if (pressedEdge(gp, 4, 'A')) recenter();
       if (pressedEdge(gp, 5, 'B')) resetFlight();
     } else if (src.handedness === 'left') {
-      if (squeeze && !vr.thr && !vr.flap) {                       // grab the flap handle only when the hand is right at its knob
+      if (squeeze && !vr.thr && !vr.flap && !busy) {              // grab the flap handle only when the hand is right at its knob
         g.getWorldPosition(_a); flapKnob.getWorldPosition(_b);
         if (_a.distanceTo(_b) < FLAP_REACH) vr.flap = true; else { vr.thr = true; vr.thr0 = ctl.throttle; vr.thrZ = _p.z; }
       }
@@ -1684,7 +1698,7 @@ const hud = document.getElementById('hud'), cross = document.getElementById('cro
 function statusText() {
   return `HP ${P.hp.toFixed(0)} FOOD ${P.food.toFixed(0)} H2O ${P.thirst.toFixed(0)} STA ${Math.round(P.stam / 5) * 5}\n` +
     `AMMO ${R.tube}+${R.chambered ? 1 : 0} POUCH ${R.spare}${R.hand ? '' : R.slung ? ' (slung)' : R.stowed ? ' (stowed)' : ' (not held)'}\n` +
-    `FUEL ${(fuel / FUEL_MAX * 100).toFixed(0)}% PACK ${packUsed()}/${PACK_CELLS} STASH ${stash.length}` + (msgT > 0 ? '\n' + msg : '');
+    `FUEL ${(fuel / FUEL_MAX * 100).toFixed(0)}%${mode === 'plane' ? ' ENG ' + (ENG.running ? 'RUN' : ENG.cranking ? 'CRANK' : 'OFF') : ''} PACK ${packUsed()}/${PACK_CELLS} STASH ${stash.length}` + (msgT > 0 ? '\n' + msg : '');
 }
 let wristKey = '', hudT = '';
 function drawWrist() {   // v0.10: only re-uploads when something on it changed
@@ -2509,7 +2523,7 @@ function updateSurvival(dt) {
   if (!ac.crashed && !ac.engineOut) fuel = Math.max(0, fuel - BURN_FULL * ac.power * dt);
   if (fuel > 0 && fuel < FUEL_MAX * 0.03 && mode === 'plane') { if ((sputT -= dt) <= 0) { sput = !sput; sputT = sput ? 0.12 + Math.random() * 0.3 : 0.3 + Math.random() * 1.2; } }
   else sput = false;
-  ac.engineOut = mode === 'foot' || fuel <= 0 || sput;
+  ac.engineOut = mode === 'foot' || fuel <= 0 || sput || !ENG.running;   // v0.19: start / shutdown state machine (updateEngine)
   hurtDiv.style.opacity = P.hurtT > 0 ? 0.35 : 0;
   const fl = 0.85 + Math.random() * 0.3; fireFl[0].scale.set(fl, 0.8 + Math.random() * 0.4, fl); fireFl[1].scale.set(fl, 0.7 + Math.random() * 0.5, fl);
 }
@@ -3663,6 +3677,240 @@ function staminaTick(dt) {
     'RANCH': ['BOARDS', 'BOARDS', 'WIRE', 'NAILS'], 'CHURCH': ['CLOTH', 'CLOTH', 'BOARDS', 'NAILS'], 'LODGE': ['BOARDS', 'CLOTH', 'NAILS', 'STONES'] };
   for (const s of SPOTS) for (const [k, n] of (SALV[s.name] || []).entries()) { const a = k * 1.9 + C16_R(), r = 5 + C16_R() * 4; put(n, s.x + Math.cos(a) * r, s.z + Math.sin(a) * r); }
 }
+// ================= v0.19: Cub fidelity - engine start / shutdown, switch panel, opening windows, checklist card, map holder =================
+// Engine state lives here, outside the flight model: the physics only sees ac.engineOut (set in updateSurvival), so its maths is unchanged.
+const ENG = { valve: false, master: false, mix: 0, carb: false, mags: 0, starterVR: false, starter: false, cranking: false, wet: 0, temp: 0, running: false, rpm: 0,
+  fireT: 0, hintT: 0, starveT: 0, cutT: 0, primeT: 0, startHeld: 0 };
+const MAG_N = ['OFF', 'R', 'L', 'BOTH'];
+function engColdDark() { Object.assign(ENG, { valve: false, master: false, mix: 0, carb: false, mags: 0, starterVR: false, starter: false, cranking: false, wet: 0, temp: 0, running: false, rpm: 0, fireT: 0, hintT: 0, starveT: 0, cutT: 0 }); }
+function engRunning() { Object.assign(ENG, { valve: true, master: true, mix: 1, carb: false, mags: 3, wet: 0.5, temp: 1, running: true, rpm: 2000 }); }   // tests / airborne spawns
+const engNeed = () => 2.0 - 1.5 * ENG.temp;            // prime "wetness" needed to fire: cold ~2 strokes, warm ~0.5
+const ENG_FLOOD = 2.5;                                 // this much over the need = flooded
+function engWhyNot() {
+  const E = ENG, need = engNeed();
+  if (!E.valve) return 'FUEL VALVE OFF'; if (fuel <= 0) return 'NO FUEL'; if (E.mix < 0.5) return 'MIXTURE IS CUTOFF';
+  if (E.mags === 0) return 'MAGS OFF'; if (E.wet > need + ENG_FLOOD) return 'FLOODED: THROTTLE FULL + CRANK';
+  if (E.wet < need * 0.85) return E.temp < 0.5 ? 'COLD: PRIME 2-3 STROKES' : 'GIVE IT A PRIME';
+  return 'KEEP CRANKING';
+}
+function engSet(k, v) {   // all switch / knob changes go through here (VR grabs and desktop keys)
+  const E = ENG;
+  if (k === 'valve') { E.valve = v ?? !E.valve; say('FUEL VALVE ' + (E.valve ? 'ON' : 'OFF')); }
+  if (k === 'master') { E.master = v ?? !E.master; say('MASTER ' + (E.master ? 'ON' : 'OFF')); }
+  if (k === 'mix') { E.mix = v ?? (E.mix > 0.5 ? 0 : 1); say('MIXTURE ' + (E.mix > 0.5 ? 'RICH' : 'CUTOFF')); }
+  if (k === 'carb') { E.carb = v ?? !E.carb; say('CARB HEAT ' + (E.carb ? 'HOT' : 'COLD')); }
+  if (k === 'mags') { E.mags = v ?? (E.mags + 1) % 4; say('MAGS ' + MAG_N[E.mags]); }
+  if (k === 'prime') { E.primeT = 0.5; if (E.valve && fuel > 0) { E.wet += 0.9; say('PRIMED' + (E.wet > engNeed() + ENG_FLOOD ? ' - TOO MUCH?' : '')); } else say('PRIMER: NO FUEL (VALVE OFF)'); }
+  sfx('click');
+}
+function updateEngine(dt) {
+  const E = ENG, inPlane = mode === 'plane';
+  const starter = inPlane && !ac.crashed && (E.starterVR || (!renderer.xr.isPresenting && !!keys.Space));
+  if (starter && !E.starter && !E.master) say('STARTER: MASTER IS OFF');
+  E.starter = starter;
+  E.cranking = starter && E.master && !E.running;
+  const feed = E.valve && fuel > 0, carbFuel = feed && E.mix > 0.5, need = engNeed();
+  if (E.running) {
+    E.temp = Math.min(1, E.temp + dt / 150);
+    E.starveT = feed ? 0 : E.starveT + dt;               // the bowl and lines keep it going for a few seconds
+    E.cutT = E.mix > 0.5 ? 0 : E.cutT + dt;
+    const why = !inPlane ? 'SHUT DOWN' : E.mags === 0 ? 'MAGS OFF' : E.cutT > 1.5 ? 'MIXTURE CUTOFF' : E.starveT > (fuel > 0 ? 5 : 1) ? (fuel > 0 ? 'FUEL VALVE OFF' : 'OUT OF FUEL') : '';
+    if (why) { E.running = false; E.wet = 0.3; E.hintT = 0; if (inPlane) say('ENGINE STOPPED: ' + why); }
+  } else {
+    E.temp = Math.max(0, E.temp - dt / 1200); E.starveT = E.cutT = 0;
+    if (E.cranking) {
+      E.wet = Math.max(0, E.wet + ((carbFuel ? 0.4 : 0) - (0.1 + 0.9 * ctl.throttle)) * dt);   // carb feeds while cranking; air through an open throttle dries it out
+      const fires = E.mags > 0 && carbFuel && E.wet <= need + ENG_FLOOD && E.wet >= need * 0.85;
+      E.fireT = fires ? E.fireT + dt * (E.mags === 3 ? 1 : 0.6) : Math.max(0, E.fireT - dt);
+      if (E.fireT > 0.9) { E.running = true; E.fireT = 0; E.hintT = 0; E.rpm = Math.max(E.rpm, 1150); E.wet = need; sfx('catch'); say('ENGINE RUNNING'); }
+      else if ((E.hintT += dt) > 6) { E.hintT = 0; say('NO START: ' + engWhyNot()); }
+    } else { E.fireT = 0; E.hintT = Math.min(E.hintT, 3); E.wet = Math.max(0, E.wet - dt * 0.01); }   // prime slowly evaporates
+  }
+  // display rpm (tach, prop, sound): cranking ~140, catch flare, then the flight model's rpm (carb heat / single mag show a drop)
+  const phys = ac.out.rpm || 0;
+  const target = E.running ? Math.max(0, phys - (E.carb ? 80 : 0) - (E.mags === 3 ? 0 : 60)) : E.cranking ? 140 + 30 * Math.sin(performance.now() / 70) : phys;
+  E.rpm += (target - E.rpm) * Math.min(1, dt / (target < E.rpm ? (E.running ? 0.7 : 0.35) : 0.15));
+  if (E.primeT > 0) E.primeT = Math.max(0, E.primeT - dt);
+}
+engColdDark();
+
+// ---- switch panel under the left half of the instrument panel (box merged into the cockpit; labels + controls here) ----
+const SWP = { x: -0.165, y: -0.20 + CK.y, z: -0.603 + CK.z, w: 0.30, h: 0.12 };   // face of the switch strip
+const SW_DEF = [   // id, x, y (control centre, strip-local): a 4 x 2 grid of 7.5 x 6 cm cells
+  ['master', -0.1125, 0.028], ['mags', -0.0375, 0.026], ['start', 0.0375, 0.028], ['prime', 0.1125, 0.028],
+  ['valve', -0.1125, -0.034], ['mix', -0.0375, -0.032], ['carb', 0.0375, -0.032]];
+{
+  const cv = document.createElement('canvas'); cv.width = 600; cv.height = 240; const x = cv.getContext('2d');
+  x.fillStyle = '#1b1b1b'; x.fillRect(0, 0, 600, 240); x.strokeStyle = '#4a4a4a'; x.lineWidth = 3; x.strokeRect(2, 2, 596, 236);
+  x.beginPath(); x.moveTo(8, 120); x.lineTo(592, 120); x.lineWidth = 1.5; x.stroke();
+  x.textAlign = 'center'; x.textBaseline = 'middle';
+  const T = (t, px, py, sz = 21, c = '#ececec', b = 'bold ') => { x.font = b + sz + 'px sans-serif'; x.fillStyle = c; x.fillText(t, px, py); };
+  const C = id => { const d = SW_DEF.find(e => e[0] === id); return [(d[1] + 0.15) / 0.30 * 600, (0.06 - d[2]) / 0.12 * 240]; };
+  let [px, py] = C('master'); T('MASTER', px, 14); T('ON', px + 27, py - 13, 13, '#bbb'); T('OFF', px + 29, py + 13, 13, '#bbb');
+  [px, py] = C('mags'); T('MAGS', px, 106); for (const [s, a] of [['OFF', 1.05], ['R', 0.35], ['L', -0.35], ['BOTH', -1.05]]) T(s, px - Math.sin(a) * 42, py - Math.cos(a) * 36, 13, '#bbb');
+  [px, py] = C('start'); T('START', px, 14); T('PUSH + HOLD', px, 106, 13, '#bbb');
+  [px, py] = C('prime'); T('PRIMER', px, 14); T('PULL / PUSH', px, 106, 13, '#bbb');
+  [px, py] = C('valve'); T('FUEL', px, 228); T('ON', px + 24, py - 28, 13, '#bbb'); T('OFF', px - 40, py, 13, '#bbb');
+  [px, py] = C('mix'); T('MIXTURE', px, 136); T('IN RICH - OUT CUT', px, 228, 12, '#bbb');
+  [px, py] = C('carb'); T('CARB HEAT', px, 136, 19); T('IN COLD - OUT HOT', px, 228, 12, '#bbb');
+  [px, py] = [525, 180]; T('START:', px, 152, 15, '#d9a43a'); T('SEE CHECKLIST', px, 176, 13, '#d9a43a'); T('CARD  >>', px, 198, 13, '#d9a43a');
+  const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(SWP.w, SWP.h), new THREE.MeshBasicMaterial({ map: t, color: 0xc4c4c4 }));
+  m.position.set(SWP.x, SWP.y, SWP.z + 0.001); plane.add(m);
+}
+const SW = {};   // id -> { mesh, p (body-frame grab point) }
+{
+  const RED = 0xc4271d, BLK = 0x1c1c1c, CHR = 0xcfd2d6, WHT = 0xeeeeee, Rx = Math.PI / 2;
+  const parts = {
+    master: [['b', 0.018, 0.03, 0.012, 0, 0, 0.006, RED], ['b', 0.019, 0.004, 0.0125, 0, 0.01, 0.006, WHT]],
+    mags: [['c', 0.012, 0.012, 10, 0, 0, 0.006, BLK, Rx], ['b', 0.005, 0.022, 0.008, 0, 0.004, 0.014, WHT]],
+    start: [['c', 0.017, 0.006, 10, 0, 0, 0.003, 0x555555, Rx], ['c', 0.011, 0.016, 10, 0, 0, 0.008, RED, Rx]],
+    prime: [['c', 0.004, 0.05, 6, 0, 0, -0.012, CHR, Rx], ['b', 0.03, 0.009, 0.01, 0, 0, 0.014, CHR]],
+    valve: [['c', 0.009, 0.01, 8, 0, 0, 0.005, BLK, Rx], ['b', 0.011, 0.03, 0.01, 0, 0.011, 0.009, RED]],
+    mix: [['c', 0.004, 0.06, 6, 0, 0, -0.016, CHR, Rx], ['c', 0.012, 0.018, 10, 0, 0, 0.012, RED, Rx]],
+    carb: [['c', 0.004, 0.06, 6, 0, 0, -0.016, CHR, Rx], ['c', 0.012, 0.018, 10, 0, 0, 0.012, BLK, Rx]],
+  };
+  for (const [id, lx, ly] of SW_DEF) {
+    const mesh = new THREE.Mesh(mergeGeometries(parts[id].map(partGeo)), ITEM_VM);
+    const p = new THREE.Vector3(SWP.x + lx, SWP.y + ly, SWP.z);
+    mesh.position.copy(p); plane.add(mesh); SW[id] = { mesh, p: p.clone().setZ(SWP.z + 0.015) };
+  }
+}
+function updateSwitches() {
+  const E = ENG, S = SW;
+  S.master.mesh.rotation.x = E.master ? -0.35 : 0.35;
+  S.mags.mesh.rotation.z = [1.05, 0.35, -0.35, -1.05][E.mags];
+  S.start.mesh.position.z = SWP.z - (E.starter ? 0.006 : 0);
+  S.prime.mesh.position.z = SWP.z + 0.04 * Math.sin(Math.PI * (1 - E.primeT / 0.5)) * (E.primeT > 0 ? 1 : 0);
+  S.valve.mesh.rotation.z = E.valve ? 0 : Math.PI / 2;
+  S.mix.mesh.position.z = SWP.z + (E.mix > 0.5 ? 0 : 0.03);
+  S.carb.mesh.position.z = SWP.z + (E.carb ? 0.03 : 0);
+}
+
+// ---- windows: right upper hinges up under the wing (latches), right lower door folds down, left front / rear slide on outer tracks ----
+const WIN = { rup: 0, rlo: 0, lf: 0, lr: 0, tgt: {}, open: 0 };
+const WIN_MAX = { rup: 1.45, rlo: 1.35 };                          // radians (same as the exit animation)
+const LW_TRAVEL = { lf: 0.45, lr: 0.28 };                          // m (front slides aft over the wall, rear slides aft)
+function slidePane(pts, x0, handleZ) {
+  const g = new THREE.Group(), tmp = new THREE.Group(); cubD.add(g);
+  g.add(new THREE.Mesh(sideMap(new THREE.ShapeGeometry(sideShape(pts, -1)), -1, x0 + 0.004), glass));
+  sideSkin(growPoly(pts, 0.010), [growPoly(pts, -0.008)], -1, dark, tmp, x0, 0.009);           // sash
+  box(0.066, 0.014, 0.014, dark, -(x0 - 0.031), 0.47, handleZ, tmp);                          // handle bar through the opening
+  box(0.018, 0.034, 0.03, dark, -0.300, 0.47, handleZ, tmp);                                  // grip
+  mergeInto(tmp, g);
+  const hp = new THREE.Object3D(); hp.position.set(-0.30, 0.47, handleZ); g.add(hp);
+  return { g, hp };
+}
+const LWF = slidePane(W_FRT, 0.369, -0.55), LWR = slidePane(W_RR, 0.3585, 0.53);
+// right side handles (inside): upper window near its lower edge, lower door near its top edge
+const rupH = new THREE.Object3D(); rupH.position.set(-0.03, -0.51, -0.2); win.add(rupH);
+{ const fr = win.children.find(o => o.material === dark); const hb = new THREE.BoxGeometry(0.05, 0.02, 0.07).translate(-0.025, -0.51, -0.2);
+  const a = fr.geometry.index ? fr.geometry.toNonIndexed() : fr.geometry; a.clearGroups(); fr.geometry = mergeGeometries([a, hb.toNonIndexed()]); }
+const rloH = new THREE.Object3D(); rloH.position.set(-0.035, 0.525, -0.2); door.add(rloH);
+box(0.034, 0.025, 0.08, dark, -0.035, 0.525, -0.2, door);
+function winSet(k, v) { WIN[k] = clamp(v, 0, 1); }
+function winToggle(k) { WIN.tgt[k] = WIN[k] > 0.5 ? 0 : 1; sfx('clack');
+  say({ rup: 'RIGHT WINDOW', rlo: 'DOOR (LOWER)', lf: 'LEFT FRONT WINDOW', lr: 'LEFT REAR WINDOW' }[k] + (WIN.tgt[k] ? ' OPEN' : ' CLOSED')); }
+function updateWindows(dt) {
+  for (const k of ['rup', 'rlo', 'lf', 'lr']) if (WIN.tgt[k] !== undefined) { WIN[k] = approach(WIN[k], WIN.tgt[k], 1.2, dt); if (WIN[k] === WIN.tgt[k]) delete WIN.tgt[k]; }
+  doorT = approach(doorT, mode === 'foot' ? 1 : 0, 1.5, dt);
+  door.rotation.z = -WIN_MAX.rlo * Math.max(doorT, WIN.rlo); win.rotation.z = WIN_MAX.rup * Math.max(doorT, WIN.rup);
+  LWF.g.position.z = LW_TRAVEL.lf * WIN.lf; LWR.g.position.z = LW_TRAVEL.lr * WIN.lr;
+  WIN.open = mode === 'plane' ? clamp(0.5 * Math.max(doorT, WIN.rup) + 0.35 * Math.max(doorT, WIN.rlo) + 0.3 * WIN.lf + 0.2 * WIN.lr, 0, 1) : 0;
+}
+
+// ---- checklist card (laminated) in a holder under the right half of the panel ----
+const CARD = { home: new THREE.Vector3(0.22, -0.225 + CK.y, -0.6005 + CK.z), g: null, desk: false };
+{
+  const cv = document.createElement('canvas'); cv.width = 400; cv.height = 512; const x = cv.getContext('2d');
+  x.fillStyle = '#f4f1e6'; x.fillRect(0, 0, 400, 512); x.fillStyle = '#c4271d'; x.fillRect(0, 0, 400, 40);
+  x.fillStyle = '#fff'; x.font = 'bold 24px sans-serif'; x.textAlign = 'center'; x.fillText('PA-18 SUPER CUB CHECKLIST', 200, 28);
+  const L = [['#c4271d', 'ENGINE START'], ['', '1 FUEL VALVE', 'ON'], ['', '2 MASTER', 'ON'], ['', '3 MIXTURE', 'RICH (IN)'], ['', '4 CARB HEAT', 'COLD (IN)'],
+    ['', '5 PRIMER', '2-3 COLD / 0-1 WARM'], ['', '6 THROTTLE', 'CRACKED ~10%'], ['', '7 MAGS', 'BOTH'], ['', '8 STARTER', 'HOLD TILL IT RUNS'], ['', '9 RPM', '~700, OIL PRESS'],
+    ['#666', 'FLOODED? FULL THROTTLE + CRANK, THEN IDLE'], ['#c4271d', 'SHUTDOWN'], ['', '1 THROTTLE', 'IDLE'], ['', '2 MIXTURE', 'CUTOFF (OUT)'],
+    ['', '3 MAGS', 'OFF'], ['', '4 MASTER', 'OFF'], ['', '5 FUEL VALVE', 'OFF'],
+    ['#666', 'KEYS: U FUEL  O MASTER  Y MIXTURE  H CARB'], ['#666', 'P PRIME  I MAGS  SPACE START  1-4 WINDOWS']];
+  let y = 66;
+  for (const [c, a, b] of L) {
+    if (b === undefined) { x.textAlign = 'left'; x.fillStyle = c; x.font = (c === '#666' ? '' : 'bold ') + (c === '#666' ? '15px' : '21px') + ' sans-serif'; x.fillText(a, 16, y); y += c === '#666' ? 22 : 27; continue; }
+    x.fillStyle = '#111'; x.font = 'bold 18px sans-serif'; x.textAlign = 'left'; x.fillText(a, 22, y); x.textAlign = 'right'; x.fillText(b, 384, y);
+    x.strokeStyle = '#bbb'; x.lineWidth = 1; x.setLineDash([2, 4]); x.beginPath(); x.moveTo(30 + x.measureText(a).width * 0 + 140, y - 5); x.lineTo(384 - x.measureText(b).width - 8, y - 5); x.stroke(); x.setLineDash([]);
+    y += 24;
+  }
+  const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+  CARD.mesh = new THREE.Mesh(new THREE.PlaneGeometry(0.125, 0.16), new THREE.MeshBasicMaterial({ map: t, color: 0xdedede }));
+  CARD.mesh.position.copy(CARD.home); plane.add(CARD.mesh);
+}
+const _cq = new THREE.Vector3(), _cr = new THREE.Vector3(), _cm = new THREE.Matrix4(), _cz = new THREE.Vector3(), _cy = new THREE.Vector3();
+function cardHome() { CARD.g = null; CARD.desk = false; plane.add(CARD.mesh); CARD.mesh.position.copy(CARD.home); CARD.mesh.rotation.set(0, 0, 0); CARD.mesh.scale.setScalar(1); }
+function updateCard() {
+  if (CARD.desk && !renderer.xr.isPresenting) { camera.add(CARD.mesh); CARD.mesh.position.set(0, -0.01, -0.3); CARD.mesh.rotation.set(0, 0, 0); CARD.mesh.scale.setScalar(1.25); return; }
+  if (CARD.desk) cardHome();
+  if (!CARD.g) return;
+  const E = eyeWorld(0); _eye.setFromMatrixPosition(E); CARD.g.getWorldPosition(_cq); _cq.y += 0.05;
+  scene.add(CARD.mesh); CARD.mesh.position.copy(_cq); CARD.mesh.scale.setScalar(1.3);
+  _cz.subVectors(_eye, _cq).normalize(); _cr.crossVectors(_up, _cz).normalize(); _cy.crossVectors(_cz, _cr); _cm.makeBasis(_cr, _cy, _cz); CARD.mesh.quaternion.setFromRotationMatrix(_cm);
+}
+
+// ---- VR hand grabs on cockpit controls (they win over the stick / throttle grab while the hand is on them) ----
+const CKH = new Map(), _ch = new THREE.Vector3(), _cw = new THREE.Vector3(), _cd = new THREE.Vector3();
+const CK_R = 0.035, WIN_R = 0.075;
+function ckTargets() {   // [id, worldPos, radius]
+  const out = [];
+  for (const id in SW) out.push([id, plane.localToWorld(_cw.copy(SW[id].p)).clone(), CK_R]);
+  out.push(['ldg', plane.localToWorld(_cw.copy(LDG_SW)).clone(), CK_R]);
+  out.push(['card', CARD.mesh.getWorldPosition(_cw).clone(), 0.07]);
+  out.push(['rup', rupH.getWorldPosition(_cw).clone(), WIN_R], ['rlo', rloH.getWorldPosition(_cw).clone(), WIN_R],
+    ['lf', LWF.hp.getWorldPosition(_cw).clone(), WIN_R], ['lr', LWR.hp.getWorldPosition(_cw).clone(), WIN_R]);
+  return out;
+}
+const hingeAng = (k, v) => k === 'rup' ? Math.atan2(v.x - 0.35, 0.92 - v.y) : Math.atan2(v.x - 0.35, v.y + 0.21);   // drawing frame: angle of the hand about the hinge
+function ckHand(g, squeeze, id) {   // returns true while this hand is busy with a cockpit control
+  const edge = squeeze && !vr.prev[id]; vr.prev[id] = squeeze;
+  let h = CKH.get(g);
+  if (h && !squeeze) {           // release
+    if (h.k === 'start') ENG.starterVR = false;
+    if (h.k === 'card') cardHome();
+    if (h.k === 'rup' && WIN.rup > 0.7) { WIN.tgt.rup = 1; say('WINDOW LATCHED UNDER THE WING'); }
+    if (h.k === 'rlo' && WIN.rlo > 0.5) WIN.tgt.rlo = 1;
+    CKH.delete(g); return false;
+  }
+  if (!h && edge) {
+    g.getWorldPosition(_ch); let best = null, bd = 1e9;
+    for (const [k, p, r] of ckTargets()) { const d = p.distanceTo(_ch); if (d < r && d < bd) { bd = d; best = k; } }
+    if (!best) return false;
+    h = { k: best }; CKH.set(g, h); tick(g); delete WIN.tgt[best];
+    if (best in SW) { if (best === 'start') ENG.starterVR = true; else if (best === 'prime') engSet('prime'); else engSet(best); }
+    if (best === 'ldg') toggleLanding();
+    if (best === 'card') { CARD.g = g; sfx('pick'); say('CHECKLIST'); }
+    if (best === 'rup' || best === 'rlo') { cubD.worldToLocal(_ch); h.a0 = hingeAng(best, _ch); h.v0 = WIN[best]; }
+    if (best === 'lf' || best === 'lr') { cubD.worldToLocal(_ch); h.z0 = _ch.z; h.v0 = WIN[best]; }
+    return true;
+  }
+  if (!h) return false;
+  if (h.k === 'start' && !ENG.starter) ENG.starterVR = true;
+  if (h.k === 'rup' || h.k === 'rlo' || h.k === 'lf' || h.k === 'lr') {
+    cubD.worldToLocal(g.getWorldPosition(_ch));
+    if (h.k === 'rup') winSet('rup', h.v0 + (hingeAng('rup', _ch) - h.a0) / WIN_MAX.rup);
+    else if (h.k === 'rlo') winSet('rlo', h.v0 + (hingeAng('rlo', _ch) - h.a0) / WIN_MAX.rlo);
+    else winSet(h.k, h.v0 + (_ch.z - h.z0) / LW_TRAVEL[h.k]);
+  }
+  return true;
+}
+function engKey(e) {   // desktop keys in the plane
+  if (mode !== 'plane') return false;
+  const m = { KeyU: 'valve', KeyO: 'master', KeyY: 'mix', KeyH: 'carb', KeyI: 'mags', KeyP: 'prime' }[e.code];
+  if (m) { engSet(m); return true; }
+  if (e.code === 'KeyJ') { if (CARD.desk) cardHome(); else { CARD.desk = true; say('CHECKLIST (J to put away)'); } return true; }
+  if (/^Digit[1-4]$/.test(e.code)) { winToggle(['rup', 'rlo', 'lf', 'lr'][+e.code[5] - 1]); return true; }
+  return false;
+}
+function updateCockpitV19() { updateSwitches(); updateCard(); }
+
+// ---- map holder: board + pocket lip behind the existing wall clip; the one shared map rides here while you fly ----
+{ const leather = mat(0x4a3322), tmp = new THREE.Group(); box(0.27, 0.205, 0.004, leather, 0, 0, -0.006, tmp); box(0.27, 0.06, 0.012, leather, 0, -0.075, 0.008, tmp); mergeInto(tmp, MAP.clip); }   // one draw call
+mapStow('clip');
+
 // ======================= LOOP =======================
 const clock = new THREE.Clock();
 let fpsFrames = 0, fpsT = 0, instT = 0;
@@ -3678,7 +3926,7 @@ renderer.setAnimationLoop(() => {
     camera.rotation.set(lookPitch, lookYaw, 0, 'YXZ');
   }
   if (mode === 'foot') updateFoot(dt);
-  updateGear(dt);
+  updateGear(dt); updateEngine(dt);
   cross.style.display = !xr && mode === 'foot' ? 'block' : 'none';
   if (!ac.crashed) {
     const n = Math.max(1, Math.ceil(dt / C.MAX_DT - 1e-6));
@@ -3687,15 +3935,15 @@ renderer.setAnimationLoop(() => {
   planeObstacles(dt);
 
   plane.position.fromArray(ac.pos); plane.quaternion.fromArray(ac.q);
-  updateMap();
-  prop.rotation.z += (ac.out.rpm || 0) / 60 * 2 * Math.PI * dt * 0.13;   // aliased-looking slow spin
+  updateMap(); updateCockpitV19();
+  prop.rotation.z += ENG.rpm / 60 * 2 * Math.PI * dt * (ENG.rpm < 400 ? 1 : 0.13);   // aliased-looking slow spin (real speed while cranking)
   stick.rotation.set(ctl.elev * 0.3, 0, -ctl.ail * 0.3);
   throttleKnob.position.z = 0.06 + CK.z - ctl.throttle * 0.2;
   flapLever.rotation.x = vr.flap ? vr.flapAng : flapNotch * FLAP_STEP;
   flapGrp.rotation.x = ac.flap * Math.PI / 180;
   ails[0].rotation.x = ctl.ail * 0.35; ails[1].rotation.x = -ctl.ail * 0.35;
   elevGrp.rotation.x = -ctl.elev * 0.4; rudGrp.rotation.y = ctl.rud * 0.45;
-  doorT = approach(doorT, mode === 'foot' ? 1 : 0, 1.5, dt); door.rotation.z = -1.35 * doorT; win.rotation.z = 1.45 * doorT;
+  updateWindows(dt);
 
   fpsFrames++; fpsT += dt; instT += dt;
   if (fpsT >= 1) { fps = Math.round(fpsFrames / fpsT); fpsFrames = 0; fpsT = 0; }
