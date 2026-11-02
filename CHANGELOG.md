@@ -2,6 +2,27 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.33 – Find the family
+- **A story to follow.** Sarah Webb and her kids Tom and Lily are out there somewhere. You find them through five clues:
+  1. **The cabin radio** (it needs the generator running) plays broken calls through static. Hearing one puts a red ring on your paper map: first, the **lodge**.
+  2. **A note at the lodge** sends you to the **fire lookout**.
+  3. **A photo at the lookout** names **Jim Hale** at the **ranch**.
+  4. **Jim Hale**, a survivor standing at the ranch, turns to face you and talks when you walk up to him. He sends you to the **Cutler radio tower**.
+  5. **A note at the Cutler tower** says there's a **safe zone past the east pass**.
+  6. **The crossing:** fly within about 450 m of the east pass saddle with **at least 150 L aboard**. The stock tanks hold 136 L, so you need the **long-range tank** from v0.32 and both tanks full. With too little fuel you get a warning instead.
+- The ending is a card in front of you ("SAFE ZONE – you found Sarah, Tom and Lily"). After that the radio thanks you, and you can keep flying.
+- **The radio:** it alternates story fragments with the usual chatter. About a fifth of the words are lost to `...KSSH...` static, but never the place name. The COM radio (v0.32) in the Cub picks up the same calls in the air.
+- **The map:** each clue you've heard gets a red ellipse and a label on the paper map. A list in the corner ticks clues off as you find them.
+- **Notes and the photo** are real items with handwriting on them. Pick them up (grip, or `G`/pack) to read them.
+- **Saving:** story progress, fitted parts and found parts save in this browser (localStorage key `bushpilot-vr-save`) on every clue and every bolted-on part, and load on start. Add `?nosave` to the URL to play without saving.
+- The story textures upload at load, so nothing hitches when you first see a note.
+- Physics regression md5 and W&B tests are unchanged.
+- **Rendering** (standard views): on foot 98 / 271,386, town 80 / 244,824 (+3 calls, +162 tris: the note and Jim near Cutler), cockpit 132 / 272,086, 600 m up 163 / 279,672.
+- **Known limits:**
+  - The ending is a card, not a flown leg, and no fuel is taken for the crossing.
+  - Jim is a simple standing figure with no animation; his lines are text.
+  - Loose items (other than parts and story clues) and the fort aren't saved.
+
 ## v0.32 – Cub upgrades from found parts
 - **Five parts to find** (one of each in the world, they never respawn):
   - In the **Dry Fork hangar**: a **cargo pod**, **bigger tundra tyres** and an **LED landing light**, plus a **wrench** on the bench.
@@ -29,7 +50,7 @@ Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `no
 - **Known limits:**
   - Parts are simple shapes.
   - You can't remove a part.
-  - Upgrades aren't saved between sessions yet (that comes with the story save in v0.33).
+  - Upgrades weren't saved between sessions in this build (v0.33 adds saving).
 
 ## v0.31 – Fuel economy
 - **Avgas is scarce now.** Loot cans are part-full (6–24 L) or empty, and a looted can only comes back 30% of the time. A reset (R / crash) no longer fills the tanks: you keep what you had, topped up to a quarter if nearly dry; the same after dying.

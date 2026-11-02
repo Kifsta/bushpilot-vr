@@ -97,6 +97,15 @@ Nothing to learn: the knife, hatchet, fuel can, medkit, bandages, water jug, tor
 - Aim small: a head or heart/lung (behind the front leg) hit kills outright; a body hit only wounds (deer 2, stag 3, wolf 2, fox 1, cattle 4–5 body hits).
 - Dress a carcass as before (hold grip on it with the knife in the other hand, or slice it). Meat: deer 3, stag 4, fox 1, cow/bull 6, horse 5, donkey 4. Wolves give a **WOLF PELT** (3 lb) instead of meat.
 
+## Story (v0.33)
+| | VR | Desktop |
+|---|---|---|
+| Hear a clue | Stand near the cabin radio with the generator running (or fly with the COM radio fitted) | Same |
+| Read a note / photo | Grip it | G to pick it up |
+| Talk to a survivor | Walk up to him on foot | Walk up to him |
+| Finish | Fly over the east pass with 150 L aboard (needs the long-range tank) | Same |
+- Clues you've heard get a red ring on the paper map. Progress and fitted parts save in this browser; add `?nosave` to the URL to play without saving.
+
 ## Upgrades (v0.32)
 | | VR | Desktop |
 |---|---|---|
