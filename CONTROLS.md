@@ -97,6 +97,14 @@ Nothing to learn: the knife, hatchet, fuel can, medkit, bandages, water jug, tor
 - Aim small: a head or heart/lung (behind the front leg) hit kills outright; a body hit only wounds (deer 2, stag 3, wolf 2, fox 1, cattle 4–5 body hits).
 - Dress a carcass as before (hold grip on it with the knife in the other hand, or slice it). Meat: deer 3, stag 4, fox 1, cow/bull 6, horse 5, donkey 4. Wolves give a **WOLF PELT** (3 lb) instead of meat.
 
+## Upgrades (v0.32)
+| | VR | Desktop |
+|---|---|---|
+| Put a part on its spot (Cub stopped, you on foot) | Carry it to the green outline; it clicks on loose | E by the Cub with the part in the pack or lying by the plane |
+| Bolt it on | Wrench socket on a yellow bolt head and turn your wrist (270° a bolt), or hammer the heads in | V with a wrench (1 bolt) or hammer (2 hits a bolt) |
+| Cargo pod | Let go of an item at the pod door to stow it; grip at the door to take the last one out | E at the pod door: load (not tools) / unload into the pack |
+- Parts: long-range tank (+60 L), tundra tyres (rough ground), cargo pod (100 lb), LED landing light, COM radio. They are found in the Dry Fork hangar and at the plane wreck. Wrenches are in the hangar and the truck.
+
 ## Fuel (v0.31)
 | | VR | Desktop |
 |---|---|---|

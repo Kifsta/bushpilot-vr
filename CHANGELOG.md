@@ -2,6 +2,35 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.32 – Cub upgrades from found parts
+- **Five parts to find** (one of each in the world, they never respawn):
+  - In the **Dry Fork hangar**: a **cargo pod**, **bigger tundra tyres** and an **LED landing light**, plus a **wrench** on the bench.
+  - At the **plane wreck**: its **COM radio** and a **long-range tank**.
+  - Another wrench rides in the old truck.
+- **Fitting is hands-on.** Carry the part to the Cub while it's stopped and you're on foot. A green outline shows where it goes; bring the part there and it clicks on loose. Then bolt it on:
+  - **Wrench:** put the socket on a yellow bolt head and turn your wrist. About 270° drives one bolt home, with ratchet clicks.
+  - **Hammer:** drive the bolt heads in, 2–3 solid blows each.
+  - **Desktop:** `E` by the Cub fits a part from your pack (or one lying by the plane). `V` with a wrench drives one bolt; with a hammer it takes two hits.
+  - One part at a time. Parts can't be taken off yet.
+- **What each part does** (every part goes through the weight-and-balance model):
+  - **Long-range tank** (under the right wing, 22 lb): +60 L, so 196 L in total. Fill it at the wing caps as usual. The HUD shows `+AUX n L`. Drag +0.001.
+  - **Big tundra tyres** (12 lb more): 6 cm more tyre on the same axle. They roll more easily and take less than half the bumps on rough ground, paddocks and meadows. Drag +0.002.
+  - **Cargo pod** (under the belly, 30 lb): holds up to 100 lb at +30 in, outside the cabin.
+    - VR: let go of an item at the pod door to stow it; grip there to take back the last one.
+    - Desktop: `E` at the door loads everything except tools; with nothing to load, `E` unloads into the pack.
+    - Drag +0.003.
+  - **LED landing light** (left wing leading edge, 3 lb): the `L` beam is brighter, wider and reaches further (520 vs 220 intensity, 450 m vs 260 m).
+  - **COM radio** (under the panel, 4 lb): in the air with the master on you hear static and the broken broadcasts through your headset.
+- The W&B card gains a **FITTED PARTS** row and a **CARGO POD** row. Fitted parts are one merged mesh on the Cub (+1 draw call, ~750 triangles with all five, nothing when stock).
+- The stock Cub (nothing fitted) is unchanged: same drag, gear, surfaces and fuel. The physics regression md5 and the W&B tests are the same.
+- Note: the stock Cub already had 35" tundra tyres (v0.20) and a landing light, so these parts improve on them rather than adding them.
+- **Rendering** (standard views, stock): on foot 98 / 271,386, town 77 / 244,662, cockpit 132 / 272,086, 600 m up 163 / 279,672. These are the same as v0.31.
+- **Future work:** floats and skis. They need water and snow contact in the physics, so they aren't in this build.
+- **Known limits:**
+  - Parts are simple shapes.
+  - You can't remove a part.
+  - Upgrades aren't saved between sessions yet (that comes with the story save in v0.33).
+
 ## v0.31 – Fuel economy
 - **Avgas is scarce now.** Loot cans are part-full (6–24 L) or empty, and a looted can only comes back 30% of the time. A reset (R / crash) no longer fills the tanks: you keep what you had, topped up to a quarter if nearly dry; the same after dying.
 - **Where fuel comes from**:
