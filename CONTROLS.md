@@ -97,6 +97,15 @@ Nothing to learn: the knife, hatchet, fuel can, medkit, bandages, water jug, tor
 - Aim small: a head or heart/lung (behind the front leg) hit kills outright; a body hit only wounds (deer 2, stag 3, wolf 2, fox 1, cattle 4–5 body hits).
 - Dress a carcass as before (hold grip on it with the knife in the other hand, or slice it). Meat: deer 3, stag 4, fox 1, cow/bull 6, horse 5, donkey 4. Wolves give a **WOLF PELT** (3 lb) instead of meat.
 
+## Saving (v0.34)
+| | VR | Desktop |
+|---|---|---|
+| Open the save page | Field guide: poke "SAVE / NEW GAME" on the cover (or turn to the last page) | B / K opens the guide, ← from the cover (or the last page) |
+| Save now | Poke SAVE NOW (or pull the trigger of the book hand) | Enter on the save page |
+| New game | Poke NEW GAME, then poke it again within 5 s | Delete (or Backspace) twice on the save page |
+- Autosaves every minute and after you sleep, land and stop, nail a board or find a clue. Add `?nosave` to the URL to play without saving.
+- Built fence panels, the shut gate, door boards, smokehouse / shed walls and the depot fence are solid on foot. Open the gate to pass (E near it / the latch in VR).
+
 ## Story (v0.33)
 | | VR | Desktop |
 |---|---|---|
@@ -104,7 +113,7 @@ Nothing to learn: the knife, hatchet, fuel can, medkit, bandages, water jug, tor
 | Read a note / photo | Grip it | G to pick it up |
 | Talk to a survivor | Walk up to him on foot | Walk up to him |
 | Finish | Fly over the east pass with 150 L aboard (needs the long-range tank) | Same |
-- Clues you've heard get a red ring on the paper map. Progress and fitted parts save in this browser; add `?nosave` to the URL to play without saving.
+- Clues you've heard get a red ring on the paper map. Progress saves with the rest of the world (see Saving); add `?nosave` to the URL to play without saving.
 
 ## Upgrades (v0.32)
 | | VR | Desktop |

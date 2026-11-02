@@ -2,6 +2,25 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.34 – Solid fences and a full world save
+- **Built fort pieces are solid on foot.** You can't walk through nailed fence panels, door boards, the smokehouse or generator-shed walls, or the gate when it's shut. Open the gate (E nearby, or the latch in VR) to go through. Ghost (unbuilt) pieces and the open gate stay passable. The **fuel depot's chain-link fence** is solid too; go in through the gap on its west side.
+- **You never get trapped.** If you nail up a panel while standing in it, you get pushed out to whichever side you're nearer. Cabin walls stay passable, as before. Boarding the door from outside just keeps you outside. Zombie movement is unchanged. The check is a cheap circle-vs-board test that only runs near the fort and the depot.
+- **The whole world saves** in this browser (localStorage). This replaces the v0.33 story-only save. Saved:
+  - Pack, belt, pouch, quiver and rifle ammo (tube, spare, chambered, fouling)
+  - Health, food, water, stamina, the day and the time
+  - Where you stand (or that you're in the cockpit)
+  - Where the Cub is parked and its fuel, including the aux tank and the mogas share
+  - Every item: taken, dropped (with its position), on the bench, in the Cub's cargo zones or the pod. Fuel cans, canteens, food spoilage and smoke clocks are kept.
+  - What's left in every drum, depot tank, car, truck and the wreck
+  - Fort boards and their damage, the gate, the generator (fuel, on/off), the tarp, the rain barrel, the smoking rack
+  - Story and upgrades
+- **Looted spots stay looted.** Each item remembers which spot it came from, so the existing respawn rule (everything taken and you more than 500 m away for 4 minutes) works exactly as before across a reload.
+- **When it saves:** every 60 s, and shortly after you sleep, land and stop, nail a board, or find a clue. It also saves when the tab or headset browser goes to the background. A save of about 300 items is about 25 KB.
+- **Field guide, last page, "SAVED GAME":** shows the last save time and day, a **SAVE NOW** button, and a **NEW GAME** button. NEW GAME asks you to poke it a second time within 5 s, then wipes the save and restarts. The cover page has a "SAVE / NEW GAME" link to it. `?nosave` still plays without reading or writing a save.
+- **Old saves:** a v0.33 save (story and upgrades) loads as before. Everything else starts fresh, and it saves in the new format (v34) from then on.
+- **Not saved:** zombies and animals (they respawn as usual), carcasses, campfires, arrows stuck in things, a nail half-driven or a board in your hand, and a flight in progress. If you save mid-air, you load in the cockpit where the Cub was last parked, with the fuel you had.
+- Perf unchanged (four views identical). Physics regression md5 and W&B tests unchanged.
+
 ## v0.33.1 – Hotfix: loading arrows in VR
 - **Grabbing the bow string now nocks an arrow.** With the bow in one hand and arrows in the quiver, grab the string near the nock point with the other hand: one arrow comes out of the quiver onto the string (nock click + haptic, "ARROW NOCKED (n IN THE QUIVER)"). Keep holding and pull back to draw. Before this it only said "NO ARROW", although the controls promised it.
 - **Arrow bundles go into the quiver in VR.** Gripping a bundle (by hand or force grab) puts its 6 arrows straight into the quiver with a message. Before, only the desktop pick-up did this. A bundle gripped in VR could end up in the pack and never become usable arrows. Bundles dropped into the pack go to the quiver too, and any old bundles already in the pack move over when you pick up the bow. If the quiver is full (24), you just hold the bundle.
