@@ -20,7 +20,7 @@
 </script>
 </head>
 <body>
-<div id="info">BUSH PILOT VR v0.20 - PA-18 Super Cub prototype (v0.20: gear + tyre physics, bungee legs, soft tundras, steerable tail wheel, brakes, surface grip and bumps; v0.19: engine start/shutdown, opening windows, checklist, map holder; v0.18.2: map clip on the cockpit wall; v0.18.1: side windows open from inside, sill z-fighting fixed; v0.18: Cub rebuilt to real PA-18 dimensions; v0.17.1: cabin windows reshaped; v0.17: low-poly item models; v0.16: crafting, campfires, traps, spoilage, stamina; v0.15: 7 new places + lodge strip, forests; v0.14: rivers, lakes, thirst + canteen; v0.13: day / night, dusk deadline, lights, sleep; v0.12: natural gunshot, ambient sound, clouds; v0.11: Cub + rifle proportions from reference; v0.10.1: smoother stock; v0.10: performance pass, crouch / jump, more zombies, force grab)
+<div id="info">BUSH PILOT VR v0.21 - PA-18 Super Cub prototype (v0.21: crafting through a physical field guide - chest pocket / bench, press B or K on foot; v0.20: gear + tyre physics, bungee legs, soft tundras, steerable tail wheel, brakes, surface grip and bumps; v0.19: engine start/shutdown, opening windows, checklist, map holder; v0.18.2: map clip on the cockpit wall; v0.18.1: side windows open from inside, sill z-fighting fixed; v0.18: Cub rebuilt to real PA-18 dimensions; v0.17.1: cabin windows reshaped; v0.17: low-poly item models; v0.16: crafting, campfires, traps, spoilage, stamina; v0.15: 7 new places + lodge strip, forests; v0.14: rivers, lakes, thirst + canteen; v0.13: day / night, dusk deadline, lights, sleep; v0.12: natural gunshot, ambient sound, clouds; v0.11: Cub + rifle proportions from reference; v0.10.1: smoother stock; v0.10: performance pass, crouch / jump, more zombies, force grab)
 RIFLE (VR): A/X on the rifle hand = work the lever (tap = full stroke, hold = keep it open) or flick the rifle down-forward, or grab the lever loop with your other hand and work it yourself;
   lever open = no shot; a short stroke won't feed. Load: tip of a round into the gate (right side) - it snaps in; keep grip held and go back to the pouch for the next one.
   Hold the right stick IN (click) + push it up/down while holding the rifle (right hand) = grip angle. Let go of the wrist with a hand on the forend = it stays in that hand.
@@ -1561,6 +1561,7 @@ function headPose() { const M = eyeWorld(0); _eye.setFromMatrixPosition(M); _hf.
 function handGrab(g) {
   g.getWorldPosition(_a);
   if (held.has(g) || rounds.has(g) || PK.g === g) return;
+  if (mode === 'foot' && bookGrab(g, _a)) return;   // v0.21: page edge of the open field guide / the bench ghost
   if (R.hand !== g && !held.has(g) && mapGrab(g, _a)) return;   // v0.8 map (pocket / ground / clip / other edge)
   if (R.hand && R.hand !== g && leverGrab(g, _a)) return;                                             // v0.9: work the lever by its loop
   if (R.hand && R.hand !== g && R.hand !== 'desk' && R.free && rifle.localToWorld(_b.set(0, 0, 0)).distanceTo(_a) < 0.15) {   // back on the wrist
@@ -1594,7 +1595,7 @@ function handRelease(g) {       // called every frame the grip is up: keep it ch
   if (R.support === g) R.support = null;
   if (R.hand === g) { if (slingNear(g.getWorldPosition(_a))) { slingRifle(); tick(g); } else if (R.support) forendHold(); else dropRifle(); }
   if (PK.g === g) { g.getWorldPosition(_a); headPose(); setPack(PK.front && !behindShoulder(_a, _eye, _hf) ? 'open' : 'worn'); }
-  if (held.size) releaseHeld(g); if (rounds.size) dropRound(g); vr.dress.delete(g); mapRelease(g);
+  bookRelease(g); if (held.size) releaseHeld(g); if (rounds.size) dropRound(g); vr.dress.delete(g); mapRelease(g);
 }
 
 // desktop
@@ -1662,7 +1663,8 @@ function walk(fwd, right, yaw, speed, dt) {
 }
 function footDesktop(dt) {
   const k = c => keys[c] ? 1 : 0;
-  walk((k('KeyW') | k('ArrowUp')) - (k('KeyS') | k('ArrowDown')), (k('KeyD') | k('ArrowRight')) - (k('KeyA') | k('ArrowLeft')),
+  const ar = BK.desk ? 0 : 1;   // v0.21: arrows turn the field guide's pages while it is open
+  walk((k('KeyW') | ar & k('ArrowUp')) - (k('KeyS') | ar & k('ArrowDown')), (k('KeyD') | ar & k('ArrowRight')) - (k('KeyA') | ar & k('ArrowLeft')),
        footRig.rotation.y + lookYaw, WALK * (k('ShiftLeft') && sprintOK() ? 2 : 1) * crouchWalk(), dt);
   P.crouchIn = !!keys.KeyC;
   if (deskDress) { if (!keys[deskDress.key || 'KeyG']) deskDress = null; else if ((deskDress.t += dt) >= 2) { dressAnimal(deskDress.c, true); deskDress = null; } }
@@ -1742,6 +1744,7 @@ function footXR(dt) {
     const gp = src.gamepad, h = src.handedness, sq = !!gp.buttons[1]?.pressed;
     if (h === 'left') { lx = gp.axes[2] || 0; ly = gp.axes[3] || 0; if (pressedEdge(gp, 5, 'Y')) board(); pressedEdge(gp, 4, 'X'); if (pressedEdge(gp, 3, 'LS')) vr.sprint = true; }
     else { rx = gp.axes[2] || 0; ry = gp.axes[3] || 0; rClick = !!gp.buttons[3]?.pressed; if (pressedEdge(gp, 5, 'B')) resetFlight(); pressedEdge(gp, 4, 'A'); }
+    if (bkHolding(g)) { bookStick(g, gp.axes[2] || 0); if (h === 'left') lx = 0; else rx = 0; }   // v0.21: the book hand's stick turns pages
     if (pressedEdge(gp, 1, h + 'sq')) { if (!doorGrab(g) && !(mode === 'plane' && ldgSwitchTouch(g))) handGrab(g); }
     if (!sq) handRelease(g);
     const trig = pressedEdge(gp, 0, h + 'trig'), btn = !!gp.buttons[4]?.pressed && !vr.prev[h + 'btn']; vr.prev[h + 'btn'] = !!gp.buttons[4]?.pressed;
@@ -2050,10 +2053,10 @@ function hurt(n) {
   P.hurtT = 0.35;
 }
 function die() {
-  const keep = it => it === knife || it === TORCH_IT || it === CANTEEN_IT;   // v0.14: belt kit (knife, torch, canteen) stays with you
+  const keep = it => it === knife || it === TORCH_IT || it === CANTEEN_IT || it === GUIDE_IT;   // v0.14: belt kit (knife, torch, canteen) stays with you
   for (const it of [...inv]) if (!keep(it)) removeItem(it); for (const [, it] of held) if (!keep(it)) removeItem(it);
   for (const [g, it] of held) if (keep(it)) held.delete(g);
-  for (const [it, si] of [[TORCH_IT, 4], [CANTEEN_IT, 5]]) if (it && ['world', 'held', 'inv'].includes(it.state)) { const ii = inv.indexOf(it); if (ii >= 0) inv.splice(ii, 1); scene.add(it.mesh); toSlot(SLOTS[si], it, true); }
+  for (const [it, si] of [[TORCH_IT, 4], [CANTEEN_IT, 5], [GUIDE_IT, SLOTS.indexOf(GUIDE_SLOT)]]) if (it && ['world', 'held', 'inv'].includes(it.state)) { const ii = inv.indexOf(it); if (ii >= 0) inv.splice(ii, 1); scene.add(it.mesh); toSlot(SLOTS[si], it, true); }
   if (knife && ['world', 'held', 'inv'].includes(knife.state)) { const ii = inv.indexOf(knife); if (ii >= 0) inv.splice(ii, 1); layoutPack(); toSlot(SLOTS[0], knife, true); }
   for (const g of grips) dropRound(g);
   P.hp = 70; P.food = 60; P.thirst = 70; resetFlight(); fuel = FUEL_MAX;
@@ -3094,6 +3097,7 @@ function toSlot(s, it, quiet) {
   if (it.name === 'TORCH') { it.mesh.scale.setScalar(1); it.mesh.position.set(0, -0.06, 0); it.mesh.rotation.set(-Math.PI / 2, 0, 0); }
   else if (it.name === 'CANTEEN') { it.mesh.scale.setScalar(1); it.mesh.position.set(0, -0.07, 0); it.mesh.rotation.set(0, Math.PI / 2, 0); }
   else if (it.name === 'KNIFE') { it.mesh.scale.setScalar(1); it.mesh.position.set(0, 0.02, 0); it.mesh.rotation.set(-Math.PI / 2, 0, 0); }
+  else if (it.name === 'FIELD GUIDE') { it.mesh.scale.setScalar(1); it.mesh.position.set(0, 0.0, 0); it.mesh.rotation.set(-Math.PI / 2, 0, 0); }   // v0.21: upright in the chest pocket, top sticking out
   else { const sz = ITEM[it.name].sz, k = 0.085 / Math.max(...sz); it.mesh.scale.setScalar(k); it.mesh.position.set(0, 0.03, 0); it.mesh.rotation.set(0, 0, 0); }
   if (!quiet) { say((it.name === 'KNIFE' ? 'SHEATHED ' : it.name === 'TORCH' || it.name === 'CANTEEN' ? 'CLIPPED ' : 'POUCHED ') + it.name); sfx('click'); }
 }
@@ -3704,7 +3708,8 @@ const RECIPES = [
   { n: 'LAMP OIL (1 L FUEL)', item: ['FUEL CAN'], oil: 1 },
   { n: 'CLEANING KIT', need: { CLOTH: 1, STICKS: 1 }, field: 1, out: 'CLEANING KIT' },
 ];
-const atBench = p => Math.hypot(p.x - WB.x, p.z - WB.z) < 2.6;
+const benchDist = p => Math.hypot(Math.max(0, Math.abs(p.x - WB.x) - 0.85), Math.max(0, Math.abs(p.z - WB.z) - 0.4));   // v0.21: metres from the bench's edge
+const atBench = p => benchDist(p) < 2.0;
 const findIng = (names, bench) => { for (const n of names) { const it = inv.find(i => i.name === n && !i.spoiled) || [...held.values()].find(i => i.name === n && !i.spoiled) || (bench && stash.find(i => i.name === n && !i.spoiled)); if (it) return it; } return null; };
 function canCraft(r, bench) {
   if (!r.field && !bench) return 'AT THE BENCH';
@@ -3748,6 +3753,7 @@ function craftRow(g, panel) { if (!panel.visible) return -1; g.localToWorld(_ct.
   if (Math.abs(_cl.z) > 0.07 || Math.abs(_cl.x) > CR_W / 2 || Math.abs(_cl.y) > CR_H / 2) return -1;
   const py = (CR_H / 2 - _cl.y) / CR_H * 320; const i = Math.floor((py - 40) / 28); return i >= 0 && i < RECIPES.length ? i : -1; }
 function craftTrigger(g) {
+  if (bookTrigger(g)) return true;   // v0.21 field guide
   watch.getWorldPosition(_a); g.localToWorld(_ct.set(0, 0, -0.03));
   if (_ct.distanceTo(_a) < 0.09 && mode === 'foot') { openField(!fieldPanel.visible); return true; }
   for (const [p, bench] of [[benchPanel, true], [fieldPanel, false]]) { const i = craftRow(g, p); if (i >= 0) { camera.getWorldPosition(_a); craft(i, bench || atBench(_a)); tick(g); return true; } }
@@ -3761,14 +3767,17 @@ function openField(on) {
 // desktop: K opens the list (bench list at the bench), 1-0 craft that row, K / Esc closes
 function craftKey(e) {
   if (mode !== 'foot') return false;
-  if (e.code === 'KeyK') { CRAFT.desk = !CRAFT.desk; CRAFT.key = ''; if (CRAFT.desk) { camera.getWorldPosition(_a); say((atBench(_a) ? 'WORKBENCH' : 'FIELD CRAFT') + ': PRESS 1-0 TO CRAFT, K TO CLOSE'); } return true; }
-  if (CRAFT.desk && (e.code === 'Escape')) { CRAFT.desk = false; return true; }
+  if (e.code === 'KeyK' || e.code === 'KeyB') { bookDeskToggle(); if (CRAFT.desk) say('FIELD GUIDE: ARROWS TURN, ENTER CRAFTS, B / K CLOSE'); return true; }   // v0.21: B or K = the field guide (B is the brake only in the plane)
+  if (CRAFT.desk && (e.code === 'Escape')) { bookDeskToggle(false); return true; }
+  if (CRAFT.desk && (e.code === 'ArrowRight' || e.code === 'ArrowLeft')) { bkTurn(e.code === 'ArrowRight' ? 1 : -1); return true; }
+  if (CRAFT.desk && (e.code === 'ArrowUp' || e.code === 'ArrowDown')) { const ti = BK_TABS.findIndex(t => t[0] === BK_SP[BK.page].tab), nt = BK_TABS[clamp(ti + (e.code === 'ArrowDown' ? 1 : -1), 0, BK_TABS.length - 1)][0]; bkAct({ tab: nt }); return true; }
+  if (CRAFT.desk && (e.code === 'Enter' || e.code === 'NumpadEnter')) { bkCraft(); return true; }
   if (CRAFT.desk && /^Digit[0-9]$/.test(e.code)) { const i = (+e.code[5] + 9) % 10; CRAFT.deskSel = i; camera.getWorldPosition(_a); craft(i, atBench(_a)); return true; }
   if (e.code === 'KeyP') { placeDesktop(); return true; }
   return false;
 }
-function deskCraftText() { camera.getWorldPosition(_a); const b = atBench(_a);
-  return '\n' + (b ? 'WORKBENCH' : 'FIELD CRAFT') + '  ' + MAT_NAMES.map(n => MAT_ABBR[n] + MATS[n]).join(' ') + '\n' + RECIPES.map((r, i) => { const w = canCraft(r, b); return ((i + 1) % 10) + ' ' + r.n + (w ? '  - ' + w : '  OK'); }).join('\n'); }
+function deskCraftText() { camera.getWorldPosition(_a); const b = atBench(_a);   // v0.21: the book shows the recipes; the HUD keeps a one-line key reminder
+  return '\nFIELD GUIDE (' + (b ? 'AT THE WORKBENCH' : 'FIELD CRAFT') + ')  <- -> turn, Enter craft, 1-0 quick craft, B/K close\n' + MAT_NAMES.map(n => MAT_ABBR[n] + MATS[n]).join(' '); }
 function placeDesktop() {   // P: set down a campfire kit / spike trap / snare from the pack, 1.5 m in front of you
   const it = ['CAMPFIRE KIT', 'SPIKE TRAP', 'SNARE'].map(n => inv.find(i => i.name === n)).find(Boolean); if (!it) { say('NOTHING TO PLACE (CAMPFIRE KIT / SPIKE TRAP / SNARE)'); return; }
   camera.getWorldPosition(_a); _d.set(0, 0, -1).applyQuaternion(camera.getWorldQuaternion(_q)); _d.y = 0; _d.normalize();
@@ -3847,6 +3856,272 @@ function staminaTick(dt) {
     'RANCH': ['BOARDS', 'BOARDS', 'WIRE', 'NAILS'], 'CHURCH': ['CLOTH', 'CLOTH', 'BOARDS', 'NAILS'], 'LODGE': ['BOARDS', 'CLOTH', 'NAILS', 'STONES'] };
   for (const s of SPOTS) for (const [k, n] of (SALV[s.name] || []).entries()) { const a = k * 1.9 + C16_R(), r = 5 + C16_R() * 4; put(n, s.x + Math.cos(a) * r, s.z + Math.sin(a) * r); }
 }
+// ================= v0.21: the FIELD GUIDE - a battered survival book that explains and does all the crafting =================
+// One copy rides in a chest pocket on the pack strap (its own grab spot), one lives on the workbench. Hold it to open it.
+// VR: turn pages by grabbing the outer page edge with the other hand and swiping, or flick the stick of the hand holding it; poke (or point + trigger) CRAFT / tabs.
+//     Trigger on the holding hand = CRAFT (recipe pages) or next page. Desktop: B (on foot) or K = open / close, arrows = turn, Enter = craft, 1-0 still quick-craft.
+// Pages are one 1024x720 canvas texture, redrawn only on a page turn or when a count on the open page changes.
+ITEM['FIELD GUIDE'] = { sz: [0.15, 0.03, 0.21], col: 0x46552f, tool: true };
+MODELS['FIELD GUIDE'] = [['b', 0.15, 0.004, 0.21, 0, 0.013, 0, 0x46552f], ['b', 0.15, 0.004, 0.21, 0, -0.013, 0, 0x3f4c2a], ['b', 0.142, 0.022, 0.202, 0.004, 0, 0, 0xe2d6b6],
+  ['b', 0.008, 0.03, 0.21, -0.074, 0, 0, 0x34401f], ['b', 0.07, 0.002, 0.05, 0.008, 0.0155, -0.045, 0xc9b98a], ['b', 0.05, 0.002, 0.008, 0.008, 0.0158, -0.01, 0x7a3b2e],
+  ['b', 0.024, 0.032, 0.005, 0.045, 0, 0.106, 0x5a3a1e], ['b', 0.03, 0.002, 0.03, -0.05, 0.0155, 0.08, 0x2e3a1c]];   // covers, pages, spine, label, red stripe, strap, scuff
+const BK = { W: 0.15, H: 0.21, page: 0, desk: false, key: '', drawn: -1, turn: null, drag: null, g: null, hinted: false, hintT: 0, chk: 0, poke: new Map(), ghostI: -1, lastCraft: '' };
+const BK_C = document.createElement('canvas'); BK_C.width = 1024; BK_C.height = 720;
+const BX = BK_C.getContext('2d'), BK_T = new THREE.CanvasTexture(BK_C); BK_T.colorSpace = THREE.SRGBColorSpace; BK_T.generateMipmaps = false; BK_T.minFilter = THREE.LinearFilter; BK_T.anisotropy = 4;
+const BK_TABS = [['GUIDE', '#6b5a3a'], ['BASICS', '#8a6a2a'], ['MATERIALS', '#5a4a3a'], ['SURVIVAL', '#8a3b2e'], ['TOOLS', '#3e5a6e'], ['FOOD', '#7a5a22'], ['TRAPS', '#4a5e2c'], ['GUN', '#4a4a4a']];
+const BK_REC = { SURVIVAL: ['BANDAGE', 'MEDKIT (SPLINT)', 'CAMPFIRE KIT'], TOOLS: ['WATER FILTER', 'LAMP OIL (1 L FUEL)'], FOOD: ['SMOKING RACK', 'SMOKED MEAT'], TRAPS: ['SNARE', 'SPIKE TRAP'], GUN: ['CLEANING KIT'] };
+const BK_SP = [{ k: 'intro', tab: 'GUIDE' }, { k: 'basics', tab: 'BASICS' }, { k: 'mats', tab: 'MATERIALS' },
+  ...Object.entries(BK_REC).flatMap(([tab, list]) => list.map(n => ({ k: 'rec', tab, ri: RECIPES.findIndex(r => r.n === n) })))];
+const BK_DESC = {
+  'BANDAGE': 'Stops bleeding. Heals 20. Eat-style use: hold it to your mouth (desktop E) when hurt. Fits a belt pouch.',
+  'MEDKIT (SPLINT)': 'A proper splint and dressing. Heals 50. Bigger, so it needs the workbench.',
+  'CAMPFIRE KIT': 'Put it down on the ground (desktop P) and it lights. Cook meat, boil canteen water, warm up. Burns 15 min and leaves charcoal.',
+  'SNARE': 'Put it on the ground somewhere quiet. In 3-6 minutes it catches a rabbit (raw meat appears next to it).',
+  'SPIKE TRAP': 'Lay it across a path. A zombie that walks over it goes down. Breaks after 3 catches.',
+  'WATER FILTER': 'Carry it and every canteen fill (river, lake) comes out clean. No more boiling.',
+  'SMOKING RACK': 'Built once, beside the cabin fire pit. It lets you smoke meat that keeps for days.',
+  'SMOKED MEAT': 'Raw or cooked meat + 1 charcoal, at the bench once the rack is built. Keeps 10 days instead of 2-3. Food 30.',
+  'LAMP OIL (1 L FUEL)': 'Takes 1 litre from a fuel can and refills the lantern: about one night of light.',
+  'CLEANING KIT': 'The rifle fouls after about 60 shots and starts to misbehave. Hold the kit against the rifle (desktop E). 3 uses.',
+};
+const BK_MATW = { STICKS: 'Under trees by the cabin and in the groves.', STONES: 'Round the cabin and on riverbanks.', CLOTH: 'Farmhouses, the church, lodge, wreck.',
+  WIRE: 'Fences: barn, ranch, truck, wreck, lookout.', NAILS: 'Barns, gas station, farms, church.', BOARDS: 'Barn, ranch, lodge, hunt cabin.', CHARCOAL: 'Cold campfires; the cabin fire pit makes it.' };
+// ---- pencil sketches (canvas paths), so every item has a picture ----
+function bkSketch(x, n, cx, cy, s) {
+  x.save(); x.translate(cx, cy); x.scale(s, s); x.lineWidth = 2.2 / s * Math.max(1, s * 0.9); x.strokeStyle = '#3b2f22'; x.fillStyle = 'rgba(80,60,40,0.18)'; x.lineJoin = x.lineCap = 'round';
+  const P = (pts, fill, close = true) => { x.beginPath(); pts.forEach(([a, b], i) => i ? x.lineTo(a, b) : x.moveTo(a, b)); if (close) x.closePath(); if (fill) { x.fillStyle = fill; x.fill(); } x.stroke(); };
+  const L = (a, b, c, d) => { x.beginPath(); x.moveTo(a, b); x.lineTo(c, d); x.stroke(); };
+  const E = (a, b, rx, ry, fill) => { x.beginPath(); x.ellipse(a, b, rx, ry, 0, 0, 6.283); if (fill) { x.fillStyle = fill; x.fill(); } x.stroke(); };
+  const R = (a, b, w, h, fill) => { x.beginPath(); x.rect(a, b, w, h); if (fill) { x.fillStyle = fill; x.fill(); } x.stroke(); };
+  switch (n) {
+    case 'STICKS': for (const [a, o] of [[-0.5, -8], [-0.35, 4], [-0.6, 14]]) { x.save(); x.translate(0, o); x.rotate(a); L(-36, 0, 36, 0); L(10, 0, 20, -9); x.restore(); } break;
+    case 'STONES': P([[-30, 10], [-24, -8], [-8, -12], [2, 0], [-6, 14]], '#b9b2a2'); P([[4, 12], [8, -2], [24, -6], [32, 8], [22, 16]], '#a8a192'); P([[-6, -10], [0, -22], [14, -20], [16, -8], [4, -6]], '#cfc8b8'); break;
+    case 'CLOTH': P([[-34, -14], [30, -20], [34, 12], [-30, 18]], '#ddd0aa'); L(-20, -15, -16, 16); L(4, -18, 8, 15); break;
+    case 'WIRE': for (const r of [26, 20, 14]) E(0, 0, r, r * 0.55); L(26, 0, 38, -8); break;
+    case 'NAILS': for (const o of [-14, 0, 14]) { L(o - 8, -18, o + 6, 20); L(o - 13, -20, o - 3, -16); } break;
+    case 'BOARDS': x.save(); x.rotate(-0.2); R(-40, -14, 80, 11, '#c8a46e'); R(-36, 2, 76, 11, '#b8945e'); L(-30, -9, 10, -9); L(-20, 7, 20, 7); x.restore(); break;
+    case 'CHARCOAL': P([[-26, 8], [-18, -10], [-2, -6], [0, 10]], '#222'); P([[2, 12], [8, -4], [24, -2], [26, 12]], '#333'); P([[-8, -8], [0, -20], [12, -14], [8, -4]], '#2a2a2a'); break;
+    case 'BANDAGE': E(-8, 0, 18, 18, '#f2eee4'); E(-8, 0, 6, 6); P([[6, 12], [36, 16], [34, 26], [2, 20]], '#efe9dc'); break;
+    case 'MEDKIT': R(-34, -20, 68, 44, '#f4f1ea'); R(-10, -28, 20, 8); P([[-5, -12], [5, -12], [5, -3], [14, -3], [14, 7], [5, 7], [5, 16], [-5, 16], [-5, 7], [-14, 7], [-14, -3], [-5, -3]], '#c83a2a'); break;
+    case 'CAMPFIRE KIT': for (const o of [-12, -4, 4, 12]) L(-36, o, 36, o - 2); R(-26, -16, 8, 30, '#d8c89a'); R(18, -18, 8, 30, '#d8c89a'); break;
+    case 'SNARE': E(-6, 0, 22, 14); L(16, 0, 36, -6); P([[34, -20], [40, -20], [38, 22]], '#8a6a3e'); break;
+    case 'SPIKE TRAP': R(-38, -6, 76, 16, '#b08a58'); for (let i = -30; i <= 30; i += 15) P([[i - 5, -6], [i + 5, -6], [i, -26]], '#ccc'); break;
+    case 'WATER FILTER': R(-14, -26, 28, 52, '#9ab6c4'); L(-14, -6, 14, -6); L(-14, 8, 14, 8); x.fillStyle = '#333'; x.fillRect(-13, 9, 26, 6); R(-16, -30, 32, 6, '#eee'); break;
+    case 'SMOKING RACK': L(-30, 26, -24, -26); L(30, 26, 24, -26); L(-30, -22, 30, -22); for (const o of [-14, 0, 14]) R(o - 4, -20, 8, 22, '#6a3a1e'); break;
+    case 'SMOKED MEAT': for (const o of [-12, 0, 12]) { x.save(); x.translate(0, o); x.rotate(0.08 * o / 12); R(-30, -4, 60, 9, '#6a341a'); x.restore(); } break;
+    case 'LAMP OIL (1 L FUEL)': case 'LANTERN': R(-14, -14, 28, 30, '#f4dc8a'); L(-16, -14, 16, -14); L(-16, 16, 16, 16); x.beginPath(); x.arc(0, -20, 10, Math.PI, 0); x.stroke(); if (n !== 'LANTERN') P([[28, -10], [34, 2], [28, 8], [22, 2]], '#c0281e'); break;
+    case 'CLEANING KIT': R(-30, -6, 50, 16, '#4a5a3a'); L(-36, 18, 36, 14); E(38, 14, 4, 4, '#c8a050'); break;
+    case 'RAW MEAT': case 'COOKED MEAT': P([[-26, 0], [-18, -14], [6, -16], [24, -6], [22, 12], [-4, 16]], n === 'RAW MEAT' ? '#c0404a' : '#7a4424'); E(-6, 0, 5, 4, '#eee'); break;
+    case 'FUEL CAN': R(-18, -22, 36, 46, '#c8302a'); L(-10, -28, 10, -28); L(-18, 0, 18, 0); L(12, -22, 20, -32); break;
+    default: R(-20, -20, 40, 40);
+  }
+  x.restore();
+}
+// ---- page drawing ----
+function bkWrap(x, t, X, Y, w, lh) { const words = t.split(' '); let line = ''; for (const wd of words) { const tt = line ? line + ' ' + wd : wd; if (x.measureText(tt).width > w && line) { x.fillText(line, X, Y); Y += lh; line = wd; } else line = tt; } if (line) { x.fillText(line, X, Y); Y += lh; } return Y; }
+const BK_FONT = s => 'bold ' + s + 'px Georgia, "Times New Roman", serif', BK_TXT = s => s + 'px Georgia, "Times New Roman", serif';
+const bkHere = () => { camera.getWorldPosition(_a); return atBench(_a); };
+const bkBenchDist = () => { camera.getWorldPosition(_a); return benchDist(_a); };
+function bkItemHave(names, bench) { let n = 0; for (const it of [...inv, ...held.values(), ...(bench ? stash : [])]) if (names.includes(it.name) && !it.spoiled) n++; for (const s of SLOTS) if (s.item && names.includes(s.item.name) && !s.item.spoiled) n++; return n; }
+function bkPaper(x) {
+  x.fillStyle = '#e9dcb8'; x.fillRect(0, 0, 1024, 720);
+  const g = x.createLinearGradient(452, 0, 572, 0); g.addColorStop(0, 'rgba(90,70,40,0)'); g.addColorStop(0.5, 'rgba(90,70,40,0.35)'); g.addColorStop(1, 'rgba(90,70,40,0)'); x.fillStyle = g; x.fillRect(452, 0, 120, 720);   // gutter
+  x.fillStyle = 'rgba(120,90,50,0.10)'; for (const [a, b, r] of [[140, 610, 60], [820, 120, 46], [380, 90, 30], [700, 650, 38]]) { x.beginPath(); x.arc(a, b, r, 0, 6.283); x.fill(); }   // stains
+  x.strokeStyle = 'rgba(80,60,40,0.5)'; x.lineWidth = 3; x.strokeRect(6, 6, 1012, 708);
+}
+function bkTabs(x, cur) {   // tabs down the right page edge (the real tabs stick out of the book here too)
+  BK_TABS.forEach(([t, c], i) => { const y = 24 + i * 84, on = t === cur; x.fillStyle = c; x.globalAlpha = on ? 1 : 0.55; x.fillRect(on ? 954 : 966, y, on ? 70 : 58, 76); x.globalAlpha = 1;
+    x.save(); x.translate(on ? 994 : 1000, y + 38); x.rotate(-Math.PI / 2); x.fillStyle = '#f4ead0'; x.font = BK_FONT(t.length > 8 ? 11 : t.length > 6 ? 13 : 16); x.textAlign = 'center'; x.fillText(t, 0, 6); x.restore(); });
+  x.textAlign = 'left';
+}
+function bkBtn(x, X, Y, w, h, label, on, col) { x.fillStyle = on ? (col || '#3f7a2e') : '#9a8f78'; x.fillRect(X, Y, w, h); x.strokeStyle = '#2a2116'; x.lineWidth = 3; x.strokeRect(X, Y, w, h);
+  x.fillStyle = '#f6efd8'; x.font = BK_FONT(30); x.textAlign = 'center'; x.fillText(label, X + w / 2, Y + h / 2 + 11); x.textAlign = 'left'; }
+function bkNav(x, n) { x.font = BK_FONT(20); x.fillStyle = '#5a4a32'; if (BK.page > 0) x.fillText('\u2039 back', 26, 700); if (BK.page < BK_SP.length - 1) x.fillText('next \u203A', 862, 700);
+  x.font = BK_TXT(16); x.fillText((BK.page + 1) + ' / ' + BK_SP.length, 470, 706); }
+function bkDraw() {
+  const x = BX, sp = BK_SP[BK.page]; bkPaper(x); bkTabs(x, sp.tab); x.fillStyle = '#2e2418'; x.textAlign = 'left';
+  if (sp.k === 'intro') {
+    x.font = BK_FONT(34); x.fillText("BUSH PILOT'S", 40, 70); x.fillText('FIELD GUIDE', 40, 110); x.font = BK_TXT(18); x.fillStyle = '#6a5638'; x.fillText('survival & crafting - keep it on you', 40, 138);
+    x.fillStyle = '#2e2418'; x.font = BK_FONT(24); x.fillText('How crafting works', 40, 190); x.font = BK_TXT(20);
+    let y = 222; for (const t of ['1. Pick up sticks, stones, cloth, wire, nails, boards and charcoal. They go straight into your material pouch - no pack space.',
+      '2. Find what you want in this book (tabs on the right). Green numbers = you have enough. Red = you still need some.',
+      '3. Press CRAFT. Small things you can make anywhere. Big things say NEEDS WORKBENCH - the bench is on the cabin\'s south wall.',
+      '4. What you make goes in your pack (at the bench: onto the bench).']) y = bkWrap(x, t, 40, y, 410, 26) + 10;
+    x.font = BK_FONT(24); x.fillText('Using this book', 552, 70); x.font = BK_TXT(19); y = 102;
+    for (const t of ['Turn a page: grab the page edge with your other hand and swipe it over, or flick the thumbstick of the hand holding the book. Poke a tab to jump.',
+      'Craft: poke the CRAFT button, or pull the trigger of the hand holding the book.',
+      'Put it back: let go at the chest pocket. One copy always lives on the workbench.',
+      'Desktop: B or K opens and closes, arrow keys turn pages, Enter crafts (1-0 still quick-craft).']) y = bkWrap(x, t, 552, y, 380, 25) + 10;
+    x.font = BK_FONT(22); x.fillText('Contents', 552, y + 14); x.font = BK_TXT(19); y += 44;
+    for (const [t] of BK_TABS.slice(1)) { const p = BK_SP.findIndex(s => s.tab === t); x.fillText(t.charAt(0) + t.slice(1).toLowerCase() + ' .......... ' + (p + 1), 572, y); y += 25; }
+  } else if (sp.k === 'basics') {
+    const blk = (X, Y, h, lines) => { x.font = BK_FONT(26); x.fillStyle = '#2e2418'; x.fillText(h, X, Y); x.font = BK_TXT(19); let y = Y + 30; for (const t of lines) y = bkWrap(x, t, X, y, 400, 24) + 6; return y + 14; };
+    let y = blk(40, 64, 'Thirst', ['The blue H2O bar empties in about 15 minutes, then you start losing health.', 'Drink from the canteen on your right hip. Fill it at the rain barrel (clean) or a river / lake (boil it on a fire first, or carry a water filter).']);
+    blk(40, y, 'Hunger', ['Food runs down slowly. Eat cooked meat, smoked meat or the food crate. Raw meat can make you sick, and meat spoils: raw ~2 days, cooked ~3, smoked ~10.']);
+    y = blk(552, 64, 'Stamina', ['Sprinting and jumping use it. Run it out and you are winded until it comes back. It refills slower when you are hungry, thirsty or sick.']);
+    blk(552, y, 'Night', ['Day lasts 30 minutes, night 12. The watch on your left wrist turns amber before sunset.', 'At night zombies see further, move faster and come out everywhere. Light the torch (left hip), carry the lantern, or sleep in the cabin after 17:30.']);
+  } else if (sp.k === 'mats') {
+    x.font = BK_FONT(30); x.fillText('Materials', 40, 62); x.font = BK_TXT(18); x.fillStyle = '#6a5638'; x.fillText('Grab one and it goes in your pouch. In pouch now:', 40, 90);
+    MAT_NAMES.forEach((n, i) => { const L = i < 4, X = L ? 40 : 552, Y = 120 + (L ? i : i - 4) * 140;
+      x.strokeStyle = 'rgba(80,60,40,0.3)'; x.lineWidth = 1; x.strokeRect(X, Y, 400, 128); bkSketch(x, n, X + 60, Y + 64, 1.2);
+      x.fillStyle = '#2e2418'; x.font = BK_FONT(24); x.fillText(n.charAt(0) + n.slice(1).toLowerCase(), X + 124, Y + 36);
+      x.font = BK_FONT(34); x.fillStyle = MATS[n] > 0 ? '#2f6a24' : '#8a7a60'; x.fillText('\u00D7' + MATS[n], X + 320, Y + 40);
+      x.font = BK_TXT(17); x.fillStyle = '#4a3c28'; bkWrap(x, BK_MATW[n], X + 124, Y + 70, 266, 22); });
+  } else {
+    const r = RECIPES[sp.ri], bench = bkHere(), why = canCraft(r, bench), name = r.n.replace(' (1 L FUEL)', '').replace(' (SPLINT)', '');
+    x.font = BK_FONT(36); x.fillText(name.charAt(0) + name.slice(1).toLowerCase(), 40, 66); x.font = BK_TXT(16); x.fillStyle = '#6a5638'; x.fillText(sp.tab + '  \u00B7  desktop quick key ' + ((sp.ri + 1) % 10), 40, 92);
+    x.strokeStyle = 'rgba(80,60,40,0.35)'; x.lineWidth = 1; x.strokeRect(40, 110, 410, 300); bkSketch(x, r.out || r.n, 245, 260, 3.4);
+    x.fillStyle = '#2e2418'; x.font = BK_FONT(22); x.fillText('What it does', 40, 452); x.font = BK_TXT(20); bkWrap(x, BK_DESC[r.n] || '', 40, 482, 410, 26);
+    // right page: what you need, where, CRAFT
+    x.font = BK_FONT(26); x.fillStyle = '#2e2418'; x.fillText('You need', 552, 64); let y = 84;
+    const row = (icon, label, have, need) => { bkSketch(x, icon, 592, y + 34, 0.95); x.fillStyle = '#2e2418'; x.font = BK_TXT(22); x.fillText(label, 646, y + 42);
+      x.font = BK_FONT(28); x.fillStyle = have >= need ? '#2f7a2a' : '#a42a1e'; x.textAlign = 'right'; x.fillText(have + ' / ' + need, 940, y + 44); x.textAlign = 'left'; y += 70; };
+    for (const [k, v] of Object.entries(r.need || {})) row(k, k.charAt(0) + k.slice(1).toLowerCase(), MATS[k], v);
+    if (r.item) row(r.item[0], r.item.map(s => s.toLowerCase()).join(' or '), Math.min(bkItemHave(r.item, bench), 9), 1);
+    x.font = BK_TXT(19); x.fillStyle = '#4a3c28';
+    if (r.rack) { x.fillStyle = CRAFT.rack ? '#2f7a2a' : '#a42a1e'; x.fillText(CRAFT.rack ? '\u2713 smoking rack built' : '\u2717 build the smoking rack first', 560, y + 22); y += 34; }
+    if (r.oil) { const ok = LANTERN_IT && LANTERN_IT.state !== 'gone'; x.fillStyle = ok ? '#2f7a2a' : '#a42a1e'; x.fillText(ok ? '\u2713 lantern to fill' : '\u2717 no lantern', 560, y + 22); y += 34; }
+    y = Math.max(y + 16, 380); x.font = BK_FONT(22); x.fillStyle = '#2e2418'; x.fillText('Where', 552, y); x.font = BK_TXT(20);
+    if (r.field) { x.fillStyle = '#2f7a2a'; x.fillText('Anywhere - right here is fine.', 552, y + 30); }
+    else if (bench) { x.fillStyle = '#2f7a2a'; x.fillText('Workbench - you are at it \u2713', 552, y + 30); }
+    else { x.fillStyle = '#a42a1e'; x.fillText('NEEDS WORKBENCH', 552, y + 30); x.fillStyle = '#4a3c28'; x.font = BK_TXT(18); x.fillText('Cabin, south wall - ' + Math.round(bkBenchDist()) + ' m from here', 552, y + 56); }
+    x.font = BK_TXT(19); x.fillStyle = why ? '#a42a1e' : '#2f7a2a';
+    x.fillText(why ? (why === 'AT THE BENCH' ? 'Go to the workbench to make this.' : why === 'BUILT' ? 'Already built.' : 'Not yet: ' + why.toLowerCase() + '.') : 'Ready - press CRAFT.', 552, 572);
+    bkBtn(x, 600, 592, 300, 76, 'CRAFT', !why);
+    if (BK.lastCraft) { x.font = BK_TXT(17); x.fillStyle = '#2f6a24'; x.fillText(BK.lastCraft, 552, 690); }
+  }
+  bkNav(x); BK_T.needsUpdate = true; BK.drawn = BK.page;
+}
+const bkKey = () => { const sp = BK_SP[BK.page]; if (sp.k === 'intro' || sp.k === 'basics') return 's' + BK.page;
+  const b = bkHere(); return BK.page + '|' + MAT_NAMES.map(n => MATS[n]).join() + (sp.k === 'rec' ? '|' + canCraft(RECIPES[sp.ri], b) + b + bkItemHave(RECIPES[sp.ri].item || [], b) + CRAFT.rack + (b ? '' : Math.round(bkBenchDist() / 5)) : '') + BK.lastCraft; };
+// ---- the open book mesh: covers + page blocks + tabs (1 merged mesh), the page spread (1 textured quad), a turning leaf ----
+const BOOK = new THREE.Group(); BOOK.visible = false; scene.add(BOOK);
+{ const W = BK.W, H = BK.H, p = [['b', 2 * W + 0.014, H + 0.012, 0.006, 0, H / 2, -0.016, 0x46552f], ['b', W - 0.004, H - 0.006, 0.012, -W / 2 - 0.001, H / 2, -0.007, 0xd8ccaa],
+    ['b', W - 0.004, H - 0.006, 0.012, W / 2 + 0.001, H / 2, -0.007, 0xd8ccaa], ['c', 0.012, H + 0.012, 6, 0, H / 2, -0.018, 0x34401f]];
+  BK_TABS.forEach(([, c], i) => p.push(['b', 0.014, 0.022, 0.004, W + 0.006, H - (24 + i * 84 + 38) / 720 * H, -0.003, parseInt(c.slice(1), 16)]));
+  BOOK.add(new THREE.Mesh(mergeGeometries(p.map(partGeo)), ITEM_VM));
+  const pg = new THREE.PlaneGeometry(2 * W, H).translate(0, H / 2, 0.0006); BK.pageM = new THREE.MeshBasicMaterial({ map: BK_T }); BOOK.add(new THREE.Mesh(pg, BK.pageM));
+  BK.leaf = new THREE.Group(); BK.leaf.position.z = 0.002; BOOK.add(BK.leaf);
+  BK.leafM = new THREE.MeshBasicMaterial({ color: 0xe2d4b0, side: THREE.DoubleSide }); BK.leaf.add(new THREE.Mesh(new THREE.PlaneGeometry(W - 0.004, H - 0.006).translate(W / 2, H / 2, 0), BK.leafM)); BK.leaf.visible = false; }
+// page-space hit test: a world point -> canvas px on the spread, plus its height off the page (m)
+const _bk = new THREE.Vector3();
+function bkLocal(p) { BOOK.updateWorldMatrix(true, false); BOOK.worldToLocal(_bk.copy(p)); return { u: (_bk.x + BK.W) / (2 * BK.W) * 1024, v: (BK.H - _bk.y) / BK.H * 720, z: _bk.z, x: _bk.x, y: _bk.y }; }
+function bkHit(u, v) {   // what is under this page point
+  if (u < -20 || u > 1060 || v < -20 || v > 740) return null;
+  if (u > 950) { const i = Math.floor((v - 24) / 84); if (i >= 0 && i < BK_TABS.length) return { tab: BK_TABS[i][0] }; }
+  if (BK_SP[BK.page].k === 'rec' && u > 590 && u < 910 && v > 582 && v < 678) return { craft: true };
+  if (v > 668 && u < 160) return { turn: -1 }; if (v > 668 && u > 840 && u < 950) return { turn: 1 };
+  return null;
+}
+function bkAct(h, g) {
+  if (!h) return false;
+  if (h.tab) { const p = BK_SP.findIndex(s => s.tab === h.tab); if (p >= 0 && p !== BK.page) bkTurnTo(p); }
+  else if (h.turn) bkTurn(h.turn);
+  else if (h.craft) bkCraft();
+  if (g) tick(g); return true;
+}
+function bkTurn(d) { const p = clamp(BK.page + d, 0, BK_SP.length - 1); if (p !== BK.page) bkTurnTo(p); }
+function bkTurnTo(p) { const d = Math.sign(p - BK.page); BK.page = p; BK.lastCraft = ''; BK.turn = { d, a: 0 }; sfx('pick'); bkDraw(); BK.key = bkKey(); }
+function bkCraft() {
+  const sp = BK_SP[BK.page]; if (sp.k !== 'rec') { bkTurn(1); return; }
+  const b = bkHere(), r = RECIPES[sp.ri], why = canCraft(r, b);
+  if (why) { say(why === 'AT THE BENCH' ? r.n + ': NEEDS WORKBENCH (CABIN, SOUTH WALL)' : 'CAN\'T CRAFT ' + r.n + ': ' + why); sfx('dry'); return; }
+  const n0 = loot.length; craft(sp.ri, b); BK.lastCraft = 'Made one! ' + (msg || '').toLowerCase(); bkPuff(n0); BK.key = '';
+}
+const BK_PUFF = new THREE.Points(new THREE.BufferGeometry().setAttribute('position', new THREE.BufferAttribute(new Float32Array(30 * 3), 3)), new THREE.PointsMaterial({ color: 0xd8c8a0, size: 0.02 }));
+BK_PUFF.visible = false; BK_PUFF.frustumCulled = false; scene.add(BK_PUFF); let bkPuffT = 0;
+function bkPuff(n0) {   // a little dust puff where the new thing appeared (bench) or at the book
+  const it = loot.length > n0 ? loot[loot.length - 1] : null; const c = it && it.state === 'world' ? it.mesh.getWorldPosition(V3()) : BOOK.visible ? BOOK.localToWorld(new THREE.Vector3(0, BK.H / 2, 0.05)) : null; if (!c) return;
+  const a = BK_PUFF.geometry.attributes.position; BK_PUFF.userData.v = [];
+  for (let i = 0; i < 30; i++) { a.setXYZ(i, c.x, c.y, c.z); BK_PUFF.userData.v.push([(Math.random() - 0.5) * 0.6, Math.random() * 0.7, (Math.random() - 0.5) * 0.6]); }
+  a.needsUpdate = true; BK_PUFF.visible = true; bkPuffT = 0.7;
+}
+// ---- copies: chest pocket on the pack strap (grab spot) + one on the workbench ----
+const GUIDE_SLOT = { name: 'GUIDE', p: [-0.11, 0.26, -0.12], fits: n => n === 'FIELD GUIDE', r: SLOT_R * 1.2 };
+GUIDE_SLOT.o = new THREE.Object3D(); GUIDE_SLOT.o.position.set(...GUIDE_SLOT.p); belt.add(GUIDE_SLOT.o); GUIDE_SLOT.w = V3(); GUIDE_SLOT.item = null;
+box(0.13, 0.13, 0.04, canvasM, 0, -0.035, 0.012, GUIDE_SLOT.o); box(0.02, 0.32, 0.012, leather, 0.02, 0.1, 0.03, GUIDE_SLOT.o);   // pocket + the pack's shoulder strap
+GUIDE_SLOT.hl = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.14, 0.1), hlM); GUIDE_SLOT.hl.visible = false; GUIDE_SLOT.o.add(GUIDE_SLOT.hl); SLOTS.push(GUIDE_SLOT);
+let GUIDE_IT = makeItem('FIELD GUIDE', 0, 0, 0); toSlot(GUIDE_SLOT, GUIDE_IT, true);
+const BENCH_GUIDE = makeItem('FIELD GUIDE', WB.x - 0.45, WB.y + 0.94, WB.z - 0.05); BENCH_GUIDE.mesh.rotation.y = 0.3;
+const BK_LABEL = (() => { const c = document.createElement('canvas'); c.width = 256; c.height = 64; const x = c.getContext('2d');
+  x.fillStyle = 'rgba(30,24,16,0.75)'; x.fillRect(0, 0, 256, 64); x.fillStyle = '#f0e2b8'; x.font = 'bold 26px Georgia, serif'; x.textAlign = 'center'; x.fillText('FIELD GUIDE', 128, 30); x.font = '17px Georgia, serif'; x.fillText('pick me up - every recipe', 128, 54);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; const m = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, depthWrite: false })); m.scale.set(0.36, 0.09, 1); scene.add(m); return m; })();
+// bench "ghost": with the book open on a bench recipe you can make, a see-through copy waits on the bench - grab it to make it (straight into that hand)
+const BK_GHOSTM = new THREE.MeshBasicMaterial({ color: 0x9fe07a, transparent: true, opacity: 0.35, depthWrite: false });
+const BK_GHOST = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 0.1), BK_GHOSTM); BK_GHOST.visible = false; scene.add(BK_GHOST);
+function bkGhost(t) {
+  const sp = BK_SP[BK.page], show = BOOK.visible && sp.k === 'rec' && RECIPES[sp.ri].out && bkHere() && !canCraft(RECIPES[sp.ri], true);
+  if (!show) { BK_GHOST.visible = false; BK.ghostI = -1; return; }
+  const r = RECIPES[sp.ri]; if (BK.ghostI !== sp.ri) { BK.ghostI = sp.ri; BK_GHOST.geometry = res(r.out).g; }
+  BK_GHOST.visible = true; BK_GHOST.position.set(WB.x + 0.3, WB.y + 0.97 + ITEM[r.out].sz[1] / 2 + Math.sin(t * 3) * 0.01, WB.z - 0.1); BK_GHOST.rotation.y = t * 0.8;
+}
+function bkGhostGrab(g, p) {
+  if (!BK_GHOST.visible || BK_GHOST.position.distanceTo(p) > 0.2) return false;
+  const sp = BK_SP[BK.page], n0 = loot.length; craft(sp.ri, true); bkPuff(n0);
+  if (loot.length > n0) { const it = loot[loot.length - 1]; if (it.state === 'world') holdItem(g, it); }
+  BK.lastCraft = 'Made one at the bench!'; BK.key = ''; tick(g); return true;
+}
+// ---- VR: drag a page by its edge with the free hand ----
+function bookGrab(g, p) {
+  if (bkGhostGrab(g, p)) return true;
+  if (!BOOK.visible || BK.g === g || !BK.g) return false;
+  const L = bkLocal(p); if (Math.abs(L.z) > 0.06 || L.y < -0.03 || L.y > BK.H + 0.03) return false;
+  if (L.x > BK.W * 0.6 && L.x < BK.W + 0.04 && BK.page < BK_SP.length - 1) { BK.drag = { g, d: 1, x0: L.x, prog: 0, flipped: false }; tick(g); return true; }
+  if (L.x < -BK.W * 0.6 && L.x > -BK.W - 0.04 && BK.page > 0) { BK.drag = { g, d: -1, x0: L.x, prog: 0, flipped: false }; tick(g); return true; }
+  return false;
+}
+function bookRelease(g) {
+  const D = BK.drag; if (!D || D.g !== g) return; BK.drag = null;
+  if (D.prog > 0.35) { if (!D.flipped) { BK.page += D.d; BK.lastCraft = ''; bkDraw(); BK.key = bkKey(); } BK.turn = { d: D.d, a: D.prog }; sfx('pick'); }
+  else { if (D.flipped) { BK.page -= D.d; bkDraw(); BK.key = bkKey(); } BK.turn = { d: D.d, a: 1 - D.prog, back: true }; }
+}
+function bookStick(g, ax) { if (Math.abs(ax) > 0.7) { if (!BK.stickLatch) { BK.stickLatch = true; bkTurn(ax > 0 ? 1 : -1); tick(g); } } else if (Math.abs(ax) < 0.3) BK.stickLatch = false; }
+function bookTrigger(g) {   // trigger: holding hand = CRAFT (or next page); free hand pointing at the page = press what it points at
+  if (!BOOK.visible) return false;
+  if (BK.g === g) { bkCraft(); tick(g); return true; }
+  g.localToWorld(_ct.set(0, 0, -0.06)); const L = bkLocal(_ct); if (Math.abs(L.z) > 0.08) return false;
+  return bkAct(bkHit(L.u, L.v), g) || (L.u > 0 && L.u < 1024 && L.v > 0 && L.v < 720);   // a miss on the page still eats the trigger
+}
+const bkHolding = g => held.get(g)?.name === 'FIELD GUIDE';
+// ---- per frame ----
+let bkT = 0;
+function bookTick(dt) {
+  bkT += dt;
+  let hg = null; if (renderer.xr.isPresenting) for (const g of grips) if (bkHolding(g)) { hg = g; break; }
+  for (const it of [GUIDE_IT, BENCH_GUIDE]) if (it && it.state !== 'gone') { const hid = it.state === 'held'; if (hid) it.mesh.visible = false; else if (it.wasHeld) it.mesh.visible = !(it.state === 'inv' && PK.state === 'worn'); it.wasHeld = hid; }
+  const want = hg ? hg : (BK.desk && mode === 'foot' && !renderer.xr.isPresenting) ? camera : null;
+  if (BK.desk && mode !== 'foot') { BK.desk = false; CRAFT.desk = false; }
+  if (want !== BK.g) {
+    BK.g = want; BOOK.visible = !!want; BK.drag = null;
+    if (want === camera) { camera.add(BOOK); BOOK.position.set(0, -0.112, -0.235); BOOK.rotation.set(-0.38, 0, 0); }
+    else if (want) { want.add(BOOK); BOOK.position.set(0, 0.03, -0.03); BOOK.rotation.set(-0.9, 0, 0); }
+    if (want) { bkDraw(); BK.key = bkKey(); sfx('pick'); if (!BK.used) { BK.used = true; BK.hinted = true; } }
+  }
+  if (BK.g) {
+    const light = Math.max(0.42, TOD.day, LIGHTS.lit ? 0.9 : 0); BK.pageM.color.setScalar(light); BK.leafM.color.setRGB(0.89 * light, 0.83 * light, 0.69 * light);
+    if ((BK.chk -= dt) <= 0) { BK.chk = 0.25; const k = bkKey(); if (k !== BK.key) { BK.key = k; bkDraw(); } }   // live counts
+    // free-hand poke at CRAFT / tabs / corners
+    if (BK.g !== camera) for (const g of grips) { if (g === BK.g || R.hand === g || held.has(g)) continue; g.localToWorld(_ct.set(0, 0, -0.06)); const L = bkLocal(_ct), pz = BK.poke.get(g) ?? 1;
+      if (pz > 0.012 && L.z < 0.004 && L.z > -0.05) bkAct(bkHit(L.u, L.v), g); BK.poke.set(g, L.z); }
+  }
+  // turning leaf: dragged by hand, or animating
+  const D = BK.drag; let ang = null;
+  if (D && BK.g) { D.g.getWorldPosition(_b); const L = bkLocal(_b); D.prog = clamp((D.x0 - L.x) * D.d / (BK.W * 1.6), 0, 1);
+    if (D.prog > 0.5 && !D.flipped) { D.flipped = true; BK.page += D.d; BK.lastCraft = ''; bkDraw(); BK.key = bkKey(); sfx('pick'); } else if (D.prog < 0.45 && D.flipped) { D.flipped = false; BK.page -= D.d; bkDraw(); BK.key = bkKey(); }
+    ang = D.d > 0 ? -Math.PI * D.prog : -Math.PI * (1 - D.prog); }
+  else if (BK.turn) { const T = BK.turn; T.a = Math.min(1, T.a + dt / 0.35) ; const a = T.back ? 1 - T.a : T.a; ang = T.d > 0 ? -Math.PI * a : -Math.PI * (1 - a); if (T.a >= 1) BK.turn = null; if (T.back && T.a >= 1) ang = null; }
+  BK.leaf.visible = ang !== null && BK.turn !== null || !!D; if (ang !== null) BK.leaf.rotation.y = ang;
+  bkGhost(bkT);
+  // label over the bench copy while it sits there
+  const bw = BENCH_GUIDE.state === 'world' || BENCH_GUIDE.state === 'stash'; BK_LABEL.visible = bw && mode === 'foot';
+  if (bw) BK_LABEL.position.copy(BENCH_GUIDE.mesh.position).y += 0.22;
+  // puff
+  if (bkPuffT > 0) { bkPuffT -= dt; const a = BK_PUFF.geometry.attributes.position; BK_PUFF.userData.v.forEach((v, i) => { a.setXYZ(i, a.getX(i) + v[0] * dt, a.getY(i) + v[1] * dt, a.getZ(i) + v[2] * dt); }); a.needsUpdate = true; if (bkPuffT <= 0) BK_PUFF.visible = false; }
+  // first-time hint: first material picked up, or reaching the cabin
+  if (!BK.hinted && mode === 'foot') { camera.getWorldPosition(_a); if (MAT_NAMES.some(n => MATS[n] > 0) || Math.hypot(_a.x - WB.x, _a.z - WB.z) < 12) { BK.hinted = true; BK.hintT = 1.6; } }
+  if (BK.hintT > 0 && (BK.hintT -= dt) <= 0) { say('CHECK THE FIELD GUIDE IN YOUR PACK - CHEST POCKET' + (renderer.xr.isPresenting ? '' : ' (PRESS B)')); sfx('click'); }
+}
+function bookDeskToggle(on = !BK.desk) { BK.desk = on; CRAFT.desk = on; CRAFT.key = ''; if (on) { BK.used = true; BK.hinted = true; } }
 // ================= v0.19: Cub fidelity - engine start / shutdown, switch panel, opening windows, checklist card, map holder =================
 // Engine state lives here, outside the flight model: the physics only sees ac.engineOut (set in updateSurvival), so its maths is unchanged.
 const ENG = { valve: false, master: false, mix: 0, carb: false, mags: 0, starterVR: false, starter: false, cranking: false, wet: 0, temp: 0, running: false, rpm: 0,
@@ -4119,7 +4394,7 @@ renderer.setAnimationLoop(() => {
   fpsFrames++; fpsT += dt; instT += dt;
   if (fpsT >= 1) { fps = Math.round(fpsFrames / fpsT); fpsFrames = 0; fpsT = 0; }
   updateRifle(dt); updateBullets(dt); updateFX(dt); updateSmoke(dt); updateWorld(dt, clock.elapsedTime);
-  updateSurvival(dt); updateZombies(dt); updateAnimals(dt); updateItems(dt); CLOUDS.tick(dt); updateDay(dt); updateWater(dt); cullLoot(dt); craftTick(dt); staminaTick(dt); updateForce(dt); updateBrass(dt); updateFalling(dt); updateSpots(dt); updateAudio(dt);
+  updateSurvival(dt); updateZombies(dt); updateAnimals(dt); updateItems(dt); CLOUDS.tick(dt); updateDay(dt); updateWater(dt); cullLoot(dt); craftTick(dt); bookTick(dt); staminaTick(dt); updateForce(dt); updateBrass(dt); updateFalling(dt); updateSpots(dt); updateAudio(dt);
   panelUpdate(ac, dt); compassCard.rotation.y = IN.hdg;
   if (instT > 0.1) { instT = 0; drawWrist(); }
   if ((chunkT += dt) > 0.2) { chunkT = 0; updateChunks(); }

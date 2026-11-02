@@ -2,6 +2,18 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.21 – Field guide crafting
+- Crafting now works through a physical survival field guide, a real book. It sits in a chest pocket on your pack strap (its own grab spot, top-left of the chest), with a second copy lying on the workbench.
+- Grab it and it opens in your hand. Turn pages by pinching the page corner and swiping (the page follows your hand and flips), with the thumbstick of the book hand (flick left/right), or by poking the coloured tabs on the edge.
+- Pages: how crafting works and the controls; Basics (water, food, health, night); Materials (each one sketched, with your live pouch count and where to find it); Survival, Tools, Food, Traps and Gun sections with one recipe per spread.
+- Recipe pages: a pencil sketch of the item, what it does, a "You need" list with have/need counts (green = enough, red = short), where it's made (anywhere, or NEEDS WORKBENCH with the distance to it), and a big CRAFT button. Poke it with the free hand or pull the trigger of the book hand. Counts update live as you pick things up.
+- At the workbench (within 2 m of it), a ghost of the open recipe floats over the bench. Grab it to craft the item straight into your hand. Field recipes go to your pack; bench recipes appear on the bench as before.
+- First-time hint: the first time you pick up a material, or come near the bench, you get "Check the field guide in your pack – chest pocket (press B)". A floating "FIELD GUIDE – pick me up" label marks the bench copy until you first open it.
+- You keep the field guide when you die. If you drop it, put it back in the chest pocket like any belt item.
+- Desktop: on foot, B or K opens/closes the book, ←/→ turn pages, ↑/↓ jump between sections, Enter crafts, Esc closes, and 1–0 still quick-craft. B is still the brake in the plane.
+- The old recipe board and watch panel still work, but the book replaces them as the way in.
+- Performance: +1 draw call on foot (the closed book in the pocket), +3 while the book is open. The page texture (1024×720) is only redrawn on a page turn or a count change. Physics unchanged (md5 above).
+
 ## v0.20 – Gear and tyre physics
 - Main gear: the split axle on bungee cords is now its own spring. It has a preload, a progressive (stiffening) bungee, a damper and a hard bump stop at 14 cm of travel. The axle is solved implicitly between bungee and tyre, so it is stable at the 1/120 s substep.
 - Soft tundra tyres: a separate tyre spring and damper with a rim stop. At rest the bungee sags 4.7 cm and the tyre 4.0 cm; the tail spring sits at 5.5 cm.

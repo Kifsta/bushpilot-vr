@@ -73,8 +73,11 @@ Shutdown: throttle idle, mixture CUTOFF (it stops), mags OFF, master OFF, fuel O
 - Food: raw meat over a fire cooks it. Food spoils (raw ~2 days, cooked ~3, smoked ~10); spoiled food makes you sick.
 - Fuel: hold the fuel can to the wing filler cap (desktop E).
 
-## Crafting
+## Crafting (v0.21: field guide)
 - Sticks, stones, cloth, wire, nails, boards and charcoal go into a pouch when you grab them.
-- Workbench on the cabin's south wall: point a hand at a recipe on the board and pull the trigger. Desktop: K opens the list, 1–0 crafts, Esc closes.
-- Anywhere else: put one hand on your watch and pull the trigger to open the field board (simple recipes only).
+- The field guide is in your chest pocket (top-left of your chest); there's also a copy on the workbench (cabin, south wall). Grab it to open it.
+- Turn pages: pinch the page corner and swipe, flick the book hand's thumbstick, or poke a tab on the edge.
+- Recipe page: green numbers mean you have enough, red means you're short. Poke CRAFT with your other hand, or pull the trigger of the book hand.
+- Bench recipes need you within 2 m of the workbench. There, a ghost of the item floats over the bench; grab it to craft it into your hand.
+- Desktop (on foot): B or K opens the book, ←/→ turn pages, ↑/↓ change section, Enter crafts, Esc closes, 1–0 quick-craft.
 - Put a campfire kit, snare or spike trap on the ground to set it (desktop P drops it 1.5 m ahead). Snares catch meat after a few minutes; spike traps kill zombies that step on them.
