@@ -20,14 +20,15 @@
 </script>
 </head>
 <body>
-<div id="info">BUSH PILOT VR v0.19 - PA-18 Super Cub prototype (v0.19: engine start/shutdown, opening windows, checklist, map holder; v0.18.2: map clip on the cockpit wall; v0.18.1: side windows open from inside, sill z-fighting fixed; v0.18: Cub rebuilt to real PA-18 dimensions; v0.17.1: cabin windows reshaped; v0.17: low-poly item models; v0.16: crafting, campfires, traps, spoilage, stamina; v0.15: 7 new places + lodge strip, forests; v0.14: rivers, lakes, thirst + canteen; v0.13: day / night, dusk deadline, lights, sleep; v0.12: natural gunshot, ambient sound, clouds; v0.11: Cub + rifle proportions from reference; v0.10.1: smoother stock; v0.10: performance pass, crouch / jump, more zombies, force grab)
+<div id="info">BUSH PILOT VR v0.20 - PA-18 Super Cub prototype (v0.20: gear + tyre physics, bungee legs, soft tundras, steerable tail wheel, brakes, surface grip and bumps; v0.19: engine start/shutdown, opening windows, checklist, map holder; v0.18.2: map clip on the cockpit wall; v0.18.1: side windows open from inside, sill z-fighting fixed; v0.18: Cub rebuilt to real PA-18 dimensions; v0.17.1: cabin windows reshaped; v0.17: low-poly item models; v0.16: crafting, campfires, traps, spoilage, stamina; v0.15: 7 new places + lodge strip, forests; v0.14: rivers, lakes, thirst + canteen; v0.13: day / night, dusk deadline, lights, sleep; v0.12: natural gunshot, ambient sound, clouds; v0.11: Cub + rifle proportions from reference; v0.10.1: smoother stock; v0.10: performance pass, crouch / jump, more zombies, force grab)
 RIFLE (VR): A/X on the rifle hand = work the lever (tap = full stroke, hold = keep it open) or flick the rifle down-forward, or grab the lever loop with your other hand and work it yourself;
   lever open = no shot; a short stroke won't feed. Load: tip of a round into the gate (right side) - it snaps in; keep grip held and go back to the pouch for the next one.
   Hold the right stick IN (click) + push it up/down while holding the rifle (right hand) = grip angle. Let go of the wrist with a hand on the forend = it stays in that hand.
 MAP: M = show/hide (desktop) | VR: reach to the pocket on the LEFT side of the pack (left hip / lower back), grip to pull it out; grab the far edge with the other hand to hold it open;
   let go at the pocket (or over the open pack) = stow, in the cockpit = clips to the left wall, anywhere else = drops
 FLY (desktop): click to mouse-look | W/S pitch | A/D roll | Q/E rudder | Shift/Ctrl (or = / -) throttle
-  [ / ] flaps up / down a notch (0-15-30-50) | B brakes | F get out (stopped + idle) | R reset (refuels) | Home recenter
+  [ / ] flaps up / down a notch (0-15-30-50) | B brakes (with Q/E = that wheel only: pivot turns) | F get out (stopped + idle) | R reset (refuels) | Home recenter
+ENGINE (desktop): U fuel | O master | Y mixture | H carb heat | I mags | P prime | hold Space crank | J checklist | windows 1-4
 ON FOOT (desktop): WASD walk (Shift sprint) | F board | G grab rifle / pick up loot into pack (hold G on a kill = dress, needs knife)
   click fire | hold right mouse aim | X lever | Z or R load a round from the pouch | E eat / refuel | T stash pack at the bench
   C (hold) crouch | Space jump | hold G while looking at a loose item up to 8 m away = force-pull it to you
@@ -138,17 +139,37 @@ const C = {
   YAW_AIL: -0.012,         // adverse yaw from aileron deflection
   YAW_RUD: 0.035,          // rudder authority (full), uses tail q incl. propwash
 
-  // ---- landing gear (tundra tyres) ----
-  GEAR: [  // body-frame contact points
-    { name: 'mainL', p: [-0.95, -1.35, -0.45], k: 40000, c: 3500, muLat: 0.8, brake: 'L' },
-    { name: 'mainR', p: [ 0.95, -1.35, -0.45], k: 40000, c: 3500, muLat: 0.8, brake: 'R' },
-    { name: 'tail',  p: [ 0.00, -0.55,  4.45], k: 15000, c: 1500, muLat: 0.5, steer: true },
+  // ---- landing gear (v0.20: bungee main gear + soft tundra tyres + Scott tail wheel) ----
+  GEAR: [  // body-frame tyre bottom points with the gear fully extended and the tyre round; axle = p + (0, r, 0)
+    { name: 'mainL', p: [-0.95, -1.35, -0.45], r: 0.44, main: true, ca: 5, brake: 'L' },
+    { name: 'mainR', p: [ 0.95, -1.35, -0.45], r: 0.44, main: true, ca: 5, brake: 'R' },
+    { name: 'tail',  p: [ 0.00, -0.55,  4.45], r: 0.10, k: 15000, c: 1400, ca: 4, steer: true },   // leaf spring + solid tyre
   ],
-  ROLL_FRICTION: 0.06,     // rolling resistance on grass (fat tyres)
-  BRAKE_MU: 0.40,          // extra longitudinal friction at full brake (grass)
-  LONG_SLIP_V: 0.05,       // m/s, smoothing of rolling friction near standstill
-  LAT_SLIP_V: 0.3,         // m/s of side slip for full lateral grip
+  // main gear bungee (per side, along body y): F = PRE + K1 s + K3 s^3, damper, hard bump stop at the end of travel
+  BUNGEE_PRE: 1000,        // N preload (gear sits on its extension stop until the load exceeds this)
+  BUNGEE_K1: 25000,        // N/m
+  BUNGEE_K3: 6.0e6,        // N/m^3 (progressive: stiffens as the cords stretch)
+  BUNGEE_C: 3500,          // N s/m (bungee cords are lightly damped: Cubs still bounce)
+  BUNGEE_STOP: 0.14,       // m travel to the bump stop
+  STOP_K: 400000, STOP_C: 6000,
+  // 35" tundra tyre at ~8 psi: soft spring + damping, bottoms on the rim
+  TYRE_K: 70000, TYRE_C: 1200, TYRE_RIM: 0.12, RIM_K: 500000,
+  // tyre friction (surface sets peak mu, rolling resistance and bump height; see surfaceAt)
+  SLIDE_MU: 0.8,           // sliding (locked / skidding) friction as a share of peak
+  STICK_V: 0.5, STICK_K: 30000,   // below this rolling speed the tread acts as a spring (N/m): sideways up to full grip, along up to rolling resistance + brake
+  V_LOW: 1.0,              // m/s: slip angle = atan(v_side / (|v_fwd| + V_LOW)) so grip fades in smoothly at a standstill
+  BRAKE_FORCE: 1300,       // N per wheel at full brake (torque / radius); more than the grip available -> wheel locks and skids
+  LONG_SLIP_V: 0.02,       // m/s, smoothing of rolling friction near standstill (small = holds on gentle slopes)
+  BRAKE_SLIP_V: 0.05,      // m/s, smoothing of brake force near standstill
+  // Scott 3200-style tail wheel: steered by springs from the rudder, breaks out to full castering
   TAILWHEEL_STEER: 0.30,   // rad tailwheel deflection at full rudder
+  TW_SPRING: 150,          // N m/rad steering-spring stiffness (wheel deflects a little off the commanded angle under side load)
+  TW_SAT: 0.85,            // breaks out when the tail tyre side force passes this share of its grip...
+  TW_SAT_T: 0.12,          // ...for this long (brake pivots, real ground loops)
+  TW_TRAIL: 0.06,          // m caster trail
+  TW_BREAKOUT: 0.32,       // rad of spring deflection -> unlocks to full swivel
+  TW_RELOCK: 0.06,         // rad: re-engages when it swings back this close to the rudder angle
+  TW_SWIVEL: 0.08,         // side-friction share of load while castering (swivel bearing friction)
   CRASH_SINK: 4.0,         // m/s vertical impact on a wheel => crash
   CRASH_COMPRESS: 0.35,    // m tyre/gear compression => crash
   CRASH_POINTS: [          // structure that must never touch the ground
@@ -266,13 +287,38 @@ function terrainNormal(x, z) {
                 -(terrainHeight(x, z + e) - terrainHeight(x, z - e)) / (2 * e)]);
 }
 
+// v0.20 ground surfaces: peak tyre grip, rolling resistance, and small bumps (felt through the gear at taxi speed, not drawn)
+const SURF = {
+  strip:  { name: 'strip',  mu: 0.55, roll: 0.055, bump: 0.010 },   // mown grass strip
+  meadow: { name: 'meadow', mu: 0.50, roll: 0.060, bump: 0.020 },
+  pad:    { name: 'pad',    mu: 0.50, roll: 0.070, bump: 0.030 },   // rough paddock
+  rough:  { name: 'rough',  mu: 0.50, roll: 0.080, bump: 0.035 },   // everything else: tussock / dirt
+};
+function surfaceAt(x, z) {
+  if (Math.abs(x) < 13 && z > -310 && z < 15) return SURF.strip;
+  if (Math.abs(x - MEADOW.x) < MEADOW.hw + 4 && Math.abs(z - MEADOW.z) < MEADOW.hl + 4) return SURF.meadow;
+  if (Math.abs(x - PAD.x) < 55 && Math.abs(z - PAD.z) < 90) return SURF.pad;
+  return SURF.rough;
+}
+const bumpH = (x, z, amp) => amp * (0.55 * Math.sin(1.9 * x + 0.7) * Math.sin(1.4 * z + 0.2) + 0.3 * Math.sin(3.3 * z + 2.1 * x + 1.1) + 0.15 * Math.sin(5.7 * x - 4.9 * z));
+const bungF = s => C.BUNGEE_PRE + C.BUNGEE_K1 * s + C.BUNGEE_K3 * s * s * s + (s > C.BUNGEE_STOP ? C.STOP_K * (s - C.BUNGEE_STOP) : 0);
+const bungK = s => C.BUNGEE_K1 + 3 * C.BUNGEE_K3 * s * s + (s > C.BUNGEE_STOP ? C.STOP_K : 0);
+const tyreF = d => d <= 0 ? 0 : C.TYRE_K * d + (d > C.TYRE_RIM ? C.RIM_K * (d - C.TYRE_RIM) : 0);
+const tyreK = d => d <= 0 ? 0 : C.TYRE_K + (d > C.TYRE_RIM ? C.RIM_K : 0);
+const wrapA = x => Math.atan2(Math.sin(x), Math.cos(x));
+const S_STATIC = 0.047, D_STATIC = 0.040, TAIL_STATIC = 0.055;   // main bungee / tyre / tail spring deflection at rest (3-point, 650 kg)
+
 function resetAircraft(a) {
   const m = C.GEAR[0].p, t = C.GEAR[2].p;
-  const th = Math.atan2(t[1] - m[1], t[2] - m[2]);       // three-point attitude
+  const dm = S_STATIC + D_STATIC, L = Math.hypot(t[1] - m[1], t[2] - m[2]);
+  const th = Math.atan2(t[1] - m[1], t[2] - m[2]) - Math.asin((dm - TAIL_STATIC) / L);   // three-point attitude, gear settled
   a.q = qAxis([1, 0, 0], th);
-  a.pos = [0, -qRot(a.q, m)[1] - 0.06, 0];
-  a.vel = [0, 0, 0]; a.w = [0, 0, 0];
+  a.pos = [0, -qRot(a.q, m)[1] - dm, 0];
+  { const sb = SURF.strip.bump, mb = 0.5 * (bumpH(-0.95, qRot(a.q, m)[2], sb) + bumpH(0.95, qRot(a.q, m)[2], sb)); a.pos[1] += mb; }   // sit on the strip's bumps
+  a.vel = [0, 0, 0]; a.w = [0, 0, 0]; a.wind = [0, 0, 0];
   a.power = C.IDLE_POWER; a.crashed = false; a.crashReason = ''; a.t = 0; a.flap = 0; a.engineOut = false;
+  a.gs = C.GEAR.map(g => ({ s: g.main ? S_STATIC : 0, d: g.main ? D_STATIC : TAIL_STATIC, Fn: 0, lock: false, slip: 0, Fy: 0, lat: 0, lon: 0 }));
+  a.tw = { psi: 0, free: false };
   a.ctl.throttle = 0; a.ctl.elev = a.ctl.ail = a.ctl.rud = a.ctl.brake = a.ctl.flap = 0;
 }
 function createAircraft() {
@@ -291,8 +337,8 @@ function stepAircraft(a, dt) {
   const fl = Math.sin(a.flap * Math.PI / 180) / Math.sin(50 * Math.PI / 180), fd = (a.flap / 50) ** 2;
   const aStall = C.ALPHA_STALL - C.FLAP_DALPHA * fl;
 
-  // ---- air data (no wind) ----
-  const vb = qRotInv(a.q, a.vel);
+  // ---- air data (a.wind = steady wind, world m/s; zero unless a test / weather sets it) ----
+  const vb = qRotInv(a.q, a.wind ? vSub(a.vel, a.wind) : a.vel);
   const V = vLen(vb), Vs = Math.max(V, 3), u = -vb[2];
   const alpha = V > 0.5 ? Math.atan2(-vb[1], -vb[2]) : 0;
   const beta = V > 0.5 ? Math.asin(clamp(vb[0] / V, -1, 1)) : 0;
@@ -333,31 +379,104 @@ function stepAircraft(a, dt) {
 
   let Fw = qRot(a.q, F); Fw[1] -= C.MASS * C.G;
 
-  // ---- landing gear ----
+  // ---- landing gear (v0.20) ----
+  // Main wheels: massless axle between a progressive bungee (along body y) and a soft tyre (along the ground normal),
+  // solved implicitly each substep (stable, no jitter at rest). Tail: leaf spring. All tyres: friction circle with
+  // slip-angle side grip, rolling resistance and brakes limited by grip (over-braking locks the wheel and it skids).
   let wow = 0;
-  for (const g of C.GEAR) {
-    const P = vAdd(a.pos, qRot(a.q, g.p));
-    const pen = terrainHeight(P[0], P[2]) - P[1];
-    if (pen <= 0) continue;
-    const n = terrainNormal(P[0], P[2]);
-    const vP = vAdd(a.vel, qRot(a.q, vCross(a.w, g.p)));
-    const vn = vDot(vP, n);
-    if (vn < -C.CRASH_SINK) { crash(a, 'hard landing (' + (-vn * 196.85).toFixed(0) + ' fpm)'); return; }
-    if (pen > C.CRASH_COMPRESS) { crash(a, 'gear collapsed'); return; }
-    const Fn = Math.max(0, g.k * pen - g.c * vn);
-    const s = g.steer ? c.rud * C.TAILWHEEL_STEER : 0;          // right rudder -> wheel points left -> nose right
-    let fwd = qRot(a.q, [-Math.sin(s), 0, -Math.cos(s)]);
+  const up = qRot(a.q, [0, 1, 0]);
+  for (let i = 0; i < C.GEAR.length; i++) {
+    const g = C.GEAR[i], st = a.gs[i];
+    const A = g.main ? [g.p[0], g.p[1] + g.r, g.p[2]] : g.p;       // extended axle (mains) / tyre bottom (tail)
+    const Aw = vAdd(a.pos, qRot(a.q, A));
+    const sf = surfaceAt(Aw[0], Aw[2]);
+    const n = terrainNormal(Aw[0], Aw[2]);
+    const hg = terrainHeight(Aw[0], Aw[2]) + bumpH(Aw[0], Aw[2], sf.bump);
+    const vA = vAdd(a.vel, qRot(a.q, vCross(a.w, A)));
+    const dpen = -vDot(vA, n);
+    let Fn = 0, cp;
+    if (g.main) {
+      const cu = Math.max(0.3, vDot(up, n)), pen0 = g.r - (Aw[1] - hg) * n[1], s0 = st.s;
+      let s = s0;
+      if (pen0 > 0) {
+        if (dpen > C.CRASH_SINK) { crash(a, 'hard landing (' + (dpen * 196.85).toFixed(0) + ' fpm)'); return; }
+        if (pen0 > C.CRASH_COMPRESS + C.BUNGEE_STOP) { crash(a, 'gear collapsed'); return; }
+        const smax = pen0 / cu;
+        for (let it = 0; it < 6; it++) {
+          const d = pen0 - cu * s, sd = (s - s0) / dt;
+          const G = bungF(s) + C.BUNGEE_C * sd + (s > C.BUNGEE_STOP ? C.STOP_C * sd : 0) - tyreF(d) - C.TYRE_C * (dpen - cu * sd);
+          const dG = bungK(s) + (C.BUNGEE_C + (s > C.BUNGEE_STOP ? C.STOP_C : 0)) / dt + cu * (tyreK(d) + C.TYRE_C / dt);
+          s = clamp(s - G / dG, 0, smax);
+        }
+        const d = pen0 - cu * s;
+        Fn = d > 0 ? Math.max(0, tyreF(d) + C.TYRE_C * (dpen - cu * (s - s0) / dt)) : 0;
+      }
+      if (Fn <= 0) s = Math.max(0, s0 - dt * bungF(s0) / C.BUNGEE_C);   // airborne: bungee pulls the axle back down
+      st.s = s; st.d = Math.max(0, pen0 - cu * s);
+      cp = [A[0], A[1] + s - g.r + st.d, A[2]];
+    } else {
+      const pen = (hg - Aw[1]) * n[1];
+      st.d = Math.max(0, pen);
+      if (pen > 0) {
+        if (dpen > C.CRASH_SINK) { crash(a, 'hard landing (' + (dpen * 196.85).toFixed(0) + ' fpm)'); return; }
+        if (pen > C.CRASH_COMPRESS) { crash(a, 'gear collapsed'); return; }
+        Fn = Math.max(0, g.k * pen + g.c * dpen);
+      }
+      cp = [A[0], A[1] + st.d, A[2]];
+    }
+    st.Fn = Fn; st.lock = false;
+    // tail wheel swivel: rudder springs steer it; side load deflects it; too much -> breaks out and castors freely
+    let psi = 0;
+    if (g.steer) {
+      const tw = a.tw, psiR = c.rud * C.TAILWHEEL_STEER;   // right rudder -> wheel points left -> nose right
+      const vb2 = qRotInv(a.q, vA), sp = Math.hypot(vb2[0], vb2[2]), psiV = Math.atan2(-vb2[0], -vb2[2]);
+      if (!tw.free) {
+        const want = psiR + (Fn > 0 ? clamp(st.Fy * C.TW_TRAIL / C.TW_SPRING, -1, 1) : 0);   // side load x trail twists it against the springs
+        tw.psi += (want - tw.psi) * Math.min(1, dt / 0.04);
+        tw.sat = Fn > 0 && Math.abs(st.Fy) > C.TW_SAT * (st.Fm || 1e9) ? (tw.sat || 0) + dt : 0;
+        if (Math.abs(tw.psi - psiR) > C.TW_BREAKOUT || tw.sat > C.TW_SAT_T) { tw.free = true; tw.sat = 0; }
+      } else {
+        if (Fn > 0 && sp > 0.2) tw.psi = wrapA(tw.psi + wrapA(psiV - tw.psi) * Math.min(1, sp * dt / 0.15));
+        if (Math.abs(wrapA(tw.psi - psiR)) < C.TW_RELOCK && (Fn <= 0 || -vb2[2] > 0)) { tw.free = false; tw.psi = wrapA(tw.psi); }
+      }
+      psi = tw.psi;
+    }
+    if (Fn <= 0) { st.Fy = 0; st.slip = 0; st.lat = st.lon = 0; continue; }
+    // tyre friction at the contact patch
+    const vP = vAdd(a.vel, qRot(a.q, vCross(a.w, cp)));
+    let fwd = qRot(a.q, [-Math.sin(psi), 0, -Math.cos(psi)]);
     fwd = vNorm(vSub(fwd, vScale(n, vDot(fwd, n))));
     const side = vCross(fwd, n);
-    const vl = vDot(vP, fwd), vs = vDot(vP, side);
-    let br = 0;                                                   // differential-ish toe brakes via rudder
+    const vl = vDot(vP, fwd), vs = vDot(vP, side), mu = sf.mu, Fmax = mu * Fn; st.Fm = Fmax;
+    let Fs = -Fmax * Math.tanh(g.ca * Math.atan2(vs, Math.abs(vl) + C.V_LOW) / mu);
+    const latCap = g.steer && a.tw.free ? C.TW_SWIVEL * Fn : Fmax;   // a castering wheel only resists sideways by swivel friction
+    if (Math.abs(vl) < C.STICK_V) {                               // near standstill: tread stiction spring (no sideways creep on slopes)
+      st.lat += vs * dt; const fa = -C.STICK_K * st.lat;
+      if (Math.abs(fa) > latCap) st.lat = -Math.sign(fa) * latCap / C.STICK_K;   // breaks away -> slides
+      Fs -= C.STICK_K * st.lat;
+    } else st.lat *= 0.9;
+    Fs = clamp(Fs, -latCap, latCap);
+    let br = 0;                                                   // toe brakes, differential via rudder
     if (g.brake === 'L') br = c.brake * clamp(1 - c.rud, 0, 1);
     if (g.brake === 'R') br = c.brake * clamp(1 + c.rud, 0, 1);
-    const Fl = -Math.tanh(vl / C.LONG_SLIP_V) * (C.ROLL_FRICTION + C.BRAKE_MU * br) * Fn;
-    const Fs = -clamp(vs / C.LAT_SLIP_V, -1, 1) * g.muLat * Fn;
+    const Fb = br * C.BRAKE_FORCE, cap = Math.sqrt(Math.max(0, Fmax * Fmax - Fs * Fs));
+    let Fl;
+    if (Fb > cap && Fb > 0) {                                     // locked: the tyre skids along its slip velocity
+      const vv = Math.hypot(vl, vs) || 1, k = C.SLIDE_MU * Fmax * Math.tanh(vv / C.BRAKE_SLIP_V) / vv;
+      Fl = -vl * k; Fs = -vs * k; st.lock = true; st.lon = 0;
+    } else {
+      Fl = -Math.tanh(vl / C.LONG_SLIP_V) * sf.roll * Fn - Math.tanh(vl / C.BRAKE_SLIP_V) * Fb;
+      if (Math.abs(vl) < C.STICK_V) {                             // ... and along the tread up to rolling resistance + brake (no creep)
+        const capL = sf.roll * Fn + Fb; st.lon += vl * dt;
+        if (C.STICK_K * Math.abs(st.lon) > capL) st.lon = Math.sign(st.lon) * capL / C.STICK_K;
+        Fl = clamp(Fl - C.STICK_K * st.lon, -capL, capL);
+      } else st.lon = 0;
+      const h = Math.hypot(Fl, Fs); if (h > Fmax) { Fl *= Fmax / h; Fs *= Fmax / h; }
+    }
+    st.Fy = Fs; st.slip = Math.abs(vs) + (st.lock ? Math.abs(vl) : 0);
     const Fg = vAdd(vAdd(vScale(n, Fn), vScale(fwd, Fl)), vScale(side, Fs));
     Fw = vAdd(Fw, Fg);
-    const Mg = vCross(g.p, qRotInv(a.q, Fg));
+    const Mg = vCross(cp, qRotInv(a.q, Fg));
     M[0] += Mg[0]; M[1] += Mg[1]; M[2] += Mg[2];
     wow++;
   }
@@ -894,18 +1013,11 @@ for (const sx of [-1, 1]) {
 for (const o of [...PD.children]) { o.updateMatrix(); o.geometry = (o.geometry.index ? o.geometry.toNonIndexed() : o.geometry).applyMatrix4(new THREE.Matrix4().multiplyMatrices(CUB_M, o.matrix));
   o.position.set(0, 0, 0); o.rotation.set(0, 0, 0); o.scale.set(1, 1, 1); PS.add(o); }
 partsRoot = PS;
-// body-frame parts: split-axle gear + big tundra tyres exactly on the physics gear points, Scott tail wheel on the physics tail point
+// body-frame parts: bungee wraps stay in the static merge; legs, tyres and the tail wheel move (v0.20 GV below)
 for (const sx of [-1, 1]) {
-  const ax = [sx * 0.74, -0.91, -0.45], fr = D2B(sx * 0.30, -0.75, -0.30).toArray(), rr = D2B(sx * 0.30, 0.10, -0.33).toArray(), hg = D2B(sx * 0.04, -0.36, -0.40).toArray();
-  rod(fr, ax, 0.026, tube); rod(rr, ax, 0.03, tube); rod(hg, ax, 0.022, tube);
+  const ax = [sx * 0.74, -0.91, -0.45], rr = D2B(sx * 0.30, 0.10, -0.33).toArray();
   box(0.08, 0.07, 0.11, black, rr[0] + (ax[0] - rr[0]) * 0.2, rr[1] + (ax[1] - rr[1]) * 0.2, rr[2] + (ax[2] - rr[2]) * 0.2);   // bungee wraps
-  const prof = [[0.13, -0.2], [0.3, -0.22], [0.4, -0.18], [0.44, -0.065], [0.44, 0.065], [0.4, 0.18], [0.3, 0.22], [0.13, 0.2]];   // ~35" x 17" tundras
-  const ty = new THREE.Mesh(new THREE.LatheGeometry(prof.map(p => new THREE.Vector2(p[0], p[1])), 12).rotateZ(Math.PI / 2), black);
-  ty.position.set(sx * 0.95, -0.91, -0.45); PS.add(ty);
-  const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.42, 8).rotateZ(Math.PI / 2), grey); hub.position.copy(ty.position); PS.add(hub);
 }
-rod(D2B(0, 4.05, 0.26).toArray(), [0, -0.38, 4.40], 0.016, dark); rod([0, -0.38, 4.40], [0, -0.45, 4.45], 0.014, dark);   // tail-wheel leaf spring + fork
-{ const tw = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.06, 8).rotateZ(Math.PI / 2), black); tw.position.set(0, -0.45, 4.45); PS.add(tw); }
 // cockpit interior (moves with the eye point: CK)
 box(0.65, 0.28, 0.04, dark, 0, 0.0 + CK.y, -0.62 + CK.z);                                      // panel
 box(0.65, 0.02, 0.24, dark, 0, 0.15 + CK.y, -0.74 + CK.z);                                     // glare shield
@@ -918,6 +1030,64 @@ box(0.30, 0.12, 0.03, dark, -0.165, -0.20 + CK.y, -0.618 + CK.z);               
 box(0.18, 0.17, 0.03, dark, 0.22, -0.225 + CK.y, -0.618 + CK.z);                               // v0.19 checklist card holder under the right half   // v0.18.2: 4 mm off the skin, 0.5 mm clear of the flap lever                                   // flap handle quadrant
 partsRoot = plane;
 mergeInto(PS, plane);
+// v0.20 moving gear: split-axle legs follow the bungee travel, tundra tyres squash / bulge / spin, Scott tail wheel steers and castors.
+// One dynamic vertex-coloured mesh (1 draw call); vertices are rewritten only when something moved.
+const GV = (() => {
+  const parts = [], _X = new THREE.Vector3(1, 0, 0), _qt = new THREE.Quaternion(), _m = new THREE.Matrix4(), _n = new THREE.Matrix3(), _v = new THREE.Vector3(), _q = new THREE.Quaternion(), _s = new THREE.Vector3(), _p = new THREE.Vector3(), _d = new THREE.Vector3();
+  const add = (geo, hex) => { const g = geo.index ? geo.toNonIndexed() : geo; parts.push({ p: g.attributes.position.array.slice(), n: g.attributes.normal.array.slice(), c: new THREE.Color(hex), m: new THREE.Matrix4() }); return parts[parts.length - 1]; };
+  const rodG = () => new THREE.CylinderGeometry(1, 1, 1, 5).translate(0, 0.5, 0);
+  const prof = [[0.13, -0.2], [0.3, -0.22], [0.4, -0.18], [0.44, -0.065], [0.44, 0.065], [0.4, 0.18], [0.3, 0.22], [0.13, 0.2]];   // ~35" x 17" tundras
+  const side = [-1, 1].map(sx => ({ sx,
+    fr: D2B(sx * 0.30, -0.75, -0.30), rr: D2B(sx * 0.30, 0.10, -0.33), hg: D2B(sx * 0.04, -0.36, -0.40),
+    rods: [add(rodG(), 0x9a9a9a), add(rodG(), 0x9a9a9a), add(rodG(), 0x9a9a9a)], rad: [0.026, 0.03, 0.022],
+    tyre: add(new THREE.LatheGeometry(prof.map(p => new THREE.Vector2(p[0], p[1])), 12).rotateZ(Math.PI / 2), 0x111111),
+    hub: add(new THREE.CylinderGeometry(0.13, 0.13, 0.42, 8).rotateZ(Math.PI / 2), 0x6d6d6d) }));
+  const TS = D2B(0, 4.05, 0.26), tSpring = add(rodG(), 0x262626), tFork = add(rodG(), 0x262626), tWheel = add(new THREE.CylinderGeometry(0.1, 0.1, 0.06, 8).rotateZ(Math.PI / 2), 0x111111);
+  let n = 0; for (const p of parts) n += p.p.length;
+  const geo = new THREE.BufferGeometry(), pos = new Float32Array(n), nor = new Float32Array(n), col = new Float32Array(n);
+  { let o = 0; for (const p of parts) { for (let i = 0; i < p.p.length; i += 3) { col[o + i] = p.c.r; col[o + i + 1] = p.c.g; col[o + i + 2] = p.c.b; } o += p.p.length; } }
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3).setUsage(THREE.DynamicDrawUsage));
+  geo.setAttribute('normal', new THREE.BufferAttribute(nor, 3).setUsage(THREE.DynamicDrawUsage));
+  geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  geo.boundingSphere = new THREE.Sphere(new THREE.Vector3(0, -0.9, 2), 3.6);
+  const mesh = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true })); plane.add(mesh);
+  const rodM = (p, a, b, r) => { _d.subVectors(b, a); const l = _d.length(); _q.setFromUnitVectors(_up, _d.multiplyScalar(1 / l)); p.m.compose(a, _q, _s.set(r, l, r)); };
+  const spin = [0, 0]; let key = '';
+  function update(dt) {
+    const gs = ac.gs, tw = ac.tw, wv = qRotInv(ac.q, ac.vel);
+    const k = gs.map(g => (g.s * 400 | 0) + ',' + (g.d * 400 | 0)).join() + (tw.psi * 60 | 0);
+    const rolling = ac.out.wow > 0 && Math.abs(wv[2]) > 0.05;
+    for (let i = 0; i < 2; i++) if (gs[i].Fn > 0 && !gs[i].lock) spin[i] = (spin[i] + wv[2] / 0.44 * dt) % 6.2832;   // rolling forward (-z): tread top moves forward
+    if (k === key && !rolling) return; key = k;
+    for (let i = 0; i < 2; i++) {
+      const S = side[i], g = gs[i], ax = _p.set(S.sx * 0.74, -0.91 + g.s, -0.45), d = Math.min(g.d, 0.2);
+      rodM(S.rods[0], S.fr, ax, S.rad[0]); rodM(S.rods[1], S.rr, ax, S.rad[1]); rodM(S.rods[2], S.hg, ax, S.rad[2]);
+      _v.set(S.sx * 0.95, -0.91 + g.s, -0.45);
+      S.hub.m.compose(_v, _q.setFromAxisAngle(_X, spin[i]), _s.set(1, 1, 1));
+      _v.y += d / 2;   // squashed tyre: top stays round on the axle, flat bottom on the ground, bulges wider
+      S.tyre.m.compose(_v, _q, _s.set(1 + 0.6 * d / 0.44, 1 - d / 0.88, 1 + 0.15 * d / 0.44));
+    }
+    const tl = Math.min(gs[2].d, 0.15), top = _p.set(0, -0.38 + tl, 4.40);
+    rodM(tSpring, TS, top, 0.016);
+    _qt.setFromAxisAngle(_up, tw.psi); const wc = _v.set(0, -0.07, 0.05).applyQuaternion(_qt).add(top);
+    rodM(tFork, top, wc, 0.014);
+    tWheel.m.compose(wc, _qt, _s.set(1, 1, 1));
+    let o = 0;
+    for (const p of parts) {
+      const e = p.m.elements; _n.getNormalMatrix(p.m); const ne = _n.elements;
+      for (let i = 0; i < p.p.length; i += 3) {
+        const x = p.p[i], y = p.p[i + 1], z = p.p[i + 2];
+        pos[o + i] = e[0] * x + e[4] * y + e[8] * z + e[12]; pos[o + i + 1] = e[1] * x + e[5] * y + e[9] * z + e[13]; pos[o + i + 2] = e[2] * x + e[6] * y + e[10] * z + e[14];
+        const a = p.n[i], b = p.n[i + 1], c = p.n[i + 2];
+        let nx = ne[0] * a + ne[3] * b + ne[6] * c, ny = ne[1] * a + ne[4] * b + ne[7] * c, nz = ne[2] * a + ne[5] * b + ne[8] * c; const l = Math.hypot(nx, ny, nz) || 1;
+        nor[o + i] = nx / l; nor[o + i + 1] = ny / l; nor[o + i + 2] = nz / l;
+      }
+      o += p.p.length;
+    }
+    geo.attributes.position.needsUpdate = true; geo.attributes.normal.needsUpdate = true;
+  }
+  return { update, mesh };
+})();
 // moving surfaces (drawing frame, inside cubD)
 const flapGrp = new THREE.Group(); flapGrp.position.set(0, wy(ROOT_X, HINGE_Z) + 0.04, HINGE_Z); cubD.add(flapGrp);
 for (const sx of [-1, 1]) { const b = box(2.25, 0.06, 0.36, yellow, sx * 1.455, (1.455 - ROOT_X) * Math.tan(DIH), 0.18, flapGrp); b.rotation.set(INC, 0, sx * DIH); }
@@ -3935,6 +4105,7 @@ renderer.setAnimationLoop(() => {
   planeObstacles(dt);
 
   plane.position.fromArray(ac.pos); plane.quaternion.fromArray(ac.q);
+  GV.update(dt);   // v0.20 gear legs / tyres / tail wheel
   updateMap(); updateCockpitV19();
   prop.rotation.z += ENG.rpm / 60 * 2 * Math.PI * dt * (ENG.rpm < 400 ? 1 : 0.13);   // aliased-looking slow spin (real speed while cranking)
   stick.rotation.set(ctl.elev * 0.3, 0, -ctl.ail * 0.3);

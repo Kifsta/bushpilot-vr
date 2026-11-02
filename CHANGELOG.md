@@ -1,6 +1,38 @@
 # Bush Pilot VR – changelog (v0.11 onward)
 
-Live: https://kifsta.github.io/bushpilot-vr/index.html. Every version leaves the flight model untouched: `node physics-test.mjs | md5sum` = `f1e1607f804bf17b4877bad1bf04feaa`.
+Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
+
+## v0.20 – Gear and tyre physics
+- Main gear: the split axle on bungee cords is now its own spring. It has a preload, a progressive (stiffening) bungee, a damper and a hard bump stop at 14 cm of travel. The axle is solved implicitly between bungee and tyre, so it is stable at the 1/120 s substep.
+- Soft tundra tyres: a separate tyre spring and damper with a rim stop. At rest the bungee sags 4.7 cm and the tyre 4.0 cm; the tail spring sits at 5.5 cm.
+- Tyre friction: lateral force from slip angle (saturating), rolling resistance and longitudinal slip, a friction circle, and a stiction spring near standstill. It no longer creeps on slopes or at idle.
+- Surfaces: strip (best grip, smooth), meadow, paddock and rough ground differ in grip, rolling drag and bump size. The bumps are felt at taxi speed: eye vertical acceleration RMS is 0.23 m/s² on the strip and 0.79 on rough ground (v0.19 was 0).
+- Brakes act through tyre friction. Too much brake locks the wheel and it skids. Brakes with rudder give differential braking.
+- Steerable tail wheel: spring-coupled to the rudder, so it twists a little under side load. It breaks out to free castering when its tyre is near its grip limit (a brake-and-power pivot or a real ground loop), and re-locks when lined up again.
+- Visual: the gear legs re-aim to the moving axle, the tyres squash flat at the bottom and bulge, the wheels spin, and the tail wheel steers and castors (one extra draw call).
+- An optional wind vector (`a.wind`) is used by the tests for crosswind cases. There is no in-game wind yet.
+
+| physics-test (node) | v0.19 | v0.20 |
+|---|---|---|
+| Takeoff roll, flaps 0 | 124 m, 10.0 s, 52.8 mph | 120 m, 9.8 s, 52.3 mph (first unstick 105 m) |
+| Takeoff roll, flaps 15 | 96 m, 46.0 mph | 92 m, 45.4 mph |
+| Cruise, full throttle | 106.0 mph | 106.0 mph |
+| Hands-off, 55% power | 66.9 mph | 66.9 mph |
+| Stall, clean | 42.3 mph (min 36.5) | same |
+| Glide, clean | 71.8 mph, −744 fpm, L/D 8.5 | same |
+| Stall, full flap | 33.4 mph (min 28.9) | same |
+| Glide, full flap | 45.8 mph, −725 fpm, L/D 5.6 | same |
+| Idle 5 s at rest | creeps 0.10 m | 0.00 m |
+| Rest jitter | – | below 1e-8 m/s on all four surfaces |
+| Full-rudder taxi turn | 10.9 m radius | 9.9 m (brake + rudder: pivots, ~1 m) |
+| Brakes 1.0 from 15 m/s, stick back | – | 30 m, wheels lock 1.2 s |
+| 3-point landing at 300 / 600 / 750 fpm | – | OK / OK (bungee 13 cm) / crash (hard landing) |
+| Wheel landing at 200 / 500 fpm | – | 0 bounces / 1 bounce |
+| Crosswind 10 kt 3-point, pilot steering | – | max 5° off heading |
+| Crosswind 10 kt, hands off on the ground | – | ground loop with wing strike |
+
+- Compromises: the bumps are physics-only (the ground mesh is not re-drawn). The first unstick is 15% shorter than v0.19's liftoff, but the sustained liftoff is within 3%. Full brakes with the stick neutral nose it over, as before. With no rudder at full power it swings left and ground-loops (it did in v0.19 too, more slowly).
+
 
 ## v0.19 – Cub fidelity: engine start and shutdown, opening windows, checklist, map holder
 - The plane now starts cold and dark with the engine off, at first load and after a reset or crash. The start is a real procedure.

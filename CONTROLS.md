@@ -28,6 +28,13 @@ Start: fuel ON, master ON, mixture RICH, carb heat COLD, prime 2–3 strokes (co
 Flooded? Throttle full and crank, then pull the throttle back when it fires.
 Shutdown: throttle idle, mixture CUTOFF (it stops), mags OFF, master OFF, fuel OFF.
 
+## On the ground (v0.20: gear and tyre physics)
+- The tail wheel steers with the rudder (about 17° each way, so a full-rudder taxi turn is about 10 m across). Hold the stick back when taxiing so the tail stays planted.
+- Brakes work through the tyres. Brakes alone slow both wheels. Brakes with rudder brake only that side's wheel. Add a burst of power (about half) for a tight pivot: the tail wheel unlocks and castors, then re-locks when you straighten out.
+- Full brakes with the stick forward (or neutral) at speed will tip it onto its nose. Keep the stick back.
+- Use right rudder on the takeoff roll. With no rudder it swings left and can ground-loop, as a real Cub does. Crosswinds push the tail round, so steer into it.
+- Grip: the strip is best. Grass, the paddock and rough ground roll slower and are bumpier (felt through the seat at taxi speed).
+
 ## Windows and door (v0.19)
 | | VR | Desktop |
 |---|---|---|
