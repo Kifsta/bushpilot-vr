@@ -20,7 +20,7 @@
 </script>
 </head>
 <body>
-<div id="info">BUSH PILOT VR v0.18 - PA-18 Super Cub prototype (v0.18: Cub rebuilt to real PA-18 dimensions; v0.17.1: cabin windows reshaped; v0.17: low-poly item models; v0.16: crafting, campfires, traps, spoilage, stamina; v0.15: 7 new places + lodge strip, forests; v0.14: rivers, lakes, thirst + canteen; v0.13: day / night, dusk deadline, lights, sleep; v0.12: natural gunshot, ambient sound, clouds; v0.11: Cub + rifle proportions from reference; v0.10.1: smoother stock; v0.10: performance pass, crouch / jump, more zombies, force grab)
+<div id="info">BUSH PILOT VR v0.18.1 - PA-18 Super Cub prototype (v0.18.1: side windows open from inside, sill z-fighting fixed; v0.18: Cub rebuilt to real PA-18 dimensions; v0.17.1: cabin windows reshaped; v0.17: low-poly item models; v0.16: crafting, campfires, traps, spoilage, stamina; v0.15: 7 new places + lodge strip, forests; v0.14: rivers, lakes, thirst + canteen; v0.13: day / night, dusk deadline, lights, sleep; v0.12: natural gunshot, ambient sound, clouds; v0.11: Cub + rifle proportions from reference; v0.10.1: smoother stock; v0.10: performance pass, crouch / jump, more zombies, force grab)
 RIFLE (VR): A/X on the rifle hand = work the lever (tap = full stroke, hold = keep it open) or flick the rifle down-forward, or grab the lever loop with your other hand and work it yourself;
   lever open = no shot; a short stroke won't feed. Load: tip of a round into the gate (right side) - it snaps in; keep grip held and go back to the pouch for the next one.
   Hold the right stick IN (click) + push it up/down while holding the rifle (right hand) = grip angle. Let go of the wrist with a hand on the forend = it stays in that hand.
@@ -754,7 +754,7 @@ const SKIN_X = 0.33, PANE_X = 0.352;   // v0.18: real ~0.70 m wide cabin (outer 
 const sidePane = (pts, sx, m, parent) => { const o = new THREE.Mesh(sideMap(new THREE.ShapeGeometry(sideShape(pts, sx)), sx, PANE_X), m); parent.add(o); return o; };
 const sideSkin = (pts, holes, sx, m, parent, x0 = SKIN_X, d = 0.02) => { const sh = sideShape(pts, sx); for (const h of holes) sh.holes.push(sideShape(h, sx));
   const o = new THREE.Mesh(sideMap(extrude(sh, d), sx, x0), m); parent.add(o); return o; };
-const sideFrame = (pts, sx, parent, w = 0.025) => sideSkin(growPoly(pts, w), [pts], sx, dark, parent, 0.345, 0.012);
+const sideFrame = (pts, sx, parent, w = 0.025) => sideSkin(growPoly(pts, w), [growPoly(pts, -0.004)], sx, dark, parent, 0.324, 0.037);   // v0.18.1: spans the skin (0.33-0.35) + proud both sides, lip 4 mm into the opening: dark from inside too, no coplanar faces
 const boltMat = new THREE.MeshLambertMaterial({ color: 0x111111, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2 });
 var partsRoot = plane;
 function box(w, h, d, m, x, y, z, parent = partsRoot) { const o = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); o.position.set(x, y, z); parent.add(o); return o; }
@@ -827,7 +827,7 @@ const wRing = (x, af, zLE = LE_Z, c = CHORD, k = 1) => af.map(([f, t]) => { cons
 const PS = new THREE.Group(), PD = new THREE.Group(); partsRoot = PD;
 // cabin outline on each side (drawing frame [z, y]) and its glazing
 const CAB = [[-1.11, -0.28], [0.17, -0.35], [1.10, -0.23], [1.10, wy(0, 1.10)], [-0.50, WING_Y], [-1.11, 0.535]];
-const W_SCR = [[-1.06, 0.525], [-0.71, 0.385], [-0.40, 0.925], [-0.53, 0.94]];        // windscreen side wrap (ahead of the door post)
+const W_SCR = [[-1.06, 0.525], [-0.71, 0.385], [-0.405, 0.915], [-0.53, 0.915]];        // windscreen side wrap (ahead of the door post)
 const W_FRT = [[-0.67, 0.38], [0.28, 0.38], [0.28, 0.92], [-0.36, 0.92]];              // front side window = right-side upper door window
 const W_RR = [[0.48, 0.40], [0.98, 0.40], [1.05, 0.87], [0.48, 0.885]];                 // rear side window
 const DOOR_LO = [[-0.67, -0.20], [0.28, -0.22], [0.28, 0.375], [-0.67, 0.375]];        // right lower door (hinges down)
@@ -843,8 +843,8 @@ polyMesh([[[[-0.31, WING_Y, -0.50], [0.31, WING_Y, -0.50], [0.31, 1.13, -0.30], 
   [[[-0.31, 1.13, -0.30], [0.31, 1.13, -0.30], [0.31, 1.13, 0.30], [-0.31, 1.13, 0.30]], [0, 1, 0]]], glass);   // skylight between the wing roots
 taper(0.30, 1.10, [0.62, 1.135, 1.115], [0.62, wy(0, 1.1) + 0.03, wy(0, 1.1) + 0.01], yellow);   // centre-section fairing behind the skylight
 rod([-0.35, WING_Y - 0.01, -0.51], [0.35, WING_Y - 0.01, -0.51], 0.015, dark);                   // windscreen top bow
-box(0.66, 0.02, 1.75, dark, 0, -0.26, -0.125);                                                  // cabin floor
-box(0.66, 1.12, 0.02, dark, 0, 0.34, 1.08);                                                      // baggage bulkhead
+box(0.65, 0.02, 1.75, dark, 0, -0.26, -0.125);                                                  // cabin floor
+box(0.65, 1.12, 0.02, dark, 0, 0.34, 1.08);                                                      // baggage bulkhead
 // cowling (O-320: cheeks over the cylinders, blunt nose bowl) and rear fuselage (slab sides, turtle deck, tapering to the sternpost)
 loftRings([sec(-1.86, 0.27, 0.40, -0.19, 0.16, 0.10), sec(-1.76, 0.35, 0.44, -0.23, 0.14, 0.08), sec(-1.45, 0.40, 0.48, -0.26, 0.10, 0.06), sec(-1.11, 0.35, 0.535, -0.28, 0.0, 0.04)], yellow);
 loftRings([sec(1.10, 0.35, wy(0, 1.1), -0.23, 0.02), sec(1.66, 0.296, 0.89, -0.15), sec(2.27, 0.236, 0.85, -0.04), sec(2.88, 0.177, 0.83, 0.05, 0.09),
@@ -907,13 +907,13 @@ for (const sx of [-1, 1]) {
 rod(D2B(0, 4.05, 0.26).toArray(), [0, -0.38, 4.40], 0.016, dark); rod([0, -0.38, 4.40], [0, -0.45, 4.45], 0.014, dark);   // tail-wheel leaf spring + fork
 { const tw = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.06, 8).rotateZ(Math.PI / 2), black); tw.position.set(0, -0.45, 4.45); PS.add(tw); }
 // cockpit interior (moves with the eye point: CK)
-box(0.66, 0.28, 0.04, dark, 0, 0.0 + CK.y, -0.62 + CK.z);                                      // panel
-box(0.66, 0.02, 0.24, dark, 0, 0.15 + CK.y, -0.74 + CK.z);                                     // glare shield
+box(0.65, 0.28, 0.04, dark, 0, 0.0 + CK.y, -0.62 + CK.z);                                      // panel
+box(0.65, 0.02, 0.24, dark, 0, 0.15 + CK.y, -0.74 + CK.z);                                     // glare shield
 box(0.48, 0.55, 0.06, grey, 0, -0.18 + CK.y, 0.45 + CK.z);                                     // front seat back
 box(0.48, 0.1, 0.42, grey, 0, -0.32, 0.03 + CK.z + 0.21);                                      // front seat cushion
 box(0.55, 0.1, 0.45, grey, 0, -0.38 + CK.y, 1.0 + CK.z); box(0.55, 0.5, 0.06, grey, 0, -0.1 + CK.y, 1.25 + CK.z);   // rear seat (tandem)
 box(0.03, 0.02, 0.24, grey, -0.30, -0.02 + CK.y, -0.17 + CK.z);                                // throttle quadrant slot
-box(0.01, 0.3, 0.3, dark, -0.325, -0.1 + CK.y, 0.34 + CK.z);                                   // flap handle quadrant
+box(0.01, 0.3, 0.3, dark, -0.312, -0.1 + CK.y, 0.34 + CK.z);                                   // flap handle quadrant
 partsRoot = plane;
 mergeInto(PS, plane);
 // moving surfaces (drawing frame, inside cubD)

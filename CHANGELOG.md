@@ -2,6 +2,18 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Every version leaves the flight model untouched: `node physics-test.mjs | md5sum` = `f1e1607f804bf17b4877bad1bf04feaa`.
 
+## v0.18.1 – side windows open from inside
+- Fix: from the cockpit, the door windows, rear quarter windows and the side part of the windscreen were partly solid yellow, though they looked right from outside.
+  - Cause: a top corner of the windscreen cut-out touched the cabin side outline. That broke how the window holes were cut into the side skin, so the inside face kept a panel across them.
+  - The corner now sits 2.5 cm inside the outline, and every window opening matches its outside outline on both faces.
+  - From the pilot eye, the door windows and the right door's upper pane are fully clear (81 of 81 sample points, was 46–48).
+- Fix: flickering (z-fighting) along the window sills, worst on the left by the throttle.
+  - The dark window frames shared faces with the side skin. They now run through the skin, stand a few mm proud on both sides and lip 4 mm into the opening, so they also look dark from inside.
+  - The flap quadrant plate sat exactly on the left wall. It is now 1.3 cm off it.
+  - The panel, glare shield, floor and bulkhead are 1 cm narrower so they no longer touch the walls.
+- Open view from the pilot eye: ahead 41.5 → 49.2%, left 34.7 → 43.7%, left-down 25.3 → 40.0%, right 36.1 → 43.8%, right-down 27.0 → 40.1%, up 58.0 → 70.7%. All are now better than v0.17.1.
+- Same draw calls (111 / 142 / 92), +4 triangles. Flight model unchanged.
+
 ## v0.18 – Cub rebuilt to real PA-18-150 dimensions
 - New low-poly exterior modelled from a PA-18 three-view and published data:
   - span 10.73 m, length 6.88 m, height about 2.05 m, wing area 16.58 m² (Jane's/Wikipedia, NASM);
