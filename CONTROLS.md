@@ -217,3 +217,10 @@ Defaults = the v0.34 look and cost (shadows off, grass off).
 - Bench recipes need you within 2 m of the workbench. There, a ghost of the item floats over the bench; grab it to craft it into your hand.
 - Desktop (on foot): B or K opens the book, ←/→ turn pages, ↑/↓ change section, Enter crafts, Esc closes, 1–0 quick-craft.
 - Put a campfire kit, snare or spike trap on the ground to set it (desktop P drops it 1.5 m ahead). Snares catch meat after a few minutes; spike traps kill zombies that step on them.
+
+## The Halvorsen file (v0.38)
+
+- Blue pencil marks on the map are the mystery's clues: medevac crash, army checkpoint, grain elevator, Halvorsen station, then the cold room. A list at the bottom right of the map tracks them.
+- Pick up a clipboard, note or tape at the marked place to read or play it. The captions play one after another.
+- The radio (cabin) and COM (Cub) give the next lead every other call.
+- Halvorsen station has its own gravel strip, about 340 m long, with a windsock and avgas.

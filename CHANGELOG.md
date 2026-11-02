@@ -2,6 +2,21 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.38 – The Halvorsen file (mystery)
+
+- **Story:** a second thread runs beside Sarah's: why the valley died and why you didn't. It has five clues, and each one points to the next. The radio and the Cub's COM give the next lead every other call. Clues are marked in blue pencil on the map, with a "THE HALVORSEN FILE" list at the bottom right.
+  1. **Medevac crash** (west of the river, NW of the hollow): a Huey down in snapped timber. The flight log on the litter names the patient: the Cub pilot (you), bitten, given two doses of K-12 by Dr M. Keene, and diverted at the checkpoint.
+  2. **Army checkpoint** (Dry Fork road, ~2000,80): a jersey-barrier chicane, sandbags, MG mount, tents, a truck, a watch platform, a light tower and a queue of abandoned cars. The radio log covers the grain cars held, the spore dust, no aircraft out, and the line overrun.
+  3. **Co-op grain elevator** (east of Dry Fork): silos, headhouse, an enterable scale-house office, a rail siding with hopper cars and spilled grain. A recall manifest for seed lot HB-7 is on the desk.
+  4. **Halvorsen Ag-Bio Research Station 4** (up the valley past Hollis): a fenced compound with a guard booth, a walk-in lab (Building A), greenhouses of dead wheat, a decon tent, body bags, a burn pit and a radio mast. It has its own gravel strip with a windsock and avgas. Tape 1 is on the reception desk.
+  5. **Cold room**: tape 2 is from Mara Keene. Something is waiting for you there. Captions play in order, then a "HALVORSEN FILE" reveal card appears. If you have the file, the Sarah ending card adds a line about the cure.
+- New items: CLIPBOARD and TAPE (micro-cassette recorder). Captions prefixed TAPE: use the radio style.
+- All four places have loot and zombies. Trees and forest instances are cleared from the sites and the strip.
+- BASICS page: a new "Clues" block.
+- **Saves:** a new `mys` field. Older saves start at clue 1 with the medevac lead already on the map. Places added since the save get their loot.
+- **Perf (headless, 1024×576, calls/tris):** foot 98/293k, town 80/263k, cockpit 132/294k, alt 166/307k (was 96/287k, 80/260k, 130/288k, 162/296k). Each site is one merged mesh, distance-culled.
+- Test t38 (33 checks) added to the regression run. Physics md5 is unchanged.
+
 ## v0.37 – New story opening and tutorial
 - **You wake in a forest.** A new game starts in a camp in a thick pine grove about 460 m west of the cabin, across the river: a blue tarp lean-to, sleeping bag, cold fire ring, an empty pack and a stump with a tin can. You have a bow and six arrows, an empty canteen, a brass compass and a note from "M.": you were bitten, you didn't turn, head east to the cabin and the airstrip, the plane is there. (The mystery behind it comes in v0.38.)
 - **The way east:** three stone cairns mark the route, and a windfall log crosses the river. About 330 more grove trees and 70 riverbank trees are added in the existing two tree draw calls; they use their own random stream, so the rest of the world is unchanged.
