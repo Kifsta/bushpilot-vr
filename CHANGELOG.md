@@ -2,6 +2,22 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.23 – Hands + VTOL VR-style cockpit
+- **Gloves instead of grey boxes.** Low-poly glove hands (one instanced mesh: 17 boxes per hand, one draw call for both) follow the controllers.
+  - Pose from the controller: grip curls the lower three fingers, trigger curls the index, grip without trigger = pointing index, thumb on the stick/buttons rests it, thumb off lifts it.
+  - Quest hand tracking: if the browser gives hand joints, the gloves are built straight from them and the index tip pokes switches (visual + poke only; no pinch-grab).
+  - Grabbed things lock the glove on: fist on the stick grip, throttle knob, flap handle, window/door handles; pinch on knobs; rifle hand at the wrist with the index on the trigger, support hand cradling the forend; book/map/items get a holding pose.
+  - Iron sights are never covered: after posing, every glove bone is tested against the eye-to-bead sight line; the rifle hand drops its thumb, and a support glove that would still cross it is hidden. Test: 30 grip-angle/roll/trigger poses, 0 crossings. The old little gloves stay for desktop.
+- **Cockpit by hand, no laser pointer.**
+  - Master rocker: push the half that sticks out past flat with your fingertip. Landing-light toggle: flick the bat up or down through the middle. START: press and hold it in.
+  - Fingertip = 8 mm sphere at the glove's index tip. Flips need contact, motion in the push direction, crossing the midpoint, and re-arm only after the finger leaves (plus a 0.25 s lockout), so jitter, sideways sweeps and pulling out don't flip anything.
+  - Mags key and fuel valve: grab and twist your wrist (twist measured about the panel normal), the knob follows your hand and snaps to detents.
+  - Mixture, carb heat, primer: grab and pull/push (3–4 cm travel). Primer gives one shot per full pull-and-push stroke.
+  - Flap handle goes through 0-15-30-50; windows and door by their handles as before.
+  - Yellow hover ring on the control your fingertip or hand is near. Every detent/flip gives a click and a short haptic pulse.
+  - Stick and throttle are only grabbed when your hand is on them (16 / 14 cm), so you can reach and point with the grip held. Squeeze-and-release on a control without moving it still does the old one-step toggle. Desktop keys unchanged.
+- Tests: new t23 (41 checks: poses, rocker/toggle flips + debounce + direction, START hold, twist detents, pull/push, primer strokes, tap fallback, stick/throttle proximity + lock, flap detents, handles, hover ring, hand-tracking joints, rifle sight line). Physics md5 unchanged; the engine, book and other regressions match v0.22; desktop perf identical (foot 95 / cockpit 128 / alt 161 calls).
+
 ## v0.22 – Small towns
 - Three abandoned towns on flat ground, each on the dirt-road network and marked on the paper map and the cockpit map (red "zeds!" under the name):
   - **Cutler**, about 1.9 km south of the cabin (11 buildings);

@@ -3,26 +3,28 @@
 ## Flying
 | | VR (Quest) | Desktop |
 |---|---|---|
-| Stick (pitch / roll) | Right grip on the stick, move your hand | W / S pitch, A / D roll (click to mouse-look) |
+| Stick (pitch / roll) | Put your right hand on the stick and squeeze (the glove locks on it), move your hand | W / S pitch, A / D roll (click to mouse-look) |
 | Rudder | Left stick left / right | Q / E |
-| Throttle | Left grip on the throttle | Shift / Ctrl (or = / -) |
-| Flaps (0-15-30-50) | Grab the flap handle (left wall, by your hip) | [ and ] |
+| Throttle | Left hand on the throttle knob (left wall), squeeze, push / pull | Shift / Ctrl (or = / -) |
+| Flaps (0-15-30-50) | Grab the flap handle (left wall, by your hip) and pull it up / push it down through the notches (click + buzz per notch) | [ and ] |
 | Brakes | Left trigger | B |
 | Get out (stopped, idle) | Y | F |
-| Landing light | Squeeze the switch under the panel | L |
+| Landing light | Flick the toggle under the panel up / down with your fingertip (or squeeze it) | L |
 | Reset / recentre | B = reset (refuels), A / X = recentre | R reset, Home recentre |
 
 ## Engine start / shutdown (v0.19: the plane starts cold and dark)
 | | VR (Quest) | Desktop |
 |---|---|---|
-| Fuel valve ON / OFF | Squeeze grip on the red lever (switch strip under the left of the panel) | U |
-| Master ON / OFF | Squeeze the red rocker | O |
-| Mixture RICH (in) / CUTOFF (out) | Squeeze the red knob | Y |
-| Carb heat COLD (in) / HOT (out) | Squeeze the black knob | H |
-| Primer (one stroke per squeeze) | Squeeze the chrome T-handle | P |
-| Mags OFF > R > L > BOTH | Squeeze the key (each squeeze = next position) | I |
-| Starter | Squeeze and hold the red START button | Hold Space |
+| Fuel valve ON / OFF | Grab the red lever (switch strip under the left of the panel) and twist a quarter turn | U |
+| Master ON / OFF | Push the half of the red rocker that sticks out with your fingertip | O |
+| Mixture RICH (in) / CUTOFF (out) | Grab the red knob and pull it out / push it in | Y |
+| Carb heat COLD (in) / HOT (out) | Grab the black knob and pull it out / push it in | H |
+| Primer | Grab the chrome T-handle, pull it all the way out and push it back in (one shot per stroke) | P |
+| Mags OFF > R > L > BOTH | Grab the key and twist clockwise / back (click + buzz per position) | I |
+| Starter | Press and hold the red START button with your fingertip (or squeeze and hold it) | Hold Space |
 | Checklist card | Squeeze it (under the right of the panel); let go to put it back | J |
+
+v0.23 hands (VTOL VR style, no laser): your hands are gloves. Squeeze with the trigger off = point the index finger; trigger curls it; thumb off the buttons lifts the thumb. A yellow ring shows what your hand will work. Squeezing a control and letting go without moving it still does the old one-step toggle. Quest hand tracking (no controllers) shows tracked gloves and pokes switches with your index tip.
 
 Start: fuel ON, master ON, mixture RICH, carb heat COLD, prime 2–3 strokes (cold) or 0–1 (warm), throttle cracked (~10%), mags BOTH, hold the starter until it runs (~700 rpm).
 Flooded? Throttle full and crank, then pull the throttle back when it fires.
