@@ -45,6 +45,22 @@ Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `no
 - Draw calls / triangles (v0.26 → v0.27): on foot 95 / 263,072 → 94 / 263,974; town (60 m out) 72 / 232,634 → 72 / 236,838; cockpit 129 / 263,772 → 128 / 264,674; 600 m up 162 / 271,406 → 161 / 272,308.
 - Not used: Backpack (the player's pack is interactive and custom), Bear trap (the snare and spike traps fit the game better), Wood log (sticks and boards are bundles), Pan (no use yet), Canteen (the water bottle suits the water jug better), Flare gun, phone, tent, raft, shovel, trash can, propane tank and the guns.
 
+## v0.27 – Item models
+- **Real models for the main items**, from Quaternius' *Survival Pack* (CC0, see CREDITS.md): knife, hatchet, fuel can, medkit, bandages, water jug, torch, the cabin's cooking pot, the cabin fire-pit logs and every campfire you build.
+  - Each model is fitted to the item's existing size box, so pouches, the pack grid, the belt, cargo stacking, weights and behaviours are unchanged.
+  - The knife keeps its tip where the stab test expects it (−0.237 m) with the handle centred in the fist. The hatchet keeps its length (0.43 m) and its edge point is inside the new head.
+  - Size boxes grew only where the real model is taller: knife height 0.03 → 0.065 m (blade depth), hatchet height 0.13 → 0.27 m (box spans the head below the handle; the grip stays on the handle).
+  - The torch's glow sits on the new lens, and the light still comes from the torch.
+  - Cooked meat, the fire flames and the pot's cooking/boiling all work as before.
+- **Town set dressing**: radios, compasses, batteries, cans and matchboxes on the ends of the shop counters in each town (16 props). They are decoration only, merged into one mesh per town and drawn only when you're within 55 m of that town.
+- **One file, one material**: `assets/items.glb` (90 KB, 15 models, 5.9k triangles) with vertex colours baked from the packs' materials and quantized positions. Every model uses the shared item material, so:
+  - the knife is 1 draw call instead of 3;
+  - a campfire's logs + stone ring are 1 draw call instead of 8;
+  - the cabin fire-pit logs are 1 draw call instead of 2.
+- **Loads in the background** after start-up (relative URL, retried) and swaps the models in place. If the file or the loader can't be fetched, the old hand-made models just stay.
+- Draw calls / triangles (v0.26 → v0.27): on foot 95 / 263,072 → 94 / 263,974; town (60 m out) 72 / 232,634 → 72 / 236,838; cockpit 129 / 263,772 → 128 / 264,674; 600 m up 162 / 271,406 → 161 / 272,308.
+- Not used: Backpack (the player's pack is interactive and custom), Bear trap (the snare and spike traps fit the game better), Wood log (sticks and boards are bundles), Pan (no use yet), Canteen (the water bottle suits the water jug better), Flare gun, phone, tent, raft, shovel, trash can, propane tank and the guns.
+
 ## v0.26 – Better melee combat
 - **Physics-driven knife.**
   - Damage and type now come from the knife tip's real velocity, not just contact.
