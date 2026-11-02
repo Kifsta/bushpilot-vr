@@ -2,6 +2,63 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.25 – Cargo loading + weight and balance
+- **Load loot into the plane.**
+  - Hold an item over the **rear seat**, the **rear floor** or the new **baggage bay** behind the rear seat, and let go. It sits where you put it, stacking on top of other cargo when there's room. If a zone is full, the item is refused and stays out.
+  - The baggage bulkhead moved aft to make the bay, which has its own floor. The TCDS limit is 50 lb at +57.
+  - Cargo stays with the plane when you fly, get out, or walk away.
+  - Grab an item again to take it out.
+  - Desktop, near the plane: `.` loads the heaviest pack item, `,` unloads the last one, `/` straps or unstraps.
+- **Strap it down.** Grip the rear-seat **lap belt** (yellow ring) to buckle it over the seat load, and grip the **cargo net** to cover the baggage bay. Cargo that is strapped down can't be pulled out, so undo the strap first.
+- **Loose cargo moves.**
+  - Unsecured items react to the airframe's real acceleration.
+  - They hold in gentle manoeuvres (static friction 0.55).
+  - In hard braking, skids or a ground loop they slide (kinetic friction 0.4), and items on the rear seat slide off onto the floor.
+  - A rough or hard landing (over about 2.3 g) makes them bounce and shift.
+  - Negative g makes them float up.
+  - Hits thud and buzz the controllers, and you get a "LOOSE CARGO SHIFTED" message.
+  - As cargo shifts, the CG moves with it.
+- **Real weights.** Every item has a realistic weight:
+  - fuel can 9 lb empty + 6 lb/gal, so a full 40 L can is 72 lb;
+  - ammo box 20; food crate 30; water jug 8.6; medkit 5; boards 6; spike trap 15; and so on.
+  - The carried kit counts at the pilot station (+11): rifle 7 lb, rounds, pack contents, belt items, canteen water and materials.
+  - Fuel burns off at 6 lb/gal (+24).
+- **The physics uses the real mass, CG and inertia.**
+  - Mass and CG are summed every frame from W&B moments, and pitch/yaw inertia uses the parallel axis.
+  - The weight force acts at the CG, so the CG offset gives a pitching moment from the aero and gear forces.
+  - Heavy = longer take-off roll, higher stall speed, lower climb rate.
+  - Aft CG = light, twitchy pitch and reduced stability.
+  - Forward CG = nose-heavy and hard to flare.
+  - With a heavy tail load the tail wheel sits harder.
+  - Over gross is allowed but punishing: the gear's sink limit shrinks with √(gross/mass), so a landing the legal load survives breaks the gear.
+  - On foot the pilot's 170 lb is off the plane, so the tail visibly settles as you load it.
+- **Live W&B card** on the right cabin wall aft of the panel (one draw call). It shows:
+  - rows for empty, pilot + kit, fuel, rear seat, baggage and floor, with arms, flagging loose or over-limit rows in red;
+  - total weight and CG;
+  - the CG envelope chart with a live dot and an over-gross band;
+  - status: WITHIN LIMITS / OVER GROSS / CG AFT / CG FORWARD.
+  It redraws only when the numbers change.
+- **Field guide page** "Loading the Cub" (BASICS tab, page 3): how to load and strap, what weight and CG do, plus the live numbers and chart.
+- **Take-off reminder** when you go to full throttle on the ground over gross, out of CG limits, or with 10 lb or more of loose cargo.
+- **Data (PA-18 "150", FAA TCDS 1A2 §III):**
+  - Datum: wing leading edge.
+  - Normal category CG range: +14.0 to +20.0 in at 1750 lb, and +10.5 to +20.0 in at 1300 lb or less (straight-line variation).
+  - Utility category: 1500 lb, +12.3 to +19.0 (drawn as a dashed line).
+  - Seats at +11 and +37; baggage 50 lb at +57; fuel 36 gal at +24.
+  - Max gross 1750 lb.
+  - Sources:
+    - https://openairdocs.org/tcds/1A2
+    - SuperCub.org owner data: stock empty weight about 1,010–1,025 lb, "bush ready" about 1,150 lb, empty CG about +11.
+    - Piper W&B sheets use a datum 60 in ahead of the LE (Alaska Float Ratings W&B PDF); the TCDS LE datum is used here.
+  - The game's empty plane is 1,047 lb at +11.0, so empty + 170 lb pilot + 36 gal = 1,433 lb = exactly the 650 kg the flight model was tuned at.
+- **Physics md5 unchanged** (`eee6637e…`). Empty solo + full fuel gives exactly the old mass, CG (0) and inertia.
+  - In game the carried kit (about 6 lb with the rifle and starting pack) is now counted, so the in-game mass is a few kg above 650 kg. The engine-start takeoff test shows a 2 rpm difference.
+- **Tests:**
+  - New `physics-wb-test.mjs` (node). Checks reference identity, envelope limits, takeoff roll, stall speed, climb, trim, gust stability, flare alpha, tail load, and an over-gross hard landing vs a legal one.
+  - New in-game cargo test: 34/34 (placement, stacking, refusal when full, zone weights, release-to-load, belt and net, friction hold and slide, hop, float, airframe-driven shifting, pilot off on foot, unload by grab, desktop keys, fuel burn, over gross, card and book).
+  - Regressions are unchanged. The field guide spread count is now 14.
+  - Performance: +1 draw call (the card), +14 triangles.
+
 ## v0.24.1 – Natural hands, clear sights, grip on the ring
 - **Natural hand pose.**
   - The thumb now rests alongside the index finger, over the controller face, slightly curled. It no longer sticks out sideways.

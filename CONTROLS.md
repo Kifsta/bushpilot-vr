@@ -30,6 +30,12 @@ v0.24 haptics: you feel the engine (rpm, rough running, cranking), stall buffet,
 
 v0.24.1 grip on the ring: point your fingertip at a switch or knob, and a yellow ring appears on it (one ring per hand). Squeeze grip to use it. Toggles flip, START cranks while you hold grip, the mags key and fuel valve turn when you twist your wrist, and push-pull knobs follow your hand in and out. Window handles and the checklist drag. Poking with the fingertip still works. The stick, throttle and flap lever only take the grip when your hand is on them. With the rifle shouldered, your gloves stay clear of the iron sights.
 
+v0.25 cargo + weight and balance:
+- Load: hold loot over the rear seat, the rear floor or the baggage bay (behind the rear seat) and let go. Grab it again to take it out.
+- Strap: grip the lap belt or the cargo net (yellow ring) to strap or unstrap. Loose cargo slides in hard braking and bounces on hard landings.
+- Desktop, near the plane: `.` load, `,` unload, `/` strap or unstrap.
+- The live W&B card is on the right cabin wall. The field guide has a "Loading the Cub" page.
+
 Start: fuel ON, master ON, mixture RICH, carb heat COLD, prime 2–3 strokes (cold) or 0–1 (warm), throttle cracked (~10%), mags BOTH, hold the starter until it runs (~700 rpm).
 Flooded? Throttle full and crank, then pull the throttle back when it fires.
 Shutdown: throttle idle, mixture CUTOFF (it stops), mags OFF, master OFF, fuel OFF.
