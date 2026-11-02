@@ -632,7 +632,7 @@ function splitTiles(geo, tile) {   // non-indexed triangle soup -> one geometry 
   build(2 * T_OUT, 2 * T_OUT / T_C2, false);
 }
 // grass strip, cabin, trees
-const TREES = []; let CABIN_MESH = null;   // v0.9: bullets hit trunks / crowns / the cabin
+const TREES = [], CHOP_T = []; let CABIN_MESH = null;   // v0.26 CHOP_T: grove trunks [x, base y, z, r] the hatchet can chop   // v0.9: bullets hit trunks / crowns / the cabin
 {
   const strip = new THREE.Mesh(new THREE.PlaneGeometry(24, 310).rotateX(-Math.PI / 2),
     new THREE.MeshLambertMaterial({ color: 0x7aa84c, map: grainTexture([4, 52]), polygonOffset: true, polygonOffsetFactor: -2 }));
@@ -1616,6 +1616,12 @@ function sfx(kind, pos, delay = 0) {
   else if (kind === 'hurt') { tone('sine', 120, 50, 0.25, 0.6); burst(0.1, 1, 0.3, 'lowpass', 400); }
   else if (kind === 'groan') { const f = 85 + Math.random() * 40; tone('sawtooth', f, f * 0.7, 1.2 + Math.random() * 0.6, 0.35, 0, 450 + Math.random() * 250); }
   else if (kind === 'hit') burst(0.08, 1, 0.4, 'lowpass', 800);
+  else if (kind === 'stab') { burst(0.1, 1, 0.6, 'lowpass', 520); burst(0.06, 1, 0.35, 'bandpass', 1400, 0.01); }                       // v0.26 wet thunk
+  else if (kind === 'slash') { burst(0.07, 1, 0.35, 'highpass', 2600); burst(0.06, 1, 0.4, 'lowpass', 700, 0.02); }
+  else if (kind === 'unstick') { burst(0.12, 1, 0.35, 'bandpass', 900); burst(0.03, 1, 0.25, 'highpass', 3000, 0.08); }
+  else if (kind === 'chop') { burst(0.05, 1, 0.6, 'bandpass', 1300); burst(0.14, 1, 0.5, 'lowpass', 300, 0.01); }
+  else if (kind === 'shove') { burst(0.12, 1, 0.6, 'lowpass', 260); tone('sine', 140, 70, 0.12, 0.25); }
+  else if (kind === 'swish') burst(0.16, 1, 0.18, 'bandpass', 1800);
 }
 const _lf = new THREE.Vector3(), _lu = new THREE.Vector3(), _lp = new THREE.Vector3();
 function updateAudio(dt) {
@@ -1755,7 +1761,8 @@ addEventListener('keydown', e => {
   if (e.code === 'KeyR') { if (mode === 'foot' && R.hand === 'desk') loadRound(); else resetFlight(); }
   if (mode === 'foot' && e.code === 'KeyI') setPack(PK.state === 'worn' ? 'open' : 'worn');
   if (mode === 'foot' && /^Digit[1-4]$/.test(e.code)) deskSlot(+e.code[5] - 1);
-  if (mode === 'foot' && e.code === 'KeyV') deskKnifeUse();
+  if (mode === 'foot' && e.code === 'KeyV') deskMelee();   // v0.26: butt-stroke / hatchet / knife
+  if (mode === 'foot' && e.code === 'KeyQ') deskShove();   // v0.26 shove
   if (e.code === 'KeyM') mapDesk();
   if (e.code === 'KeyL') { if (mode === 'plane') toggleLanding(); else toggleTorch(); }
   if (e.code === 'KeyN') trySleep();
@@ -1924,7 +1931,7 @@ function footXR(dt) {
 // v0.10: crouch (right stick down / C) and a small hop (right stick up / Space). Real crouching still works: it's head tracking on top.
 const CROUCH_DROP = 0.5, CROUCH_TIME = 0.15, JUMP_H = 0.4, CROUCH_WALK = 0.5;
 const crouchK = () => smooth01(P.crouchT);
-const crouchWalk = () => 1 - (1 - CROUCH_WALK) * crouchK();
+const crouchWalk = () => (1 - (1 - CROUCH_WALK) * crouchK()) * melGrabSlow();   // v0.26: a zombie hanging on you = barely moving
 function jump() { if (mode !== 'foot' || P.jy > 0 || P.jv !== 0) return; if (P.stam < 10) { say('TOO TIRED TO JUMP'); return; } P.stam -= 10; P.jv = Math.sqrt(2 * 9.81 * JUMP_H); }   // grounded only: no double jump
 const _twp = { x: 0, z: 0 };
 function updateFoot(dt) {
@@ -2134,6 +2141,10 @@ const MODELS = {
   'CLEANING KIT': [['b', 0.17, 0.035, 0.07, -0.01, -0.002, 0, 0x2f3b2a], ['b', 0.17, 0.008, 0.072, -0.01, 0.014, -0.005, 0x26301f], ['c', 0.004, 0.2, 5, 0, 0.0, 0.03, 0x707070, 0, 0, H],
     ['c', 0.007, 0.012, 6, 0.094, 0.0, 0.03, 0xb08d40, 0, 0, H]],
 };
+// v0.26 hatchet / fire axe: red head, bright edge, hickory handle (held like the knife: handle in the fist, head out past the thumb)
+ITEM['HATCHET'] = { sz: [0.05, 0.13, 0.43], col: 0xb02018 };
+MODELS['HATCHET'] = [['b', 0.028, 0.032, 0.4, 0, 0, -0.09, 0x6b4a2a], ['b', 0.03, 0.036, 0.05, 0, 0, 0.09, 0x2a2a2a],
+  ['b', 0.024, 0.075, 0.07, 0, -0.022, -0.27, 0xb02018], ['b', 0.02, 0.03, 0.05, 0, 0.03, -0.27, 0x2a2a2a], ['b', 0.01, 0.022, 0.085, 0, -0.065, -0.27, 0xd8dade]];
 const LAN_GLASS = new THREE.CylinderGeometry(0.036, 0.04, 0.13, 8);
 const res = n => itemRes[n] || (itemRes[n] = MODELS[n] ? { g: mergeGeometries(MODELS[n].map(partGeo)), m: ITEM_VM } : { g: new THREE.BoxGeometry(...ITEM[n].sz), m: mat(ITEM[n].col) });
 function makeItem(name, x, y, z) {
@@ -2164,11 +2175,12 @@ function holdItem(g, it) {
   const ii = inv.indexOf(it); if (ii >= 0) { inv.splice(ii, 1); layoutPack(); }
   for (const s of SLOTS) if (s.item === it) s.item = null;
   falling.delete(it);
-  it.state = 'held'; g.add(it.mesh); it.mesh.scale.setScalar(1); it.mesh.position.set(0, -0.01, it.name === 'KNIFE' ? 0.01 : -0.07); it.mesh.rotation.set(0, 0, 0); it.mesh.visible = true; it.prevTip = null;
+  it.state = 'held'; g.add(it.mesh); it.mesh.scale.setScalar(1); it.mesh.position.set(0, -0.01, it.name === 'KNIFE' || it.name === 'HATCHET' ? 0.01 : -0.07); it.mesh.rotation.set(0, 0, 0); it.mesh.visible = true; it.prevTip = null;
   held.set(g, it); sfx('pick'); tick(g);
 }
 function releaseHeld(g) {      // open bag > belt slot > cabin bench > falls to the ground
   const it = held.get(g); if (!it) return; held.delete(g);
+  if (it.stuck) knifeUnstick(it, g, false);   // v0.26: letting go of a stuck knife frees it into your hand first
   const p = it.mesh.getWorldPosition(V3()), q = it.mesh.getWorldQuaternion(new THREE.Quaternion());
   scene.add(it.mesh); it.mesh.position.copy(p); it.mesh.quaternion.copy(q); it.prevTip = null;
   if (cargoDrop(it, p)) { tick(g); return; }   // v0.25: let go inside the cabin = loaded (rear seat / baggage / floor)
@@ -2249,6 +2261,7 @@ function updateItems(dt) {
     if ((d.food || d.heal || d.drink) && _b.distanceTo(_a) < 0.18) { consume(it); continue; }
     if (it.name === 'CANTEEN') canteenTick(g, it, dt, _a, _b);
     if (it.name === 'KNIFE') knifeTick(g, it, dt);
+    if (it.name === 'HATCHET') hatTick(g, it, dt);
     if (it.name === 'FUEL CAN' && nearCap(_b, 0.45)) pour(it, dt);
     if (it.name === 'RAW MEAT' && nearFire(_b, 0.8)) { cookTick(it, dt); HX.rumble(g, 0.1, 'cook'); }
   }
@@ -2528,6 +2541,7 @@ const LODGE = { x: -380, z: -2440, a: 1.83, hl: 140, hw: 10 };   // backcountry 
       const n = g.attributes.position.count, c = o.material.color, col = new Float32Array(n * 3); for (let i = 0; i < n; i++) col.set([c.r, c.g, c.b], i * 3);
       g.setAttribute('color', new THREE.BufferAttribute(col, 3)); gs.push(g); }
     const mm = new THREE.Mesh(mergeGeometries(gs), new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true })); scene.add(mm); shootables.push(mm); }
+  for (const s of POIS.slice(0, 4)) { const [x, y, z] = s.slots[0]; s.table.push('HATCHET'); s.slots.push([x + 0.35, y, z]); }   // v0.26 hatchets at points of interest
   for (const s of POIS) { spawnSpot(s, true); s.away = 0; }
 
   // ---- forests: deciduous groves on the valley floor + extra conifers feathering the forest edge down onto the benches ----
@@ -2546,6 +2560,7 @@ const LODGE = { x: -380, z: -2440, a: 1.83, hl: 140, hw: 10 };   // backcountry 
       dec[c].push([tx, ty + 4.2 * s, tz, POI_R() * 6, 2.6 * s, 2.3 * s, 2.6 * s]); trunks.push([tx, ty + 1.6 * s, tz, 0, s, s, s]); gr.n++; } }
   const crown = new THREE.IcosahedronGeometry(1, 0);
   instanced(crown, mat(0x4f7a32), dec[0], { lod: 2500 }); instanced(crown, mat(0x6f8a2e), dec[1], { lod: 2500 }); instanced(crown, mat(0xb08a2a), dec[2], { lod: 2500 });
+  for (const t of trunks) CHOP_T.push([t[0], t[1] - 1.6 * t[4], t[2], 0.2 * t[4]]);
   instanced(new THREE.BoxGeometry(0.35, 3.2, 0.35), mat(0x4a3520), trunks, { lod: 2500 });
   const con2 = [];
   for (let i = 0; i < 60000 && con2.length < 2400; i++) {
@@ -2850,7 +2865,7 @@ const zBody = imesh([vbox(0.34, 0.22, 0.2, 0, 0.95, 0, 0x34333d), vbox(0.42, 0.5
                      vbox(0.04, 0.03, 0.02, -0.05, 1.75, -0.185, 0xd8e070), vbox(0.04, 0.03, 0.02, 0.05, 1.75, -0.185, 0xd8e070)], NZ);
 const zArm = imesh([vbox(0.1, 0.62, 0.1, 0, -0.31, 0, 0x6b7a55)], NZ * 2);
 const zLeg = imesh([vbox(0.14, 0.86, 0.15, 0, -0.43, 0, 0x34333d)], NZ * 2);
-function zAt(z, x, zz, st) { Object.assign(z, { x, z: zz, y: groundY(x, zz), yaw: Math.random() * 6.3, hp: Z_HP, state: st, t: Math.random() * 4, fall: 0, ph: Math.random() * 6, mv: 0, lunge: 0, cd: 2, tx: x, tz: zz, deadT: 0, groanT: 2 + Math.random() * 6, atk: 0, flinch: 0, fv: 0, fdir: 1, pvx: 0, pvz: 0, hs: false, sink: 0, droll: 0 }); }
+function zAt(z, x, zz, st) { Object.assign(z, { x, z: zz, y: groundY(x, zz), yaw: Math.random() * 6.3, hp: Z_HP, state: st, t: Math.random() * 4, fall: 0, ph: Math.random() * 6, mv: 0, lunge: 0, cd: 2, tx: x, tz: zz, deadT: 0, groanT: 2 + Math.random() * 6, atk: 0, flinch: 0, fv: 0, fdir: 1, pvx: 0, pvz: 0, hs: false, sink: 0, droll: 0, stag: 0, kd: 0, kfall: 0, kfv: 0, grabT: 0, stuckBy: null, M: null }); }
 function zHome(z) {   // (re)spawn somewhere around its site, never inside the farmhouse
   const s = z.site; let x, zz, k = 0;
   do { const a = Math.random() * 6.283, d = s.r * (0.2 + 0.8 * Math.random()); x = s.x + Math.cos(a) * d; zz = s.z + Math.sin(a) * d; }
@@ -2910,13 +2925,14 @@ function zStep(z, i, dt, pp, foot, target) {
       if (z.state === 'chase' && (!target || d > 120)) { z.state = 'wander'; z.tx = z.hx; z.tz = z.hz; }
       if (z.cabin && z.state !== 'chase' && d > 700) z.state = 'off';
       z.atk = 0;
-      if (z.state === 'chase') {
+      if (melBusy(z, dt)) { spd = 0; z.grabT = Math.min(z.grabT, 0); }   // v0.26: staggered / knocked down / impaled
+      else if (z.state === 'chase') {
         const zg = d < 40 ? zGoal(z, pp) : null, sep = !!zg && (zg[0] !== pp.x || zg[1] !== pp.z);   // v0.22: a wall between you -> via the door
         z.yaw = turn(z.yaw, sep ? yawTo(z.x, z.z, zg[0], zg[1]) : yawTo(z.x, z.z, pp.x, pp.z), (sep ? 6 : 3) * dt);
         const stop = foot ? 0.8 : 2.6;
         z.cd -= dt; if (z.lunge > 0) z.lunge -= dt; else if (z.cd <= 0 && d < 7 && d > 2 && !sep) { z.lunge = 0.7; z.cd = 3 + Math.random() * 3; }
         if (d > stop || sep) spd = (z.lunge > 0 ? Z_LUNGE + 0.8 * TOD.night : Z_SPEED + 0.4 * TOD.night) * (1 - 0.9 * z.flinch);   // v0.13 night: walk 1.6, lunge 4.0   // a hit stops them for a beat
-        if (foot && d < 1.15 && !sep) { z.atk = 1; hurt(Z_DPS * dt); }
+        if (foot && d < 1.15 && !sep) { z.atk = 1; hurt(Z_DPS * (MEL.grab === z ? 1.5 : 1) * dt); melGrabTick(z, dt); } else if (z.grabT > 0) z.grabT = 0;   // v0.26: too long up close = it grabs you
       } else {
         z.t -= dt;
         if (z.t <= 0) { if (z.state === 'idle') { z.state = 'wander'; const rr = z.site ? z.site.r : 25; z.tx = z.hx + (Math.random() - 0.5) * 2 * rr; z.tz = z.hz + (Math.random() - 0.5) * 2 * rr; z.t = 15; } else { z.state = 'idle'; z.t = 3 + Math.random() * 6; } }
@@ -2930,12 +2946,13 @@ function zStep(z, i, dt, pp, foot, target) {
       if (d < 40 && (z.groanT -= dt) <= 0) { z.groanT = 4 + Math.random() * 7; sfx('groan', _sv.set(z.x, z.y + 1.6, z.z)); }
     }
     z.y = groundY(z.x, z.z); z.mv += ((spd > 0 ? 1 : 0) - z.mv) * Math.min(1, dt * 5); z.ph += spd * dt * 4.5;
-    const zd = z.state === 'dead'; baseM(z.x, z.y - (zd ? 0.32 * z.sink * (1 - Math.min(1, z.fall / 1.2)) : 0), z.z, z.yaw, zd ? z.fall * z.fdir : 0.35 * z.flinch * z.fdir, zd ? z.droll * z.fall : Math.sin(z.ph * 0.5) * 0.07);
-    zBody.setMatrixAt(i, cM);
-    const sw = Math.sin(z.ph) * 0.5 * z.mv, dead = z.state === 'dead';
-    const arm = dead ? 0.3 : z.atk ? 1.3 + Math.sin(performance.now() * 0.015) * 0.5 : 1.25 + Math.sin(z.ph * 0.5) * 0.15;
-    limb(zArm, i * 2, -0.27, 1.55, 0.02, arm + sw * 0.3); limb(zArm, i * 2 + 1, 0.27, 1.55, 0.02, arm - sw * 0.3 + (z.atk ? 0.6 : 0));
-    limb(zLeg, i * 2, -0.1, 0.88, 0, dead ? 0 : sw); limb(zLeg, i * 2 + 1, 0.1, 0.88, 0, dead ? 0 : -sw);
+    const zd = z.state === 'dead', kd = !zd && z.kd > 0, fl = zd ? z.fall : kd ? z.kfall : 0;
+    baseM(z.x, z.y - (zd ? 0.32 * z.sink * (1 - Math.min(1, z.fall / 1.2)) : 0), z.z, z.yaw, zd || kd ? fl * z.fdir : 0.35 * z.flinch * z.fdir, zd || kd ? z.droll * fl : Math.sin(z.ph * 0.5) * 0.07);
+    zBody.setMatrixAt(i, cM); if (z.stuckBy) (z.M ||= new THREE.Matrix4()).copy(cM); else if (z.M) z.M = null;   // v0.26: a stuck knife rides on the body
+    const sw = Math.sin(z.ph) * 0.5 * z.mv, dead = z.state === 'dead' || kd, ff = Math.sin(Math.min(1, fl / 1.45) * Math.PI);   // v0.26 ragdoll-ish: arms fly up mid-fall, legs splay
+    const arm = dead ? 0.3 + 2.0 * ff : z.atk ? 1.3 + Math.sin(performance.now() * 0.015) * 0.5 : 1.25 + Math.sin(z.ph * 0.5) * 0.15;
+    limb(zArm, i * 2, -0.27, 1.55, 0.02, arm + sw * 0.3); limb(zArm, i * 2 + 1, 0.27, 1.55, 0.02, (dead ? 0.3 + 1.3 * ff : arm) - sw * 0.3 + (z.atk ? 0.6 : 0));
+    limb(zLeg, i * 2, -0.1, 0.88, 0, dead ? 0.45 * ff + 0.15 * Math.min(1, fl) : sw); limb(zLeg, i * 2 + 1, 0.1, 0.88, 0, dead ? -0.25 * ff : -sw);
 }
 // zombies vs the plane on the ground: no damage to you inside, but they get in the way of a takeoff roll
 function planeObstacles(dt) {
@@ -3505,25 +3522,24 @@ const KNIFE_TIP = new THREE.Vector3(0, 0, -0.23);
 let knife = null, deskKnife = false;
 const hasKnife = () => knife && knife.state !== 'gone' && (knife.state === 'belt' || knife.state === 'inv' || knife.state === 'held');
 function giveKnife() { knife = makeItem('KNIFE', 0, 0, 0); toSlot(SLOTS[0], knife, true); }
-function knifeTick(g, it, dt) {
+const _kbv = V3(), _kbd = V3(), _kbe = V3();
+function knifeTick(g, it, dt) {   // v0.26: physics-driven - tip velocity decides slash vs stab, speed + hit location decide the damage
+  if (it.stuck) { knifeStuckTick(g, it, dt); return; }
   const tip = it.mesh.localToWorld(_kt.copy(KNIFE_TIP));
   if (!it.prevTip) it.prevTip = tip.clone();
-  const sp = tip.distanceTo(it.prevTip) / Math.max(dt, 1e-3); it.prevTip.copy(tip); it.cool = (it.cool || 0) - dt;
+  _kbv.subVectors(tip, it.prevTip).divideScalar(Math.max(dt, 1e-3)); const sp = _kbv.length(); it.prevTip.copy(tip); it.cool = (it.cool || 0) - dt;
   if (it.cool > 0) return;
-  if (sp > KNIFE_SPEED) for (const z of ZS) {
-    if (z.state === 'dead' || z.state === 'off' || Math.hypot(z.x - tip.x, z.z - tip.z) > 1) continue;
-    const cy = Math.cos(z.yaw), sy = Math.sin(z.yaw);
-    for (const [lx, ly, lz, r, part] of ZSPH) {
-      const wx = z.x + lx * cy + lz * sy, wy = z.y + ly, wz = z.z - lx * sy + lz * cy;
-      if (Math.hypot(wx - tip.x, wy - tip.y, wz - tip.z) < r + 0.04) { knifeHit(z, part); it.cool = 0.35; pulse(g, 0.9, 50); return; }
-    }
-  }
+  melSwish(sp, tip);
+  it.mesh.localToWorld(_kbd.set(0, 0, -1)).sub(it.mesh.getWorldPosition(_kbe)).normalize();
+  if (knifeContact(g, it, tip, _kbv, _kbd)) return;
   if (sp > KNIFE_SLICE_SPEED) { const a = nearCarcass(tip, 0.75); if (a && tip.y - a.y < 0.9) {
     it.slices = it.sliceA === a ? (it.slices || 0) + 1 : 1; it.sliceA = a; it.cool = 0.25; sfx('hit', tip); pulse(g, 0.5, 30);
     if (it.slices >= KNIFE_SLICES) { dressAnimal(a); it.slices = 0; } else say('SLICE ' + it.slices + '/' + KNIFE_SLICES);
   } }
 }
-function knifeHit(z, part) { z.hit(part === 'head' ? 'head' : 'legs'); if (z.state === 'dead') say(part === 'head' ? 'KNIFE KILL' : 'ZOMBIE DOWN'); }   // head = kill, body = 1 damage
+function knifeHit(z, part) {   // desktop stab: same rules as a VR stab (head or torso = kill), no sticking
+  camera.getWorldDirection(_kbd); melHit(z, part, Z_HP * STAB_K[part], _kbd, { kb: 0.3, stag: 0.6, p: _kbe.set(z.x, z.y + 1.3, z.z), kill: part === 'head' ? 'KNIFE TO THE HEAD - KILL' : 'STABBED - KILL' }); sfx('stab', _kbe);
+}
 function deskKnifeUse() {          // desktop V / click with knife drawn: dress a kill, else stab what is in front
   if (!hasKnife()) { say('NO KNIFE'); return; }
   camera.getWorldPosition(_a); const c = nearCarcass(_a, 2.5);
@@ -4225,6 +4241,9 @@ function staminaTick(dt) {
     'LOOKOUT': ['WIRE', 'CLOTH'], 'GAS STATION': ['NAILS', 'WIRE', 'CLOTH', 'NAILS'], 'WRECK': ['WIRE', 'WIRE', 'CLOTH'], 'HUNT CABIN': ['CLOTH', 'STICKS', 'BOARDS'],
     'RANCH': ['BOARDS', 'BOARDS', 'WIRE', 'NAILS'], 'CHURCH': ['CLOTH', 'CLOTH', 'BOARDS', 'NAILS'], 'LODGE': ['BOARDS', 'CLOTH', 'NAILS', 'STONES'] };
   for (const [n, x, z] of TOWN_MATS) put(n, x, z);   // v0.22 town salvage (on the floors) + town loot (needs the v0.16 items defined above)
+  for (const T of TOWNS) {   // v0.26: one hatchet per town, on the floor of the feed store / gas station (else the lowest loot spot)
+    const s = T.spots.find(s => / FEED STORE$/.test(s.name)) || T.spots.find(s => / GAS STATION$/.test(s.name)) || T.spots[0];
+    const sl = s.slots.reduce((a, b) => b[1] < a[1] ? b : a); s.table.push('HATCHET'); s.slots.push([sl[0] + 0.3, sl[1], sl[2] + 0.2]); }
   for (const T of TOWNS) for (const s of T.spots) { spawnSpot(s, true); s.away = 0; }
   for (const s of SPOTS) for (const [k, n] of (SALV[s.name] || []).entries()) { const a = k * 1.9 + C16_R(), r = 5 + C16_R() * 4; put(n, s.x + Math.cos(a) * r, s.z + Math.sin(a) * r); }
 }
@@ -5249,6 +5268,190 @@ function wbBookPage(x) {
   const [st, col] = wbStatus(P); x.fillStyle = col; x.font = BK_FONT(24); x.fillText(st, 600, y + 300); x.fillStyle = '#2e2418';
 }
 cgStraps(); wbUpdate();
+// ================= v0.26: melee combat - physics-driven knife (slash / stab, sticks), hatchet (also chops sticks), rifle butt-stroke, stamina shove, zombie grab =================
+const MEL = { grab: null, grabSay: 0, rumT: 0, swishT: 0 };
+const KN = { SLASH: 2.0, STAB: 1.6, STAB_DOT: 0.75, PULL: 0.16 };                        // m/s tip speed: slash / stab (along the blade); m of hand pull to free a stuck blade
+const HAT = { SPEED: 2.4, P: new THREE.Vector3(0, -0.06, -0.28), CHOPS: 3 };             // hatchet: swing speed, edge point (hand space), chops per bundle of sticks
+const BUTT_P = new THREE.Vector3(0, -0.05, 0.33), BUTT_SPEED = 2.4;                        // rifle butt (rifle space)
+const SHOVE = { SPEED: 1.8, R: 0.3, COST: 20 };                                            // hand speed, reach past the body surface, stamina
+const LOC = { head: 2.5, torso: 1, hips: 0.8, legs: 0.55 };                                // damage multiplier by hit location
+const STAB_K = { head: 99, torso: 1, hips: 0.7, legs: 0.4 };                               // stab damage = Z_HP x this (a torso stab kills)
+const _mp = V3(), _mv = V3(), _md = V3(), _mb = V3(), _mM = new THREE.Matrix4(), _mM2 = new THREE.Matrix4(), _mq = new THREE.Quaternion(), _ms = V3();
+// the zombie body sphere a point is inside (+pad): { z, part, c: centre }
+function zSphereAt(p, pad) {
+  let best = null, bd = 1e9;
+  for (const z of ZS) { if (z.state === 'dead' || z.state === 'off' || Math.abs(z.x - p.x) > 1.2 || Math.abs(z.z - p.z) > 1.2) continue;
+    const cy = Math.cos(z.yaw), sy = Math.sin(z.yaw), dn = z.kd > 0 ? z.kfall : 0;
+    for (const [lx, ly0, lz0, r, part] of ZSPH) {
+      const ly = dn ? ly0 * Math.cos(dn) : ly0, lz = dn ? lz0 + ly0 * Math.sin(dn) * z.fdir : lz0;   // knocked down: spheres follow the body over
+      const wx = z.x + lx * cy + lz * sy, wy = z.y + ly, wz = z.z - lx * sy + lz * cy, d = Math.hypot(wx - p.x, wy - p.y, wz - p.z) - r;
+      if (d < pad && d < bd) { bd = d; best = { z, part, c: new THREE.Vector3(wx, wy, wz) }; } } }
+  return best;
+}
+// one melee hit: damage, flinch / stagger / knock-down, knock-back, blood, kill
+function melHit(z, part, dmg, dir, o) {
+  if (z.state === 'dead' || z.state === 'off') return;
+  const h = Math.hypot(dir.x, dir.z) || 1, dx = dir.x / h, dz = dir.z / h;
+  z.hp -= dmg; z.state = 'chase'; z.flinch = 1; z.lunge = 0; z.grabT = 0;
+  z.fdir = (dx * -Math.sin(z.yaw) + dz * -Math.cos(z.yaw)) < 0 ? 1 : -1;                 // hit from the front -> rocks / falls backwards
+  z.pvx = dx * (o.kb || 0); z.pvz = dz * (o.kb || 0);
+  if (o.stag) z.stag = Math.max(z.stag || 0, o.stag);
+  if (MEL.grab === z && ((o.stag || 0) >= 0.6 || dmg >= 1)) melFree();   // a weak shove / light nick doesn't break the hold
+  if (o.p) melBlood(o.p, dx, dz, part === 'head' ? 9 : 5 + Math.min(6, dmg * 2));
+  if (z.hp <= 0) { z.state = 'dead'; z.deadT = 0; z.fall = 0; z.fv = (o.kb || 0) * 0.6; z.hs = part === 'head'; z.droll = (Math.random() - 0.5) * 0.9; z.kd = 0; z.stag = 0; z.pvx *= 1.3; z.pvz *= 1.3;
+    say(o.kill || (part === 'head' ? 'HEAD HIT - KILL' : 'ZOMBIE DOWN')); }
+  else if (o.kd) { z.kd = o.kd; z.kfall = z.kfall || 0; z.kfv = 0; z.droll = (Math.random() - 0.5) * 0.7; }
+}
+function melBusy(z, dt) {   // zStep: staggered / knocked down / impaled zombies don't walk or attack
+  if (z.stag > 0) { z.stag -= dt; z.flinch = Math.max(z.flinch, 0.7); }
+  if (z.kd > 0) { z.kd -= dt;
+    if (z.kd > 1.0) { z.kfv = (z.kfv || 0) + (2 + 9 * Math.sin((z.kfall || 0) + 0.1)) * dt; z.kfall = Math.min(1.45, (z.kfall || 0) + z.kfv * dt); if (z.kfall >= 1.45) z.kfv = 0; }
+    else z.kfall = Math.max(0, z.kfall - dt * 1.6);                                    // gets back up
+    if (z.kd <= 0) { z.kd = 0; z.kfall = 0; } }
+  return z.stag > 0 || z.kd > 0 || !!z.stuckBy;
+}
+// ---- zombie grab: up close too long and it gets hold of you (slows you right down) - shove it or stab / hit it hard to break free ----
+function melGrabTick(z, dt) {
+  z.grabT = (z.grabT || 0) + dt;
+  if (z.grabT > 0.8 && !MEL.grab && !(z.stag > 0)) { MEL.grab = z; MEL.grabSay = 0; sfx('groan', _sv.set(z.x, z.y + 1.6, z.z)); HX.both(0.9, 120, 'grab'); }
+}
+function melFree(msg = 'BROKE FREE') { const z = MEL.grab; if (!z) return; MEL.grab = null; z.grabT = -1.5; say(msg); HX.both(0.5, 40, 'free'); }
+const melGrabSlow = () => MEL.grab ? 0.15 : 1;
+// ---- particles: blood puffs and wood chips, one instanced draw call, hidden when idle ----
+const MFX = (() => {
+  const N = 64, m = new THREE.InstancedMesh(new THREE.BoxGeometry(0.03, 0.03, 0.03), new THREE.MeshLambertMaterial({ color: 0xffffff }), N);
+  m.frustumCulled = false; m.visible = false; m.instanceMatrix.setUsage(THREE.DynamicDrawUsage); scene.add(m);
+  const P = []; for (let i = 0; i < N; i++) { P.push({ p: V3(), v: V3(), t: 0, s: 1 }); m.setMatrixAt(i, HIDE); m.setColorAt(i, new THREE.Color(0x6a0d0d)); }
+  return { m, P, live: 0, next: 0, col: new THREE.Color() };
+})();
+function melFx(p, dx, dz, n, col, spd = 1.6) {
+  MFX.col.setHex(col);
+  for (let k = 0; k < n; k++) { const q = MFX.P[MFX.next], i = MFX.next; MFX.next = (MFX.next + 1) % MFX.P.length;
+    q.p.copy(p); q.v.set(dx * spd * (0.4 + Math.random()) + (Math.random() - 0.5) * 1.4, 0.6 + Math.random() * 1.6, dz * spd * (0.4 + Math.random()) + (Math.random() - 0.5) * 1.4);
+    q.t = 0.45 + Math.random() * 0.35; q.s = 0.6 + Math.random() * 0.9; MFX.m.setColorAt(i, MFX.col); }
+  MFX.m.instanceColor.needsUpdate = true; MFX.m.visible = true;
+}
+const melBlood = (p, dx, dz, n) => melFx(p, dx, dz, n | 0, Math.random() < 0.5 ? 0x5a0a0a : 0x7a1410);
+function melFxTick(dt) {
+  if (!MFX.m.visible) return; let live = 0;
+  MFX.P.forEach((q, i) => { if (q.t <= 0) return; q.t -= dt;
+    if (q.t <= 0) { MFX.m.setMatrixAt(i, HIDE); return; } live++;
+    q.v.y -= 9.81 * dt; q.p.addScaledVector(q.v, dt); const gy = groundY(q.p.x, q.p.z) + 0.01; if (q.p.y < gy) { q.p.y = gy; q.v.set(0, 0, 0); }
+    _m4.compose(q.p, _mq.identity(), _ms.setScalar(q.s * Math.min(1, q.t * 4))); MFX.m.setMatrixAt(i, _m4); });
+  MFX.m.instanceMatrix.needsUpdate = true; if (!live) MFX.m.visible = false;
+}
+// ---- knife: slash (fast, any edge) or stab (point first, along the blade); a stab sticks until you pull it out ----
+function knifeContact(g, it, tip, vel, bd) {   // tip world pos, tip velocity, blade direction (world, unit)
+  const sp = vel.length(); if (sp < Math.min(KN.SLASH, KN.STAB)) return false;
+  const h = zSphereAt(tip, 0.04); if (!h) return false;
+  const along = vel.dot(bd) / sp, stab = along > KN.STAB_DOT && sp > KN.STAB, slash = !stab && sp > KN.SLASH; if (!stab && !slash) return false;
+  const { z, part } = h; it.cool = 0.35;
+  if (stab) {
+    melHit(z, part, Z_HP * STAB_K[part], vel, { kb: 0.3, stag: 0.6, p: tip, kill: part === 'head' ? 'KNIFE TO THE HEAD - KILL' : 'STABBED - KILL' });
+    sfx('stab', tip); pulse(g, 1, 70, 'stab');
+    knifeStick(g, it, z, part);
+  } else {
+    const dmg = 0.7 * LOC[part] * clamp(sp / 3, 0.7, 2), strong = sp > 4 || dmg >= 1.5;
+    melHit(z, part, dmg, vel, { kb: strong ? 1.1 : 0.4, stag: strong ? 0.7 : 0, p: tip, kill: part === 'head' ? 'SLASHED - HEAD - KILL' : 'SLASHED - DOWN' });
+    sfx('slash', tip); pulse(g, strong ? 0.9 : 0.6, strong ? 50 : 30, 'slash');
+  }
+  return true;
+}
+function knifeStick(g, it, z, part) {   // remember the blade in the body's frame; the hand has to pull it back out
+  zFrame(z, _mM); it.mesh.updateWorldMatrix(true, false);
+  it.stuck = { z, part, L: _mM.invert().multiply(it.mesh.matrixWorld).clone(), hand0: g.getWorldPosition(V3()), t: 0 }; z.stuckBy = it;
+  say(z.state === 'dead' ? 'BLADE STUCK - PULL IT OUT' : 'STUCK IN - PULL!');
+}
+function zFrame(z, M) { if (z.M) return M.copy(z.M); return M.compose(_mp.set(z.x, z.y, z.z), _mq.setFromAxisAngle(_up, z.yaw), ONE); }
+function knifeStuckTick(g, it, dt) {   // blade follows the body (incl. its fall) until the hand pulls KN.PULL away
+  const s = it.stuck; s.t += dt; HX.rumble(g, 0.22, 'stuck');
+  const pulled = g.getWorldPosition(_mb).distanceTo(s.hand0) > KN.PULL;
+  if (pulled || s.z.state === 'off' || s.t > 8) { knifeUnstick(it, g, pulled); return; }
+  zFrame(s.z, _mM).multiply(s.L); g.updateWorldMatrix(true, false); _mM2.copy(g.matrixWorld).invert().multiply(_mM); _mM2.decompose(it.mesh.position, it.mesh.quaternion, _ms);
+}
+function knifeUnstick(it, g, pulled) {
+  const s = it.stuck; if (!s) return; it.stuck = null; s.z.stuckBy = null;
+  it.mesh.position.set(0, -0.01, 0.01); it.mesh.rotation.set(0, 0, 0); it.mesh.scale.setScalar(1); it.prevTip = null; it.cool = 0.25;
+  if (pulled) { const p = it.mesh.localToWorld(_mp.copy(KNIFE_TIP)); sfx('unstick', p); melBlood(p, 0, 0, 4); if (g) pulse(g, 0.7, 40, 'pull'); }
+}
+// ---- hatchet / fire axe (towns + POIs): big chopping hits, and it chops sticks off trees ----
+ITEM_LB['HATCHET'] = 2.5;
+function hatTick(g, it, dt) {
+  const p = it.mesh.localToWorld(_mp.copy(HAT.P)); if (!it.prevTip) it.prevTip = p.clone();
+  _mv.subVectors(p, it.prevTip).divideScalar(Math.max(dt, 1e-3)); it.prevTip.copy(p); it.cool = (it.cool || 0) - dt;
+  if (it.cool > 0) return; melSwish(_mv.length(), p); hatContact(g, it, p, _mv);
+}
+function hatContact(g, it, p, vel) {
+  const sp = vel.length(); if (sp < HAT.SPEED) return false;
+  const h = zSphereAt(p, 0.06);
+  if (h) { const dmg = 1.4 * LOC[h.part] * clamp(sp / 3.5, 0.7, 1.8), kd = h.part !== 'head' && sp > 5 ? 3 : 0;
+    melHit(h.z, h.part, dmg, vel, { kb: 1.6, stag: 0.8, kd, p, kill: h.part === 'head' ? 'AXE TO THE HEAD - KILL' : 'CHOPPED DOWN' });
+    sfx('chop', p); sfx('stab', p); pulse(g, 1, 80, 'axe'); it.cool = 0.45; return true; }
+  const t = treeAt(p, 0.06);
+  if (t) { it.cool = 0.4; it.chops = it.chopT === t ? (it.chops || 0) + 1 : 1; it.chopT = t; sfx('chop', p); pulse(g, 0.8, 50, 'chop');
+    melFx(p, -vel.x / sp, -vel.z / sp, 6, 0xc8a46a, 1.2);
+    if (it.chops >= HAT.CHOPS) { it.chops = 0; const a = Math.random() * 6.28, x = t[0] + Math.cos(a) * (t[3] + 0.5), z = t[2] + Math.sin(a) * (t[3] + 0.5);
+      makeItem('STICKS', x, groundY(x, z), z); say('+1 STICKS (ON THE GROUND)'); }
+    else say('CHOP ' + it.chops + '/' + HAT.CHOPS); return true; }
+  return false;
+}
+function treeAt(p, pad) {   // a trunk the point is touching: [x, baseY, z, r]
+  for (const t of TREES) { const r = 0.3 * t[3]; if (Math.abs(p.x - t[0]) < 1 && Math.abs(p.z - t[2]) < 1 && Math.hypot(p.x - t[0], p.z - t[2]) < r + pad && p.y > t[1] && p.y < t[1] + 3 * t[3]) return t._c || (t._c = [t[0], t[1], t[2], r]); }
+  for (const t of CHOP_T) if (Math.abs(p.x - t[0]) < 1 && Math.abs(p.z - t[2]) < 1 && Math.hypot(p.x - t[0], p.z - t[2]) < t[3] + pad && p.y > t[1] && p.y < t[1] + 3) return t;
+  return null;
+}
+function melSwish(sp, p) { if (sp > 3.5 && MEL.swishT <= 0) { MEL.swishT = 0.45; sfx('swish', p); } }
+// ---- rifle butt-stroke + shove (VR, every frame) ----
+const MG = new Map();   // grip -> { pb: prev butt point, cool }
+function buttContact(g, p, vel) {
+  const sp = vel.length(); if (sp < BUTT_SPEED) return false;
+  const h = zSphereAt(p, 0.06); if (!h) return false;
+  const dmg = 0.8 * LOC[h.part] * clamp(sp / 3, 0.8, 1.6), kd = h.part === 'head' && sp > 3.5 ? 3 : 0;
+  melHit(h.z, h.part, dmg, vel, { kb: 2.0, stag: 1.0, kd, p, kill: 'BUTT-STROKE - DOWN' });
+  sfx('shove', p); sfx('hit', p); pulse(g, 1, 70, 'butt'); if (R.support && R.support !== g) pulse(R.support, 0.7, 50, 'butt'); return true;
+}
+function shoveContact(g, p, vel, fwd) {   // fwd: body-forward (horizontal unit)
+  const sp = vel.length(); if (sp < SHOVE.SPEED || vel.x * fwd.x + vel.z * fwd.z < 0.6 * sp) return false;
+  const h = zSphereAt(p, SHOVE.R); if (!h || h.part === 'legs') return false;
+  const full = P.stam >= SHOVE.COST; P.stam = Math.max(0, P.stam - SHOVE.COST);
+  const wasStag = h.z.stag > 0;
+  melHit(h.z, h.part, 0, fwd, full ? { kb: 2.4, stag: 0.9, kd: wasStag ? 3 : 0 } : { kb: 0.8, stag: 0.3 });
+  if (full && MEL.grab === h.z) melFree('SHOVED IT OFF');
+  sfx('shove', p); pulse(g, full ? 0.9 : 0.5, 60, 'shove'); say(full ? (wasStag ? 'SHOVED - IT WENT DOWN' : 'SHOVED') : 'TOO TIRED - WEAK SHOVE'); return true;
+}
+function melTick(dt) {
+  MEL.swishT -= dt; melFxTick(dt);
+  if (MEL.grab) { const z = MEL.grab, pp = playerPos();
+    if (z.state === 'dead' || z.state === 'off' || mode !== 'foot' || Math.hypot(z.x - pp.x, z.z - pp.z) > 1.6) MEL.grab = null;
+    else { if ((MEL.grabSay -= dt) <= 0) { MEL.grabSay = 4; say('GRABBED! SHOVE IT OFF OR STAB IT'); } if ((MEL.rumT -= dt) <= 0) { MEL.rumT = 0.3; HX.both(0.45, 40, 'grab'); } } }
+  if (mode !== 'foot' || !renderer.xr.isPresenting) return;
+  headPose(); _md.copy(_hf).setY(0); if (_md.lengthSq() < 1e-6) return; _md.normalize();
+  for (const g of grips) { let s = MG.get(g); if (!s) MG.set(g, s = { pb: null, cool: 0 }); s.cool -= dt;
+    if (R.hand === g) {                                                        // rifle in this hand: the butt is a club
+      rifle.updateWorldMatrix(true, false); const p = rifle.localToWorld(_mp.copy(BUTT_P));
+      if (s.pb) { _mv.subVectors(p, s.pb).divideScalar(Math.max(dt, 1e-3)); if (s.cool <= 0 && buttContact(g, p, _mv)) s.cool = 0.6; } (s.pb ||= V3()).copy(p); continue; }
+    s.pb = null; const it = held.get(g);
+    if (it && (it.name === 'KNIFE' || it.name === 'HATCHET') || R.support === g || !g.userData.vel) continue;
+    if (s.cool <= 0 && shoveContact(g, g.getWorldPosition(_mb), g.userData.vel, _md)) s.cool = 0.7; }
+}
+// ---- desktop: Q = shove, V = butt-stroke (rifle in hands) / hatchet (in the pack) / knife ----
+function melAhead(r) { camera.getWorldPosition(_mp); camera.getWorldDirection(_md); const h = creatureHit(_mp.clone(), _md.clone(), r); return h && ZS.includes(h.c) ? h : null; }
+function deskShove() {
+  if (mode !== 'foot') return; const cp = camera.getWorldPosition(V3()), f = camera.getWorldDirection(V3()); f.y = 0; f.normalize();
+  let best = MEL.grab, bd = 1.4; if (!best) for (const z of ZS) { if (z.state === 'dead' || z.state === 'off') continue; const dx = z.x - cp.x, dz = z.z - cp.z, d = Math.hypot(dx, dz); if (d < bd && (dx * f.x + dz * f.z) > 0.5 * d) { bd = d; best = z; } }
+  if (!best) { say('NOTHING TO SHOVE'); return; }
+  const p = new THREE.Vector3(best.x, best.y + 1.3, best.z).addScaledVector(f, -0.3); shoveContact(grips[0], p, f.clone().multiplyScalar(SHOVE.SPEED + 1), f);
+}
+function deskMelee() {
+  camera.getWorldPosition(_a); if (nearCarcass(_a, 2.5)) { deskKnifeUse(); return; }
+  if (R.hand === 'desk') { const h = melAhead(1.6); sfx('swish'); if (h) buttContact(grips[0], h.p, _mv.copy(_md).multiplyScalar(3.4)); return; }
+  const hat = !deskKnife && inv.find(i => i.name === 'HATCHET');
+  if (hat) { const cp = camera.getWorldPosition(V3()), f = camera.getWorldDirection(V3()), h = melAhead(1.8); sfx('swish'); hat.cool = 0;
+    if (h) { hatContact(grips[0], hat, h.p, f.clone().multiplyScalar(4)); return; }
+    f.y = 0; f.normalize(); for (let s = 0.3; s <= 1.8; s += 0.1) { const q = cp.clone().addScaledVector(f, s); q.y -= 0.4; if (treeAt(q, 0.15)) { hatContact(grips[0], hat, q, f.clone().multiplyScalar(4)); return; } }
+    return; }
+  deskKnifeUse();
+}
 renderer.setAnimationLoop(() => {
   const t0 = performance.now(), rawDt = clock.getDelta(), dt = Math.min(rawDt, 0.05);
   const xr = renderer.xr.isPresenting;
@@ -5285,7 +5488,7 @@ renderer.setAnimationLoop(() => {
   fpsFrames++; fpsT += dt; instT += dt;
   if (fpsT >= 1) { fps = Math.round(fpsFrames / fpsT); fpsFrames = 0; fpsT = 0; }
   updateRifle(dt); updateBullets(dt); updateFX(dt); updateSmoke(dt); updateWorld(dt, clock.elapsedTime);
-  updateSurvival(dt); updateZombies(dt); updateAnimals(dt); updateItems(dt); CLOUDS.tick(dt); updateDay(dt); updateWater(dt); cullLoot(dt); townTick(dt); craftTick(dt); bookTick(dt); staminaTick(dt); updateForce(dt); updateBrass(dt); updateFalling(dt); updateSpots(dt); updateAudio(dt);
+  updateSurvival(dt); updateZombies(dt); updateAnimals(dt); updateItems(dt); melTick(dt); CLOUDS.tick(dt); updateDay(dt); updateWater(dt); cullLoot(dt); townTick(dt); craftTick(dt); bookTick(dt); staminaTick(dt); updateForce(dt); updateBrass(dt); updateFalling(dt); updateSpots(dt); updateAudio(dt);
   panelUpdate(ac, dt); compassCard.rotation.y = IN.hdg;
   if (instT > 0.1) { instT = 0; drawWrist(); }
   if ((chunkT += dt) > 0.2) { chunkT = 0; updateChunks(); }
