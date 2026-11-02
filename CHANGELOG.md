@@ -2,6 +2,16 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.37 – New story opening and tutorial
+- **You wake in a forest.** A new game starts in a camp in a thick pine grove about 460 m west of the cabin, across the river: a blue tarp lean-to, sleeping bag, cold fire ring, an empty pack and a stump with a tin can. You have a bow and six arrows, an empty canteen, a brass compass and a note from "M.": you were bitten, you didn't turn, head east to the cabin and the airstrip, the plane is there. (The mystery behind it comes in v0.38.)
+- **The way east:** three stone cairns mark the route, and a windfall log crosses the river. About 330 more grove trees and 70 riverbank trees are added in the existing two tree draw calls; they use their own random stream, so the rest of the world is unchanged.
+- **Diegetic tutorial:** 14 steps taught by pencilled notes on the caption strip, with a reminder every 70 s: read the note, move, use the compass, shoot the bow, fill the canteen, forage huckleberries (new food), deal with one lone zombie on the way, take the knife and the rifle from the cabin bench, craft, board up (hammer, nails and boards by the woodpile), sleep (allowed from 16:00 during this step), fuel the Cub (two cans by the hangar, she starts with 14 L), start the engine and fly. Steps latch in any order and each one has a skip condition, so you can't get stuck. When you finish, Sarah Webb calls on the radio and the v0.33 story carries on.
+- **New compass:** a modelled brass compass whose needle settles north with damping and wobbles if you tilt it. Desktop key **6** shows it in view.
+- **Caption strip:** messages longer than the wrist display (22 characters) now show in full on a small panel low in your view. Paper with a handwritten font for notes, radio-green with monospace for radio calls. It fades out with the message.
+- **Saves:** tutorial progress is saved (optional `tut` field; the save format is still v34). Older saves count the tutorial as done. `?intro` forces the opening and `?nointro` skips it.
+- Field guide BASICS page: new "Compass" note.
+- Perf (headless, draw calls / tris): foot 96 / 287 k, town 80 / 260 k, cockpit 130 / 288 k, alt 162 / 296 k. That's +15 k tris from the grove (same draw calls) and +1 call for the camp mesh when it's in view. Physics md5 unchanged.
+
 ## v0.36 – Weather and wind
 - **Five kinds of weather:** clear, overcast, rain, fog and thunderstorms. Each spell lasts about 4–9 real minutes, then blends into the next over about a minute. What comes next follows a weather chain tied to the clock: fog likes dawn, storms like afternoons, and day 1 stays gentle (no storms, no rain before 15:00). A fresh game starts on a fine morning with a light westerly.
 - **Wind is real air for the Cub.** The wind field at the plane is fed to the flight model as the air's own velocity, so airspeed ≠ ground speed, headwinds shorten the take-off, and crosswinds make you crab and weathervane on the ground. The field has:

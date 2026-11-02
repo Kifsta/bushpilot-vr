@@ -118,6 +118,13 @@ Field guide → GUIDE tab → **SETTINGS ›** (or the second-last page). Poke a
 | Weather (v0.36) | DYNAMIC / ALWAYS CALM | calm = clear sky and no wind |
 Defaults = the v0.34 look and cost (shadows off, grass off).
 
+## New game opening (v0.37)
+- A new game (no save) starts in a forest hollow far west of the cabin, across the river, with a bow, six arrows, an empty canteen, a compass and a note from "M.". Read the note, then head **east**: stone cairns and a fallen log across the river mark the way.
+- Pencilled notes (the paper caption strip under your view) teach you as you go: moving, compass, bow, water, foraging berries, your first zombie, the knife and rifle on the cabin bench, crafting, boarding up, sleeping, fuelling, starting and flying the Cub. Steps tick off in any order; nothing blocks you.
+- **Compass:** in your belt pouch. VR: hold it flat, the red end points north. Desktop: **6** shows it at the bottom of the view (press again to put it away).
+- Long messages and radio calls now show on the caption strip (paper = notes, green = radio).
+- Old saves skip the opening. To replay it: field guide → SAVE / NEW GAME, or add `?intro` to the URL. `?nointro` starts the old way (in the cabin).
+
 ## Weather and wind (v0.36)
 - Weather changes on its own: clear → overcast → rain / storm / fog, and back. Listen to the radio (cabin or the Cub's COM) for the valley weather report: current weather, wind direction and speed in knots, and what's coming next.
 - Windsocks on the strips point downwind. Straight out = 15 kt or more; limp = calm.
