@@ -2,8 +2,15 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.21.1 – Field guide moves to the pack's right side pocket
+- The field guide no longer rides in a chest pocket on the pack strap, where it sat in your view. It now lives in a side pocket on the RIGHT side of the backpack, mirroring the map's pocket on the left: same height and depth behind you, same canvas pocket with a leather rim, with the book standing upright and its top showing. Reach back past your right hip and grab it, the same way you reach back left for the map. Let go at the pocket to put it back.
+- Grab priority is now "nearest wins" for belt and pack targets: the right-hip canteen, the ammo pouch and the guide pocket are compared by distance (scaled to each one's grab radius), and the rifle only comes off the sling if its forend is the closest thing to your hand. Tested from 15 hand positions around the canteen, ammo pouch, guide pocket and sling.
+- It can't be seen in the normal forward view, with your head looking 45° or 60° down, or turned 30° either way while looking 45° down. On desktop the worn pack, so also the pocket, is never drawn.
+- First-time hint: "Check the field guide in the right side pocket of your pack".
+- Physics unchanged (md5 above). Perf: the closed book is no longer drawn on desktop (−1 draw call on foot vs v0.21).
+
 ## v0.21 – Field guide crafting
-- Crafting now works through a physical survival field guide, a real book. It sits in a chest pocket on your pack strap (its own grab spot, top-left of the chest), with a second copy lying on the workbench.
+- Crafting now works through a physical survival field guide, a real book. It first sat in a chest pocket on the pack strap; since v0.21.1 it lives in the pack's right side pocket, with a second copy lying on the workbench.
 - Grab it and it opens in your hand. Turn pages by pinching the page corner and swiping (the page follows your hand and flips), with the thumbstick of the book hand (flick left/right), or by poking the coloured tabs on the edge.
 - Pages: how crafting works and the controls; Basics (water, food, health, night); Materials (each one sketched, with your live pouch count and where to find it); Survival, Tools, Food, Traps and Gun sections with one recipe per spread.
 - Recipe pages: a pencil sketch of the item, what it does, a "You need" list with have/need counts (green = enough, red = short), where it's made (anywhere, or NEEDS WORKBENCH with the distance to it), and a big CRAFT button. Poke it with the free hand or pull the trigger of the book hand. Counts update live as you pick things up.

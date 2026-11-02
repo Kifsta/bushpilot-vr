@@ -20,7 +20,7 @@
 </script>
 </head>
 <body>
-<div id="info">BUSH PILOT VR v0.21 - PA-18 Super Cub prototype (v0.21: crafting through a physical field guide - chest pocket / bench, press B or K on foot; v0.20: gear + tyre physics, bungee legs, soft tundras, steerable tail wheel, brakes, surface grip and bumps; v0.19: engine start/shutdown, opening windows, checklist, map holder; v0.18.2: map clip on the cockpit wall; v0.18.1: side windows open from inside, sill z-fighting fixed; v0.18: Cub rebuilt to real PA-18 dimensions; v0.17.1: cabin windows reshaped; v0.17: low-poly item models; v0.16: crafting, campfires, traps, spoilage, stamina; v0.15: 7 new places + lodge strip, forests; v0.14: rivers, lakes, thirst + canteen; v0.13: day / night, dusk deadline, lights, sleep; v0.12: natural gunshot, ambient sound, clouds; v0.11: Cub + rifle proportions from reference; v0.10.1: smoother stock; v0.10: performance pass, crouch / jump, more zombies, force grab)
+<div id="info">BUSH PILOT VR v0.21.1 - PA-18 Super Cub prototype (v0.21.1: field guide moved to the right side pocket of the pack; v0.21: crafting through a physical field guide - pack pocket / bench, press B or K on foot; v0.20: gear + tyre physics, bungee legs, soft tundras, steerable tail wheel, brakes, surface grip and bumps; v0.19: engine start/shutdown, opening windows, checklist, map holder; v0.18.2: map clip on the cockpit wall; v0.18.1: side windows open from inside, sill z-fighting fixed; v0.18: Cub rebuilt to real PA-18 dimensions; v0.17.1: cabin windows reshaped; v0.17: low-poly item models; v0.16: crafting, campfires, traps, spoilage, stamina; v0.15: 7 new places + lodge strip, forests; v0.14: rivers, lakes, thirst + canteen; v0.13: day / night, dusk deadline, lights, sleep; v0.12: natural gunshot, ambient sound, clouds; v0.11: Cub + rifle proportions from reference; v0.10.1: smoother stock; v0.10: performance pass, crouch / jump, more zombies, force grab)
 RIFLE (VR): A/X on the rifle hand = work the lever (tap = full stroke, hold = keep it open) or flick the rifle down-forward, or grab the lever loop with your other hand and work it yourself;
   lever open = no shot; a short stroke won't feed. Load: tip of a round into the gate (right side) - it snaps in; keep grip held and go back to the pouch for the next one.
   Hold the right stick IN (click) + push it up/down while holding the rifle (right hand) = grip angle. Let go of the wrist with a hand on the forend = it stays in that hand.
@@ -1568,7 +1568,8 @@ function handGrab(g) {
     R.support = R.hand; R.hand = g; R.free = false; R.prev.copy(_a); tick(g); return; }
   if (R.hand && R.hand !== g && !R.free) { rifle.localToWorld(_b.set(0, 0.012, -0.3)); if (_a.distanceTo(_b) < 0.3) { R.support = g; tick(g); return; } }
   const foot = mode === 'foot';
-  if (foot && !R.hand && R.slung && slotPos(SLING).distanceTo(_a) < SLING.r && rightSide(_a)) { R.slung = false; R.hand = g; R.support = null; R.stock = false; R.free = false; R.prev.copy(_a); tick(g); sfx('pick'); return; }   // rifle off the sling
+  const bp = foot ? beltPick(_a) : null;   // v0.21.1: nearest belt slot / pack pocket / ammo pouch (score = distance / radius)
+  if (foot && !R.hand && R.slung && slotPos(SLING).distanceTo(_a) < SLING.r && rightSide(_a) && !(bp && bp.k < slotPos(SLING).distanceTo(_a) / SLING.r)) { R.slung = false; R.hand = g; R.support = null; R.stock = false; R.free = false; R.prev.copy(_a); tick(g); sfx('pick'); return; }   // rifle off the sling
   if (!R.hand && !R.stowed && !R.slung && (reach(_a, rifle.position) || reach(_a, rifle.localToWorld(_b.set(0, 0, -0.35))))) { R.hand = g; R.support = null; R.stock = false; R.free = false; R.prev.copy(_a); tick(g); sfx('pick'); return; }
   if (foot && PK.state !== 'worn') {             // take an item out of the open bag, or pick the bag back up
     let bi = null, bd = 0.1; for (const it of inv) { const d = it.mesh.getWorldPosition(_b).distanceTo(_a); if (d < bd) { bd = d; bi = it; } }
@@ -1576,8 +1577,8 @@ function handGrab(g) {
     if (PK.state === 'open' && PK.mesh.localToWorld(_b.copy(PK_HANDLE)).distanceTo(_a) < 0.13) { setPack('held', g); PK.front = true; tick(g); return; }   // grab it by the near rim / strap
   }
   if (foot) {                                    // belt: sheath / pouches / loose-round ammo pouch
-    for (const s of SLOTS) if (!s.rifle && s.item && slotPos(s).distanceTo(_a) < s.r) { const it = s.item; holdItem(g, it); say('DRAWN ' + it.name); return; }
-    if (AMMO_P.o.getWorldPosition(_b).distanceTo(_a) < SLOT_R) { takeRound(g); return; }
+    if (bp && bp.s) { const it = bp.s.item; holdItem(g, it); say('DRAWN ' + it.name); return; }
+    if (bp && bp.ammo) { takeRound(g); return; }
     if (PK.state === 'worn') { headPose(); if (behindShoulder(_a, _eye, _hf)) { setPack('held', g); sfx('pick'); tick(g); return; } }   // over the shoulder = pack strap
   }
   const c = nearCarcass(_a, 0.9);
@@ -3091,13 +3092,19 @@ for (const s of SLOTS) {
 const SLING = SLOTS[3]; SLING.o.rotation.set(Math.PI / 2 - 0.2, 0, -0.35);   // rifle muzzle-up across the back, over the right shoulder
 const SLING_GRAB = new THREE.Vector3(0, 0, -0.35);                          // forend: what your hand finds over the shoulder
 function slotPos(s) { return s.rifle ? s.o.localToWorld(s.w.copy(SLING_GRAB)) : s.o.getWorldPosition(s.w); }
+function beltPick(p) {   // v0.21.1: closest grab target among filled slots + the ammo pouch, normalised by each one's radius
+  let best = null;
+  for (const s of SLOTS) if (!s.rifle && s.item && (!s.pack || PK.state === 'worn' || PK.g === null)) { const k = slotPos(s).distanceTo(p) / s.r; if (k < 1 && (!best || k < best.k)) best = { s, k }; }
+  const ka = AMMO_P.o.getWorldPosition(_kg).distanceTo(p) / SLOT_R; if (ka < 1 && (!best || ka < best.k)) best = { ammo: true, k: ka };
+  return best;
+}
 function slotFor(name, p) { if (mode !== 'foot') return null; for (const s of SLOTS) if (!s.rifle && !s.item && s.fits(name) && slotPos(s).distanceTo(p) < s.r) return s; return null; }
 function toSlot(s, it, quiet) {
   s.item = it; it.state = 'belt'; falling.delete(it); s.o.add(it.mesh); it.mesh.visible = true;
   if (it.name === 'TORCH') { it.mesh.scale.setScalar(1); it.mesh.position.set(0, -0.06, 0); it.mesh.rotation.set(-Math.PI / 2, 0, 0); }
   else if (it.name === 'CANTEEN') { it.mesh.scale.setScalar(1); it.mesh.position.set(0, -0.07, 0); it.mesh.rotation.set(0, Math.PI / 2, 0); }
   else if (it.name === 'KNIFE') { it.mesh.scale.setScalar(1); it.mesh.position.set(0, 0.02, 0); it.mesh.rotation.set(-Math.PI / 2, 0, 0); }
-  else if (it.name === 'FIELD GUIDE') { it.mesh.scale.setScalar(1); it.mesh.position.set(0, 0.0, 0); it.mesh.rotation.set(-Math.PI / 2, 0, 0); }   // v0.21: upright in the chest pocket, top sticking out
+  else if (it.name === 'FIELD GUIDE') { it.mesh.scale.setScalar(1); it.mesh.position.set(0, 0.075, 0.014); it.mesh.rotation.set(Math.PI / 2, Math.PI / 2, 0, 'YXZ'); }   // v0.21.1: upright in the right pack pocket, spine out, top 6 cm proud
   else { const sz = ITEM[it.name].sz, k = 0.085 / Math.max(...sz); it.mesh.scale.setScalar(k); it.mesh.position.set(0, 0.03, 0); it.mesh.rotation.set(0, 0, 0); }
   if (!quiet) { say((it.name === 'KNIFE' ? 'SHEATHED ' : it.name === 'TORCH' || it.name === 'CANTEEN' ? 'CLIPPED ' : 'POUCHED ') + it.name); sfx('click'); }
 }
@@ -3857,7 +3864,7 @@ function staminaTick(dt) {
   for (const s of SPOTS) for (const [k, n] of (SALV[s.name] || []).entries()) { const a = k * 1.9 + C16_R(), r = 5 + C16_R() * 4; put(n, s.x + Math.cos(a) * r, s.z + Math.sin(a) * r); }
 }
 // ================= v0.21: the FIELD GUIDE - a battered survival book that explains and does all the crafting =================
-// One copy rides in a chest pocket on the pack strap (its own grab spot), one lives on the workbench. Hold it to open it.
+// One copy rides in the right side pocket of the pack (its own grab spot), one lives on the workbench. Hold it to open it.
 // VR: turn pages by grabbing the outer page edge with the other hand and swiping, or flick the stick of the hand holding it; poke (or point + trigger) CRAFT / tabs.
 //     Trigger on the holding hand = CRAFT (recipe pages) or next page. Desktop: B (on foot) or K = open / close, arrows = turn, Enter = craft, 1-0 still quick-craft.
 // Pages are one 1024x720 canvas texture, redrawn only on a page turn or when a count on the open page changes.
@@ -3950,7 +3957,7 @@ function bkDraw() {
     x.font = BK_FONT(24); x.fillText('Using this book', 552, 70); x.font = BK_TXT(19); y = 102;
     for (const t of ['Turn a page: grab the page edge with your other hand and swipe it over, or flick the thumbstick of the hand holding the book. Poke a tab to jump.',
       'Craft: poke the CRAFT button, or pull the trigger of the hand holding the book.',
-      'Put it back: let go at the chest pocket. One copy always lives on the workbench.',
+      'Put it back: let go at the right side pocket of your pack. One copy always lives on the workbench.',
       'Desktop: B or K opens and closes, arrow keys turn pages, Enter crafts (1-0 still quick-craft).']) y = bkWrap(x, t, 552, y, 380, 25) + 10;
     x.font = BK_FONT(22); x.fillText('Contents', 552, y + 14); x.font = BK_TXT(19); y += 44;
     for (const [t] of BK_TABS.slice(1)) { const p = BK_SP.findIndex(s => s.tab === t); x.fillText(t.charAt(0) + t.slice(1).toLowerCase() + ' .......... ' + (p + 1), 572, y); y += 25; }
@@ -4036,11 +4043,12 @@ function bkPuff(n0) {   // a little dust puff where the new thing appeared (benc
   for (let i = 0; i < 30; i++) { a.setXYZ(i, c.x, c.y, c.z); BK_PUFF.userData.v.push([(Math.random() - 0.5) * 0.6, Math.random() * 0.7, (Math.random() - 0.5) * 0.6]); }
   a.needsUpdate = true; BK_PUFF.visible = true; bkPuffT = 0.7;
 }
-// ---- copies: chest pocket on the pack strap (grab spot) + one on the workbench ----
-const GUIDE_SLOT = { name: 'GUIDE', p: [-0.11, 0.26, -0.12], fits: n => n === 'FIELD GUIDE', r: SLOT_R * 1.2 };
-GUIDE_SLOT.o = new THREE.Object3D(); GUIDE_SLOT.o.position.set(...GUIDE_SLOT.p); belt.add(GUIDE_SLOT.o); GUIDE_SLOT.w = V3(); GUIDE_SLOT.item = null;
-box(0.13, 0.13, 0.04, canvasM, 0, -0.035, 0.012, GUIDE_SLOT.o); box(0.02, 0.32, 0.012, leather, 0.02, 0.1, 0.03, GUIDE_SLOT.o);   // pocket + the pack's shoulder strap
-GUIDE_SLOT.hl = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.14, 0.1), hlM); GUIDE_SLOT.hl.visible = false; GUIDE_SLOT.o.add(GUIDE_SLOT.hl); SLOTS.push(GUIDE_SLOT);
+// ---- copies: side pocket on the RIGHT of the pack (mirror of the map's left pocket; grab spot) + one on the workbench ----
+// v0.21.1: moved off the chest strap (it sat in view). Pack-local, like MAP.pocket at (-0.2, -0.15, 0.02): reach back past the right hip.
+const GUIDE_SLOT = { name: 'GUIDE', p: [0.2, -0.15, 0.02], fits: n => n === 'FIELD GUIDE', r: MAP_POCKET_R, pack: true };
+GUIDE_SLOT.o = new THREE.Object3D(); GUIDE_SLOT.o.position.set(...GUIDE_SLOT.p); PK.mesh.add(GUIDE_SLOT.o); GUIDE_SLOT.w = V3(); GUIDE_SLOT.item = null;
+box(0.04, 0.2, 0.16, canvasM, 0, 0.03, 0.014, GUIDE_SLOT.o); box(0.042, 0.03, 0.162, leather, 0, 0.115, 0.014, GUIDE_SLOT.o);   // canvas pocket + leather rim, same style as the map pocket
+GUIDE_SLOT.hl = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.22, 0.2), hlM); GUIDE_SLOT.hl.visible = false; GUIDE_SLOT.o.add(GUIDE_SLOT.hl); SLOTS.push(GUIDE_SLOT);
 let GUIDE_IT = makeItem('FIELD GUIDE', 0, 0, 0); toSlot(GUIDE_SLOT, GUIDE_IT, true);
 const BENCH_GUIDE = makeItem('FIELD GUIDE', WB.x - 0.45, WB.y + 0.94, WB.z - 0.05); BENCH_GUIDE.mesh.rotation.y = 0.3;
 const BK_LABEL = (() => { const c = document.createElement('canvas'); c.width = 256; c.height = 64; const x = c.getContext('2d');
@@ -4119,7 +4127,7 @@ function bookTick(dt) {
   if (bkPuffT > 0) { bkPuffT -= dt; const a = BK_PUFF.geometry.attributes.position; BK_PUFF.userData.v.forEach((v, i) => { a.setXYZ(i, a.getX(i) + v[0] * dt, a.getY(i) + v[1] * dt, a.getZ(i) + v[2] * dt); }); a.needsUpdate = true; if (bkPuffT <= 0) BK_PUFF.visible = false; }
   // first-time hint: first material picked up, or reaching the cabin
   if (!BK.hinted && mode === 'foot') { camera.getWorldPosition(_a); if (MAT_NAMES.some(n => MATS[n] > 0) || Math.hypot(_a.x - WB.x, _a.z - WB.z) < 12) { BK.hinted = true; BK.hintT = 1.6; } }
-  if (BK.hintT > 0 && (BK.hintT -= dt) <= 0) { say('CHECK THE FIELD GUIDE IN YOUR PACK - CHEST POCKET' + (renderer.xr.isPresenting ? '' : ' (PRESS B)')); sfx('click'); }
+  if (BK.hintT > 0 && (BK.hintT -= dt) <= 0) { say('CHECK THE FIELD GUIDE IN THE RIGHT SIDE POCKET OF YOUR PACK' + (renderer.xr.isPresenting ? '' : ' (PRESS B)')); sfx('click'); }
 }
 function bookDeskToggle(on = !BK.desk) { BK.desk = on; CRAFT.desk = on; CRAFT.key = ''; if (on) { BK.used = true; BK.hinted = true; } }
 // ================= v0.19: Cub fidelity - engine start / shutdown, switch panel, opening windows, checklist card, map holder =================

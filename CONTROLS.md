@@ -73,9 +73,9 @@ Shutdown: throttle idle, mixture CUTOFF (it stops), mags OFF, master OFF, fuel O
 - Food: raw meat over a fire cooks it. Food spoils (raw ~2 days, cooked ~3, smoked ~10); spoiled food makes you sick.
 - Fuel: hold the fuel can to the wing filler cap (desktop E).
 
-## Crafting (v0.21: field guide)
+## Crafting (v0.21: field guide; v0.21.1: right pack pocket)
 - Sticks, stones, cloth, wire, nails, boards and charcoal go into a pouch when you grab them.
-- The field guide is in your chest pocket (top-left of your chest); there's also a copy on the workbench (cabin, south wall). Grab it to open it.
+- The field guide is in the side pocket on the RIGHT of your backpack (the map is in the matching pocket on the left): reach back past your right hip and grab it. There's also a copy on the workbench (cabin, south wall). Grab it to open it; let go at the pocket to put it back.
 - Turn pages: pinch the page corner and swipe, flick the book hand's thumbstick, or poke a tab on the edge.
 - Recipe page: green numbers mean you have enough, red means you're short. Poke CRAFT with your other hand, or pull the trigger of the book hand.
 - Bench recipes need you within 2 m of the workbench. There, a ghost of the item floats over the bench; grab it to craft it into your hand.
