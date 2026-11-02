@@ -2,6 +2,27 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.29 – Physical bow
+- **A recurve bow you draw with your own hands.** Grip the bow in one hand. With the other, reach over your right shoulder to the quiver for an arrow, or just grab the string near the nock point (an arrow nocks itself from the quiver; an arrow in your hand nocks when you bring its nock within 12 cm of the string).
+  - Pull back toward your face: the string bends to your fingers and the limbs flex. Up to 0.7 m of draw gives up to 60 m/s (speed grows with draw). Let go of grip to loose; the bow hand keeps the bow.
+  - Letting go past a third of the draw with no arrow is a dry fire (snap, strong buzz).
+  - No sight; the arrow sits on a shelf just above your bow hand.
+- **Arrow flight**: real gravity drop, nose follows velocity. Arrows stick in zombies, animals, trees, the ground and buildings, and ride along with what they hit; grab one to pull it back out (it goes back in the quiver).
+  - Breakage: rock 50%, wood 10%, ground 3% (scaled by speed). Rock also glances arrows off. Arrows that hit leaves are slowed and deflected.
+- **Damage**:
+  - Zombies: headshot over ~55% draw kills; torso, hips and limbs stagger and wear them down.
+  - Deer and other animals: heart/lung (or head) hit over half draw kills like the rifle; a full-draw body hit counts as one rifle body hit; weaker hits do less. Wolves take 1–2 good hits.
+- **Quiet**: no alert noise for zombies or animals, only a soft twang (and a thunk / flesh hit / snap at the other end).
+- **Haptics** (subtle): the draw hand buzzes more as tension builds; the bow hand gets a thump on release.
+- **Where to get it**: the bow is at the lodge (with 2 arrow bundles); arrow bundles (6 each) at the hunting cabin (2), the ranch and the lookout. The quiver holds 24.
+  - Field guide recipe (Gun tab, field): **ARROWS (x3)** = 2 sticks + 1 cloth.
+- **Carrying**: the bow rides on your back over your left shoulder (green slot box) or goes in the pack. The quiver is on your back on the right. Weights in the W&B: bow 2.6 lb, quiver 0.7 lb, arrows 0.06 lb each (a bundle is 0.36 lb).
+- **Desktop**: `5` raises / lowers the bow. Hold the left button to draw (full in ~0.9 s), release to loose. `G` on an arrow picks it up.
+- **Models** (own low-poly, one builder each so they can be swapped for Synty models later): bow 204 triangles (limbs bend in the vertex shader, one material with the items), string 1 call, arrow 80 triangles, quiver 248, arrow bundle 504.
+  - All arrows (32 pooled; the oldest spent arrow is recycled) are **one instanced draw call**. With the bow out: at most 4 extra calls (bow, string, arrows, quiver) and ~3k triangles.
+  - Standard views unchanged (no bow on screen): on foot 94 / 263,974, town 72 / 236,838, cockpit 128 / 264,674, 600 m up 161 / 272,308.
+- Known limit: an arrow into a tree crown stops in the leaves, so a trunk behind a crown is rarely hit.
+
 ## v0.28 – Animals
 - **Animated animals** from Quaternius' *Ultimate Animated Animals* (CC0, see CREDITS.md): deer, stags, foxes, wolves, cows, a bull, horses and donkeys. Each is one skinned mesh with idle, eating, walk, gallop, attack, death and hit-flinch clips. The mixer cross-fades between them (0.3 s; 0.15 s into attack/death), and walk/gallop playback speed follows the animal's ground speed.
 - **Deer herds** keep their old behaviour; each herd now has a stag (3 hits, 4 meat).
@@ -29,21 +50,6 @@ Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `no
   - Files: `assets/animals/*.glb`, 8 × 136–165 KB (1.2 MB), loaded in the background (~1.5 s).
   - If the files can't load, the box deer stay and there are simply no foxes, wolves or stock.
 - Not used: Husky and Shiba Inu (dogs), Alpaca, Horse_White (a recolour). The rabbits stay the small instanced ones.
-
-- **Real models for the main items**, from Quaternius' *Survival Pack* (CC0, see CREDITS.md): knife, hatchet, fuel can, medkit, bandages, water jug, torch, the cabin's cooking pot, the cabin fire-pit logs and every campfire you build.
-  - Each model is fitted to the item's existing size box, so pouches, the pack grid, the belt, cargo stacking, weights and behaviours are unchanged.
-  - The knife keeps its tip where the stab test expects it (−0.237 m) with the handle centred in the fist. The hatchet keeps its length (0.43 m) and its edge point is inside the new head.
-  - Size boxes grew only where the real model is taller: knife height 0.03 → 0.065 m (blade depth), hatchet height 0.13 → 0.27 m (box spans the head below the handle; the grip stays on the handle).
-  - The torch's glow sits on the new lens, and the light still comes from the torch.
-  - Cooked meat, the fire flames and the pot's cooking/boiling all work as before.
-- **Town set dressing**: radios, compasses, batteries, cans and matchboxes on the ends of the shop counters in each town (16 props). They are decoration only, merged into one mesh per town and drawn only when you're within 55 m of that town.
-- **One file, one material**: `assets/items.glb` (90 KB, 15 models, 5.9k triangles) with vertex colours baked from the packs' materials and quantized positions. Every model uses the shared item material, so:
-  - the knife is 1 draw call instead of 3;
-  - a campfire's logs + stone ring are 1 draw call instead of 8;
-  - the cabin fire-pit logs are 1 draw call instead of 2.
-- **Loads in the background** after start-up (relative URL, retried) and swaps the models in place. If the file or the loader can't be fetched, the old hand-made models just stay.
-- Draw calls / triangles (v0.26 → v0.27): on foot 95 / 263,072 → 94 / 263,974; town (60 m out) 72 / 232,634 → 72 / 236,838; cockpit 129 / 263,772 → 128 / 264,674; 600 m up 162 / 271,406 → 161 / 272,308.
-- Not used: Backpack (the player's pack is interactive and custom), Bear trap (the snare and spike traps fit the game better), Wood log (sticks and boards are bundles), Pan (no use yet), Canteen (the water bottle suits the water jug better), Flare gun, phone, tent, raft, shovel, trash can, propane tank and the guns.
 
 ## v0.27 – Item models
 - **Real models for the main items**, from Quaternius' *Survival Pack* (CC0, see CREDITS.md): knife, hatchet, fuel can, medkit, bandages, water jug, torch, the cabin's cooking pot, the cabin fire-pit logs and every campfire you build.

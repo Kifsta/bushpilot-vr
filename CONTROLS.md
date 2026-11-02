@@ -97,6 +97,20 @@ Nothing to learn: the knife, hatchet, fuel can, medkit, bandages, water jug, tor
 - Aim small: a head or heart/lung (behind the front leg) hit kills outright; a body hit only wounds (deer 2, stag 3, wolf 2, fox 1, cattle 4–5 body hits).
 - Dress a carcass as before (hold grip on it with the knife in the other hand, or slice it). Meat: deer 3, stag 4, fox 1, cow/bull 6, horse 5, donkey 4. Wolves give a **WOLF PELT** (3 lb) instead of meat.
 
+## Bow (v0.29)
+| | VR | Desktop |
+|---|---|---|
+| Take / stow the bow | Grip it over your LEFT shoulder (or from the pack); let go near the shoulder slot (green box) to put it back | 5 |
+| Get an arrow | Reach over your RIGHT shoulder to the quiver and grip, or just grab the string near the nock point and one nocks itself | automatic |
+| Nock an arrow in your hand | Bring its back end to the string (within ~12 cm) | – |
+| Draw | Keep grip on the string and pull it back toward your face (up to ~70 cm = full power, 60 m/s) | Hold left click (full in ~0.9 s) |
+| Loose | Let go of grip on the string hand | Release the button |
+| Pick an arrow back up | Grab it where it's stuck (zombie, animal, tree, ground, wall) | G while looking at it |
+- Arrows drop with range, so aim a little high far out. There's no sight. A dry fire (drawing with no arrow and letting go) snaps the string.
+- Silent: zombies and animals don't hear it. A strong headshot kills a zombie; a body hit staggers it. A strong heart/lung hit kills a deer; wolves take 1–2 good hits.
+- The bow is at the lodge. Arrow bundles (6) are at the hunting cabin, ranch and lookout; craft 3 from 2 sticks + 1 cloth in the field guide (Gun tab). The quiver holds 24.
+- Arrows can break on rock (often), wood (sometimes) or the ground (rarely).
+
 ## Survival
 - Watch on the left wrist: time (amber = sunset soon), health, food, water (blue) and stamina (white).
 - Be home before dark: zombies get faster and bolder and respawn at night. Sleep after 17:30 by gripping the cabin door handle (desktop N at the door).

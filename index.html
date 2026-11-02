@@ -20,7 +20,7 @@
 </script>
 </head>
 <body>
-<div id="info">BUSH PILOT VR v0.28 - PA-18 Super Cub prototype (v0.28: animated animals - deer + stags, foxes, wolf packs at dusk/night, farm stock; they hear you sprint and see you, meat by species, wolf pelts (Quaternius, CC0); v0.27: real item models - knife, hatchet, fuel can, medkit, bandages, water jug, torch, pot, campfires, town counter props (Quaternius, CC0); v0.26: melee - swing or stab the knife for real, head = kill, blades stick, hatchet chops zombies + sticks, rifle butt-stroke, shove, zombie grabs; v0.25: cargo loading + weight &amp; balance - rear seat, baggage, straps, live W&amp;B card; v0.24.1: natural thumb + relaxed hands, thumb clear of the sights, grip acts on the yellow-ringed control; v0.24: haptics everywhere - engine, buffet, touchdowns, rifle, items; v0.23: glove hands - flick switches, twist the mags key, pull knobs with your fingers; v0.22: three abandoned towns to loot - Cutler, Dry Fork (with its own grass strip) and Hollis - full of zombies, more at night; v0.21.1: field guide moved to the right side pocket of the pack; v0.21: crafting through a physical field guide - pack pocket / bench, press B or K on foot; v0.20: gear + tyre physics, bungee legs, soft tundras, steerable tail wheel, brakes, surface grip and bumps; v0.19: engine start/shutdown, opening windows, checklist, map holder; v0.18.2: map clip on the cockpit wall; v0.18.1: side windows open from inside, sill z-fighting fixed; v0.18: Cub rebuilt to real PA-18 dimensions; v0.17.1: cabin windows reshaped; v0.17: low-poly item models; v0.16: crafting, campfires, traps, spoilage, stamina; v0.15: 7 new places + lodge strip, forests; v0.14: rivers, lakes, thirst + canteen; v0.13: day / night, dusk deadline, lights, sleep; v0.12: natural gunshot, ambient sound, clouds; v0.11: Cub + rifle proportions from reference; v0.10.1: smoother stock; v0.10: performance pass, crouch / jump, more zombies, force grab)
+<div id="info">BUSH PILOT VR v0.29 - PA-18 Super Cub prototype (v0.29: physical bow - hold it, draw the string with your other hand, arrows from a quiver over your right shoulder, silent, they drop, stick and can be pulled back out (lodge + hunting spots, craft arrows in the field guide); v0.28: animated animals - deer + stags, foxes, wolf packs at dusk/night, farm stock; they hear you sprint and see you, meat by species, wolf pelts (Quaternius, CC0); v0.27: real item models - knife, hatchet, fuel can, medkit, bandages, water jug, torch, pot, campfires, town counter props (Quaternius, CC0); v0.26: melee - swing or stab the knife for real, head = kill, blades stick, hatchet chops zombies + sticks, rifle butt-stroke, shove, zombie grabs; v0.25: cargo loading + weight &amp; balance - rear seat, baggage, straps, live W&amp;B card; v0.24.1: natural thumb + relaxed hands, thumb clear of the sights, grip acts on the yellow-ringed control; v0.24: haptics everywhere - engine, buffet, touchdowns, rifle, items; v0.23: glove hands - flick switches, twist the mags key, pull knobs with your fingers; v0.22: three abandoned towns to loot - Cutler, Dry Fork (with its own grass strip) and Hollis - full of zombies, more at night; v0.21.1: field guide moved to the right side pocket of the pack; v0.21: crafting through a physical field guide - pack pocket / bench, press B or K on foot; v0.20: gear + tyre physics, bungee legs, soft tundras, steerable tail wheel, brakes, surface grip and bumps; v0.19: engine start/shutdown, opening windows, checklist, map holder; v0.18.2: map clip on the cockpit wall; v0.18.1: side windows open from inside, sill z-fighting fixed; v0.18: Cub rebuilt to real PA-18 dimensions; v0.17.1: cabin windows reshaped; v0.17: low-poly item models; v0.16: crafting, campfires, traps, spoilage, stamina; v0.15: 7 new places + lodge strip, forests; v0.14: rivers, lakes, thirst + canteen; v0.13: day / night, dusk deadline, lights, sleep; v0.12: natural gunshot, ambient sound, clouds; v0.11: Cub + rifle proportions from reference; v0.10.1: smoother stock; v0.10: performance pass, crouch / jump, more zombies, force grab)
 RIFLE (VR): A/X on the rifle hand = work the lever (tap = full stroke, hold = keep it open) or flick the rifle down-forward, or grab the lever loop with your other hand and work it yourself;
   lever open = no shot; a short stroke won't feed. Load: tip of a round into the gate (right side) - it snaps in; keep grip held and go back to the pouch for the next one.
   Hold the right stick IN (click) + push it up/down while holding the rifle (right hand) = grip angle. Let go of the wrist with a hand on the forend = it stays in that hand.
@@ -33,6 +33,7 @@ ON FOOT (desktop): WASD walk (Shift sprint) | F board | G grab rifle / pick up l
   click fire | hold right mouse aim | X lever | Z or R load a round from the pouch | E eat / refuel | T stash pack at the bench
   C (hold) crouch | Space jump | hold G while looking at a loose item up to 8 m away = force-pull it to you
   I open/close pack | 1 knife draw/away (click or V = stab; V on a kill = dress) | V = butt-stroke with the rifle up, hatchet chop if you carry one | Q shove (20 stamina) | 2 / 3 belt pouches (use, or fill from pack) | 4 sling/unsling rifle
+  5 bow (once you have one) up/away: hold click to draw (longer = harder, up to ~1 s), let go to loose | G on a stuck or dropped arrow = pick it up
 VR FLY: R grip = stick, L grip = throttle (or flap handle at its knob, left wall by your hip),
   L stick X = rudder, L trigger = brakes, Y = get out, A/X = recenter, B = reset
 VR FOOT: L stick walk (click = sprint), R stick left/right = snap turn, hold down = crouch, push up = jump, grip = grab/hold, other grip on forend = steady, rifle to cheek = stock,
@@ -44,6 +45,8 @@ VR FOOT: L stick walk (click = sprint), R stick left/right = snap turn, hold dow
   Push it back over your shoulder (or A/X on the free hand) to wear it. Let go of items anywhere else = they drop on the ground.
   Knife: swing it fast (slash) or thrust point-first (stab - head or chest = kill, it sticks: pull to free); slice across a kill 3x (or hold grip on it with the knife in the other hand) = meat.
   MELEE (v0.26): hatchet (towns / POIs) - swing hard, also chops trees (3 hits = sticks); swing the rifle butt-first = butt-stroke; push an empty hand hard at a zombie = shove (stamina).
+  BOW (v0.29): grip the bow (lodge / hunting spots; it rides over your LEFT shoulder) - reach over your RIGHT shoulder to the quiver for an arrow (or grab the string: one nocks itself),
+  pull the string back toward your face (up to ~70 cm = full power), let go of grip to loose. Silent; arrows drop with range. Grab a stuck arrow to pull it out.
   Too long up close and a zombie GRABS you (you can barely move) - shove it off or stab / hit it hard.
   NIGHT (v0.13): day 06:00-19:00 = 30 min, night = 12 min; watch on the left wrist (amber = sunset soon). Torch on the left hip: hold it + trigger (desktop L) = on/off.
   Lantern hangs by the cabin door (lit after dusk) - carry it, hang it back on the hook. Cockpit: landing-light switch below the fuel gauge (grip it; desktop L).
@@ -1588,6 +1591,11 @@ function sfx(kind, pos, delay = 0) {
     const o = A.createOscillator(), g = A.createGain(); o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(38, t + 0.25);
     g.gain.setValueAtTime(0.95, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.3); o.connect(g).connect(out); o.start(t); o.stop(t + 0.32);
   }
+  else if (kind === 'twang') { tone('triangle', 210, 110, 0.2, 0.22); burst(0.04, 1, 0.25, 'bandpass', 1100); ping(92, 0.16, 0.14); }   // v0.29 bow: soft, short
+  else if (kind === 'thunk') { burst(0.05, 1, 0.45, 'lowpass', 750); ping(240, 0.05, 0.1, 0, 'triangle'); }
+  else if (kind === 'arwflesh') { burst(0.06, 1, 0.45, 'lowpass', 420); }
+  else if (kind === 'snap') { burst(0.025, 1, 0.55, 'highpass', 2600); burst(0.04, 1, 0.3, 'bandpass', 1300, 0.012); }
+  else if (kind === 'nock') { burst(0.014, 1, 0.28, 'highpass', 3200); }
   else if (kind === 'bird') {   // short procedural song: a few fast sweeping chirps
     const n = 3 + Math.floor(Math.random() * 4), f = 2600 + Math.random() * 2200;
     for (let i = 0; i < n; i++) { const at = i * (0.09 + Math.random() * 0.06), o = A.createOscillator(), g = A.createGain(), f0 = f * (0.9 + Math.random() * 0.25);
@@ -1704,6 +1712,7 @@ function pickLoot(item) {
   if (ITEM[item.name].mat) { const si = stash.indexOf(item); if (si >= 0) { stash.splice(si, 1); layoutStash(); } pouchAdd(item); return; }   // v0.16 materials pouch
   const si = stash.indexOf(item); if (si >= 0) { stash.splice(si, 1); layoutStash(); }
   if (item.name === 'AMMO BOX') { R.spare += 20; removeItem(item); say('+20 ROUNDS TO AMMO POUCH'); sfx('click'); return; }
+  if (item.name === 'ARROWS') { if (arrowsAdd(BOW.BUNDLE)) removeItem(item); else if (si >= 0) { stash.push(item); layoutStash(); } return; }   // v0.29: bundles go straight into the quiver
   if (si >= 0) { stash.push(item); layoutStash(); }
   if (packAdd(item)) { say('+ ' + item.name + ' (PACK ' + packUsed() + '/' + PACK_CELLS + ')'); sfx('pick'); }
 }
@@ -1715,6 +1724,7 @@ function handGrab(g) {
   if (held.has(g) || rounds.has(g) || PK.g === g) return;
   if (mode === 'foot' && bookGrab(g, _a)) return;   // v0.21: page edge of the open field guide / the bench ghost
   if (R.hand !== g && !held.has(g) && mapGrab(g, _a)) return;   // v0.8 map (pocket / ground / clip / other edge)
+  if (R.hand !== g && bowGrab(g, _a)) return;                       // v0.29 bow string / quiver / spent arrows
   if (R.hand && R.hand !== g && leverGrab(g, _a)) return;                                             // v0.9: work the lever by its loop
   if (R.hand && R.hand !== g && R.hand !== 'desk' && R.free && rifle.localToWorld(_b.set(0, 0, 0)).distanceTo(_a) < 0.15) {   // back on the wrist
     R.support = R.hand; R.hand = g; R.free = false; R.prev.copy(_a); tick(g); return; }
@@ -1746,6 +1756,7 @@ function dropRifle() {
 }
 function handRelease(g) {       // called every frame the grip is up: keep it cheap / idempotent
   const hs = HX.st(g); if (hs.armed) { hs.armed = false; if (held.has(g) || R.hand === g || PK.g === g || MAP.g === g || rounds.has(g) || BK.drag?.g === g) HX.pulse(g, 0.15, 12, 'release'); }   // v0.24 let-go tap, once per squeeze
+  bowRelease(g);   // v0.29 loose the string / arrow back in the quiver
   if (R.levHand === g) leverRelease();
   if (R.support === g) R.support = null;
   if (R.hand === g) { if (slingNear(g.getWorldPosition(_a))) { slingRifle(); tick(g); } else if (R.support) forendHold(); else dropRifle(); }
@@ -1762,7 +1773,8 @@ addEventListener('keydown', e => {
   if (engKey(e)) return;     // v0.19 cockpit keys (U O Y H I P J, 1-4 windows; Space = starter, held)
   if (e.code === 'KeyR') { if (mode === 'foot' && R.hand === 'desk') loadRound(); else resetFlight(); }
   if (mode === 'foot' && e.code === 'KeyI') setPack(PK.state === 'worn' ? 'open' : 'worn');
-  if (mode === 'foot' && /^Digit[1-4]$/.test(e.code)) deskSlot(+e.code[5] - 1);
+  if (mode === 'foot' && /^Digit[1-4]$/.test(e.code)) { BW.desk = false; deskSlot(+e.code[5] - 1); }
+  if (mode === 'foot' && e.code === 'Digit5') bowDeskToggle();   // v0.29 bow
   if (mode === 'foot' && e.code === 'KeyV') deskMelee();   // v0.26: butt-stroke / hatchet / knife
   if (mode === 'foot' && e.code === 'KeyQ') deskShove();   // v0.26 shove
   if (e.code === 'KeyM') mapDesk();
@@ -1784,10 +1796,11 @@ addEventListener('keydown', e => {
 addEventListener('keyup', e => { keys[e.code] = false; });
 renderer.domElement.addEventListener('click', () => { if (!renderer.xr.isPresenting) renderer.domElement.requestPointerLock(); });
 addEventListener('contextmenu', e => e.preventDefault());
-addEventListener('mouseup', e => { if (e.button === 2) R.ads = false; });
+addEventListener('mouseup', e => { if (e.button === 2) R.ads = false; if (e.button === 0 && BW.deskDraw) bowDeskFire(); });
 addEventListener('mousedown', e => {
   if (e.button === 2) { R.ads = true; return; }                                   // hold right mouse = aim down the sights
   if (document.pointerLockElement !== renderer.domElement || mode !== 'foot') return;
+  if (BW.desk && deskBow.visible) { BW.deskDraw = true; return; }   // v0.29 draw the bow
   if (R.hand !== 'desk') { if (deskKnife) deskKnifeUse(); return; }
   R.wantFire = true;                                                                // fired in updateRifle with this frame's pose
 });
@@ -1800,6 +1813,7 @@ function desktopGrab() {
   camera.getWorldPosition(_a);
   const near = p => Math.hypot(_a.x - p.x, _a.z - p.z) < 2.5;
   if (!R.stowed && !R.slung && near(rifle.position)) { R.hand = 'desk'; deskKnife = false; return; }
+  if (deskArrowPick(_a)) return;   // v0.29 spent arrows
   const c = nearCarcass(_a, 2.5); if (c) { if (!hasKnife()) { say('NEED A KNIFE'); return; } deskDress = { c, t: 0 }; say('HOLD G TO FIELD-DRESS'); return; }
   let bi = null, bd = 2.5;
   for (const it of loot) if (it.state === 'world' || it.state === 'stash') { const d = Math.hypot(_a.x - it.mesh.position.x, _a.z - it.mesh.position.z); if (d < bd) { bd = d; bi = it; } }
@@ -2151,10 +2165,67 @@ ITEM['WOLF PELT'] = { sz: [0.36, 0.08, 0.26], col: 0x5a5c5e };   // v0.28: from 
 MODELS['WOLF PELT'] = [['b', 0.36, 0.05, 0.26, 0, -0.015, 0, 0x5a5c5e], ['b', 0.3, 0.03, 0.2, 0, 0.025, 0.01, 0x8d8f88], ['b', 0.08, 0.02, 0.05, 0.1, 0.03, -0.1, 0x3c3d3e]];
 MODELS['HATCHET'] = [['b', 0.028, 0.032, 0.4, 0, 0, -0.09, 0x6b4a2a], ['b', 0.03, 0.036, 0.05, 0, 0, 0.09, 0x2a2a2a],
   ['b', 0.024, 0.075, 0.07, 0, -0.022, -0.27, 0xb02018], ['b', 0.02, 0.03, 0.05, 0, 0.03, -0.27, 0x2a2a2a], ['b', 0.01, 0.022, 0.085, 0, -0.065, -0.27, 0xd8dade]];
+// ---- v0.29 bow / arrows / quiver: one geometry builder per item (swap one body for a bought model) ----
+// bow space: limbs along z (top limb at -z, the fist's thumb side), the arrow leaves along -x, the string on +x.  arrow space: tip at the origin, shaft along +z.
+const BOW = { L: 0.6, RISER: 0.13, BRACE: 0.18, DRAW: 0.7, VMAX: 60, REST_Z: -0.045, REST_Y: 0.022, BX: 0.07, BZ: 0.035, Q_MAX: 24, BUNDLE: 6, POOL: 32 };
+const ARROW_L = 0.78, ARROW_LB = 0.06, QUIVER_LB = 0.7;
+const BW = { q: 0, quiver: false, bowG: null, draw: null, nockA: null, inHand: new Map(), k: 0, wall: false, desk: false, deskDraw: false, deskT: 0, n: 0,
+  shots: 0, hits: 0, broke: 0, last: null, hintT: 0, nx: BOW.BRACE };
+const BOW_U = { value: 0 };                           // limb bend 0..1 (shared: one bow in the world)
+const limbX = u => BOW.BRACE * Math.pow(u, 1.6);      // braced limb profile, tips on the string line
+function bowGeo() {                                   // ~1.25 m recurve: riser, grip wrap, arrow shelf, 2 x 6 tapered limb segments, tip nocks
+  const P = [['b', 0.05, 0.034, 0.27, 0, 0, 0, 0x4a2e1a], ['b', 0.058, 0.04, 0.11, 0.003, 0, 0.035, 0x232120], ['b', 0.03, 0.012, 0.012, 0, BOW.REST_Y, -0.032, 0x8a8a80]];
+  for (const s of [-1, 1]) for (let i = 0; i < 6; i++) {
+    const u0 = i / 6, u1 = (i + 1) / 6, z0 = BOW.RISER + u0 * (BOW.L - BOW.RISER), z1 = BOW.RISER + u1 * (BOW.L - BOW.RISER), x0 = limbX(u0), x1 = limbX(u1), um = (u0 + u1) / 2;
+    P.push(['b', 0.022 * (1 - 0.45 * um), 0.036 * (1 - 0.45 * um), Math.hypot(x1 - x0, z1 - z0) + 0.006, (x0 + x1) / 2, 0, s * (z0 + z1) / 2, i % 2 ? 0x7a5230 : 0x86623c, 0, Math.atan2(x1 - x0, s * (z1 - z0))]);
+  }
+  for (const s of [-1, 1]) P.push(['b', 0.016, 0.022, 0.022, limbX(1), 0, s * BOW.L, 0x2a2a2a]);
+  return mergeGeometries(P.map(partGeo));
+}
+function arrowParts(ox = 0, oy = 0, oz = 0, fc = 0xc8402a) {   // broadhead, birch shaft, nock, 3 vanes (one cock vane coloured)
+  const S = ARROW_L - 0.045, P = [['k', 0.008, 0.045, 4, ox, oy, oz + 0.0225, 0xa8a8a8, -H], ['c', 0.0042, S, 5, ox, oy, oz + 0.045 + S / 2, 0x9a7a4a, H], ['b', 0.01, 0.01, 0.012, ox, oy, oz + ARROW_L - 0.004, 0x222222]];
+  for (let j = 0; j < 3; j++) { const a = j * 2.094; P.push(['b', 0.002, 0.018, 0.085, ox - 0.009 * Math.sin(a), oy + 0.009 * Math.cos(a), oz + ARROW_L - 0.06, j ? 0xeeeeee : fc, 0, 0, a]); }
+  return P;
+}
+const arrowGeo = () => mergeGeometries(arrowParts().map(partGeo));
+function arrowsBundleGeo() {                          // loot: 6 arrows tied with twine, lying along z
+  const P = []; for (let i = 0; i < 6; i++) P.push(...arrowParts(((i % 3) - 1) * 0.011, (i < 3 ? -0.006 : 0.006), -ARROW_L / 2, i % 2 ? 0x3a6a2a : 0xc8402a));
+  P.push(['b', 0.04, 0.026, 0.02, 0, 0, -0.05, 0xb8a070], ['b', 0.04, 0.026, 0.02, 0, 0, 0.22, 0xb8a070]); return mergeGeometries(P.map(partGeo));
+}
+function quiverGeo() {                                // back quiver, axis y (mouth at +y); the vanes are the last parts so setDrawRange hides them when empty
+  const P = [['t', [0.048, 0.04], 0.52, 8, 0, 0.26, 0, 0x5a3a1e], ['c', 0.05, 0.025, 8, 0, 0.51, 0, 0x3a2614], ['c', 0.042, 0.02, 8, 0, 0.01, 0, 0x3a2614], ['b', 0.03, 0.4, 0.012, 0, 0.27, -0.048, 0x2e2018]];
+  const body = mergeGeometries(P.map(partGeo)), F = [];
+  for (let i = 0; i < 5; i++) { const a = i * 1.26, r = 0.022; F.push(['c', 0.004, 0.08, 4, r * Math.cos(a), 0.56, r * Math.sin(a), 0x9a7a4a]); F.push(['b', 0.004, 0.07, 0.03, r * Math.cos(a), 0.59, r * Math.sin(a), i % 2 ? 0xeeeeee : 0xc8402a, 0, a]); }
+  const g = mergeGeometries([body, mergeGeometries(F.map(partGeo))]); g.userData.body = body.attributes.position.count; return g;
+}
+const BOW_VM = ITEM_VM.clone();                       // vertex shader bends the limbs (tips move back along the string line and in)
+BOW_VM.onBeforeCompile = sh => { sh.uniforms.uBend = BOW_U; sh.vertexShader = 'uniform float uBend;\n' + sh.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
+  { float az = abs(transformed.z); if (az > ${BOW.RISER.toFixed(3)}) { float u = clamp((az - ${BOW.RISER.toFixed(3)}) / ${(BOW.L - BOW.RISER).toFixed(3)}, 0.0, 1.0);
+    transformed.x += ${BOW.BX.toFixed(3)} * uBend * u * u; transformed.z -= sign(transformed.z) * ${BOW.BZ.toFixed(3)} * uBend * u; } }`); };
+BOW_VM.customProgramCacheKey = () => 'bowbend';
+ITEM['BOW'] = { sz: [0.22, 0.04, 1.26], col: 0x7a5230 };
+ITEM['ARROWS'] = { sz: [0.05, 0.04, 0.8], col: 0x9a7a4a };
+itemRes['BOW'] = { g: bowGeo(), m: BOW_VM }; itemRes['ARROWS'] = { g: arrowsBundleGeo(), m: ITEM_VM };
+const STR_V = new THREE.Vector3(), STR_P = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()];
+function bowString(m) {                               // 2-segment string (3-sided prisms), a child of the bow mesh
+  const g = new THREE.BufferGeometry(), n = 36; g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(n * 3), 3));
+  const c = new Float32Array(n * 3).fill(0.12); g.setAttribute('color', new THREE.BufferAttribute(c, 3)); g.setAttribute('normal', new THREE.BufferAttribute(new Float32Array(n * 3), 3));
+  const s = new THREE.Mesh(g, ITEM_VM); s.frustumCulled = false; m.add(s); m.userData.str = s; stringSet(s, BOW.BRACE, 0); return s;
+}
+function stringSet(s, nx, k) {                        // nock x (bow space) + limb bend -> string vertices
+  const tx = BOW.BRACE + BOW.BX * k, tz = BOW.L - BOW.BZ * k, a = s.geometry.attributes.position.array; let o = 0;
+  STR_P[0].set(tx, 0, -tz); STR_P[1].set(nx, 0, BOW.REST_Z); STR_P[2].set(tx, 0, tz);
+  for (let seg = 0; seg < 2; seg++) { const A = STR_P[seg], B = STR_P[seg + 1]; STR_V.subVectors(B, A).normalize();
+    const wx = STR_V.z, wz = -STR_V.x, r = 0.0016, ring = j => { const t = j * 2.094; return [Math.cos(t) * r, Math.sin(t) * r]; };   // u = y axis, w = d x y
+    for (let j = 0; j < 3; j++) { const [c0, s0] = ring(j), [c1, s1] = ring(j + 1);
+      for (const [P, cc, ss] of [[A, c0, s0], [B, c0, s0], [B, c1, s1], [A, c0, s0], [B, c1, s1], [A, c1, s1]]) { a[o++] = P.x + wx * ss; a[o++] = P.y + cc; a[o++] = P.z + wz * ss; } } }
+  s.geometry.attributes.position.needsUpdate = true;
+}
 const LAN_GLASS = new THREE.CylinderGeometry(0.036, 0.04, 0.13, 8);
 const res = n => itemRes[n] || (itemRes[n] = MODELS[n] ? { g: mergeGeometries(MODELS[n].map(partGeo)), m: ITEM_VM } : { g: new THREE.BoxGeometry(...ITEM[n].sz), m: mat(ITEM[n].col) });
 function makeItem(name, x, y, z) {
   const m = name === 'KNIFE' ? knifeMesh() : new THREE.Mesh(res(name).g, res(name).m); m.position.set(x, y + ITEM[name].sz[1] / 2, z); scene.add(m);
+  if (name === 'BOW') bowString(m);   // v0.29
   if (name === 'LANTERN') m.userData.glow = new THREE.Mesh(LAN_GLASS, glowM).translateY(-0.01), m.add(m.userData.glow);   // v0.17 glass chimney inside the cage
   if (name === 'TORCH') { m.userData.glow = box(0.036, 0.036, 0.006, glowM, 0, 0, -0.098, m); if (m.geometry.boundingBox) m.userData.glow.position.z = m.geometry.boundingBox.min.z - 0.0005; }   // v0.27: lens on the model's front
   const it = { name, mesh: m, h: ITEM[name].sz[1], state: 'world', fuel: name === 'FUEL CAN' ? CAN_L : 0, cook: 0, water: name === 'CANTEEN' ? 4 : 0, dirty: false };
@@ -2181,7 +2252,7 @@ function holdItem(g, it) {
   const ii = inv.indexOf(it); if (ii >= 0) { inv.splice(ii, 1); layoutPack(); }
   for (const s of SLOTS) if (s.item === it) s.item = null;
   falling.delete(it);
-  it.state = 'held'; g.add(it.mesh); it.mesh.scale.setScalar(1); it.mesh.position.set(0, -0.01, it.name === 'KNIFE' || it.name === 'HATCHET' ? 0.01 : -0.07); it.mesh.rotation.set(0, 0, 0); it.mesh.visible = true; it.prevTip = null;
+  it.state = 'held'; g.add(it.mesh); it.mesh.scale.setScalar(1); it.mesh.position.set(0, -0.01, it.name === 'KNIFE' || it.name === 'HATCHET' ? 0.01 : it.name === 'BOW' ? 0 : -0.07); it.mesh.rotation.set(0, 0, 0); it.mesh.visible = true; it.prevTip = null;
   held.set(g, it); sfx('pick'); tick(g);
 }
 function releaseHeld(g) {      // open bag > belt slot > cabin bench > falls to the ground
@@ -2338,7 +2409,8 @@ const fireFl = [];
 }
 function spawnSpot(s, full) {
   s.items = [];
-  s.table.forEach((n, i) => { if (full || i === 0 || Math.random() < 0.7) { const [x, y, z] = s.slots[i], it = makeItem(n, x, y, z); if (s.near) it.near = 1; s.items.push(it); } });
+  s.table.forEach((n, i) => { if (n === 'BOW' && loot.some(it => it.name === 'BOW')) return;   // v0.29: one bow in the world
+    if (full || i === 0 || Math.random() < 0.7) { const [x, y, z] = s.slots[i], it = makeItem(n, x, y, z); if (s.near) it.near = 1; s.items.push(it); } });
 }
 for (const s of SPOTS) { spawnSpot(s, true); s.away = 0; }
 
@@ -2548,6 +2620,8 @@ const LODGE = { x: -380, z: -2440, a: 1.83, hl: 140, hw: 10 };   // backcountry 
       g.setAttribute('color', new THREE.BufferAttribute(col, 3)); gs.push(g); }
     const mm = new THREE.Mesh(mergeGeometries(gs), new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true })); scene.add(mm); shootables.push(mm); }
   for (const s of POIS.slice(0, 4)) { const [x, y, z] = s.slots[0]; s.table.push('HATCHET'); s.slots.push([x + 0.35, y, z]); }   // v0.26 hatchets at points of interest
+  for (const s of POIS) { const add = { 'LODGE': ['BOW', 'ARROWS', 'ARROWS'], 'HUNT CABIN': ['ARROWS', 'ARROWS'], 'RANCH': ['ARROWS'], 'LOOKOUT': ['ARROWS'] }[s.name]; if (!add) continue;   // v0.29 bow + arrow bundles
+    const [x, y, z] = s.slots[1] || s.slots[0]; add.forEach((n, j) => { s.table.push(n); s.slots.push([x - 0.3 - j * 0.25, y, z + 0.45]); }); }
   for (const s of POIS) { spawnSpot(s, true); s.away = 0; }
 
   // ---- forests: deciduous groves on the valley floor + extra conifers feathering the forest edge down onto the benches ----
@@ -2958,7 +3032,7 @@ function zStep(z, i, dt, pp, foot, target) {
     z.y = groundY(z.x, z.z); z.mv += ((spd > 0 ? 1 : 0) - z.mv) * Math.min(1, dt * 5); z.ph += spd * dt * 4.5;
     const zd = z.state === 'dead', kd = !zd && z.kd > 0, fl = zd ? z.fall : kd ? z.kfall : 0;
     baseM(z.x, z.y - (zd ? 0.32 * z.sink * (1 - Math.min(1, z.fall / 1.2)) : 0), z.z, z.yaw, zd || kd ? fl * z.fdir : 0.35 * z.flinch * z.fdir, zd || kd ? z.droll * fl : Math.sin(z.ph * 0.5) * 0.07);
-    zBody.setMatrixAt(i, cM); if (z.stuckBy) (z.M ||= new THREE.Matrix4()).copy(cM); else if (z.M) z.M = null;   // v0.26: a stuck knife rides on the body
+    zBody.setMatrixAt(i, cM); if (z.stuckBy || z.arw > 0) (z.M ||= new THREE.Matrix4()).copy(cM); else if (z.M) z.M = null;   // v0.26: a stuck knife rides on the body
     const sw = Math.sin(z.ph) * 0.5 * z.mv, dead = z.state === 'dead' || kd, ff = Math.sin(Math.min(1, fl / 1.45) * Math.PI);   // v0.26 ragdoll-ish: arms fly up mid-fall, legs splay
     const arm = dead ? 0.3 + 2.0 * ff : z.atk ? 1.3 + Math.sin(performance.now() * 0.015) * 0.5 : 1.25 + Math.sin(z.ph * 0.5) * 0.15;
     limb(zArm, i * 2, -0.27, 1.55, 0.02, arm + sw * 0.3); limb(zArm, i * 2 + 1, 0.27, 1.55, 0.02, (dead ? 0.3 + 1.3 * ff : arm) - sw * 0.3 + (z.atk ? 0.6 : 0));
@@ -3489,7 +3563,7 @@ for (const s of SLOTS) {
 }
 const SLING = SLOTS[3]; SLING.o.rotation.set(Math.PI / 2 - 0.2, 0, -0.35);   // rifle muzzle-up across the back, over the right shoulder
 const SLING_GRAB = new THREE.Vector3(0, 0, -0.35);                          // forend: what your hand finds over the shoulder
-function slotPos(s) { return s.rifle ? s.o.localToWorld(s.w.copy(SLING_GRAB)) : s.o.getWorldPosition(s.w); }
+function slotPos(s) { return s.rifle ? s.o.localToWorld(s.w.copy(SLING_GRAB)) : s.grab ? s.o.localToWorld(s.w.copy(s.grab)) : s.o.getWorldPosition(s.w); }
 function beltPick(p) {   // v0.21.1: closest grab target among filled slots + the ammo pouch, normalised by each one's radius
   let best = null;
   for (const s of SLOTS) if (!s.rifle && s.item && (!s.pack || PK.state === 'worn' || PK.g === null)) { const k = slotPos(s).distanceTo(p) / s.r; if (k < 1 && (!best || k < best.k)) best = { s, k }; }
@@ -3502,9 +3576,10 @@ function toSlot(s, it, quiet) {
   if (it.name === 'TORCH') { it.mesh.scale.setScalar(1); it.mesh.position.set(0, -0.06, 0); it.mesh.rotation.set(-Math.PI / 2, 0, 0); }
   else if (it.name === 'CANTEEN') { it.mesh.scale.setScalar(1); it.mesh.position.set(0, -0.07, 0); it.mesh.rotation.set(0, Math.PI / 2, 0); }
   else if (it.name === 'KNIFE') { it.mesh.scale.setScalar(1); it.mesh.position.set(0, 0.02, 0); it.mesh.rotation.set(-Math.PI / 2, 0, 0); }
+  else if (it.name === 'BOW') { it.mesh.scale.setScalar(1); it.mesh.position.set(0, 0, 0); it.mesh.quaternion.copy(BOW_SLOT_Q); BW.quiver = true; }   // v0.29 across the back, upper limb over the left shoulder
   else if (it.name === 'FIELD GUIDE') { it.mesh.scale.setScalar(1); it.mesh.position.set(0, 0.075, 0.014); it.mesh.rotation.set(Math.PI / 2, Math.PI / 2, 0, 'YXZ'); }   // v0.21.1: upright in the right pack pocket, spine out, top 6 cm proud
   else { const sz = ITEM[it.name].sz, k = 0.085 / Math.max(...sz); it.mesh.scale.setScalar(k); it.mesh.position.set(0, 0.03, 0); it.mesh.rotation.set(0, 0, 0); }
-  if (!quiet) { say((it.name === 'KNIFE' ? 'SHEATHED ' : it.name === 'TORCH' || it.name === 'CANTEEN' ? 'CLIPPED ' : 'POUCHED ') + it.name); sfx('click'); }
+  if (!quiet) { say((it.name === 'BOW' ? 'ON YOUR BACK: ' : it.name === 'KNIFE' ? 'SHEATHED ' : it.name === 'TORCH' || it.name === 'CANTEEN' ? 'CLIPPED ' : 'POUCHED ') + it.name); sfx('click'); }
 }
 function slingRifle() { R.hand = R.support = null; R.free = false; R.levHand = null; R.slung = true; rifle.visible = true; say('RIFLE SLUNG'); sfx('click'); }
 const slingNear = p => mode === 'foot' && !R.slung && slotPos(SLING).distanceTo(p) < SLING.r;
@@ -3868,7 +3943,7 @@ function fgPick(o, d) {
   return best;
 }
 const fgStill = c => c.k === 'item' ? (c.it.state === 'world' || c.it.state === 'stash') : c.k === 'rifle' ? !R.hand && !R.slung && !R.stowed && !R.fly : c.k === 'map' ? MAP.state === 'world' : !c.m.userData.heldBy && !c.m.userData.fly;
-function handFree(g) { return R.hand !== g && R.support !== g && R.levHand !== g && !held.has(g) && !rounds.has(g) && PK.g !== g && MAP.g !== g && MAP.g2 !== g && !g.userData.can && !vr.dress.has(g) && !fgFly.some(f => f.g === g); }
+function handFree(g) { return R.hand !== g && R.support !== g && R.levHand !== g && !held.has(g) && !rounds.has(g) && PK.g !== g && MAP.g !== g && MAP.g2 !== g && !g.userData.can && !vr.dress.has(g) && !fgFly.some(f => f.g === g) && BW.draw !== g && !BW.inHand.has(g); }
 const _fk = new THREE.Vector3(), _fgq = new THREE.Quaternion();
 function fgHandPos(g, out) { if (g === 'desk') { camera.getWorldPosition(out); return out.add(_fk.set(0, -0.3, -0.45).applyQuaternion(camera.getWorldQuaternion(_fgq))); } return g.getWorldPosition(out); }
 function fgLaunch(c, g) {
@@ -4127,6 +4202,7 @@ const RECIPES = [
   { n: 'SMOKED MEAT', need: { CHARCOAL: 1 }, item: ['RAW MEAT', 'COOKED MEAT'], rack: 1, out: 'SMOKED MEAT' },
   { n: 'LAMP OIL (1 L FUEL)', item: ['LAMP OIL', 'FUEL CAN'], oil: 1 },   // v0.22: a bottle from town first, else 1 L from a fuel can
   { n: 'CLEANING KIT', need: { CLOTH: 1, STICKS: 1 }, field: 1, out: 'CLEANING KIT' },
+  { n: 'ARROWS (x3)', need: { STICKS: 2, CLOTH: 1 }, field: 1, arrows: 3 },   // v0.29: straight sticks, cloth-strip fletching, bound with thread from the same cloth
 ];
 const benchDist = p => Math.hypot(Math.max(0, Math.abs(p.x - WB.x) - 0.85), Math.max(0, Math.abs(p.z - WB.z) - 0.4));   // v0.21: metres from the bench's edge
 const atBench = p => benchDist(p) < 2.0;
@@ -4138,6 +4214,7 @@ function canCraft(r, bench) {
   for (const [k, v] of Object.entries(r.need || {})) if (MATS[k] < v) return 'NEED ' + k;
   if (r.item && !findIng(r.item, bench)) return 'NEED ' + r.item[0];
   if (r.oil && (!LANTERN_IT || LANTERN_IT.state === 'gone')) return 'NO LANTERN';
+  if (r.arrows && BW.q > BOW.Q_MAX - r.arrows) return 'QUIVER FULL';
   return '';
 }
 function craft(i, bench) {
@@ -4145,6 +4222,7 @@ function craft(i, bench) {
   for (const [k, v] of Object.entries(r.need || {})) MATS[k] -= v;
   if (r.item) { const it = findIng(r.item, bench); if (r.oil && it.name === 'FUEL CAN') { it.fuel -= 1; if (it.fuel <= 0.01) removeItem(it); } else if (r.oil) { const si = stash.indexOf(it); removeItem(it); if (si >= 0) layoutStash(); } else { const si = stash.indexOf(it); removeItem(it); if (si >= 0) layoutStash(); } }
   if (r.oil) { LANTERN_IT.oil = LAMP_OIL; say('LANTERN REFILLED (' + LAMP_OIL + ' H OF LIGHT)'); }
+  else if (r.arrows) arrowsAdd(r.arrows);
   else if (r.once) { CRAFT.rack = true; RACK.visible = true; say('SMOKING RACK BUILT BY THE FIRE PIT'); }
   else {
     camera.getWorldPosition(_a);
@@ -4154,24 +4232,25 @@ function craft(i, bench) {
   }
   sfx('gate'); CRAFT.key = ''; HX.both(0.3, 25, 'craft'); HX.later('both', 0.5, 40, 0.12, 'craft');   // v0.24 da-DUM: made it
 }
+const CR_RH = 25;   // v0.29: 11 recipes fit the 320 px board
 function drawCraft(bench) {
   const key = (bench ? 'B' : 'F') + CRAFT.hover + MAT_NAMES.map(n => MATS[n]).join() + RECIPES.map(r => canCraft(r, bench)).join() + inv.length + stash.length + (CRAFT.desk ? CRAFT.deskSel : '');
   if (key === CRAFT.key) return; CRAFT.key = key; const x = CR_X;
   x.fillStyle = '#2a2116'; x.fillRect(0, 0, 256, 320); x.fillStyle = '#e8d9b0'; x.font = 'bold 16px monospace'; x.textAlign = 'left';
   x.fillText(bench ? 'WORKBENCH' : 'FIELD CRAFT', 8, 18);
   x.font = '11px monospace'; x.fillStyle = '#b8a880'; x.fillText(MAT_NAMES.map(n => MAT_ABBR[n] + MATS[n]).join(' '), 8, 33);
-  RECIPES.forEach((r, i) => { const y = 40 + i * 28, why = canCraft(r, bench);
-    if (i === CRAFT.hover || (CRAFT.desk && i === CRAFT.deskSel)) { x.fillStyle = '#5a4a2a'; x.fillRect(2, y, 252, 27); }
-    x.fillStyle = why ? '#8a7f6a' : '#9fe07a'; x.font = 'bold 13px monospace'; x.fillText((i + 1) % 10 + ' ' + r.n, 6, y + 12);
+  RECIPES.forEach((r, i) => { const y = 40 + i * CR_RH, why = canCraft(r, bench);
+    if (i === CRAFT.hover || (CRAFT.desk && i === CRAFT.deskSel)) { x.fillStyle = '#5a4a2a'; x.fillRect(2, y, 252, CR_RH - 1); }
+    x.fillStyle = why ? '#8a7f6a' : '#9fe07a'; x.font = 'bold 13px monospace'; x.fillText((i < 10 ? (i + 1) % 10 + ' ' : '  ') + r.n, 6, y + 11);
     x.font = '10px monospace'; x.fillStyle = why ? '#c08060' : '#cfc3a0';
-    x.fillText((Object.entries(r.need || {}).map(([k, v]) => v + ' ' + k).concat(r.item ? [r.item.join('/')] : []).join(' + ') || '') + (why ? '  [' + why + ']' : ''), 18, y + 24); });
+    x.fillText((Object.entries(r.need || {}).map(([k, v]) => v + ' ' + k).concat(r.item ? [r.item.join('/')] : []).join(' + ') || '') + (why ? '  [' + why + ']' : ''), 18, y + 22); });
   CR_T.needsUpdate = true;
 }
 // VR: trigger with one hand on the other wrist's watch = open / close the field-craft board; point at a row + trigger = craft (bench board too)
 const _cl = new THREE.Vector3(), _ct = new THREE.Vector3();
 function craftRow(g, panel) { if (!panel.visible) return -1; g.localToWorld(_ct.set(0, 0, -0.06)); panel.worldToLocal(_cl.copy(_ct));
   if (Math.abs(_cl.z) > 0.07 || Math.abs(_cl.x) > CR_W / 2 || Math.abs(_cl.y) > CR_H / 2) return -1;
-  const py = (CR_H / 2 - _cl.y) / CR_H * 320; const i = Math.floor((py - 40) / 28); return i >= 0 && i < RECIPES.length ? i : -1; }
+  const py = (CR_H / 2 - _cl.y) / CR_H * 320; const i = Math.floor((py - 40) / CR_RH); return i >= 0 && i < RECIPES.length ? i : -1; }
 function craftTrigger(g) {
   if (bookTrigger(g)) return true;   // v0.21 field guide
   watch.getWorldPosition(_a); g.localToWorld(_ct.set(0, 0, -0.03));
@@ -4295,7 +4374,7 @@ const BK = { W: 0.15, H: 0.21, page: 0, desk: false, key: '', drawn: -1, turn: n
 const BK_C = document.createElement('canvas'); BK_C.width = 1024; BK_C.height = 720;
 const BX = BK_C.getContext('2d'), BK_T = new THREE.CanvasTexture(BK_C); BK_T.colorSpace = THREE.SRGBColorSpace; BK_T.generateMipmaps = false; BK_T.minFilter = THREE.LinearFilter; BK_T.anisotropy = 4;
 const BK_TABS = [['GUIDE', '#6b5a3a'], ['BASICS', '#8a6a2a'], ['MATERIALS', '#5a4a3a'], ['SURVIVAL', '#8a3b2e'], ['TOOLS', '#3e5a6e'], ['FOOD', '#7a5a22'], ['TRAPS', '#4a5e2c'], ['GUN', '#4a4a4a']];
-const BK_REC = { SURVIVAL: ['BANDAGE', 'MEDKIT (SPLINT)', 'CAMPFIRE KIT'], TOOLS: ['WATER FILTER', 'LAMP OIL (1 L FUEL)'], FOOD: ['SMOKING RACK', 'SMOKED MEAT'], TRAPS: ['SNARE', 'SPIKE TRAP'], GUN: ['CLEANING KIT'] };
+const BK_REC = { SURVIVAL: ['BANDAGE', 'MEDKIT (SPLINT)', 'CAMPFIRE KIT'], TOOLS: ['WATER FILTER', 'LAMP OIL (1 L FUEL)'], FOOD: ['SMOKING RACK', 'SMOKED MEAT'], TRAPS: ['SNARE', 'SPIKE TRAP'], GUN: ['CLEANING KIT', 'ARROWS (x3)'] };
 const BK_SP = [{ k: 'intro', tab: 'GUIDE' }, { k: 'basics', tab: 'BASICS' }, { k: 'load', tab: 'BASICS' }, { k: 'mats', tab: 'MATERIALS' },
   ...Object.entries(BK_REC).flatMap(([tab, list]) => list.map(n => ({ k: 'rec', tab, ri: RECIPES.findIndex(r => r.n === n) })))];
 const BK_DESC = {
@@ -4308,6 +4387,7 @@ const BK_DESC = {
   'SMOKING RACK': 'Built once, beside the cabin fire pit. It lets you smoke meat that keeps for days.',
   'SMOKED MEAT': 'Raw or cooked meat + 1 charcoal, at the bench once the rack is built. Keeps 10 days instead of 2-3. Food 30.',
   'LAMP OIL (1 L FUEL)': 'Uses a bottle of lamp oil (town stores) or 1 litre from a fuel can, and refills the lantern: about one night of light.',
+  'ARROWS (x3)': '2 straight sticks + 1 cloth (strips for the vanes, thread to bind them). Field craft. They go straight into the quiver. The bow is quiet: nothing hears it.',
   'CLEANING KIT': 'The rifle fouls after about 60 shots and starts to misbehave. Hold the kit against the rifle (desktop E). 3 uses.',
 };
 const BK_MATW = { STICKS: 'Under trees by the cabin and in the groves.', STONES: 'Round the cabin and on riverbanks.', CLOTH: 'Farmhouses, the church, lodge, wreck.',
@@ -4336,6 +4416,7 @@ function bkSketch(x, n, cx, cy, s) {
     case 'SMOKING RACK': L(-30, 26, -24, -26); L(30, 26, 24, -26); L(-30, -22, 30, -22); for (const o of [-14, 0, 14]) R(o - 4, -20, 8, 22, '#6a3a1e'); break;
     case 'SMOKED MEAT': for (const o of [-12, 0, 12]) { x.save(); x.translate(0, o); x.rotate(0.08 * o / 12); R(-30, -4, 60, 9, '#6a341a'); x.restore(); } break;
     case 'LAMP OIL (1 L FUEL)': case 'LANTERN': R(-14, -14, 28, 30, '#f4dc8a'); L(-16, -14, 16, -14); L(-16, 16, 16, 16); x.beginPath(); x.arc(0, -20, 10, Math.PI, 0); x.stroke(); if (n !== 'LANTERN') P([[28, -10], [34, 2], [28, 8], [22, 2]], '#c0281e'); break;
+    case 'ARROWS (x3)': for (const o of [-10, 0, 10]) { L(-40, o, 30, o - 6); P([[-40, o], [-32, o - 4], [-32, o + 4]], '#aaa'); P([[22, o - 5], [36, o - 12], [34, o - 5]], '#c8402a'); P([[22, o - 5], [36, o + 2], [34, o - 5]], '#eee'); } break;
     case 'CLEANING KIT': R(-30, -6, 50, 16, '#4a5a3a'); L(-36, 18, 36, 14); E(38, 14, 4, 4, '#c8a050'); break;
     case 'RAW MEAT': case 'COOKED MEAT': P([[-26, 0], [-18, -14], [6, -16], [24, -6], [22, 12], [-4, 16]], n === 'RAW MEAT' ? '#c0404a' : '#7a4424'); E(-6, 0, 5, 4, '#eee'); break;
     case 'FUEL CAN': R(-18, -22, 36, 46, '#c8302a'); L(-10, -28, 10, -28); L(-18, 0, 18, 0); L(12, -22, 20, -32); break;
@@ -5222,6 +5303,7 @@ function kitLb() {
   for (const s of SLOTS) if (s.item) lb += itemLb(s.item);
   for (const n in MATS) lb += MATS[n] * (ITEM_LB[n] ?? 1);
   if (R.stowed || R.slung || R.hand) lb += RIFLE_LB + (R.tube + (R.chambered ? 1 : 0)) * ROUND_LB;
+  if (BW.quiver) lb += QUIVER_LB + (BW.q + BW.inHand.size + (BW.nockA ? 1 : 0)) * ARROW_LB;   // v0.29 quiver + arrows
   return lb + R.spare * ROUND_LB;
 }
 function wbUpdate() {
@@ -5411,7 +5493,7 @@ function knifeUnstick(it, g, pulled) {
   if (pulled) { const p = it.mesh.localToWorld(_mp.copy(KNIFE_TIP)); sfx('unstick', p); melBlood(p, 0, 0, 4); if (g) pulse(g, 0.7, 40, 'pull'); }
 }
 // ---- hatchet / fire axe (towns + POIs): big chopping hits, and it chops sticks off trees ----
-ITEM_LB['HATCHET'] = 2.5; ITEM_LB['WOLF PELT'] = 3;
+ITEM_LB['HATCHET'] = 2.5; ITEM_LB['WOLF PELT'] = 3; ITEM_LB['BOW'] = 2.6; ITEM_LB['ARROWS'] = 6 * ARROW_LB;   // v0.29
 function hatTick(g, it, dt) {
   const p = it.mesh.localToWorld(_mp.copy(HAT.P)); if (!it.prevTip) it.prevTip = p.clone();
   _mv.subVectors(p, it.prevTip).divideScalar(Math.max(dt, 1e-3)); it.prevTip.copy(p); it.cool = (it.cool || 0) - dt;
@@ -5468,7 +5550,7 @@ function melTick(dt) {
       rifle.updateWorldMatrix(true, false); const p = rifle.localToWorld(_mp.copy(BUTT_P));
       if (s.pb) { _mv.subVectors(p, s.pb).divideScalar(Math.max(dt, 1e-3)); if (s.cool <= 0 && buttContact(g, p, _mv)) s.cool = 0.6; } (s.pb ||= V3()).copy(p); continue; }
     s.pb = null; const it = held.get(g);
-    if (it && (it.name === 'KNIFE' || it.name === 'HATCHET') || R.support === g || !g.userData.vel) continue;
+    if (it && (it.name === 'KNIFE' || it.name === 'HATCHET' || it.name === 'BOW') || BW.draw === g || BW.inHand.has(g) || R.support === g || !g.userData.vel) continue;
     if (s.cool <= 0 && shoveContact(g, g.getWorldPosition(_mb), g.userData.vel, _md)) s.cool = 0.7; }
 }
 // ---- desktop: Q = shove, V = butt-stroke (rifle in hands) / hatchet (in the pack) / knife ----
@@ -5493,6 +5575,179 @@ function deskMelee() {
 // Loaded in the background. Each model is fitted to the item's existing size box (ITEM[n].sz), so packing, holding, belts, weights and
 // behaviours don't change; the shared geometry is swapped in place, so every copy of that item updates at once. If the file or the loader
 // fails, the hand-made meshes simply stay. All models use the one shared vertex-colour material (ITEM_VM).
+// ================= v0.29 physical bow: hold it in one hand, draw the string with the other, arrows from the back quiver =================
+const ARM = new THREE.InstancedMesh(arrowGeo(), ITEM_VM, BOW.POOL); ARM.frustumCulled = false; ARM.visible = false; scene.add(ARM);   // every arrow in the world: one draw
+const ARW = []; for (let i = 0; i < BOW.POOL; i++) { ARM.setMatrixAt(i, HIDE); ARW.push({ i, st: 'free', p: V3(), q: new THREE.Quaternion(), v: V3(), c: null, L: new THREE.Matrix4(), t0: 0, lt: 0, k: 0, leaf: 0, lp: V3() }); }
+// quiver: right side of the back, mouth just behind the right shoulder (belt space: +x right, +z back)
+const QV = { o: new THREE.Object3D(), mouth: new THREE.Vector3(0, 0.56, 0) }; QV.o.position.set(0.12, -0.04, 0.17); QV.o.rotation.set(0.15, 0, -0.32); belt.add(QV.o);
+QV.mesh = new THREE.Mesh(quiverGeo(), ITEM_VM); QV.mesh.visible = false; QV.o.add(QV.mesh);
+// bow slot: across the back, upper limb over the LEFT shoulder (the rifle rides over the right)
+const BOW_SLOT = { name: 'BOW', p: [0, 0.18, 0.22], fits: n => n === 'BOW', r: BACK_R, grab: new THREE.Vector3(-0.177, 0.3, 0) };
+BOW_SLOT.o = new THREE.Object3D(); BOW_SLOT.o.position.set(...BOW_SLOT.p); belt.add(BOW_SLOT.o); BOW_SLOT.w = V3(); BOW_SLOT.item = null;
+BOW_SLOT.hl = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.16, 0.16), hlM); BOW_SLOT.hl.visible = false; BOW_SLOT.hl.position.copy(BOW_SLOT.grab); BOW_SLOT.o.add(BOW_SLOT.hl); SLOTS.push(BOW_SLOT);
+const BOW_SLOT_Q = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(new THREE.Vector3(0, 0, 1), new THREE.Vector3(-0.85, -0.5, 0).normalize(), new THREE.Vector3(0.5, -0.85, 0).normalize()));
+// desktop view bow (key 5): left of centre, canted, string toward you
+const deskBow = new THREE.Mesh(itemRes['BOW'].g, BOW_VM); bowString(deskBow); deskBow.visible = false; deskBow.scale.setScalar(0.75); camera.add(deskBow); deskBow.position.set(-0.06, -0.12, -0.62);
+{ const c = 0.22; deskBow.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(new THREE.Vector3(0, 0, 1), new THREE.Vector3(-Math.cos(c), -Math.sin(c), 0), new THREE.Vector3(Math.sin(c), -Math.cos(c), 0))); }
+const _bwG = V3(), _bwQ = new THREE.Quaternion(), _bwL = V3(), _bwF = V3(), _bwX = V3(), _bwY = V3(), _bwR = V3(), _bwH = V3(), _bwS = V3(), _bwP = V3(), _bwN = V3();
+const _bwM = new THREE.Matrix4(), _bwM2 = new THREE.Matrix4(), _bwWQ = new THREE.Quaternion(), _bwSc = V3(), _NZ = new THREE.Vector3(0, 0, -1), ARW_ROT = new THREE.Matrix4().makeRotationY(Math.PI / 2);
+const hasBow = () => !!BOW_SLOT.item || inv.some(i => i.name === 'BOW') || [...held.values()].some(i => i.name === 'BOW');
+function bowHeld() { for (const [g, it] of held) if (it.name === 'BOW' && g !== 'desk') return g; return null; }
+function arrowsAdd(n, quiet) {
+  if (BW.q >= BOW.Q_MAX) { if (!quiet) say('QUIVER FULL (' + BOW.Q_MAX + ')'); return false; }
+  BW.quiver = true; BW.q = Math.min(BOW.Q_MAX, BW.q + n); if (!quiet) { say('+' + n + ' ARROWS (QUIVER ' + BW.q + ')'); sfx('pick'); } return true;
+}
+function arrowGet(st) {
+  let a = ARW.find(b => b.st === 'free');
+  if (!a) { for (const b of ARW) if ((b.st === 'stuck' || b.st === 'ground' || b.st === 'body') && (!a || b.t0 < a.t0)) a = b; if (!a) return null; arrowLoose(a); }   // pool full: the oldest spent arrow is lost
+  a.st = st; a.t0 = ++BW.n; a.c = null; a.leaf = 0; a.lt = 0; ARM.visible = true; return a;
+}
+function arrowLoose(a) { if (a.st === 'body' && a.c && a.c.arw) a.c.arw--; a.c = null; }
+function arrowFree(a) { arrowLoose(a); a.st = 'free'; ARM.setMatrixAt(a.i, HIDE); }
+function creatureFrame(c, M) { return ZS.includes(c) ? zFrame(c, M) : M.compose(_mp.set(c.x, c.y, c.z), _mq.setFromAxisAngle(_up, c.yaw || 0), ONE); }
+function arrowSet(a, M) { M.decompose(a.p, a.q, _bwSc); ARM.setMatrixAt(a.i, M); }
+// ---- grabbing: the string (bow in the other hand), an arrow from the quiver, a spent arrow from a body / tree / the ground ----
+function quiverMouth(p) { return QV.o.localToWorld(p.copy(QV.mouth)); }
+function nockPoint(p) { return BW.bowG && held.get(BW.bowG) ? held.get(BW.bowG).mesh.localToWorld(p.set(BW.nx, BOW.REST_Y, BOW.REST_Z)) : null; }
+function bowGrab(g, p) {
+  const bg = bowHeld(); BW.bowG = bg;
+  if (bg && bg !== g) {
+    const np = nockPoint(_bwP); if (np && np.distanceTo(p) < 0.13) { BW.draw = g; BW.wall = false; pulse(g, 0.25, 12, 'nock'); if (!BW.nockA) say(BW.q ? 'NO ARROW - REACH OVER YOUR RIGHT SHOULDER FOR ONE' : 'NO ARROWS'); return true; }
+    headPose(); if (BW.quiver && (quiverMouth(_bwP).distanceTo(p) < 0.2 || (behindShoulder(p, _eye, _hf) && rightSide(p)))) {
+      if (BW.q <= 0) { say('QUIVER EMPTY'); sfx('dry'); return true; }
+      return arrowTake(g);
+    }
+  } else if (BW.quiver && BW.q > 0 && mode === 'foot' && quiverMouth(_bwP).distanceTo(p) < 0.12) return arrowTake(g);
+  let best = null, bd = 0.2;   // spent arrows: grab the shaft anywhere along its back half
+  for (const a of ARW) if (a.st === 'stuck' || a.st === 'body' || a.st === 'ground') { for (const f of [0.45, 0.65, 0.85]) { const d = _bwS.set(0, 0, ARROW_L * f).applyQuaternion(a.q).add(a.p).distanceTo(p); if (d < bd) { bd = d; best = a; } } }
+  if (best) { const was = best.st; arrowLoose(best); best.st = 'hand'; BW.inHand.set(g, best); pulse(g, 0.4, 25, 'pick'); sfx(was === 'ground' ? 'pick' : 'nock', p); say('ARROW RECOVERED'); return true; }
+  return false;
+}
+function arrowTake(g) { const a = arrowGet('hand'); if (!a) return false; BW.q--; BW.inHand.set(g, a); sfx('nock', null); pulse(g, 0.3, 15, 'pick'); return true; }
+function bowRelease(g) {   // from handRelease (every frame the grip is up)
+  if (BW.draw === g) bowLoose();
+  const a = BW.inHand.get(g); if (a) { BW.inHand.delete(g); arrowFree(a); BW.quiver = true; BW.q = Math.min(BOW.Q_MAX, BW.q + 1); say('ARROW IN THE QUIVER (' + BW.q + ')'); }
+}
+function bowLoose() {
+  const g = BW.draw, k = BW.k, bg = BW.bowG; BW.draw = null; BW.wall = false; BW.k = 0;
+  if (BW.nockA && k > 0.06) { nockPoint(_bwP); arrowShoot(BW.nockA, k, _bwF, bg, g); BW.nockA = null; }
+  else if (!BW.nockA && k > 0.3) { sfx('twang', _bwR); if (bg) HX.pulse(bg, 0.5, 40, 'bowshot'); say('DRY FIRE - NO ARROW ON THE STRING'); }
+}
+function arrowShoot(a, k, dir, bg, dg) {   // a.p / a.q already hold the nocked pose
+  a.st = 'fly'; a.k = k; a.lt = 0; a.leaf = 0; a.v.copy(dir).normalize().multiplyScalar(BOW.VMAX * k); a.p0 = a.p.clone();
+  sfx('twang', _bwR.copy(a.p).addScaledVector(dir, 0.3)); BW.shots++; BW.last = { k, v: BOW.VMAX * k, hit: null };
+  if (bg && bg !== 'desk') HX.pulse(bg, 0.3 + 0.4 * k, 35, 'bowshot'); if (dg && dg !== 'desk') HX.pulse(dg, 0.12, 12, 'bowshot');
+}
+// ---- damage (quiet: nothing here calls alertNoise) ----
+function arrowDamage(h, s, dir) {
+  const c = h.c, part = h.part;
+  if (ZS.includes(c)) {
+    const dmg = part === 'head' ? (s > 0.55 ? 99 : 3 * s) : (part === 'torso' ? 1.2 : part === 'hips' ? 0.9 : 0.6) * s;
+    melHit(c, part, dmg, dir, { kb: 0.4 + 0.6 * s, stag: part !== 'head' && s > 0.4 ? 0.5 + 0.6 * s : 0, p: h.p, kill: part === 'head' ? 'ARROW TO THE HEAD - KILL' : 'ZOMBIE DOWN' });
+  } else if (c.sp) { const vital = part === 'head' || part === 'vitals'; animalDamage(c, vital ? (s > 0.5 ? 99 : 2 * s) : s > 0.85 ? 1 : s, part, h.p, dir); }
+  else if (c.hit) c.hit(part, dir);
+}
+function groundHard(p) { return terrainNormal(p.x, p.z)[1] < 0.8 || p.y > 260; }   // steep scree / bare high ground = rock
+function arrowBreak(a, p) { BW.broke++; sfx('snap', p); FX.wood(p, _bwS.copy(a.v).normalize()); arrowFree(a); if (BW.last) BW.last.hit = 'broke'; }
+function arrowFly(a, dt) {
+  _bwP.copy(a.p); const sp = a.v.length();
+  a.v.y -= 9.81 * dt; a.v.multiplyScalar(Math.max(0, 1 - 0.0012 * sp * dt)); a.p.addScaledVector(a.v, dt); a.lt += dt; a.leaf -= dt;
+  a.q.setFromUnitVectors(_NZ, _bwS.copy(a.v).normalize());   // nose follows the velocity
+  if (a.lt > 15 || a.p.y < -100) { arrowFree(a); return; }
+  const h = hitSegment(_bwP, a.p); if (!h) return;
+  if (h.kind === 'leaves') { if (a.leaf <= 0) { a.leaf = 0.25; a.v.multiplyScalar(0.7); a.v.x += (Math.random() - 0.5) * 4; a.v.y += (Math.random() - 0.5) * 3; a.v.z += (Math.random() - 0.5) * 4; FX.leaves(h.p, h.dir); sfx('leaf', h.p); } return; }
+  const s = clamp(sp / BOW.VMAX, 0, 1.1), dir = h.dir; a.p.copy(h.p); if (BW.last) BW.last.hit = h.kind;
+  if (h.kind === 'flesh') {
+    arrowDamage(h, s, dir); BW.hits++; sfx('arwflesh', h.p);
+    const c = h.c; if (typeof c.x === 'number') { a.p.addScaledVector(dir, 0.05 + 0.15 * s); a.st = 'body'; a.c = c; c.arw = (c.arw || 0) + 1; creatureFrame(c, _bwM); a.lp.setFromMatrixPosition(_bwM);
+      a.L.copy(_bwM).invert().multiply(_bwM2.compose(a.p, a.q, ONE)); }
+    else { a.st = 'fall'; a.v.multiplyScalar(-0.1); }
+    return;
+  }
+  if (h.kind === 'can') { impact(h); if (Math.random() < 0.6) { arrowBreak(a, h.p); return; } a.st = 'fall'; a.v.set(-a.v.x * 0.15, 1.5, -a.v.z * 0.15); return; }
+  const hard = h.kind === 'ground' && groundHard(h.p);
+  if (Math.random() < (hard ? 0.5 : h.kind === 'wood' ? 0.1 : 0.03) * Math.min(1, 0.4 + s)) { arrowBreak(a, h.p); return; }
+  if (hard) { FX.dust(h.p, dir); sfx('thunk', h.p); a.st = 'fall'; a.v.set(a.v.x * 0.25, Math.abs(a.v.y) * 0.15 + 0.5, a.v.z * 0.25); return; }   // glances off rock
+  (h.kind === 'wood' ? FX.wood : FX.dust)(h.p, dir); sfx('thunk', h.p);
+  a.p.addScaledVector(dir, (h.kind === 'ground' ? 0.1 : 0.03) + 0.12 * s); a.st = 'stuck';   // sticks: deeper with speed
+}
+function arrowFall(a, dt) {
+  a.v.y -= 9.81 * dt; a.p.addScaledVector(a.v, dt); a.lt += dt;
+  const gy = groundY(a.p.x, a.p.z);
+  if (a.p.y <= gy + 0.012 || a.lt > 20) { a.st = 'ground'; const yaw = Math.atan2(-a.v.x, -a.v.z) + (Math.random() - 0.5) * 0.6;   // lies flat, roughly the way it was going
+    a.q.setFromEuler(_bwE.set(0.03, yaw, 0, 'YXZ')); a.p.y = gy + 0.012; a.p.addScaledVector(_bwS.set(0, 0, -ARROW_L / 2).applyQuaternion(a.q), 1); a.p.y = gy + 0.012; }
+  else a.q.setFromUnitVectors(_NZ, _bwS.copy(a.v).normalize());
+}
+const _bwE = new THREE.Euler();
+function arrowBody(a) {
+  const c = a.c, gone = !c || (ZS.includes(c) ? c.state === 'off' : c.state === 'dead' || c.state === 'gone');
+  creatureFrame(c, _bwM); _bwP.setFromMatrixPosition(_bwM);
+  if (gone || _bwP.distanceTo(a.lp) > 3) { arrowLoose(a); a.st = 'fall'; a.v.set(0, 0.5, 0); a.lt = 0; return; }   // dead animal / respawned zombie: it falls out
+  a.lp.copy(_bwP); arrowSet(a, _bwM.multiply(a.L));
+}
+// ---- the held bow: pose (limbs along the fist, square to the arrow line), draw, string, nock ----
+function bowPoseVR(g, it, dt) {
+  g.getWorldPosition(_bwG); g.getWorldQuaternion(_bwQ); _bwL.set(0, 0, 1).applyQuaternion(_bwQ);
+  _bwR.copy(_bwG).addScaledVector(_bwL, BOW.REST_Z);
+  let drawing = false; if (BW.draw) { BW.draw.getWorldPosition(_bwH); _bwF.subVectors(_bwR, _bwH); drawing = _bwF.lengthSq() > 0.0025; }
+  if (drawing) { _bwF.normalize(); _bwL.addScaledVector(_bwF, -_bwL.dot(_bwF)); if (_bwL.lengthSq() < 1e-4) _bwL.set(0, 1, 0); _bwL.normalize(); }
+  else { headPose(); _bwF.copy(_hf).addScaledVector(_bwL, -_hf.dot(_bwL)); if (_bwF.lengthSq() < 1e-4) _bwF.set(0, -1, 0).applyQuaternion(_bwQ); _bwF.normalize(); }
+  _bwX.copy(_bwF).negate(); _bwY.crossVectors(_bwL, _bwX); _bwM.makeBasis(_bwX, _bwY, _bwL); _bwWQ.setFromRotationMatrix(_bwM);
+  it.mesh.position.set(0, 0, 0); it.mesh.quaternion.copy(_bwQ).invert().multiply(_bwWQ); it.mesh.scale.setScalar(1); it.mesh.updateMatrixWorld(true);
+  let k = 0, nx = BOW.BRACE;
+  if (BW.draw) { const D = _bwH.distanceTo(_bwR), Dc = clamp(D, BOW.BRACE, BOW.DRAW); k = (Dc - BOW.BRACE) / (BOW.DRAW - BOW.BRACE); nx = Dc;
+    if (D > BOW.DRAW + 0.03) { if (!BW.wall) { BW.wall = true; HX.pulse(BW.draw, 0.3, 18, 'draw'); } } else if (D < BOW.DRAW - 0.02) BW.wall = false;   // full draw: a soft wall
+    HX.rumble(BW.draw, 0.03 + 0.22 * Math.pow(k, 1.5), 'draw');
+    if (D > BOW.DRAW + 0.3) bowLoose(); }   // yanked way past full draw: the string slips off the fingers
+  return [k, nx];
+}
+function bowDeskTick(dt) {
+  const on = !renderer.xr.isPresenting && mode === 'foot' && BW.desk && hasBow() && R.hand !== 'desk' && !deskKnife;
+  deskBow.visible = on; if (!on) { BW.deskDraw = false; BW.deskT = 0; return null; }
+  if (BW.deskDraw) BW.deskT = Math.min(1, BW.deskT + dt / 0.9); else BW.deskT = 0;
+  return [BW.deskT, BOW.BRACE + BW.deskT * 0.34];
+}
+function bowDeskFire() {
+  const k = BW.deskT; BW.deskDraw = false; BW.deskT = 0;
+  if (k < 0.06) return; if (BW.q <= 0 || !BW.nockA) { sfx('twang'); say(BW.q > 0 ? '' : 'NO ARROWS - LOOT BUNDLES OR CRAFT THEM (FIELD GUIDE)'); return; }
+  const a = BW.nockA; BW.nockA = null; BW.q--;
+  camera.getWorldPosition(a.p); camera.getWorldDirection(_bwF); _bwS.set(0, -1, 0).applyQuaternion(camera.getWorldQuaternion(_bwWQ));
+  a.p.addScaledVector(_bwF, 0.35).addScaledVector(_bwS, 0.04); a.q.setFromUnitVectors(_NZ, _bwF); arrowShoot(a, k, _bwF, 'desk', 'desk');
+}
+function bowTick(dt) {
+  const bg = bowHeld(); BW.bowG = bg;
+  if (!bg && BW.draw) { BW.draw = null; BW.k = 0; }
+  if (!bg && BW.nockA && BW.nockA.vr) { arrowFree(BW.nockA); BW.nockA = null; BW.q = Math.min(BOW.Q_MAX, BW.q + 1); }   // bow put away: the nocked arrow goes back
+  let kn = null, bowMesh = null;
+  if (bg) { const it = held.get(bg); bowMesh = it.mesh; kn = bowPoseVR(bg, it, dt); BW.k = kn[0]; }
+  else { kn = bowDeskTick(dt); bowMesh = kn ? deskBow : null;
+    if (kn && BW.q > 0 && !BW.nockA) { BW.nockA = arrowGet('nock'); if (BW.nockA) BW.nockA.vr = false; }
+    if (!kn && BW.nockA && !BW.nockA.vr) { arrowFree(BW.nockA); BW.nockA = null; } }
+  if (bowMesh) { const [k, nx] = kn; BW.nx = nx; BOW_U.value = k; stringSet(bowMesh.userData.str, nx, k);
+    if (BW.nockA) { bowMesh.updateMatrixWorld(true); arrowSet(BW.nockA, _bwM.copy(bowMesh.matrixWorld).multiply(_bwM2.makeTranslation(nx - ARROW_L, BOW.REST_Y, BOW.REST_Z)).multiply(ARW_ROT)); } }
+  else BOW_U.value = 0;
+  for (const [g, a] of BW.inHand) {   // arrows in a hand: pinched by the nock, pointing out of the fist; near the string = nocked
+    g.updateWorldMatrix(true, false); arrowSet(a, _bwM.copy(g.matrixWorld).multiply(_bwM2.makeTranslation(0, -0.01, 0.06 - ARROW_L)));
+    if (bg && bg !== g && !BW.nockA) { g.getWorldPosition(_bwH); const np = held.get(bg).mesh.localToWorld(_bwP.set(BOW.BRACE, BOW.REST_Y, BOW.REST_Z));
+      if (np.distanceTo(_bwH) < 0.12) { BW.inHand.delete(g); a.st = 'nock'; a.vr = true; BW.nockA = a; BW.draw = g; BW.wall = false; sfx('nock', np); pulse(g, 0.35, 15, 'nock'); } }
+  }
+  let live = 0;
+  for (const a of ARW) { if (a.st === 'free') continue; live++;
+    if (a.st === 'fly') arrowFly(a, dt); else if (a.st === 'fall') arrowFall(a, dt); else if (a.st === 'body') { arrowBody(a); continue; }
+    if (a.st === 'fly' || a.st === 'fall' || a.st === 'stuck' || a.st === 'ground') ARM.setMatrixAt(a.i, _bwM.compose(a.p, a.q, ONE)); }
+  ARM.visible = live > 0; if (live) ARM.instanceMatrix.needsUpdate = true;
+  QV.mesh.visible = BW.quiver; QV.mesh.geometry.setDrawRange(0, BW.q > 0 ? Infinity : QV.mesh.geometry.userData.body);
+}
+// desktop: 5 = bow up / away; hold left mouse to draw (~0.9 s to full), let go to shoot; G near spent arrows picks them up
+function bowDeskToggle() {
+  if (!hasBow()) { say('NO BOW - THE LODGE HAS ONE'); return; }
+  BW.desk = !BW.desk; if (BW.desk) { if (R.hand === 'desk') slingRifle(); deskKnife = false; BW.quiver = true; }
+  say(BW.desk ? 'BOW UP (' + BW.q + ' ARROWS) - HOLD CLICK TO DRAW, LET GO TO SHOOT' : 'BOW AWAY'); sfx('click');
+}
+function deskArrowPick(p) {
+  let n = 0; for (const a of ARW) if ((a.st === 'stuck' || a.st === 'ground' || a.st === 'body') && Math.hypot(a.p.x - p.x, a.p.z - p.z) < 2.5 && Math.abs(a.p.y - p.y) < 3 && BW.q < BOW.Q_MAX) { arrowFree(a); BW.q++; n++; }
+  if (n) { BW.quiver = true; say('+' + n + ' ARROW' + (n > 1 ? 'S' : '') + ' RECOVERED (QUIVER ' + BW.q + ')'); sfx('pick'); } return n > 0;
+}
 const GLB_ITEMS = ['HATCHET', 'FUEL CAN', 'MEDKIT', 'BANDAGE', 'WATER JUG', 'TORCH'];
 const GLB_FIT = { KNIFE: { z: [-0.237, 0.07] }, HATCHET: { z: [-0.3125, 0.115] }, 'FUEL CAN': { fill: 1 }, MEDKIT: { fill: 1 } };
 const PROP_SZ = { RADIO: 0.26, COMPASS: 0.07, BATTERY: 0.11, CAN: 0.12, 'CAN OPEN': 0.12, MATCHBOX: 0.06 };   // largest dimension (m), real-world-ish
@@ -5793,7 +6048,7 @@ renderer.setAnimationLoop(() => {
   fpsFrames++; fpsT += dt; instT += dt;
   if (fpsT >= 1) { fps = Math.round(fpsFrames / fpsT); fpsFrames = 0; fpsT = 0; }
   updateRifle(dt); updateBullets(dt); updateFX(dt); updateSmoke(dt); updateWorld(dt, clock.elapsedTime);
-  updateSurvival(dt); updateZombies(dt); updateAnimals(dt); updateItems(dt); melTick(dt); glbTick(dt); CLOUDS.tick(dt); updateDay(dt); updateWater(dt); cullLoot(dt); townTick(dt); craftTick(dt); bookTick(dt); staminaTick(dt); updateForce(dt); updateBrass(dt); updateFalling(dt); updateSpots(dt); updateAudio(dt);
+  updateSurvival(dt); updateZombies(dt); updateAnimals(dt); updateItems(dt); melTick(dt); bowTick(dt); glbTick(dt); CLOUDS.tick(dt); updateDay(dt); updateWater(dt); cullLoot(dt); townTick(dt); craftTick(dt); bookTick(dt); staminaTick(dt); updateForce(dt); updateBrass(dt); updateFalling(dt); updateSpots(dt); updateAudio(dt);
   panelUpdate(ac, dt); compassCard.rotation.y = IN.hdg;
   if (instT > 0.1) { instT = 0; drawWrist(); }
   if ((chunkT += dt) > 0.2) { chunkT = 0; updateChunks(); }

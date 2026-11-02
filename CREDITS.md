@@ -6,6 +6,8 @@
 - **Ultimate Animated Animals** by [Quaternius](https://quaternius.com) – https://quaternius.com/packs/ultimateanimatedanimals.html
   License: CC0 (public domain). Used in `assets/animals/` (Deer, Stag, Fox, Wolf, Cow, Bull, Horse, Donkey), converted to single-primitive, vertex-coloured, quantized skinned glTF with only the Idle, Eating, Walk, Gallop, Attack, Death and HitReact clips kept.
 
+- **Bow, arrows, string, quiver and arrow bundle** (v0.29): made for this game in code (low-poly, one builder per item in `index.html`).
+
 Quaternius' packs are free to use in personal and commercial projects; credit is appreciated, not required. Thank you!
 
 ## Code
