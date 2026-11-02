@@ -20,7 +20,7 @@
 </script>
 </head>
 <body>
-<div id="info">BUSH PILOT VR v0.18.1 - PA-18 Super Cub prototype (v0.18.1: side windows open from inside, sill z-fighting fixed; v0.18: Cub rebuilt to real PA-18 dimensions; v0.17.1: cabin windows reshaped; v0.17: low-poly item models; v0.16: crafting, campfires, traps, spoilage, stamina; v0.15: 7 new places + lodge strip, forests; v0.14: rivers, lakes, thirst + canteen; v0.13: day / night, dusk deadline, lights, sleep; v0.12: natural gunshot, ambient sound, clouds; v0.11: Cub + rifle proportions from reference; v0.10.1: smoother stock; v0.10: performance pass, crouch / jump, more zombies, force grab)
+<div id="info">BUSH PILOT VR v0.18.2 - PA-18 Super Cub prototype (v0.18.2: map clip on the cockpit wall; v0.18.1: side windows open from inside, sill z-fighting fixed; v0.18: Cub rebuilt to real PA-18 dimensions; v0.17.1: cabin windows reshaped; v0.17: low-poly item models; v0.16: crafting, campfires, traps, spoilage, stamina; v0.15: 7 new places + lodge strip, forests; v0.14: rivers, lakes, thirst + canteen; v0.13: day / night, dusk deadline, lights, sleep; v0.12: natural gunshot, ambient sound, clouds; v0.11: Cub + rifle proportions from reference; v0.10.1: smoother stock; v0.10: performance pass, crouch / jump, more zombies, force grab)
 RIFLE (VR): A/X on the rifle hand = work the lever (tap = full stroke, hold = keep it open) or flick the rifle down-forward, or grab the lever loop with your other hand and work it yourself;
   lever open = no shot; a short stroke won't feed. Load: tip of a round into the gate (right side) - it snaps in; keep grip held and go back to the pouch for the next one.
   Hold the right stick IN (click) + push it up/down while holding the rifle (right hand) = grip angle. Let go of the wrist with a hand on the forend = it stays in that hand.
@@ -912,8 +912,8 @@ box(0.65, 0.02, 0.24, dark, 0, 0.15 + CK.y, -0.74 + CK.z);                      
 box(0.48, 0.55, 0.06, grey, 0, -0.18 + CK.y, 0.45 + CK.z);                                     // front seat back
 box(0.48, 0.1, 0.42, grey, 0, -0.32, 0.03 + CK.z + 0.21);                                      // front seat cushion
 box(0.55, 0.1, 0.45, grey, 0, -0.38 + CK.y, 1.0 + CK.z); box(0.55, 0.5, 0.06, grey, 0, -0.1 + CK.y, 1.25 + CK.z);   // rear seat (tandem)
-box(0.03, 0.02, 0.24, grey, -0.30, -0.02 + CK.y, -0.17 + CK.z);                                // throttle quadrant slot
-box(0.01, 0.3, 0.3, dark, -0.312, -0.1 + CK.y, 0.34 + CK.z);                                   // flap handle quadrant
+box(0.042, 0.02, 0.24, grey, -0.305, -0.02 + CK.y, -0.17 + CK.z);                              // throttle quadrant slot (v0.18.2: reaches the wall, 4 mm off the skin)
+box(0.015, 0.3, 0.3, dark, -0.3185, -0.1 + CK.y, 0.34 + CK.z);   // v0.18.2: 4 mm off the skin, 0.5 mm clear of the flap lever                                   // flap handle quadrant
 partsRoot = plane;
 mergeInto(PS, plane);
 // moving surfaces (drawing frame, inside cubD)
@@ -3059,7 +3059,7 @@ giveKnife();
 
 // ================= v0.8: rough paper map (drawn once at load from the terrain), side pocket on the pack =================
 const MAP_W = 1024, MAP_H = 768, MAP_X = 5000, MAP_Z = 3750, MAP_PX = MAP_W / (2 * MAP_X);   // ~9.8 m per pixel, north (-z) up
-const MAP_SHEET = [0.4, 0.3], MAP_POCKET_R = 0.13, MAP_CLIP = { p: [-0.25, 0.14 + CK.y, -0.24 + CK.z], ry: 0.8, s: 0.6 };
+const MAP_SHEET = [0.4, 0.3], MAP_POCKET_R = 0.13, MAP_CLIP = { p: D2B(-0.318, -0.69, 0.24).toArray(), ry: Math.PI / 2, s: 0.6 };   // v0.18.2: flat on the left wall below the windscreen-side sill, ahead of the throttle (clip 2 mm off the skin)
 function drawMap() {
   const c = document.createElement('canvas'); c.width = MAP_W; c.height = MAP_H; const x = c.getContext('2d');
   let sd = 4242; const r = () => ((sd = (sd * 16807) % 2147483647) / 2147483647), j = k => (r() - 0.5) * 2 * k;   // own seed: world rand() untouched
@@ -3184,7 +3184,7 @@ const MAP = { state: 'pocket', g: null, g2: null, desk: false, canvas: drawMap()
   MAP.item = { mesh: MAP.fold, h: 0.012, vel: V3() };
   MAP.pocket = new THREE.Group(); MAP.pocket.position.set(-0.2, -0.15, 0.02); PK.mesh.add(MAP.pocket);   // long pocket down the left side of the pack; grab point low = left hip / lower back when worn
   box(0.03, 0.26, 0.11, canvasM, 0, 0.05, 0, MAP.pocket); box(0.032, 0.03, 0.112, leather, 0, 0.165, 0, MAP.pocket);
-  MAP.clip = new THREE.Group(); MAP.clip.position.set(...MAP_CLIP.p); MAP.clip.rotation.set(-0.15, MAP_CLIP.ry, 0, 'YXZ'); plane.add(MAP.clip);   // left cockpit wall
+  MAP.clip = new THREE.Group(); MAP.clip.position.set(...MAP_CLIP.p); MAP.clip.rotation.set(0, MAP_CLIP.ry, 4 * DEG, 'YXZ'); plane.add(MAP.clip);   // left cockpit wall
   box(0.06, 0.02, 0.012, mat(0x777777), 0, 0.095, -0.004, MAP.clip);                                                                             // the clip
 }
 function mapStow(where) {   // 'pocket' | 'clip' | 'world'
