@@ -2071,6 +2071,8 @@ const ITEM = {
   'WATER JUG':   { sz: [0.14, 0.26, 0.14], col: 0x9cc0d0, drink: 40 },     // v0.22 town loot: bottled water (clean), drink at the mouth
   'LAMP OIL':    { sz: [0.08, 0.2, 0.08], col: 0xc49a3a },                 // v0.22 town loot: refills the lantern at the bench (no fuel needed)
 };
+const GLB = { state: 'loading', geo: {}, camp: null, knife: null, err: null, t0: performance.now(), ms: 0 }, KNIFE_GROUPS = [], TOWN_PROPS = [];   // v0.27 item models (see loadItemModels)
+let FIRE_LOGS = null, POT_MESH = null;
 const itemRes = {}, redMat = mat(0xcc1111), glowM = new THREE.MeshBasicMaterial({ color: 0x6b6250 });   // v0.13 lantern glass / torch lens (lit = bright)
 // ---- v0.17 low-poly item models: each item is ONE merged, vertex-coloured, flat-shaded mesh (1 draw call), built once per item type and shared;
 //      every model stays inside its old box size (ITEM[n].sz, centred) so packing, holding, belts and throwing are unchanged ----
@@ -2144,7 +2146,7 @@ const MODELS = {
     ['c', 0.007, 0.012, 6, 0.094, 0.0, 0.03, 0xb08d40, 0, 0, H]],
 };
 // v0.26 hatchet / fire axe: red head, bright edge, hickory handle (held like the knife: handle in the fist, head out past the thumb)
-ITEM['HATCHET'] = { sz: [0.05, 0.13, 0.43], col: 0xb02018 };
+ITEM['HATCHET'] = { sz: [0.05, 0.27, 0.43], col: 0xb02018 };
 MODELS['HATCHET'] = [['b', 0.028, 0.032, 0.4, 0, 0, -0.09, 0x6b4a2a], ['b', 0.03, 0.036, 0.05, 0, 0, 0.09, 0x2a2a2a],
   ['b', 0.024, 0.075, 0.07, 0, -0.022, -0.27, 0xb02018], ['b', 0.02, 0.03, 0.05, 0, 0.03, -0.27, 0x2a2a2a], ['b', 0.01, 0.022, 0.085, 0, -0.065, -0.27, 0xd8dade]];
 const LAN_GLASS = new THREE.CylinderGeometry(0.036, 0.04, 0.13, 8);
@@ -2152,7 +2154,7 @@ const res = n => itemRes[n] || (itemRes[n] = MODELS[n] ? { g: mergeGeometries(MO
 function makeItem(name, x, y, z) {
   const m = name === 'KNIFE' ? knifeMesh() : new THREE.Mesh(res(name).g, res(name).m); m.position.set(x, y + ITEM[name].sz[1] / 2, z); scene.add(m);
   if (name === 'LANTERN') m.userData.glow = new THREE.Mesh(LAN_GLASS, glowM).translateY(-0.01), m.add(m.userData.glow);   // v0.17 glass chimney inside the cage
-  if (name === 'TORCH') { m.userData.glow = box(0.036, 0.036, 0.006, glowM, 0, 0, -0.098, m); }
+  if (name === 'TORCH') { m.userData.glow = box(0.036, 0.036, 0.006, glowM, 0, 0, -0.098, m); if (m.geometry.boundingBox) m.userData.glow.position.z = m.geometry.boundingBox.min.z - 0.0005; }   // v0.27: lens on the model's front
   const it = { name, mesh: m, h: ITEM[name].sz[1], state: 'world', fuel: name === 'FUEL CAN' ? CAN_L : 0, cook: 0, water: name === 'CANTEEN' ? 4 : 0, dirty: false };
   loot.push(it); return it;
 }
@@ -2285,7 +2287,7 @@ const fireFl = [];
   const rocks = []; for (let i = 0; i < 9; i++) { const a = i / 9 * Math.PI * 2; rocks.push([FIRE.x + Math.cos(a) * 0.55, FIRE.y + 0.06, FIRE.z + Math.sin(a) * 0.55, a, 0.16, 0.12, 0.14]); }
   instanced(new THREE.DodecahedronGeometry(1, 0), mat(0x6f6c66), rocks);
   const logs = new THREE.Group(); box(0.7, 0.1, 0.1, mat(0x4a3520), 0, 0.06, 0, logs).rotation.y = 0.5; box(0.7, 0.1, 0.1, mat(0x4a3520), 0, 0.1, 0, logs).rotation.y = -0.6;
-  logs.position.copy(FIRE); scene.add(logs);
+  logs.position.copy(FIRE); scene.add(logs); FIRE_LOGS = logs;
   for (const [c, r, h] of [[0xff7a1a, 0.22, 0.6], [0xffd23a, 0.12, 0.4]]) {
     const f = new THREE.Mesh(new THREE.ConeGeometry(r, h, 5).translate(0, h / 2, 0), new THREE.MeshBasicMaterial({ color: c })); f.position.copy(FIRE).y += 0.1; scene.add(f); fireFl.push(f);
   }
@@ -2389,7 +2391,7 @@ const BARREL = new THREE.Vector3(35.6, groundY(35.6, -12) , -12);
   for (const y of [0.15, 0.75]) { const r = new THREE.Mesh(new THREE.CylinderGeometry(0.33, 0.33, 0.04, 8), mat(0x2b2b2b)); r.position.copy(BARREL).y += y; scene.add(r); }
   const wtop = new THREE.Mesh(new THREE.CircleGeometry(0.28, 8).rotateX(-Math.PI / 2), new THREE.MeshLambertMaterial({ color: 0x3f7896, flatShading: true })); wtop.position.copy(BARREL).y += 0.8; scene.add(wtop); BARREL.top = wtop; }
 const POT = FIRE_C.clone().add(new THREE.Vector3(0, 0.25, 0));
-{ const p = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.13, 0.18, 8, 1, true), mat(0x3a3a3a)); p.material.side = THREE.DoubleSide; p.position.copy(POT); scene.add(p);
+{ const p = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.13, 0.18, 8, 1, true), mat(0x3a3a3a)); p.material.side = THREE.DoubleSide; p.position.copy(POT); scene.add(p); POT_MESH = p;
   box(0.9, 0.03, 0.03, mat(0x2b2b2b), POT.x, POT.y + 0.35, POT.z, scene); for (const s of [-1, 1]) box(0.03, 0.75, 0.03, mat(0x2b2b2b), POT.x + s * 0.45, POT.y - 0.02, POT.z, scene); }
 const W = { barrel: 4, barrelT: 0, tick: 0, sipT: 0, fillT: 0, boilT: 0 };    // barrel holds 4 canteen sips of clean rainwater
 const CANTEEN_MAX = 4, SIP = 25, THIRST_RATE = 100 / (15 * 60), PARCH_RATE = 0.5;
@@ -2631,7 +2633,8 @@ const TOWN_ZS = [], TOWN_MATS = [], TOWN_MESH = [];
       const ww = w / 2, hd = d / 2; reg(o, false, segs(o, [[-ww, -hd, ww, -hd], [-ww, -hd, -ww, hd], [ww, -hd, ww, hd], [-ww, hd, ww, hd]])); return o; };
     const shelf = (o, lx, lz, len, ry = 0) => { const q = { x: TW(o, lx, lz)[0], z: TW(o, lx, lz)[1], a: o.a + ry, y: o.y };
       for (const e of [-1, 1]) P(q, 0.05, 1.8, 0.45, PAL.shelf, e * len / 2, 0.9, 0); for (const y of [0.15, 0.85, 1.5]) P(q, len, 0.04, 0.45, PAL.shelf, 0, y, 0); P(q, len, 1.8, 0.03, PAL.shelf, 0, 0.9, -0.21); };
-    const counter = (o, lx, lz, len, c = PAL.wood) => { P(o, len, 0.95, 0.6, c, lx, 0.475, lz); P(o, len + 0.1, 0.05, 0.7, PAL.dark, lx, 0.975, lz); };
+    const counter = (o, lx, lz, len, c = PAL.wood) => { for (const e of [-1, 1]) { const [x, z] = TW(o, lx + e * (len / 2 - 0.22), lz - 0.12); TOWN_PROPS.push([T, x, o.y + 1.0, z, o.a]); }   // v0.27 set dressing on the counter ends
+      P(o, len, 0.95, 0.6, c, lx, 0.475, lz); P(o, len + 0.1, 0.05, 0.7, PAL.dark, lx, 0.975, lz); };
     const facade = (o, h, c, sign) => { P(o, o.w + 0.4, 1.6, 0.18, c, 0, h + 0.8, o.d / 2 + 0.05); if (sign) P(o, o.w * 0.7, 0.7, 0.05, sign, 0, h + 0.85, o.d / 2 + 0.16); };
     const porch = (o, c = PAL.wood) => { P(o, o.w + 0.6, 0.12, 1.8, c, 0, 0.05, o.d / 2 + 0.9); for (const sx of [-1, 1]) P(o, 0.14, 2.7, 0.14, c, sx * (o.w / 2 + 0.2), 1.4, o.d / 2 + 1.7);
       P(o, o.w + 0.8, 0.1, 2.0, PAL.roof, 0, 2.85, o.d / 2 + 0.9, 0, -0.12); };
@@ -3082,7 +3085,7 @@ const RECOIL = { rise: 0.16, kick: 0.055, up: 0.025, decay: 0.05, stock: 0.35, t
                  hapticMain: 1.0, hapticMainMs: 70, hapticSupport: 0.45, hapticSupportMs: 45 };
 const SMALL = new Set(['MEDKIT', 'RAW MEAT', 'COOKED MEAT']);      // fits a belt pouch
 const cellsOf = n => (n === 'FUEL CAN' || n === 'FOOD CRATE') ? 2 : 1;
-ITEM['KNIFE'] = { sz: [0.05, 0.03, 0.3], col: 0xc8c8c8 };
+ITEM['KNIFE'] = { sz: [0.05, 0.065, 0.3], col: 0xc8c8c8 };
 const pulse = (g, a, ms, tag) => HX.pulse(g, a, ms, tag);   // v0.24: through the haptics helper
 const tick = g => pulse(g, 0.4, 20);
 const V3 = () => new THREE.Vector3();
@@ -3518,7 +3521,7 @@ function knifeMesh() {
   box(0.024, 0.026, 0.016, dark, 0, 0, 0.062, g);       // pommel
   box(0.004, 0.032, 0.15, steelL, 0, 0.002, -0.14, g);  // blade
   const tip = box(0.004, 0.024, 0.03, steelL, 0, -0.003, -0.222, g); tip.rotation.x = -0.45;   // clip point
-  const m = new THREE.Group(); mergeInto(g, m); return m;
+  const m = new THREE.Group(); mergeInto(g, m); KNIFE_GROUPS.push(m); if (GLB.knife) knifeSwap(m); return m;   // v0.27: swapped for the Survival Pack knife once loaded
 }
 const KNIFE_TIP = new THREE.Vector3(0, 0, -0.23);
 let knife = null, deskKnife = false;
@@ -4181,8 +4184,9 @@ const FIRES = [], fireMatA = fireFl[0].material, fireMatB = fireFl[1].material, 
 function makeFire(x, z) {
   if (FIRES.length >= 3) { const f = FIRES.shift(); f.g.removeFromParent(); }
   const y = groundY(x, z), g = new THREE.Group(); g.position.set(x, y, z); scene.add(g);
-  for (let i = 0; i < 6; i++) { const a = i / 6 * 6.283; box(0.16, 0.1, 0.14, mat(0x6f6c66), Math.cos(a) * 0.4, 0.05, Math.sin(a) * 0.4, g).rotation.y = a; }
-  box(0.5, 0.08, 0.08, mat(0x4a3520), 0, 0.06, 0, g).rotation.y = 0.5; box(0.5, 0.08, 0.08, mat(0x4a3520), 0, 0.1, 0, g).rotation.y = -0.6;
+  if (GLB.camp) g.add(new THREE.Mesh(GLB.camp, ITEM_VM));   // v0.27: Survival Pack bonfire logs + stone ring, one draw call
+  else { for (let i = 0; i < 6; i++) { const a = i / 6 * 6.283; box(0.16, 0.1, 0.14, mat(0x6f6c66), Math.cos(a) * 0.4, 0.05, Math.sin(a) * 0.4, g).rotation.y = a; }
+    box(0.5, 0.08, 0.08, mat(0x4a3520), 0, 0.06, 0, g).rotation.y = 0.5; box(0.5, 0.08, 0.08, mat(0x4a3520), 0, 0.1, 0, g).rotation.y = -0.6; }
   const a = new THREE.Mesh(FIRE_GEO_A, fireMatA), b = new THREE.Mesh(FIRE_GEO_B, fireMatB); a.position.y = b.position.y = 0.1; a.scale.setScalar(0.8); b.scale.setScalar(0.8); g.add(a, b);
   FIRES.push({ g, fl: [a, b], p: new THREE.Vector3(x, y, z), c: new THREE.Vector3(x, y + 0.3, z), t: 15 * 60 }); say('CAMPFIRE LIT - COOK, BOIL WATER, MAKES CHARCOAL'); sfx('sizzle', new THREE.Vector3(x, y, z));
 }
@@ -5454,6 +5458,63 @@ function deskMelee() {
     return; }
   deskKnifeUse();
 }
+// ================= v0.27 item models: Quaternius Survival Pack (CC0), assets/items.glb =================
+// Loaded in the background. Each model is fitted to the item's existing size box (ITEM[n].sz), so packing, holding, belts, weights and
+// behaviours don't change; the shared geometry is swapped in place, so every copy of that item updates at once. If the file or the loader
+// fails, the hand-made meshes simply stay. All models use the one shared vertex-colour material (ITEM_VM).
+const GLB_ITEMS = ['HATCHET', 'FUEL CAN', 'MEDKIT', 'BANDAGE', 'WATER JUG', 'TORCH'];
+const GLB_FIT = { KNIFE: { z: [-0.237, 0.07] }, HATCHET: { z: [-0.3125, 0.115] }, 'FUEL CAN': { fill: 1 }, MEDKIT: { fill: 1 } };
+const PROP_SZ = { RADIO: 0.26, COMPASS: 0.07, BATTERY: 0.11, CAN: 0.12, 'CAN OPEN': 0.12, MATCHBOX: 0.06 };   // largest dimension (m), real-world-ish
+const _glv = new THREE.Vector3();
+function glbGeo(o) {   // glTF mesh (quantized, indexed) -> plain float, non-indexed position + colour geometry in its node's frame
+  o.updateWorldMatrix(true, false); let g = o.geometry.index ? o.geometry.toNonIndexed() : o.geometry.clone();
+  const out = new THREE.BufferGeometry();
+  for (const k of ['position', 'color']) { const a = g.attributes[k], f = new Float32Array(a.count * 3); for (let i = 0; i < a.count; i++) { f[i * 3] = a.getX(i); f[i * 3 + 1] = a.getY(i); f[i * 3 + 2] = a.getZ(i); } out.setAttribute(k, new THREE.BufferAttribute(f, 3)); }
+  out.applyMatrix4(o.matrixWorld); return out;
+}
+function glbFit(name, g, sz) {   // scale + place the model inside the item's size box (bottom on the floor of the box)
+  g.computeBoundingBox(); const b = g.boundingBox, s = b.getSize(new THREE.Vector3()), c = b.getCenter(new THREE.Vector3()), f = GLB_FIT[name] || {};
+  if (f.z) { const k = (f.z[1] - f.z[0]) / s.z; g.translate(-c.x, -c.y, -b.min.z).scale(k, k, k).translate(0, 0, f.z[0]);   // long tools: tip / head at -z,
+    const p = g.attributes.position, hb = new THREE.Box3(), zc = f.z[1] - 0.25 * (f.z[1] - f.z[0]);                              // the handle (rear quarter) centred on the grip axis
+    for (let i = 0; i < p.count; i++) if (p.getZ(i) > zc) hb.expandByPoint(_glv.fromBufferAttribute(p, i));
+    const hc = hb.getCenter(_glv); g.translate(-hc.x, -hc.y, 0); }
+  else if (f.fill) g.translate(-c.x, -c.y, -c.z).scale(sz[0] / s.x, sz[1] / s.y, sz[2] / s.z);
+  else { const k = Math.min(sz[0] / s.x, sz[1] / s.y, sz[2] / s.z); g.translate(-c.x, -b.min.y, -c.z).scale(k, k, k).translate(0, -sz[1] / 2, 0); }
+  g.computeBoundingBox(); g.computeBoundingSphere(); return g;
+}
+const glbProp = (name, size) => { const g = GLB.geo[name].clone(); g.computeBoundingBox(); const s = g.boundingBox.getSize(new THREE.Vector3()), k = size / Math.max(s.x, s.y, s.z), c = g.boundingBox.getCenter(new THREE.Vector3());
+  return g.translate(-c.x, -g.boundingBox.min.y, -c.z).scale(k, k, k); };
+function glbApply() {
+  for (const n of GLB_ITEMS) { if (!GLB.geo[n]) continue; const g = glbFit(n, GLB.geo[n].clone(), ITEM[n].sz), r = itemRes[n];
+    if (r) { r.g.dispose(); r.g.copy(g); r.m = ITEM_VM; } else itemRes[n] = { g, m: ITEM_VM }; }
+  if (GLB.geo.KNIFE) { GLB.knife = glbFit('KNIFE', GLB.geo.KNIFE.clone(), ITEM.KNIFE.sz); for (const k of KNIFE_GROUPS) knifeSwap(k); }
+  for (const L of [loot, inv, stash, CARGO.items]) for (const it of L) if (it.name === 'TORCH') torchGlowFit(it.mesh);
+  if (GLB.geo.BONFIRE && FIRE_LOGS) { const g = glbProp('BONFIRE', 0.9); FIRE_LOGS.clear(); FIRE_LOGS.add(new THREE.Mesh(g, ITEM_VM)); FIRE_LOGS.rotation.y = 0.4; }
+  if (GLB.geo.BONFIRE) { const rk = []; for (let i = 0; i < 6; i++) { const a = i / 6 * 6.283; rk.push(['d', 0.09, 0.7, 0.9, Math.cos(a) * 0.4, 0.04, Math.sin(a) * 0.4, 0x6f6c66, 0, a]); }
+    GLB.camp = mergeGeometries([glbProp('BONFIRE', 0.6), ...rk.map(p => { const g = partGeo(p); g.deleteAttribute('normal'); return g; })]); }
+  if (GLB.geo.POT && POT_MESH) { const g = glbProp('POT', 0.36); g.translate(0, -0.1, 0); POT_MESH.geometry = g; POT_MESH.material = ITEM_VM; }
+  if (Object.keys(PROP_SZ).every(n => GLB.geo[n])) propsBuild();
+}
+function knifeSwap(k) { if (!GLB.knife) return; k.clear(); k.add(new THREE.Mesh(GLB.knife, ITEM_VM)); }
+function torchGlowFit(m) { const gl = m.userData.glow; if (!gl || !m.geometry.boundingBox) return; gl.position.z = m.geometry.boundingBox.min.z - 0.0005; }
+// ---- set dressing: radios, compasses, batteries, cans and matchboxes on town counters; one merged mesh per town, drawn only nearby ----
+const PROPS = [];
+function propsBuild() {
+  const K = Object.keys(PROP_SZ), base = Object.fromEntries(K.map(n => [n, glbProp(n, PROP_SZ[n])])), byTown = new Map();
+  TOWN_PROPS.forEach(([T, x, y, z, a], i) => { const n = K[i % K.length], g = base[n].clone(); g.rotateY(a + (i * 1.7) % 6.283); g.translate(x, y, z); (byTown.get(T) || byTown.set(T, []).get(T)).push(g); });
+  for (const [T, gs] of byTown) { const m = new THREE.Mesh(mergeGeometries(gs), ITEM_VM); m.matrixAutoUpdate = false; m.visible = false; scene.add(m); PROPS.push({ T, m }); }
+}
+let glbT = 0;
+function glbTick(dt) { if ((glbT -= dt) > 0 || !PROPS.length) return; glbT = 0.5; const pp = playerPos(); for (const p of PROPS) p.m.visible = Math.hypot(pp.x - p.T.x, pp.z - p.T.z) < 55; }   // counter-top props: only inside a town
+function loadItemModels(url = 'assets/items.glb', tries = 3) {   // started after start-up (a dynamic import issued mid-evaluation can fail); retried
+  import('three/addons/loaders/GLTFLoader.js').then(({ GLTFLoader }) => new GLTFLoader().load(url, gl => {
+    try { gl.scene.traverse(o => { if (o.isMesh) GLB.geo[o.name.replace(/_/g, ' ')] = glbGeo(o); }); glbApply(); GLB.state = 'ok'; }
+    catch (e) { GLB.state = 'fail'; GLB.err = String(e); console.warn('items.glb: keeping the hand-made models', e); }
+    GLB.ms = performance.now() - GLB.t0;
+  }, undefined, e => { GLB.state = 'fail'; GLB.err = String(e && e.message || e); console.warn('items.glb failed to load - keeping the hand-made models'); }))
+  .catch(e => { if (--tries > 0) return setTimeout(() => loadItemModels(url, tries), 1000); GLB.state = 'fail'; GLB.err = String(e); console.warn('GLTFLoader unavailable - keeping the hand-made models'); });
+}
+setTimeout(() => loadItemModels(), 300);
 renderer.setAnimationLoop(() => {
   const t0 = performance.now(), rawDt = clock.getDelta(), dt = Math.min(rawDt, 0.05);
   const xr = renderer.xr.isPresenting;
@@ -5490,7 +5551,7 @@ renderer.setAnimationLoop(() => {
   fpsFrames++; fpsT += dt; instT += dt;
   if (fpsT >= 1) { fps = Math.round(fpsFrames / fpsT); fpsFrames = 0; fpsT = 0; }
   updateRifle(dt); updateBullets(dt); updateFX(dt); updateSmoke(dt); updateWorld(dt, clock.elapsedTime);
-  updateSurvival(dt); updateZombies(dt); updateAnimals(dt); updateItems(dt); melTick(dt); CLOUDS.tick(dt); updateDay(dt); updateWater(dt); cullLoot(dt); townTick(dt); craftTick(dt); bookTick(dt); staminaTick(dt); updateForce(dt); updateBrass(dt); updateFalling(dt); updateSpots(dt); updateAudio(dt);
+  updateSurvival(dt); updateZombies(dt); updateAnimals(dt); updateItems(dt); melTick(dt); glbTick(dt); CLOUDS.tick(dt); updateDay(dt); updateWater(dt); cullLoot(dt); townTick(dt); craftTick(dt); bookTick(dt); staminaTick(dt); updateForce(dt); updateBrass(dt); updateFalling(dt); updateSpots(dt); updateAudio(dt);
   panelUpdate(ac, dt); compassCard.rotation.y = IN.hdg;
   if (instT > 0.1) { instT = 0; drawWrist(); }
   if ((chunkT += dt) > 0.2) { chunkT = 0; updateChunks(); }
