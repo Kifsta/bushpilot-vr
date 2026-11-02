@@ -87,6 +87,9 @@ Shutdown: throttle idle, mixture CUTOFF (it stops), mags OFF, master OFF, fuel O
 - Map: pocket on the left side of the pack (desktop M). Grab the far edge with the other hand to open it. In the plane it rides in the holder on the left cockpit wall (the same map; it moves there when you board and back to the pack when you get out).
 - Torch on the left hip: hold it and pull the trigger (desktop L). The lantern stays at the cabin and needs lamp oil.
 
+## Item models (v0.27)
+Nothing to learn: the knife, hatchet, fuel can, medkit, bandages, water jug, torch, pot and campfires now use real models but are picked up, worn, packed and used exactly as before. The radios, compasses, batteries, cans and matchboxes on town shop counters are decoration.
+
 ## Survival
 - Watch on the left wrist: time (amber = sunset soon), health, food, water (blue) and stamina (white).
 - Be home before dark: zombies get faster and bolder and respawn at night. Sleep after 17:30 by gripping the cabin door handle (desktop N at the door).
