@@ -72,6 +72,8 @@ Shutdown: throttle idle, mixture CUTOFF (it stops), mags OFF, master OFF, fuel O
 - Water: canteen on the right hip. Fill at the rain barrel (clean) or a river or lake (raw: boil it at the fire pit pot, or carry a water filter). Desktop E fills, boils and drinks.
 - Food: raw meat over a fire cooks it. Food spoils (raw ~2 days, cooked ~3, smoked ~10); spoiled food makes you sick.
 - Fuel: hold the fuel can to the wing filler cap (desktop E).
+- Towns (v0.22): Cutler (south), Dry Fork (east, with a grass strip you can land on) and Hollis (north) are on the map. Walk in through the doors; the loot is on shelves and counters. Expect zombies inside, and more after dark.
+- Water jug: hold it to your mouth (desktop E) for +40 water. Lamp oil bottles refill the cabin lantern through the field guide's lamp-oil recipe.
 
 ## Crafting (v0.21: field guide; v0.21.1: right pack pocket)
 - Sticks, stones, cloth, wire, nails, boards and charcoal go into a pouch when you grab them.

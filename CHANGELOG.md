@@ -2,6 +2,27 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.22 – Small towns
+- Three abandoned towns on flat ground, each on the dirt-road network and marked on the paper map and the cockpit map (red "zeds!" under the name):
+  - **Cutler**, about 1.9 km south of the cabin (11 buildings);
+  - **Dry Fork**, 2.8 km east (9 buildings);
+  - **Hollis**, 2.6 km north (10 buildings).
+- Buildings: general store, diner, sheriff's office, feed store with silos, church, schoolhouse, houses, shacks, a gas station and a water tower. Wrecked cars and broken fences are scattered along the main street.
+- Most buildings can be entered (Cutler 8, Dry Fork 7, Hollis 8). Walk in through the door gap. Inside are wooden floors and simple interiors: shelves, counters, cots, pews and desks. Walls block you, zombies and loot.
+- Better loot than the lone sites, mostly on shelves and counters indoors. You'll find ammo boxes, food crates, the new WATER JUG (+40 water, drink it at your mouth or press E) and LAMP OIL bottles. There are also fuel cans, bandages, medkits and cleaning kits, plus crafting materials (boards, nails, wire and cloth). The town loot is only drawn within 60 m.
+- Zombies: 17–23 in each town by day, some waiting inside buildings. At night more shamble in, up to 8 extra per town, but never closer than 35 m to you. They thin out again after dawn. A zombie can't hit you through a wall. If you're inside, it walks round the building to the door to get at you.
+- **Dry Fork strip**: a 300 m mown grass strip just east of Dry Fork (north–south, 2.7 m of slope over its length). It has edge markers and a windsock, and a dirt road runs into town. It counts as a strip surface for the tyres (best grip, smooth). Tested: full-power takeoff lifts off after about 70 m, and a 3-point landing rolls out about 50 m.
+- The lantern's oil recipe now uses a LAMP OIL bottle first, falling back to fuel from a fuel can.
+- Forests, bushes, rocks and fence lines are kept out of the towns and off the strip, and the towns sit clear of the lakes.
+- Performance: each town is a single merged, vertex-coloured mesh (one draw call, about 3.6–4.2k tris), culled beyond 5 km. The strip is one ribbon plus one instanced marker draw.
+  - At the cabin, versus v0.21.1: +2 draw calls and +14k tris on foot (95 / 263k), +2 in the cockpit (128 / 264k), and +4 at altitude (161 / 271k).
+  - New scenes:
+    - standing on Cutler's street: 71 calls / 233k;
+    - in the cockpit at Dry Fork strip, looking at the town: 155 / 275k;
+    - 610 m above, looking down at Cutler: 162 / 271k.
+- Zombie update: 166 zombies in total (24 of them are town night spares). Hidden zombies are now hidden once and then skipped, instead of being re-hidden every frame. Zombies more than 500 m away still think once a second, so standing in Cutler at night about 26 zombies think per frame. At the cabin the AI does 126 zombie steps per second, against 1509 in v0.21.1.
+- Physics unchanged (md5 above). Building floors only affect walking and zombies; the aircraft still uses the bare terrain.
+
 ## v0.21.1 – Field guide moves to the pack's right side pocket
 - The field guide no longer rides in a chest pocket on the pack strap, where it sat in your view. It now lives in a side pocket on the RIGHT side of the backpack, mirroring the map's pocket on the left: same height and depth behind you, same canvas pocket with a leather rim, with the book standing upright and its top showing. Reach back past your right hip and grab it, the same way you reach back left for the map. Let go at the pocket to put it back.
 - Grab priority is now "nearest wins" for belt and pack targets: the right-hip canteen, the ammo pouch and the guide pocket are compared by distance (scaled to each one's grab radius), and the rifle only comes off the sling if its forend is the closest thing to your hand. Tested from 15 hand positions around the canteen, ammo pouch, guide pocket and sling.

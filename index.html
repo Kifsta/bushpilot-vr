@@ -20,7 +20,7 @@
 </script>
 </head>
 <body>
-<div id="info">BUSH PILOT VR v0.21.1 - PA-18 Super Cub prototype (v0.21.1: field guide moved to the right side pocket of the pack; v0.21: crafting through a physical field guide - pack pocket / bench, press B or K on foot; v0.20: gear + tyre physics, bungee legs, soft tundras, steerable tail wheel, brakes, surface grip and bumps; v0.19: engine start/shutdown, opening windows, checklist, map holder; v0.18.2: map clip on the cockpit wall; v0.18.1: side windows open from inside, sill z-fighting fixed; v0.18: Cub rebuilt to real PA-18 dimensions; v0.17.1: cabin windows reshaped; v0.17: low-poly item models; v0.16: crafting, campfires, traps, spoilage, stamina; v0.15: 7 new places + lodge strip, forests; v0.14: rivers, lakes, thirst + canteen; v0.13: day / night, dusk deadline, lights, sleep; v0.12: natural gunshot, ambient sound, clouds; v0.11: Cub + rifle proportions from reference; v0.10.1: smoother stock; v0.10: performance pass, crouch / jump, more zombies, force grab)
+<div id="info">BUSH PILOT VR v0.22 - PA-18 Super Cub prototype (v0.22: three abandoned towns to loot - Cutler, Dry Fork (with its own grass strip) and Hollis - full of zombies, more at night; v0.21.1: field guide moved to the right side pocket of the pack; v0.21: crafting through a physical field guide - pack pocket / bench, press B or K on foot; v0.20: gear + tyre physics, bungee legs, soft tundras, steerable tail wheel, brakes, surface grip and bumps; v0.19: engine start/shutdown, opening windows, checklist, map holder; v0.18.2: map clip on the cockpit wall; v0.18.1: side windows open from inside, sill z-fighting fixed; v0.18: Cub rebuilt to real PA-18 dimensions; v0.17.1: cabin windows reshaped; v0.17: low-poly item models; v0.16: crafting, campfires, traps, spoilage, stamina; v0.15: 7 new places + lodge strip, forests; v0.14: rivers, lakes, thirst + canteen; v0.13: day / night, dusk deadline, lights, sleep; v0.12: natural gunshot, ambient sound, clouds; v0.11: Cub + rifle proportions from reference; v0.10.1: smoother stock; v0.10: performance pass, crouch / jump, more zombies, force grab)
 RIFLE (VR): A/X on the rifle hand = work the lever (tap = full stroke, hold = keep it open) or flick the rifle down-forward, or grab the lever loop with your other hand and work it yourself;
   lever open = no shot; a short stroke won't feed. Load: tip of a round into the gate (right side) - it snaps in; keep grip held and go back to the pouch for the next one.
   Hold the right stick IN (click) + push it up/down while holding the rifle (right hand) = grip angle. Let go of the wrist with a hand on the forend = it stays in that hand.
@@ -294,8 +294,10 @@ const SURF = {
   pad:    { name: 'pad',    mu: 0.50, roll: 0.070, bump: 0.030 },   // rough paddock
   rough:  { name: 'rough',  mu: 0.50, roll: 0.080, bump: 0.035 },   // everything else: tussock / dirt
 };
+const MOWN = [];   // v0.22: extra mown strips { x, z, a, hl, hw } (filled by the game at load; empty in the physics test)
 function surfaceAt(x, z) {
   if (Math.abs(x) < 13 && z > -310 && z < 15) return SURF.strip;
+  for (const m of MOWN) { const dx = x - m.x, dz = z - m.z, sa = Math.sin(m.a), ca = Math.cos(m.a); if (Math.abs(dx * sa + dz * ca) < m.hl && Math.abs(dx * ca - dz * sa) < m.hw) return SURF.strip; }
   if (Math.abs(x - MEADOW.x) < MEADOW.hw + 4 && Math.abs(z - MEADOW.z) < MEADOW.hl + 4) return SURF.meadow;
   if (Math.abs(x - PAD.x) < 55 && Math.abs(z - PAD.z) < 90) return SURF.pad;
   return SURF.rough;
@@ -522,7 +524,7 @@ const mat = c => new THREE.MeshLambertMaterial({ color: c, flatShading: true });
 let seed = 12345; const rand = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
 
 // ---- terrain: flat-shaded inner grid + coarse outer ring; colours by height/slope (fields, forest, rock, snow) ----
-const groundY = terrainHeight;   // v0.7: physics ground == rendered mesh
+let groundY = terrainHeight;   // v0.7: physics ground == rendered mesh (v0.22: + building floors in towns, see the town module)
 function grainTexture(repeat) {  // 64x64 canvas noise, mipmapped; averages out (fades) with distance
   const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'), d = x.createImageData(64, 64);
   for (let i = 0; i < 4096; i++) { const v = 205 + Math.floor(rand() * 50); d.data[i * 4] = v; d.data[i * 4 + 1] = v; d.data[i * 4 + 2] = v - 10; d.data[i * 4 + 3] = 255; }
@@ -650,15 +652,33 @@ const nearStrip = (rMax, rMin = 25) => { const a = rand() * Math.PI * 2, d = rMi
 const ROAD_NS = [[780, -2600], [760, -1200], [800, -300], [780, 80], [740, 900], [820, 2200]];
 const ROADS = [[[29, -15], [120, -20], [400, 60], [780, 80], [1400, 40], [2600, 120]], ROAD_NS, [[-900, 2000], [-700, 700], [-500, 300], [-300, 330], [29, -15]]];
 const FARMS = [[420, 110], [820, -700], [700, 950], [1500, 10], [-560, 330], [810, -2000], [-820, 1500]];
+// v0.22: three abandoned towns. a = heading of the main street (town-local +z). Buildings: [kit, side, along-street, zombies inside, colour]
+const TOWNS = [
+  { name: 'CUTLER', x: 789, z: 1700, a: 0.0614, r: 95, layout: { zn: 15, tower: [-26, -3],
+    b: [['store', -1, -30, 2], ['diner', -1, -12, 0], ['sheriff', -1, 6, 1], ['house', -1, 24, 0, 0xa9b8c4], ['shack', -1, 42],
+        ['gas', 1, -34, 0], ['feed', 1, -12, 0], ['house', 1, 8, 1, 0xcbbd98], ['church', 1, 30, 2], ['shack', 1, 50, 0, 0x9c8f78]],
+    cars: [[-3, -20, 0.3, 0x5d6e7a], [3.5, 14, 2.9, 0x7a4428], [12, -22, 1.2, 0x8b8b6a]] } },
+  { name: 'DRY FORK', x: 2800, z: 0, a: Math.PI / 2, r: 90, layout: { zn: 12, tower: [-26, 8],
+    b: [['store', -1, -24, 1], ['diner', -1, -6, 1], ['house', -1, 12, 0], ['house', -1, 30, 0, 0xa9b8c4],
+        ['gas', 1, -26, 0], ['feed', 1, -4, 2], ['shack', 1, 16], ['school', 1, 34, 1]],
+    cars: [[2, -12, 0.2, 0x6f7f5a], [-12, 44, 1.4, 0x7a4428]] } },
+  { name: 'HOLLIS', x: 900, z: -2500, a: 0.876, r: 90, layout: { zn: 13, tower: [26, 50],
+    b: [['store', -1, -26, 1], ['sheriff', -1, -8, 1], ['house', -1, 10, 1], ['house', -1, 28, 0, 0x8a9a78], ['shack', -1, 46],
+        ['diner', 1, -28, 1], ['feed', 1, -8, 0], ['house', 1, 12, 0, 0xcbbd98], ['school', 1, 32, 2]],
+    cars: [[-2.5, 0, 3.0, 0x5d6e7a], [3, 20, 0.4, 0x8b8b6a], [-14, -40, 1.0, 0x7a4428]] } },
+];
+const inTown = (x, z, m = 0) => { for (const t of TOWNS) if (Math.abs(x - t.x) < t.r + m && Math.abs(z - t.z) < t.r + m && Math.hypot(x - t.x, z - t.z) < t.r + m) return true; return false; };
+const DRYFORK_STRIP = { x: 3250, z: 50, a: 0, hl: 150, hw: 10 };   // 300 x 20 m mown strip east of Dry Fork, runs N-S (~2.7 m of rise end to end)
+ROADS.push([[2600, 120], [2690, 30], [2740, 0], [2800, 0], [2900, 0], [3050, 5], [3238, 15]], [[780, -2600], [840, -2550], [900, -2500], [960, -2450]]);   // spurs to Dry Fork (+ its strip) and Hollis
 const BARN_SPOT = [];   // v0.5 loot spot beside one barn
 const lines = [];   // merged line segments (fence wires + power lines): one draw call
 {
   // bushes / shrubs (0.4-1.2 m) and rocks, denser near the strip
   const bush = [], rock = [];
   for (let i = 0; i < 1800; i++) { const [x, z] = nearStrip(2600); if (onStrip(x, z, 6)) continue;
-    const s = 0.4 + rand() * 0.8; bush.push([x, groundY(x, z) + 0.3 * s, z, rand() * 6, s * (0.8 + rand() * 0.5), s * 0.75, s]); }
+    const s = 0.4 + rand() * 0.8, e = [x, groundY(x, z) + 0.3 * s, z, rand() * 6, s * (0.8 + rand() * 0.5), s * 0.75, s]; if (!inTown(x, z, 5)) bush.push(e); }
   for (let i = 0; i < 700; i++) { const [x, z] = nearStrip(2200); if (onStrip(x, z, 4)) continue;
-    const s = 0.2 + rand() * 0.7; rock.push([x, groundY(x, z) + 0.1 * s, z, rand() * 6, s * (0.7 + rand() * 0.6), s * 0.6, s]); }
+    const s = 0.2 + rand() * 0.7, e = [x, groundY(x, z) + 0.1 * s, z, rand() * 6, s * (0.7 + rand() * 0.6), s * 0.6, s]; if (!inTown(x, z, 5)) rock.push(e); }
   instanced(new THREE.IcosahedronGeometry(1, 0), mat(0x4d6b32), bush, { far: 1800 });
   instanced(new THREE.DodecahedronGeometry(1, 0), mat(0x8a8780), rock, { far: 1800 });
 
@@ -677,7 +697,7 @@ const lines = [];   // merged line segments (fence wires + power lines): one dra
     let prev = null;
     for (let d = 0; d < len; d += 4) {
       const x = alongX ? start + d : line, z = alongX ? line : start + d;
-      if (onStrip(x, z, 10)) { prev = null; continue; }
+      if (onStrip(x, z, 10) || inTown(x, z, 10)) { prev = null; continue; }
       const y = groundY(x, z); post.push([x, y, z, 0, 1, 1, 1]);
       if (prev) for (const h of [0.75, 1.2]) lines.push(prev[0], prev[1] + h, prev[2], x, y + h, z);
       prev = [x, y, z];
@@ -1779,8 +1799,10 @@ const CROUCH_DROP = 0.5, CROUCH_TIME = 0.15, JUMP_H = 0.4, CROUCH_WALK = 0.5;
 const crouchK = () => smooth01(P.crouchT);
 const crouchWalk = () => 1 - (1 - CROUCH_WALK) * crouchK();
 function jump() { if (mode !== 'foot' || P.jy > 0 || P.jv !== 0) return; if (P.stam < 10) { say('TOO TIRED TO JUMP'); return; } P.stam -= 10; P.jv = Math.sqrt(2 * 9.81 * JUMP_H); }   // grounded only: no double jump
+const _twp = { x: 0, z: 0 };
 function updateFoot(dt) {
   camera.getWorldPosition(_w);
+  _twp.x = _w.x; _twp.z = _w.z; if (townPush(_twp, 0.3)) { footRig.position.x += _twp.x - _w.x; footRig.position.z += _twp.z - _w.z; _w.x = _twp.x; _w.z = _twp.z; }   // v0.22 town walls
   P.crouchT = clamp(P.crouchT + (P.crouchIn ? 1 : -1) * dt / CROUCH_TIME, 0, 1);
   if (P.jv !== 0 || P.jy > 0) { P.jv -= 9.81 * dt; P.jy += P.jv * dt; if (P.jy <= 0) { P.jy = 0; P.jv = 0; sfx('leaves'); } }   // lands on the terrain under you
   footRig.position.y = groundY(_w.x, _w.z) + EYE - CROUCH_DROP * crouchK() + P.jy;
@@ -1910,6 +1932,8 @@ const ITEM = {
   'LANTERN':     { sz: [0.13, 0.24, 0.13], col: 0x3b3f36, tool: true },
   'TORCH':       { sz: [0.045, 0.045, 0.2], col: 0x2f353b, tool: true },
   'CANTEEN':     { sz: [0.13, 0.17, 0.06], col: 0x55623a, tool: true },
+  'WATER JUG':   { sz: [0.14, 0.26, 0.14], col: 0x9cc0d0, drink: 40 },     // v0.22 town loot: bottled water (clean), drink at the mouth
+  'LAMP OIL':    { sz: [0.08, 0.2, 0.08], col: 0xc49a3a },                 // v0.22 town loot: refills the lantern at the bench (no fuel needed)
 };
 const itemRes = {}, redMat = mat(0xcc1111), glowM = new THREE.MeshBasicMaterial({ color: 0x6b6250 });   // v0.13 lantern glass / torch lens (lit = bright)
 // ---- v0.17 low-poly item models: each item is ONE merged, vertex-coloured, flat-shaded mesh (1 draw call), built once per item type and shared;
@@ -1934,6 +1958,10 @@ const H = Math.PI / 2;
 const meatParts = (c, fat, bone) => [['c', 0.058, 0.05, 7, 0, -0.005, 0, c, 0, 0.3, 0], ['b', 0.05, 0.045, 0.02, 0.05, -0.006, 0.035, fat, 0, 0.5, 0],
   ['c', 0.011, 0.05, 5, 0.06, -0.005, -0.03, bone, H, 0.9, 0]];
 const MODELS = {
+  'WATER JUG': [['t', [0.062, 0.066], 0.19, 8, 0, -0.035, 0, 0x9cc0d0], ['t', [0.028, 0.062], 0.04, 8, 0, 0.08, 0, 0x9cc0d0], ['c', 0.022, 0.03, 6, 0, 0.115, 0, 0x2a5a8a],
+    ['b', 0.012, 0.09, 0.03, 0.058, 0.03, 0, 0xb4ccd8], ['c', 0.0665, 0.07, 8, 0, -0.05, 0, 0xdfe8ec]],
+  'LAMP OIL': [['c', 0.036, 0.13, 8, 0, -0.035, 0, 0xc49a3a], ['c', 0.037, 0.06, 8, 0, -0.04, 0, 0xe8dcc0], ['t', [0.012, 0.034], 0.04, 8, 0, 0.05, 0, 0xc49a3a],
+    ['c', 0.014, 0.03, 6, 0, 0.085, 0, 0x2a2a2a]],
   'FUEL CAN': [['b', 0.16, 0.26, 0.28, 0, -0.03, 0, 0xc0251b], ['b', 0.17, 0.02, 0.29, 0, 0.1, 0, 0xa01e16], ['b', 0.17, 0.02, 0.29, 0, -0.15, 0, 0xa01e16],
     ['b', 0.006, 0.2, 0.025, 0.083, -0.03, 0, 0x8e1a13, 0.62], ['b', 0.006, 0.2, 0.025, 0.083, -0.03, 0, 0x8e1a13, -0.62],
     ['b', 0.006, 0.2, 0.025, -0.083, -0.03, 0, 0x8e1a13, 0.62], ['b', 0.006, 0.2, 0.025, -0.083, -0.03, 0, 0x8e1a13, -0.62],
@@ -2028,7 +2056,8 @@ function consume(it) {
   const d = ITEM[it.name];
   if (d.food) P.food = Math.min(100, P.food + d.food);
   if (d.heal) P.hp = Math.min(100, P.hp + d.heal);
-  if (d.risk && Math.random() < d.risk) { hurt(10); say('RAW MEAT - YOU FEEL SICK'); } else say((d.heal ? 'HEALED +' + d.heal : 'ATE ' + it.name + ' +' + d.food));
+  if (d.drink) P.thirst = Math.min(100, P.thirst + d.drink);
+  if (d.risk && Math.random() < d.risk) { hurt(10); say('RAW MEAT - YOU FEEL SICK'); } else say(d.drink ? 'DRANK WATER +' + d.drink : (d.heal ? 'HEALED +' + d.heal : 'ATE ' + it.name + ' +' + d.food));
   sfx('eat'); removeItem(it);
 }
 function nearCap(p, r) { for (const c of CAPS) if (plane.localToWorld(_w.copy(c)).distanceTo(p) < r) return true; return false; }
@@ -2075,7 +2104,7 @@ function useItemDesktop() {        // E on foot: refuel from a can next to the p
   }
   const can = inv.find(i => i.name === 'FUEL CAN');
   if (can && Math.hypot(_a.x - ac.pos[0], _a.z - ac.pos[2]) < 4) { if (fuel >= FUEL_MAX - 0.01) { say('TANK FULL'); return; } pour(can, 99); return; }
-  const want = P.hp < 60 && inv.find(i => i.name === 'MEDKIT') || P.hp < 85 && inv.find(i => i.name === 'BANDAGE') ||
+  const want = P.thirst < 70 && inv.find(i => i.name === 'WATER JUG') || P.hp < 60 && inv.find(i => i.name === 'MEDKIT') || P.hp < 85 && inv.find(i => i.name === 'BANDAGE') ||
     ['COOKED MEAT', 'SMOKED MEAT', 'FOOD CRATE', 'RAW MEAT'].map(n => inv.find(i => i.name === n && !i.spoiled)).find(Boolean);
   if (want) consume(want); else say('NOTHING TO USE');
 }
@@ -2089,7 +2118,7 @@ function updateItems(dt) {
     it.mesh.getWorldPosition(_b);
     const M = eyeWorld(0); _a.setFromMatrixPosition(M); _w.set(0, 1, 0).transformDirection(M); _a.addScaledVector(_w, -0.08);   // mouth
     const d = ITEM[it.name];
-    if ((d.food || d.heal) && _b.distanceTo(_a) < 0.18) { consume(it); continue; }
+    if ((d.food || d.heal || d.drink) && _b.distanceTo(_a) < 0.18) { consume(it); continue; }
     if (it.name === 'CANTEEN') canteenTick(g, it, dt, _a, _b);
     if (it.name === 'KNIFE') knifeTick(g, it, dt);
     if (it.name === 'FUEL CAN' && nearCap(_b, 0.45)) pour(it, dt);
@@ -2162,7 +2191,7 @@ const fireFl = [];
 }
 function spawnSpot(s, full) {
   s.items = [];
-  s.table.forEach((n, i) => { if (full || i === 0 || Math.random() < 0.7) { const [x, y, z] = s.slots[i]; s.items.push(makeItem(n, x, y, z)); } });
+  s.table.forEach((n, i) => { if (full || i === 0 || Math.random() < 0.7) { const [x, y, z] = s.slots[i], it = makeItem(n, x, y, z); if (s.near) it.near = 1; s.items.push(it); } });
 }
 for (const s of SPOTS) { spawnSpot(s, true); s.away = 0; }
 
@@ -2377,7 +2406,7 @@ const LODGE = { x: -380, z: -2440, a: 1.83, hl: 140, hw: 10 };   // backcountry 
   const clearOf = (x, z, r) => Math.abs(x) < 70 + r && z > -700 - r && z < 300 + r ||                                    // home strip + its approaches
     Math.hypot(x - MEADOW.x, z - MEADOW.z) < 260 + r || Math.hypot(x - PAD.x, z - PAD.z) < 220 + r ||
     segD(x, z, [LODGE.x - Math.sin(LODGE.a) * 420, LODGE.z - Math.cos(LODGE.a) * 420, LODGE.x + Math.sin(LODGE.a) * 420, LODGE.z + Math.cos(LODGE.a) * 420]) < 40 + r ||
-    POIS.some(s => Math.hypot(x - s.x, z - s.z) < 45 + r) || FARMS.some(([a, b]) => Math.hypot(x - a, z - b) < 40 + r) || inLake(x, z) ||
+    POIS.some(s => Math.hypot(x - s.x, z - s.z) < 45 + r) || inTown(x, z, 15 + r) || segD(x, z, [DRYFORK_STRIP.x, DRYFORK_STRIP.z - DRYFORK_STRIP.hl - 200, DRYFORK_STRIP.x, DRYFORK_STRIP.z + DRYFORK_STRIP.hl + 200]) < 45 + r || FARMS.some(([a, b]) => Math.hypot(x - a, z - b) < 40 + r) || inLake(x, z) ||
     ROADS.some(rd => rd.some((p, i) => i && segD(x, z, [rd[i - 1][0], rd[i - 1][1], p[0], p[1]]) < 10 + r));
   const dec = [[], [], []], trunks = [];
   for (let tries = 0; GROVES.length < 55 && tries < 4000; tries++) {
@@ -2404,9 +2433,192 @@ const LODGE = { x: -380, z: -2440, a: 1.83, hl: 140, hw: 10 };   // backcountry 
   instanced(new THREE.ConeGeometry(2.2, 9, 5, 1, true), mat(0x2a5030), con2, { lod: 4000 });
 }
 let _lcT = 0; const _lcP = new THREE.Vector3();
+// ================= v0.22: small towns - three abandoned crossroads towns on the dirt-road network =================
+// Each town is ONE merged vertex-coloured mesh (1 draw call; + 1 for the Dry Fork mown strip), hidden beyond 5 km.
+// Enterable buildings: wall panels with a door gap, floor slab (groundY() returns the floor inside), ceiling, counters / shelves.
+// Walls are 2-D segments: the player and zombies are pushed out of them (circle vs segment); chasing zombies use the door.
+const TOWN_R = (() => { let s = 0x70a22; return () => { s = (s + 0x6D2B79F5) | 0; let t = Math.imul(s ^ (s >>> 15), 1 | s); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; })();
+const TOWN_ZS = [], TOWN_MATS = [], TOWN_MESH = [];
+{
+  const TW = (o, lx, lz) => { const c = Math.cos(o.a), s = Math.sin(o.a); return [o.x + lx * c + lz * s, o.z - lx * s + lz * c]; };
+  const PAL = { white: 0xd6cfbd, cream: 0xcbbd98, grey: 0x8c8f8a, teal: 0x6f9a94, brick: 0x8e4f3a, red: 0x8a2f26, sage: 0x8a9a78, tan: 0xa88d68, blue: 0x5f7487,
+                roof: 0x55504a, roofR: 0x6a3f32, roofG: 0x4a5258, wood: 0x6e5236, dark: 0x2e2c2a, glass: 0x1d2730, floor: 0x7a6248, conc: 0x8d8a83,
+                metal: 0x7b8086, rust: 0x7a4428, shelf: 0x5e4630, sack: 0xb5a47a, yellow: 0xc89a2a };
+  const MC = {}; const M = c => MC[c] || (MC[c] = new THREE.MeshBasicMaterial({ color: c }));   // only the colour is read (merged below)
+  const ROOFG = new THREE.CylinderGeometry(1, 1, 1, 3).rotateZ(Math.PI / 2).rotateX(-Math.PI / 2).translate(0, 0.5, 0).scale(1, 1 / 1.5, 1 / 1.732);
+  const CYL = new THREE.CylinderGeometry(1, 1, 1, 10), CONE = new THREE.ConeGeometry(1, 1, 10), WHEEL = new THREE.CylinderGeometry(0.36, 0.36, 0.25, 8).rotateZ(Math.PI / 2);
+  for (const T of TOWNS) {
+    const G = new THREE.Group(), B = T.bld = [];
+    const P = (o, w, h, d, c, lx, ly, lz, ry = 0, rx = 0, rz = 0) => { const [x, z] = TW(o, lx, lz); const b = box(w, h, d, M(c), x, o.y + ly, z, G); b.rotation.set(rx, o.a + ry, rz, 'YXZ'); return b; };
+    const GEO = (g, c, o, lx, ly, lz, sx, sy, sz, ry = 0, rx = 0, rz = 0) => { const [x, z] = TW(o, lx, lz); const m = new THREE.Mesh(g, M(c)); m.position.set(x, o.y + ly, z); m.scale.set(sx, sy, sz); m.rotation.set(rx, o.a + ry, rz, 'YXZ'); G.add(m); return m; };
+    const ROOF = (o, h, c, ly, ridgeZ) => ridgeZ ? GEO(ROOFG, c, o, 0, ly, 0, o.d + 0.8, h, o.w + 0.8, Math.PI / 2) : GEO(ROOFG, c, o, 0, ly, 0, o.w + 0.8, h, o.d + 0.8);
+    const gmax = (o, hw, hd) => { let lo = 1e9, hi = -1e9; for (const [a, b] of [[-hw, -hd], [hw, -hd], [-hw, hd], [hw, hd], [0, 0], [0, hd + 1.5]]) { const [x, z] = TW(o, a, b), g = groundY(x, z); lo = Math.min(lo, g); hi = Math.max(hi, g); } return [lo, hi]; };
+    // a building frame on the main street: side s (+1 / -1), lz along the street; its local +z faces the street, w along the street, d deep
+    const frame = (s, lz, w, d, back = 0) => { const [x, z] = TW(T, s * (9 + back + d / 2), lz); return { x, z, a: T.a + (s > 0 ? -Math.PI / 2 : Math.PI / 2), w, d }; };
+    const segs = (o, list) => list.map(([a, b, c, d]) => { const [x0, z0] = TW(o, a, b), [x1, z1] = TW(o, c, d); return [x0, z0, x1, z1]; });
+    const reg = (o, enter, sg, door) => { const b = { x: o.x, z: o.z, a: o.a, hw: o.w / 2, hd: o.d / 2, y: o.y, enter, segs: sg, R: Math.hypot(o.w, o.d) / 2 + 1 };
+      if (door !== undefined) { b.out = TW(o, door, o.d / 2 + 1.4); b.inn = TW(o, door, o.d / 2 - 1.4); } B.push(b); return b; };
+    const spot = (name, o, table, sl) => { const s = { name, x: o.x, z: o.z, table, near: 1, town: T.name, slots: sl.map(([a, y, b]) => { const [x, z] = TW(o, a, b); return [x, y === null ? groundY(x, z) : o.y + y, z]; }) }; SPOTS.push(s); T.spots.push(s); return s; };
+    const mats = (o, list) => { for (const [n, a, b] of list) { const [x, z] = TW(o, a, b); TOWN_MATS.push([n, x, z]); } };
+    T.spots = [];
+    // ---- enterable shell: floor slab (foundation), 4 walls with a door gap in the front, ceiling, windows; returns the frame with o.y = floor ----
+    const shell = (o, h, wall, roof, opt = {}) => {
+      const { w, d } = o, t = 0.16, dw = opt.dw || 1.4, dx = opt.dx || 0; const [lo, hi] = gmax(o, w / 2, d / 2); o.y = hi + 0.15; const base = o.y - lo + 0.6;
+      P(o, w, base, d, PAL.conc, 0, -base / 2, 0);                                              // floor slab = foundation (its top is the floor)
+      P(o, w - 2 * t, 0.02, d - 2 * t, PAL.floor, 0, 0.01, 0);                                  // boards
+      P(o, w, h, t, wall, 0, h / 2, -d / 2 + t / 2);                                            // back
+      for (const sx of [-1, 1]) P(o, t, h, d, wall, sx * (w / 2 - t / 2), h / 2, 0);           // sides
+      const l0 = -w / 2, l1 = dx - dw / 2, r0 = dx + dw / 2, r1 = w / 2;
+      P(o, l1 - l0, h, t, wall, (l0 + l1) / 2, h / 2, d / 2 - t / 2); P(o, r1 - r0, h, t, wall, (r0 + r1) / 2, h / 2, d / 2 - t / 2);
+      P(o, dw, h - 2.25, t, wall, dx, 2.25 + (h - 2.25) / 2, d / 2 - t / 2);                   // lintel
+      P(o, w + 0.1, 0.18, d + 0.1, opt.ceil || PAL.wood, 0, h + 0.09, 0);                       // ceiling / flat roof deck
+      { const [fx, fz] = TW(o, dx, d / 2 + 0.6), hS = o.y - 0.18 - (groundY(fx, fz) - 0.3); if (hS > 0.35) P(o, dw + 0.8, hS, 1.1, PAL.conc, dx, -0.18 - hS / 2, d / 2 + 0.55); }   // door step
+      for (const wx of opt.win || []) { P(o, 1.3, 1.1, 0.05, PAL.glass, wx, 1.55, d / 2 + 0.01); P(o, 1.3, 1.1, 0.05, 0x3a3226, wx, 1.55, d / 2 - t - 0.01); }
+      for (const wz of opt.sideWin || []) for (const sx of [-1, 1]) P(o, 0.05, 1.0, 1.2, PAL.glass, sx * (w / 2 + 0.01), 1.55, wz);
+      if (roof) ROOF(o, opt.rh || 2, roof, h + 0.18, opt.ridgeZ);
+      const ww = w / 2, hd = d / 2;
+      reg(o, true, segs(o, [[-ww, -hd, ww, -hd], [-ww, -hd, -ww, hd], [ww, -hd, ww, hd], [l0, hd, l1, hd], [r0, hd, r1, hd]]), dx);
+      return o;
+    };
+    const solid = (o, h, wall, roof, rh = 2) => { const { w, d } = o; const [lo, hi] = gmax(o, w / 2, d / 2); o.y = hi; const base = hi - lo + 0.8;
+      P(o, w, h + base, d, wall, 0, (h - base) / 2, 0); if (roof) ROOF(o, rh, roof, h);
+      P(o, 1.0, 2.1, 0.05, PAL.dark, 0, 1.05, d / 2 + 0.01); for (const sx of [-1, 1]) P(o, 1.1, 1.0, 0.05, PAL.glass, sx * w / 4 + sx * 0.4, 1.6, d / 2 + 0.01);
+      const ww = w / 2, hd = d / 2; reg(o, false, segs(o, [[-ww, -hd, ww, -hd], [-ww, -hd, -ww, hd], [ww, -hd, ww, hd], [-ww, hd, ww, hd]])); return o; };
+    const shelf = (o, lx, lz, len, ry = 0) => { const q = { x: TW(o, lx, lz)[0], z: TW(o, lx, lz)[1], a: o.a + ry, y: o.y };
+      for (const e of [-1, 1]) P(q, 0.05, 1.8, 0.45, PAL.shelf, e * len / 2, 0.9, 0); for (const y of [0.15, 0.85, 1.5]) P(q, len, 0.04, 0.45, PAL.shelf, 0, y, 0); P(q, len, 1.8, 0.03, PAL.shelf, 0, 0.9, -0.21); };
+    const counter = (o, lx, lz, len, c = PAL.wood) => { P(o, len, 0.95, 0.6, c, lx, 0.475, lz); P(o, len + 0.1, 0.05, 0.7, PAL.dark, lx, 0.975, lz); };
+    const facade = (o, h, c, sign) => { P(o, o.w + 0.4, 1.6, 0.18, c, 0, h + 0.8, o.d / 2 + 0.05); if (sign) P(o, o.w * 0.7, 0.7, 0.05, sign, 0, h + 0.85, o.d / 2 + 0.16); };
+    const porch = (o, c = PAL.wood) => { P(o, o.w + 0.6, 0.12, 1.8, c, 0, 0.05, o.d / 2 + 0.9); for (const sx of [-1, 1]) P(o, 0.14, 2.7, 0.14, c, sx * (o.w / 2 + 0.2), 1.4, o.d / 2 + 1.7);
+      P(o, o.w + 0.8, 0.1, 2.0, PAL.roof, 0, 2.85, o.d / 2 + 0.9, 0, -0.12); };
+    // ---- kits ----
+    const K = {
+      store(s, lz, zn) { const o = frame(s, lz, 10, 13); shell(o, 4.2, PAL.cream, 0, { win: [-3, 3], sideWin: [-2, 2] }); facade(o, 4.2, PAL.cream, PAL.red); porch(o);
+        shelf(o, -3.8, -1, 4, Math.PI / 2); shelf(o, 3.8, -1, 4, -Math.PI / 2); shelf(o, 0, -3, 4); counter(o, 2.2, 3.4, 3);
+        spot(T.name + ' STORE', o, ['FOOD CRATE', 'WATER JUG', 'LAMP OIL', 'FOOD CRATE', 'BANDAGE', 'AMMO BOX', 'WATER JUG'],
+          [[-3.75, 0.87, -2], [-3.75, 0.87, 0], [3.75, 1.52, -2], [3.75, 0.87, 0.5], [2.2, 1.0, 3.4], [0, 0.87, -3], [-0.9, 0, 1.6]]);
+        mats(o, [['CLOTH', 1.5, -1], ['NAILS', -1.2, -4.8]]); if (zn) TOWN_ZS.push({ o, r: 2.5, n: zn }); return o; },
+      diner(s, lz, zn) { const o = frame(s, lz, 12, 8); shell(o, 3.4, PAL.teal, 0, { win: [-4, -1.5, 3.6], dx: 1.2, ceil: PAL.white }); facade(o, 3.4, PAL.white, PAL.red);
+        counter(o, 0, -1.6, 8, PAL.white); for (let k = -3; k <= 3; k++) GEO(CYL, PAL.red, o, k * 1.1, 0.4, -0.7, 0.2, 0.8, 0.2);
+        for (const bx of [-4.6, -2.4]) { P(o, 1.4, 0.45, 1.6, PAL.red, bx, 0.23, 2.6); P(o, 1.0, 0.75, 1.0, PAL.white, bx, 0.38, 1.4); }
+        spot(T.name + ' DINER', o, ['FOOD CRATE', 'WATER JUG', 'FOOD CRATE', 'WATER JUG', 'FOOD CRATE'], [[-2, 1.0, -1.6], [2.5, 1.0, -1.6], [-4.6, 0.76, 1.4], [-2.4, 0.76, 1.4], [4.8, 0, -3.2]]);
+        mats(o, [['CLOTH', 0.5, 2.5]]); if (zn) TOWN_ZS.push({ o, r: 2.5, n: zn }); return o; },
+      sheriff(s, lz, zn) { const o = frame(s, lz, 9, 10); shell(o, 3.6, PAL.brick, 0, { win: [-2.6, 2.6], sideWin: [0] }); facade(o, 3.6, PAL.brick, PAL.blue);
+        P(o, 2.0, 0.78, 0.9, PAL.wood, -2, 0.39, 1.5); for (let k = 0; k < 9; k++) P(o, 0.05, 2.4, 0.05, PAL.metal, 0.6 + k * 0.45, 1.2, -1.5); P(o, 3.7, 0.08, 0.08, PAL.metal, 2.4, 2.4, -1.5);
+        P(o, 0.5, 1.9, 1.6, PAL.dark, -4.15, 0.95, -2.6);   // gun locker
+        spot(T.name + ' SHERIFF', o, ['AMMO BOX', 'AMMO BOX', 'MEDKIT', 'CLEANING KIT', 'AMMO BOX'], [[-2, 0.8, 1.5], [-3.6, 0, -3.8], [-1.3, 0.8, 1.3], [2.5, 0, -3.5], [-3.6, 0, -1.2]]);
+        if (zn) TOWN_ZS.push({ o, r: 1.8, n: zn }); return o; },
+      feed(s, lz, zn) { const o = frame(s, lz, 12, 14); shell(o, 5, PAL.red, PAL.roof, { dw: 3.2, rh: 3.2, win: [-4.4, 4.4], ridgeZ: 1 });
+        for (const [a, b, n] of [[-4.5, -5, 3], [-4.5, -2.8, 2], [3.8, -5.2, 3]]) for (let k = 0; k < n; k++) P(o, 1.6, 0.45, 1.0, PAL.sack, a, 0.23 + k * 0.46, b, k * 0.2);
+        P(o, 3, 0.9, 1.2, PAL.wood, 3.8, 0.45, 1); for (let k = 0; k < 3; k++) GEO(CYL, PAL.rust, o, 4.8 - k * 0.7, 0.45, 4.2, 0.3, 0.9, 0.3);
+        spot(T.name + ' FEED STORE', o, ['FUEL CAN', 'LAMP OIL', 'FOOD CRATE', 'FUEL CAN'], [[3.2, 0.9, 1], [4.4, 0.9, 1.1], [-4.5, 1.15, -2.8], [-1.5, 0, -5.5]]);
+        mats(o, [['BOARDS', -1, -3], ['NAILS', 2.4, 2.6], ['WIRE', 0, -5.6], ['BOARDS', 1.5, -4.5], ['STICKS', -2.5, 2.5]]);
+        const so = frame(s, lz, 5, 5, 16); so.y = o.y; for (const sx of [-1, 1]) { const [x, z] = TW(so, sx * 2.5, 0), g = groundY(x, z); const q = { x, z, a: so.a, y: g };
+          GEO(CYL, PAL.metal, q, 0, 5.5, 0, 2.3, 12, 2.3); GEO(new THREE.SphereGeometry(1, 10, 4, 0, 6.283, 0, 1.5708), PAL.metal, q, 0, 11.4, 0, 2.3, 1.4, 2.3); }
+        reg({ ...so, w: 10, d: 5 }, false, segs(so, [[-4.8, -2.3, 4.8, -2.3], [-4.8, 2.3, 4.8, 2.3], [-4.8, -2.3, -4.8, 2.3], [4.8, -2.3, 4.8, 2.3]]));
+        if (zn) TOWN_ZS.push({ o, r: 3, n: zn }); return o; },
+      church(s, lz, zn, school) { const o = frame(s, lz, 9, 15, 4); shell(o, 4.6, school ? PAL.brick : PAL.white, school ? PAL.roofG : PAL.roof, { dw: 1.8, sideWin: [-4.5, 0, 4.5], rh: school ? 2 : 3.5, ridgeZ: 1 });
+        const tq = { ...o }; const [tx, tz] = TW(o, 0, o.d / 2 - 1.2); Object.assign(tq, { x: tx, z: tz });
+        const th = school ? 3.2 : 4.6; P(tq, 2.4, th, 2.4, PAL.white, 0, 4.6 + th / 2, 0); const ch = school ? 1.6 : 4.4; GEO(new THREE.ConeGeometry(1, 1, 4), PAL.roof, tq, 0, 4.6 + th + ch / 2, 0, 1.9, ch, 1.9, Math.PI / 4);
+        if (!school) { P(tq, 0.12, 1.4, 0.12, PAL.dark, 0, 4.6 + th + ch + 0.6, 0); P(tq, 0.7, 0.12, 0.12, PAL.dark, 0, 4.6 + th + ch + 0.75, 0); }
+        else P(tq, 1.0, 1.0, 0.06, PAL.white, 0, 4.6 + th - 0.9, 1.22);
+        if (school) { for (let r = 0; r < 3; r++) for (const sx of [-1, 1]) P(o, 1.4, 0.75, 0.7, PAL.wood, sx * 1.9, 0.38, 2.5 - r * 1.8); P(o, 3, 1.2, 0.05, PAL.dark, 0, 1.6, -7.35); }
+        else for (let r = 0; r < 5; r++) for (const sx of [-1, 1]) P(o, 2.6, 0.5, 0.5, PAL.wood, sx * 2.2, 0.25, 4 - r * 1.8);
+        P(o, 2.2, 1.0, 1.0, PAL.wood, 0, 0.5, -6.0);
+        spot(T.name + (school ? ' SCHOOL' : ' CHURCH'), o, ['MEDKIT', 'WATER JUG', 'BANDAGE', school ? 'FOOD CRATE' : 'LAMP OIL'], [[0, 1.0, -6], [-3.8, 0, -6.6], [2.2, 0.5, 2.2], [-2.2, 0.5, -1.4]]);
+        mats(o, [['CLOTH', 3.8, -6.6], ['BOARDS', -3.6, 6]]); if (zn) TOWN_ZS.push({ o, r: 3, n: zn }); return o; },
+      house(s, lz, zn, c = PAL.white) { const o = frame(s, lz, 8, 9, 2 + TOWN_R() * 3); shell(o, 2.9, c, TOWN_R() < 0.5 ? PAL.roof : PAL.roofR, { win: [-2.4, 2.4], dx: 0.4, sideWin: [-1.5] }); porch(o);
+        P(o, 1.6, 0.75, 0.9, PAL.wood, -1.8, 0.38, -1.5); P(o, 0.9, 0.5, 1.9, PAL.sack, 2.8, 0.25, -2.9); P(o, 3.4, 0.08, 0.08, PAL.wood, -2.3, 2.9, 0);   // table, bed
+        spot(T.name + ' HOUSE ' + B.length, o, ['FOOD CRATE', 'WATER JUG', 'BANDAGE'].slice(0, 2 + (TOWN_R() < 0.5)), [[-1.8, 0.76, -1.5], [3.4, 0, 2.6], [2.8, 0.5, -2.9]]);
+        if (TOWN_R() < 0.6) mats(o, [[TOWN_R() < 0.5 ? 'CLOTH' : 'WIRE', -3, 2.8]]);
+        fence(o); if (zn) TOWN_ZS.push({ o, r: 1.6, n: zn }); return o; },
+      shack(s, lz, c = PAL.grey) { const o = frame(s, lz, 7, 7, 3 + TOWN_R() * 3); solid(o, 2.8, c, PAL.roof, 1.6); fence(o); return o; },
+      gas(s, lz, zn) { const o = frame(s, lz, 6, 5, 11); shell(o, 3.2, PAL.white, 0, { win: [-1.8, 1.8] }); P(o, 6.1, 0.5, 5.1, PAL.yellow, 0, 3.0, 0);
+        counter(o, -1.2, -1, 2.5); shelf(o, 2.4, -0.8, 2.6, -Math.PI / 2);
+        const [lo] = gmax(o, 7, 7); const cy = o.y - lo;
+        P(o, 9, 0.45, 6, PAL.white, 0, 4.8, 7.5); P(o, 9.1, 0.3, 6.1, PAL.yellow, 0, 4.5, 7.5); for (const [a, b] of [[-4, 5], [4, 5], [-4, 10], [4, 10]]) P(o, 0.25, 5 + cy, 0.25, PAL.metal, a, 2.4 - cy / 2, b);
+        P(o, 6, 0.3 + cy, 1.2, PAL.conc, 0, 0.1 - (0.3 + cy) / 2, 7.5); for (const a of [-2, 2]) { P(o, 0.7, 1.7, 0.45, PAL.red, a, 0.85, 7.5); P(o, 0.5, 0.35, 0.47, PAL.white, a, 1.4, 7.5); }
+        GEO(CYL, PAL.metal, o, 0, 6.6, 7.5 + 3.2, 0.12, 3.6, 0.12); P(o, 2.6, 1.2, 0.2, PAL.yellow, 0, 8.4, 10.7);
+        spot(T.name + ' GAS STATION', o, ['FUEL CAN', 'FUEL CAN', 'LAMP OIL', 'WATER JUG', 'FUEL CAN'], [[1.5, null, 6.6], [-1.2, 1.0, -1], [2.4, 0.87, -0.2], [2.4, 1.52, -1.4], [-2.6, null, 6.4]]);
+        mats(o, [['WIRE', -2.2, -1.8], ['NAILS', 1.0, 1.4]]); if (zn) TOWN_ZS.push({ o, r: 1.6, n: zn }); return o; },
+      tower(lx, lz) { const [x, z] = TW(T, lx, lz), q = { x, z, a: T.a, y: groundY(x, z) - 0.5 }; for (const [a, b] of [[-1.8, -1.8], [1.8, -1.8], [-1.8, 1.8], [1.8, 1.8]]) P(q, 0.3, 11, 0.3, PAL.metal, a, 5.5, b, 0, a * b > 0 ? 0.05 : -0.05);
+        for (const y of [3.5, 7]) { P(q, 3.8, 0.12, 0.12, PAL.metal, 0, y, 1.8); P(q, 3.8, 0.12, 0.12, PAL.metal, 0, y, -1.8); P(q, 0.12, 0.12, 3.8, PAL.metal, 1.8, y, 0); P(q, 0.12, 0.12, 3.8, PAL.metal, -1.8, y, 0); }
+        GEO(CYL, PAL.metal, q, 0, 12.9, 0, 3, 3.8, 3); GEO(CONE, PAL.roofG, q, 0, 15.6, 0, 3.2, 1.6, 3.2); P(q, 3.2, 0.9, 0.05, PAL.white, 0, 13.2, 3.05);
+        reg({ ...q, w: 4.2, d: 4.2 }, false, segs(q, [[-1.8, -1.8, 1.8, -1.8], [-1.8, 1.8, 1.8, 1.8], [-1.8, -1.8, -1.8, 1.8], [1.8, -1.8, 1.8, 1.8]])); },
+      car(lx, lz, ry, c) { const [x, z] = TW(T, lx, lz), q = { x, z, a: T.a + ry, y: groundY(x, z) }; const tilt = (TOWN_R() - 0.5) * 0.12;
+        P(q, 1.8, 0.75, 4.4, c, 0, 0.72, 0, 0, tilt, tilt * 0.5); P(q, 1.6, 0.6, 2.2, c, 0, 1.38, -0.2, 0, tilt); P(q, 1.62, 0.45, 2.0, PAL.glass, 0, 1.38, -0.2, 0, tilt);
+        for (const [a, b] of [[-0.85, 1.35], [0.85, 1.35], [-0.85, -1.35], [0.85, -1.35]]) if (TOWN_R() < 0.8) GEO(WHEEL, PAL.dark, q, a, 0.32, b, 1, 1, 1);
+        reg({ ...q, w: 1.8, d: 4.4 }, false, segs(q, [[-0.9, -2.2, 0.9, -2.2], [-0.9, 2.2, 0.9, 2.2], [-0.9, -2.2, -0.9, 2.2], [0.9, -2.2, 0.9, 2.2]])); },
+    };
+    function fence(o) { const fw = o.w + 6, fd = 5, z0 = o.d / 2 + 2.6; if (TOWN_R() < 0.35) return;   // a picket run along the front yard with a gate gap
+      for (const sx of [-1, 1]) { const q = { ...o }; for (let k = 0; k < 4; k++) { const lx = sx * (1.4 + k * (fw / 2 - 1.4) / 3); const [x, z] = TW(o, lx, z0); q.y = groundY(x, z); P(q, 0.1, 1.0, 0.1, PAL.white, lx, 0.45, z0); }
+        const [x, z] = TW(o, sx * (fw / 4 + 0.7), z0); q.y = groundY(x, z); for (const y of [0.35, 0.8]) P(q, fw / 2 - 1.4, 0.07, 0.04, PAL.white, sx * (fw / 4 + 0.7), y, z0); } }
+    // ---- layouts ----
+    const L = T.layout;
+    for (const [k, s, lz, zn, extra] of L.b) { if (k === 'school') K.church(s, lz, zn, true); else if (k === 'shack') K.shack(s, lz, extra); else if (k === 'house') K.house(s, lz, zn, extra); else K[k](s, lz, zn); }
+    K.tower(...L.tower);
+    for (const [lx, lz, ry, c] of L.cars) K.car(lx, lz, ry, c);
+    // street: a slightly wider dirt ribbon through town + boardwalk kerbs handled by the porches
+    { G.updateMatrixWorld(true); const gs = [];
+      for (const o of G.children) { const g = (o.geometry.index ? o.geometry.toNonIndexed() : o.geometry.clone()).applyMatrix4(o.matrix);
+        for (const k of Object.keys(g.attributes)) if (k !== 'position') g.deleteAttribute(k); g.computeVertexNormals();
+        const n = g.attributes.position.count, c = o.material.color, col = new Float32Array(n * 3); for (let i = 0; i < n; i++) col.set([c.r, c.g, c.b], i * 3);
+        g.setAttribute('color', new THREE.BufferAttribute(col, 3)); gs.push(g); }
+      const mm = new THREE.Mesh(mergeGeometries(gs), new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true })); scene.add(mm); shootables.push(mm);
+      mm.userData.tris = mm.geometry.attributes.position.count / 3; TOWN_MESH.push({ m: mm, x: T.x, z: T.z }); T.mesh = mm; }
+  }
+  // ---- Dry Fork strip: 300 x 20 m mown ribbon following the ground, corner markers + windsock ----
+  { const S = DRYFORK_STRIP, v = [], sa = Math.sin(S.a), ca = Math.cos(S.a), Pt = (l, w) => { const x = S.x + sa * l + ca * w, z = S.z + ca * l - sa * w; return [x, groundY(x, z) + 0.06, z]; };
+    for (let l = -S.hl; l < S.hl; l += 10) for (let w = -S.hw; w < S.hw; w += 10) { const A = Pt(l, w), Bq = Pt(l, w + 10), Cq = Pt(l + 10, w), D = Pt(l + 10, w + 10); v.push(...A, ...Bq, ...Cq, ...Bq, ...D, ...Cq); }
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(v, 3)); g.computeVertexNormals();
+    const sm = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ color: 0x86ad55, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -3 })); scene.add(sm);
+    TOWN_MESH.push({ m: sm, x: S.x, z: S.z });
+    const G = new THREE.Group(), mk = [];
+    for (let l = -S.hl; l <= S.hl; l += 50) for (const w of [-S.hw - 1, S.hw + 1]) { const [x, y, z] = Pt(l, w); mk.push([x, y + 0.2, z, S.a, 1, 1, 1]); }
+    instanced(new THREE.BoxGeometry(0.9, 0.4, 0.4), mat(0xe8e2d0), mk, { far: 3500 });
+    const [wx, wy, wz] = Pt(-S.hl + 40, -S.hw - 12); const pole = box(0.12, 6, 0.12, mat(0x8a8d90), wx, wy + 3, wz); const sock = new THREE.Mesh(new THREE.ConeGeometry(0.35, 1.8, 6, 1, true).rotateZ(Math.PI / 2), mat(0xe06a1e));
+    sock.position.set(wx + 0.9, wy + 5.7, wz); scene.add(sock); MOWN.push(S);
+    TOWN_MESH.push({ m: pole, x: wx, z: wz, far: 2500 }, { m: sock, x: wx, z: wz, far: 2500 }); }
+  // floors: groundY() is now terrain + floor slabs inside enterable buildings (items, zombies and your feet stand on the floor)
+  const g0 = groundY;
+  groundY = (x, z) => { const h = g0(x, z); for (const T of TOWNS) { const dx = x - T.x, dz = z - T.z; if (dx > 130 || dx < -130 || dz > 130 || dz < -130) continue;
+      for (const b of T.bld) { if (!b.enter) continue; const ex = x - b.x, ez = z - b.z; if (ex > b.R || ex < -b.R || ez > b.R || ez < -b.R) continue;
+        const c = Math.cos(b.a), s = Math.sin(b.a), lx = ex * c - ez * s, lz = ex * s + ez * c; if (Math.abs(lx) < b.hw && Math.abs(lz) < b.hd) return Math.max(h, b.y); } } return h; };
+}
+function townBldAt(x, z, m = 0, enterOnly = true) {   // the building whose footprint holds (x, z)
+  for (const T of TOWNS) { const dx = x - T.x, dz = z - T.z; if (dx > 130 || dx < -130 || dz > 130 || dz < -130) continue;
+    for (const b of T.bld) { if (enterOnly && !b.enter) continue; const ex = x - b.x, ez = z - b.z; if (ex > b.R + m || ex < -b.R - m || ez > b.R + m || ez < -b.R - m) continue;
+      const c = Math.cos(b.a), s = Math.sin(b.a), lx = ex * c - ez * s, lz = ex * s + ez * c; if (Math.abs(lx) < b.hw + m && Math.abs(lz) < b.hd + m) return b; } }
+  return null;
+}
+function townPush(c, r = 0.35) {   // circle vs wall segments: slide along walls; returns true if pushed
+  let hit = false;
+  for (const T of TOWNS) { const dx = c.x - T.x, dz = c.z - T.z; if (dx > 130 || dx < -130 || dz > 130 || dz < -130) continue;
+    for (const b of T.bld) { const ex = c.x - b.x, ez = c.z - b.z; if (ex > b.R + r || ex < -b.R - r || ez > b.R + r || ez < -b.R - r) continue;
+      for (const [x0, z0, x1, z1] of b.segs) { const sx = x1 - x0, sz = z1 - z0, L2 = sx * sx + sz * sz || 1, t = clamp(((c.x - x0) * sx + (c.z - z0) * sz) / L2, 0, 1);
+        const px = c.x - (x0 + sx * t), pz = c.z - (z0 + sz * t), d = Math.hypot(px, pz), rr = r + 0.08;
+        if (d < rr) { if (d > 1e-4) { c.x += px / d * (rr - d); c.z += pz / d * (rr - d); } else { c.x += sz / Math.sqrt(L2) * rr; c.z -= sx / Math.sqrt(L2) * rr; } hit = true; } } } }
+  return hit;
+}
+const _zg = [0, 0];
+function zGoal(z, pp) {   // chasing: if you and it are on different sides of a wall, go via the door
+  const bz = townBldAt(z.x, z.z), bp = townBldAt(pp.x, pp.z);
+  _zg[0] = pp.x; _zg[1] = pp.z; if (bz === bp) return _zg;
+  if (bz && bz.out) { const [ix, iz] = bz.inn; const atIn = Math.hypot(z.x - ix, z.z - iz) < 1.0; const p = atIn ? bz.out : bz.inn; _zg[0] = p[0]; _zg[1] = p[1]; return _zg; }
+  if (bp && bp.out) { const [ox, oz] = bp.out; if (Math.hypot(z.x - ox, z.z - oz) < 1.2) { _zg[0] = bp.inn[0]; _zg[1] = bp.inn[1]; return _zg; }
+    const c = Math.cos(bp.a), s = Math.sin(bp.a), ex = z.x - bp.x, ez = z.z - bp.z, lx = ex * c - ez * s, lz = ex * s + ez * c, sg = lx < 0 ? -1 : 1;
+    let tx, tz; if (lz > bp.hd + 0.1) { _zg[0] = ox; _zg[1] = oz; return _zg; }                        // in front: straight to the door
+    if (Math.abs(lx) < bp.hw + 1.0) { tx = sg * (bp.hw + 1.6); tz = lz; } else { tx = sg * (bp.hw + 1.6); tz = bp.hd + 1.6; }   // behind / beside: step out sideways, then up to the front corner
+    _zg[0] = bp.x + tx * c + tz * s; _zg[1] = bp.z - tx * s + tz * c; }
+  return _zg;
+}
+let _twT = 0;
+function townTick(dt) {   // distance-cull the towns (and the strip dressing)
+  if ((_twT -= dt) > 0) return; _twT = 0.5; camera.getWorldPosition(_lcP);
+  for (const t of TOWN_MESH) t.m.visible = Math.hypot(t.x - _lcP.x, t.z - _lcP.z) < (t.far || 5000);
+}
 function cullLoot(dt) {   // loose loot lying in the world is invisible (and costs no draw call) beyond 400 m; re-checked twice a second
   if ((_lcT -= dt) > 0) return; _lcT = 0.5; camera.getWorldPosition(_lcP);
-  for (const it of loot) if (it.state === 'world' && !falling.has(it)) it.mesh.visible = Math.abs(it.mesh.position.x - _lcP.x) + Math.abs(it.mesh.position.z - _lcP.z) < 560 && it.mesh.position.distanceToSquared(_lcP) < (ITEM[it.name].mat ? 3600 : 160000);   // v0.16 crafting materials: 60 m
+  for (const it of loot) if (it.state === 'world' && !falling.has(it)) it.mesh.visible = Math.abs(it.mesh.position.x - _lcP.x) + Math.abs(it.mesh.position.z - _lcP.z) < 560 && it.mesh.position.distanceToSquared(_lcP) < (ITEM[it.name].mat || it.near ? 3600 : 160000);   // v0.16 crafting materials: 60 m
 }
 // ---- v0.12 clouds: low-poly flat-shaded cumulus, one instanced draw call, drifting; fade out near the camera (no hard pop) ----
 const CLOUDS = (() => {
@@ -2500,8 +2712,11 @@ const ZSITES = [{ name: 'FARMHOUSE', x: PAD_HOUSE.x - 6, z: PAD_HOUSE.z, r: 25, 
 for (const [nm, n] of [['TRUCK', 6], ['BARN', 5], ['RIDGE STRIP', 5]]) { const sp = SPOTS.find(s => s.name === nm); if (sp) ZSITES.push({ name: nm, x: sp.x, z: sp.z, r: 22, n, away: 0 }); }
 for (const sp of POIS) ZSITES.push({ name: sp.name, x: sp.x, z: sp.z, r: 24, n: sp.nz, away: 0 });   // v0.15 points of interest
 for (const i of [1, 2, 3, 4]) ZSITES.push({ name: 'FARM ' + i, x: FARMS[i][0], z: FARMS[i][1], r: 30, n: 2, away: 0 });
+for (const T of TOWNS) ZSITES.push({ name: T.name, x: T.x, z: T.z, r: 55, n: T.layout.zn, away: 0, town: T });   // v0.22 towns: street zombies
+for (const s of TOWN_ZS) ZSITES.push({ name: 'TOWN INSIDE', x: s.o.x, z: s.o.z, r: s.r, n: s.n, away: 0, inside: true });   // + a few inside the buildings
+const TNZ_SITES = ZSITES.filter(s => s.town), N_TNZ = TOWNS.length * 8;   // + 8 per town that only come out at night
 for (const [r, k] of [[0, 3], [0, 4], [1, 0], [1, 4], [2, 0], [2, 1]]) ZSITES.push({ name: 'ROAD', x: ROADS[r][k][0], z: ROADS[r][k][1], r: 80, n: 1, away: 0, road: true });   // lone wanderers, all >600 m from the cabin
-const N_SITEZ = ZSITES.reduce((a, s) => a + s.n, 0), NZ = N_SITEZ + N_CABZ + N_NIGHTZ;
+const N_SITEZ = ZSITES.reduce((a, s) => a + s.n, 0), NZ = N_SITEZ + N_CABZ + N_NIGHTZ + N_TNZ;
 const zBody = imesh([vbox(0.34, 0.22, 0.2, 0, 0.95, 0, 0x34333d), vbox(0.42, 0.55, 0.24, 0, 1.33, 0.03, 0x56603f, -0.15),
                      vbox(0.21, 0.24, 0.22, 0, 1.72, -0.07, 0x8ea074), vbox(0.12, 0.04, 0.02, 0, 1.66, -0.185, 0x2a1414),
                      vbox(0.04, 0.03, 0.02, -0.05, 1.75, -0.185, 0xd8e070), vbox(0.04, 0.03, 0.02, 0.05, 1.75, -0.185, 0xd8e070)], NZ);
@@ -2511,12 +2726,13 @@ function zAt(z, x, zz, st) { Object.assign(z, { x, z: zz, y: groundY(x, zz), yaw
 function zHome(z) {   // (re)spawn somewhere around its site, never inside the farmhouse
   const s = z.site; let x, zz, k = 0;
   do { const a = Math.random() * 6.283, d = s.r * (0.2 + 0.8 * Math.random()); x = s.x + Math.cos(a) * d; zz = s.z + Math.sin(a) * d; }
-  while (Math.abs(x - PAD_HOUSE.x) < 6 && Math.abs(zz - PAD_HOUSE.z) < 6 && ++k < 30);
+  while ((Math.abs(x - PAD_HOUSE.x) < 6 && Math.abs(zz - PAD_HOUSE.z) < 6 || s.town && townBldAt(x, zz, 1.2, false)) && ++k < 30);
   zAt(z, x, zz, s.road ? 'wander' : 'idle'); z.hx = s.x; z.hz = s.z;
 }
 const zSites = []; for (const s of ZSITES) for (let k = 0; k < s.n; k++) zSites.push(s);
 for (let i = 0; i < NZ; i++) {
-  const z = { cabin: i >= N_SITEZ, night: i >= N_SITEZ + N_CABZ, site: zSites[i] || null, hx: 30, hz: -15, hit(part, dir) {
+  const tn = i >= N_SITEZ + N_CABZ + N_NIGHTZ;
+  const z = { cabin: i >= N_SITEZ && !tn, night: i >= N_SITEZ + N_CABZ && !tn, tn, site: tn ? TNZ_SITES[(i - N_SITEZ - N_CABZ - N_NIGHTZ) % TNZ_SITES.length] : zSites[i] || null, hx: 30, hz: -15, hit(part, dir) {
     if (this.state === 'dead') return;
     if (!dir) sfx('hit', _sv.set(this.x, this.y + 1.2, this.z));
     this.hp -= part === 'head' ? 99 : part === 'torso' ? 1.5 : 1; this.state = 'chase';
@@ -2525,7 +2741,7 @@ for (let i = 0; i < NZ; i++) {
     this.flinch = 1; this.lunge = 0;
     if (this.hp <= 0) { this.state = 'dead'; this.deadT = 0; this.fall = 0; this.fv = 0; this.hs = part === 'head'; this.droll = (Math.random() - 0.5) * 0.5; say(part === 'head' ? 'HEADSHOT' : 'ZOMBIE DOWN'); }
   } };
-  if (z.cabin) zAt(z, 0, 0, 'off'); else zHome(z);
+  if (z.cabin) zAt(z, 0, 0, 'off'); else { zHome(z); if (z.tn) z.state = 'off'; }   // v0.22 town night zombies wait (hidden) at their town
   ZS.push(z);
 }
 let cabSpawnT = 120 + Math.random() * 120;
@@ -2539,7 +2755,9 @@ function updateZombies(dt) {
   }
   for (const s of ZSITES) s.away = Math.hypot(pp.x - s.x, pp.z - s.z) > 500 ? s.away + dt : 0;
   for (let i = 0; i < ZS.length; i++) { const z = ZS[i];
-    if (z.state !== 'off' && z.state !== 'chase' && Math.hypot(pp.x - z.x, pp.z - z.z) > Z_SLEEP_R) {   // asleep: think once a second
+    if (z.state === 'off') { if (!z.hid) { zStep(z, i, dt, pp, foot, target); z.hid = true; zMoved = true; } continue; }   // v0.22: hidden once, then skipped
+    z.hid = false;
+    if (z.state !== 'chase' && Math.hypot(pp.x - z.x, pp.z - z.z) > Z_SLEEP_R) {   // asleep: think once a second
       z.sleepT = (z.sleepT || 0) + dt; if (z.sleepT < Z_SLEEP_DT) continue; zStep(z, i, z.sleepT, pp, foot, target); z.sleepT = 0; zMoved = true; continue; }
     z.sleepT = 0; zStep(z, i, dt, pp, foot, target); zMoved = true;
   }
@@ -2558,18 +2776,19 @@ function zStep(z, i, dt, pp, foot, target) {
       else if (z.fv) { z.fv += 9 * dt; z.fall = Math.min(1.5, z.fall + z.fv * dt); if (z.fall >= 1.5) { z.fall = 1.5; z.fv = 0; } }   // small bounce
       z.x += z.pvx * dt; z.z += z.pvz * dt; z.pvx *= Math.exp(-5 * dt); z.pvz *= Math.exp(-5 * dt);
       if (z.cabin && z.deadT > 60) z.state = 'off';
-      if (!z.cabin && z.site.away > 180) zHome(z);
+      if (!z.cabin && z.site.away > 180) { zHome(z); if (z.tn) z.state = 'off'; }
     } else {
       if ((z.state === 'idle' || z.state === 'wander') && target && d < Z_SIGHT * (1 + 0.75 * TOD.night) + (LIGHTS.lit ? 35 * TOD.night : 0)) { z.state = 'chase'; sfx('groan', _sv.set(z.x, z.y + 1.6, z.z)); }
       if (z.state === 'chase' && (!target || d > 120)) { z.state = 'wander'; z.tx = z.hx; z.tz = z.hz; }
       if (z.cabin && z.state !== 'chase' && d > 700) z.state = 'off';
       z.atk = 0;
       if (z.state === 'chase') {
-        z.yaw = turn(z.yaw, yawTo(z.x, z.z, pp.x, pp.z), 3 * dt);
+        const zg = d < 40 ? zGoal(z, pp) : null, sep = !!zg && (zg[0] !== pp.x || zg[1] !== pp.z);   // v0.22: a wall between you -> via the door
+        z.yaw = turn(z.yaw, sep ? yawTo(z.x, z.z, zg[0], zg[1]) : yawTo(z.x, z.z, pp.x, pp.z), (sep ? 6 : 3) * dt);
         const stop = foot ? 0.8 : 2.6;
-        z.cd -= dt; if (z.lunge > 0) z.lunge -= dt; else if (z.cd <= 0 && d < 7 && d > 2) { z.lunge = 0.7; z.cd = 3 + Math.random() * 3; }
-        if (d > stop) spd = (z.lunge > 0 ? Z_LUNGE + 0.8 * TOD.night : Z_SPEED + 0.4 * TOD.night) * (1 - 0.9 * z.flinch);   // v0.13 night: walk 1.6, lunge 4.0   // a hit stops them for a beat
-        if (foot && d < 1.15) { z.atk = 1; hurt(Z_DPS * dt); }
+        z.cd -= dt; if (z.lunge > 0) z.lunge -= dt; else if (z.cd <= 0 && d < 7 && d > 2 && !sep) { z.lunge = 0.7; z.cd = 3 + Math.random() * 3; }
+        if (d > stop || sep) spd = (z.lunge > 0 ? Z_LUNGE + 0.8 * TOD.night : Z_SPEED + 0.4 * TOD.night) * (1 - 0.9 * z.flinch);   // v0.13 night: walk 1.6, lunge 4.0   // a hit stops them for a beat
+        if (foot && d < 1.15 && !sep) { z.atk = 1; hurt(Z_DPS * dt); }
       } else {
         z.t -= dt;
         if (z.t <= 0) { if (z.state === 'idle') { z.state = 'wander'; const rr = z.site ? z.site.r : 25; z.tx = z.hx + (Math.random() - 0.5) * 2 * rr; z.tz = z.hz + (Math.random() - 0.5) * 2 * rr; z.t = 15; } else { z.state = 'idle'; z.t = 3 + Math.random() * 6; } }
@@ -2579,7 +2798,7 @@ function zStep(z, i, dt, pp, foot, target) {
       z.x += z.pvx * dt; z.z += z.pvz * dt; z.pvx *= Math.exp(-6 * dt); z.pvz *= Math.exp(-6 * dt); z.flinch = Math.max(0, z.flinch - dt * 2.5);
       for (let j = 0; j < ZS.length; j++) { const o = ZS[j]; if (j === i || o.state === 'off' || o.state === 'dead') continue;   // personal space
         const sx = z.x - o.x, sz = z.z - o.z, sd = Math.hypot(sx, sz); if (sd < 0.6 && sd > 1e-3) { z.x += sx / sd * (0.6 - sd) * 0.5; z.z += sz / sd * (0.6 - sd) * 0.5; } }
-      pushOutBox(z, PAD_HOUSE); pushOutBox(z, CABIN_BOX);
+      pushOutBox(z, PAD_HOUSE); pushOutBox(z, CABIN_BOX); townPush(z, 0.3);
       if (d < 40 && (z.groanT -= dt) <= 0) { z.groanT = 4 + Math.random() * 7; sfx('groan', _sv.set(z.x, z.y + 1.6, z.z)); }
     }
     z.y = groundY(z.x, z.z); z.mv += ((spd > 0 ? 1 : 0) - z.mv) * Math.min(1, dt * 5); z.ph += spd * dt * 4.5;
@@ -3327,6 +3546,15 @@ function drawMap() {
   { const L = LODGE, ax = Math.sin(L.a), az = Math.cos(L.a), [p0x, p0y] = W2([L.x - ax * L.hl, L.z - az * L.hl]), [p1x, p1y] = W2([L.x + ax * L.hl, L.z + az * L.hl]);
     x.save(); x.lineWidth = 7; x.strokeStyle = '#1e1810'; x.beginPath(); x.moveTo(p0x, p0y); x.lineTo(p1x, p1y); x.stroke(); x.lineWidth = 4; x.strokeStyle = '#d9cfae'; x.stroke(); x.restore();
     hand('lodge strip', (p0x + p1x) / 2, (p0y + p1y) / 2 - 16, 16); }
+  // v0.22 towns: building footprints (a little block per building), the name, and the Dry Fork strip
+  for (const T of TOWNS) { x.fillStyle = '#1e1810';
+    for (const b of T.bld) { if (b.hw < 2.5) continue; const [px, py] = W2([b.x, b.z]); x.save(); x.translate(px, py); x.rotate(-b.a);
+      x.fillRect(-b.hw * MAP_PX - 1.2, -b.hd * MAP_PX - 1.2, b.hw * 2 * MAP_PX + 2.4, b.hd * 2 * MAP_PX + 2.4); x.restore(); }
+    const [px, py] = W2([T.x, T.z]), off = { CUTLER: [-58, -6], 'DRY FORK': [0, -24], HOLLIS: [62, 6] }[T.name];
+    hand(T.name.toLowerCase().replace(/\b\w/g, ch => ch.toUpperCase()), px + off[0], py + off[1], 22, '#1e1810', -0.04); hand('zeds!', px + off[0], py + off[1] + 18, 15, '#8a1a10', 0.08); }
+  { const S = DRYFORK_STRIP, [p0x, p0y] = W2([S.x, S.z - S.hl]), [p1x, p1y] = W2([S.x, S.z + S.hl]);
+    x.save(); x.lineWidth = 7; x.strokeStyle = '#1e1810'; x.beginPath(); x.moveTo(p0x, p0y); x.lineTo(p1x, p1y); x.stroke(); x.lineWidth = 4; x.strokeStyle = '#d9cfae'; x.stroke(); x.restore();
+    hand('strip', p0x + 30, (p0y + p1y) / 2, 16); }
   for (const s of SPOTS) {
     const [px, py] = W2([s.x, s.z]);
     if (s.poi) { x.strokeRect(px - 4, py - 4, 8, 8); if (s.name === 'LOOKOUT') { x.beginPath(); x.moveTo(px, py - 12); x.lineTo(px - 4, py - 4); x.lineTo(px + 4, py - 4); x.closePath(); x.fill(); }
@@ -3616,8 +3844,15 @@ function wakeUp() {
   say('DAWN - DAY ' + DAY.n);
 }
 let nSpawnT = 8;
+let tnT = 0;
+function townNight(dt, pp) {   // v0.22: after dark more of them shamble out into the towns (only near you; never spawned within 35 m of you)
+  if (TOD.night > 0.5) { if ((tnT -= dt) > 0) return; tnT = 4 + Math.random() * 4;
+    for (const T of TOWNS) { if (Math.hypot(pp.x - T.x, pp.z - T.z) > 900) continue; const z = ZS.find(o => o.tn && o.site.town === T && o.state === 'off'); if (!z) continue;
+      zHome(z); if (Math.hypot(z.x - pp.x, z.z - pp.z) < 35) z.state = 'off'; else z.state = 'wander'; } }
+  else if (TOD.day > 0.2) for (const z of ZS) if (z.tn && z.state !== 'off' && z.state !== 'chase' && z.state !== 'dead' && Math.random() < dt / 25) z.state = 'off';
+}
 function nightZombies(dt) {
-  const pp = playerPos();
+  const pp = playerPos(); townNight(dt, pp);
   if (TOD.night > 0.5) {
     if ((nSpawnT -= dt) > 0) return; nSpawnT = 10 + Math.random() * 12;
     const z = ZS.find(o => o.night && o.state === 'off'); if (!z) return;
@@ -3712,7 +3947,7 @@ const RECIPES = [
   { n: 'WATER FILTER', need: { CLOTH: 1, CHARCOAL: 2, STONES: 1 }, out: 'WATER FILTER' },
   { n: 'SMOKING RACK', need: { STICKS: 4, WIRE: 1 }, once: 1 },
   { n: 'SMOKED MEAT', need: { CHARCOAL: 1 }, item: ['RAW MEAT', 'COOKED MEAT'], rack: 1, out: 'SMOKED MEAT' },
-  { n: 'LAMP OIL (1 L FUEL)', item: ['FUEL CAN'], oil: 1 },
+  { n: 'LAMP OIL (1 L FUEL)', item: ['LAMP OIL', 'FUEL CAN'], oil: 1 },   // v0.22: a bottle from town first, else 1 L from a fuel can
   { n: 'CLEANING KIT', need: { CLOTH: 1, STICKS: 1 }, field: 1, out: 'CLEANING KIT' },
 ];
 const benchDist = p => Math.hypot(Math.max(0, Math.abs(p.x - WB.x) - 0.85), Math.max(0, Math.abs(p.z - WB.z) - 0.4));   // v0.21: metres from the bench's edge
@@ -3730,7 +3965,7 @@ function canCraft(r, bench) {
 function craft(i, bench) {
   const r = RECIPES[i]; if (!r) return; const why = canCraft(r, bench); if (why) { say('CAN\'T CRAFT ' + r.n + ': ' + why); sfx('dry'); return; }
   for (const [k, v] of Object.entries(r.need || {})) MATS[k] -= v;
-  if (r.item) { const it = findIng(r.item, bench); if (r.oil) { it.fuel -= 1; if (it.fuel <= 0.01) removeItem(it); } else { const si = stash.indexOf(it); removeItem(it); if (si >= 0) layoutStash(); } }
+  if (r.item) { const it = findIng(r.item, bench); if (r.oil && it.name === 'FUEL CAN') { it.fuel -= 1; if (it.fuel <= 0.01) removeItem(it); } else if (r.oil) { const si = stash.indexOf(it); removeItem(it); if (si >= 0) layoutStash(); } else { const si = stash.indexOf(it); removeItem(it); if (si >= 0) layoutStash(); } }
   if (r.oil) { LANTERN_IT.oil = LAMP_OIL; say('LANTERN REFILLED (' + LAMP_OIL + ' H OF LIGHT)'); }
   else if (r.once) { CRAFT.rack = true; RACK.visible = true; say('SMOKING RACK BUILT BY THE FIRE PIT'); }
   else {
@@ -3861,6 +4096,8 @@ function staminaTick(dt) {
   const SALV = { 'FARMHOUSE': ['CLOTH', 'NAILS', 'WIRE'], 'TRUCK': ['WIRE', 'CLOTH'], 'BARN': ['BOARDS', 'NAILS', 'WIRE'], 'RIDGE STRIP': ['CLOTH'],
     'LOOKOUT': ['WIRE', 'CLOTH'], 'GAS STATION': ['NAILS', 'WIRE', 'CLOTH', 'NAILS'], 'WRECK': ['WIRE', 'WIRE', 'CLOTH'], 'HUNT CABIN': ['CLOTH', 'STICKS', 'BOARDS'],
     'RANCH': ['BOARDS', 'BOARDS', 'WIRE', 'NAILS'], 'CHURCH': ['CLOTH', 'CLOTH', 'BOARDS', 'NAILS'], 'LODGE': ['BOARDS', 'CLOTH', 'NAILS', 'STONES'] };
+  for (const [n, x, z] of TOWN_MATS) put(n, x, z);   // v0.22 town salvage (on the floors) + town loot (needs the v0.16 items defined above)
+  for (const T of TOWNS) for (const s of T.spots) { spawnSpot(s, true); s.away = 0; }
   for (const s of SPOTS) for (const [k, n] of (SALV[s.name] || []).entries()) { const a = k * 1.9 + C16_R(), r = 5 + C16_R() * 4; put(n, s.x + Math.cos(a) * r, s.z + Math.sin(a) * r); }
 }
 // ================= v0.21: the FIELD GUIDE - a battered survival book that explains and does all the crafting =================
@@ -3888,7 +4125,7 @@ const BK_DESC = {
   'WATER FILTER': 'Carry it and every canteen fill (river, lake) comes out clean. No more boiling.',
   'SMOKING RACK': 'Built once, beside the cabin fire pit. It lets you smoke meat that keeps for days.',
   'SMOKED MEAT': 'Raw or cooked meat + 1 charcoal, at the bench once the rack is built. Keeps 10 days instead of 2-3. Food 30.',
-  'LAMP OIL (1 L FUEL)': 'Takes 1 litre from a fuel can and refills the lantern: about one night of light.',
+  'LAMP OIL (1 L FUEL)': 'Uses a bottle of lamp oil (town stores) or 1 litre from a fuel can, and refills the lantern: about one night of light.',
   'CLEANING KIT': 'The rifle fouls after about 60 shots and starts to misbehave. Hold the kit against the rifle (desktop E). 3 uses.',
 };
 const BK_MATW = { STICKS: 'Under trees by the cabin and in the groves.', STONES: 'Round the cabin and on riverbanks.', CLOTH: 'Farmhouses, the church, lodge, wreck.',
@@ -4402,7 +4639,7 @@ renderer.setAnimationLoop(() => {
   fpsFrames++; fpsT += dt; instT += dt;
   if (fpsT >= 1) { fps = Math.round(fpsFrames / fpsT); fpsFrames = 0; fpsT = 0; }
   updateRifle(dt); updateBullets(dt); updateFX(dt); updateSmoke(dt); updateWorld(dt, clock.elapsedTime);
-  updateSurvival(dt); updateZombies(dt); updateAnimals(dt); updateItems(dt); CLOUDS.tick(dt); updateDay(dt); updateWater(dt); cullLoot(dt); craftTick(dt); bookTick(dt); staminaTick(dt); updateForce(dt); updateBrass(dt); updateFalling(dt); updateSpots(dt); updateAudio(dt);
+  updateSurvival(dt); updateZombies(dt); updateAnimals(dt); updateItems(dt); CLOUDS.tick(dt); updateDay(dt); updateWater(dt); cullLoot(dt); townTick(dt); craftTick(dt); bookTick(dt); staminaTick(dt); updateForce(dt); updateBrass(dt); updateFalling(dt); updateSpots(dt); updateAudio(dt);
   panelUpdate(ac, dt); compassCard.rotation.y = IN.hdg;
   if (instT > 0.1) { instT = 0; drawWrist(); }
   if ((chunkT += dt) > 0.2) { chunkT = 0; updateChunks(); }
