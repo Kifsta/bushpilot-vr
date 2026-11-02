@@ -115,7 +115,16 @@ Field guide → GUIDE tab → **SETTINGS ›** (or the second-last page). Poke a
 | Comfort vignette | OFF / LIGHT / STRONG | darkens the edges while you move or turn on foot |
 | Turning | SNAP 30° / SNAP 45° / SMOOTH | right stick |
 | FPS counter | OFF / ON | fps, ms, CPU ms, draw calls, triangles, on the lower left of your view |
+| Weather (v0.36) | DYNAMIC / ALWAYS CALM | calm = clear sky and no wind |
 Defaults = the v0.34 look and cost (shadows off, grass off).
+
+## Weather and wind (v0.36)
+- Weather changes on its own: clear → overcast → rain / storm / fog, and back. Listen to the radio (cabin or the Cub's COM) for the valley weather report: current weather, wind direction and speed in knots, and what's coming next.
+- Windsocks on the strips point downwind. Straight out = 15 kt or more; limp = calm.
+- Wind blows on the Cub: take off and land into it. Expect lift on the windward side of ridges and sink plus bumps on the lee side. **Stay out of storms**: severe turbulence, downbursts, lightning strikes.
+- On foot, keep off high ridges in a storm.
+- Settings → Weather → ALWAYS CALM turns it all off.
+- Testing: `?wx=clear|overcast|rain|fog|storm`.
 
 ## Saving (v0.34)
 | | VR | Desktop |

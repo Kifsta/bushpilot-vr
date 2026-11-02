@@ -2,6 +2,34 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.36 – Weather and wind
+- **Five kinds of weather:** clear, overcast, rain, fog and thunderstorms. Each spell lasts about 4–9 real minutes, then blends into the next over about a minute. What comes next follows a weather chain tied to the clock: fog likes dawn, storms like afternoons, and day 1 stays gentle (no storms, no rain before 15:00). A fresh game starts on a fine morning with a light westerly.
+- **Wind is real air for the Cub.** The wind field at the plane is fed to the flight model as the air's own velocity, so airspeed ≠ ground speed, headwinds shorten the take-off, and crosswinds make you crab and weathervane on the ground. The field has:
+  - a prevailing direction and speed (mostly from the west), with a log height profile: slower near the ground, about 1.6× stronger aloft
+  - gusts
+  - ridge lift on the windward side of slopes, sink plus rotor turbulence in the lee
+  - mechanical turbulence near the ground
+  - storm turbulence and drifting downburst cells
+
+  When the Cub is parked with the engine off and nobody aboard, she's tied down and the wind doesn't move her. Sit in her in a storm and she may shift.
+- **Storms are dangerous:** severe turbulence, downbursts, ~800 m visibility, lightning every 6–20 s with thunder delayed by the distance (sound at 340 m/s). Flying above about 120 m AGL in a storm risks a **lightning strike**: it hurts you and kills the radio. On foot on high ground (above about 650 m), a bolt can land right beside you.
+- **Visuals:**
+  - the sky and fog go grey under cloud, with an overcast deck overhead
+  - sun and sky light dim
+  - clouds darken
+  - rain streaks slant downwind; one draw call, none inside the cockpit or buildings
+  - the ground darkens when wet and dries afterwards
+  - visibility drops to ~1.5 km in rain and ~300 m in valley fog
+  - lightning bolts and sky flashes
+- **Windsocks** on all four strips are now proper striped socks that swing to the wind and fill out (straight out at 15 kt, limp when calm).
+- **Sound:** rain hiss outdoors, drumming on the roof when you're in the cabin, cockpit or a building, gusty wind that rises with the wind speed, and rolling thunder.
+- **Radio:** the cabin radio and the Cub's COM now read a **valley weather report** between the other chatter. It gives the current weather, the wind (e.g. "WIND 270 AT 12 GUSTING 19 KNOTS") and what is moving in next. Fire and smoke drift with the wind.
+- **Settings:** new **Weather: DYNAMIC / ALWAYS CALM** row (calm = clear, no wind; good for testing or a relaxed flight). URL `?wx=clear|overcast|rain|fog|storm` pins a state for testing.
+- **Saved:** weather, what's next, wind and wetness. Older saves load with the fine start. Exiting the plane, parking/saving and lake/zombie checks now use ground speed, because airspeed isn't zero at rest in a wind.
+- Field guide BASICS page: new "Weather & wind" note.
+- Perf (headless, defaults = clear, draw calls / tris): foot 96 / 272 k, town 80 / 245 k, cockpit 130 / 272 k, alt 161 / 280 k, unchanged from v0.35. A storm adds 3 calls (rain, cloud deck, bolt) and ~50 tris.
+- Physics md5 unchanged (wind is fed in through the existing `a.wind` input, zero by default); wb test passes.
+
 ## v0.35 – Settings menu, real shadows, grass, belt swap, propeller fix
 - **Settings menu** (field guide GUIDE page → SETTINGS ›, or desktop ` / F2). 14 options: shadows OFF/LOW/HIGH, render scale 70–140 %, foveation, draw distance, tree density, grass, clouds, haze, MSAA, refresh rate 72/90/120, haptics (moved here), comfort vignette, snap 30°/45°/smooth turning, and an FPS/ms/draw-call counter. Saved in this browser (`bp_gfx`); `?gfx=k:v,...` overrides for testing. **Defaults are the v0.34 look and cost**, so turn things up one at a time with the FPS counter on to see what the Quest can take.
 - **Real sun shadows** (off by default). A shadow map follows you on foot, or the plane in flight, and snaps to texels so it doesn't shimmer. LOW is 1024 px over ±28 m; HIGH is a soft 2048 px over ±64 m. The Cub, cabin, trees, props and zombies cast shadows; terrain only receives them.
