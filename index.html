@@ -20,7 +20,7 @@
 </script>
 </head>
 <body>
-<div id="info">BUSH PILOT VR v0.23 - PA-18 Super Cub prototype (v0.23: glove hands - flick switches, twist the mags key, pull knobs with your fingers; v0.22: three abandoned towns to loot - Cutler, Dry Fork (with its own grass strip) and Hollis - full of zombies, more at night; v0.21.1: field guide moved to the right side pocket of the pack; v0.21: crafting through a physical field guide - pack pocket / bench, press B or K on foot; v0.20: gear + tyre physics, bungee legs, soft tundras, steerable tail wheel, brakes, surface grip and bumps; v0.19: engine start/shutdown, opening windows, checklist, map holder; v0.18.2: map clip on the cockpit wall; v0.18.1: side windows open from inside, sill z-fighting fixed; v0.18: Cub rebuilt to real PA-18 dimensions; v0.17.1: cabin windows reshaped; v0.17: low-poly item models; v0.16: crafting, campfires, traps, spoilage, stamina; v0.15: 7 new places + lodge strip, forests; v0.14: rivers, lakes, thirst + canteen; v0.13: day / night, dusk deadline, lights, sleep; v0.12: natural gunshot, ambient sound, clouds; v0.11: Cub + rifle proportions from reference; v0.10.1: smoother stock; v0.10: performance pass, crouch / jump, more zombies, force grab)
+<div id="info">BUSH PILOT VR v0.24 - PA-18 Super Cub prototype (v0.24: haptics everywhere - engine, buffet, touchdowns, rifle, items; v0.23: glove hands - flick switches, twist the mags key, pull knobs with your fingers; v0.22: three abandoned towns to loot - Cutler, Dry Fork (with its own grass strip) and Hollis - full of zombies, more at night; v0.21.1: field guide moved to the right side pocket of the pack; v0.21: crafting through a physical field guide - pack pocket / bench, press B or K on foot; v0.20: gear + tyre physics, bungee legs, soft tundras, steerable tail wheel, brakes, surface grip and bumps; v0.19: engine start/shutdown, opening windows, checklist, map holder; v0.18.2: map clip on the cockpit wall; v0.18.1: side windows open from inside, sill z-fighting fixed; v0.18: Cub rebuilt to real PA-18 dimensions; v0.17.1: cabin windows reshaped; v0.17: low-poly item models; v0.16: crafting, campfires, traps, spoilage, stamina; v0.15: 7 new places + lodge strip, forests; v0.14: rivers, lakes, thirst + canteen; v0.13: day / night, dusk deadline, lights, sleep; v0.12: natural gunshot, ambient sound, clouds; v0.11: Cub + rifle proportions from reference; v0.10.1: smoother stock; v0.10: performance pass, crouch / jump, more zombies, force grab)
 RIFLE (VR): A/X on the rifle hand = work the lever (tap = full stroke, hold = keep it open) or flick the rifle down-forward, or grab the lever loop with your other hand and work it yourself;
   lever open = no shot; a short stroke won't feed. Load: tip of a round into the gate (right side) - it snaps in; keep grip held and go back to the pouch for the next one.
   Hold the right stick IN (click) + push it up/down while holding the rifle (right hand) = grip angle. Let go of the wrist with a hand on the forend = it stays in that hand.
@@ -1436,7 +1436,95 @@ function mkPanner(ref, roll) {
 function setPos(p, v) { if (p.positionX) { p.positionX.value = v.x; p.positionY.value = v.y; p.positionZ.value = v.z; } else p.setPosition(v.x, v.y, v.z); }
 const _sv = new THREE.Vector3();
 // one-shots. pos (optional THREE.Vector3) = positional
+// ---- v0.24 haptics: every controller buzz goes through HX ----
+// pulse(g, a, ms): one-shot on one hand. A weaker pulse can't cut off a stronger one still playing (per-hand rate limit),
+// everything is scaled by HX.gain (book GUIDE page / ?hx=0..1, saved), and continuous effects (rumble) are capped at
+// HX.RUMBLE_MAX and only fill the gaps between one-shots, so nothing ever buzzes continuously at full strength.
+const HX = { gain: 1, t: 0, n: 0, sent: 0, dropped: 0, maxA: 0, ctx: null, q: [], hand: new Map(), log: null, RUMBLE_MAX: 0.3, LEVELS: [0, 0.35, 0.65, 1] };
+try { const s = new URLSearchParams(location.search).get('hx') ?? localStorage.getItem('bp_hx'); if (s !== null && isFinite(+s)) HX.gain = Math.min(1, Math.max(0, +s)); } catch (e) {}
+HX.act = g => (g && g !== 'desk') ? g.userData?.src?.gamepad?.hapticActuators?.[0] : null;
+HX.st = g => { let s = HX.hand.get(g); if (!s) HX.hand.set(g, s = { until: -1, a: 0, rt: -1 }); return s; };
+HX.send = (g, a, ms, tag) => {
+  const act = HX.act(g); HX.n++; if (!act || !act.pulse) return false;
+  a = Math.min(1, a * HX.gain); if (a < 0.01) return false;
+  HX.sent++; if (a > HX.maxA) HX.maxA = a; if (HX.log) HX.log.push([tag || 'fx', +a.toFixed(3), ms, g.userData.src?.handedness]);
+  act.pulse(a, ms); return true;
+};
+HX.pulse = (g, a, ms = 20, tag) => {
+  if (!g || g === 'desk') return false; const s = HX.st(g);
+  if (HX.t < s.until && a < s.a * 0.8) { HX.dropped++; return false; }    // a stronger buzz is still playing on this hand
+  s.until = HX.t + ms / 1000; s.a = a; return HX.send(g, a, ms, tag);
+};
+HX.rumble = (g, a, tag = 'rumble') => {   // continuous: call every frame; re-issued as 40 ms pulses ~30x/s, never over RUMBLE_MAX
+  if (!g || g === 'desk' || a < 0.01) return false; const s = HX.st(g);
+  if (HX.t < s.until || HX.t < s.rt) return false;                        // a one-shot is playing / not time yet
+  s.rt = HX.t + 0.033; return HX.send(g, Math.min(a, HX.RUMBLE_MAX), 40, tag);
+};
+HX.both = (a, ms, tag) => { for (const g of grips) HX.pulse(g, a, ms, tag); };
+HX.later = (g, a, ms, dt, tag) => HX.q.push({ g, a, ms, t: HX.t + dt, tag });
+HX.tick = dt => { HX.t += dt; for (let i = HX.q.length - 1; i >= 0; i--) { const e = HX.q[i]; if (HX.t >= e.t) { HX.q.splice(i, 1); e.g === 'both' ? HX.both(e.a, e.ms, e.tag) : HX.pulse(e.g, e.a, e.ms, e.tag); } } };
+HX.confirm = () => { if (HX.ctx) HX.pulse(HX.ctx, 0.22, 16, 'confirm'); };   // soft click for the hand doing the thing (stow / pocket / page)
+HX.cycle = () => { const L = HX.LEVELS, i = L.findIndex(v => v >= HX.gain - 0.01); HX.gain = L[(i + 1) % L.length]; try { localStorage.setItem('bp_hx', HX.gain); } catch (e) {}
+  say('HAPTICS ' + (HX.gain ? Math.round(HX.gain * 100) + '%' : 'OFF')); for (const g of grips) HX.pulse(g, 0.5, 30, 'cfg'); };
+
+// v0.24 continuous haptics. In the seat: engine hum (rpm) + rough-running stutter + starter cranking in the hands on the stick /
+// throttle, stall buffet in the stick hand, touchdown thumps (sink rate), rolling bumps (ground surface), brake-lock skid.
+// On foot: low-health heartbeat. All small (<= HX.RUMBLE_MAX) except the one-shot thumps.
+const HXF = { on: [true, true, true], off: [0, 0, 0], d: [0, 0], vs: 0, run: false, stut: 0, beat: 0, wob: 0, rum: [[null, 0, 0, ''], [null, 0, 0, '']] };
+function hxAdd(g, a, tag) { if (!g || a <= 0) return; for (const r of HXF.rum) if (r[0] === g) { r[1] += a; if (a > r[2]) { r[2] = a; r[3] = tag; } return; } }   // sources add up per hand; tag = the biggest
+const hxHand = h => { for (const g of grips) if (g.userData.src?.handedness === h) return g; return null; };
+function hxTick(dt) {
+  HX.tick(dt);
+  if (!HX.force && !renderer.xr.isPresenting) return;
+  const E = ENG, o = ac.out;
+  for (let i = 0; i < 2; i++) { const r = HXF.rum[i]; r[0] = grips[i]; r[1] = r[2] = 0; r[3] = ''; }
+  if (mode === 'plane' && !ac.crashed) {
+    const sg = vr.stick ? hxHand('right') : null, tg = (vr.thr || vr.flap) ? hxHand('left') : null;
+    const air = (k, a, ms, tag) => { for (const g of grips) HX.pulse(g, (g === sg || g === tg) ? a : a * 0.5, ms, tag); };   // airframe jolts: off-control hands feel half
+    let hum = 0;
+    if (E.running) {
+      hum = 0.03 + 0.07 * Math.min(1, E.rpm / 2700);
+      const rough = (E.mags > 0 && E.mags < 3 ? 0.3 : 0) + (E.starveT > 0 ? 1 : 0) + (E.cutT > 0 ? 1 : 0) + (E.carb && E.rpm < 1800 ? 0.2 : 0);
+      if (rough > 0 && (HXF.stut -= dt) <= 0) { HXF.stut = (0.12 + 0.5 * Math.random()) / rough; for (const g of [sg, tg]) HX.pulse(g, 0.3, 30, 'rough'); }
+      if (!HXF.run) air(0, 0.4, 60, 'catch');                       // it caught
+    } else if (E.cranking) {
+      HXF.wob += dt * 2 * Math.PI * 4.6;                              // ~4-5 compression strokes a second at cranking speed
+      const a = 0.08 + 0.17 * Math.max(0, Math.sin(HXF.wob));
+      for (const g of grips) hxAdd(g, (g === sg || g === tg) ? a : a * 0.5, 'crank');
+    }
+    HXF.run = E.running;
+    if (hum) { hxAdd(sg, hum * (0.85 + 0.3 * Math.random()), 'engine'); hxAdd(tg, hum * (0.85 + 0.3 * Math.random()), 'engine'); }
+    // stall buffet: from ~3 deg before the break, growing into the stall
+    if (sg && o.wow === 0 && o.V > 8) {
+      const fl = Math.sin(ac.flap * Math.PI / 180) / Math.sin(50 * Math.PI / 180), aSt = C.ALPHA_STALL - C.FLAP_DALPHA * fl;
+      const k = Math.max(o.stall || 0, Math.min(1, (o.alpha - (aSt - 0.055)) / 0.08));
+      if (k > 0) hxAdd(sg, (0.1 + 0.2 * k) * (0.6 + 0.4 * Math.random()), 'buffet');
+    }
+    // gear: touchdown thumps, rolling bumps, skids
+    const gs = ac.gs;
+    for (let i = 0; i < 3; i++) { const on = gs[i].Fn > 0;
+      if (on && !HXF.on[i] && HXF.off[i] > 0.12) { const sink = Math.max(0, -HXF.vs); air(0, Math.min(0.9, (i < 2 ? 0.15 : 0.1) + 0.22 * sink), 30 + 15 * Math.min(sink, 3), 'touchdown'); }
+      HXF.off[i] = on ? 0 : HXF.off[i] + dt; HXF.on[i] = on; }
+    if (o.wow > 0 && o.V > 1) {
+      let jolt = 0; for (let i = 0; i < 2; i++) { jolt += Math.abs(gs[i].d - HXF.d[i]); HXF.d[i] = gs[i].d; }
+      jolt /= Math.max(dt, 1e-3);                                       // m/s of strut travel
+      if (jolt > 0.25) air(0, Math.min(0.45, 0.15 + 0.3 * jolt), 25, 'bump');
+      const sf = surfaceAt(ac.pos[0], ac.pos[2]), r = Math.min(HX.RUMBLE_MAX, sf.bump * 5 * Math.min(1, o.V / 12)) * (0.6 + 0.4 * Math.random());
+      const skid = (gs[0].lock && gs[0].Fn > 0) || (gs[1].lock && gs[1].Fn > 0);
+      for (const g of grips) { const on = g === sg || g === tg;
+        if (skid) hxAdd(g, (Math.random() < 0.5 ? 0.3 : 0.14) * (on ? 1 : 0.6), 'skid');
+        else hxAdd(g, on ? r : r * 0.5, 'roll'); }
+    } else HXF.d[0] = gs[0].d, HXF.d[1] = gs[1].d;
+    HXF.vs = o.vs;
+  } else HXF.run = E.running;
+  for (const r of HXF.rum) if (r[1] > 0.01) HX.rumble(r[0], r[1], r[3]);   // one capped rumble per hand per slot
+  // low health: a heartbeat in both hands, faster as it drops
+  if (P.hp > 0 && P.hp < 30) { if ((HXF.beat -= dt) <= 0) { HXF.beat = 60 / (65 + (30 - P.hp) * 1.8); HX.both(0.28, 25, 'heart'); HX.later('both', 0.16, 20, 0.17, 'heart'); } }
+  else HXF.beat = 0;
+}
+
 function sfx(kind, pos, delay = 0) {
+  if (HX.ctx && !pos && (kind === 'pick' || kind === 'clack' || kind === 'leaf')) HX.confirm();   // v0.24
   if (!SND.ok) return;
   const A = actx, t = A.currentTime + delay;
   let out = SND.master; if (pos) { out = mkPanner(3, 1); setPos(out, pos); out.connect(SND.master); }
@@ -1612,6 +1700,7 @@ function dropRifle() {
   rifle.position.y = groundY(rifle.position.x, rifle.position.z) + 0.04; rifle.rotation.set(0, yaw, Math.PI / 2, 'YXZ');
 }
 function handRelease(g) {       // called every frame the grip is up: keep it cheap / idempotent
+  const hs = HX.st(g); if (hs.armed) { hs.armed = false; if (held.has(g) || R.hand === g || PK.g === g || MAP.g === g || rounds.has(g) || BK.drag?.g === g) HX.pulse(g, 0.15, 12, 'release'); }   // v0.24 let-go tap, once per squeeze
   if (R.levHand === g) leverRelease();
   if (R.support === g) R.support = null;
   if (R.hand === g) { if (slingNear(g.getWorldPosition(_a))) { slingRifle(); tick(g); } else if (R.support) forendHold(); else dropRifle(); }
@@ -1706,7 +1795,7 @@ const grips = [0, 1].map(i => {
 const vr = { stick: false, stick0: new THREE.Vector3(), thr: false, thr0: 0, thrZ: 0, flap: false, flapAng: 0, prev: {}, snap: false, sprint: false, dress: new Map() };
 function setFlapNotch(n, gp) {
   n = clamp(n, 0, 3); if (n === flapNotch) return;
-  flapNotch = n; ctl.flap = FLAP_DEG[n]; gp?.hapticActuators?.[0]?.pulse?.(0.6, 25); if (gp) sfx('click');   // detent click
+  flapNotch = n; ctl.flap = FLAP_DEG[n]; if (gp) { HX.pulse(gp, 0.6, 25, 'flap'); sfx('click'); }   // detent click
 }
 const xrCam = renderer.xr.getCamera(), _m2 = new THREE.Matrix4();
 function eyeWorld(i) {   // this frame's eye pose (the user camera itself is only refreshed inside render(), one frame late)
@@ -1744,7 +1833,7 @@ function xrInput(dt) {
       if (vr.flap) {                                               // lever follows the hand; flaps take the nearest notch
         plane.worldToLocal(g.getWorldPosition(_a));
         vr.flapAng = clamp(Math.atan2(_a.y - FLAP_PIVOT.y, FLAP_PIVOT.z - _a.z), 0, 3 * FLAP_STEP);
-        setFlapNotch(Math.round(vr.flapAng / FLAP_STEP), gp);
+        setFlapNotch(Math.round(vr.flapAng / FLAP_STEP), g);
       }
       const x = gp.axes[2] || 0;
       ctl.rud = Math.abs(x) > 0.08 ? Math.sign(x) * (Math.abs(x) - 0.08) / 0.92 : 0;
@@ -1765,8 +1854,8 @@ function footXR(dt) {
     if (h === 'left') { lx = gp.axes[2] || 0; ly = gp.axes[3] || 0; if (pressedEdge(gp, 5, 'Y')) board(); pressedEdge(gp, 4, 'X'); if (pressedEdge(gp, 3, 'LS')) vr.sprint = true; }
     else { rx = gp.axes[2] || 0; ry = gp.axes[3] || 0; rClick = !!gp.buttons[3]?.pressed; if (pressedEdge(gp, 5, 'B')) resetFlight(); pressedEdge(gp, 4, 'A'); }
     if (bkHolding(g)) { bookStick(g, gp.axes[2] || 0); if (h === 'left') lx = 0; else rx = 0; }   // v0.21: the book hand's stick turns pages
-    if (pressedEdge(gp, 1, h + 'sq')) { if (!doorGrab(g) && !(mode === 'plane' && ldgSwitchTouch(g))) handGrab(g); }
-    if (!sq) handRelease(g);
+    if (pressedEdge(gp, 1, h + 'sq')) { HX.ctx = g; HX.st(g).armed = true; if (!doorGrab(g) && !(mode === 'plane' && ldgSwitchTouch(g))) handGrab(g); HX.ctx = null; }
+    if (!sq) { HX.ctx = g; handRelease(g); HX.ctx = null; }   // v0.24: stow / pocket / pack clicks buzz this hand
     const trig = pressedEdge(gp, 0, h + 'trig'), btn = !!gp.buttons[4]?.pressed && !vr.prev[h + 'btn']; vr.prev[h + 'btn'] = !!gp.buttons[4]?.pressed;
     if (trig && held.get(g)?.name === 'TORCH') toggleTorch();
     else if (trig && R.hand !== g && mode === 'foot') craftTrigger(g);   // v0.16 craft boards / watch
@@ -1803,7 +1892,7 @@ function updateFoot(dt) {
   camera.getWorldPosition(_w);
   _twp.x = _w.x; _twp.z = _w.z; if (townPush(_twp, 0.3)) { footRig.position.x += _twp.x - _w.x; footRig.position.z += _twp.z - _w.z; _w.x = _twp.x; _w.z = _twp.z; }   // v0.22 town walls
   P.crouchT = clamp(P.crouchT + (P.crouchIn ? 1 : -1) * dt / CROUCH_TIME, 0, 1);
-  if (P.jv !== 0 || P.jy > 0) { P.jv -= 9.81 * dt; P.jy += P.jv * dt; if (P.jy <= 0) { P.jy = 0; P.jv = 0; sfx('leaves'); } }   // lands on the terrain under you
+  if (P.jv !== 0 || P.jy > 0) { P.jv -= 9.81 * dt; P.jy += P.jv * dt; if (P.jy <= 0) { HX.both(Math.min(0.6, 0.15 - 0.07 * P.jv), 45, 'land'); P.jy = 0; P.jv = 0; sfx('leaves'); } }   // lands on the terrain under you
   footRig.position.y = groundY(_w.x, _w.z) + EYE - CROUCH_DROP * crouchK() + P.jy;
   ctl.elev = ctl.ail = ctl.rud = 0; ctl.brake = 1;               // parking brake while you're out
   if (Math.hypot(_w.x - CABIN_DOOR.x, _w.z - CABIN_DOOR.z) < 6) {  // at the cabin: stash loot, top up the tube
@@ -2078,7 +2167,7 @@ function loadRound() {
 }
 function hurt(n) {
   P.hp -= n;
-  if (P.hurtT <= 0) { sfx('hurt'); for (const g of grips) g.userData.src?.gamepad?.hapticActuators?.[0]?.pulse?.(0.8, 80); }
+  if (P.hurtT <= 0) { sfx('hurt'); HX.both(0.8, 80, 'hurt'); }
   P.hurtT = 0.35;
 }
 function die() {
@@ -2121,10 +2210,10 @@ function updateItems(dt) {
     if (it.name === 'CANTEEN') canteenTick(g, it, dt, _a, _b);
     if (it.name === 'KNIFE') knifeTick(g, it, dt);
     if (it.name === 'FUEL CAN' && nearCap(_b, 0.45)) pour(it, dt);
-    if (it.name === 'RAW MEAT' && nearFire(_b, 0.8)) { cookTick(it, dt); g.userData.src?.gamepad?.hapticActuators?.[0]?.pulse?.(0.1, 20); }
+    if (it.name === 'RAW MEAT' && nearFire(_b, 0.8)) { cookTick(it, dt); HX.rumble(g, 0.1, 'cook'); }
   }
   for (const [g, d] of vr.dress) {
-    d.t += dt; g.userData.src?.gamepad?.hapticActuators?.[0]?.pulse?.(0.25, 30);
+    d.t += dt; HX.pulse(g, 0.25, 30, 'hold');
     if (d.t >= 2) { dressAnimal(d.c); vr.dress.delete(g); }
   }
   if (mode === 'foot') {             // desktop-friendly: standing at the fire slowly cooks raw meat in your pack
@@ -2935,7 +3024,7 @@ const RECOIL = { rise: 0.16, kick: 0.055, up: 0.025, decay: 0.05, stock: 0.35, t
 const SMALL = new Set(['MEDKIT', 'RAW MEAT', 'COOKED MEAT']);      // fits a belt pouch
 const cellsOf = n => (n === 'FUEL CAN' || n === 'FOOD CRATE') ? 2 : 1;
 ITEM['KNIFE'] = { sz: [0.05, 0.03, 0.3], col: 0xc8c8c8 };
-const pulse = (g, a, ms) => g?.userData?.src?.gamepad?.hapticActuators?.[0]?.pulse?.(a, ms);
+const pulse = (g, a, ms, tag) => HX.pulse(g, a, ms, tag);   // v0.24: through the haptics helper
 const tick = g => pulse(g, 0.4, 20);
 const V3 = () => new THREE.Vector3();
 Object.assign(R, { slung: false, spent: false, recT: 1, baseP: V3(), baseQ: new THREE.Quaternion() });
@@ -3199,7 +3288,7 @@ function leverGrab(g, p) {
   R.levHand = g; R.levFree = false; R.levGrab0 = handAngle(p) - R.levA * GUN.leverMax; tick(g); return true;
 }
 function leverRelease() { R.levHand = null; if (R.levA < 0.06) { R.levFree = false; R.levS = invSmooth(R.levA); R.levReq = false; } else R.levFree = true; }   // it stays where you leave it
-function leverPulse(a, ms) { if (R.hand && R.hand !== 'desk') pulse(R.hand, a, ms); if (R.levHand) pulse(R.levHand, a, ms); }
+function leverPulse(a, ms) { if (R.hand && R.hand !== 'desk') pulse(R.hand, a, ms, 'lever'); if (R.levHand) pulse(R.levHand, a, ms, 'lever'); }
 function updateLever(dt) {
   if (!R.hand) { R.levHold = false; if (R.levHand) R.levHand = null; }
   let a = R.levA;
@@ -3224,8 +3313,8 @@ function shoot() {
   if (R.levA > 0.02) { pulse(g, 0.1, 8); return; }          // lever not closed: trigger is blocked
   if (!R.cocked) { pulse(g, 0.1, 8); return; }              // hammer already down
   R.cocked = false;
-  if (!R.chambered) { sfx('dry'); pulse(g, 0.35, 14); return; }
-  if ((R.foul || 0) > 60 && Math.random() < 0.06) { sfx('dry'); pulse(g, 0.35, 14); say('MISFIRE - RIFLE IS FOULED, CLEAN IT (CYCLE THE LEVER)'); return; }   // v0.16 fouling
+  if (!R.chambered) { sfx('dry'); pulse(g, 0.35, 14, 'dry'); return; }
+  if ((R.foul || 0) > 60 && Math.random() < 0.06) { sfx('dry'); pulse(g, 0.35, 14, 'misfire'); HX.later(g, 0.2, 60, 0.09, 'misfire'); say('MISFIRE - RIFLE IS FOULED, CLEAN IT (CYCLE THE LEVER)'); return; }   // v0.16 fouling
   R.chambered = false; R.spent = true; R.foul = (R.foul || 0) + 1; if (R.foul === 60) say('RIFLE GETTING FOULED - CRAFT A CLEANING KIT');
   if (g === 'desk') { camera.getWorldQuaternion(_qb); camera.getWorldPosition(_kp).add(_v.set(0, -BORE_BELOW, -0.6).applyQuaternion(_qb)); }   // bore under the crosshair
   else { _qb.copy(rifle.quaternion); _kp.copy(muzzle.position).applyQuaternion(_qb).add(rifle.position); }
@@ -3235,7 +3324,7 @@ function shoot() {
   sfx('bang'); alertNoise(_kp);
   const mFree = R.support ? RECOIL2.twoHand : 1, m = (g === 'desk' ? RECOIL2.desk : mFree + (RECOIL2.stock - mFree) * (R.stockW || 0)), j = 1 + (Math.random() - 0.5) * 2 * RECOIL2.random;
   R.rec.av += RECOIL2.rise * m * j; R.rec.yv += (Math.random() - 0.5) * 2 * RECOIL2.yaw * m; R.rec.zv += RECOIL2.kick * m * j;
-  if (g !== 'desk') { pulse(g, RECOIL.hapticMain, RECOIL.hapticMainMs); if (R.support) pulse(R.support, RECOIL.hapticSupport, RECOIL.hapticSupportMs); }
+  if (g !== 'desk') { pulse(g, RECOIL.hapticMain, RECOIL.hapticMainMs, 'shot'); if (R.support) pulse(R.support, RECOIL.hapticSupport, RECOIL.hapticSupportMs, 'shot'); }
 }
 const _qb = new THREE.Quaternion(), _qi = new THREE.Quaternion(), _qe = new THREE.Quaternion(), _ev = V3(), _q1 = new THREE.Quaternion(), _gq = new THREE.Quaternion(), _tp = V3(), _pv = V3(), _pv2 = V3();
 function springStep(x, v, wn, z, h) { return v + (-wn * wn * x - 2 * z * wn * v) * h; }
@@ -3973,7 +4062,7 @@ function craft(i, bench) {
     if (bench) say('CRAFTED ' + r.out + ' - ON THE BENCH');
     else if (packAdd(it)) say('CRAFTED ' + r.out + ' (IN PACK)'); else { it.mesh.position.y = groundY(_a.x, _a.z) + it.h / 2; say('CRAFTED ' + r.out + ' (AT YOUR FEET)'); }
   }
-  sfx('gate'); CRAFT.key = '';
+  sfx('gate'); CRAFT.key = ''; HX.both(0.3, 25, 'craft'); HX.later('both', 0.5, 40, 0.12, 'craft');   // v0.24 da-DUM: made it
 }
 function drawCraft(bench) {
   const key = (bench ? 'B' : 'F') + CRAFT.hover + MAT_NAMES.map(n => MATS[n]).join() + RECIPES.map(r => canCraft(r, bench)).join() + inv.length + stash.length + (CRAFT.desk ? CRAFT.deskSel : '');
@@ -4197,6 +4286,8 @@ function bkDraw() {
       'Desktop: B or K opens and closes, arrow keys turn pages, Enter crafts (1-0 still quick-craft).']) y = bkWrap(x, t, 552, y, 380, 25) + 10;
     x.font = BK_FONT(22); x.fillText('Contents', 552, y + 14); x.font = BK_TXT(19); y += 44;
     for (const [t] of BK_TABS.slice(1)) { const p = BK_SP.findIndex(s => s.tab === t); x.fillText(t.charAt(0) + t.slice(1).toLowerCase() + ' .......... ' + (p + 1), 572, y); y += 25; }
+    x.strokeStyle = '#6a5638'; x.lineWidth = 2; x.strokeRect(40, 600, 340, 52); x.fillStyle = '#2e2418'; x.font = BK_FONT(22);   // v0.24 haptics strength button
+    x.fillText('HAPTICS ' + (HX.gain ? Math.round(HX.gain * 100) + '%' : 'OFF'), 56, 634); x.font = BK_TXT(16); x.fillStyle = '#6a5638'; x.fillText('poke to change', 236, 633);
   } else if (sp.k === 'basics') {
     const blk = (X, Y, h, lines) => { x.font = BK_FONT(26); x.fillStyle = '#2e2418'; x.fillText(h, X, Y); x.font = BK_TXT(19); let y = Y + 30; for (const t of lines) y = bkWrap(x, t, X, y, 400, 24) + 6; return y + 14; };
     let y = blk(40, 64, 'Thirst', ['The blue H2O bar empties in about 15 minutes, then you start losing health.', 'Drink from the canteen on your right hip. Fill it at the rain barrel (clean) or a river / lake (boil it on a fire first, or carry a water filter).']);
@@ -4252,6 +4343,7 @@ function bkLocal(p) { BOOK.updateWorldMatrix(true, false); BOOK.worldToLocal(_bk
 function bkHit(u, v) {   // what is under this page point
   if (u < -20 || u > 1060 || v < -20 || v > 740) return null;
   if (u > 950) { const i = Math.floor((v - 24) / 84); if (i >= 0 && i < BK_TABS.length) return { tab: BK_TABS[i][0] }; }
+  if (BK_SP[BK.page].k === 'intro' && u > 40 && u < 380 && v > 600 && v < 652) return { hx: true };   // v0.24 haptics strength
   if (BK_SP[BK.page].k === 'rec' && u > 590 && u < 910 && v > 582 && v < 678) return { craft: true };
   if (v > 668 && u < 160) return { turn: -1 }; if (v > 668 && u > 840 && u < 950) return { turn: 1 };
   return null;
@@ -4261,6 +4353,7 @@ function bkAct(h, g) {
   if (h.tab) { const p = BK_SP.findIndex(s => s.tab === h.tab); if (p >= 0 && p !== BK.page) bkTurnTo(p); }
   else if (h.turn) bkTurn(h.turn);
   else if (h.craft) bkCraft();
+  else if (h.hx) { HX.cycle(); bkDraw(); }
   if (g) tick(g); return true;
 }
 function bkTurn(d) { const p = clamp(BK.page + d, 0, BK_SP.length - 1); if (p !== BK.page) bkTurnTo(p); }
@@ -4351,7 +4444,7 @@ function bookTick(dt) {
   // turning leaf: dragged by hand, or animating
   const D = BK.drag; let ang = null;
   if (D && BK.g) { D.g.getWorldPosition(_b); const L = bkLocal(_b); D.prog = clamp((D.x0 - L.x) * D.d / (BK.W * 1.6), 0, 1);
-    if (D.prog > 0.5 && !D.flipped) { D.flipped = true; BK.page += D.d; BK.lastCraft = ''; bkDraw(); BK.key = bkKey(); sfx('pick'); } else if (D.prog < 0.45 && D.flipped) { D.flipped = false; BK.page -= D.d; bkDraw(); BK.key = bkKey(); }
+    if (D.prog > 0.5 && !D.flipped) { D.flipped = true; BK.page += D.d; BK.lastCraft = ''; bkDraw(); BK.key = bkKey(); sfx('pick'); HX.pulse(D.g, 0.3, 18, 'page'); HX.pulse(BK.g, 0.12, 12, 'page'); } else if (D.prog < 0.45 && D.flipped) { D.flipped = false; BK.page -= D.d; bkDraw(); BK.key = bkKey(); }
     ang = D.d > 0 ? -Math.PI * D.prog : -Math.PI * (1 - D.prog); }
   else if (BK.turn) { const T = BK.turn; T.a = Math.min(1, T.a + dt / 0.35) ; const a = T.back ? 1 - T.a : T.a; ang = T.d > 0 ? -Math.PI * a : -Math.PI * (1 - a); if (T.a >= 1) BK.turn = null; if (T.back && T.a >= 1) ang = null; }
   BK.leaf.visible = ang !== null && BK.turn !== null || !!D; if (ang !== null) BK.leaf.rotation.y = ang;
@@ -4663,7 +4756,7 @@ function buildTracked(st, hand) {                // optional hand tracking: bone
   }
   J['index-finger-tip'].getWorldPosition(st.tip); return true;
 }
-function hap(g, a = 0.45, ms = 14) { CKX.haps++; g?.userData?.src?.gamepad?.hapticActuators?.[0]?.pulse?.(a, ms); }
+function hap(g, a = 0.45, ms = 14) { CKX.haps++; HX.pulse(g, a, ms, 'cockpit'); }
 // snap frames: hand space -> control local (fist wraps the control's own axis)
 const HB_STICK = new THREE.Matrix4().makeBasis(new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, -1, 0));   // thumb up the knob, wrist aft
 const HB_FLAP = new THREE.Matrix4().makeBasis(new THREE.Vector3(0.7071, -0.7071, 0), new THREE.Vector3(0.7071, 0.7071, 0), new THREE.Vector3(0, 0, 1));
@@ -4869,6 +4962,7 @@ renderer.setAnimationLoop(() => {
   panelUpdate(ac, dt); compassCard.rotation.y = IN.hdg;
   if (instT > 0.1) { instT = 0; drawWrist(); }
   if ((chunkT += dt) > 0.2) { chunkT = 0; updateChunks(); }
+  hxTick(dt);                                // v0.24 haptics (engine / buffet / gear / heartbeat + queued pulses)
   if (xr || HANDS.force) updateHands(dt);   // v0.23 gloves (after the rifle / stick / knobs have their final pose)
   renderer.render(scene, camera);
   const cpu = performance.now() - t0;            // JS + draw submission (GPU time isn't visible from here)

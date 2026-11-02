@@ -26,6 +26,8 @@
 
 v0.23 hands (VTOL VR style, no laser): your hands are gloves. Squeeze with the trigger off = point the index finger; trigger curls it; thumb off the buttons lifts the thumb. A yellow ring shows what your hand will work. Squeezing a control and letting go without moving it still does the old one-step toggle. Quest hand tracking (no controllers) shows tracked gloves and pokes switches with your index tip.
 
+v0.24 haptics: you feel the engine (rpm, rough running, cranking), stall buffet, touchdowns, bumps and skids through the stick and throttle; the rifle shot, lever, loading and misfires; grabs, stowing, page turns and crafting; zombie hits, knife hits, landings and a heartbeat when hurt. Strength: poke the HAPTICS button on the field guide's GUIDE page (Off / 35% / 65% / 100%), or add `?hx=0.5` to the URL.
+
 Start: fuel ON, master ON, mixture RICH, carb heat COLD, prime 2–3 strokes (cold) or 0–1 (warm), throttle cracked (~10%), mags BOTH, hold the starter until it runs (~700 rpm).
 Flooded? Throttle full and crank, then pull the throttle back when it fires.
 Shutdown: throttle idle, mixture CUTOFF (it stops), mags OFF, master OFF, fuel OFF.

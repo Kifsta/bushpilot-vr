@@ -2,6 +2,44 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.24 – Haptics everywhere
+- **One haptics helper (HX)** for every controller buzz (`gamepad.hapticActuators[0].pulse`).
+  - Per hand: a weaker pulse can't cut off a stronger one still playing on that hand.
+  - Global strength: Off / 35% / 65% / 100%. Change it with the HAPTICS button on the field guide's GUIDE page (poke it), or `?hx=0..1` in the URL. It is saved.
+  - Continuous effects (engine, buffet, cranking, rolling, skid) are added up per hand and sent as one short pulse about 30 times a second.
+    - They are capped at 30% strength and pause while a one-shot plays, so nothing buzzes continuously at full strength.
+  - All earlier calls now go through it: rifle, knife, force grab, hurt, cooking, flap detents and the v0.23 cockpit clicks.
+- **Rifle:**
+  - shot: full strength on the trigger hand, 45% on the support hand;
+  - lever open/close clicks;
+  - a round through the loading gate;
+  - dry-fire click;
+  - misfire: click then a dull thud.
+- **Items:**
+  - grab tick, plus a light let-go tap (once per squeeze);
+  - soft click on the acting hand when something goes into a pouch, pocket, pack or sling;
+  - force-grab pull and catch;
+  - book page turns (the turning hand, plus a lighter tick in the book hand);
+  - crafting done: "da-DUM" in both hands.
+- **Cockpit** (hands on the stick or throttle):
+  - engine hum scaled by rpm (3–10%);
+  - rough running stutters: single mag, fuel starving, mixture cut;
+  - a kick when the engine catches;
+  - starter cranking rumble that pulses with the compression strokes;
+  - stall buffet in the stick hand from about 3° before the break, growing into the stall;
+  - touchdown thumps per wheel, scaled by sink rate (0.3 m/s ≈ 22%, 2.5 m/s ≈ 70%);
+  - rolling rumble from the v0.20 ground surface and speed, plus jolts from strut travel;
+  - brake-lock skid buzz;
+  - flap detents and v0.23 switch/knob detents.
+  - Hands not on a control feel the airframe jolts at half strength.
+- **On foot:**
+  - zombie hit in both hands;
+  - knife hits;
+  - jump landing scaled by fall speed;
+  - low-health heartbeat (below 30 HP, a lub-dub that speeds up as health drops).
+- Physics untouched (md5 unchanged). Desktop does no haptics work at all (perf identical).
+- Tests: new t24 (35 checks), covering the rate limit, gain, the button, and every event above.
+
 ## v0.23 – Hands + VTOL VR-style cockpit
 - **Gloves instead of grey boxes.** Low-poly glove hands (one instanced mesh: 17 boxes per hand, one draw call for both) follow the controllers.
   - Pose from the controller: grip curls the lower three fingers, trigger curls the index, grip without trigger = pointing index, thumb on the stick/buttons rests it, thumb off lifts it.
