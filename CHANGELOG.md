@@ -2,6 +2,30 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.39 – Six new places
+
+New points of interest. Each one has its own map label, loot spots and zombies, and trees are cleared off it. Each place is a single merged mesh, distance-culled like the towns, with painted signs.
+
+- **River bridge** (church road, just SW of home): a steel-and-timber span with railings, piers and abutments and LOAD LIMIT signs. A pickup is stopped on the deck with its door open, and a sedan has gone through the rail. You can walk and drive on the deck; a groundY override puts the floor at deck height.
+- **Clearwater sawmill** (east bank, ~1.2 km north of home):
+  - an open mill shed with a carriage, a headrig with its blade and a log still on the carriage
+  - a green chain, lumber on stickers, log decks and a teepee burner with sawdust piles
+  - an office shack, a log truck and a log loader
+- **Silver King mine** (west plateau, ~1050 m):
+  - a timber headframe with its sheave, a hoist house with a stack and an ore bin with a chute
+  - an adit portal in a rock face, track and ore carts (one tipped)
+  - tailings, a powder magazine with a DANGER EXPLOSIVES sign, a bunkhouse and a truck
+- **Pine Ridge ranger station** (west of the river, NW of home):
+  - a brown and green Forest Service office with a porch and a boarded door, a garage and a green patrol pickup
+  - a radio mast, a flagpole with a tattered flag, a water tank, an outhouse and a woodpile
+  - a FIRE DANGER: EXTREME board whose back reads "EVACUATE TO CUTLER"
+- **East Lake campground** (west shore): six campsites with tables, fire rings, tents (some down), sleeping bags and coolers, plus an RV with an awning, a pickup with a camper shell, a camp-host trailer, vault toilets, a bear bin, and a dock with an upturned canoe.
+- **Pine Motel** (north road): eight rooms with a walkway canopy (two doors boarded) and an office. Also a pole sign reading NO VACANCY, a parking lot with striped bays and nosed-in cars, ice and soda machines, a tipped housekeeping cart, a dragged-out mattress and a green, half-empty pool.
+- **Map:** labels were nudged so the bridge, motel and campground don't collide with STRIP and other labels.
+- **Saves:** a v0.38 save gets loot at the new places. Loot whose item types are defined later in the file (nails, boards, bandages, filters) now spawns once the world is built, before a save is restored. Tree clearing for the v0.38 sites now also runs before the save loads.
+- **Perf (headless, 1024×576, calls/tris):** foot 102/304k, town 80/265k, cockpit 136/304k, alt 167/311k (v0.38: 98/293k, 80/263k, 132/294k, 166/307k).
+- Test t39 (56 checks) added to the regression run. Physics md5 is unchanged.
+
 ## v0.38 – The Halvorsen file (mystery)
 
 - **Story:** a second thread runs beside Sarah's: why the valley died and why you didn't. It has five clues, and each one points to the next. The radio and the Cub's COM give the next lead every other call. Clues are marked in blue pencil on the map, with a "THE HALVORSEN FILE" list at the bottom right.

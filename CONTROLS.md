@@ -224,3 +224,8 @@ Defaults = the v0.34 look and cost (shadows off, grass off).
 - Pick up a clipboard, note or tape at the marked place to read or play it. The captions play one after another.
 - The radio (cabin) and COM (Cub) give the next lead every other call.
 - Halvorsen station has its own gravel strip, about 340 m long, with a windsock and avgas.
+
+## New places (v0.39)
+
+- River bridge (church road), Clearwater sawmill (river, north of home), Silver King mine (west plateau), Pine Ridge ranger station, East Lake campground, Pine Motel (north road). All are on the map.
+- You can walk across the bridge deck, or drive the Cub over it.
