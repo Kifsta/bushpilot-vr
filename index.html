@@ -2147,6 +2147,8 @@ const MODELS = {
 };
 // v0.26 hatchet / fire axe: red head, bright edge, hickory handle (held like the knife: handle in the fist, head out past the thumb)
 ITEM['HATCHET'] = { sz: [0.05, 0.27, 0.43], col: 0xb02018 };
+ITEM['WOLF PELT'] = { sz: [0.36, 0.08, 0.26], col: 0x5a5c5e };   // v0.28: from a dressed wolf (folded hide)
+MODELS['WOLF PELT'] = [['b', 0.36, 0.05, 0.26, 0, -0.015, 0, 0x5a5c5e], ['b', 0.3, 0.03, 0.2, 0, 0.025, 0.01, 0x8d8f88], ['b', 0.08, 0.02, 0.05, 0.1, 0.03, -0.1, 0x3c3d3e]];
 MODELS['HATCHET'] = [['b', 0.028, 0.032, 0.4, 0, 0, -0.09, 0x6b4a2a], ['b', 0.03, 0.036, 0.05, 0, 0, 0.09, 0x2a2a2a],
   ['b', 0.024, 0.075, 0.07, 0, -0.022, -0.27, 0xb02018], ['b', 0.02, 0.03, 0.05, 0, 0.03, -0.27, 0x2a2a2a], ['b', 0.01, 0.022, 0.085, 0, -0.065, -0.27, 0xd8dade]];
 const LAN_GLASS = new THREE.CylinderGeometry(0.036, 0.04, 0.13, 8);
@@ -2838,7 +2840,10 @@ function creatureHit(o, d, maxD) {
     }
   };
   for (const z of ZS) if (z.state !== 'dead' && z.state !== 'off') test(z, ZSPH);
-  for (const a of ANIM) if (a.state !== 'dead' && a.state !== 'gone') test(a, a.kind === 'deer' ? (a.head < -1 ? DEERSPH_G : DEERSPH) : RABSPH);
+  for (const a of ANIM) if (a.state !== 'dead' && a.state !== 'gone') {
+    if (a.sp) { const R = SPEC[a.sp].h * 1.2, wx = a.x - o.x, wy = a.y + R * 0.4 - o.y, wz = a.z - o.z, t = wx * d.x + wy * d.y + wz * d.z;   // v0.28 cheap bound first
+      if (t < -R || t > maxD + R || wx * wx + wy * wy + wz * wz - t * t > R * R) continue; }
+    test(a, a.sp ? sphOf(a) : a.kind === 'deer' ? (a.head < -1 ? DEERSPH_G : DEERSPH) : RABSPH); }
   if (best) best.p = o.clone().addScaledVector(d, best.d);
   return best;
 }
@@ -2987,37 +2992,59 @@ const dLeg = imesh([vbox(0.07, 0.82, 0.08, 0, -0.41, 0, 0x6e4528)], N_DEER * 4);
 const rab = imesh([vbox(0.16, 0.15, 0.26, 0, 0.1, 0, 0x9a8a70), vbox(0.11, 0.11, 0.12, 0, 0.2, -0.15, 0x9a8a70),
                    vbox(0.03, 0.13, 0.02, -0.03, 0.31, -0.13, 0x9a8a70), vbox(0.03, 0.13, 0.02, 0.03, 0.31, -0.13, 0x9a8a70), vbox(0.06, 0.06, 0.05, 0, 0.14, 0.15, 0xf2efe6)], N_RAB);
 const ANIM = [];
+// v0.28 animal species (models: Quaternius Ultimate Animated Animals, CC0). h = model height (m); rh / rv / rb = head / vitals / body hit-sphere radii (m); walk / run = ground speeds; wRef / rRef = the speed
+// the Walk / Gallop clips look right at (playback speed = speed / ref); see = flight distance on foot; home = graze radius; big = body girth vs a deer
+const SPEC = {
+  deer:   { name: 'DEER',   file: 'Deer',   h: 1.75, hp: 2, meat: 3, walk: 0.35, run: 9,   wRef: 1.2, rRef: 8,   see: 30, rh: 0.13, rv: 0.19, rb: 0.23 },
+  stag:   { name: 'STAG',   file: 'Stag',   h: 2.15, hp: 3, meat: 4, walk: 0.35, run: 9,   wRef: 1.3, rRef: 8.5, see: 30, rh: 0.15, rv: 0.21, rb: 0.25 },
+  fox:    { name: 'FOX',    file: 'Fox',    h: 0.5,  hp: 1, meat: 1, walk: 0.8,  run: 7,   wRef: 0.8, rRef: 5,   see: 22, rh: 0.06, rv: 0.08, rb: 0.1, home: 30 },
+  wolf:   { name: 'WOLF',   file: 'Wolf',   h: 0.9,  hp: 2, meat: 0, pelt: 1, walk: 1.3, run: 7.5, wRef: 1.2, rRef: 6.5, see: 0, rh: 0.1, rv: 0.14, rb: 0.17 },
+  cow:    { name: 'COW',    file: 'Cow',    h: 1.55, hp: 4, meat: 6, walk: 0.5,  run: 4.5, wRef: 1.0, rRef: 5,   see: 14, rh: 0.2, rv: 0.3, rb: 0.36, home: 14, big: 1.3 },
+  bull:   { name: 'BULL',   file: 'Bull',   h: 1.65, hp: 5, meat: 6, walk: 0.5,  run: 4.5, wRef: 1.0, rRef: 5,   see: 14, rh: 0.22, rv: 0.32, rb: 0.38, home: 14, big: 1.35 },
+  horse:  { name: 'HORSE',  file: 'Horse',  h: 1.8,  hp: 4, meat: 5, walk: 0.6,  run: 8,   wRef: 1.3, rRef: 8,   see: 18, rh: 0.17, rv: 0.28, rb: 0.32, home: 16, big: 1.1 },
+  donkey: { name: 'DONKEY', file: 'Donkey', h: 1.35, hp: 3, meat: 4, walk: 0.5,  run: 5.5, wRef: 1.0, rRef: 5.5, see: 16, rh: 0.14, rv: 0.22, rb: 0.26, home: 14, big: 1.05 },
+};
+const AM = { ok: false, state: 'loading', src: {}, inst: [], t: 0, MAX: 16, R: 150, frame: 0, ms: 0, ms0: 0, live: 0, err: [], t0: performance.now(), px: null, pz: 0 };   // v0.28 animal models
 function aHit(part, dir) {
   if (this.state === 'dead') return;
   if (!dir) sfx('hit', _sv.set(this.x, this.y + 0.8, this.z)); this.flinch = 1;
+  if (this.sp) { animalDamage(this, (part === 'head' || part === 'vitals') ? 99 : 1, part, null, dir); return; }   // v0.28 species-aware (hp, packs, fleeing)
   this.hp -= (part === 'head' || part === 'vitals' || this.kind === 'rabbit') ? 99 : 1;
   if (this.hp <= 0) { this.state = 'dead'; this.fall = 0; say((this.kind === 'deer' ? 'DEER' : 'RABBIT') + ' DOWN - HOLD GRIP ON IT TO DRESS'); }
 }
-function animalAt(a, x, z) { Object.assign(a, { x, z, y: groundY(x, z), yaw: Math.random() * 6.3, hp: a.kind === 'deer' ? 2 : 1, state: 'graze', t: Math.random() * 5, head: -2, ph: 0, spd: 0, fall: 0, fx: 0, fz: 0, hop: 0 }); }
-HERDS.forEach(h => { for (let k = 0; k < h.n; k++) { const a = { kind: 'deer', herd: h, hit: aHit }; animalAt(a, h.x + (Math.random() - 0.5) * 20, h.z + (Math.random() - 0.5) * 20); ANIM.push(a); } });
+function animalAt(a, x, z) { Object.assign(a, { x, z, y: groundY(x, z), yaw: Math.random() * 6.3, hp: a.sp ? SPEC[a.sp].hp : a.kind === 'deer' ? 2 : 1, atkT: 0, hitT: 0, los: true, losT: Math.random(), state: 'graze', t: Math.random() * 5, head: -2, ph: 0, spd: 0, fall: 0, fx: 0, fz: 0, hop: 0 }); }
+// v0.28: one stag per herd
+HERDS.forEach(h => { for (let k = 0; k < h.n; k++) { const a = { kind: 'deer', sp: k === 0 ? 'stag' : 'deer', herd: h, hit: aHit }; animalAt(a, h.x + (Math.random() - 0.5) * 20, h.z + (Math.random() - 0.5) * 20); ANIM.push(a); } });
 const RAB_HOME = [];
 for (let k = 0; k < N_RAB; k++) { let x, z; do { const an = Math.random() * 6.3, d = 50 + Math.random() * 220; x = Math.cos(an) * d; z = Math.sin(an) * d - 145; } while (onStrip(x, z, 6));
   const a = { kind: 'rabbit', hit: aHit, hx: x, hz: z, away: 0 }; animalAt(a, x, z); ANIM.push(a); }
-function scare(a, sx, sz) { if (a.state === 'dead' || a.state === 'gone') return; a.state = 'flee'; a.t = a.kind === 'deer' ? 7 + Math.random() * 3 : 3; a.fx = sx; a.fz = sz; }
+function scare(a, sx, sz) { if (a.state === 'dead' || a.state === 'gone') return;
+  if (a.kind === 'wolf') { if (a.state === 'chase') return; if (mode === 'foot' && Math.max(TOD.night, TOD.dusk * 1.5) > 0.3 && Math.hypot(a.x - sx, a.z - sz) < 150) { packChase(a.pack); return; } }   // v0.28: wolves at night come to a shot
+  a.state = 'flee'; a.t = a.kind === 'deer' ? 7 + Math.random() * 3 : a.kind === 'wolf' ? 10 : a.kind === 'farm' ? 4 : 3; a.fx = sx; a.fz = sz; }
 function nearCarcass(p, r) { for (const a of ANIM) if (a.state === 'dead' && Math.hypot(a.x - p.x, a.z - p.z) < r && p.y - a.y < 2) return a; return null; }
 function dressAnimal(a, toPack) {
-  a.state = 'gone'; const n = a.kind === 'deer' ? 3 : 1; let packed = 0;
-  for (let i = 0; i < n; i++) { const x = a.x + (i - 1) * 0.25, z = a.z + 0.3, it = makeItem('RAW MEAT', x, groundY(x, z), z); if (toPack && packAdd(it)) packed++; }
-  say('+' + n + ' RAW MEAT ' + (toPack ? (packed < n ? '(PACK FULL - REST ON GROUND)' : 'IN PACK') : 'ON THE GROUND')); sfx('pick');
+  a.state = 'gone'; if (a.inst) amFree(a); const S = a.sp && SPEC[a.sp], n = S ? S.meat : a.kind === 'deer' ? 3 : 1; let packed = 0;   // v0.28: meat by species, wolves give a pelt
+  const L = Array(n).fill('RAW MEAT'); if (S && S.pelt) L.push('WOLF PELT');
+  L.forEach((nm, i) => { const x = a.x + (i - 1) * 0.25, z = a.z + 0.3, it = makeItem(nm, x, groundY(x, z), z); if (toPack && packAdd(it)) packed++; });
+  say((n ? '+' + n + ' RAW MEAT' : '') + (S && S.pelt ? (n ? ', ' : '') + '+1 WOLF PELT' : '') + ' ' + (toPack ? (packed < L.length ? '(PACK FULL - REST ON GROUND)' : 'IN PACK') : 'ON THE GROUND')); sfx('pick');
 }
 function updateAnimals(dt) {
   const pp = playerPos(), foot = mode === 'foot', V = ac.out.V || 0;
   for (const h of HERDS) h.away = Math.hypot(pp.x - h.x, pp.z - h.z) > 400 ? h.away + dt : 0;
+  if (AM.ok && (AM.t -= dt) <= 0) { AM.t = 0.2; amAssign(pp); }   // v0.28: models to the nearest animals (before the box deer are drawn)
+  const pSpd = foot && AM.px !== null ? Math.hypot(pp.x - AM.px, pp.z - AM.pz) / Math.max(dt, 1e-3) : 0; AM.px = pp.x; AM.pz = pp.z;   // v0.28: sprinting is louder
   let di = 0, ri = 0;
   for (const a of ANIM) {
     const deer = a.kind === 'deer', d = Math.hypot(pp.x - a.x, pp.z - a.z);
+    if (a.sp && d < 130 && a.state !== 'dead' && a.state !== 'gone' && (a.losT -= dt) <= 0) { a.losT = 0.5 + Math.random() * 0.3; a.los = !foot || losClear(a.x, a.y + 0.8 * SPEC[a.sp].h, a.z, pp.x, pp.y, pp.z); }   // v0.28 line of sight
+    if (!deer && a.kind !== 'rabbit') { beastStep(a, dt, pp, foot, V, d, pSpd); continue; }   // v0.28 foxes, wolves, farm stock
     if (deer && (a.state === 'dead' || a.state === 'gone') && a.herd.away > 300) animalAt(a, a.herd.x0 + (Math.random() - 0.5) * 20, a.herd.z0 + (Math.random() - 0.5) * 20);
     if (!deer) { a.away = d > 400 ? a.away + dt : 0; if ((a.state === 'dead' || a.state === 'gone') && a.away > 300) animalAt(a, a.hx, a.hz); }
     let spd = 0;
     if (a.state === 'dead') a.fall = Math.min(1, a.fall + dt * 2.5);
     else if (a.state !== 'gone') {
       const planeNear = !foot && Math.hypot(ac.pos[0] - a.x, ac.pos[2] - a.z) < 80 && V > 5 && ac.pos[1] - a.y < 60;
-      if (a.state !== 'flee' && ((foot && d < (deer ? 30 : 12)) || planeNear)) scare(a, pp.x, pp.z);
+      if (a.state !== 'flee' && ((foot && d < (deer ? seeR(30, pSpd) : 12) && (!deer || d < 12 || a.los)) || planeNear)) scare(a, pp.x, pp.z);   // v0.28: noise + sight
       if (a.state === 'flee') {
         let fy = yawTo(a.x, a.z, 2 * a.x - a.fx, 2 * a.z - a.fz); if (!deer) fy += Math.sin(performance.now() * 0.006 + a.hx) * 0.8;   // rabbits zig-zag
         a.yaw = turn(a.yaw, fy, 4 * dt); spd = deer ? 9 : 6; a.head = 0.25;
@@ -3032,10 +3059,11 @@ function updateAnimals(dt) {
       a.x = clamp(a.x - Math.sin(a.yaw) * spd * dt, -2900, 2900); a.z = clamp(a.z - Math.cos(a.yaw) * spd * dt, -2900, 2900);
       if (deer && d < 400) pushOutBox(a, CABIN_BOX, 0.8);
     }
+    a.spd = spd; if (a.atkT > 0) a.atkT -= dt; if (a.hitT > 0) a.hitT -= dt;
     a.y = groundY(a.x, a.z) + (a.flinch > 0 && a.state !== 'dead' ? 0.18 * Math.sin(a.flinch * Math.PI) : 0); a.ph += spd * dt * (deer ? 3 : 9); if (a.flinch > 0) a.flinch = Math.max(0, a.flinch - dt * 3);
     const gone = a.state === 'gone', dead = a.state === 'dead';
     if (deer) {
-      if (gone) { dBody.setMatrixAt(di, HIDE); dHead.setMatrixAt(di, HIDE); for (let k = 0; k < 4; k++) dLeg.setMatrixAt(di * 4 + k, HIDE); di++; continue; }
+      if (gone || a.inst) { dBody.setMatrixAt(di, HIDE); dHead.setMatrixAt(di, HIDE); for (let k = 0; k < 4; k++) dLeg.setMatrixAt(di * 4 + k, HIDE); di++; continue; }
       baseM(a.x, a.y + (dead ? 0.22 * a.fall : 0), a.z, a.yaw, 0, dead ? a.fall * 1.5 : 0);
       dBody.setMatrixAt(di, cM); limb(dHead, di, 0, 1.1, -0.5, dead ? -0.6 : a.head);
       const sw = spd > 2 ? Math.sin(a.ph) * 0.8 : Math.sin(a.ph) * 0.3 * (spd > 0);
@@ -3049,6 +3077,7 @@ function updateAnimals(dt) {
     }
   }
   dBody.instanceMatrix.needsUpdate = dHead.instanceMatrix.needsUpdate = dLeg.instanceMatrix.needsUpdate = rab.instanceMatrix.needsUpdate = true;
+  amTick(dt, pp);   // v0.28 animated models for the nearest animals
 }
 function updateSpots(dt) {
   const pp = playerPos();
@@ -5349,7 +5378,8 @@ function melFxTick(dt) {
 // ---- knife: slash (fast, any edge) or stab (point first, along the blade); a stab sticks until you pull it out ----
 function knifeContact(g, it, tip, vel, bd) {   // tip world pos, tip velocity, blade direction (world, unit)
   const sp = vel.length(); if (sp < Math.min(KN.SLASH, KN.STAB)) return false;
-  const h = zSphereAt(tip, 0.04); if (!h) return false;
+  const h = zSphereAt(tip, 0.04);
+  if (!h) { const st = vel.dot(bd) / sp > KN.STAB_DOT && sp > KN.STAB; return (st || sp > KN.SLASH) && animalMelee(g, it, tip, vel, sp, st, 0.7); }   // v0.28 animals
   const along = vel.dot(bd) / sp, stab = along > KN.STAB_DOT && sp > KN.STAB, slash = !stab && sp > KN.SLASH; if (!stab && !slash) return false;
   const { z, part } = h; it.cool = 0.35;
   if (stab) {
@@ -5381,7 +5411,7 @@ function knifeUnstick(it, g, pulled) {
   if (pulled) { const p = it.mesh.localToWorld(_mp.copy(KNIFE_TIP)); sfx('unstick', p); melBlood(p, 0, 0, 4); if (g) pulse(g, 0.7, 40, 'pull'); }
 }
 // ---- hatchet / fire axe (towns + POIs): big chopping hits, and it chops sticks off trees ----
-ITEM_LB['HATCHET'] = 2.5;
+ITEM_LB['HATCHET'] = 2.5; ITEM_LB['WOLF PELT'] = 3;
 function hatTick(g, it, dt) {
   const p = it.mesh.localToWorld(_mp.copy(HAT.P)); if (!it.prevTip) it.prevTip = p.clone();
   _mv.subVectors(p, it.prevTip).divideScalar(Math.max(dt, 1e-3)); it.prevTip.copy(p); it.cool = (it.cool || 0) - dt;
@@ -5393,6 +5423,7 @@ function hatContact(g, it, p, vel) {
   if (h) { const dmg = 1.4 * LOC[h.part] * clamp(sp / 3.5, 0.7, 1.8), kd = h.part !== 'head' && sp > 5 ? 3 : 0;
     melHit(h.z, h.part, dmg, vel, { kb: 1.6, stag: 0.8, kd, p, kill: h.part === 'head' ? 'AXE TO THE HEAD - KILL' : 'CHOPPED DOWN' });
     sfx('chop', p); sfx('stab', p); pulse(g, 1, 80, 'axe'); it.cool = 0.45; return true; }
+  if (animalMelee(g, it, p, vel, sp, false, 1.4)) { sfx('chop', p); it.cool = 0.45; return true; }   // v0.28 animals
   const t = treeAt(p, 0.06);
   if (t) { it.cool = 0.4; it.chops = it.chopT === t ? (it.chops || 0) + 1 : 1; it.chopT = t; sfx('chop', p); pulse(g, 0.8, 50, 'chop');
     melFx(p, -vel.x / sp, -vel.z / sp, 6, 0xc8a46a, 1.2);
@@ -5515,6 +5546,217 @@ function loadItemModels(url = 'assets/items.glb', tries = 3) {   // started afte
   .catch(e => { if (--tries > 0) return setTimeout(() => loadItemModels(url, tries), 1000); GLB.state = 'fail'; GLB.err = String(e); console.warn('GLTFLoader unavailable - keeping the hand-made models'); });
 }
 setTimeout(() => loadItemModels(), 300);
+// ================= v0.28 animals: Quaternius Ultimate Animated Animals (CC0), assets/animals/*.glb =================
+// Deer + stags (the old herds), foxes, wolf packs and farm stock as skinned, animated models (AnimationMixer, cross-faded clips, playback speed
+// matched to ground speed). Only the nearest AM.MAX animals within AM.R metres get a model (SkeletonUtils clones: shared geometry, the one shared
+// vertex-colour material, no shadows); far ones animate at a third of the rate; past AM.R deer fall back to the old instanced boxes and the rest
+// aren't drawn. If the files can't load, the game keeps its old box deer and simply has no foxes, wolves or farm animals.
+const W_BITE = 7, W_REACH = 1.6;
+const AM_KEYS = [['idle', ['Idle']], ['eat', ['Eating']], ['walk', ['Walk']], ['run', ['Gallop']], ['atk', ['Attack', 'Attack_Headbutt']], ['die', ['Death']], ['hit', ['Idle_HitReact1']]];
+const AM_CAP = { deer: 10, stag: 4, fox: 4, wolf: 8, cow: 4, bull: 2, horse: 4, donkey: 2 };
+function amMake(sp) {
+  const S = AM.src[sp], m = AM.SU.clone(S.scene), g = new THREE.Group();
+  m.scale.setScalar(S.k); m.rotation.y = Math.PI; m.position.y = S.y0; g.add(m); scene.add(g);
+  m.traverse(o => { if (o.isMesh) { o.material = ITEM_VM; o.castShadow = o.receiveShadow = false; } });
+  const mx = new THREE.AnimationMixer(m), act = {};
+  for (const [key, names] of AM_KEYS) { const c = S.clips.find(c => names.includes(c.name)); if (c) act[key] = mx.clipAction(c); }
+  if (act.die) { act.die.setLoop(THREE.LoopOnce, 1); act.die.clampWhenFinished = true; }
+  if (act.hit) { act.hit.setLoop(THREE.LoopOnce, 1); act.hit.clampWhenFinished = true; }
+  const bn = {}; m.traverse(o => { if (o.isBone && BONE_N.includes(o.name)) bn[o.name] = o; });
+  const I = { sp, g, m, mx, act, bn, cur: null, key: '', a: null, acc: 0, id: AM.inst.length }; S.pool.push(I); AM.inst.push(I); return I;
+}
+function amPlay(I, key, ts) {
+  const n = I.act[key] || I.act.idle; if (I.key === key) { n.setEffectiveTimeScale(ts); return; }
+  n.reset(); n.setEffectiveTimeScale(ts); n.setEffectiveWeight(1); n.play();
+  if (I.cur && I.cur !== n) I.cur.crossFadeTo(n, key === 'die' || key === 'atk' ? 0.15 : 0.3, false);
+  I.cur = n; I.key = key;
+}
+function amFree(a) { const I = a.inst; if (!I) return; I.a = null; a.inst = null; I.g.visible = false; if (I.cur) I.cur.stop(); I.cur = null; I.key = ''; }
+function amAssign(pp) {
+  const C = [];
+  for (const a of ANIM) { if (!a.sp) continue;
+    if (a.state === 'gone' || !AM.src[a.sp]) { if (a.inst) amFree(a); continue; }
+    a.camD = Math.hypot(a.x - pp.x, a.z - pp.z); if (a.camD < AM.R) C.push(a); else if (a.inst) amFree(a); }
+  C.sort((p, q) => p.camD - q.camD);
+  const want = [], left = { ...AM_CAP };   // the nearest AM.MAX, skipping a species whose pool is used up
+  for (const a of C) if (want.length < AM.MAX && left[a.sp] > 0) { left[a.sp]--; want.push(a); }
+  for (const a of C) if (a.inst && !want.includes(a)) amFree(a);
+  for (const a of want) { if (a.inst) continue;
+    const S = AM.src[a.sp]; let I = S.pool.find(q => !q.a); if (!I && S.pool.length < AM_CAP[a.sp]) I = amMake(a.sp); if (!I) continue;
+    I.a = a; a.inst = I; I.g.visible = true; I.acc = 0;
+    if (a.state === 'dead') { amPlay(I, 'die', 1); I.act.die.time = I.act.die.getClip().duration; I.mx.update(0); } }
+}
+function amTick(dt, pp) {
+  if (!AM.ok) return; const t0 = performance.now(); AM.frame++;
+  let n = 0;
+  for (const I of AM.inst) { const a = I.a; if (!a) continue; n++;
+    I.g.position.set(a.x, a.y, a.z); I.g.rotation.y = a.yaw;
+    const S = SPEC[a.sp]; let key = 'idle', ts = 1;
+    if (a.state === 'dead') key = 'die';
+    else if (a.atkT > 0) key = 'atk';
+    else if (a.hitT > 0 && I.act.hit) key = 'hit';
+    else if (a.spd > S.walk * 1.8) { key = 'run'; ts = clamp(a.spd / S.rRef, 0.6, 1.8); }
+    else if (a.spd > 0.05) { key = 'walk'; ts = clamp(a.spd / S.wRef, 0.4, 2); }
+    else if (a.head < -1) key = 'eat';
+    amPlay(I, key, ts);
+    I.acc += dt; if (a.camD < 60 || (AM.frame + I.id) % 3 === 0) { I.mx.update(I.acc); I.acc = 0; }   // far: a third of the update rate
+  }
+  AM.live = n; AM.ms = AM.ms * 0.95 + (performance.now() - t0) * 0.05;
+}
+// ---- hit spheres per species ([x, y, z, r, part], nose toward -z); deer-shaped species scale the deer set, canines have their own ----
+const CANINE = [[0, 0.72, -0.62, 0.12, 'head'], [0, 0.56, -0.3, 0.15, 'vitals'], [0, 0.55, 0.08, 0.24, 'body']];
+const CANINE_G = [[0, 0.3, -0.7, 0.12, 'head'], [0, 0.56, -0.3, 0.15, 'vitals'], [0, 0.55, 0.08, 0.24, 'body']];
+const sphScale = (L, s, sl = s, sr = s) => L.map(([x, y, z, r, p]) => [x, y * s, z * sl, r * (p === 'body' ? sr : s), p]);
+const SPH = {};
+for (const sp in SPEC) { const S = SPEC[sp];
+  if (sp === 'wolf' || sp === 'fox') { const s = S.h / 0.95; SPH[sp] = { u: sphScale(CANINE, s), g: sphScale(CANINE_G, s) }; }
+  else { const s = S.h / 1.8, big = S.big || 1; SPH[sp] = { u: sphScale(DEERSPH, s, s * big, s * big), g: sphScale(DEERSPH_G, s, s * big, s * big) }; } }
+const sphOf = a => !a.sp ? RABSPH : a.inst ? sphBones(a, a.inst) : (a.head < -1 ? SPH[a.sp].g : SPH[a.sp].u);
+// with a model the hit spheres ride the animated skeleton: head (pushed along the skull), vitals (chest, a little low), body (mid-back and haunch)
+const BONE_N = ['Head', 'Torso3', 'Torso2', 'Back'], _bv = new THREE.Vector3(), _bd = new THREE.Vector3();
+function sphParts(S, at, head) {   // at(name, v) -> world position of a bone; head(v) -> skull direction
+  const out = [];
+  at('Head', _bv); head(_bd); out.push([_bv.x + _bd.x * S.rh * 0.9, _bv.y + _bd.y * S.rh * 0.9, _bv.z + _bd.z * S.rh * 0.9, S.rh, 'head']);
+  at('Torso3', _bv); out.push([_bv.x, _bv.y - S.rv * 0.3, _bv.z, S.rv, 'vitals']);
+  at('Torso2', _bv); out.push([_bv.x, _bv.y, _bv.z, S.rb, 'body']); at('Back', _bv); out.push([_bv.x, _bv.y, _bv.z, S.rb, 'body']);
+  return out;
+}
+function sphBones(a, I) {
+  if (I.sf === AM.frame && I.sx === a.x && I.sz === a.z) return I.sph;   // once per frame (bullets / melee test many times)
+  const cy = Math.cos(a.yaw), sy = Math.sin(a.yaw), B = I.bn; I.sf = AM.frame; I.sx = a.x; I.sz = a.z; I.g.updateMatrixWorld(true);
+  return I.sph = sphParts(SPEC[a.sp], (n, v) => B[n].getWorldPosition(v), v => v.setFromMatrixColumn(B.Head.matrixWorld, 1).normalize())
+    .map(([x, y, z, r, p]) => { const dx = x - a.x, dz = z - a.z; return [dx * cy - dz * sy, y - a.y, dx * sy + dz * cy, r, p]; });   // world -> animal frame
+}
+function sphStatic(sp, S0) {   // bind-pose spheres (for animals too far away to have a model); grazing drops the head to the ground in front
+  const S = SPEC[sp], bn = {}; S0.scene.traverse(o => { if (o.isBone) bn[o.name] = o; }); if (BONE_N.some(n => !bn[n])) return;
+  const flip = v => v.set(-v.x, v.y, -v.z);   // the model faces +z, the game -z
+  const u = sphParts(S, (n, v) => flip(v.setFromMatrixPosition(bn[n].matrixWorld).multiplyScalar(S0.k)).setY(v.y + S0.y0), v => flip(v.setFromMatrixColumn(bn.Head.matrixWorld, 1).normalize()));
+  const g = u.map(q => q[4] === 'head' ? [0, q[3] * 1.2, q[2] * 0.8, q[3], 'head'] : q);
+  SPH[sp] = { u, g };
+}
+function animalSphereAt(p, pad) {
+  let best = null, bd = 1e9;
+  for (const a of ANIM) { if (!a.sp || a.state === 'dead' || a.state === 'gone' || Math.abs(a.x - p.x) > 3 || Math.abs(a.z - p.z) > 3) continue;
+    const cy = Math.cos(a.yaw), sy = Math.sin(a.yaw);
+    for (const [lx, ly, lz, r, part] of sphOf(a)) { const wx = a.x + lx * cy + lz * sy, wy = a.y + ly, wz = a.z - lx * sy + lz * cy, d = Math.hypot(wx - p.x, wy - p.y, wz - p.z) - r;
+      if (d < pad && d < bd) { bd = d; best = { a, part }; } } }
+  return best;
+}
+// one hit on an animal (bullet, knife or hatchet): damage, flinch, and either it bolts, the pack comes for you, or it goes down
+function animalDamage(a, dmg, part, p, dir) {
+  if (a.state === 'dead' || a.state === 'gone') return;
+  a.hp -= dmg; a.flinch = 1; a.hitT = 0.35;
+  if (p) melBlood(p, dir ? dir.x : 0, dir ? dir.z : 0, part === 'head' ? 8 : 5);
+  if (a.hp <= 0) {
+    a.state = 'dead'; a.fall = 0; a.atkT = 0; a.spd = 0;
+    say((a.sp ? SPEC[a.sp].name : a.kind === 'deer' ? 'DEER' : 'RABBIT') + ' DOWN - HOLD GRIP ON IT TO DRESS');
+    if (a.kind === 'wolf') wolfMorale(a.pack);
+  } else if (a.kind === 'wolf') { if (mode === 'foot') packChase(a.pack); }
+  else { const pp = playerPos(); scare(a, pp.x, pp.z); }
+}
+function animalMelee(g, it, p, vel, sp, stab, base) {   // knife / hatchet contact with an animal (no zombie under the blade)
+  const h = animalSphereAt(p, 0.05); if (!h) return false;
+  const vital = h.part === 'head' || h.part === 'vitals', dmg = stab ? (vital ? 99 : 1.5) : base * clamp(sp / 3, 0.7, 2) * (vital ? 2 : 1);
+  animalDamage(h.a, dmg, h.part, p, vel); sfx(stab ? 'stab' : 'slash', p); pulse(g, 1, stab ? 70 : 50, 'animal'); it.cool = 0.4; return true;
+}
+// ---- line of sight (terrain only): 6 samples along the line ----
+function losClear(ax, ay, az, bx, by, bz) {
+  for (let i = 1; i < 6; i++) { const t = i / 6, x = ax + (bx - ax) * t, z = az + (bz - az) * t; if (groundY(x, z) > ay + (by - ay) * t - 0.3) return false; }
+  return true;
+}
+// ---- foxes and farm stock: graze around home, bolt from people (sprinting = heard further, crouching = closer), the plane and gunshots ----
+function beastAt(a, x, z) {
+  Object.assign(a, { x, z, y: groundY(x, z), yaw: Math.random() * 6.3, hp: SPEC[a.sp].hp, state: a.kind === 'wolf' ? 'rest' : 'graze', t: Math.random() * 5, head: -2,
+    spd: 0, fall: 0, fx: 0, fz: 0, atkT: 0, hitT: 0, bite: 0, flinch: 0, los: true, losT: Math.random(), away: 0 });
+}
+function beastStep(a, dt, pp, foot, V, d, pSpd) {
+  const S = SPEC[a.sp];
+  a.away = d > 400 ? a.away + dt : 0;
+  if ((a.state === 'dead' || a.state === 'gone') && a.away > 300) beastAt(a, a.hx, a.hz);
+  if (a.state === 'dead') { a.fall = Math.min(1, a.fall + dt * 2.5); a.spd = 0; return; }
+  if (a.state === 'gone') return;
+  if (a.atkT > 0) a.atkT -= dt; if (a.hitT > 0) a.hitT -= dt; if (a.flinch > 0) a.flinch = Math.max(0, a.flinch - dt * 3);
+  const planeNear = !foot && Math.hypot(ac.pos[0] - a.x, ac.pos[2] - a.z) < 90 && V > 5 && ac.pos[1] - a.y < 70;
+  let spd = 0;
+  if (a.kind === 'wolf') spd = wolfStep(a, dt, pp, foot, d, planeNear, pSpd);
+  else {
+    if (a.state !== 'flee' && ((foot && d < seeR(S.see, pSpd) && (d < 8 || a.los)) || planeNear)) scare(a, pp.x, pp.z);
+    if (a.state === 'flee') {
+      let fy = yawTo(a.x, a.z, 2 * a.x - a.fx, 2 * a.z - a.fz); if (a.sp === 'fox') fy += Math.sin(performance.now() * 0.004 + a.hx) * 0.5;
+      a.yaw = turn(a.yaw, fy, 4 * dt); spd = S.run; a.head = 0.25;
+      if ((a.t -= dt) <= 0) { a.state = 'graze'; a.t = 3; }
+    } else spd = grazeStep(a, dt, a.hx, a.hz, S.home, S.walk);
+  }
+  a.x = clamp(a.x - Math.sin(a.yaw) * spd * dt, -2900, 2900); a.z = clamp(a.z - Math.cos(a.yaw) * spd * dt, -2900, 2900);
+  if (d < 400) pushOutBox(a, CABIN_BOX, 0.4 + S.h * 0.3);
+  a.y = groundY(a.x, a.z); a.spd = spd;
+}
+const seeR = (r, pSpd) => r * (pSpd > 3 ? 2 : 1) * (1 - 0.5 * crouchK());   // sprinting is heard twice as far; crouching halves it
+function grazeStep(a, dt, cx, cz, R, walk) {   // drift slowly round home, head mostly down, look up now and then
+  a.t -= dt; if (a.t <= 0) { a.t = 2 + Math.random() * 6; a.look = Math.random() < 0.35; a.yaw += (Math.random() - 0.5) * 2; a.walk = Math.random() < 0.4; }
+  if (Math.hypot(a.x - cx, a.z - cz) > R) a.yaw = turn(a.yaw, yawTo(a.x, a.z, cx, cz), dt * 1.5);
+  a.head += ((a.look ? 0 : -2.0) - a.head) * Math.min(1, dt * 3);
+  return a.walk ? walk : 0;
+}
+// ---- wolves: packs of 2-4 round a den in the woods. By day they lie up and only come for you near the den; at dusk / night they roam,
+//      pick you up at ~120 m (further if you sprint, closer if you crouch), flank and bite. Kill half the pack and the rest run. ----
+function packChase(pk) { for (const w of pk.list) if (w.state !== 'dead' && w.state !== 'gone' && w.state !== 'chase') { w.state = 'chase'; w.t = 0; } if (!pk.howl) { pk.howl = 1; say('WOLVES!'); } }
+function wolfMorale(pk) {
+  const alive = pk.list.filter(w => w.state !== 'dead' && w.state !== 'gone');
+  if (alive.length && alive.length <= pk.list.length / 2) { const pp = playerPos(); for (const w of alive) { w.state = 'flee'; w.t = 15; w.fx = pp.x; w.fz = pp.z; } say('THE PACK BREAKS AND RUNS'); }
+}
+function wolfStep(a, dt, pp, foot, d, planeNear, pSpd) {
+  const S = SPEC.wolf, pk = a.pack, nightK = Math.max(TOD.night, TOD.dusk * 1.5);
+  if (a.state === 'flee') { a.yaw = turn(a.yaw, yawTo(a.x, a.z, 2 * a.x - a.fx, 2 * a.z - a.fz), 4 * dt); a.head = 0.25;
+    if ((a.t -= dt) <= 0) { a.state = 'rest'; pk.howl = 0; } return S.run * 0.9; }
+  if (a.state !== 'chase') {
+    if (planeNear) { scare(a, ac.pos[0], ac.pos[2]); return S.run; }
+    const sense = nightK > 0.3 ? 120 : 28;
+    if (foot && d < seeR(sense, pSpd) * (pSpd > 3 ? 0.65 : 1) && (d < 15 || a.los)) packChase(pk);
+  }
+  if (a.state === 'chase') {
+    if (!foot || d > 220 || P.hp <= 0) { a.state = 'rest'; pk.howl = 0; return 0; }
+    const i = pk.list.indexOf(a), ang = (i - (pk.list.length - 1) / 2) * 1.1 + yawTo(pp.x, pp.z, a.x, a.z);
+    let tx = pp.x, tz = pp.z; if (d > 5) { tx -= Math.sin(ang) * 3; tz -= Math.cos(ang) * 3; }   // fan out, then close in
+    a.yaw = turn(a.yaw, yawTo(a.x, a.z, tx, tz), (d < 4 ? 8 : 4) * dt); a.head = 0;
+    if (a.bite > 0 && (a.bite -= dt) <= 0 && d < W_REACH + 0.5 && foot) { hurt(W_BITE); sfx('hit', _sv.set(a.x, a.y + 0.6, a.z)); HX.both(0.9, 90, 'bite'); say('WOLF BITE'); }
+    if (d < W_REACH) { if (a.atkT <= 0) { a.atkT = 1.3; a.bite = 0.45; } return 0; }
+    return a.atkT > 0 ? 0 : d < 5 ? 3.5 : S.run;
+  }
+  // rest by day / roam at dusk and night, round the den
+  if (nightK > 0.3) { a.state = 'roam'; return grazeStep(a, dt, pk.x, pk.z, 60, S.walk); }
+  a.state = 'rest'; a.walk = false; grazeStep(a, dt, pk.x, pk.z, 12, 0); return Math.hypot(a.x - pk.x, a.z - pk.z) > 14 ? S.walk : 0;
+}
+// ---- spawning (after the models load): foxes in the open country, wolf dens in the woods, stock on farms and the ranch ----
+const DENS = [], BEAST_SITES = [];
+function beastSpawn() {
+  const add = (kind, sp, x, z, extra) => { const a = Object.assign({ kind, sp, hit: aHit, hx: x, hz: z }, extra || {}); beastAt(a, x, z); ANIM.push(a); return a; };
+  if (AM.src.fox) for (let k = 0; k < 6; k++) { let x, z, n = 0; do { const an = Math.random() * 6.3, r = 180 + Math.random() * 900; x = 24 + Math.cos(an) * r; z = -21 + Math.sin(an) * r; } while ((onStrip(x, z, 30) || inTown(x, z, 40)) && ++n < 50);
+    add('fox', 'fox', x, z); }
+  if (AM.src.wolf) for (let k = 0, tries = 0; DENS.length < 4 && tries < 400; tries++) { const t = TREES[(Math.random() * TREES.length) | 0]; if (!t) break; const dh = Math.hypot(t[0] - 24, t[2] + 21);
+    if (dh < 450 || dh > 1700 || inTown(t[0], t[2], 120) || DENS.some(q => Math.hypot(q.x - t[0], q.z - t[2]) < 350)) continue;
+    let near = 0; for (const u of TREES) if (Math.abs(u[0] - t[0]) < 35 && Math.abs(u[2] - t[2]) < 35 && ++near >= 6) break; if (near < 6) continue;
+    const pk = { x: t[0] + 4, z: t[2] + 4, list: [], howl: 0 }, n = 2 + (Math.random() * 3 | 0); DENS.push(pk);
+    for (let i = 0; i < n; i++) pk.list.push(add('wolf', 'wolf', pk.x + (Math.random() - 0.5) * 10, pk.z + (Math.random() - 0.5) * 10, { pack: pk })); }
+  const ranch = POIS.find(s => s.name === 'RANCH'), farms = [[FARMS[0], ['cow', 'cow', 'bull']], [FARMS[2], ['horse', 'horse', 'donkey']], [FARMS[3], ['cow', 'cow', 'horse']]];
+  if (ranch) farms.push([[ranch.x, ranch.z], ['horse', 'cow', 'donkey']]);
+  for (const [[fx, fz], list] of farms) { const an = Math.random() * 6.3, cx = fx + Math.cos(an) * 26, cz = fz + Math.sin(an) * 26; BEAST_SITES.push([cx, cz]);
+    for (const sp of list) if (AM.src[sp]) add('farm', sp, cx + (Math.random() - 0.5) * 8, cz + (Math.random() - 0.5) * 8); }
+  for (const a of ANIM) if (a.kind === 'deer' && a.sp === 'stag' && !AM.src.stag) a.sp = 'deer';
+}
+function loadAnimals(tries = 3) {
+  Promise.all([import('three/addons/loaders/GLTFLoader.js'), import('three/addons/utils/SkeletonUtils.js')]).then(([{ GLTFLoader }, SU]) => {
+    AM.SU = SU; const L = new GLTFLoader(), list = Object.keys(SPEC); let left = list.length;
+    const done = () => { if (--left) return; AM.ms0 = performance.now() - AM.t0;
+      if (!AM.src.deer) { for (const a of ANIM) if (a.kind === 'deer') a.sp = null; }   // no deer model: keep the old box deer for all of them
+      AM.ok = Object.keys(AM.src).length > 0; AM.state = AM.ok ? 'ok' : 'fail'; if (AM.ok) beastSpawn(); };
+    for (const sp of list) L.load('assets/animals/' + SPEC[sp].file + '.glb', g => {
+      try { const root = g.scene; root.updateMatrixWorld(true); const b = new THREE.Box3().setFromObject(root, true), k = SPEC[sp].h / (b.max.y - b.min.y);
+        AM.src[sp] = { scene: root, clips: g.animations, k, y0: -b.min.y * k, L: (b.max.z - b.min.z) * k, pool: [] }; sphStatic(sp, AM.src[sp]); }
+      catch (e) { AM.err.push(sp + ': ' + e); } done(); }, undefined, e => { AM.err.push(sp + ': ' + (e && e.message || e)); done(); });
+  }).catch(e => { if (--tries > 0) return setTimeout(() => loadAnimals(tries), 1000); AM.state = 'fail'; AM.err.push(String(e)); console.warn('animal models unavailable - keeping the box deer'); });
+}
+setTimeout(() => loadAnimals(), 600);
 renderer.setAnimationLoop(() => {
   const t0 = performance.now(), rawDt = clock.getDelta(), dt = Math.min(rawDt, 0.05);
   const xr = renderer.xr.isPresenting;
