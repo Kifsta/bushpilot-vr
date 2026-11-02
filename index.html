@@ -20,7 +20,7 @@
 </script>
 </head>
 <body>
-<div id="info">BUSH PILOT VR v0.24 - PA-18 Super Cub prototype (v0.24: haptics everywhere - engine, buffet, touchdowns, rifle, items; v0.23: glove hands - flick switches, twist the mags key, pull knobs with your fingers; v0.22: three abandoned towns to loot - Cutler, Dry Fork (with its own grass strip) and Hollis - full of zombies, more at night; v0.21.1: field guide moved to the right side pocket of the pack; v0.21: crafting through a physical field guide - pack pocket / bench, press B or K on foot; v0.20: gear + tyre physics, bungee legs, soft tundras, steerable tail wheel, brakes, surface grip and bumps; v0.19: engine start/shutdown, opening windows, checklist, map holder; v0.18.2: map clip on the cockpit wall; v0.18.1: side windows open from inside, sill z-fighting fixed; v0.18: Cub rebuilt to real PA-18 dimensions; v0.17.1: cabin windows reshaped; v0.17: low-poly item models; v0.16: crafting, campfires, traps, spoilage, stamina; v0.15: 7 new places + lodge strip, forests; v0.14: rivers, lakes, thirst + canteen; v0.13: day / night, dusk deadline, lights, sleep; v0.12: natural gunshot, ambient sound, clouds; v0.11: Cub + rifle proportions from reference; v0.10.1: smoother stock; v0.10: performance pass, crouch / jump, more zombies, force grab)
+<div id="info">BUSH PILOT VR v0.24.1 - PA-18 Super Cub prototype (v0.24.1: natural thumb + relaxed hands, thumb clear of the sights, grip acts on the yellow-ringed control; v0.24: haptics everywhere - engine, buffet, touchdowns, rifle, items; v0.23: glove hands - flick switches, twist the mags key, pull knobs with your fingers; v0.22: three abandoned towns to loot - Cutler, Dry Fork (with its own grass strip) and Hollis - full of zombies, more at night; v0.21.1: field guide moved to the right side pocket of the pack; v0.21: crafting through a physical field guide - pack pocket / bench, press B or K on foot; v0.20: gear + tyre physics, bungee legs, soft tundras, steerable tail wheel, brakes, surface grip and bumps; v0.19: engine start/shutdown, opening windows, checklist, map holder; v0.18.2: map clip on the cockpit wall; v0.18.1: side windows open from inside, sill z-fighting fixed; v0.18: Cub rebuilt to real PA-18 dimensions; v0.17.1: cabin windows reshaped; v0.17: low-poly item models; v0.16: crafting, campfires, traps, spoilage, stamina; v0.15: 7 new places + lodge strip, forests; v0.14: rivers, lakes, thirst + canteen; v0.13: day / night, dusk deadline, lights, sleep; v0.12: natural gunshot, ambient sound, clouds; v0.11: Cub + rifle proportions from reference; v0.10.1: smoother stock; v0.10: performance pass, crouch / jump, more zombies, force grab)
 RIFLE (VR): A/X on the rifle hand = work the lever (tap = full stroke, hold = keep it open) or flick the rifle down-forward, or grab the lever loop with your other hand and work it yourself;
   lever open = no shot; a short stroke won't feed. Load: tip of a round into the gate (right side) - it snaps in; keep grip held and go back to the pouch for the next one.
   Hold the right stick IN (click) + push it up/down while holding the rifle (right hand) = grip angle. Let go of the wrist with a hand on the forend = it stays in that hand.
@@ -4663,8 +4663,10 @@ function ckHand(g, squeeze, id) {   // returns true while this hand is busy with
     CKH.delete(g); return false;
   }
   if (!h && edge) {
-    g.getWorldPosition(_ch); let best = null, bd = 1e9;
-    for (const [k, p, r] of ckTargets()) { const d = p.distanceTo(_ch); if (d < r && d < bd) { bd = d; best = k; } }
+    g.getWorldPosition(_ch); let best = null, bd = 1e9; const rk = HANDS.hovH[grips.indexOf(g)];
+    if (rk === 'stick' || rk === 'thr' || rk === 'flap') return false;   // v0.24.1: grip acts on whatever the yellow ring shows
+    if (rk) best = rk;
+    else for (const [k, p, r] of ckTargets()) { const d = p.distanceTo(_ch); if (d < r && d < bd) { bd = d; best = k; } }   // no ring: hand on it
     if (!best) return false;
     h = { k: best }; CKH.set(g, h); tick(g); delete WIN.tgt[best];
     if (best === 'start') { CKX.grabStart = true; ENG.starterVR = true; } else if (best in SW || best === 'ldg') ckGrabStart(g, h);
@@ -4700,11 +4702,16 @@ const HAND_TILT = 0.6, HN = 17, R_TIP = 0.008;            // 17 boxes per hand: 
 const HF = [[-0.034, [0.044, 0.026, 0.021], 0.0185, -0.07], [-0.012, [0.047, 0.028, 0.022], 0.019, -0.02],
             [0.010, [0.044, 0.027, 0.021], 0.018, 0.03], [0.030, [0.035, 0.021, 0.019], 0.016, 0.08]];   // knuckle z, phalanx lengths, width, splay
 const FIST = [1.6, 1.0, 0.9];                              // joint bends (rad) of a full fist around a ~3 cm grip
-const TH_REST = [[-0.35, -0.25, -0.90], [-0.80, -0.10, -0.59], [-0.95, 0.15, -0.27]], TH_UP = [[-0.25, -0.15, -0.96], [-0.10, 0.10, -0.99], [0, 0.2, -0.98]], TH_L = [0.040, 0.030, 0.025];
+// v0.24.1 thumb: metacarpal direction + a 2-bone reach to a tip target (hand space, right hand). REST = on the stick face beside the
+// index, UP = lifted a little off it, WRAP = folded low over the curled index (fists, rifle wrist / forend), PINCH = pad on the index tip.
+const TH_L = [0.044, 0.031, 0.025], TH_B = new THREE.Vector3(0.022, 0.040, -0.034), TH_HINT = new THREE.Vector3(0.3, 0.1, -1).normalize();
+const TH_P = { rest: [[-0.35, -0.78, -0.52], [-0.006, -0.042, -0.049]], up: [[-0.22, -0.74, -0.64], [0.010, -0.034, -0.064]],
+  wrap: [[-0.55, -0.62, -0.55], [-0.024, -0.020, -0.046]] };
+const _tA = new THREE.Vector3(), _tT = new THREE.Vector3(), _tU = new THREE.Vector3(), _tW = new THREE.Vector3(), _tP = new THREE.Vector3();
 const HOFF = new THREE.Matrix4().makeRotationX(HAND_TILT);
 const HJ = ['thumb-metacarpal', 'thumb-phalanx-proximal', 'thumb-phalanx-distal', 'thumb-tip'].concat(...['index', 'middle', 'ring', 'pinky'].map(f =>
   [f + '-finger-phalanx-proximal', f + '-finger-phalanx-intermediate', f + '-finger-phalanx-distal', f + '-finger-tip']));
-const HANDS = { force: false, st: [], mesh: null, ring: null, hov: null, t: 0, xr: [0, 1].map(i => { const h = renderer.xr.getHand(i); xrOffset.add(h); return h; }) };
+const HANDS = { force: false, st: [], mesh: null, ring: null, rings: [], hov: null, hovH: [null, null], t: 0, xr: [0, 1].map(i => { const h = renderer.xr.getHand(i); xrOffset.add(h); return h; }) };
 const CKX = { vis: {}, haps: 0, grabStart: false, pokeStart: [false, false], pk: {}, lock: {} };
 {
   const im = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshLambertMaterial({ color: 0xffffff, flatShading: true }), HN * 2);
@@ -4713,9 +4720,10 @@ const CKX = { vis: {}, haps: 0, grabStart: false, pokeStart: [false, false], pk:
   scene.add(im); HANDS.mesh = im;
   const ring = new THREE.Mesh(new THREE.TorusGeometry(1, 0.1, 4, 20), new THREE.MeshBasicMaterial({ color: 0xffd84a, transparent: true, opacity: 0.85, depthWrite: false }));
   ring.visible = false; ring.renderOrder = 3; plane.add(ring); HANDS.ring = ring;
-  for (let i = 0; i < 2; i++) HANDS.st.push({ c: [0.2, 0.2, 0.2, 0.2], th: 1, tc: [0.2, 0.2, 0.2, 0.2], tth: 1, vis: false, W: new THREE.Matrix4(), tip: new THREE.Vector3(),
+  const ring2 = ring.clone(); plane.add(ring2); HANDS.rings = [ring, ring2];   // v0.24.1: one ring per hand
+  for (let i = 0; i < 2; i++) HANDS.st.push({ c: [0.2, 0.2, 0.2, 0.2], th: 1, tw: 0, tp: 0, ttw: 0, ttp: 0, tc: [0.2, 0.2, 0.2, 0.2], tth: 1, vis: false, W: new THREE.Matrix4(), tip: new THREE.Vector3(),
     prevL: new THREE.Vector3(), hasPrev: false, mode: 'free', cap: Array.from({ length: HN }, () => ({ s: new THREE.Vector3(), e: new THREE.Vector3(), r: 0 })),
-    M: Array.from({ length: HN }, () => new THREE.Matrix4()), tipH: new THREE.Vector3(), tracked: false });
+    M: Array.from({ length: HN }, () => new THREE.Matrix4()), tipH: new THREE.Vector3(), tracked: false, hide: 0 });
 }
 const _hx = new THREE.Vector3(), _hy = new THREE.Vector3(), _hz = new THREE.Vector3(), _hs = new THREE.Vector3(), _hd = new THREE.Vector3(), _hm = new THREE.Matrix4(),
       _hm2 = new THREE.Matrix4(), _hv = new THREE.Vector3(), _hq = new THREE.Quaternion(), _hzX = new THREE.Vector3(1, 0, 0), _hzY = new THREE.Vector3(0, 1, 0), _hzZ = new THREE.Vector3(0, 0, 1);
@@ -4730,16 +4738,24 @@ function buildHand(st, sx) {                      // posed glove in hand space f
   for (let f = 0; f < 4; f++) {
     const [kz, L, w, spl] = HF[f], c = st.c[f]; let a = 0.05; _hs.set(sx * 0.033, -0.03, kz);
     for (let j = 0; j < 3; j++) {
-      a += FIST[j] * c; _hd.set(-sx * Math.sin(a), -Math.cos(a), spl * (1 - c)).normalize();
+      a += FIST[j] * c; _hd.set(-sx * Math.sin(a), -Math.cos(a), 0.45 * spl * (1 - c)).normalize();
       hBone(st, 2 + f * 3 + j, _hs, _hd, L[j], 0.017 - j * 0.0015, w - j * 0.001, _hzZ); _hs.addScaledVector(_hd, L[j]);
     }
     if (f === 0) st.tipH.copy(_hs);
   }
-  _hs.set(sx * 0.030, 0.030, -0.032);
-  for (let j = 0; j < 3; j++) {
-    const a = TH_REST[j], b = TH_UP[j], u = st.th; _hd.set(sx * (a[0] + (b[0] - a[0]) * u), a[1] + (b[1] - a[1]) * u, a[2] + (b[2] - a[2]) * u).normalize();
-    hBone(st, 14 + j, _hs, _hd, TH_L[j], 0.019 - j * 0.0015, 0.02 - j * 0.0015, _hzY); _hs.addScaledVector(_hd, TH_L[j]);
-  }
+  // thumb: blend rest -> up (st.th), -> wrap (st.tw), -> pinch (st.tp, tip target = the index pad)
+  const R0 = TH_P.rest, U0 = TH_P.up, W0 = TH_P.wrap, u = st.th, w = st.tw || 0, pn = st.tp || 0;
+  const mix = (k, i) => { const a = R0[k][i] + (U0[k][i] - R0[k][i]) * u; return a + (W0[k][i] - a) * w; };
+  _tA.set(mix(0, 0), mix(0, 1), mix(0, 2)); _tT.set(mix(1, 0), mix(1, 1), mix(1, 2));
+  if (pn > 0) { _tP.set(st.tipH.x * sx - 0.004, st.tipH.y + 0.006, st.tipH.z - 0.012); _tT.lerp(_tP, pn); _tA.lerp(_tU.set(-0.55, -0.6, -0.58), pn); }
+  _tA.x *= sx; _tA.normalize(); _tT.x *= sx;
+  _hs.set(sx * TH_B.x, TH_B.y, TH_B.z); hBone(st, 14, _hs, _tA, TH_L[0], 0.019, 0.02, _hzY); _hs.addScaledVector(_tA, TH_L[0]);
+  _tU.subVectors(_tT, _hs); const D = clamp(_tU.length(), 0.012, TH_L[1] + TH_L[2] - 1e-4); _tU.normalize();      // 2-bone reach, knuckle bulging out
+  _tW.set(TH_HINT.x * sx, TH_HINT.y, TH_HINT.z).addScaledVector(_tU, -_tW.set(TH_HINT.x * sx, TH_HINT.y, TH_HINT.z).dot(_tU)); if (_tW.lengthSq() < 1e-8) _tW.set(0, 0, -1); _tW.normalize();
+  const ca = clamp((TH_L[1] * TH_L[1] + D * D - TH_L[2] * TH_L[2]) / (2 * TH_L[1] * D), -1, 1), sa = Math.sqrt(1 - ca * ca);
+  _hd.copy(_tU).multiplyScalar(ca).addScaledVector(_tW, sa); hBone(st, 15, _hs, _hd, TH_L[1], 0.0175, 0.0185, _hzY); _hs.addScaledVector(_hd, TH_L[1]);
+  _hd.subVectors(_tT, _hs).normalize();      // last bone to the target
+  hBone(st, 16, _hs, _hd, TH_L[2], 0.016, 0.017, _hzY);
 }
 function buildTracked(st, hand) {                // optional hand tracking: bones straight from the XR joints (world space)
   const J = hand.joints, wr = J['wrist'], mk = J['middle-finger-phalanx-proximal']; if (!wr || !mk || !wr.visible || !mk.visible) return false;
@@ -4767,21 +4783,22 @@ function handTargets(i, g, st) {                 // decide pose + world matrix f
   const src = g.userData.src, gp = src?.gamepad, b = gp?.buttons || [], right = src?.handedness !== 'left';
   const trig = b[0]?.value ?? (b[0]?.pressed ? 1 : 0), trigT = !!(b[0]?.touched || trig > 0.05), grip = b[1]?.value ?? (b[1]?.pressed ? 1 : 0);
   const thumbT = !!(b[3]?.touched || b[4]?.touched || b[5]?.touched || b[6]?.touched);
-  const fist = (idx = 1, th = 0) => { st.tc[0] = idx; st.tc[1] = st.tc[2] = st.tc[3] = 1; st.tth = th; };
+  const fist = (idx = 1, th = 0, tw = 1) => { st.tc[0] = idx; st.tc[1] = st.tc[2] = st.tc[3] = 1; st.tth = th; st.ttw = tw; };
   g.updateWorldMatrix(true, false); st.W.multiplyMatrices(g.matrixWorld, HOFF); st.mode = 'free';
   // free hand: grip curls the three lower fingers, trigger curls the index, grip without trigger points, thumb off the face lifts it
-  st.tc[0] = trigT ? 0.35 + 0.6 * trig : grip > 0.5 ? 0 : 0.2; st.tc[1] = st.tc[2] = st.tc[3] = 0.12 + 0.88 * grip; st.tth = thumbT ? 0 : 1;
+  st.tc[0] = trigT ? 0.35 + 0.6 * trig : grip > 0.5 ? 0.03 : 0.28; st.tc[1] = 0.3 + 0.7 * grip; st.tc[2] = 0.34 + 0.66 * grip; st.tc[3] = 0.38 + 0.62 * grip;   // v0.24.1 relaxed
+  st.tth = thumbT ? 0 : 1; st.ttw = grip > 0.5 && trig > 0.5 ? 0.7 : 0; st.ttp = 0;
   if (mode === 'plane') {
     const h = CKH.get(g);
-    if (right && vr.stick) { stick.updateWorldMatrix(true, false); st.W.multiplyMatrices(stick.matrixWorld, _hm.copy(HB_STICK).setPosition(0, 0.475, 0)); fist(0.9 + 0.1 * trig, thumbT ? 0 : 0.25); st.mode = 'stick'; }
+    if (right && vr.stick) { stick.updateWorldMatrix(true, false); st.W.multiplyMatrices(stick.matrixWorld, _hm.copy(HB_STICK).setPosition(0, 0.475, 0)); fist(0.9 + 0.1 * trig, thumbT ? 0 : 0.25, 0.45); st.mode = 'stick'; }
     else if (!right && vr.thr) { throttleKnob.updateWorldMatrix(true, false); st.W.multiplyMatrices(throttleKnob.matrixWorld, _hm.copy(HB_STICK).setPosition(0, 0.004, 0)); fist(1, 0); st.mode = 'thr'; }
     else if (!right && vr.flap) { flapKnob.updateWorldMatrix(true, false); st.W.multiplyMatrices(flapKnob.matrixWorld, HB_FLAP); fist(1, 0); st.mode = 'flap'; }
     else if (h) {
       const pt = h.k in SW ? plane.localToWorld(_hv.copy(SW[h.k].p).setZ(SWP.z + (h.k === 'start' ? 0.016 : 0.014))) : h.k === 'ldg' ? plane.localToWorld(_hv.copy(LDG_SW).setZ(LDG_SW.z + 0.016)) :
         h.k === 'card' ? null : ({ rup: rupH, rlo: rloH, lf: LWF.hp, lr: LWR.hp }[h.k]).getWorldPosition(_hv);
-      if (h.k === 'card') { st.tc[0] = st.tc[1] = st.tc[2] = st.tc[3] = 0.55; st.tth = 0.4; }
+      if (h.k === 'card') { st.tc[0] = st.tc[1] = st.tc[2] = st.tc[3] = 0.55; st.tth = 0.4; st.ttw = 0.3; }
       else if (h.k in SW || h.k === 'ldg') {         // pinch: thumb + index meet on the knob
-        st.tc[0] = 0.55; st.tc[1] = 0.8; st.tc[2] = st.tc[3] = 0.95; st.tth = 0;
+        st.tc[0] = 0.65; st.tc[1] = 0.9; st.tc[2] = st.tc[3] = 0.95; st.tth = 0; st.ttw = 0; st.ttp = 1;   // pinch pose
         _pinch.set(right ? -0.004 : 0.004, -0.075, -0.05).applyMatrix4(st.W); st.W.elements[12] += pt.x - _pinch.x; st.W.elements[13] += pt.y - _pinch.y; st.W.elements[14] += pt.z - _pinch.z;
       } else { fist(1, 0); _pinch.set(0, 0, 0).applyMatrix4(st.W); st.W.elements[12] += pt.x - _pinch.x; st.W.elements[13] += pt.y - _pinch.y; st.W.elements[14] += pt.z - _pinch.z; }
       st.mode = 'ck';
@@ -4791,14 +4808,21 @@ function handTargets(i, g, st) {                 // decide pose + world matrix f
     fist(0.45 + 0.35 * trig, 0); st.mode = 'rifle';
   } else if (R.support === g || (R.hand === g && R.free)) {
     rifle.updateWorldMatrix(true, false); st.W.multiplyMatrices(rifle.matrixWorld, HB_FORE[right ? 1 : 0]); fist(1, 0); st.mode = 'fore';
-  } else if (MAP.g === g || MAP.g2 === g || BK.g === g || held?.has?.(g)) { st.tc[0] = st.tc[1] = st.tc[2] = st.tc[3] = 0.6; st.tth = 0.3; st.mode = 'hold'; }
+  } else if (MAP.g === g || MAP.g2 === g || BK.g === g || held?.has?.(g)) { st.tc[0] = st.tc[1] = st.tc[2] = st.tc[3] = 0.6; st.tth = 0.3; st.ttw = 0.5; st.mode = 'hold'; }
   return right;
 }
-function capsHit(st, Minv, ry) {                 // does any bone of this hand (world) cross the iron-sight line (rifle local, eye -> bead)?
+function capsMask(st, Minv, ry, cheek = false) {  // bit k set = bone k of this hand (world) crosses the iron-sight line (rifle local, eye -> bead)
+  let m = 0;                                      // cheek: the eye is on the stock, so also clear a ~17 deg cone above the sight line in front of it
   for (let k = 0; k < HN; k++) { const c = st.cap[k];
-    for (let s = 0; s <= 4; s++) { _hv.lerpVectors(c.s, c.e, s / 4).applyMatrix4(st.W).applyMatrix4(Minv);
-      if (_hv.z < 0.2 && _hv.z > -0.7 && Math.hypot(_hv.x, _hv.y - ry) < c.r + 0.004) return true; } }
-  return false;
+    for (let s = 0; s <= 4; s++) { _hv.lerpVectors(c.s, c.e, s / 4).applyMatrix4(st.W).applyMatrix4(Minv); const off = Math.hypot(_hv.x, _hv.y - ry), ez = CHEEK_Z - _hv.z;
+      if ((_hv.z < 0.2 && _hv.z > -0.7 && off < c.r + 0.004) || (cheek && ez > 0.02 && _hv.y + c.r > ry && off - c.r < 0.3 * ez)) { m |= 1 << k; break; } } }
+  return m;
+}
+const capsHit = (st, Minv, ry) => capsMask(st, Minv, ry) !== 0;
+function hideChain(m) {                           // a hidden phalanx takes the rest of its finger with it; palm / cuff = whole glove
+  if (m & 2) return (1 << HN) - 1;               // the cuff alone can go
+  for (let f = 0; f < 5; f++) { const k0 = f < 4 ? 2 + f * 3 : 14; for (let j = 0; j < 3; j++) if (m & (1 << (k0 + j))) { for (let q = j; q < 3; q++) m |= 1 << (k0 + q); break; } }
+  return m;
 }
 const _plL = new THREE.Vector3(), _pkD = new THREE.Vector3(), _pkV = new THREE.Vector3(), _pkPrev = new THREE.Vector3();
 function pkS(id, i) { return CKX.pk[id + i] || (CKX.pk[id + i] = { arm: false, p: false }); }
@@ -4827,21 +4851,31 @@ function ckPoke(i, g, st, dt) {                  // fingertip pokes: rocker, lan
     if (p !== s.p) { s.p = p; if (p) { hap(g, 0.5, 16); sfx('click'); s.arm = false; } CKX.pokeStart[i] = p; ENG.starterVR = CKX.grabStart || CKX.pokeStart[0] || CKX.pokeStart[1]; }
   }
 }
-function hoverRing(tips) {                       // highlight the nearest control a free hand can use
-  let best = null, bd = 1e9, br = 0.02;
-  const cand = (k, lp, r, d) => { if (d < bd) { bd = d; best = k; _hd.copy(lp); br = r; } };
+const knobOut = id => CKX.vis[id] !== undefined && id in PULL ? CKX.vis[id] : id === 'mix' ? (ENG.mix < 0.5 ? PULL.mix : 0) : id === 'carb' ? (ENG.carb ? PULL.carb : 0) : 0;   // pulled-out knobs ring where they are
+const _rP = new THREE.Vector3(), _rT = new THREE.Vector3(), _rG = new THREE.Vector3(), RING_HYST = 0.008;
+function hoverRing(tips) {                       // v0.24.1: one ring per free hand on the nearest control it can use (fingertip / pinch point), with hysteresis
+  const live = [false, false];
   for (const [i, g, st] of tips) {
-    plane.worldToLocal(_plL.copy(st.tip)); g.getWorldPosition(_hs); plane.worldToLocal(_hs);
-    for (const id in SW) { _hx.copy(SW[id].p).setZ(SWP.z + 0.012); const d = _hx.distanceTo(_plL); if (d < 0.04) cand(id, _hx, id === 'master' ? 0.021 : 0.017, d); }
-    { const d = _hx.copy(LDG_SW).setZ(LDG_SW.z + 0.014).distanceTo(_plL); if (d < 0.04) cand('ldg', _hx, 0.015, d); }
+    live[i] = true; const prev = HANDS.hovH[i]; let best = null, bd = 1e9, br = 0.02, force = null;
+    const cand = (k, lp, r, d) => { if (k === prev) d -= RING_HYST; if (d < bd) { bd = d; best = k; _hd.copy(lp); br = r; } };
+    plane.worldToLocal(_rT.copy(st.tip)); g.getWorldPosition(_rG); plane.worldToLocal(_rG);
+    plane.worldToLocal(_rP.set(st.right ? -0.004 : 0.004, -0.075, -0.05).applyMatrix4(st.W));   // where thumb + index pinch, ahead of the hand
+    const near = p => Math.min(p.distanceTo(_rT), p.distanceTo(_rP), p.distanceTo(_rG) < CK_R ? p.distanceTo(_rG) - 0.02 : 1);   // fingertip, pinch point, or (as before) right in the palm
+    for (const id in SW) { _hx.copy(SW[id].p).setZ(SWP.z + 0.012 + knobOut(id)); const d = near(_hx); if (d < 0.045) cand(id, _hx, id === 'master' ? 0.021 : 0.017, d); }
+    { _hx.copy(LDG_SW).setZ(LDG_SW.z + 0.014); const d = near(_hx); if (d < 0.045) cand('ldg', _hx, 0.015, d); }
     for (const [k, o, r] of [['rup', rupH, WIN_R], ['rlo', rloH, WIN_R], ['lf', LWF.hp, WIN_R], ['lr', LWR.hp, WIN_R], ['card', CARD.mesh, 0.07]]) {
-      o.getWorldPosition(_hx); plane.worldToLocal(_hx); const d = _hx.distanceTo(_hs); if (d < r) cand(k, _hx, 0.03, d + 0.02); }
-    if (st.right) { stick.updateWorldMatrix(true, false); stick.localToWorld(_hx.set(0, 0.48, 0)); plane.worldToLocal(_hx); const d = _hx.distanceTo(_hs); if (d < 0.09) cand('stick', _hx, 0.03, d + 0.03); }
-    else { for (const [k, o, r] of [['flap', flapKnob, FLAP_REACH], ['thr', throttleKnob, 0.09]]) { o.getWorldPosition(_hx); plane.worldToLocal(_hx); const d = _hx.distanceTo(_hs); if (d < r) cand(k, _hx, 0.03, d + 0.03); } }
+      o.getWorldPosition(_hx); plane.worldToLocal(_hx); const d = _hx.distanceTo(_rG); if (d < r) cand(k, _hx, 0.03, d + 0.02); }
+    if (st.right) { stick.updateWorldMatrix(true, false); stick.localToWorld(_hx.set(0, 0.48, 0)); plane.worldToLocal(_hx); const d = _hx.distanceTo(_rG);
+      if (d < 0.06) force = 'stick'; if (d < 0.09) cand('stick', _hx, 0.03, d + 0.03); }   // hand actually on the stick: it wins
+    else for (const [k, o, r, on] of [['flap', flapKnob, FLAP_REACH, 0.05], ['thr', throttleKnob, 0.09, 0.05]]) { o.getWorldPosition(_hx); plane.worldToLocal(_hx); const d = _hx.distanceTo(_rG);
+      if (d < on && !force) force = k; if (d < r) cand(k, _hx, 0.03, d + 0.03); }
+    if (force && best !== force) { best = force; ({ stick: () => stick.localToWorld(_hd.set(0, 0.48, 0)), flap: () => flapKnob.getWorldPosition(_hd), thr: () => throttleKnob.getWorldPosition(_hd) })[force](); plane.worldToLocal(_hd); br = 0.03; }
+    HANDS.hovH[i] = best; const ring = HANDS.rings[i]; ring.visible = !!best; if (!best) continue;
+    ring.position.copy(_hd); ring.scale.setScalar(br);
+    if (best in SW || best === 'ldg') ring.rotation.set(0, 0, 0); else { camera.getWorldPosition(_hs); plane.worldToLocal(_hs); ring.lookAt(plane.localToWorld(_hs)); }
   }
-  const ring = HANDS.ring; HANDS.hov = best; ring.visible = !!best; if (!best) return;
-  ring.position.copy(_hd); ring.scale.setScalar(br);
-  if (best in SW || best === 'ldg') ring.rotation.set(0, 0, 0); else { camera.getWorldPosition(_hs); plane.worldToLocal(_hs); ring.lookAt(plane.localToWorld(_hs)); }
+  for (let i = 0; i < 2; i++) if (!live[i] && !(HANDS.hovH[i] && CKH.get(grips[i])?.k === HANDS.hovH[i])) { HANDS.hovH[i] = null; HANDS.rings[i].visible = false; }   // a held control keeps its ring
+  HANDS.hov = HANDS.hovH[0] ?? HANDS.hovH[1];
 }
 function updateHands(dt) {
   const im = HANDS.mesh, tips = []; let any = false; HANDS.t += dt;
@@ -4851,25 +4885,28 @@ function updateHands(dt) {
       st.right = src.handedness !== 'left';
       const hand = src.hand ? HANDS.xr[i] : null;
       st.tracked = !!hand && buildTracked(st, hand);
-      if (st.tracked) { st.W.identity(); st.mode = 'tracked'; st.vis = true; }
+      if (st.tracked) { st.W.identity(); st.hide = 0; st.mode = 'tracked'; st.vis = true; }
       else {
-        handTargets(i, g, st); const k = 1 - Math.exp(-dt * 22);
+        handTargets(i, g, st); st.hide = 0; const k = 1 - Math.exp(-dt * 22);
         for (let f = 0; f < 4; f++) st.c[f] += (st.tc[f] - st.c[f]) * (st.mode === 'free' || st.mode === 'hold' ? k : 1);
-        st.th += (st.tth - st.th) * (st.mode === 'free' ? k : 1);
+        const kt = st.mode === 'free' || st.mode === 'hold' ? k : 1; st.th += (st.tth - st.th) * kt; st.tw += ((st.ttw || 0) - st.tw) * kt; st.tp += ((st.ttp || 0) - st.tp) * kt;
         buildHand(st, st.right ? 1 : -1); st.tip.copy(st.tipH).applyMatrix4(st.W); st.vis = true;
         if (st.mode === 'rifle' || st.mode === 'fore') {   // never cover the iron sights: lower the thumb, then drop the glove if it still would
           _hm2.copy(rifle.matrixWorld).invert();
-          if (capsHit(st, _hm2, SIGHT_Y)) { st.th = 0; st.c[0] = Math.max(st.c[0], 0.6); buildHand(st, st.right ? 1 : -1); if (capsHit(st, _hm2, SIGHT_Y)) st.vis = false; }
+          camera.getWorldPosition(_hv).applyMatrix4(_hm2); const cheek = Math.hypot(_hv.x, _hv.y - SIGHT_Y, _hv.z - CHEEK_Z) < 0.08;   // head down on the stock
+          let m = capsMask(st, _hm2, SIGHT_Y, cheek);
+          if (m) { st.th = 0; st.tw = 1; st.c[0] = Math.max(st.c[0], 0.6); buildHand(st, st.right ? 1 : -1); m = capsMask(st, _hm2, SIGHT_Y, cheek); }
+          st.hide = hideChain(m); if (st.hide === (1 << HN) - 1) st.vis = false;   // v0.24.1: only the bones in the sight line go
         }
       }
       if (mode === 'plane' && (st.mode === 'free' || st.mode === 'tracked')) { ckPoke(i, g, st, dt); tips.push([i, g, st]); }
       else { st.hasPrev = false; if (CKX.pokeStart[i]) { CKX.pokeStart[i] = false; ENG.starterVR = CKX.grabStart || CKX.pokeStart[0] || CKX.pokeStart[1]; } }
     }
-    for (let k = 0; k < HN; k++) { if (st.vis) _hm.multiplyMatrices(st.W, st.M[k]); else _hm.makeScale(0, 0, 0); im.setMatrixAt(i * HN + k, _hm); }
+    for (let k = 0; k < HN; k++) { if (st.vis && !(st.hide & (1 << k))) _hm.multiplyMatrices(st.W, st.M[k]); else _hm.makeScale(0, 0, 0); im.setMatrixAt(i * HN + k, _hm); }
     any = any || st.vis;
   }
   im.instanceMatrix.needsUpdate = true; im.visible = any;
-  if (mode === 'plane' && tips.length) hoverRing(tips); else { HANDS.ring.visible = false; HANDS.hov = null; }
+  if (mode === 'plane') hoverRing(tips); else { for (const r of HANDS.rings) r.visible = false; HANDS.hov = null; HANDS.hovH[0] = HANDS.hovH[1] = null; }
 }
 // ---- grab interactions (squeeze on a control): twist rotaries, pull/push knobs, flick toggles; a grab-and-release without moving it = old tap ----
 const ROT = { mags: [1.05, 0.35, -0.35, -1.05], valve: [Math.PI / 2, 0] }, PULL = { mix: 0.03, carb: 0.03, prime: 0.04 };
@@ -4880,6 +4917,7 @@ function ckGrabStart(g, h) {
   const k = h.k; g.getWorldPosition(_ch); plane.worldToLocal(_ch); h.p0 = _ch.clone(); h.moved = false;
   if (k in ROT) { h.q0 = g.getWorldQuaternion(new THREE.Quaternion()); h.i0 = k === 'mags' ? ENG.mags : ENG.valve ? 1 : 0; h.i = h.i0; }
   if (k in PULL) { h.o0 = k === 'mix' ? (ENG.mix > 0.5 ? 0 : PULL.mix) : k === 'carb' ? (ENG.carb ? PULL.carb : 0) : 0; h.arm = false; }
+  if (k === 'master' || k === 'ldg') { k === 'master' ? engSet('master') : toggleLanding(); h.moved = h.fl = true; hap(g, 0.6, 18); }   // v0.24.1: grip flips a toggle at once
 }
 function ckGrabMove(g, h) {
   const k = h.k; g.getWorldPosition(_ch); plane.worldToLocal(_ch); const dp = _ch.clone().sub(h.p0);
@@ -4900,7 +4938,7 @@ function ckGrabMove(g, h) {
       if (k === 'mix' && want >= 0 && (want === 1) !== (ENG.mix < 0.5)) { engSet('mix', want ? 0 : 1); h.moved = true; hap(g); }
       if (k === 'carb' && want >= 0 && (want === 1) !== ENG.carb) { engSet('carb', !!want); h.moved = true; hap(g); }
     }
-  } else if (k === 'master' || k === 'ldg') {
+  } else if ((k === 'master' || k === 'ldg') && !h.fl) {
     const on = k === 'master' ? ENG.master : LIGHTS.landing;
     if (dp.y > 0.015 && !on) { k === 'master' ? engSet('master', true) : toggleLanding(); h.moved = true; hap(g); }
     if (dp.y < -0.015 && on) { k === 'master' ? engSet('master', false) : toggleLanding(); h.moved = true; hap(g); }

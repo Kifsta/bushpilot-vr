@@ -28,6 +28,8 @@ v0.23 hands (VTOL VR style, no laser): your hands are gloves. Squeeze with the t
 
 v0.24 haptics: you feel the engine (rpm, rough running, cranking), stall buffet, touchdowns, bumps and skids through the stick and throttle; the rifle shot, lever, loading and misfires; grabs, stowing, page turns and crafting; zombie hits, knife hits, landings and a heartbeat when hurt. Strength: poke the HAPTICS button on the field guide's GUIDE page (Off / 35% / 65% / 100%), or add `?hx=0.5` to the URL.
 
+v0.24.1 grip on the ring: point your fingertip at a switch or knob, and a yellow ring appears on it (one ring per hand). Squeeze grip to use it. Toggles flip, START cranks while you hold grip, the mags key and fuel valve turn when you twist your wrist, and push-pull knobs follow your hand in and out. Window handles and the checklist drag. Poking with the fingertip still works. The stick, throttle and flap lever only take the grip when your hand is on them. With the rifle shouldered, your gloves stay clear of the iron sights.
+
 Start: fuel ON, master ON, mixture RICH, carb heat COLD, prime 2–3 strokes (cold) or 0–1 (warm), throttle cracked (~10%), mags BOTH, hold the starter until it runs (~700 rpm).
 Flooded? Throttle full and crank, then pull the throttle back when it fires.
 Shutdown: throttle idle, mixture CUTOFF (it stops), mags OFF, master OFF, fuel OFF.

@@ -2,6 +2,30 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.24.1 – Natural hands, clear sights, grip on the ring
+- **Natural hand pose.**
+  - The thumb now rests alongside the index finger, over the controller face, slightly curled. It no longer sticks out sideways.
+  - The thumb is posed with a small two-bone reach to a target per pose: rest, lifted, wrapped and pinch.
+  - Relaxed fingers are softly curled and no longer splayed. Point, fist, grab and hold poses are retuned.
+  - New pinch pose for small controls (switches, knobs, keys): the thumb pad meets the index tip.
+- **Thumb out of the way when shooting.**
+  - In both rifle poses (trigger hand on the wrist, support hand on the forend) the thumb wraps low and the fingers stay under the sights.
+  - When your head is down on the stock, any glove part in a ~17° cone above the sight line in front of your eye is also kept clear.
+  - Only the bones actually in the way are hidden (e.g. the trigger-hand cuff or a steeply pitched thumb), no longer the whole glove.
+- **Grip acts on whatever the yellow ring shows.**
+  - Each hand has its own ring. It picks the nearest control to your index fingertip or the pinch point just ahead of your hand (or, as before, a control right in your palm).
+  - It has hysteresis, so it doesn't flicker between neighbouring switches.
+  - Squeeze grip to use the ringed control:
+    - toggles (master, landing light) flip at once;
+    - START cranks while you hold grip;
+    - mags key and fuel valve turn by twisting your wrist;
+    - mixture, carb heat and primer move with your hand along their axis;
+    - window handles and the checklist are dragged.
+  - Pulled-out knobs are ringed where they actually are.
+  - Fingertip poking still works.
+  - A squeeze on a ringed switch never grabs the stick or throttle. The stick, throttle and flap lever take the ring (and the grip) only when your hand is actually on them.
+- Physics md5 unchanged (`eee6637e…`). Tests: hands test t23 is 56/56 (new ring-grip, hysteresis, two-ring and stick-priority checks). The rest are unchanged. Draw calls and triangles are the same.
+
 ## v0.24 – Haptics everywhere
 - **One haptics helper (HX)** for every controller buzz (`gamepad.hapticActuators[0].pulse`).
   - Per hand: a weaker pulse can't cut off a stronger one still playing on that hand.
