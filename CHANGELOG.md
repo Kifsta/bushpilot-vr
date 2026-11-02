@@ -2,6 +2,11 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.41.1 – Cleanup
+- **Fix (since v0.36): reloading the page with a saved game crashed on start.** Loading a save tried to restore the weather before the weather system existed ("Cannot access 'WX' before initialization"), which stopped the game script. Now the saved weather is applied once the weather is built. Saves made since v0.36 load again.
+- Depot fence: still solid; it was the test that was wrong. Since v0.38, other places (checkpoint fences, sheds, strongboxes) also add solid walls, so "exactly 5 solid runs" stopped being true. The fence's five runs are now listed on their own (`DEPOT_FENCE`), and the test walks into every run from both sides. The full t34 round trip (save, real reload, new game) is back in the regression suite, plus a separate reload check.
+- Strongboxes: each is now one baked vertex-coloured mesh (one draw call), rebaked while the lid swings open. Town view back to 89 calls (v0.40: 88, v0.41: 99).
+
 ## v0.41 – Tools
 - **Binoculars** (fire lookout, ranger station): in VR hold them up to your eyes for a 7x view inside a dark ring (the world around stays still, so it is comfortable); desktop **7** zooms. They name the place you are looking at, its distance, and how many dead are moving there. They clip to a new chest-strap home on the harness.
 - **Flare gun + flares** (medevac crash, strongboxes): fire it up and a red flare hangs under a chute for ~30 s. Every walking zombie within 250 m heads for it, except ones already right on you. One shell at a time: an empty pull reloads from a box of FLARES (3 per box) in your kit. Desktop **8**.
