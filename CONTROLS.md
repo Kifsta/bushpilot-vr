@@ -143,11 +143,13 @@ Nothing to learn: the knife, hatchet, fuel can, medkit, bandages, water jug, tor
 | | VR | Desktop |
 |---|---|---|
 | Take / stow the bow | Grip it over your LEFT shoulder (or from the pack); let go near the shoulder slot (green box) to put it back | 5 |
-| Get an arrow | Reach over your RIGHT shoulder to the quiver and grip, or just grab the string near the nock point and one nocks itself | automatic |
-| Nock an arrow in your hand | Bring its back end to the string (within ~12 cm) | – |
+| Load arrows (v0.33.1) | Grip an arrow bundle anywhere: it goes straight into the quiver on your back (the quiver shows once you have the bow or any arrows) | G at a bundle |
+| Get an arrow | Easiest: with the bow in one hand, grab the string with the other near the nock point - one nocks itself from the quiver. Or reach over your RIGHT shoulder to the quiver and grip | automatic |
+| Nock an arrow in your hand | Bring its back end to the string (within ~18 cm), or let go of it close to the string | – |
 | Draw | Keep grip on the string and pull it back toward your face (up to ~70 cm = full power, 60 m/s) | Hold left click (full in ~0.9 s) |
 | Loose | Let go of grip on the string hand | Release the button |
 | Pick an arrow back up | Grab it where it's stuck (zombie, animal, tree, ground, wall) | G while looking at it |
+- Picking up the bow says how many arrows are in the quiver. Bundles left in the pack from before v0.33.1 move into the quiver then.
 - Arrows drop with range, so aim a little high far out. There's no sight. A dry fire (drawing with no arrow and letting go) snaps the string.
 - Silent: zombies and animals don't hear it. A strong headshot kills a zombie; a body hit staggers it. A strong heart/lung hit kills a deer; wolves take 1–2 good hits.
 - The bow is at the lodge. Arrow bundles (6) are at the hunting cabin, ranch and lookout; craft 3 from 2 sticks + 1 cloth in the field guide (Gun tab). The quiver holds 24.

@@ -2,6 +2,14 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.33.1 – Hotfix: loading arrows in VR
+- **Grabbing the bow string now nocks an arrow.** With the bow in one hand and arrows in the quiver, grab the string near the nock point with the other hand: one arrow comes out of the quiver onto the string (nock click + haptic, "ARROW NOCKED (n IN THE QUIVER)"). Keep holding and pull back to draw. Before this it only said "NO ARROW", although the controls promised it.
+- **Arrow bundles go into the quiver in VR.** Gripping a bundle (by hand or force grab) puts its 6 arrows straight into the quiver with a message. Before, only the desktop pick-up did this. A bundle gripped in VR could end up in the pack and never become usable arrows. Bundles dropped into the pack go to the quiver too, and any old bundles already in the pack move over when you pick up the bow. If the quiver is full (24), you just hold the bundle.
+- **The quiver shows on your back** as soon as you have the bow or any arrows.
+- **Nocking a hand-held arrow is easier:** it nocks within 18 cm of the string (was 12 cm). If you let go of it within about 28 cm of the string, it nocks instead of going back to the quiver.
+- **Picking up the bow says the count:** "BOW – n ARROWS IN THE QUIVER – GRAB THE STRING WITH YOUR OTHER HAND TO NOCK ONE".
+- Arrow flight, draw and damage are unchanged. Physics regression md5 and W&B tests are unchanged.
+
 ## v0.33 – Find the family
 - **A story to follow.** Sarah Webb and her kids Tom and Lily are out there somewhere. You find them through five clues:
   1. **The cabin radio** (it needs the generator running) plays broken calls through static. Hearing one puts a red ring on your paper map: first, the **lodge**.
