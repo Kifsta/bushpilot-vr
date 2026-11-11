@@ -14,10 +14,13 @@ Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `no
   - **Thumb colours** (leather pad and web, fabric over the nail) now come from the thumb's own frame.
   - **Left-hand bone frames** now mirror the right hand's, matching the WebXR joint convention. In v0.49 a tracked left hand (Quest hand tracking) would have shown its glove rolled half a turn on every bone.
   - Both gloves were checked for inside-out faces (positive enclosed volume) and gaps or spikes at joints.
+- **Door and window handles move with their panes** (Neil: "the latch levers on the right door and right window stay floating"). The handle blocks were static-batch members. When several pieces of one pane started moving in the same frame, each batch drop cleared the attribute's pending upload ranges before adding its own, so only the last piece's collapse reached the GPU. The others stayed drawn where the closed door or window had been, with the latch lever apparently left beside them. Now the ranges add up (three.js clears them after the upload). The latch levers are also drawn after the panes move each frame, where before they lagged one frame. All four (right window, door, left front, left rear) are checked.
+- **Throttle 4 cm forward, quadrant bar clear of the map holder.** The grey quadrant bar on the left wall (the "armrest") reached 6 cm into the map holder and ran mostly ahead of the knob. It now runs exactly under the knob's travel, which puts it 2.4 cm aft of the holder. The knob sits 4 cm further forward at idle and full. The grab zone, label, haptic stops, procedural grip and travel all follow the knob.
 - **Tests.**
   - t491 (13 checks): the default, release holding the inputs, the mesh and the flight-model inputs, the glove letting go, a re-grab with no jump, moving on from the held position, CENTRES still centring, and the migration.
   - t49 has 2 new thumb checks (twist, nail angle).
   - t42 now tests CENTRES explicitly and STAYS as the default.
+  - t4911 (13 checks): all four panes' batched pieces are dropped and uploaded in the same frame, the latch levers follow their handles in the same frame, the throttle is 4 cm forward, and the bar runs under the travel and clear of the map holder.
 
 ## v0.49 – flying gloves (Neil: "Can you make the hands look like flying gloves.")
 - **New glove model.** The 34 boxes are replaced by one low-poly pilot flying glove per hand: 930 triangles, flat-shaded and faceted. It has:

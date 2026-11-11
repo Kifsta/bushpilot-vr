@@ -9,7 +9,7 @@ A new game starts **on foot beside the Cub** at the cabin strip. Climb in (Y / F
 |---|---|---|
 | Stick (pitch / roll) | Put your right hand on the stick and squeeze (the glove locks on it), move your hand: the stick pivots under it, to round-cornered stops (a bump at the stop). Let go and it stays where you left it (v0.49.1; Settings: STICK ON RELEASE = CENTRES makes it spring back to centre) | W / S pitch, A / D roll (click to mouse-look) |
 | Rudder | Left stick left / right | Q / E |
-| Throttle | Left hand on the throttle knob (left wall), squeeze, push / pull (light tick every 10 %, firm stop at idle and full) | Shift / Ctrl (or = / -) |
+| Throttle | Left hand on the throttle knob (left wall, on the quadrant bar aft of the map holder), squeeze, push / pull (light tick every 10 %, firm stop at idle and full) | Shift / Ctrl (or = / -) |
 | Flaps (0-15-30-50) | v0.42: the handle is on the cabin ROOF, above your head to the left. Reach up, grab the black T-grip (either hand) and pull it DOWN through the notches; push it up to retract (clunk + buzz per notch) | [ and ] |
 | Elevator trim | v0.42: the crank on the roof console, right of the flap handle. Grab its knob and wind it: anticlockwise (as you look at it) = nose up, clockwise = nose down, 3 turns end to end, 8 clicks a turn. The white pointer beside it shows where it is | PageDown nose up, PageUp nose down (hold) |
 | Brakes | Left trigger | B |

@@ -1004,7 +1004,8 @@ box(0.65, 0.02, 0.24, dark, 0, 0.15 + CK.y, -0.74 + CK.z);                      
 box(0.48, 0.55, 0.06, grey, 0, -0.18 + CK.y, 0.45 + CK.z);                                     // front seat back
 box(0.48, 0.1, 0.42, grey, 0, -0.32, 0.03 + CK.z + 0.21);                                      // front seat cushion
 box(0.55, 0.1, 0.45, grey, 0, -0.38 + CK.y, 1.0 + CK.z); box(0.55, 0.5, 0.06, grey, 0, -0.1 + CK.y, 1.25 + CK.z);   // rear seat (tandem)
-box(0.042, 0.02, 0.24, grey, -0.305, -0.02 + CK.y, -0.17 + CK.z);                              // throttle quadrant slot (v0.18.2: reaches the wall, 4 mm off the skin)
+const THR_Z0 = 0.02, THR_ZT = 0.2;   // v0.49.1: throttle knob z at idle (was 0.06, now 4 cm forward) and its travel to full
+box(0.042, 0.02, THR_ZT + 0.05, grey, -0.305, -0.02 + CK.y, THR_Z0 - THR_ZT / 2 + CK.z);   // throttle quadrant slot under the knob's travel (v0.49.1: was 9 cm further forward, into the map holder)
 box(0.30, 0.12, 0.03, dark, -0.165, -0.20 + CK.y, -0.618 + CK.z);                              // v0.19 engine switch strip under the left half of the panel
 box(0.18, 0.17, 0.03, dark, 0.22, -0.225 + CK.y, -0.618 + CK.z);                               // v0.19 checklist card holder under the right half   // v0.18.2: 4 mm off the skin, 0.5 mm clear of the flap lever                                   // flap handle quadrant
 partsRoot = plane;
@@ -1180,7 +1181,7 @@ const throttleKnob = new THREE.Mesh(ckGeo([
   ['c', 0.006, 0.045, 6, -0.018, 0, 0, 0x8d9094, 0, 0, Math.PI / 2],                  // stem out of the quadrant slot
   ['t', [0.021, 0.018], 0.03, 10, 0.012, 0, 0, 0x151515, 0, 0, Math.PI / 2],          // black knob
   ['c', 0.016, 0.004, 10, 0.028, 0, 0, 0x262626, 0, 0, Math.PI / 2]]), CKVM);
-throttleKnob.position.set(-0.30, 0.02 + CK.y, CK.z); plane.add(throttleKnob);
+throttleKnob.position.set(-0.30, 0.02 + CK.y, THR_Z0 + CK.z); plane.add(throttleKnob);
 
 // instruments (v0.8): classic six-pack in the standard T + tach, fuel, flaps, warnings. One small canvas texture per gauge;
 // the attitude / heading / turn coordinator redraw at ~36 Hz, the rest at ~12 Hz. Dial faces are pre-rendered once.
@@ -3435,11 +3436,11 @@ function updateWindows(dt) {
   for (const k in LATCH) { if (WIN.tgt[k] > 0 || WIN[k] > 0.03) LATCH[k] = 0;   // v0.44: keys 1-4 / the exit work the latch for you
     else if (!LATCH[k] && WIN[k] === 0 && WIN.tgt[k] === undefined && ![...CKH.values()].some(h => h.k === k)) { LATCH[k] = 1; if (mode === 'plane') sfx('clack'); }
     LATCHV.a[k] = CKX.vis['L' + k] ?? (LATCH[k] ? 0 : 1.0); }
-  latchDraw();
   for (const k of ['rup', 'rlo', 'lf', 'lr']) if (WIN.tgt[k] !== undefined) { WIN[k] = approach(WIN[k], WIN.tgt[k], 1.2, dt); if (WIN[k] === WIN.tgt[k]) delete WIN.tgt[k]; }
   doorT = approach(doorT, mode === 'foot' ? 1 : 0, 1.5, dt);
   door.rotation.z = -WIN_MAX.rlo * Math.max(doorT, WIN.rlo); win.rotation.z = WIN_MAX.rup * Math.max(doorT, WIN.rup);
   LWF.g.position.z = LW_TRAVEL.lf * WIN.lf; LWR.g.position.z = LW_TRAVEL.lr * WIN.lr;
+  latchDraw();   // v0.49.1: after the panes have moved this frame
   WIN.open = mode === 'plane' ? clamp(0.5 * Math.max(doorT, WIN.rup) + 0.35 * Math.max(doorT, WIN.rlo) + 0.3 * WIN.lf + 0.2 * WIN.lr, 0, 1) : 0;
 }
 
@@ -4199,7 +4200,7 @@ function batchBuild(B) {  // (re)build one batch from its live members
 function batchDrop(B, e) {   // v0.48: collapse one member's triangles in place (one small upload) instead of re-merging the batch
   const P = B.mesh.geometry.attributes.position; if (!P || e.n === undefined) return false;
   const a = P.array, x = a[e.s * 3], y = a[e.s * 3 + 1], z = a[e.s * 3 + 2]; for (let i = e.s; i < e.s + e.n; i++) { a[i * 3] = x; a[i * 3 + 1] = y; a[i * 3 + 2] = z; }
-  if (P.addUpdateRange) { P.clearUpdateRanges(); P.addUpdateRange(e.s * 3, e.n * 3); } P.needsUpdate = true; BATCH.drop++; return true;
+  if (P.addUpdateRange) P.addUpdateRange(e.s * 3, e.n * 3); P.needsUpdate = true; BATCH.drop++; return true;   // v0.49.1: ranges add up (three clears them after the upload); clearing here lost every drop but the last one in a frame
 }
 function batchStatic(root, cell, skip) {
   root.updateMatrixWorld(true); const groups = new Map(), proto = THREE.Object3D.prototype.onBeforeRender;
@@ -4589,7 +4590,7 @@ renderer.setAnimationLoop(() => {
   prop.rotation.z += ENG.rpm / 60 * 2 * Math.PI * dt * (ENG.rpm < 400 ? 1 : 0.13);   // aliased-looking slow spin (real speed while cranking)
   { const b = clamp((ENG.rpm - 300) / 700, 0, 1); PROP_BLUR.visible = b > 0.01; PROP_BLUR.material.opacity = 0.2 * b; }   // v0.35 blur disc only while it's turning fast
   stick.rotation.set(ctl.elev * STICK_MAX, 0, -ctl.ail * STICK_MAX);
-  throttleKnob.position.z = 0.06 + CK.z - ctl.throttle * 0.2;
+  throttleKnob.position.z = THR_Z0 + CK.z - ctl.throttle * THR_ZT;
   flapVis += ((vr.flapG ? vr.flapAng : flapNotch * FLAP_STEP) - flapVis) * Math.min(1, dt * (vr.flapG ? 40 : 14)); flapLever.rotation.x = FLAP_A0 + flapVis;   // v0.42 overhead handle
   trimCrank.rotation.z = TRIM.v * TRIM_TURNS * 2 * Math.PI; trimPtr.position.z = TRIM_P.z + 0.03 - TRIM.v * 0.036;
   flapGrp.rotation.x = ac.flap * Math.PI / 180;
