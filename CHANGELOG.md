@@ -2,6 +2,36 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.56 – reputation and unlocks: per-customer rep, requests by name, the Halvorsen board
+Neil: "reputation per town/customer (on-time, condition, accuracy raise it; late/damaged/lost lower it), unlocking new strips/towns (e.g. Halvorsen Station board), bigger and better-paying jobs, and regular customers who ask for you by name. Show rep on boards/kneeboard/wrist. Leave the R reset key as is." The physics block is untouched (md5 unchanged), and R works as before.
+- **Rep 0–100 per customer:** each strip's town or crew (THE STRIP STORE, THE RIDGE CREW, THE LODGE, DRY FORK FEED + SUPPLY, HALVORSEN AG-BIO), each bush camp's customer and each airdrop party. Everyone starts at 30 (NEW). Tiers: UNHAPPY < 15, NEW < 35, KNOWS YOU < 55, TRUSTED < 75, REGULAR. Shown as 5 stars.
+  - On time +5 (+7 with over 40 % of the deadline left); late −8.
+  - Special cargo and venison add (condition − 0.75) × 16, from +9 for perfect down to −4 for broken or spoiled. Heavy freight +1, a request +2.
+  - Airdrops: (average bundle share − 0.6) × 25, from +10 on the X down to −15 all lost; −8 more if late.
+  - Cancelling −2.
+  - The delivery, airdrop and cancel messages name the customer and the change, and any new tier.
+- **Better pay:** offers to a customer above 50 pay +1 % per 2 rep (+25 % at 100). At the starting rep every offer is exactly the v0.55 offer (t56 checks 200 bit for bit), so the earlier pay tests are unchanged.
+- **Regulars ask for you by name:** at 75+, about 40 % of a customer's freight jobs are **REQUEST** jobs (gold badge, `"ASK FOR NEIL" - MAE AT THE FEED STORE`; `?pilot=NAME` changes the name). They pay +35 % on top, and a light request carries up to twice the load (at most 320 lb, heavy over 120 lb), paid for the weight. Hunts and airdrops are never requests.
+  - Average offer: $261 at rep 30, $274 at 60, $358 at 85 (29 % requests, averaging $419 and 121 lb), $381 at 100.
+- **The Halvorsen station board (a new strip):** the 13th board, with a pad, across the gravel strip from the fenced Ag-Bio compound. It is appended after the bush sites, so every other board keeps its seeds.
+  - It starts **closed**: a "NO CIVILIAN CONTRACTS" notice with a bar for your Dry Fork rep. Its offers can't be taken, no job goes there, and it isn't on the map.
+  - At **Dry Fork 55** ("DRY FORK VOUCHED FOR YOU", on the delivery message) it opens and goes on the map. Its jobs (lab samples, seed lots, station stores) and jobs to it pay **+30 %** (an average of $355 from there).
+- **Display:** each board footer shows the town's rep, stars, tier and pay bonus, and each offer shows its customer's stars. The kneeboard shows stars and REQUEST on each job. The wrist and HUD show `REP <TOWN> <n> <TIER>` (the board you're at on foot, or your next job's customer in the seat), placed after messages so the wrist's four lines still show them.
+- **Save** (still v55) adds `rep` and `unl`, and request offers keep their flag. Older or bad saves load at 30 and locked; a new game resets it all.
+- **Tests:** a new t56 (18 checks: lock, default-rep identity, deltas, airdrops, pay, requests, unlock, display, save). t50, t52 and t52h now count 13 boards, and the t54 pay sample uses the 12 original boards.
+- **Perf** (1280×720 headless, v0.55 → v0.56). statusText + kbLines with rep cost 0.02 ms a frame.
+
+| View | Draw calls | Triangles | CPU ms |
+|---|---|---|---|
+| Seat at home | 76 → 77 | 278k → 278k | 1.94 → 1.91 |
+| On foot at the cabin | 53 → 54 | 268k → 272k | 1.69 → 1.51 |
+| 60 m from a herd | 52 → 52 | 229k → 229k | 2.11 → 1.88 |
+| Same, binoculars up | 39 → 38 | 215k → 213k | 1.85 → 1.68 |
+| Over Pine Flats at 120 m | 94 → 94 | 257k → 257k | 1.83 → 1.73 |
+| On foot by the home hangar | 59 → 59 | 267k → 267k | 1.78 → 1.63 |
+| Over Burnt Hill, drop on | 93 → 93 | 235k → 235k | 2.14 → 1.89 |
+| On foot at the Halvorsen board | 26 → 28 | 166k → 167k | 1.39 → 1.30 |
+
 ## v0.55 – running costs: paid fuel, oil, tach hours, wear, damage, the home hangar
 Neil: "fuel purchase at strips with differing prices, oil use, engine hours, tyre/brake wear, hard-landing damage, repairs and 100-hour service at the home hangar; costs balanced against job pay so money matters but the player isn't stuck". The physics block is untouched (md5 unchanged). Wear and damage act only on the pilot's inputs before the physics steps: a throttle cap, a brake scale, a rudder pull on the ground, and the existing engine-out flag when seized. All of these are identity on a healthy Cub (t55 flies the same 5 s bit for bit with the hook on and off).
 - **Fuel you pay for at four red drums**, paid as it flows:
