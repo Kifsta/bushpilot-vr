@@ -4599,9 +4599,9 @@ function jbAccept(S, i) {
     say('ACCEPTED: ' + j.title + ' TO ' + dlvS(j.to).name + ' - ' + dlvLb(j) + ' LB ' + (dlvWc(j) === 'H' ? 'HEAVY ' : '') + 'ON THE PAD' + (j.dl ? ' - ' + j.dl + ' MIN' : '') + (dlvLb(j) > dlvRoom() ? ' - OVER PAYLOAD AT THIS FUEL (MAX ' + Math.max(0, dlvRoom()) + ' LB)' : ''));
   } else if (j.st === 'active') {   // cancel: only while every piece still sits on this pad
     const its = DLV.items.filter(it => it.job === j.id);
+    if (j.drop && (j.drop.res.length || DROP.air.some(it => it.job === j.id))) { say('CANCEL: BUNDLES ALREADY DROPPED - FINISH THE AIRDROP'); sfx('tick'); return; }   // v0.54
     if (its.some(it => it.st !== 'ground' || !dlvInPad(S, it.mesh.position.x, it.mesh.position.z))) { say('CANCEL: PUT ALL OF IT BACK ON THIS PAD FIRST'); sfx('tick'); return; }
     if (j.hunt && j.hunt.got) { say('CANCEL: THE VENISON IS DRESSED - DELIVER IT'); sfx('tick'); return; }   // v0.53
-    if (j.drop && j.drop.res.length) { say('CANCEL: BUNDLES ALREADY DROPPED - FINISH THE AIRDROP'); sfx('tick'); return; }   // v0.54
     for (const it of its) dlvRemove(it); j.st = 'offer'; j.due = 0; sfx('click'); say('JOB CANCELLED - ' + j.title); saveSoon();
   }
   S.key = '';
