@@ -2,6 +2,36 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.54 – airdrops
+Neil: "airdrops (open door/window in flight, push bundles out, streamer bundles fall with physics, scored by distance to a target smoke/X; airdrop jobs on boards to sites/camps you can't land at, e.g. a stranded hiker or fire crew; pay by accuracy and bundle condition)". No weather or wind; the physics block is untouched (md5 unchanged).
+- **Five drop sites with no strip**, picked by a terrain search: 900 m or more from any strip, on steep ground, in the woods or on a river bank.
+  - The **STRANDED HIKER** on BALDY RIDGE, the **SURVEY PARTY** on EAST SPUR, the **FIRE CREW** on BURNT HILL (burnt snags, yellow shirts), the **TRAPPER** in DEEP WOODS and the **CANOE PARTY** on the LOWER RIVER.
+  - Each has an orange panel **X** on the flattest dry spot, and a camp 12 m away with a tent, people waving and packs. All five sites are one merged mesh (5.4k vertices).
+  - Trees, bushes and rocks are cleared within 18 m of the X and 10 m of the camp.
+- **Signal smoke:** orange puffs rise from a pot beside the X, only while your drop is on and only at the nearest active site within 6 km. It is one Points draw with fog, and no wind. Inside 1.5 km you get a spoken hint.
+- **Airdrop jobs** are about 14 % of board offers, from any strip to one of the three nearest sites within 7 km.
+  - Each job is 2–4 **streamer bundles** of 15–35 lb.
+  - Pay is 90 + lb + 40/km, ×1.25 on a deadline.
+  - The board shows a blue AIRDROP badge and `AIRDROP TO THE FIRE CREW AT BURNT HILL (NO STRIP) …`. The map shows an orange X with a smoke puff and a dashed line, and the kneeboard gives `DROP n KM  HDG nnn` and `n/n DROPPED`.
+  - You can't cancel once a bundle is out.
+- **Out the door:** open both right halves first (the upper window up under the wing, the lower door down; desktop 1 and 2).
+  - **Desktop G** pushes the bundle nearest the door. It leaves at the plane's velocity plus 1.6 m/s to the right.
+  - **VR:** reach back, grab a bundle, put your hand out through the door and let go. It leaves with your hand's speed. With the door shut it settles back in.
+  - Weight and balance lose the bundle's weight as it goes.
+- **Fall physics:** fixed 1/120 s steps with gravity and quadratic drag (the streamer gives about 24 m/s terminal speed). Bundles hit trees and the terrain. One that hits a tree is slowed, knocked about and marked "through the trees". The streamer is a camera-facing ribbon that follows the bundle and lies out behind it on landing. Landed bundles stay as decor (the last 16).
+- **Scoring:**
+  - Accuracy is full within 10 m of the X and falls to 35 % at 150 m. Past 250 m, or in water, the bundle is lost.
+  - Condition is 1 − (impact speed − 12)/30, minus 0.1 through trees. A bundle's share is accuracy × (0.5 + 0.5 × condition).
+  - When the last bundle is down the job pays its pay × the average share (half if late), and the spoken message gives the average distance and condition.
+  - For example, from 30 m AGL at 28 m/s released 55–60 m short, the bundle lands in about 1.5 s, 20–35 m from the X, at about 75 % condition.
+- **Save v54:** a bundle in the air when you save is stored as where it will land (predicted). Older saves load.
+- **Perf** (1280×720 headless, v0.53.1 → v0.54): PERF_TABLE
+- **Tests:** new **t54** (20 checks: sites, tree clearing, generator and pay, board / accept / kneeboard / map, smoke range, door gating, G drop + W&B, fall + score, cancel block, a lost bundle + finish pay + decor, the scoring curve, water and trees, save mid-fall, VR grab / door shut / hand-speed release, save v54, no errors). **t54clear** has joined the suite. t50, t52, t52h, t53 and reload now leave airdrop jobs out of their generator checks and expect save v54. The full suite passes; md5, W&B and lint (25) are unchanged.
+
+## v0.53.1 – fixes
+- **`MYS_SITES.clear`** now indexes the `xz` triples correctly (`xz[i*3]`, `xz[i*3+2]`) at all 4 places. Trees and rocks round the mystery sites are cleared where intended.
+- **The venison carcass** is a low-poly deer lying on its side: tied legs, head and neck, and an opened belly. It replaces the game bag; size, weight and label are the same.
+
 ## v0.53 – lever rifle, deer hunting jobs, binoculars
 Neil: "Put the upgraded gun model and mechanics in. Some missions require hunting deer in the forests. Add binoculars too." No weather or wind; the physics block is untouched (md5 unchanged).
 - **Lever-action carbine** (`assets/lever-rifle.glb`, Winchester 1892 style) with the full game's mechanics on the new model: 7-round tube plus chamber, a lever that ejects the case, cocks the hammer and chambers the next round (hammer down = no shot, empty = dry click), a loading gate, and animated hammer, trigger and gate. The sight line runs from the rear blade over the bead top (raised to 0.0517 m so it clears the receiver).
@@ -32,7 +62,7 @@ Neil: "Put the upgraded gun model and mechanics in. Some missions require huntin
 | Over Pine Flats at 120 m | 83 → 90 | | 0.04 |
 
 - **Tests:** new t53 (34 checks: models, ADS sight alignment, zero, lever / gate / dry fire, ammo box, racks + boarding, LOD, flee, gunshot scare, chest / body shots, hunt jobs on board / map / kneeboard, dressing → cargo → paid delivery, save / load, VR grips / lever / gate / trigger / sling, binoculars VR + desktop, bush-site spotting). t45, t51, t52h and reload updated for v53.
-- **Known (pre-existing, not touched):** `MYS_SITES.clear` indexes `xz[i*2]` though `xz` holds triples.
+- **Known (pre-existing, not touched):** `MYS_SITES.clear` indexes `xz[i*2]` though `xz` holds triples (fixed in v0.53.1).
 
 ## v0.52.1 – baggage limit on the W&B status line
 - **The W&B card status line now checks the baggage bay limit.** With more than 50 lb in the baggage bay it says **BAGGAGE OVERLOAD** (amber), not WITHIN LIMITS beside the "BAGGAGE OVER 50 LB MAX" footer. The order is OVER GROSS, then CG AFT / FWD OF LIMIT, then BAGGAGE OVERLOAD, then WITHIN LIMITS.
