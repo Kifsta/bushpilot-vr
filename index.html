@@ -6175,7 +6175,7 @@ function upgDeskE() {   // desktop E on foot: carry a part / put it on the Cub /
   if (DLV.desk) return false;
   let best = null, bd = 2.5; for (const k in UPG.parts) { const Q = UPG.parts[k]; if (Q.st !== 'floor') continue; const d = Math.hypot(Q.mesh.position.x - _ua.x, Q.mesh.position.z - _ua.z); if (d < bd) { bd = d; best = Q; } }
   if (!best) return false;
-  camera.add(best.mesh); best.mesh.position.set(0, -0.35, -0.75); best.mesh.rotation.set(0.1, 0, 0); best.st = 'desk'; UPG.desk = best; sfx('pick');
+  camera.add(best.mesh); const big = best.k === 'pod' || best.k === 'tank'; best.mesh.position.set(big ? 0.25 : 0, big ? -0.62 : -0.35, big ? -0.85 : -0.6); best.mesh.rotation.set(0.1, big ? Math.PI / 2 : 0, 0); best.st = 'desk'; UPG.desk = best; sfx('pick');
   say('CARRYING THE ' + UPG_I[best.k].label + ' - E BY THE CUB PUTS IT ON ITS SPOT'); return true;
 }
 // ---- the parts board, beside the service board at the hangar ----
@@ -6197,7 +6197,7 @@ function upbDraw() {
   x.textBaseline = 'alphabetic'; x.textAlign = 'left'; x.fillStyle = '#222'; x.font = 'bold 26px sans-serif'; x.fillText('HOME HANGAR - PARTS', 18, 38);
   x.textAlign = 'right'; x.fillStyle = DLV.cash < 0 ? '#b8301e' : '#1e6a2a'; x.fillText(ecoMoney(DLV.cash), W - 18, 38); x.textAlign = 'left';
   x.fillStyle = '#333'; ecoFit(x, 'CASH ONLY. BOUGHT PARTS WAIT ON THE FLOOR: CARRY ONE TO THE CUB', 18, 62, W - 36, 15, 1);
-  ecoFit(x, (renderer.xr.isPresenting ? 'HOLD IT TO THE GREEN OUTLINE, THEN GRIP + TWIST EACH YELLOW BOLT' : 'E CARRIES IT, E BY THE CUB PUTS IT ON, E TIGHTENS EACH BOLT') + ' - CUB PARKED HERE, ENGINE OFF', 18, 80, W - 36, 14);
+  ecoFit(x, (renderer.xr.isPresenting ? 'HOLD IT TO THE GREEN OUTLINE, GRIP + TWIST EACH YELLOW BOLT' : 'E CARRIES IT, E AT THE CUB PUTS IT ON, E PER BOLT') + '. CUB HERE, ENGINE OFF', 18, 80, W - 36, 14);
   x.fillStyle = '#555'; ecoFit(x, 'FITTED: ' + (UPG.n ? UPG_K.filter(k => UPG[k]).map(k => UPG_I[k].label).join(', ') + ' (+' + UPG.loads.reduce((s, L) => s + L.lb, 0) + ' LB)' : 'NOTHING - A STOCK CUB'), 18, 98, W - 36, 13);
   UPB.rows.forEach((r, i) => { const Y = UPB.r0 + i * UPB.rh, later = r[0] === 'f', L = later ? UPG_LATER[+r[1]] : null, [bt, col, why] = later ? ['LATER', '#b0aca0', L[1]] : upgState(r), I = UPG_I[r];
     x.fillStyle = later ? '#ece6d6' : '#e8dcc0'; x.fillRect(14, Y, W - 28, UPB.rh - 4);
