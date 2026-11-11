@@ -517,9 +517,10 @@ function stepAircraft(a, dt) {
 
 // ======================= RENDERING =======================
 // v0.35 settings (persist in localStorage 'bp_gfx'; ?gfx=shadows:2,grass:1 overrides for testing). Defaults = the v0.34 look and cost.
-const GFX_DEF = { shadows: 0, scale: 0.9, fov: 1, dist: 1, trees: 1, grass: 0, clouds: 1, fog: 1, msaa: 1, hz: 72, vig: 0, turn: 0, fps: 0, tod: 11, stk: 0, tips: 1, terr: 1, dyn: 1, glove: 0 };   // v0.48 BALANCED: 90 % scale, 72 Hz, fast terrain shading, auto resolution
+const GFX_DEF = { shadows: 0, scale: 0.9, fov: 1, dist: 1, trees: 1, grass: 0, clouds: 1, fog: 1, msaa: 1, hz: 72, vig: 0, turn: 0, fps: 0, tod: 11, stk: 1, tips: 1, terr: 1, dyn: 1, glove: 0 };   // v0.48 BALANCED: 90 % scale, 72 Hz, fast terrain shading, auto resolution; v0.49.1 the stick stays where you let go of it
 const GFX = Object.assign({}, GFX_DEF);
 try { const o = JSON.parse(localStorage.getItem('bp_gfx') || '{}'); if ((o.v || 0) < 48) { if (o.scale === 1) delete o.scale; if (o.hz === 0) delete o.hz; }   // v0.48: saved copies of the old defaults (100 %, AUTO Hz) move to the new ones once
+  if ((o.v || 0) < 49 && o.stk === 0) delete o.stk;   // v0.49.1: a saved CENTRES (the old default) switches to STAYS once; CENTRES chosen after this sticks
   for (const k in GFX_DEF) if (typeof o[k] === 'number' && isFinite(o[k])) GFX[k] = o[k]; } catch (e) { }
 try { const q = new URLSearchParams(location.search).get('gfx'); if (q) for (const kv of q.split(',')) { const [k, v] = kv.split(':'); if (k in GFX_DEF && isFinite(+v)) GFX[k] = +v; } } catch (e) { }
 const renderer = new THREE.WebGLRenderer({ antialias: !!GFX.msaa });
@@ -1854,7 +1855,7 @@ function xrInput(dt) {
       if (pressedEdge(gp, 5, 'Y')) exitPlane();
     }
   }
-  if (!stickHeld && !GFX.stk) { ctl.elev = approach(ctl.elev, 0, 2.5, dt); ctl.ail = approach(ctl.ail, 0, 2.5, dt); }   // v0.42: let go and it centres (Settings: STICK ON RELEASE = STAYS for the old way)
+  if (!stickHeld && !GFX.stk) { ctl.elev = approach(ctl.elev, 0, 2.5, dt); ctl.ail = approach(ctl.ail, 0, 2.5, dt); }   // v0.42 centring, only with Settings: STICK ON RELEASE = CENTRES (v0.49.1 default STAYS: the deflection and the inputs hold)
   vr.stickPrevHeld = stickHeld;
 }
 function footXR(dt) {
@@ -4263,7 +4264,7 @@ const GFX_OPT = [   // key, label, values, value labels, note (shown small under
 ];
 const GQ = { sig: '', xrRates: null, fogK: -1, fpsT: 0, menu: null, shadowT: 0 };
 function gfxLabel(k) { if (k === 'hx') return HX.gain ? Math.round(HX.gain * 100) + '%' : 'OFF'; const o = GFX_OPT.find(r => r[0] === k), i = o[2].findIndex(v => Math.abs(v - GFX[k]) < 1e-6); return i >= 0 ? o[3][i] : String(GFX[k]); }
-function gfxSave() { try { localStorage.setItem('bp_gfx', JSON.stringify(Object.assign({ v: 48 }, GFX))); } catch (e) { } }
+function gfxSave() { try { localStorage.setItem('bp_gfx', JSON.stringify(Object.assign({ v: 49 }, GFX))); } catch (e) { } }
 function gfxSet(k, v, quiet) {
   if (k === 'hx') { HX.cycle(); return; }
   GFX[k] = v; gfxSave(); gfxApply(k);
