@@ -12,6 +12,25 @@ Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `no
 - **No batch hitch when something first moves.** When a batched part starts moving (seen on the takeoff roll), its triangles are now collapsed in place with one small upload. Before, the whole cell was re-merged, which cost 27–35 ms on desktop and probably several times that on Quest.
 - **Defaults (BALANCED):** render scale 90 % (it was 100 %), refresh 72 Hz (it was AUTO), Terrain shading FAST+GRAIN. A saved settings copy that still holds the old defaults (100 % / AUTO) moves to the new ones once. The Forest setting gains OFF.
 
+**Part 2: find it in the headset, and cope automatically**
+- **PERF strip on the wrist Settings board.** It shows:
+  - fps, frame ms, worst frame, CPU ms, draw calls and triangles;
+  - the foveation the XR layer actually reports (`fixedFoveation`, or UNSUPPORTED), the layer type and framebuffer size, the refresh rate (and the supported list), MSAA and the render scale;
+  - the Auto resolution step, the drawn instance count and the ground shading.
+- **Settings board:** 10 rows a column, frame-rate rows first, plus new **PERFORMANCE** and **BALANCED** preset buttons (also on the desktop panel).
+- **Auto resolution** (new setting, default ON). After more than 1 s over budget (1.2 × the frame time at the session's refresh rate), it steps down: 85 % viewport + foveation HIGH, then 75 % + forest 75 %, then 65 % + forest 55 %. After about 10 s on budget it steps back up; if it bounces, the wait doubles (up to 80 s).
+  - The viewport is reduced live with WebXR `requestViewportScale`, requested just before three.js reads each view's viewport. The PERF strip says whether the headset honoured it.
+  - Turning the setting off, or leaving VR, restores full resolution.
+- **Audit findings** (desktop, see the tables in the report):
+  - The ground was the largest fill cost, and about two thirds of that was its per-pixel shader.
+  - Next came small scenery instances that are sub-pixel from altitude, and the forest's vertices.
+  - MSAA 4x and shadows are the most expensive switches. Shadows are off and their map is not allocated by default.
+  - Per-frame JS in flight stays under 0.2 ms; the panel and wrist redraws are the largest.
+  - The heap is flat across a simulated flight (it returns to baseline after GC).
+  - The only flight-specific hitches were the cull-list uploads every 0.8 s and a batch re-merge on the takeoff roll. Both are fixed in part 1.
+- **Prewarm:** every panel-glow / landing-light / terrain-look combination is now compiled at load. v0.47 only compiled both-on and both-off, so the landing light alone by day still compiled new shaders.
+- Tests: new `t48` (22 checks: defaults and migration, shadows not allocated, ground looks and fallbacks, no compile on the landing light, size / height culling, rebuild spacing, in-place batch drops, board hit-tests and presets, PERF strip, Auto resolution step logic).
+
 ## v0.46.1 – Headset fixes: steady hands, a primer that stays put
 
 Fixes from Neil's headset test (shipped on top of v0.47 part 2).

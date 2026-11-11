@@ -4130,21 +4130,22 @@ function batchTick() {
 // ================= v0.35 settings: graphics / comfort / fps counter (v0.45: wrist SETTINGS board in VR, ` or F2 panel on desktop) =================
 // Defaults (GFX_DEF) reproduce v0.34 exactly: no shadow maps, scale 1, foveation 1, fog 1200-8500 m, all trees, no grass, one cloud layer, MSAA on.
 const GFX_OPT = [   // key, label, values, value labels, note (shown small under the label)
-  ['shadows', 'Shadows', [0, 1, 2], ['OFF', 'LOW', 'HIGH'], 'sun shadows round you'],
   ['scale', 'Render scale', [0.7, 0.8, 0.9, 1, 1.2], ['70%', '80%', '90%', '100%', '120%'], 'VR: next time you enter VR'],
   ['fov', 'Foveation', [0, 0.33, 0.66, 1], ['OFF', 'LOW', 'MEDIUM', 'HIGH'], 'blurrier edges = faster'],
-  ['dist', 'Draw distance', [0.6, 0.8, 1, 1.3], ['NEAR', 'MEDIUM', 'NORMAL', 'FAR'], 'trees, rocks, haze'],
-  ['trees', 'Forest', [0, 0.4, 0.7, 1], ['OFF', 'SPARSE', 'MEDIUM', 'FULL'], 'tree density'],
   ['terr', 'Terrain shading', [0, 1, 2], ['FAST', 'FAST+GRAIN', 'FULL'], 'ground: per-vertex light'],
-  ['grass', 'Grass', [0, 1, 2], ['OFF', 'LOW', 'HIGH'], 'tufts round your feet'],
+  ['trees', 'Forest', [0, 0.4, 0.7, 1], ['OFF', 'SPARSE', 'MEDIUM', 'FULL'], 'tree density'],
+  ['dist', 'Draw distance', [0.6, 0.8, 1, 1.3], ['NEAR', 'MEDIUM', 'NORMAL', 'FAR'], 'trees, rocks, haze'],
   ['clouds', 'Clouds', [0, 1, 2], ['OFF', 'NORMAL', 'HIGH'], 'sky detail'],
   ['fog', 'Haze', [0, 1, 2], ['LIGHT', 'NORMAL', 'THICK'], 'how far you can see'],
+  ['shadows', 'Shadows', [0, 1, 2], ['OFF', 'LOW', 'HIGH'], 'sun shadows round you'],
+  ['grass', 'Grass', [0, 1, 2], ['OFF', 'LOW', 'HIGH'], 'tufts round your feet'],
   ['msaa', 'Anti-aliasing', [0, 1], ['OFF', 'MSAA'], 'applies after a reload'],
+  ['dyn', 'Auto resolution', [0, 1], ['OFF', 'ON'], 'VR: steps down if frames drop'],
   ['hz', 'Refresh rate', [0, 72, 90, 120], ['AUTO', '72 Hz', '90 Hz', '120 Hz'], 'Quest 3: 72 / 90 / 120'],
+  ['fps', 'FPS counter', [0, 1], ['OFF', 'ON'], 'fps, ms, draw calls'],
   ['hx', 'Haptics', null, null, 'controller buzz'],
   ['vig', 'Comfort vignette', [0, 1, 2], ['OFF', 'LIGHT', 'STRONG'], 'darkens edges as you move'],
   ['turn', 'Turning', [0, 1, 2], ['SNAP 30\u00b0', 'SNAP 45\u00b0', 'SMOOTH'], 'right stick'],
-  ['fps', 'FPS counter', [0, 1], ['OFF', 'ON'], 'fps, ms, draw calls'],
   ['tod', 'Time of day', [8, 11, 14, 17, 19, 22], ['EARLY', 'MORNING', 'AFTERNOON', 'LATE', 'SUNSET', 'NIGHT'], 'fixed - the sun stays put'],
   ['stk', 'Stick on release', [0, 1], ['CENTRES', 'STAYS'], 'VR: let go of the stick'],
   ['tips', 'Control labels', [0, 1], ['OFF', 'ON'], 'VR: name + state by your hand'],
@@ -4158,6 +4159,10 @@ function gfxSet(k, v, quiet) {
   if (!quiet) { say(GFX_OPT.find(r => r[0] === k)[1].toUpperCase() + ': ' + gfxLabel(k) + (k === 'msaa' ? ' (RELOAD TO APPLY)' : k === 'scale' && renderer.xr.isPresenting ? ' (NEXT VR START)' : '')); sfx('click'); }
   if (GQ.menu) gfxMenuSync();
 }
+const GFX_PRESET = {   // v0.48: one-poke presets (render scale takes effect next time you enter VR)
+  PERFORMANCE: { scale: 0.7, fov: 1, terr: 0, trees: 0.4, dist: 0.6, clouds: 0, fog: 1, shadows: 0, grass: 0, hz: 72, dyn: 1 },
+  BALANCED: { scale: GFX_DEF.scale, fov: 1, terr: 1, trees: 1, dist: 1, clouds: 1, fog: 1, shadows: 0, grass: 0, hz: 72, dyn: 1 } };
+function gfxPreset(n) { for (const [k, v] of Object.entries(GFX_PRESET[n])) if (GFX[k] !== v) gfxSet(k, v, true); say(n + (renderer.xr.isPresenting && GFX.scale !== GQ.xrScale ? ' - RENDER SCALE AT NEXT VR START' : '')); sfx('click'); if (GQ.menu) gfxMenuSync(); }
 function gfxCycle(k, d = 1) { if (k === 'hx') { HX.cycle(); if (GQ.menu) gfxMenuSync(); return; } const o = GFX_OPT.find(r => r[0] === k), i = o[2].findIndex(v => Math.abs(v - GFX[k]) < 1e-6); gfxSet(k, o[2][((i < 0 ? 0 : i) + d + o[2].length) % o[2].length]); }
 function vlWant() { return GFX.terr < 2 && !GFX.shadows && !LIGHTS.landing; }   // per-pixel lights (landing light) and shadow maps need the Lambert look
 function vlApply(force) {   // v0.48 Terrain shading: FAST / FAST+GRAIN (vertex-lit) or FULL (the v0.47 per-pixel Lambert)
@@ -4172,7 +4177,8 @@ function gfxApply(k) {
   const all = !k;
   if (all || k === 'terr' || k === 'shadows') { VL.key = ''; vlApply(); }
   if (all || k === 'scale') { renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5) * GFX.scale); if (!renderer.xr.isPresenting) renderer.xr.setFramebufferScaleFactor(GFX.scale); }
-  if (all || k === 'fov') renderer.xr.setFoveation(GFX.fov);
+  if (all || k === 'fov') renderer.xr.setFoveation(DYN.lvl ? Math.max(1, GFX.fov) : GFX.fov);
+  if (k === 'dyn' && !GFX.dyn) dynSet(0);
   if (all || k === 'dist' || k === 'trees') updateChunks(true);
   if ((all && GFX.shadows) || k === 'shadows') gfxShadows();
   if (all || k === 'clouds') gfxClouds();
@@ -4229,7 +4235,7 @@ function gfxRate() {
   if (GFX.hz && ses.updateTargetFrameRate && (!GQ.xrRates || GQ.xrRates.includes(GFX.hz))) ses.updateTargetFrameRate(GFX.hz).catch(() => { });
   else if (GFX.hz && GQ.xrRates) say(GFX.hz + ' HZ NOT SUPPORTED HERE (' + GQ.xrRates.join(' / ') + ')');
 }
-renderer.xr.addEventListener('sessionstart', () => { gfxRate(); renderer.xr.setFoveation(GFX.fov); });
+renderer.xr.addEventListener('sessionstart', () => { gfxRate(); renderer.xr.setFoveation(GFX.fov); GQ.xrScale = GFX.scale; Object.assign(DYN, { lvl: 0, t: 0, ok: 0, hold: 10, f: 0, wait: 3, vw0: 0, vsOK: null, up: false }); dynSet(0, true); });
 renderer.xr.addEventListener('sessionend', () => renderer.xr.setFramebufferScaleFactor(GFX.scale));
 // ---- grass: instanced 3-blade tufts on a stable world grid round the camera, rebuilt in slices (no hitch) after you move a few metres ----
 const GRASS = { im: null, cx: 1e9, cz: 1e9, job: null, MAX: 7000 };
@@ -4296,6 +4302,31 @@ function fpsTick(dt) {
   x.fillText(fps + ' fps ' + FT.frm.toFixed(1) + ' ms', 8, 26); x.font = '17px monospace'; x.fillStyle = '#ddd'; x.fillText('cpu ' + FT.cpu.toFixed(1) + ' ' + r.calls + ' dc ' + (r.triangles / 1000).toFixed(0) + 'k tri', 8, 52);
   FPSM.userData.t.needsUpdate = true;
 }
+// ---- v0.48 auto resolution: frame time over budget for > 1 s steps down; ~10 s steady on budget steps back up (the wait doubles if it bounces) ----
+// steps: 0 = as set; 1 = 85 % viewport + foveation HIGH; 2 = 75 % + forest 75 % / nearer thinning; 3 = 65 % + forest 55 % / 60 %.
+// The viewport scale is WebXR requestViewportScale (live, no new session); where the headset ignores it, the readout says so and the forest steps still apply.
+const DYN_STEP = [[1, 1, 1], [0.85, 1, 1], [0.75, 0.75, 0.8], [0.65, 0.55, 0.6]];
+function dynSet(l, force) {
+  l = clamp(l, 0, 3); if (l === DYN.lvl && !force) return; DYN.lvl = l; const [vs, tk, lk] = DYN_STEP[l]; DYN.vs = vs; DYN.n++;
+  if (tk !== DYN.tk || lk !== DYN.lk) { DYN.tk = tk; DYN.lk = lk; updateChunks(true); }
+  renderer.xr.setFoveation(l ? Math.max(1, GFX.fov) : GFX.fov);
+}
+function dynTick(dt) {
+  if (!renderer.xr.isPresenting || !GFX.dyn) { if (DYN.lvl) dynSet(0); return; }
+  if (DYN.wait > 0) { DYN.wait -= dt; return; }   // the first seconds of a session are lumpy
+  const ses = renderer.xr.getSession(), bud = 1000 / ((ses && ses.frameRate) || GFX.hz || 72), ms = dt * 1000; DYN.f += (ms - DYN.f) * 0.15;
+  if (DYN.f > bud * 1.2) { DYN.t += dt; DYN.ok = 0; } else { DYN.t = Math.max(0, DYN.t - dt); DYN.ok += dt; }
+  if (DYN.t > 1 && DYN.lvl < 3) { dynSet(DYN.lvl + 1); DYN.t = 0; DYN.ok = 0; if (DYN.up) DYN.hold = Math.min(80, DYN.hold * 2); DYN.up = false; }
+  else if (DYN.lvl > 0 && DYN.ok > DYN.hold) { dynSet(DYN.lvl - 1); DYN.ok = 0; DYN.up = true; }
+}
+(() => {   // ask for the scaled viewport just before three.js reads it each frame (XRWebGLLayer.getViewport / XRWebGLBinding.getViewSubImage)
+  const wrap = (C, m, vi) => { if (!C || !C.prototype || typeof C.prototype[m] !== 'function') return; const f = C.prototype[m];
+    C.prototype[m] = function () { const v = arguments[vi]; if (DYN.vs < 1 && v && typeof v.requestViewportScale === 'function') { try { v.requestViewportScale(DYN.vs); } catch (e) { } }
+      const r = f.apply(this, arguments), vp = r && (r.viewport || r);
+      if (vp && vp.width) { if (DYN.vs >= 1) DYN.vw0 = Math.max(DYN.vw0, vp.width); else if (DYN.vw0) DYN.vsOK = vp.width < DYN.vw0 * 0.97; DYN.vw = vp.width; }
+      return r; }; };
+  wrap(window.XRWebGLLayer, 'getViewport', 0); wrap(window.XRWebGLBinding, 'getViewSubImage', 1);
+})();
 function gfxTick(dt) { gfxShadowFollow(dt); clouds2Tick(dt); grassTick(dt); vigTick(dt); fpsTick(dt);
   const K = GFX.dist * [1.6, 1, 0.6][GFX.fog]; if (K !== GQ.fogK) { GQ.fogK = K; scene.fog.near = 1200 * K; scene.fog.far = 8500 * K; camera.far = Math.max(7300, scene.fog.far * 1.03); /* v0.47: was 14 km; past the fog end it is all sky colour */ camera.updateProjectionMatrix(); } }
 // ---- v0.45 VR SETTINGS board: poke the screen on your left wrist with the other hand's finger; poke a row = next value ----
@@ -4303,24 +4334,48 @@ const SETP = (() => { const c = document.createElement('canvas'); c.width = 1024
   const m = new THREE.Mesh(new THREE.PlaneGeometry(0.6, 0.375), new THREE.MeshBasicMaterial({ map: t }));
   const back = new THREE.Mesh(new THREE.PlaneGeometry(0.62, 0.395).rotateY(Math.PI).translate(0, 0, -0.004), mat(0x3a2e20)); m.add(back);
   m.visible = false; xrOffset.add(m);
-  return { open: false, m, c, x: c.getContext('2d'), t, W: 0.6, H: 0.375, wArm: true, arm: [true, true], lit: -1 }; })();
+  const pc = document.createElement('canvas'); pc.width = 1024; pc.height = 176; const pt = new THREE.CanvasTexture(pc); pt.colorSpace = THREE.SRGBColorSpace; pt.generateMipmaps = false; pt.minFilter = THREE.LinearFilter;
+  const pm = new THREE.Mesh(new THREE.PlaneGeometry(0.6, 0.103), new THREE.MeshBasicMaterial({ map: pt })); pm.position.set(0, 0.375 / 2 + 0.06, 0); m.add(pm);   // v0.48 live PERF strip above the board
+  return { open: false, m, c, x: c.getContext('2d'), t, W: 0.6, H: 0.375, wArm: true, arm: [true, true], lit: -1, pc, px: pc.getContext('2d'), pt, pT: 0 }; })();
+function xrLayerInfo() {   // v0.48: what the XR layer actually reports (foveation, framebuffer, refresh)
+  const ses = renderer.xr.isPresenting ? renderer.xr.getSession() : null, L = ses && renderer.xr.getBaseLayer ? renderer.xr.getBaseLayer() : null;
+  if (!L) return { ffr: 'not in VR', fb: '-', hz: '-', kind: '-' };
+  const proj = typeof L.textureWidth === 'number', ff = L.fixedFoveation;
+  return { ffr: ff === undefined || ff === null ? 'UNSUPPORTED' : (+ff).toFixed(2), fb: proj ? L.textureWidth + 'x' + L.textureHeight : L.framebufferWidth + 'x' + L.framebufferHeight, kind: proj ? 'proj layer' : 'GL layer',
+    hz: (ses.frameRate ? Math.round(ses.frameRate) + ' Hz' : '? Hz') + (GQ.xrRates ? ' of ' + GQ.xrRates.join('/') : '') };
+}
+function perfLines() {
+  const r = renderer.info.render, X = xrLayerInfo(), ok = FT.frm < 1000 / (GFX.hz || 72) * 1.08;
+  return [[(fps + ' fps  ' + FT.frm.toFixed(1) + ' ms (worst ' + FT.max.toFixed(0) + ')  cpu ' + FT.cpu.toFixed(1) + ' ms  ' + r.calls + ' draws  ' + Math.round(r.triangles / 1000) + 'k tris'), ok ? '#2f6a2a' : '#9a2a1a'],
+    ['FFR ' + X.ffr + '   ' + X.kind + ' ' + X.fb + '   ' + X.hz + '   MSAA ' + (renderer.getContext().getContextAttributes().antialias ? '4x' : 'off') + '   scale ' + Math.round((GQ.xrScale || GFX.scale) * 100) + '%', '#2e2418'],
+    ['auto res ' + (GFX.dyn ? 'step ' + DYN.lvl + ': view ' + Math.round(DYN.vs * 100) + '%' + (DYN.vsOK === false ? ' (not supported here)' : DYN.vsOK ? ' (applied)' : '') + ', forest ' + Math.round(DYN.tk * 100) + '%' : 'OFF') +
+      '   inst ' + CHS.up + '   ground ' + (VL.key.startsWith('true') ? 'vertex-lit' : 'per-pixel'), '#5a4630']];
+}
+function setpPerf(dt) {   // twice a second while the board is open
+  if (!SETP.open || (SETP.pT -= dt) > 0) return; SETP.pT = 0.5;
+  const x = SETP.px; x.fillStyle = '#e9dcb8'; x.fillRect(0, 0, 1024, 176); x.strokeStyle = '#5a4630'; x.lineWidth = 6; x.strokeRect(3, 3, 1018, 170);
+  x.fillStyle = '#2e2418'; x.font = 'bold 22px Georgia, serif'; x.fillText('PERF', 22, 36); x.font = '14px Georgia, serif'; x.fillStyle = '#6a5638'; x.fillText('live - try one row at a time', 90, 36);
+  perfLines().forEach(([t, c], i) => { x.fillStyle = c; x.font = (i ? '20px' : 'bold 24px') + ' monospace'; x.fillText(t, 22, 76 + i * 38, 980); }); SETP.pt.needsUpdate = true;
+}
 const _spL = new THREE.Vector3();
-const SETP_ROW = i => ({ X: i < 9 ? 30 : 527, Y: 96 + (i % 9) * 58 });
+const SETP_ROW = i => ({ X: i < 10 ? 30 : 527, Y: 96 + (i % 10) * 48 });   // v0.48: 10 rows a column
 function setpDraw() {
   const x = SETP.x; x.fillStyle = '#e9dcb8'; x.fillRect(0, 0, 1024, 640); x.strokeStyle = '#5a4630'; x.lineWidth = 6; x.strokeRect(3, 3, 1018, 634);
   x.fillStyle = '#2e2418'; x.font = 'bold 34px Georgia, serif'; x.fillText('SETTINGS', 30, 56); x.font = '17px Georgia, serif'; x.fillStyle = '#6a5638'; x.fillText('Poke a row to change it. Saved in this browser.', 230, 54);
   GFX_OPT.forEach(([k, lab, , , note], i) => { const { X, Y } = SETP_ROW(i);
     x.fillStyle = '#2e2418'; x.font = 'bold 21px Georgia, serif'; x.fillText(lab, X, Y); x.font = '14px Georgia, serif'; x.fillStyle = '#6a5638'; x.fillText(note, X, Y + 20);
     const ch = k !== 'hx' && GFX[k] !== GFX_DEF[k];
-    x.fillStyle = SETP.lit === i ? '#f2d878' : ch ? '#d9c48e' : '#e2d4ae'; x.fillRect(X + 262, Y - 28, 196, 46); x.strokeStyle = '#5a4630'; x.lineWidth = 2; x.strokeRect(X + 262, Y - 28, 196, 46);
-    x.fillStyle = '#2e2418'; x.font = 'bold 20px Georgia, serif'; x.textAlign = 'center'; x.fillText(gfxLabel(k), X + 360, Y + 2); x.textAlign = 'left'; });
+    x.fillStyle = SETP.lit === i ? '#f2d878' : ch ? '#d9c48e' : '#e2d4ae'; x.fillRect(X + 262, Y - 26, 196, 40); x.strokeStyle = '#5a4630'; x.lineWidth = 2; x.strokeRect(X + 262, Y - 26, 196, 40);
+    x.fillStyle = '#2e2418'; x.font = 'bold 20px Georgia, serif'; x.textAlign = 'center'; x.fillText(gfxLabel(k), X + 360, Y + 1); x.textAlign = 'left'; });
   x.fillStyle = '#5a4630'; x.fillRect(822, 580, 172, 44); x.fillStyle = '#f2ead2'; x.font = 'bold 22px Georgia, serif'; x.textAlign = 'center'; x.fillText('CLOSE', 908, 610); x.textAlign = 'left';
-  x.font = '15px Georgia, serif'; x.fillStyle = '#6a5638'; x.fillText('Defaults are tuned for Quest 3 at 90 fps. The FPS counter shows what each setting costs.', 30, 608);
+  for (const [n, X0] of [['PERFORMANCE', 30], ['BALANCED', 262]]) { x.fillStyle = SETP.lit === n ? '#f2d878' : '#7a6040'; x.fillRect(X0, 580, 214, 44); x.fillStyle = '#f2ead2'; x.font = 'bold 20px Georgia, serif'; x.textAlign = 'center'; x.fillText(n, X0 + 107, 609); x.textAlign = 'left'; }
+  x.font = '14px Georgia, serif'; x.fillStyle = '#6a5638'; x.fillText('presets', 492, 598); x.fillText('(scale: next VR)', 492, 614);
   SETP.t.needsUpdate = true;
 }
 function setpHit(u, v) {   // canvas px -> row index, 'close' or null
   if (u > 822 && u < 994 && v > 580 && v < 624) return 'close';
-  for (let i = 0; i < GFX_OPT.length; i++) { const { X, Y } = SETP_ROW(i); if (u > X - 6 && u < X + 462 && v > Y - 34 && v < Y + 28) return i; }
+  if (v > 580 && v < 624) { if (u > 30 && u < 244) return 'PERFORMANCE'; if (u > 262 && u < 476) return 'BALANCED'; }
+  for (let i = 0; i < GFX_OPT.length; i++) { const { X, Y } = SETP_ROW(i); if (u > X - 6 && u < X + 462 && v > Y - 30 && v < Y + 18) return i; }
   return null;
 }
 function setpOpen(on = !SETP.open) {
@@ -4333,9 +4388,11 @@ function setpOpen(on = !SETP.open) {
 }
 function setpPoke(r) {
   if (r === 'close') { setpOpen(false); return; }
+  if (r in GFX_PRESET) { SETP.lit = r; gfxPreset(r); setpDraw(); return; }
   SETP.lit = r; gfxCycle(GFX_OPT[r][0]); setpDraw();
 }
 function setpTick() {   // after updateHands (fingertips are this frame's)
+  setpPerf(1 / 72);
   if (!HANDS.st.length) return;
   for (let i = 0; i < 2; i++) { const st = HANDS.st[i]; if (!st.vis) continue;
     if (!st.right && !wrist.parent) continue;
@@ -4358,7 +4415,7 @@ function gfxMenu(open = !GQ.menu) {
   const d = document.createElement('div'); GQ.menu = d;
   d.style.cssText = 'position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:10000;background:#e9dcb8;color:#2e2418;border:3px solid #5a4630;border-radius:6px;padding:16px 22px;font:15px Georgia,serif;box-shadow:0 8px 30px rgba(0,0,0,.5);min-width:420px';
   d.innerHTML = '<div style="font:bold 24px Georgia,serif;margin-bottom:8px">Settings</div><table id="gfxT" style="border-collapse:collapse;width:100%"></table>' +
-    '<div style="margin-top:10px;display:flex;gap:8px"><button id="gfxR">Reset defaults</button><button id="gfxC">Close (` / F2)</button></div><div style="font-size:12px;color:#6a5638;margin-top:6px">Defaults = the Quest 3 90 fps baseline. F3 toggles the FPS counter.</div>';
+    '<div style="margin-top:10px;display:flex;gap:8px"><button id="gfxR">Reset defaults</button><button id="gfxP">PERFORMANCE</button><button id="gfxB">BALANCED</button><button id="gfxC">Close (` / F2)</button></div><div style="font-size:12px;color:#6a5638;margin-top:6px">Defaults = the Quest 3 90 fps baseline. F3 toggles the FPS counter.</div>';
   document.body.appendChild(d); const T = d.querySelector('#gfxT');
   for (const [k, lab, vals, labs, note] of GFX_OPT) { const tr = document.createElement('tr'); tr.innerHTML = `<td style="padding:3px 8px 3px 0"><b>${lab}</b><br><span style="font-size:11px;color:#6a5638">${note}</span></td><td></td>`;
     const sel = document.createElement('select'); sel.dataset.k = k; sel.style.cssText = 'font:14px Georgia,serif;min-width:120px';
@@ -4366,7 +4423,7 @@ function gfxMenu(open = !GQ.menu) {
     sel.onchange = () => { if (k === 'hx') { HX.gain = +sel.value; try { localStorage.setItem('bp_hx', HX.gain); } catch (e) { } say('HAPTICS ' + gfxLabel('hx')); } else gfxSet(k, +sel.value); sel.blur(); };
     tr.children[1].appendChild(sel); T.appendChild(tr); }
   d.querySelector('#gfxR').onclick = () => { for (const k in GFX_DEF) if (GFX[k] !== GFX_DEF[k]) gfxSet(k, GFX_DEF[k], true); say('SETTINGS RESET'); gfxMenuSync(); };
-  d.querySelector('#gfxC').onclick = () => gfxMenu(false); gfxMenuSync();
+  d.querySelector('#gfxC').onclick = () => gfxMenu(false); d.querySelector('#gfxP').onclick = () => gfxPreset('PERFORMANCE'); d.querySelector('#gfxB').onclick = () => gfxPreset('BALANCED'); gfxMenuSync();
 }
 function gfxMenuSync() { if (!GQ.menu) return; for (const sel of GQ.menu.querySelectorAll('select')) { const k = sel.dataset.k, v = k === 'hx' ? HX.gain : GFX[k]; let best = 0, bd = 1e9; [...sel.options].forEach((o, i) => { const dd = Math.abs(+o.value - v); if (dd < bd) { bd = dd; best = i; } }); sel.selectedIndex = best; } }
 addEventListener('keydown', e => { if (e.repeat) return;
@@ -4383,7 +4440,7 @@ function sockFix(m, dx = 0) {
   return m; }
 gfxApply();
 { PL.visible = SL.visible = true; renderer.compile(scene, camera); PL.visible = SL.visible = false; }
-{ vlTick(); for (const f of [true, false]) { vlApply(f); PL.visible = SL.visible = !f; renderer.compile(scene, camera); } PL.visible = SL.visible = false; VL.key = ''; vlApply(); }   // v0.48: both terrain looks compiled at load (landing light = no hitch)   // v0.47 LIGHTS_WARM: precompile the lit-cockpit / landing-light variants
+{ vlTick(); for (const f of [true, false]) for (let c = 0; c < 4; c++) { vlApply(f); PL.visible = !!(c & 1); SL.visible = !!(c & 2); renderer.compile(scene, camera); } PL.visible = SL.visible = false; VL.key = ''; vlApply(); }   // v0.48: both terrain looks x each panel-glow / landing-light combination compiled at load (no hitch when one comes on)   // v0.47 LIGHTS_WARM: precompile the lit-cockpit / landing-light variants
 renderer.setAnimationLoop(() => {
   const t0 = performance.now(), rawDt = clock.getDelta(), dt = Math.min(rawDt, 0.05);
   const xr = renderer.xr.isPresenting;
@@ -4431,6 +4488,7 @@ renderer.setAnimationLoop(() => {
   vlTick(); batchTick(); if (GFX.shadows && ((FT.n & 1) || mode !== 'plane' || ac.vel[0] * ac.vel[0] + ac.vel[1] * ac.vel[1] + ac.vel[2] * ac.vel[2] > 0.1)) renderer.shadowMap.needsUpdate = true;   // v0.47 static batches; shadow map at half rate   // v0.23 gloves (after the stick / knobs have their final pose); v0.45 wrist SETTINGS board
   renderer.render(scene, camera);
   const cpu = performance.now() - t0;            // JS + draw submission (GPU time isn't visible from here)
+  dynTick(rawDt);   // v0.48 auto resolution
   FT.sf += rawDt * 1000; FT.sc += cpu; FT.sm = Math.max(FT.sm, rawDt * 1000); FT.n++;
   if ((FT.t += rawDt) >= 0.5) { FT.frm = FT.sf / FT.n; FT.cpu = FT.sc / FT.n; FT.max = FT.sm; FT.sf = FT.sc = FT.sm = FT.n = 0; FT.t = 0; }
 });

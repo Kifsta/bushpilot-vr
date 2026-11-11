@@ -1,4 +1,4 @@
-# Bush Pilot VR – controls (v0.47, blank slate)
+# Bush Pilot VR – controls (v0.48, blank slate)
 
 v0.45 is just the Super Cub, the valley and the paper map. There is no wind, weather, survival, combat, loot or story. The full game (v0.44) is tag `v0.44-full` and branch `full-game`.
 
@@ -121,7 +121,13 @@ Town walls and the fences at the depot, checkpoint and lab are solid. You walk r
 - v0.45 uses a new save key (`bushpilot-vr-blank-v1`), so older saves are left alone and never loaded.
 - `?nosave` plays without saving. `?plane` starts a new game in the seat instead of beside the Cub.
 
-## Frame rate (v0.47)
-- Turn the FPS counter on in Settings to see fps, frame ms, CPU ms, draw calls and triangles.
-- If the Quest 3 still drops frames, lower these first: **Render scale** to 85 %, keep **Foveation** on HIGH (the default), **Draw distance** MEDIUM, **Shadows** OFF and **Grass** OFF.
-- `?nobatch` turns off v0.47's static mesh batching (for comparing).
+## Frame rate (v0.48)
+- Poke the screen on your left wrist to open **Settings**. A live **PERF** strip sits above it, updated twice a second:
+  - line 1: fps, frame ms (and the worst frame), CPU ms, draw calls and triangles; green means on budget, red means over;
+  - line 2: the foveation the XR layer reports (`FFR 1.00`, or `UNSUPPORTED`), the layer type and its framebuffer size, the refresh rate (and what the headset offers), MSAA and the render scale;
+  - line 3: what Auto resolution is doing, how many scenery instances are drawn, and whether the ground is vertex-lit.
+- **PERFORMANCE** and **BALANCED** buttons are at the bottom of the board. BALANCED is the default: 90 % render scale, foveation HIGH, 72 Hz, Terrain shading FAST+GRAIN, everything else NORMAL, Auto resolution ON. PERFORMANCE is the cheapest: 70 %, FAST ground, sparse forest, near draw distance, no clouds. A render scale change takes effect the next time you enter VR.
+- To find what costs the most, change one row at a time and watch line 1. **Terrain shading** (FAST / FAST+GRAIN / FULL), **Forest** (OFF / SPARSE / MEDIUM / FULL), **Clouds**, **Haze**, **Draw distance** and **Anti-aliasing** (needs a reload) are the big ones.
+- **Auto resolution** (default ON): if frames run over budget for more than a second, it steps down. First it shrinks the eye viewport to 85 % and forces foveation to HIGH. Then it goes to 75 % with the forest at 75 %, then to 65 % with the forest at 55 %. After about 10 s on budget it steps back up, and it waits longer if it keeps bouncing. Line 3 shows `(not supported here)` if the headset ignores the viewport request; the forest steps still apply.
+- The landing light (and shadows) make the ground per-pixel lit again, because it needs that to light the ground.
+- `?nobatch` turns off v0.47's static mesh batching and `?tile=N` turns on v0.47's tiled forest (both for comparing). F3 toggles the desktop FPS counter, and ` or F2 opens the desktop Settings panel, which has the presets too.
