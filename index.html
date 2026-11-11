@@ -5835,17 +5835,16 @@ const HANGAR = { x: -25.5, z: -9, ry: Math.PI / 2 };
   const X0 = HANGAR.x, Z0 = HANGAR.z, y0 = Math.min(gy(X0 - 4.5, Z0 - 6), gy(X0 + 4.5, Z0 + 6), gy(X0, Z0)) - 0.1, W = 0x8a8e92, R = 0x6a2a20, Wd = 0x6b4a2a;
   b(9.4, 0.2, 12.4, X0, y0 + 0.1, Z0, 0x7a7a72);   // slab
   b(0.15, 4.4, 12, X0 - 4.6, y0 + 2.2, Z0, W); for (const s of [-1, 1]) b(9.2, 4.4, 0.15, X0, y0 + 2.2, Z0 + s * 6, W);   // back + side walls (open to the strip)
-  for (const s of [-1, 1]) P.push(['b', 9.8, 0.12, 6.6, X0, y0 + 4.95, Z0 + s * 3.15, R, s * 0.18, 0, 0]);   // the roof
+  b(9.8, 0.14, 12.5, X0, y0 + 4.67, Z0, R);   // the roof
   b(0.25, 4.6, 0.25, X0 + 4.6, y0 + 2.3, Z0 - 5.9, W); b(0.25, 4.6, 0.25, X0 + 4.6, y0 + 2.3, Z0 + 5.9, W); b(0.25, 0.4, 12, X0 + 4.6, y0 + 4.4, Z0, W);   // front header
   b(0.8, 0.9, 2.6, X0 - 4, y0 + 0.45, Z0 + 3, Wd); b(0.85, 0.06, 2.7, X0 - 4, y0 + 0.92, Z0 + 3, 0x4a3a2a);   // bench
   for (let k = 0; k < 4; k++) P.push(['c', 0.32, 0.16, 10, X0 - 3.6, y0 + 0.28 + k * 0.17, Z0 - 4.6, 0x1a1a1a]);   // a stack of tyres
   for (let k = 0; k < 6; k++) b(0.12, 0.2, 0.08, X0 - 4.1, y0 + 1.06, Z0 + 2.1 + k * 0.22, 0x2a5aa0);   // oil quarts on the bench
   b(0.4, 1.8, 0.8, X0 - 4.2, y0 + 1.1, Z0 - 2, 0xa03020);   // tool chest
-  b(2.2, 0.5, 0.06, X0 + 4.7, y0 + 4.4, Z0, 0xe8e4d0);   // the sign board (lettered by the texture below)
   const gs = P.map(partGeo); HANGAR.geo = mergeGeometries(gs); for (const g of gs) g.dispose();
   const m = new THREE.Mesh(HANGAR.geo, ITEM_VM); m.castShadow = m.receiveShadow = true; scene.add(m); HANGAR.mesh = m; HANGAR.y = y0;
   { const cv = document.createElement('canvas'); cv.width = 256; cv.height = 64; const x = cv.getContext('2d'); x.fillStyle = '#e8e4d0'; x.fillRect(0, 0, 256, 64); x.fillStyle = '#6a2a20'; x.font = 'bold 34px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('HANGAR', 128, 34);
-    const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; const s = new THREE.Mesh(new THREE.PlaneGeometry(2.1, 0.46), new THREE.MeshBasicMaterial({ map: t })); s.position.set(X0 + 4.74, y0 + 4.4, Z0); s.rotation.y = Math.PI / 2; s.userData.noBatch = true; scene.add(s); }
+    const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; const s = new THREE.Mesh(new THREE.PlaneGeometry(1.7, 0.38), new THREE.MeshBasicMaterial({ map: t })); s.position.set(X0 + 4.74, y0 + 4.38, Z0); s.rotation.y = Math.PI / 2; s.userData.noBatch = true; scene.add(s); }
   SOLID_SEGS.push([X0 - 4.6, Z0 - 6, X0 - 4.6, Z0 + 6], [X0 - 4.6, Z0 - 6, X0 + 4.6, Z0 - 6], [X0 - 4.6, Z0 + 6, X0 + 4.6, Z0 + 6]);
   }
 // ---- the fuel drums: home's is the v0.45 pump; one each by the job boards at the other three main strips ----
@@ -5865,7 +5864,7 @@ for (const F of FUEL_ST) { const [bx, bz, ry] = F.b, home = F.id === 'HOME', G =
   for (const sx of [-PW / 2 + 0.03, PW / 2 - 0.03]) box(0.08, Y + 0.45, 0.08, wood, sx, (Y + 0.45) / 2 - 0.1, -0.03, G); box(PW + 0.08, PH + 0.08, 0.04, wood, 0, Y, 0, G);
   const cv = document.createElement('canvas'); cv.width = SVB_W; cv.height = SVB_H; const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
   const m = new THREE.Mesh(new THREE.PlaneGeometry(PW, PH), new THREE.MeshBasicMaterial({ map: tex })); m.position.set(0, Y, 0.022); m.userData.noBatch = true; G.add(m);
-  F.B = { home, G, cv, cx: cv.getContext('2d'), tex, m, PW, PH, key: '', rows: home ? ['oil', 'tyre', 'fix', 'svc'] : ['oil'] }; }
+  F.B = { home, G, cv, cx: cv.getContext('2d'), tex, m, PW, PH, key: '', rows: home ? ['oil', 'tyre', 'fix', 'svc'] : ['oil'], r0: 134, rh: home ? 48 : 52 }; }
 function ecoCost(F, r) {   // [cost, what it does, can it be done]
   const E = ECO;
   if (r === 'oil') { const q = Math.ceil((ECO_OILMAX - E.oil) * 2 - 0.05) / 2; return [Math.round(q * F.oil), q > 0 ? 'ADD ' + q + ' QT OIL ($' + F.oil + '/QT)' : 'OIL FULL - ' + E.oil.toFixed(1) + ' QT', q > 0, q]; }
@@ -5875,19 +5874,20 @@ function ecoCost(F, r) {   // [cost, what it does, can it be done]
 }
 const ecoRoom = home => DLV.cash + (home ? ECO_CREDIT : 0);   // what you can spend: cash, plus the hangar account at home
 const ecoMoney = v => (v < 0 ? '-$' : '$') + Math.abs(Math.round(v)).toLocaleString('en-US');
+function ecoFit(x, t, X, Y, w, px, bold) { let p = px; do { x.font = (bold ? 'bold ' : '') + p + 'px sans-serif'; } while (x.measureText(t).width > w && --p > 9); x.fillText(t, X, Y); }
 function ecoDraw(F) {
   const B = F.B, x = B.cx, E = ECO, W = SVB_W; x.fillStyle = '#f2ead6'; x.fillRect(0, 0, W, SVB_H); x.strokeStyle = '#5a3a20'; x.lineWidth = 8; x.strokeRect(4, 4, W - 8, SVB_H - 8);
   x.textBaseline = 'alphabetic'; x.textAlign = 'left'; x.fillStyle = '#222'; x.font = 'bold 26px sans-serif'; x.fillText(B.home ? 'HOME HANGAR - SERVICE' : F.S.name + ' - FUEL + OIL', 18, 38);
   x.textAlign = 'right'; x.fillStyle = DLV.cash < 0 ? '#b8301e' : '#1e6a2a'; x.fillText(ecoMoney(DLV.cash), W - 18, 38); x.textAlign = 'left';
-  x.fillStyle = '#333'; x.font = 'bold 17px sans-serif'; x.fillText('AVGAS $' + F.price.toFixed(2) + '/GAL AT THE RED DRUM' + (B.home ? ' (ALWAYS 12 GAL ON ACCOUNT)' : ''), 18, 64);
-  x.font = '16px sans-serif'; x.fillText('TACH ' + E.hrs.toFixed(1) + ' HRS - 100-HOUR ' + (E.svc > 100 ? 'OVERDUE ' + (E.svc - 100).toFixed(1) : 'DUE IN ' + (100 - E.svc).toFixed(1)) + ' - LANDINGS ' + E.ldg, 18, 86);
-  x.fillText('OIL ' + E.oil.toFixed(1) + '/' + ECO_OILMAX + ' QT   TYRES ' + Math.round(E.tyre * 100) + '%   BRAKES ' + Math.round(E.brake * 100) + '%   GEAR DMG ' + Math.round(E.gear * 100) + '%   ENGINE DMG ' + Math.round(E.eng * 100) + '%', 18, 106);
-  x.fillStyle = DLV.cash < 0 ? '#b8301e' : '#555'; x.fillText(B.home ? (DLV.cash < 0 ? 'ON ACCOUNT: YOU OWE ' + ecoMoney(-DLV.cash) + ' (LIMIT $' + ECO_CREDIT + ') - JOB PAY CLEARS IT' : 'HANGAR ACCOUNT: UP TO $' + ECO_CREDIT + ' ON CREDIT') : 'CASH ONLY - REPAIRS + SERVICE AT THE HOME HANGAR', 18, 126);
-  B.rows.forEach((r, i) => { const Y = 140 + i * 52, [c, t, ok] = ecoCost(F, r), afford = c <= ecoRoom(B.home); x.fillStyle = '#e8dcc0'; x.fillRect(14, Y, W - 28, 46);
-    x.fillStyle = '#222'; x.font = 'bold 15px sans-serif'; x.fillText((i + 1) + '. ' + t, 24, Y + 28);
-    x.fillStyle = !ok ? '#9a9a90' : afford ? '#2a7a2a' : '#a04030'; x.fillRect(W - 112, Y + 6, 92, 34); x.fillStyle = '#fff'; x.textAlign = 'center'; x.font = 'bold 16px sans-serif'; x.fillText(!ok ? 'OK' : '$' + c, W - 66, Y + 29); x.textAlign = 'left'; });
-  if (!B.home) { x.fillStyle = '#555'; x.font = '15px sans-serif'; x.fillText('FUEL: PARK BY THE DRUM, ENGINE OFF, NOZZLE ON A WING CAP (DESKTOP G)', 18, 220); x.fillText('PAID AS IT FLOWS. ' + (F.id === 'DRYFORK' ? 'THE DEPOT: CHEAPEST FUEL IN THE VALLEY.' : 'HOME $' + FUEL_ST[0].price.toFixed(2) + ', DRY FORK $' + FUEL_ST[3].price.toFixed(2)), 18, 242); }
-  x.fillStyle = '#666'; x.font = '14px sans-serif'; x.fillText('POKE A PRICE TO PAY (DESKTOP 1-' + B.rows.length + ') - THE CUB PARKED NEARBY, ENGINE OFF', 18, SVB_H - 16);
+  x.fillStyle = '#333'; ecoFit(x, 'AVGAS $' + F.price.toFixed(2) + '/GAL AT THE RED DRUM' + (B.home ? ' (ALWAYS 12 GAL ON ACCOUNT)' : ''), 18, 64, W - 36, 17, 1);
+  ecoFit(x, 'TACH ' + E.hrs.toFixed(1) + ' HRS - 100-HOUR ' + (E.svc > 100 ? 'OVERDUE ' + (E.svc - 100).toFixed(1) : 'DUE IN ' + (100 - E.svc).toFixed(1)) + ' - LANDINGS ' + E.ldg, 18, 86, W - 36, 16);
+  ecoFit(x, 'OIL ' + E.oil.toFixed(1) + '/' + ECO_OILMAX + ' QT   TYRES ' + Math.round(E.tyre * 100) + '%   BRAKES ' + Math.round(E.brake * 100) + '%   GEAR DMG ' + Math.round(E.gear * 100) + '%   ENGINE DMG ' + Math.round(E.eng * 100) + '%', 18, 106, W - 36, 16);
+  x.fillStyle = DLV.cash < 0 ? '#b8301e' : '#555'; ecoFit(x, B.home ? (DLV.cash < 0 ? 'ON ACCOUNT: YOU OWE ' + ecoMoney(-DLV.cash) + ' (LIMIT $' + ECO_CREDIT + ') - JOB PAY CLEARS IT' : 'HANGAR ACCOUNT: UP TO $' + ECO_CREDIT + ' ON CREDIT') : 'CASH ONLY - REPAIRS + SERVICE AT THE HOME HANGAR', 18, 126, W - 36, 16);
+  B.rows.forEach((r, i) => { const Y = B.r0 + i * B.rh, [c, t, ok] = ecoCost(F, r), afford = c <= ecoRoom(B.home); x.fillStyle = '#e8dcc0'; x.fillRect(14, Y, W - 28, B.rh - 6);
+    x.fillStyle = '#222'; ecoFit(x, (i + 1) + '. ' + t, 24, Y + B.rh / 2 + 3, W - 150, 15, 1);
+    x.fillStyle = !ok ? '#9a9a90' : afford ? '#2a7a2a' : '#a04030'; x.fillRect(W - 112, Y + 4, 92, B.rh - 14); x.fillStyle = '#fff'; x.textAlign = 'center'; x.font = 'bold 16px sans-serif'; x.fillText(!ok ? 'OK' : '$' + c, W - 66, Y + B.rh / 2 + 3); x.textAlign = 'left'; });
+  if (!B.home) { x.fillStyle = '#555'; ecoFit(x, 'FUEL: PARK BY THE DRUM, ENGINE OFF, NOZZLE ON A WING CAP (DESKTOP G)', 18, 220, W - 36, 15); ecoFit(x, 'PAID AS IT FLOWS. ' + (F.id === 'DRYFORK' ? 'THE DEPOT: CHEAPEST FUEL IN THE VALLEY.' : 'HOME $' + FUEL_ST[0].price.toFixed(2) + ', DRY FORK $' + FUEL_ST[3].price.toFixed(2)), 18, 242, W - 36, 15); }
+  x.fillStyle = '#666'; ecoFit(x, 'POKE A PRICE TO PAY (DESKTOP 1-' + B.rows.length + ') - THE CUB PARKED NEARBY, ENGINE OFF', 18, SVB_H - 12, W - 36, 13);
   B.tex.needsUpdate = true;
 }
 function ecoDo(F, i) {   // a row on a service board
@@ -5961,7 +5961,7 @@ function ecoPoke() {   // VR fingertips on the nearest service board (as the job
   const F = ECO.near; if (!F || ECO.nearD > 4 || !HANDS.st.length || mode !== 'foot') return; const B = F.B;
   for (let i = 0; i < 2; i++) { const st = HANDS.st[i]; if (!st.vis) continue; B.m.worldToLocal(_ecL.copy(st.tip)); const u = (_ecL.x / B.PW + 0.5) * SVB_W, v = (0.5 - _ecL.y / B.PH) * SVB_H, inP = u >= 0 && u <= SVB_W && v >= 0 && v <= SVB_H;
     if (!ECO.poke[i] && (!inP || _ecL.z > 0.04)) ECO.poke[i] = true;
-    if (ECO.poke[i] && inP && _ecL.z < 0.012 && _ecL.z > -0.05) { ECO.poke[i] = false; const r = Math.floor((v - 140) / 52); if (r >= 0 && r < B.rows.length && u > SVB_W - 120) { ecoDo(F, r); if (grips[i]) HX.pulse(grips[i], 0.4, 14, 'ui'); } } }
+    if (ECO.poke[i] && inP && _ecL.z < 0.012 && _ecL.z > -0.05) { ECO.poke[i] = false; const r = Math.floor((v - B.r0) / B.rh); if (r >= 0 && r < B.rows.length && u > SVB_W - 120) { ecoDo(F, r); if (grips[i]) HX.pulse(grips[i], 0.4, 14, 'ui'); } } }
 }
 function ecoSave() { const E = ECO, r = v => Math.round(v * 1000) / 1000; return { hrs: r(E.hrs), svc: r(E.svc), oil: r(E.oil), tyre: r(E.tyre), brake: r(E.brake), gear: r(E.gear), eng: r(E.eng), seized: E.seized ? 1 : 0, ldg: E.ldg }; }
 function ecoLoad(d) { const E = ECO; if (!d || typeof d !== 'object') return; const n = (v, a, b, def) => isFinite(+v) && v !== null ? clamp(+v, a, b) : def;
