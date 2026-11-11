@@ -150,6 +150,19 @@ Some jobs on the boards are **hunting jobs**: a lodge, the elk camp, the ranch o
 - **Binoculars** also show the distance to a deer or herd in the middle of the view, and a bush site you spot through them (within 1.5 km) goes on the map.
 - Climbing into the Cub puts a rifle you carry (or one lying beside the Cub) in its rack, and the binoculars in their holder. They go back on your chest when you get out.
 
+## Airdrops (v0.54)
+Some board offers are **airdrop jobs** (blue AIRDROP badge): people at a place with no strip need supplies. The **STRANDED HIKER** on BALDY RIDGE, the **SURVEY PARTY** on EAST SPUR, the **FIRE CREW** on BURNT HILL, the **TRAPPER** in DEEP WOODS and the **CANOE PARTY** on the LOWER RIVER. The board says `AIRDROP TO THE ... AT ... (NO STRIP) n KM - n BUNDLES n LB`. The map shows an orange X with a smoke puff, and the kneeboard gives `DROP n KM  HDG nnn`. Accepting puts 2–4 streamer **bundles** (15–35 lb each) on the pad; load them like any cargo.
+
+| | VR (Quest) | Desktop |
+|---|---|---|
+| Open the door | Both right halves: the upper window up under the wing, then the lower door down (see Windows and door) | **1** then **2** |
+| Push a bundle out | Reach back, squeeze grip on a bundle, put your hand out through the open door and let go. It leaves with your hand's speed plus the plane's | **G** (the bundle nearest the door) |
+
+- At the site, **orange smoke** goes up from a pot beside the X while your drop is on; you can see it from about 6 km, and inside 1.5 km you get a reminder. Come in low and slow into view of the X, and let go a little before it: the bundle carries your speed forward. Around 30 m above the ground at 28 m/s, that is about 50–60 m short.
+- **Scoring:** within 10 m of the X is full marks. The share falls to 35 % at 150 m. A bundle more than 250 m off, or one in the water, is lost (worth nothing). Condition comes from the impact speed: a streamer bundle falls at up to about 24 m/s, and one that goes through trees is slowed but knocked about. A smashed bundle is worth half.
+- The job pays when the last bundle is down: the job's pay × the average over all its bundles of (accuracy × condition). It's half pay if late. You can't cancel once a bundle is out.
+- With the door shut (or only half open) G says to open it; in VR a bundle you let go inside the cabin settles back in.
+
 ## Fuel
 - Two wing tanks hold 36 gal (136 L). Burn scales with power: full throttle empties them in about 25 minutes. Below 3 % the engine sputters, and at empty it quits. The fuel gauge and the W&B card show what's aboard.
 - **Refuel at the home strip.** There is a red drum with a hand pump on the left of the Cub's parking spot. Taxi back to within 15 m of it, stop, and shut the engine down. Then:
