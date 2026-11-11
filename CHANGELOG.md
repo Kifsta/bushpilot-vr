@@ -2,6 +2,41 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.45 – Blank slate: the Cub, the valley and the map
+
+Neil: "Can we create a blank slate. Remove all game mechanics bar the aeroplane and map and systems required to fly the plane. Remove wind."
+
+**The full game is safe.** v0.44 as it was, with zombies, the survival loop, the story and the weather, is tagged **`v0.44-full`** (commit `acd14f3`) and kept on the branch **`full-game`**, both pushed to GitHub. `git checkout v0.44-full` (or `full-game`) brings it all back, `assets/` included. `main` carries on from the blank slate.
+
+**Kept**
+- The Super Cub: the flight model (the physics block and its md5 baseline did not change), engine cold start, mixture / carb / primer / mags, fuel burn with sputter and engine-out, gear and tyre physics, and weight and balance (empty plane, pilot and fuel).
+- The whole v0.42–v0.44 cockpit: the roof flap handle and trim crank, the 3D panel and gauges, the key, primer, valve, latches, toggles and labels, the gloves, the haptics.
+- Walking, getting in and out, the paper map and its cockpit holder, all of the terrain: mountains, rivers, forests, the cabin, lodge, Dry Fork and research station strips, the towns, farms and sites as plain scenery. Sky and clouds. Settings.
+
+**New**
+- A new game starts **on foot beside the Cub** at the cabin strip (`?plane` starts you in the seat).
+- **Refuel pump:** a red drum and hand pump beside the Cub's parking spot. Taxi back to it, stop, shut down and grip a wing filler cap (desktop G by a cap). It pumps 3 L/s while you hold on. A reset now tops you up to 25 % only.
+- **Time of day is fixed:** Settings → Time of day (EARLY / MORNING / AFTERNOON / LATE / SUNSET / NIGHT, default MORNING). The sun, sky, shadows and panel lights follow it, but the clock never runs.
+- **VR settings:** poke the screen on your left wrist to open a SETTINGS board in front of you, then poke rows to cycle them. Desktop: ` / F2 as before.
+- **New save** (`bushpilot-vr-blank-v1`): where the Cub is parked, fuel, time of day, and on foot or aboard. Old saves are ignored, never loaded.
+
+**Removed (the code is deleted, not just switched off)**
+- **Weather and wind:** no wind field, gusts, turbulence, ridge lift, rain, fog, storms or lightning, and no weather radio. Nothing feeds `ac.wind`, which stays [0, 0, 0]. The windsocks hang limp.
+- Zombies, the depot horde, animals and wolves, hunting and dressing.
+- Loot, items, the inventory, pack, belt and pockets. Knife, canteen, rifle, bow and arrows, hatchet, hammer, wrench, torch, compass, binoculars. Melee and force-pull. Crafting and the field guide (settings moved to the wrist).
+- Hunger, thirst, stamina, health, sleep, spoilage and food.
+- The story, the clues, the survivors, the radio, the tutorial notes and the forest wake-up opening.
+- Fortifying (boards, nails, the gate, the generator), and the dusk deadline and day / night clock.
+- Fuel scarcity (avgas / mogas drums and taps, siphoning, cans, mogas detonation). Cub upgrades (long-range tank, tundra tyres, cargo pod, LED light, COM radio). Cargo loading and straps, strongboxes, flares.
+- `assets/items.glb` and `assets/animals/*.glb` are no longer loaded and have been deleted from the repo (the tag still has them).
+
+**Numbers**
+- `index.html`: 873,775 → 405,848 bytes (−54 %), 8,756 → 4,202 lines.
+- Draw calls / triangles (desktop, swiftshader, default settings), v0.44 → v0.45: cockpit 132/318k → 91/277k, 600 m 109/302k → 85/264k, on foot 97/310k → 55/269k, in a town 219/313k → 131/266k.
+- Deleting code that drew from the seeded random streams moves some later scenery (trees, rocks, some town props) a little compared with v0.44. The terrain, rivers and strips are unchanged.
+
+**Tests:** `physics-test.mjs` md5 unchanged (`eee6637e…`), W&B ALL PASS, t42 / t43 / t44 (assertions about removed systems dropped), new t45 (15 checks: start by the Cub, removed systems gone, wind stays zero, no .glb loads, time-of-day setting, desktop walk, pump fill both ways, wrist settings, desktop cold start and takeoff), reload (fresh start, old save ignored, the plane and on-foot saves survive), and no console errors apart from the favicon 404.
+
 ## v0.44 – Cockpit hands, part 3: key, primer, valve, latches, cabin structure
 
 - Mag key is a real ignition key (chrome bezel, brass bow) that you turn by rolling your wrist through OFF / R / L / BOTH, then on into a spring-loaded START. START cranks the engine while you hold it (the spring buzzes back at you), and when you let go it springs back to BOTH with a click. The START button and the Space key still work. The key's label shows START.
