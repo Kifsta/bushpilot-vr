@@ -19,7 +19,7 @@
 </script>
 </head>
 <body>
-<div id="info">BUSH PILOT VR v0.56 - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board). No wind, no weather.
+<div id="info">BUSH PILOT VR v0.57 - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio). No wind, no weather.
 You start on foot by the Cub at the cabin strip. Walk up to her and climb in (F / Y), then start her up off the checklist card (J).
 Desktop - flying: W/S or arrows pitch, A/D or arrows roll, Q/E rudder, Shift / Ctrl (or + / -) throttle, B brakes, [ ] flaps, PgUp / PgDn trim,
   R reset to the strip (cold and dark), F climb out, M map, L landing light, Home recentre, mouse looks (click to capture).
@@ -1043,7 +1043,7 @@ const GV = (() => {
   const spin = [0, 0]; let key = '';
   function update(dt) {
     const gs = ac.gs, tw = ac.tw, wv = qRotInv(ac.q, ac.vel);
-    const k = gs.map(g => (g.s * 400 | 0) + ',' + (g.d * 400 | 0)).join() + (tw.psi * 60 | 0);
+    const k = gs.map(g => (g.s * 400 | 0) + ',' + (g.d * 400 | 0)).join() + (tw.psi * 60 | 0) + UPG.tyres;
     const rolling = ac.out.wow > 0 && Math.abs(wv[2]) > 0.05;
     for (let i = 0; i < 2; i++) if (gs[i].Fn > 0 && !gs[i].lock) spin[i] = (spin[i] + wv[2] / 0.44 * dt) % 6.2832;   // rolling forward (-z): tread top moves forward
     if (k === key && !rolling) return; key = k;
@@ -1051,7 +1051,7 @@ const GV = (() => {
       const S = side[i], g = gs[i], ax = _p.set(S.sx * 0.74, -0.91 + g.s, -0.45), d = Math.min(g.d, 0.2);
       rodM(S.rods[0], S.fr, ax, S.rad[0]); rodM(S.rods[1], S.rr, ax, S.rad[1]); rodM(S.rods[2], S.hg, ax, S.rad[2]);
       _v.set(S.sx * 0.95, -0.91 + g.s, -0.45);
-      const ts = 1;
+      const ts = UPG.tyres ? 1 + UPG_TD / 0.44 : 1;   // v0.57 tundras: same axle, bigger tyre
       S.hub.m.compose(_v, _q.setFromAxisAngle(_X, spin[i]), _s.set(ts, 1, 1));
       _v.y += d / 2;   // squashed tyre: top stays round on the axle, flat bottom on the ground, bulges wider
       S.tyre.m.compose(_v, _q, _s.set((1 + 0.6 * d / 0.44) * ts, (1 - d / 0.88) * ts, (1 + 0.15 * d / 0.44) * ts));
@@ -1737,10 +1737,12 @@ function handGrab(g) {   // on foot: the map (ground / cockpit holder / other ed
   if (mapGrab(g, _a)) return;
   if (fuelGrab(g, _a)) return;
   if (huntGrab(g, _a)) return;   // v0.53 rifle (rack / ground / back, lever, forend), the belt pouch, ammo box, binoculars, a carcass
+  if (upgGrab(g, _a)) return;   // v0.57 a part off the hangar floor, or a bolt head to twist
   dlvGrab(g, _a);   // v0.50 cargo / strap anchors
 }
 function handRelease(g) {       // called every frame the grip is up: keep it cheap / idempotent
   const hs = HX.st(g); if (hs.armed) { hs.armed = false; if (MAP.g === g || FUELP.g === g) HX.pulse(g, 0.15, 12, 'release'); }
+  upgRelease(g);   // v0.57
   dlvRelease(g);   // v0.50 let go of cargo   // v0.24 let-go tap, once per squeeze
   mapRelease(g); fuelRelease(g); huntRelease(g);
 }
@@ -1753,6 +1755,7 @@ addEventListener('keydown', e => {
   if (dropKey(e)) return;   // v0.54 G: push a bundle out of the open door
   if (huntKey(e)) return;   // v0.53 T rifle, X lever, Z load / buy ammo, V binoculars, hold E over a carcass
   if (engKey(e)) return;     // v0.19 cockpit keys (U O Y H I P K J, 1-4 windows; Space = starter, held)
+  if (upgKey(e)) return;   // v0.57 1-7 at the parts board; E carries / fits / bolts a part
   if (ecoKey(e)) return;   // v0.55 1-4 at a service board
   if (dlvDeskKey(e)) return;   // v0.50 on foot: E carry / load, 1-3 at a job board; / straps
   if (e.code === 'KeyR') resetFlight();
@@ -1943,7 +1946,7 @@ const _eye = new THREE.Vector3(), _hf = new THREE.Vector3();
 const hud = document.getElementById('hud'), cross = document.getElementById('cross');
 function statusText() {
   const kt = (ac.out.V || 0) * 1.944, A = dlvActive(), nx = A.slice().sort((a, b) => (b.sp ? 1 : 0) - (a.sp ? 1 : 0) || dlvLeft(a) - dlvLeft(b))[0];   // v0.51: special cargo first (its meter shows)   // v0.50 wallet + the most urgent job
-  return '$' + DLV.cash.toLocaleString('en-US') + (nx ? '  ' + A.length + ' JOB' + (A.length > 1 ? 'S' : '') + ' >' + dlvS(nx.to).name.replace(' STRIP', '') + (nx.sp ? dlvMeter(nx).replace(' - ', ' ').replace('DAMAGE', 'DMG') : nx.dl ? ' ' + Math.max(0, Math.ceil(dlvLeft(nx))) + 'M' : '') : '  NO JOBS') + '\n' + `FUEL ${(fuel / FUEL_MAX * 100).toFixed(0)}% ${(fuel / 3.785).toFixed(1)} GAL${FUELP.on ? ' FILLING' : ''}\n` +
+  return '$' + DLV.cash.toLocaleString('en-US') + (nx ? '  ' + A.length + ' JOB' + (A.length > 1 ? 'S' : '') + ' >' + dlvS(nx.to).name.replace(' STRIP', '') + (nx.sp ? dlvMeter(nx).replace(' - ', ' ').replace('DAMAGE', 'DMG') : nx.dl ? ' ' + Math.max(0, Math.ceil(dlvLeft(nx))) + 'M' : '') : '  NO JOBS') + '\n' + `FUEL ${(fuel / FUEL_MAX * 100).toFixed(0)}% ${(fuel / 3.785).toFixed(1)} GAL${UPG.tank ? ' +' + (UPG.aux / 3.785).toFixed(1) + ' AUX' : ''}${FUELP.on ? ' FILLING' : ''}\n` +
     (mode === 'plane' ? `ENG ${ENG.running ? 'RUN ' + Math.round(ENG.rpm) : ENG.cranking ? 'CRANK' : 'OFF'}  ${Math.round(kt)} KT` : 'ON FOOT') + (ecoWarn() ? '\n' + ecoWarn() : '') + (msgT > 0 ? '\n' + msg : '') + (repLine() ? '\n' + repLine() : '');   // v0.55 maintenance warnings
 }
 let wristKey = '';
@@ -1968,6 +1971,8 @@ for (const c of CAPS) { const m = new THREE.Mesh(new THREE.CylinderGeometry(0.03
 // v0.55 economy (state; the rest is in the v0.55 module further down): fuel drums at the 4 main strips at their own prices, oil, tach hours, tyres / brakes, damage
 const FUEL_ST = [{ id: 'HOME', price: 6.40, oil: 9 }, { id: 'RIDGE', price: 7.30, oil: 11 }, { id: 'LODGE', price: 8.90, oil: 12 }, { id: 'DRYFORK', price: 5.80, oil: 10 }];   // $/gal avgas, $/qt oil (Dry Fork has the fuel depot)
 const ECO = { hrs: 1262.4, svc: 62.4, oil: 5.5, tyre: 0.85, brake: 0.9, gear: 0, eng: 0, seized: false, ldg: 0, wow: true, air: 0, vy: 0, cr: false, sink: 0, fill: 0, fillL: 0, acct: false, warnT: 20, frac: 0, ms: 0, poke: [true, true], near: null, nearD: 1e9, hint: null };
+const UPG = { tank: 0, tyres: 0, pod: 0, light: 0, radio: 0, own: {}, aux: 0, fit: null, n: 0, loads: [], parts: {}, held: new Map(), desk: null, tw: null, heard: {}, radioT: 30, callT: 60, say: 0, ms: 0, auxL: { lb: 0, arm: 24, y: 1.4 } };   // v0.57 plane upgrades (fitted = 1; the module is further down)
+const UPG_K = ['tank', 'tyres', 'pod', 'light', 'radio'], AUX_L = 60, UPG_TD = 0.05, POD_MAX_LB = 100;   // aux tank litres (16 gal), tundra radius +5 cm, pod limit
 const ECO_TX = 20, ECO_OILMAX = 6, ECO_CREDIT = 600, ECO_SAFE = 12 * 3.785;   // tach hours run 20x real time; 6 qt sump; the hangar runs a $600 account; the home drum always gives you 12 gal on account
 const FUELP = { p: new THREE.Vector3(-7.5, 0, 3), on: false, g: null, cap: -1, sndT: 0, fullSaid: false, RATE: 3, REACH: 15, CAP_R: 0.3, DESK_R: 3 };
 FUELP.p.y = groundY(FUELP.p.x, FUELP.p.z);
@@ -1991,7 +1996,7 @@ function fuelGrab(g, p) {   // VR: grip at a filler cap = the nozzle goes in
   FUELP.g = g; FUELP.cap = c; FUELP.on = true; FUELP.fullSaid = false; tick(g); sfx('click'); say('REFUELLING - $' + FUELP.st.price.toFixed(2) + '/GAL'); return true;
 }
 function fuelRelease(g) { if (FUELP.g !== g) return; FUELP.g = null; fuelStop(); }
-function fuelStop() { if (!FUELP.on) return; FUELP.on = false; FUELP.cap = -1; FUELP.line.visible = false; say('FUEL ' + (fuel / 3.785).toFixed(1) + ' GAL' + ecoFuelReceipt()); }
+function fuelStop() { if (!FUELP.on) return; FUELP.on = false; FUELP.cap = -1; FUELP.line.visible = false; say('FUEL ' + (fuel / 3.785).toFixed(1) + ' GAL' + (UPG.tank ? ' + AUX ' + (UPG.aux / 3.785).toFixed(1) : '') + ecoFuelReceipt()); }
 function fuelDesk() {   // desktop G: start / stop the pump when you stand by a filler cap
   if (FUELP.on) { fuelStop(); return; }
   camera.getWorldPosition(_fpB); let c = -1, bd = FUELP.DESK_R;
@@ -2005,8 +2010,9 @@ function fuelPumpTick(dt) {
   if (mode !== 'foot' || !pumpNear()) { FUELP.g = null; fuelStop(); return; }
   if (!FUELP.g) { camera.getWorldPosition(_fpB); capW(FUELP.cap, _fpA); if (Math.hypot(_fpA.x - _fpB.x, _fpA.z - _fpB.z) > FUELP.DESK_R + 1) { fuelStop(); return; } }
   if (FUELP.g && nearestCap(FUELP.g.getWorldPosition(_fpB), FUELP.CAP_R + 0.1) < 0) { fuelStop(); return; }   // pulled the nozzle out
-  if (fuel < FUEL_MAX) { const dl = ecoFuelAllow(Math.min(FUELP.RATE * dt, FUEL_MAX - fuel)); if (dl <= 0) { FUELP.g = null; fuelStop(); return; } fuel = Math.min(FUEL_MAX, fuel + dl); if ((FUELP.sndT -= dt) <= 0) { sfx('pour', capW(FUELP.cap, _fpA)); FUELP.sndT = 0.13; } if (FUELP.g && Math.random() < dt * 6) HX.pulse(FUELP.g, 0.08, 10, 'fuel'); }
-  else if (!FUELP.fullSaid) { FUELP.fullSaid = true; say('TANKS FULL - 36 GAL'); if (FUELP.g) HX.pulse(FUELP.g, 0.4, 30, 'fuel'); }
+  if (fuel < FUEL_MAX || upgAuxRoom() > 0) { const dl = ecoFuelAllow(Math.min(FUELP.RATE * dt, FUEL_MAX - fuel + upgAuxRoom())); if (dl <= 0) { FUELP.g = null; fuelStop(); return; } const dm = Math.min(dl, FUEL_MAX - fuel); fuel = Math.min(FUEL_MAX, fuel + dm); if (dl > dm) UPG.aux = Math.min(AUX_L, UPG.aux + dl - dm);   // v0.57 then the aux
+    if ((FUELP.sndT -= dt) <= 0) { sfx('pour', capW(FUELP.cap, _fpA)); FUELP.sndT = 0.13; } if (FUELP.g && Math.random() < dt * 6) HX.pulse(FUELP.g, 0.08, 10, 'fuel'); }
+  else if (!FUELP.fullSaid) { FUELP.fullSaid = true; say('TANKS FULL - 36 GAL' + (UPG.tank ? ' + 16 AUX' : '')); if (FUELP.g) HX.pulse(FUELP.g, 0.4, 30, 'fuel'); }
   _fpA.copy(FUELP.p).y += 1.42; capW(FUELP.cap, _fpB); FUELP.line.geometry.attributes.position.setXYZ(0, _fpA.x, _fpA.y, _fpA.z); FUELP.line.geometry.attributes.position.setXYZ(1, _fpB.x, _fpB.y, _fpB.z);
   FUELP.line.geometry.attributes.position.needsUpdate = true; FUELP.line.visible = true;
 }
@@ -2971,6 +2977,7 @@ const PP = new THREE.Vector3();
 function playerPos() { if (mode === 'plane') PP.set(ac.pos[0], ac.pos[1], ac.pos[2]); else camera.getWorldPosition(PP); return PP; }
 function fuelTick(dt) {   // burn scales with engine power; sputter below 3 %, quits at empty. The engine is shut down while you're out of the plane.
   if (!ac.crashed && !ac.engineOut) fuel = Math.max(0, fuel - BURN_FULL * ac.power * dt);
+  if (UPG.aux > 0 && fuel < FUEL_MAX * 0.9 && ENG.master) { const t = Math.min(UPG.aux, FUEL_MAX - fuel, 0.25 * dt); UPG.aux -= t; fuel += t; }   // v0.57 the aux transfer pump keeps the mains up
   if (fuel > 0 && fuel < FUEL_MAX * 0.03 && mode === 'plane') { if ((sputT -= dt) <= 0) { sput = !sput; sputT = sput ? 0.12 + Math.random() * 0.3 : 0.3 + Math.random() * 1.2; } }
   else sput = false;
   ac.engineOut = mode === 'foot' || fuel <= 0 || sput || !ENG.running || ECO.seized;   // v0.55 + a seized engine   // v0.19: start / shutdown state machine (updateEngine)
@@ -3235,7 +3242,7 @@ function updateDay(dt) {   // sun / sky / fog colour from the fixed time of day,
   const dark = 1 - TOD.day;
   PL.intensity = 0; SL.intensity = 0;
   if (mode === 'plane' && dark > 0.3 && ENG.master && LIGHTS.pl) { plane.localToWorld(PL.position.set(0, 0.25 + CK.y, -0.42 + CK.z)); PL.distance = 1.3; PL.color.setHex(0xff9a50); PL.intensity = 0.35 * dark * (LIGHTS.pl === 2 ? 1 : 0.55); }
-  if (LIGHTS.landing) { plane.localToWorld(SL.position.set(-1.6, 0.80, -0.42)); plane.localToWorld(SL.target.position.set(-1.6, -2.2, -30)); SL.distance = 260; SL.angle = 0.3; SL.intensity = 220; }
+  if (LIGHTS.landing) { plane.localToWorld(SL.position.set(-1.6, 0.80, -0.42)); plane.localToWorld(SL.target.position.set(-1.6, -2.2, -30)); SL.distance = UPG.light ? 450 : 260; SL.angle = UPG.light ? 0.42 : 0.3; SL.intensity = UPG.light ? 520 : 220; }
   SL.target.updateMatrixWorld();
   PL.visible = PL.intensity > 0; SL.visible = SL.intensity > 0;   // v0.47: both programs are compiled at load (LIGHTS_WARM), so switching is hitch-free
 }
@@ -4477,11 +4484,11 @@ function repAdd(k, d) {
 }
 function repSay(r) { if (!r) return ''; return ' - ' + repWho(r.k) + ' ' + (r.d >= 0 ? '+' : '') + r.d + ' REP' + (r.up ? ', NOW ' + r.tier + (r.tier === 'REGULAR' ? ': ' + (REP_NAME[r.k] || repWho(r.k)) + ' WILL ASK FOR ' + PILOT : '') : r.down ? ', DOWN TO ' + r.tier : '') + (r.unl ? ' | ' + REP_UNL_T : ''); }
 function repJob(j, late, k) {   // a delivery: on time / early / late, the cargo's state
-  let d = late ? -8 : 5; if (!late && j.dl && j.due - DLV.gt > j.dl * 0.4) d += 2;
+  let d = late ? (UPG.radio ? -4 : -8) : 5;   // v0.57 with the COM radio you called ahead if (!late && j.dl && j.due - DLV.gt > j.dl * 0.4) d += 2;
   if (j.sp || j.hunt) d += Math.round((k - 0.75) * 16); if (dlvWc(j) === 'H') d += 1; if (j.req) d += 2;
   return repAdd(repKey(j), d);
 }
-function repDrop(j, f, late) { return repAdd(repKey(j), (late ? -8 : 0) + Math.round((f - 0.6) * 25)); }   // an airdrop: the average bundle share (accuracy x condition, lost = 0)
+function repDrop(j, f, late) { return repAdd(repKey(j), (late ? (UPG.radio ? -4 : -8) : 0) + Math.round((f - 0.6) * 25)); }   // an airdrop: the average bundle share (accuracy x condition, lost = 0)
 function repUnlock(quiet) {   // Dry Fork vouches for you: the Halvorsen station's board opens
   const H = dlvS('HALV'); if (!H || !H.lock || repOf('DRYFORK') < REP_UNL) return;
   H.lock = false; MAP.key = ''; H.key = ''; if (!quiet) say(REP_UNL_T); return true;
@@ -4752,7 +4759,7 @@ const CZ = {   // load zones in body axes (plane-local); arm(z) = TCDS station o
 };
 CZ.bag.zc = (CZ.bag.z0 + CZ.bag.z1) / 2; CZ.bag.arm = z => WNB.BAG_ARM + (z - CZ.bag.zc) / WNB.IN;
 const cgIn = () => DLV.items.filter(it => it.st === 'cargo');
-const cgSecured = it => it.cz === 'rear' ? DLV.belt : it.cz === 'bag' ? DLV.net : false;
+const cgSecured = it => it.cz === 'rear' ? DLV.belt : it.cz === 'bag' ? DLV.net : it.cz === 'pod';   // v0.57 the closed pod holds its load
 function cgHalf(it, Z) { const s = it.sz; return [Math.min(s[0] / 2, Z.x), Math.min(s[2] / 2, (Z.z1 - Z.z0) / 2)]; }
 function cgSupport(zn, it, x, z, below = Infinity) {   // floor / seat under (x, z), or the top of the cargo under it (only cargo lower than `below`)
   const Z = CZ[zn], s = it.sz; let y = Z.y(z);
@@ -4776,6 +4783,7 @@ function cgAuto(it, zn) {   // lowest free spot in the zone (desktop, or the han
 }
 function dlvUnhold(it) { for (const [g, h] of DLV.held) if (h === it) DLV.held.delete(g); if (DLV.desk === it) DLV.desk = null; it.g = null; it.two = null; }
 function loadCargo(it, zn, x, z, quiet) {
+  if (zn === 'pod' && (!UPG.pod || upgPodLb() + it.lb > POD_MAX_LB)) { if (!quiet) say('THE POD TAKES ' + POD_MAX_LB + ' LB - ' + upgPodLb() + ' IN IT'); return false; }   // v0.57
   const prev = it.mesh.parent, pst = it.st, pcz = it.cz; it.st = 'loading'; it.cz = null;
   let ok = x !== undefined && cgPlace(it, zn, x, z);
   if (!ok) { const b = cgAuto(it, zn); ok = !!b && cgPlace(it, zn, b[0], b[1]); }
@@ -4789,13 +4797,13 @@ function loadCargo(it, zn, x, z, quiet) {
 }
 function cgLoadAny(it, quiet) {   // desktop / from the seat: heavy pieces on the rear seat, light ones in the baggage bay (50 lb max), else wherever it fits
   const zn = it.lb >= 15 || WBS.bagLb + it.lb > WNB.BAG_MAX_LB ? 'rear' : 'bag';
-  for (const z of [zn, zn === 'rear' ? 'bag' : 'rear', 'foot']) if (loadCargo(it, z, undefined, undefined, true)) { if (!quiet) loadCargoSay(it); return true; }
+  for (const z of UPG.pod && upgNearPod() ? ['pod', zn, zn === 'rear' ? 'bag' : 'rear', 'foot'] : [zn, zn === 'rear' ? 'bag' : 'rear', 'foot'].concat(UPG.pod ? ['pod'] : [])) if (loadCargo(it, z, undefined, undefined, true)) { if (!quiet) loadCargoSay(it); return true; }
   if (!quiet) say('NO ROOM IN THE CUB'); return false;
 }
 function loadCargoSay(it) { const B = WBS.plan; sfx('thud', it.mesh.getWorldPosition(new THREE.Vector3()));
   say('LOADED ' + CARGO_K[it.k].n + ' ' + it.lb + ' LB - ' + CZ[it.cz].name + (it.cz === 'foot' ? '' : cgSecured(it) ? ' (STRAPPED)' : ' (LOOSE - / STRAPS)') + ' | ' + B.lb.toFixed(0) + ' LB CG +' + B.arm.toFixed(1) + (B.over ? ' OVER GROSS' : B.inEnv ? '' : ' OUT OF LIMITS')); }
 function cgZoneAt(p) {   // p in body axes -> the zone a released piece lands in
-  for (const zn of ['bag', 'rear', 'foot']) { const Z = CZ[zn], y0 = Z.y(clamp(p.z, Z.z0, Z.z1));
+  for (const zn of UPG.pod ? ['bag', 'rear', 'foot', 'pod'] : ['bag', 'rear', 'foot']) { const Z = CZ[zn], y0 = Z.y(clamp(p.z, Z.z0, Z.z1));
     if (Math.abs(p.x) < Z.x + 0.12 && p.z > Z.z0 - 0.08 && p.z < Z.z1 + 0.08 && p.y > y0 - 0.12 && p.y < y0 + Z.top + 0.3) return zn; }
   return null;
 }
@@ -4877,7 +4885,7 @@ function cargoUpdate(dt) {
 const _dg = new THREE.Vector3(), _dl = new THREE.Vector3(), _dp = new THREE.Vector3();
 function dlvDist(it, w) { it.mesh.worldToLocal(_dl.copy(w)); const s = it.sz; return Math.hypot(Math.max(0, Math.abs(_dl.x) - s[0] / 2), Math.max(0, Math.abs(_dl.y) - s[1] / 2), Math.max(0, Math.abs(_dl.z) - s[2] / 2)); }
 function dlvTake(it, quiet) {   // out of the Cub / off the ground into a hand: false if it's strapped in
-  if (it.st === 'cargo' && cgSecured(it)) { if (!quiet) say('UNDO THE ' + (it.cz === 'rear' ? 'SEAT BELT' : 'CARGO NET') + ' FIRST'); return false; }
+  if (it.st === 'cargo' && it.cz !== 'pod' && cgSecured(it)) { if (!quiet) say('UNDO THE ' + (it.cz === 'rear' ? 'SEAT BELT' : 'CARGO NET') + ' FIRST'); return false; }
   const was = it.st; it.st = 'held'; it.cz = null; it.cv.set(0, 0, 0); if (was === 'cargo') { cgStraps(); wbUpdate(); } return true;
 }
 function dlvGrab(g, a) {   // VR on foot: strap anchor first, then the nearest piece of cargo under the hand
@@ -4937,7 +4945,7 @@ function dlvDeskE() {   // desktop E on foot: pick up / put down / load / unload
   let bi = null, bs = 1e9;
   for (const it of DLV.items) { if (it.st !== 'ground') continue; const p = it.mesh.position, dx = p.x - _w.x, dz = p.z - _w.z, d = Math.hypot(dx, dz); if (d > 2.5) continue;
     const s = d - (dx * _d.x + dz * _d.z) / Math.max(d, 1e-3) * 0.8; if (s < bs) { bs = s; bi = it; } }
-  if (!bi && nearPlane()) { const L = cgIn().filter(it => !cgSecured(it)); bi = L[L.length - 1] || null;
+  if (!bi && nearPlane()) { const L = cgIn().filter(it => !cgSecured(it) || (it.cz === 'pod' && upgNearPod())); bi = L[L.length - 1] || null;
     if (!bi && cgIn().length) { say('UNDO THE STRAPS FIRST (/)'); return; } }
   if (!bi) { say(DLV.items.length ? 'NO CARGO WITHIN REACH' : 'NO CARGO - TAKE A JOB AT THE BOARD'); return; }
   if (!dlvTake(bi)) return;
@@ -5033,17 +5041,18 @@ const WBS = { plan: null, act: null, fuelGal: 36, key: '', rearLb: 0, bagLb: 0, 
 const WB_OFF = [{ lb: -WNB.PILOT_LB, arm: WNB.PILOT_ARM, y: 0.1 }];   // on foot the pilot isn't aboard
 const WB_L = [];
 function wbUpdate() {   // v0.50: every piece of cargo aboard is a load at its station (rear seat +37, floor, baggage +57); one held in the seat rides at +11
-  const fuelGal = fuel / FUEL_MAX * WNB.FUEL_GAL; let rear = 0, bag = 0, foot = 0, loose = 0, held = 0; WB_L.length = 0;
+  const fuelGal = fuel / FUEL_MAX * WNB.FUEL_GAL; let rear = 0, bag = 0, foot = 0, pod = 0, loose = 0, held = 0; WB_L.length = 0;
   for (const it of DLV.items) {
     if (it.st === 'cargo') { WB_L.push({ lb: it.lb, arm: CZ[it.cz].arm(it.mesh.position.z), y: Math.max(0.1, Math.abs(it.mesh.position.x)) });
-      if (it.cz === 'rear') rear += it.lb; else if (it.cz === 'bag') bag += it.lb; else foot += it.lb; if (!cgSecured(it)) loose += it.lb; }
+      if (it.cz === 'rear') rear += it.lb; else if (it.cz === 'bag') bag += it.lb; else if (it.cz === 'pod') pod += it.lb; else foot += it.lb; if (!cgSecured(it)) loose += it.lb; }
     else if (it.st === 'held' && mode === 'plane') held += it.lb; }
   if (held) WB_L.push({ lb: held, arm: WNB.PILOT_ARM, y: 0.1 });
+  if (UPG.n) { for (const L of UPG.loads) WB_L.push(L); if (UPG.aux > 0) { UPG.auxL.lb = UPG.aux / 3.785 * WNB.FUEL_LB_GAL; WB_L.push(UPG.auxL); } }   // v0.57 fitted parts + aux fuel (none on a stock Cub)
   const plan = massProps(fuelGal, WB_L);
   const act = mode === 'plane' ? plan : massProps(fuelGal, WB_L.length ? WB_L.concat(WB_OFF) : WB_OFF);
   ac.mass = act.mass; ac.cgz = act.cgz; ac.I = act.I;
-  Object.assign(WBS, { plan, act, fuelGal, rearLb: rear, bagLb: bag, footLb: foot, loose });
-  const k = plan.lb.toFixed(0) + '|' + plan.arm.toFixed(1) + '|' + fuelGal.toFixed(1) + '|' + rear + '|' + bag + '|' + foot + '|' + loose + '|' + DLV.belt + DLV.net;
+  Object.assign(WBS, { plan, act, fuelGal, rearLb: rear, bagLb: bag, footLb: foot, podLb: pod, loose });
+  const k = plan.lb.toFixed(0) + '|' + plan.arm.toFixed(1) + '|' + fuelGal.toFixed(1) + '|' + rear + '|' + bag + '|' + foot + '|' + pod + '|' + loose + '|' + DLV.belt + DLV.net + UPG.n + (UPG.aux | 0);
   if (k !== WBS.key) { WBS.key = k; wbCardDraw(); }
 }
 function wbWarn(dt) {   // v0.50 (from the full-game branch): one reminder when the throttle goes up on the ground
@@ -5084,6 +5093,9 @@ function wbCardDraw() {
   const rows = [['EMPTY', WNB.EMPTY_LB, '+' + WNB.EMPTY_ARM.toFixed(1)], ['PILOT', WNB.PILOT_LB, '+11'], ['FUEL ' + WBS.fuelGal.toFixed(1) + ' GAL', WBS.fuelGal * WNB.FUEL_LB_GAL, '+24'],
     ['REAR SEAT' + (WBS.rearLb ? DLV.belt ? ' \u2713BELT' : ' LOOSE' : ''), WBS.rearLb, '+37'], ['BAGGAGE' + (WBS.bagLb ? DLV.net ? ' \u2713NET' : ' LOOSE' : ''), WBS.bagLb, '+57']];   // v0.50 cargo rows
   if (WBS.footLb) rows.push(['FLOOR (LOOSE)', WBS.footLb, '+25']);
+  if (UPG.n) { const lb = UPG.loads.reduce((s, L) => s + L.lb, 0), mo = UPG.loads.reduce((s, L) => s + L.lb * L.arm, 0); rows.push(['PARTS (' + UPG.n + ')', lb, (mo >= 0 ? '+' : '') + (mo / lb).toFixed(0)]); }   // v0.57
+  if (UPG.tank) rows.push(['AUX ' + (UPG.aux / 3.785).toFixed(1) + ' GAL', UPG.aux / 3.785 * WNB.FUEL_LB_GAL, '+24']);
+  if (UPG.pod) rows.push(['CARGO POD' + (WBS.podLb > POD_MAX_LB ? ' OVER' : ''), WBS.podLb || 0, '+' + POD_ARM.toFixed(0)]);
   x.font = '13px sans-serif'; let y = 48;
   for (const [n, lb, arm] of rows) { x.fillStyle = (n.startsWith('BAGGAGE') && lb > WNB.BAG_MAX_LB) || n.includes('LOOSE') ? '#b8301e' : '#222'; x.fillText(n, 8, y); x.textAlign = 'right'; x.fillText(lb.toFixed(0), 196, y); x.fillStyle = '#666'; x.fillText(arm, 248, y); x.textAlign = 'left'; y += 17; }
   x.fillStyle = '#222'; x.fillRect(8, y - 11, 240, 1.5); x.font = 'bold 14px sans-serif'; x.fillText('TOTAL', 8, y + 5); x.textAlign = 'right'; x.fillText(P.lb.toFixed(0) + ' LB', 196, y + 5);
@@ -5980,7 +5992,8 @@ function ecoFuelReceipt() { const w = ECO.why ? ' - ' + ECO.why : ''; ECO.why = 
 // ---- wear, touchdowns, damage ----
 function ecoTouch(sink) {   // a wheel just came down: sink in m/s
   const E = ECO, fpm = Math.round(sink * 196.85); E.ldg++; E.sink = sink; E.tyre = Math.max(0, E.tyre - 0.0012 - Math.max(0, sink - 1) * 0.004);
-  if (sink > 2.0) { const d = Math.min(0.6, (sink - 2) * 0.28); E.gear = Math.min(1, E.gear + d); E.tyre = Math.max(0, E.tyre - 0.02); sfx('crunch', plane.position);
+  const lim = UPG.tyres ? 2.4 : 2.0;   // v0.57 big tundras soak up a firmer arrival
+  if (sink > lim) { const d = Math.min(0.6, (sink - lim) * 0.28); E.gear = Math.min(1, E.gear + d); E.tyre = Math.max(0, E.tyre - 0.02); sfx('crunch', plane.position);
     say('HARD LANDING ' + fpm + ' FPM - GEAR DAMAGE NOW ' + Math.round(E.gear * 100) + '% (REPAIRS AT THE HOME HANGAR)'); saveSoon(); }
 }
 function ecoCrash(why) {
@@ -6034,6 +6047,229 @@ function ecoSave() { const E = ECO, r = v => Math.round(v * 1000) / 1000; return
 function ecoLoad(d) { const E = ECO; if (!d || typeof d !== 'object') return; const n = (v, a, b, def) => isFinite(+v) && v !== null ? clamp(+v, a, b) : def;
   E.hrs = n(d.hrs, 0, 1e6, E.hrs); E.svc = n(d.svc, 0, 1e4, E.svc); E.oil = n(d.oil, 0, ECO_OILMAX, E.oil); E.tyre = n(d.tyre, 0, 1, E.tyre); E.brake = n(d.brake, 0, 1, E.brake); E.gear = n(d.gear, 0, 1, 0); E.eng = n(d.eng, 0, 1, 0); E.seized = !!d.seized; E.ldg = d.ldg | 0;
   for (const F of FUEL_ST) F.B.key = ''; }
+// ================= v0.57 PLANE UPGRADES: bought on the parts board at the home hangar, carried out and bolted onto the Cub (from the full-game v0.32 upgrade code) =================
+// Every effect is opt-in and goes through what the game already feeds the flight model: W&B loads (wbUpdate -> massProps), the drag coefficient C.CD0,
+// the main-gear tyre size in C.GEAR, the ground surfaces in SURF, the landing light, the fuel system. With nothing fitted all of them are the stock values
+// (upgApply puts back the exact originals), so the stock Cub flies bit for bit as before.
+const CD0_0 = C.CD0, GEAR0 = C.GEAR.slice(0, 2).map(g => ({ y: g.p[1], r: g.r })), SURF0 = Object.fromEntries(Object.keys(SURF).map(k => [k, { roll: SURF[k].roll, bump: SURF[k].bump }]));
+const POD_ARM = 11 + (0.58 + 0.2) / WNB.IN, BOLT_TURN = 4.7, UPG_HOME_R = 45;   // pod station (in); 270 deg of wrist twist a bolt; the Cub within 45 m of the hangar to fit / remove parts
+const UPG_I = {   // label, price, gate [rep key, rep needed], what it does, weight (lb), arm (in), lateral (m), extra CD0
+  tank: { label: 'LONG-RANGE TANK', price: 2100, gate: ['LODGE', 55], eff: '+16 GAL AUX, FEEDS THE MAINS', lb: 22, arm: 26, y: 2.3, cd: 0.001 },
+  tyres: { label: 'TUNDRA TYRES 39"', price: 1450, gate: ['RIDGE', 35], eff: 'ROUGH FIELDS + FIRM LANDINGS, SLIGHT DRAG', lb: 14, arm: -2, y: 0.95, cd: 0.002 },
+  pod: { label: 'CARGO POD', price: 1150, gate: ['DRYFORK', 55], eff: '+100 LB BAGGAGE UNDER THE BELLY, DRAG', lb: 30, arm: POD_ARM, y: 0.1, cd: 0.003 },
+  light: { label: 'LED LANDING LIGHT', price: 380, gate: null, eff: 'BRIGHTER, WIDER, LONGER BEAM', lb: 3, arm: 0, y: 1.6, cd: 0 },
+  radio: { label: 'COM RADIO', price: 650, gate: null, eff: 'CUSTOMERS CALL YOU; LATE COSTS HALF THE REP', lb: 4, arm: -8, y: 0.17, cd: 0 },
+};
+const UPG_LATER = [['AMPHIBIOUS FLOATS', 'LAKES + RIVERS - A LATER VERSION'], ['WHEEL-SKIS', 'SNOW + GLACIERS - A LATER VERSION']];
+const UPG_M = (() => {   // mounts (plane-local): p = where the part goes, n = bolt axis (out of the part), bolts, geo (vertex coloured), r = snap distance
+  const H = Math.PI / 2, dr = (x, y, z) => D2B(x, z, y), dN = (x, y, z) => new THREE.Vector3(x, y, z).transformDirection(CUB_M);
+  const inD = parts => mergeGeometries(parts.map(partGeo)).applyMatrix4(CUB_M), inB = parts => mergeGeometries(parts.map(partGeo));
+  const T = [2.3, wy(2.3, 0.3) - 0.24, 0.3], P = [0, -0.5, 0.58], Lw = [-1.6, wy(1.6, -0.5) + 0.07, -0.53], R = [0.03, -0.25 + CK.y, PANEL_Z + 0.03], Ty = [-0.95, -0.91, -0.45];
+  return {
+    tank: { p: dr(...T), n: dN(1, 0, 0), r: 0.35, bolts: [[0.03, 0.19, -0.15], [0.03, 0.19, 0.15], [0.155, 0, -0.25], [0.155, 0, 0.25]].map(([a, b, c]) => dr(T[0] + a, T[1] + b, T[2] + c)),
+      geo: inD([['c', 0.15, 0.8, 10, T[0], T[1], T[2], 0xc8c8c0, H], ['k', 0.15, 0.1, 10, T[0], T[1], T[2] - 0.45, 0xc8c8c0, -H], ['k', 0.15, 0.1, 10, T[0], T[1], T[2] + 0.45, 0xc8c8c0, H],
+        ['b', 0.04, 0.07, 0.4, T[0], T[1] + 0.19, T[2], 0x555a60], ['c', 0.153, 0.04, 10, T[0], T[1], T[2] - 0.25, 0x2f5f8f, H], ['c', 0.153, 0.04, 10, T[0], T[1], T[2] + 0.25, 0x2f5f8f, H]]) },
+    pod: { p: dr(...P), n: dN(0, -1, 0), r: 0.45, bolts: [-0.55, -0.15, 0.25, 0.6].map(z => dr(P[0] + (z < 0 ? -0.18 : 0.18), P[1] - 0.17, P[2] + z)),
+      geo: inD([['b', 0.52, 0.34, 1.5, P[0], P[1], P[2], 0xd8d4c8], ['b', 0.44, 0.26, 0.22, P[0], P[1] + 0.02, P[2] - 0.84, 0xd8d4c8], ['b', 0.4, 0.2, 0.3, P[0], P[1] + 0.05, P[2] + 0.88, 0xd8d4c8],
+        ['b', 0.01, 0.2, 0.5, P[0] - 0.262, P[1], P[2] + 0.1, 0x55595e], ['b', 0.08, 0.04, 1.2, P[0], P[1] + 0.185, P[2], 0x55595e], ['b', 0.53, 0.03, 0.03, P[0], P[1] - 0.06, P[2] - 0.6, 0xa03020], ['b', 0.53, 0.03, 0.03, P[0], P[1] - 0.06, P[2] + 0.6, 0xa03020]]) },
+    light: { p: dr(...Lw), n: dN(0, 0, -1), r: 0.3, bolts: [-0.085, 0.085].map(a => dr(Lw[0] + a, Lw[1], Lw[2] - 0.01)),
+      geo: inD([['c', 0.065, 0.08, 10, Lw[0], Lw[1], Lw[2] + 0.02, 0x55595e, H], ['c', 0.056, 0.012, 10, Lw[0], Lw[1], Lw[2] - 0.025, 0xfff2c0, H], ['b', 0.2, 0.05, 0.02, Lw[0], Lw[1], Lw[2] + 0.005, 0x333333]]) },
+    radio: { p: new THREE.Vector3(...R), n: new THREE.Vector3(0, 0, 1), r: 0.22, bolts: [-0.07, 0.07].map(a => new THREE.Vector3(R[0] + a, R[1] + 0.016, R[2] + 0.052)),
+      geo: inB([['b', 0.16, 0.05, 0.1, R[0], R[1], R[2], 0x222222], ['b', 0.15, 0.045, 0.006, R[0], R[1], R[2] + 0.05, 0x111111], ['b', 0.05, 0.016, 0.004, R[0] - 0.02, R[1], R[2] + 0.054, 0x6ad06a],
+        ['c', 0.009, 0.012, 8, R[0] + 0.05, R[1], R[2] + 0.056, 0x888888, H], ['c', 0.009, 0.012, 8, R[0] - 0.06, R[1], R[2] + 0.056, 0x888888, H]]) },
+    tyres: { p: new THREE.Vector3(Ty[0] - 0.05, Ty[1], Ty[2]), n: new THREE.Vector3(-1, 0, 0), r: 0.45, fitOnly: true, bolts: [0, 1, 2, 3].map(k => new THREE.Vector3(Ty[0] - 0.24, Ty[1] + 0.08 * Math.cos(k * H), Ty[2] + 0.08 * Math.sin(k * H))),
+      geo: inB([['c', 0.44 + UPG_TD, 0.4, 12, Ty[0], Ty[1], Ty[2], 0x1a1a1a, 0, 0, H], ['c', 0.15, 0.44, 8, Ty[0], Ty[1], Ty[2], 0xb8b8b0, 0, 0, H]]) },
+  };
+})();
+// the pod as a cargo zone (closed: its pieces can't slide), under the belly from the gear legs aft
+{ const a = D2B(0, -0.12, -0.64), b = D2B(0, 1.28, -0.64); CZ.pod = { name: 'CARGO POD', x: 0.22, z0: a.z, z1: b.z, y: z => a.y + (z - a.z) * (b.y - a.y) / (b.z - a.z), top: 0.28 }; CZ.pod.zc = (a.z + b.z) / 2; CZ.pod.arm = z => POD_ARM + (z - CZ.pod.zc) / WNB.IN; }
+const UPG_MESH = new THREE.Mesh(new THREE.BufferGeometry(), ITEM_VM); UPG_MESH.visible = false; UPG_MESH.frustumCulled = false; UPG_MESH.userData.noBatch = true; plane.add(UPG_MESH);
+const UPG_GHOST = new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshBasicMaterial({ color: 0x5aff7a, transparent: true, opacity: 0.35, depthWrite: false })); UPG_GHOST.visible = false; UPG_GHOST.userData.noBatch = true; plane.add(UPG_GHOST);
+function upgBoltGeo(m, k, d) {   // a hex bolt head: sticks out 25 mm, yellow, until it's home
+  const out = 0.004 + 0.025 * (1 - d), g = partGeo(['c', 0.012, out, 6, 0, out / 2, 0, d >= 1 ? 0x9aa0a6 : 0xd0b040]);
+  g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), m.n)).translate(m.bolts[k].x, m.bolts[k].y, m.bolts[k].z); return g;
+}
+function upgRebuild() {
+  const gs = [], tmp = [];
+  for (const k of UPG_K) { const m = UPG_M[k]; if (UPG[k] && !m.fitOnly) { gs.push(m.geo); m.bolts.forEach((_, i) => tmp.push(upgBoltGeo(m, i, 1))); } }
+  const F = UPG.fit; if (F) { const m = UPG_M[F.key]; gs.push(m.geo); F.d.forEach((d, i) => tmp.push(upgBoltGeo(m, i, d))); }
+  UPG_MESH.geometry.dispose(); UPG_MESH.geometry = gs.length + tmp.length ? mergeGeometries(gs.concat(tmp)) : new THREE.BufferGeometry(); for (const g of tmp) g.dispose(); UPG_MESH.visible = gs.length + tmp.length > 0;
+}
+function upgGhost(key) { if (UPG_GHOST.userData.key === key) return; UPG_GHOST.userData.key = key; UPG_GHOST.visible = !!key; if (key) UPG_GHOST.geometry = UPG_M[key].geo; }
+function upgApply() {   // what the fitted parts change (exact stock values with none)
+  UPG.n = UPG_K.filter(k => UPG[k]).length;
+  let cd = CD0_0; for (const k of UPG_K) if (UPG[k] && UPG_I[k].cd) cd += UPG_I[k].cd; C.CD0 = UPG.n ? cd : CD0_0;
+  for (let i = 0; i < 2; i++) { C.GEAR[i].p[1] = UPG.tyres ? GEAR0[i].y - UPG_TD : GEAR0[i].y; C.GEAR[i].r = UPG.tyres ? GEAR0[i].r + UPG_TD : GEAR0[i].r; }   // same axle, 5 cm more tyre
+  for (const k in SURF) { const s = SURF[k], o = SURF0[k], t = UPG.tyres && k !== 'strip'; s.roll = t ? o.roll * 0.78 : o.roll; s.bump = t ? o.bump * 0.4 : o.bump; }   // big low-pressure tyres soak up rough ground
+  UPG.loads = UPG_K.filter(k => UPG[k]).map(k => ({ lb: UPG_I[k].lb, arm: UPG_I[k].arm, y: UPG_I[k].y }));
+  if (!UPG.tank) UPG.aux = 0; upgRebuild(); WBS.key = ''; wbUpdate(); UPB.key = '';
+}
+const upgAuxRoom = () => UPG.tank ? Math.max(0, AUX_L - UPG.aux) : 0;
+// ---- the parts: one of each, on the hangar floor once bought (not fitted) ----
+const UPG_SPOT = { tank: [-1.6, -4.4], tyres: [-2.6, -4.4], pod: [-0.6, -3.2], light: [-3.9, 3.6], radio: [-3.9, 4.1] };   // hangar-local x, z (light + radio on the bench)
+function upgPartPos(k, out) { const [lx, lz] = UPG_SPOT[k], bench = k === 'light' || k === 'radio'; return out.set(HANGAR.x + lx, HANGAR.y + (bench ? 0.95 : 0.2), HANGAR.z + lz); }
+function upgPartMesh(k) {   // the part on its own, centred on its mount point; low parts get lifted so they sit on the floor
+  const g = UPG_M[k].geo.clone().translate(-UPG_M[k].p.x, -UPG_M[k].p.y, -UPG_M[k].p.z); g.computeBoundingBox(); const m = new THREE.Mesh(g, ITEM_VM); m.userData.noBatch = true; m.castShadow = true;
+  m.userData.lift = -g.boundingBox.min.y; m.userData.box = g.boundingBox; return m;
+}
+function upgPartFloor(k) {   // put a bought part back on its spot
+  let P = UPG.parts[k]; if (!P) { P = UPG.parts[k] = { k, mesh: upgPartMesh(k), st: 'floor', g: null }; }
+  scene.add(P.mesh); upgPartPos(k, P.mesh.position); P.mesh.position.y += P.mesh.userData.lift; P.mesh.rotation.set(0, k === 'tyres' ? 0 : Math.PI / 2, 0); P.st = 'floor'; P.g = null; P.vy = 0;
+}
+function upgPartGone(k) { const P = UPG.parts[k]; if (!P) return; P.mesh.removeFromParent(); P.mesh.geometry.dispose(); delete UPG.parts[k]; if (UPG.desk === P) UPG.desk = null; }
+const upgCubHome = () => Math.hypot(ac.pos[0] - HANGAR.x, ac.pos[2] - HANGAR.z) < UPG_HOME_R;
+function upgCanFit(k) {
+  if (UPG[k]) return UPG_I[k].label + ' IS ALREADY FITTED';
+  if (UPG.fit) return 'FINISH BOLTING THE ' + UPG_I[UPG.fit.key].label + ' FIRST';
+  if (mode !== 'foot' || acGS() > 0.5 || ENG.running) return 'THE CUB HAS TO BE STOPPED, ENGINE OFF, YOU ON FOOT';
+  if (!upgCubHome()) return 'PARTS ARE FITTED AT THE HOME HANGAR - BRING THE CUB OVER';
+  if (k === 'pod' && DLV.items.some(it => it.st === 'cargo' && it.cz === 'pod')) return 'EMPTY THE POD FIRST';
+  return '';
+}
+function upgStart(k) {   // the part is on its spot, loose: now the bolts
+  const P = UPG.parts[k]; if (P) { if (P.g) UPG.held.delete(P.g); upgPartGone(k); }
+  UPG.fit = { key: k, d: UPG_M[k].bolts.map(() => 0), turn: 0 }; upgGhost(null); upgRebuild(); sfx('clack');
+  say(UPG_I[k].label + ' ON ITS SPOT - ' + UPG_M[k].bolts.length + ' BOLTS: ' + (renderer.xr.isPresenting ? 'GRIP A YELLOW BOLT HEAD AND TWIST YOUR WRIST' : 'E BY THE CUB TIGHTENS ONE'));
+}
+function upgBolt(i, amt) { const F = UPG.fit; if (!F || F.d[i] >= 1) return false; F.d[i] = Math.min(1, F.d[i] + amt); upgRebuild(); if (F.d[i] >= 1) sfx('clack'); if (F.d.every(d => d >= 1)) upgDone(); return true; }
+function upgDone() {
+  const F = UPG.fit, k = F.key; UPG[k] = 1; UPG.fit = null; upgApply(); sfx('pick'); saveSoon();
+  say(UPG_I[k].label + ' FITTED - ' + { tank: '+16 GAL AUX: FILL IT AT A DRUM AFTER THE MAINS, IT FEEDS THEM IN FLIGHT', tyres: 'SOFTER ON ROUGH GROUND, TAKES A FIRMER LANDING, A LITTLE SLOWER', pod: 'UP TO 100 LB UNDER THE BELLY (SET CARGO IN UNDER IT; DESKTOP: E ON THE LEFT SIDE BY THE POD)', light: 'A BRIGHTER, LONGER BEAM (L)', radio: 'CUSTOMERS CALL YOU IN THE AIR' }[k] + ' | +' + UPG_I[k].lb + ' LB');
+}
+function upgRemove(k) {   // unbolt a fitted part: it goes back on its spot in the hangar
+  if (!UPG[k]) return; if (mode !== 'foot' || acGS() > 0.5 || ENG.running || !upgCubHome()) { say('BRING THE CUB TO THE HANGAR, ENGINE OFF, TO TAKE PARTS OFF'); sfx('tick'); return; }
+  if (k === 'pod' && DLV.items.some(it => it.st === 'cargo' && it.cz === 'pod')) { say('EMPTY THE POD FIRST'); sfx('tick'); return; }
+  let back = ''; if (k === 'tank' && UPG.aux > 0.5) { const c = Math.round(UPG.aux / 3.785 * FUEL_ST[0].price); DLV.cash += c; back = ' - AUX FUEL BACK IN THE DRUM +$' + c; }
+  UPG[k] = 0; upgApply(); upgPartFloor(k); sfx('clack'); say(UPG_I[k].label + ' TAKEN OFF - IT\'S BACK ON THE HANGAR FLOOR' + back); saveSoon();
+}
+const _ua = new THREE.Vector3(), _ub = new THREE.Vector3(), _uq = new THREE.Quaternion(), _uq2 = new THREE.Quaternion();
+const upgMountW = (m, out) => { plane.updateMatrixWorld(); return plane.localToWorld(out.copy(m.p)); };
+function upgBoltNear(p, r) { const F = UPG.fit; if (!F) return -1; const m = UPG_M[F.key]; let b = -1, bd = r; for (let i = 0; i < m.bolts.length; i++) { if (F.d[i] >= 1) continue; const d = plane.localToWorld(_ub.copy(m.bolts[i])).distanceTo(p); if (d < bd) { bd = d; b = i; } } return b; }
+function upgPartNear(p, r) { let best = null, bd = r; for (const k in UPG.parts) { const P = UPG.parts[k]; if (P.st !== 'floor' && P.st !== 'fall') continue; P.mesh.worldToLocal(_ub.copy(p)); const B = P.mesh.userData.box;
+  const d = Math.hypot(Math.max(0, B.min.x - _ub.x, _ub.x - B.max.x), Math.max(0, B.min.y - _ub.y, _ub.y - B.max.y), Math.max(0, B.min.z - _ub.z, _ub.z - B.max.z)); if (d < bd) { bd = d; best = P; } } return best; }
+function upgGrab(g, a) {   // VR on foot: a bolt head (twist it in), else a part off the floor
+  if (mode !== 'foot' || UPG.held.has(g)) return false;
+  const b = upgBoltNear(a, 0.07); if (b >= 0) { UPG.tw = { g, b, q: null }; HX.pulse(g, 0.3, 15, 'part'); return true; }
+  const P = upgPartNear(a, 0.1); if (!P) return false;
+  g.attach(P.mesh); P.st = 'held'; P.g = g; UPG.held.set(g, P); sfx('pick'); HX.pulse(g, 0.5, 30, 'part'); say(UPG_I[P.k].label + ' - TAKE IT TO THE CUB: THE GREEN OUTLINE IS ITS SPOT'); return true;
+}
+function upgRelease(g) {
+  if (UPG.tw && UPG.tw.g === g) UPG.tw = null;
+  const P = UPG.held.get(g); if (!P) return; UPG.held.delete(g); P.g = null; scene.attach(P.mesh); P.st = 'fall'; P.vy = 0; const e = new THREE.Euler().setFromQuaternion(P.mesh.quaternion, 'YXZ'); P.mesh.rotation.set(0, e.y, 0);
+}
+function upgTwist(dt) {   // VR: hand on a bolt head, the wrist's turn about the bolt axis drives it (270 deg a bolt), a ratchet click every 30 deg
+  const T = UPG.tw, F = UPG.fit; if (!T || !F) { UPG.tw = null; return; } const g = T.g;
+  g.getWorldPosition(_ua); if (upgBoltNear(_ua, 0.12) !== T.b && F.d[T.b] < 1) { UPG.tw = null; return; }
+  g.getWorldQuaternion(_uq); if (!T.q) { T.q = _uq.clone(); return; } _uq2.copy(T.q).invert().premultiply(_uq); T.q.copy(_uq);
+  const s = Math.sqrt(1 - Math.min(1, _uq2.w * _uq2.w)); if (s < 1e-6) return; const ang = 2 * Math.acos(Math.min(1, Math.abs(_uq2.w))) * Math.sign(_uq2.w || 1);
+  const n = _ub.copy(UPG_M[F.key].n).transformDirection(plane.matrixWorld), da = Math.abs(ang * (_uq2.x * n.x + _uq2.y * n.y + _uq2.z * n.z) / s); if (da < 1e-4) return;
+  const c0 = Math.floor(F.turn / 0.52); F.turn += da; if (Math.floor(F.turn / 0.52) !== c0) { sfx('tick', _ua); HX.pulse(g, 0.35, 15, 'ratchet'); }
+  upgBolt(T.b, da / BOLT_TURN); if (!UPG.fit || UPG.fit.d[T.b] >= 1) UPG.tw = null;
+}
+function upgDeskE() {   // desktop E on foot: carry a part / put it on the Cub / tighten the next bolt
+  if (mode !== 'foot') return false; camera.getWorldPosition(_ua);
+  if (UPG.fit && nearPlane(5)) { const i = UPG.fit.d.findIndex(d => d < 1); sfx('tick'); upgBolt(i, 1); if (UPG.fit) say('BOLT ' + (i + 1) + '/' + UPG.fit.d.length + ' TIGHT - E FOR THE NEXT'); return true; }
+  const P = UPG.desk;
+  if (P) { if (nearPlane(5)) { const why = upgCanFit(P.k); if (why) { say(why); sfx('tick'); return true; } upgStart(P.k); return true; }
+    camera.getWorldDirection(_ub); _ub.y = 0; _ub.normalize(); scene.attach(P.mesh); P.mesh.position.copy(_ua).addScaledVector(_ub, 0.9); P.mesh.rotation.set(0, Math.atan2(_ub.x, _ub.z), 0); P.st = 'fall'; P.vy = 0; UPG.desk = null; sfx('pick'); return true; }
+  if (DLV.desk) return false;
+  let best = null, bd = 2.5; for (const k in UPG.parts) { const Q = UPG.parts[k]; if (Q.st !== 'floor') continue; const d = Math.hypot(Q.mesh.position.x - _ua.x, Q.mesh.position.z - _ua.z); if (d < bd) { bd = d; best = Q; } }
+  if (!best) return false;
+  camera.add(best.mesh); best.mesh.position.set(0, -0.35, -0.75); best.mesh.rotation.set(0.1, 0, 0); best.st = 'desk'; UPG.desk = best; sfx('pick');
+  say('CARRYING THE ' + UPG_I[best.k].label + ' - E BY THE CUB PUTS IT ON ITS SPOT'); return true;
+}
+// ---- the parts board, beside the service board at the hangar ----
+const UPB = { b: [HANGAR.x + 5.6, HANGAR.z - 3.2, Math.PI / 2], key: '', d: 1e9, poke: [true, true], hint: false, r0: 104, rh: 34, rows: UPG_K.concat(['f0', 'f1']) };
+{ const [bx, bz, ry] = UPB.b, G = new THREE.Group(), PW = 1.28, PH = 0.88, Y = 1.45, wood = mat(0x6b4a2a); G.position.set(bx, Math.min(groundY(bx - 0.5, bz), groundY(bx + 0.5, bz), groundY(bx, bz)), bz); G.rotation.y = ry; scene.add(G);
+  for (const sx of [-PW / 2 + 0.03, PW / 2 - 0.03]) box(0.08, Y + 0.45, 0.08, wood, sx, (Y + 0.45) / 2 - 0.1, -0.03, G); box(PW + 0.08, PH + 0.08, 0.04, wood, 0, Y, 0, G);
+  const cv = document.createElement('canvas'); cv.width = SVB_W; cv.height = SVB_H; const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(PW, PH), new THREE.MeshBasicMaterial({ map: tex })); m.position.set(0, Y, 0.022); m.userData.noBatch = true; G.add(m); Object.assign(UPB, { G, cv, cx: cv.getContext('2d'), tex, m, PW, PH }); }
+function upgState(k) {   // [button text, colour, why / what]
+  const I = UPG_I[k];
+  if (UPG[k]) return ['REMOVE', '#5a6a7a', 'FITTED'];
+  if (UPG.fit && UPG.fit.key === k) return ['BOLTING', '#b08010', 'ON THE CUB - TIGHTEN THE BOLTS'];
+  if (UPG.own[k]) return ['FIT IT', '#2a5aa0', 'BOUGHT - ON THE HANGAR FLOOR' + (k === 'light' || k === 'radio' ? ' (BENCH)' : '')];
+  if (I.gate && repOf(I.gate[0]) < I.gate[1]) return ['LOCKED', '#8a8a80', 'NEEDS ' + repWho(I.gate[0]) + ' REP ' + I.gate[1] + ' (NOW ' + repOf(I.gate[0]) + ')'];
+  return ['$' + I.price.toLocaleString('en-US'), DLV.cash >= I.price ? '#2a7a2a' : '#a04030', I.eff];
+}
+function upbDraw() {
+  const x = UPB.cx, W = SVB_W; x.fillStyle = '#f2ead6'; x.fillRect(0, 0, W, SVB_H); x.strokeStyle = '#5a3a20'; x.lineWidth = 8; x.strokeRect(4, 4, W - 8, SVB_H - 8);
+  x.textBaseline = 'alphabetic'; x.textAlign = 'left'; x.fillStyle = '#222'; x.font = 'bold 26px sans-serif'; x.fillText('HOME HANGAR - PARTS', 18, 38);
+  x.textAlign = 'right'; x.fillStyle = DLV.cash < 0 ? '#b8301e' : '#1e6a2a'; x.fillText(ecoMoney(DLV.cash), W - 18, 38); x.textAlign = 'left';
+  x.fillStyle = '#333'; ecoFit(x, 'CASH ONLY. BOUGHT PARTS WAIT ON THE FLOOR: CARRY ONE TO THE CUB', 18, 62, W - 36, 15, 1);
+  ecoFit(x, (renderer.xr.isPresenting ? 'HOLD IT TO THE GREEN OUTLINE, THEN GRIP + TWIST EACH YELLOW BOLT' : 'E CARRIES IT, E BY THE CUB PUTS IT ON, E TIGHTENS EACH BOLT') + ' - CUB PARKED HERE, ENGINE OFF', 18, 80, W - 36, 14);
+  x.fillStyle = '#555'; ecoFit(x, 'FITTED: ' + (UPG.n ? UPG_K.filter(k => UPG[k]).map(k => UPG_I[k].label).join(', ') + ' (+' + UPG.loads.reduce((s, L) => s + L.lb, 0) + ' LB)' : 'NOTHING - A STOCK CUB'), 18, 98, W - 36, 13);
+  UPB.rows.forEach((r, i) => { const Y = UPB.r0 + i * UPB.rh, later = r[0] === 'f', L = later ? UPG_LATER[+r[1]] : null, [bt, col, why] = later ? ['LATER', '#b0aca0', L[1]] : upgState(r), I = UPG_I[r];
+    x.fillStyle = later ? '#ece6d6' : '#e8dcc0'; x.fillRect(14, Y, W - 28, UPB.rh - 4);
+    x.fillStyle = later ? '#8a8a80' : '#222'; ecoFit(x, (i + 1) + '. ' + (later ? L[0] : I.label + (I.price ? ' - ' + I.lb + ' LB' : '')), 22, Y + 14, W - 150, 14, 1);
+    x.fillStyle = later ? '#9a9a90' : bt === 'LOCKED' ? '#8a4a30' : '#555'; ecoFit(x, why, 22, Y + 28, W - 150, 11);
+    x.fillStyle = col; x.fillRect(W - 112, Y + 3, 92, UPB.rh - 10); x.fillStyle = '#fff'; x.textAlign = 'center'; x.font = 'bold 14px sans-serif'; x.fillText(bt, W - 66, Y + UPB.rh / 2 + 3); x.textAlign = 'left'; });
+  UPB.tex.needsUpdate = true;
+}
+function upgDo(i) {   // a row on the parts board
+  const r = UPB.rows[i]; if (!r) return false;
+  if (r[0] === 'f') { say(UPG_LATER[+r[1]][0] + ': NOT IN STOCK YET - ' + UPG_LATER[+r[1]][1]); sfx('tick'); return true; }
+  const I = UPG_I[r], [bt] = upgState(r);
+  if (bt === 'REMOVE') { upgRemove(r); UPB.key = ''; return true; }
+  if (bt === 'BOLTING') { say('TIGHTEN THE BOLTS ON THE ' + I.label); sfx('tick'); return true; }
+  if (bt === 'FIT IT') { say('THE ' + I.label + ' IS ON THE HANGAR FLOOR - CARRY IT TO THE CUB'); sfx('tick'); return true; }
+  if (bt === 'LOCKED') { say(I.label + ': ' + upgState(r)[2]); sfx('tick'); return true; }
+  if (DLV.cash < I.price) { say('NOT ENOUGH CASH: ' + I.label + ' IS $' + I.price.toLocaleString('en-US') + ', YOU HAVE ' + ecoMoney(DLV.cash) + ' (PARTS ARE CASH ONLY)'); sfx('tick'); return true; }
+  DLV.cash -= I.price; DLV.spent = (DLV.spent || 0) + I.price; UPG.own[r] = 1; upgPartFloor(r); sfx('cash');
+  say('BOUGHT THE ' + I.label + ' (-$' + I.price.toLocaleString('en-US') + ', ' + ecoMoney(DLV.cash) + ') - IT\'S ON THE HANGAR ' + (r === 'light' || r === 'radio' ? 'BENCH' : 'FLOOR') + ': CARRY IT TO THE CUB');
+  UPB.key = ''; for (const F of FUEL_ST) F.B.key = ''; saveSoon(); return true;
+}
+function upgKey(e) {
+  if (mode !== 'foot') return false;
+  if (e.code === 'KeyE') return upgDeskE();
+  const m = /^Digit([1-7])$/.exec(e.code); if (m && UPB.d < 5 && UPB.d <= ECO.nearD && DLV.nearD >= 5) return upgDo(+m[1] - 1);
+  return false;
+}
+const _upL = new THREE.Vector3();
+function upgPoke() {   // VR fingertips on the parts board
+  if (UPB.d > 4 || !HANDS.st.length || mode !== 'foot') return;
+  for (let i = 0; i < 2; i++) { const st = HANDS.st[i]; if (!st.vis) continue; UPB.m.worldToLocal(_upL.copy(st.tip)); const u = (_upL.x / UPB.PW + 0.5) * SVB_W, v = (0.5 - _upL.y / UPB.PH) * SVB_H, inP = u >= 0 && u <= SVB_W && v >= 0 && v <= SVB_H;
+    if (!UPB.poke[i] && (!inP || _upL.z > 0.04)) UPB.poke[i] = true;
+    if (UPB.poke[i] && inP && _upL.z < 0.012 && _upL.z > -0.05) { UPB.poke[i] = false; const r = Math.floor((v - UPB.r0) / UPB.rh); if (r >= 0 && r < UPB.rows.length && u > SVB_W - 120) { upgDo(r); if (grips[i]) HX.pulse(grips[i], 0.4, 14, 'ui'); } } }
+}
+// ---- the COM radio: customers call you in the air ----
+const UPG_CHAT = ['RIDGE TRAFFIC, CUB ON A LONG FINAL ... (STATIC)', 'DRY FORK UNICOM: FUEL\'S $5.80 TODAY, COME AND GET IT', 'THE LODGE: ANYONE HEADING NORTH, GIVE US A CALL', 'HALVORSEN STATION 4 ... RESTRICTED AREA, MAINTAIN 2000 ... (STATIC)', 'FIRE CREW ON BURNT HILL, ALL QUIET UP HERE'];
+function upgRadioTick(dt) {
+  if (!UPG.radio || mode !== 'plane' || !ENG.master) return;
+  if ((UPG.radioT -= dt) <= 0) { UPG.radioT = 20 + Math.random() * 25; sfx('static'); }
+  if ((UPG.callT -= dt) > 0) return; UPG.callT = 75;
+  let best = null; for (const S of DLV_STRIPS) { if (S.lock || (S.site && !S.found)) continue; for (const j of DLV.offers[S.id] || []) if (j.st === 'offer' && !UPG.heard[j.id] && (!best || (j.req ? 1 : 0) > (best.req ? 1 : 0) || ((j.req ? 1 : 0) === (best.req ? 1 : 0) && j.pay > best.pay))) best = j; }
+  sfx('static');
+  if (best) { UPG.heard[best.id] = 1; const k = repKey(best), who = best.req ? (REP_NAME[k] || repWho(k)) : dlvS(best.from).name + ' UNICOM';
+    say('RADIO - ' + who + ': ' + (best.req ? '"' + PILOT + ', WE ASKED FOR YOU - ' : '"ANY PILOT - ') + best.title + ' FROM ' + dlvS(best.from).name + ', $' + best.pay + (best.req ? '. SEE YOU AT THE BOARD"' : '"')); }
+  else say('RADIO: ' + UPG_CHAT[Math.floor(Math.random() * UPG_CHAT.length)]);
+}
+function upgTick(dt) {
+  const t0 = performance.now();
+  for (const k in UPG.parts) { const P = UPG.parts[k]; if (P.st !== 'fall') continue; const p = P.mesh.position, rest = groundY(p.x, p.z) + (Math.abs(p.x - HANGAR.x) < 4.6 && Math.abs(p.z - HANGAR.z) < 6 ? 0.2 : 0) + P.mesh.userData.lift;
+    P.vy -= 9.81 * dt; p.y += P.vy * dt; if (p.y <= rest) { p.y = rest; if (P.vy < -1) sfx('thud', p); P.vy = 0; P.st = 'floor'; } }
+  let gk = null;   // VR: carrying a part - show its spot; it clicks on when it's there
+  for (const [g, P] of UPG.held) { const m = UPG_M[P.k]; g.getWorldPosition(_ua); const d = _ua.distanceTo(upgMountW(m, _ub)); if (d < 6 && !UPG[P.k] && !UPG.fit) gk = P.k;
+    if (d < m.r) { const why = upgCanFit(P.k); if (why) { if ((UPG.say -= dt) <= 0) { say(why); UPG.say = 3; } } else { UPG.held.delete(g); HX.pulse(g, 0.6, 40, 'part'); upgStart(P.k); } } }
+  if (UPG.desk && nearPlane(6) && !UPG.fit) gk = UPG.desk.k;
+  upgGhost(mode === 'foot' ? gk : null); upgTwist(dt); upgRadioTick(dt);
+  playerPos(); UPB.d = Math.hypot(PP.x - UPB.b[0], PP.z - UPB.b[1]);
+  if ((UPB.t = (UPB.t || 0) - dt) <= 0) { UPB.t = 0.5; const near = UPB.d < 300; UPB.m.visible = near; if (near) { const k = [Math.round(DLV.cash), UPG_K.map(k => UPG[k] + '' + (UPG.own[k] | 0)).join(''), UPG.fit ? UPG.fit.key : '', UPG_K.map(k => UPG_I[k].gate ? repOf(UPG_I[k].gate[0]) : 0).join(), renderer.xr.isPresenting].join('|'); if (k !== UPB.key) { UPB.key = k; upbDraw(); } } }
+  if (mode === 'foot' && UPB.d < 5 && UPB.d <= ECO.nearD && !UPB.hint) { UPB.hint = true; say('HANGAR PARTS BOARD - POKE A PRICE' + (renderer.xr.isPresenting ? '' : ' (DESKTOP 1-7)')); } else if (UPB.d > 10) UPB.hint = false;
+  UPG.ms = performance.now() - t0;
+}
+function upgPodLb() { let lb = 0; for (const it of DLV.items) if (it.st === 'cargo' && it.cz === 'pod') lb += it.lb; return lb; }
+function upgNearPod() {   // desktop: standing on the left of the Cub by the pod (the cabin door is on the right) = E loads / unloads the pod
+  if (!UPG.pod || mode !== 'foot') return false; camera.getWorldPosition(_ua); plane.updateMatrixWorld(); plane.worldToLocal(_ua); return _ua.x < -0.45 && _ua.x > -2.2 && Math.abs(_ua.z - UPG_M.pod.p.z) < 1.1;
+}
+function upgSave() { return { fit: UPG_K.filter(k => UPG[k]), own: UPG_K.filter(k => UPG.own[k]), aux: Math.round(UPG.aux * 100) / 100, bolting: UPG.fit ? UPG.fit.key : null }; }
+function upgLoad(d) {   // also a fresh start (d = null): a stock Cub
+  for (const k of UPG_K) { UPG[k] = 0; UPG.own[k] = 0; upgPartGone(k); } UPG.fit = null; UPG.aux = 0; UPG.held.clear(); UPG.tw = null; UPG.heard = {};
+  if (d && typeof d === 'object') { for (const k of UPG_K) { if (Array.isArray(d.own) && d.own.includes(k)) UPG.own[k] = 1; if (Array.isArray(d.fit) && d.fit.includes(k)) UPG[k] = UPG.own[k] = 1; } if (UPG_K.includes(d.bolting)) UPG.own[d.bolting] = 1; }
+  upgApply(); if (d && UPG.tank && isFinite(+d.aux)) UPG.aux = clamp(+d.aux, 0, AUX_L);
+  for (const k of UPG_K) if (UPG.own[k] && !UPG[k]) upgPartFloor(k);   // (a part half bolted on when you saved is back on the floor)
+}
+upgLoad(null);
 // ================= v0.45 save: where the Cub is parked, fuel, time of day, on foot or aboard. New key - older (v0.44 and before) saves are left alone and ignored =================
 const SAVE_KEY = 'bushpilot-vr-blank-v1', NOSAVE = /[?&]nosave\b/.test(location.search);
 const SV = { t: 30, due: -1, last: 0, off: false, air: false, cubT: 0, cub: null, n: 0, why: '' };
@@ -6042,7 +6278,7 @@ function cubParked() { return !ac.crashed && acGS() < 1 && ac.gs.some(g => g.Fn 
 function saveGame(why) {
   if (NOSAVE || SV.off) return false;
   if (cubParked()) SV.cub = { p: ac.pos.map(r3), q: ac.q.map(v => Math.round(v * 1e6) / 1e6) };
-  const d = { v: 55, at: Date.now(), cub: SV.cub, fuel: r3(fuel), h: r3(DAY.h), mode, foot: mode === 'foot' ? [r3(footRig.position.x), r3(footRig.position.z), r3(bodyYaw)] : null, dlv: dlvSave(), hunt: huntSave(), eco: ecoSave() };   // v0.55 + the Cub's log (tach, oil, wear, damage)   // v0.53 + rifle / ammo   // v0.50: + wallet, jobs, cargo, straps
+  const d = { v: 55, at: Date.now(), cub: SV.cub, fuel: r3(fuel), h: r3(DAY.h), mode, foot: mode === 'foot' ? [r3(footRig.position.x), r3(footRig.position.z), r3(bodyYaw)] : null, dlv: dlvSave(), hunt: huntSave(), eco: ecoSave(), upg: upgSave() };   // v0.55 + the Cub's log (tach, oil, wear, damage)   // v0.53 + rifle / ammo   // v0.50: + wallet, jobs, cargo, straps
   try { localStorage.setItem(SAVE_KEY, JSON.stringify(d)); } catch (e) { return false; }
   SV.last = Date.now(); SV.n++; SV.why = why || ''; SV.t = 30; SV.due = -1; return true;
 }
@@ -6062,6 +6298,7 @@ function gameLoad() {
   if (typeof d.h === 'number' && isFinite(d.h)) DAY.h = ((d.h % 24) + 24) % 24;
   if (d.cub && d.cub.p?.length === 3 && d.cub.q?.length === 4) { ac.pos = d.cub.p.slice(); ac.q = d.cub.q.slice(); SV.cub = d.cub; }
   if (d.mode === 'foot' && d.foot) { exitPlane(); const [x, z, yaw] = d.foot; footRig.position.set(x, groundY(x, z) + EYE, z); footRig.rotation.set(0, yaw, 0); bodyYaw = yaw; }
+  upgLoad(d.upg || null);   // v0.57 before the cargo (the pod)
   dlvLoad(d.v >= 50 ? d.dlv : null); huntLoad(d.v >= 53 ? d.hunt : null); dropLoadFix(); ecoLoad(d.v >= 55 ? d.eco : null);   // v0.54 a save taken mid-drop: the last bundle down settles the job
   msgT = 0; SV.last = d.at || 0; return true;
 }
@@ -6493,7 +6730,7 @@ renderer.setAnimationLoop(() => {
   } else if ((crashTimer += dt) > 2.5) resetFlight();
 
   plane.position.fromArray(ac.pos); plane.quaternion.fromArray(ac.q);
-  dlvTick(dt); wbWarn(dt); huntTick(dt, xr || HANDS.force); dropTick(dt); ecoTick(dt);   // v0.53 rifle, deer, binoculars; v0.54 bundles in the air, the signal smoke   // v0.50 delivery: game clock, falling / loose cargo, job boards
+  dlvTick(dt); wbWarn(dt); huntTick(dt, xr || HANDS.force); dropTick(dt); ecoTick(dt); upgTick(dt);   // v0.53 rifle, deer, binoculars; v0.54 bundles in the air, the signal smoke   // v0.50 delivery: game clock, falling / loose cargo, job boards
   GV.update(dt);   // v0.20 gear legs / tyres / tail wheel
   updateMap(); updateCockpitV19(dt);
   prop.rotation.z += ENG.rpm / 60 * 2 * Math.PI * dt * (ENG.rpm < 400 ? 1 : 0.13);   // aliased-looking slow spin (real speed while cranking)
@@ -6515,7 +6752,7 @@ renderer.setAnimationLoop(() => {
   if (instT > 0.1) { instT = 0; drawWrist(); }
   if ((chunkT += dt) > 0.2) { chunkT = 0; updateChunks(); }
   hxTick(dt);                                // v0.24 haptics (engine / buffet / gear + queued pulses)
-  if (xr || HANDS.force) { updateHands(dt); setpTick(); jbPoke(); ecoPoke(); }
+  if (xr || HANDS.force) { updateHands(dt); setpTick(); jbPoke(); ecoPoke(); upgPoke(); }
   vlTick(); batchTick(); if (GFX.shadows && ((FT.n & 1) || mode !== 'plane' || ac.vel[0] * ac.vel[0] + ac.vel[1] * ac.vel[1] + ac.vel[2] * ac.vel[2] > 0.1)) renderer.shadowMap.needsUpdate = true;   // v0.47 static batches; shadow map at half rate   // v0.23 gloves (after the stick / knobs have their final pose); v0.45 wrist SETTINGS board
   binoRender();   // v0.53 the 7x view (only while raised)
   renderer.render(scene, camera);
