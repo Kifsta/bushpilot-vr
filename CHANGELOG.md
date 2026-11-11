@@ -34,6 +34,19 @@ Neil: "plane upgrades bought at the home hangar and fitted physically (reuse ful
 - **Save** (still v55) adds `upg` (fitted, owned, aux fuel). Older or bad saves load as a stock Cub. A part that was half bolted on when you saved is back on the floor.
 - **Fix:** the v0.57 radio patch (84fe4dc) briefly hid the early-delivery +2 rep bonus behind a comment. It was fixed two commits later.
 - **Tests:** a new t57 (21 checks: stock identity, board and gates, desktop and VR fitting, home-only fitting, each effect, the aux fill and feed, pod limits, radio rep and calls, removal, save) was added to the suite.
+- **Perf** (1280×720 headless, v0.56 → v0.57). upgTick (parts, ghost, bolts, radio, board) costs 0.001 ms a frame. The Over Pine Flats CPU jump has the same draw calls and triangles, so it looks like noise on the shared box.
+
+| View | Draw calls | Triangles | CPU ms |
+|---|---|---|---|
+| Seat at home | 77 → 77 | 278k → 278k | 1.80 → 1.78 |
+| On foot at the cabin | 54 → 54 | 273k → 274k | 1.52 → 1.55 |
+| 60 m from a herd | 52 → 52 | 229k → 229k | 1.79 → 1.86 |
+| Same, binoculars up | 37 → 39 | 211k → 215k | 1.65 → 1.62 |
+| Over Pine Flats at 120 m | 94 → 94 | 257k → 257k | 1.69 → 3.29 |
+| On foot by the home hangar | 59 → 60 | 267k → 267k | 1.53 → 1.93 |
+| Over Burnt Hill, drop on | 93 → 93 | 235k → 235k | 1.67 → 2.01 |
+| On foot at the Halvorsen board | 28 → 28 | 167k → 167k | 1.24 → 1.35 |
+| By the Cub, all 5 parts on (v0.56: stock) | 92 → 93 | 279k → 280k | 1.78 → 1.98 |
 
 ## v0.56 – reputation and unlocks: per-customer rep, requests by name, the Halvorsen board
 Neil: "reputation per town/customer (on-time, condition, accuracy raise it; late/damaged/lost lower it), unlocking new strips/towns (e.g. Halvorsen Station board), bigger and better-paying jobs, and regular customers who ask for you by name. Show rep on boards/kneeboard/wrist. Leave the R reset key as is." The physics block is untouched (md5 unchanged), and R works as before.
