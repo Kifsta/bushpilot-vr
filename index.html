@@ -647,11 +647,25 @@ const _m4 = new THREE.Matrix4(), _s = new THREE.Vector3(), _v = new THREE.Vector
 // v0.10: with opts { far, lod } the instance buffer is compacted on the CPU by distance from the camera (rebuilt only after
 // ~40 m of camera travel): instances beyond `far` are dropped, beyond `lod` only every 3rd is kept. Still ONE draw call per type.
 const CHUNKS = [];
+// v0.47 tiles: a type spread wider than 1.5 tiles is split into TILE-metre square tiles, each its own InstancedMesh with a real
+// bounding sphere, so the renderer frustum-culls the tiles behind you and past the haze (off by default - see the v0.47 notes; `?tile=2000` turns it on).
+const TILE = (() => { const m = /[?&]tile=(\d+)/.exec(location.search); return m ? +m[1] : 0; })();   // default off: measured +35..+90 draw calls for -15..-60k tris - a bad trade on Quest
 function instanced(geo, material, list, opt) {
+  if (TILE && list.length > 40) {
+    let x0 = 1e9, x1 = -1e9, z0 = 1e9, z1 = -1e9; for (const o of list) { x0 = Math.min(x0, o[0]); x1 = Math.max(x1, o[0]); z0 = Math.min(z0, o[2]); z1 = Math.max(z1, o[2]); }
+    if (Math.max(x1 - x0, z1 - z0) > TILE * 1.5) {
+      const T = new Map(); for (const o of list) { const k = Math.floor(o[0] / TILE) + ',' + Math.floor(o[2] / TILE); let L = T.get(k); if (!L) T.set(k, L = []); L.push(o); }
+      let first = null; for (const L of T.values()) { const im = instanced1(geo, material, L, opt, true); first ||= im; } return first;
+    }
+  }
+  return instanced1(geo, material, list, opt, false);
+}
+function instanced1(geo, material, list, opt, tiled) {
   const im = new THREE.InstancedMesh(geo, material, list.length);
   list.forEach((o, i) => { _q.setFromEuler(_e.set(0, o[3], 0)); im.setMatrixAt(i, _m4.compose(_v.set(o[0], o[1], o[2]), _q, _s.set(o[4], o[5], o[6]))); });
   scene.add(im); im.matrixAutoUpdate = false; im.updateMatrix();   // v0.47: placed once
-  if (opt && list.length) { im.instanceMatrix.setUsage(THREE.DynamicDrawUsage); im.frustumCulled = false;
+  if (tiled) im.computeBoundingSphere();   // from every instance: stays valid while the count is compacted below
+  if (opt && list.length) { im.instanceMatrix.setUsage(THREE.DynamicDrawUsage); im.frustumCulled = tiled;
     CHUNKS.push({ im, full: im.instanceMatrix.array.slice(), xz: Float32Array.from(list.flatMap(o => [o[0], o[2]])), far: opt.far || Infinity, lod: opt.lod || Infinity, n: list.length, tree: !!opt.tree }); }
   return im;
 }
@@ -664,7 +678,7 @@ function updateChunks(force) {
       if (d2 > f2 || (d2 > l2 && i % 3)) continue;
       if (k.tree && TD < 1) { const h = Math.sin(k.xz[i * 2] * 12.9898 + k.xz[i * 2 + 1] * 78.233) * 43758.5453; if (h - Math.floor(h) >= TD) continue; }
       if (c !== i) { const F = k.full, s0 = i * 16, d0 = c * 16; for (let e = 0; e < 16; e++) A[d0 + e] = F[s0 + e]; } c++; }   // v0.47: no subarray garbage
-    k.im.count = c; k.im.instanceMatrix.needsUpdate = true; }
+    k.im.count = c; k.im.visible = c > 0; k.im.instanceMatrix.needsUpdate = true; }
 }
 // v0.37 the Hollow: a stand of timber west of the river where a new game wakes you, plus alders along both banks (own RNG - the world's rand() stream is untouched)
 const HOLLOW = { x: -430, z: -20 };
@@ -1053,7 +1067,7 @@ let doorT = 0;
 // inside a smoky grey circle. Now the disc is invisible below ~300 rpm and the blades coast down to a random rest angle.
 const prop = new THREE.Group(); prop.position.set(0, 0.24, -1.93); prop.rotation.z = Math.random() * Math.PI; cubD.add(prop);
 const PROP_BLUR = new THREE.Mesh(new THREE.RingGeometry(0.1, 0.94, 24, 1),
-  new THREE.MeshBasicMaterial({ color: 0x2a2a2a, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false }));
+  new THREE.MeshBasicMaterial({ color: 0x2a2a2a, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false, forceSinglePass: true }));   // v0.47: a flat disc needs one pass (two re-picked its shader every frame)
 PROP_BLUR.position.z = -0.012; PROP_BLUR.visible = false; prop.add(PROP_BLUR);
 const blade = (() => {
   const R = [0.07, 0.16, 0.34, 0.55, 0.76, 0.88, 0.94], CH = [0.05, 0.12, 0.13, 0.12, 0.10, 0.08, 0.035], TW = [0.75, 0.55, 0.38, 0.28, 0.22, 0.2, 0.2],
@@ -3379,7 +3393,7 @@ box(0.034, 0.025, 0.08, dark, -0.035, 0.525, -0.2, door);
 function winSet(k, v) { WIN[k] = clamp(v, 0, 1); }
 // v0.44 latch handles: one instanced lever beside each window / door handle (1 draw call), turned by wrist roll
 const LATCHV = { a: { rup: 0, rlo: 0, lf: 0, lr: 0 }, o: { rup: [rupH, -1], rlo: [rloH, -1], lf: [LWF.hp, 1], lr: [LWR.hp, 1] } };
-LATCHV.mesh = new THREE.InstancedMesh(ckGeo([['b', 0.008, 0.009, 0.05, 0, 0, -0.02, 0x8d9094], ['c', 0.009, 0.012, 8, 0, 0, 0, 0x55585c, 0, 0, Math.PI / 2], ['b', 0.012, 0.013, 0.014, 0, 0, -0.045, 0x161616]]), CKVM, 4);
+LATCHV.mesh = new THREE.InstancedMesh(ckGeo([['b', 0.008, 0.009, 0.05, 0, 0, -0.02, 0x8d9094], ['c', 0.009, 0.012, 8, 0, 0, 0, 0x55585c, 0, 0, Math.PI / 2], ['b', 0.012, 0.013, 0.014, 0, 0, -0.045, 0x161616]]), CKVM.clone(), 4);   // v0.47: own copy - sharing CKVM with plain meshes flipped its shader program every frame
 LATCHV.mesh.frustumCulled = false; plane.add(LATCHV.mesh);
 const _lvM = new THREE.Matrix4(), _lvR = new THREE.Matrix4(), _lvI = new THREE.Matrix4();
 function latchDraw() {

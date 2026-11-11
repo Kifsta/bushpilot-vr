@@ -25,6 +25,14 @@ Neil: "Do whatever you need to bring it back to a good fps".
 - **Numbers.** Draw calls / triangles, v0.46 → v0.47: cockpit 91/277k → 64/305k, 600 m 86/260k → 63/291k, on foot 55/269k → 47/304k, town 131/266k → 84/266k. Render submission (desktop ms): cockpit 1.26 → 0.40, town 0.85 → 0.57. Triangles go up a little where merged cells can no longer be culled piece by piece. That is a deliberate trade: Quest 3 is limited by draw calls and pixels long before triangles.
 - **Visuals:** the same. Batched vs unbatched screenshots differ by under 1.3 % of pixels, and only at anti-aliased edges and the spinning prop.
 
+**Part 2 changes**
+- **No per-frame shader re-picking.** The prop-blur disc was double-sided and transparent, so three.js drew it in two passes and re-chose its shader program twice every frame. It is now drawn in a single pass, which looks the same for a flat disc. Nothing else re-picks shaders per frame now.
+- **One latch material.** The window latches shared a material between instanced and plain meshes, which made the GPU switch programs back and forth. They now have their own copy.
+- **Empty scenery chunks are hidden,** so they cost nothing.
+- **Tile-split forest and grass: measured and left off.** Splitting the instanced forest, rocks and grass into tiles so that each tile is frustum-culled is available as `?tile=N` (tile size in metres). It cut triangles by only 5–20 %, but multiplied draw calls by 1.5–2.7× (for example, at 1500 m tiles: cockpit 64 → 151, town 80 → 214). On Quest that is a bad trade, so the default is off.
+- **No LOD / impostors.** Trees are already 10–60-triangle instances that thin out with distance, and town buildings are merged into the 250 m cells. Impostors would add draw calls and texture fetches for no gain.
+- **Defaults kept.** Render scale stays at 100 %, and foveation is already at its maximum (HIGH) by default. If a scene still drops frames, see "Frame rate" in CONTROLS.md.
+
 ## v0.46 – Procedural hand grabbing
 
 Neil: "I want the hands to procedurally grab the knobs realistically".
