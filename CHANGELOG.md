@@ -2,6 +2,44 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.55 – running costs: paid fuel, oil, tach hours, wear, damage, the home hangar
+Neil: "fuel purchase at strips with differing prices, oil use, engine hours, tyre/brake wear, hard-landing damage, repairs and 100-hour service at the home hangar; costs balanced against job pay so money matters but the player isn't stuck". The physics block is untouched (md5 unchanged). Wear and damage act only on the pilot's inputs before the physics steps: a throttle cap, a brake scale, a rudder pull on the ground, and the existing engine-out flag when seized. All of these are identity on a healthy Cub (t55 flies the same 5 s bit for bit with the hook on and off).
+- **Fuel you pay for at four red drums**, paid as it flows:
+  - **HOME $6.40/gal**, **RIDGE $7.30**, **LODGE $8.90** and **DRY FORK $5.80** (the town depot).
+  - The new drums sit by the job boards, each with a fuel + oil board, and the paper map prints the prices.
+  - When you stop pumping you get a receipt (gallons, cost, wallet). The wallet stays in whole dollars, with cents carried over.
+  - Away from home it is cash only. **The home drum always gives 12 gal on account**, even when you are broke past the hangar's limit. That is about 30 km at cruise, enough to reach the farthest job and come back, so you are never stuck.
+- **The Cub's log:** tach hours (running 20× real time: 3 min = 1 h), the 100-hour clock, oil, tyres, brakes, gear and engine damage, and landings. It starts at 1262.4 h with the 100-hour due in 37.6 h, 5.5 qt of oil, tyres at 85 % and brakes at 90 %.
+- **Oil:** a 6 qt sump using about 1 qt per 12 h.
+  - Below 4 qt the oil pressure gauge reads low and the temperature reads high. Below 3 qt the engine wears, and below 2 qt you lose 25 % power.
+  - At 0.3 qt the engine **seizes** (engine out). R brings you home, and a repair fixes it.
+- **100-hour service:** you are warned at 95 h. Past 110 h the engine runs rough (92 % power) and slowly wears.
+- **Tyres and brakes:** tyres wear as you roll, on firm touchdowns and when skidding under hard braking; brakes wear with use. Worn brakes (below 20 %) and bald tyres (below 10 %) brake weaker.
+- **Hard landings:** the touchdown sink is measured on the frame the wheels come down. Above 2 m/s (about 400 fpm) the gear bends: 28 % at 590 fpm. Bent gear pulls the Cub to one side on the ground. The physics crash limit (about 790 fpm) is unchanged.
+- **Crashes** cost salvage plus a ferry home ($250 + $80/km from home), bend the gear and damage the engine (more for a prop strike or nose over). They can put you into debt.
+- **The home hangar:** an open shed on the left of the home strip with a bench, oil, tyres and a tool chest. Its **service board** (poke, or desktop 1-4) shows the log and sells:
+  1. An oil top-up ($9/qt).
+  2. Tyres and brake pads, priced by wear ($240 + $180 when fully worn).
+  3. Repairs ($1,200 × gear damage + $2,600 × engine damage, +$400 if seized).
+  4. The **100-hour service** ($420, including an oil change).
+  - It runs an **account up to $600**, and job pay clears it. Oil at home is never refused below 4 qt. The Cub must be parked nearby with the engine off.
+  - The strip boards sell oil only, at $10–12/qt.
+- **The HUD and wrist** get a maintenance line only when something needs attention (OIL LOW, 100-HR DUE / OVERDUE, GEAR DMG, ENG DMG, TYRES WORN, BRAKES WORN, ENGINE SEIZED). The engine log repeats the warnings every 45 s while you fly.
+- **Balance:** across 433 sample jobs the average pay is $198. Fuel, oil, the 100-hour reserve and tyre and brake wear come to about $45 per job (23 %), and mistakes (a hard landing $300+, a crash $400+ plus repairs) cost more.
+- **Save v55** adds the log (`eco`). Older saves load with the starting log.
+- **Perf** (1280×720 headless, v0.54 → v0.55): PERF_TABLE
+- **Tests:** a new **t55** (22 checks):
+  - The stations and prices.
+  - The healthy-Cub identity and the damaged-Cub difference.
+  - Each wear effect on the inputs.
+  - Tach and oil rates and the seizure.
+  - Synthetic and real-physics touchdowns, brake wear, crash cost.
+  - Paid fuel at home and at Dry Fork, cash-only away from home, and the 12 gal home safety net with the range check.
+  - All four hangar board buttons, the money and parking checks, and a strip oil board.
+  - The map prices, the HUD warnings, the save round trip, the cost / pay balance, and no errors.
+
+  reload and t54 now expect save v55.
+
 ## v0.54 – airdrops
 Neil: "airdrops (open door/window in flight, push bundles out, streamer bundles fall with physics, scored by distance to a target smoke/X; airdrop jobs on boards to sites/camps you can't land at, e.g. a stranded hiker or fire crew; pay by accuracy and bundle condition)". No weather or wind; the physics block is untouched (md5 unchanged).
 - **Five drop sites with no strip**, picked by a terrain search: 900 m or more from any strip, on steep ground, in the woods or on a river bank.
