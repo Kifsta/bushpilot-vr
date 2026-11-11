@@ -522,6 +522,7 @@ function stepAircraft(a, dt) {
             rpm: a.engineOut ? Math.max(7 * Math.max(u, 0), (a.out.rpm || 0) - 1500 * dt) : Math.min(C.RPM_REDLINE, C.RPM_IDLE + (C.RPM_STATIC - C.RPM_IDLE) * pn + 8 * Math.max(u, 0) * (0.3 + 0.7 * pn)) };
 }
 // === PHYSICS END ===
+const hyp = (a, b, c = 0) => Math.sqrt(a * a + b * b + c * c);   // v0.59 Math.hypot allocates on every call in V8 (~5 KB a frame in the deer loop alone)
 
 // ======================= RENDERING =======================
 // v0.35 settings (persist in localStorage 'bp_gfx'; ?gfx=shadows:2,grass:1 overrides for testing). Defaults = the v0.34 look and cost.
@@ -541,7 +542,7 @@ document.body.appendChild(renderer.domElement);
 document.body.appendChild(VRButton.createButton(renderer));
 
 const SKY = 0xa9c8de;
-function acGS() { return Math.hypot(ac.vel[0], ac.vel[1], ac.vel[2]); }   // v0.36: ground speed (ac.out.V is airspeed, which isn't 0 at rest in a wind)
+function acGS() { return hyp(ac.vel[0], ac.vel[1], ac.vel[2]); }   // v0.36: ground speed (ac.out.V is airspeed, which isn't 0 at rest in a wind)
 const WET_MATS = [];   // ground materials (kept for the grain texture list)
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(SKY);
@@ -700,7 +701,7 @@ const CH_SZK = 900;   // v0.48: a small thing (bush, rock, post, bale) is drawn 
 const CHS = { n: 0, ms: 0, up: 0 };   // stats: rebuilds, last cost, instances uploaded
 function updateChunks(force) {
   camera.getWorldPosition(_cp); const agl = Math.max(0, _cp.y - terrainHeight(_cp.x, _cp.z));
-  if (!force && Math.hypot(_cp.x - _cpLast.x, _cp.y - _cpLast.y, _cp.z - _cpLast.z) < 40 + 0.2 * Math.min(agl, 1500)) return; _cpLast.copy(_cp);   // v0.48: rarer rebuilds up high
+  if (!force && hyp(_cp.x - _cpLast.x, _cp.y - _cpLast.y, _cp.z - _cpLast.z) < 40 + 0.2 * Math.min(agl, 1500)) return; _cpLast.copy(_cp);   // v0.48: rarer rebuilds up high
   const t0 = performance.now(), D = GFX.dist, TD = GFX.trees * DYN.tk, A = clamp((agl - 200) / 1000, 0, 1), LA = (1 - 0.45 * A) * DYN.lk;   // v0.35 draw distance / tree density; v0.48 thinner forest with height + auto resolution steps
   let up = 0;
   for (const k of CHUNKS) { const M = k.im.instanceMatrix, Ar = M.array, f = Math.min(k.far, k.tree ? Infinity : k.sz * CH_SZK) * D, f2 = f * f, l = (k.tree ? k.lod * LA : k.lod) * D, l2 = l * l, l4 = 4 * l2; let c = 0;
@@ -746,7 +747,7 @@ const TOWNS = [
         ['diner', 1, -28, 1], ['feed', 1, -8, 0], ['house', 1, 12, 0, 0xcbbd98], ['school', 1, 32, 2]],
     cars: [[-2.5, 0, 3.0, 0x5d6e7a], [3, 20, 0.4, 0x8b8b6a], [-14, -40, 1.0, 0x7a4428]] } },
 ];
-const inTown = (x, z, m = 0) => { for (const t of TOWNS) if (Math.abs(x - t.x) < t.r + m && Math.abs(z - t.z) < t.r + m && Math.hypot(x - t.x, z - t.z) < t.r + m) return true; return false; };
+const inTown = (x, z, m = 0) => { for (const t of TOWNS) if (Math.abs(x - t.x) < t.r + m && Math.abs(z - t.z) < t.r + m && hyp(x - t.x, z - t.z) < t.r + m) return true; return false; };
 const DRYFORK_STRIP = { x: 3250, z: 50, a: 0, hl: 150, hw: 10 };   // 300 x 20 m mown strip east of Dry Fork, runs N-S (~2.7 m of rise end to end)
 ROADS.push([[2600, 120], [2690, 30], [2740, 0], [2800, 0], [2900, 0], [3050, 5], [3238, 15]], [[780, -2600], [840, -2550], [900, -2500], [960, -2450]]);   // spurs to Dry Fork (+ its strip) and Hollis
 const lines = [];   // merged line segments (fence wires + power lines): one draw call
@@ -786,7 +787,7 @@ const lines = [];   // merged line segments (fence wires + power lines): one dra
   // dirt roads (4 m ribbons following the ground)
   const rv = [];
   const road = pts => { for (let i = 0; i < pts.length - 1; i++) {
-    const [x0, z0] = pts[i], [x1, z1] = pts[i + 1], L = Math.hypot(x1 - x0, z1 - z0), n = Math.ceil(L / 8);
+    const [x0, z0] = pts[i], [x1, z1] = pts[i + 1], L = hyp(x1 - x0, z1 - z0), n = Math.ceil(L / 8);
     const nx = -(z1 - z0) / L * 2, nz = (x1 - x0) / L * 2;
     for (let k = 0; k < n; k++) {
       const a = k / n, b = (k + 1) / n, ax = x0 + (x1 - x0) * a, az = z0 + (z1 - z0) * a, bx = x0 + (x1 - x0) * b, bz = z0 + (z1 - z0) * b;
@@ -852,7 +853,7 @@ const sideShape = (pts, sx) => new THREE.Shape(pts.map(([z, y]) => new THREE.Vec
 const sideMap = (g, sx, x0) => g.rotateY(sx < 0 ? -Math.PI / 2 : Math.PI / 2).translate(sx * x0, 0, 0);
 function growPoly(P, w) {   // convex polygon grown outward by w
   let a = 0; P.forEach((p, i) => { const q = P[(i + 1) % P.length]; a += p[0] * q[1] - q[0] * p[1]; });
-  const L = P.map((p, i) => { const q = P[(i + 1) % P.length], dx = q[0] - p[0], dy = q[1] - p[1], l = Math.hypot(dx, dy), k = a > 0 ? 1 : -1;
+  const L = P.map((p, i) => { const q = P[(i + 1) % P.length], dx = q[0] - p[0], dy = q[1] - p[1], l = hyp(dx, dy), k = a > 0 ? 1 : -1;
     return [p[0] + k * dy / l * w, p[1] - k * dx / l * w, dx, dy]; });
   return L.map((l, i) => { const m = L[(i + L.length - 1) % L.length], t = ((l[0] - m[0]) * l[3] - (l[1] - m[1]) * l[2]) / (m[2] * l[3] - m[3] * l[2]); return [m[0] + m[2] * t, m[1] + m[3] * t]; });
 }
@@ -1068,7 +1069,7 @@ const GV = (() => {
         const x = p.p[i], y = p.p[i + 1], z = p.p[i + 2];
         pos[o + i] = e[0] * x + e[4] * y + e[8] * z + e[12]; pos[o + i + 1] = e[1] * x + e[5] * y + e[9] * z + e[13]; pos[o + i + 2] = e[2] * x + e[6] * y + e[10] * z + e[14];
         const a = p.n[i], b = p.n[i + 1], c = p.n[i + 2];
-        let nx = ne[0] * a + ne[3] * b + ne[6] * c, ny = ne[1] * a + ne[4] * b + ne[7] * c, nz = ne[2] * a + ne[5] * b + ne[8] * c; const l = Math.hypot(nx, ny, nz) || 1;
+        let nx = ne[0] * a + ne[3] * b + ne[6] * c, ny = ne[1] * a + ne[4] * b + ne[7] * c, nz = ne[2] * a + ne[5] * b + ne[8] * c; const l = hyp(nx, ny, nz) || 1;
         nor[o + i] = nx / l; nor[o + i + 1] = ny / l; nor[o + i + 2] = nz / l;
       }
       o += p.p.length;
@@ -1729,7 +1730,7 @@ function exitPlane() {
 }
 function board() {
   camera.getWorldPosition(_w); const dp = qRot(ac.q, [0.6, 0, 0]);
-  if (Math.hypot(_w.x - ac.pos[0] - dp[0], _w.z - ac.pos[2] - dp[2]) > 3) { say('TOO FAR FROM PLANE'); return; }
+  if (hyp(_w.x - ac.pos[0] - dp[0], _w.z - ac.pos[2] - dp[2]) > 3) { say('TOO FAR FROM PLANE'); return; }
   toPlane();
 }
 renderer.xr.addEventListener('sessionstart', () => { needRecenter = 5; audioInit(); });
@@ -1836,7 +1837,7 @@ function flapDrag(g) {
   vr.flapAng = n * FLAP_STEP + clamp(raw - n * FLAP_STEP, -0.3 * FLAP_STEP, 0.3 * FLAP_STEP);   // the pawl holds it close to its notch
 }
 function trimDrag(g) {
-  plane.worldToLocal(g.getWorldPosition(_ohA)); if (Math.hypot(_ohA.x - TRIM_P.x, _ohA.y - TRIM_P.y) < 0.012) return;   // hand on the axis: no sense of turn
+  plane.worldToLocal(g.getWorldPosition(_ohA)); if (hyp(_ohA.x - TRIM_P.x, _ohA.y - TRIM_P.y) < 0.012) return;   // hand on the axis: no sense of turn
   const a = trimAngOf(g); let d = a - TRIM.prev; d -= Math.round(d / (2 * Math.PI)) * 2 * Math.PI; TRIM.prev = a;
   const v0 = TRIM.v; TRIM.v = clamp(TRIM.v + d / (2 * Math.PI * TRIM_TURNS), -1, 1);
   if (TRIM.v !== v0 && (TRIM.v === 1 || TRIM.v === -1)) hap(g, 0.35, 14);
@@ -2005,7 +2006,7 @@ function fuelStop() { if (!FUELP.on) return; FUELP.on = false; FUELP.cap = -1; F
 function fuelDesk() {   // desktop G: start / stop the pump when you stand by a filler cap
   if (FUELP.on) { fuelStop(); return; }
   camera.getWorldPosition(_fpB); let c = -1, bd = FUELP.DESK_R;
-  for (let i = 0; i < 2; i++) { capW(i, _fpA); const d = Math.hypot(_fpA.x - _fpB.x, _fpA.z - _fpB.z); if (d < bd) { bd = d; c = i; } }
+  for (let i = 0; i < 2; i++) { capW(i, _fpA); const d = hyp(_fpA.x - _fpB.x, _fpA.z - _fpB.z); if (d < bd) { bd = d; c = i; } }
   if (c < 0) { say('STAND BY A WING FILLER CAP TO REFUEL'); return; }
   if (!pumpNear()) { say(ENG.running ? 'SHUT THE ENGINE DOWN TO REFUEL' : 'NO FUEL HERE - RED DRUMS AT HOME, RIDGE, LODGE + DRY FORK'); return; }
   FUELP.cap = c; FUELP.on = true; FUELP.fullSaid = false; sfx('click'); say('REFUELLING - $' + FUELP.st.price.toFixed(2) + '/GAL (G TO STOP)');
@@ -2013,7 +2014,7 @@ function fuelDesk() {   // desktop G: start / stop the pump when you stand by a 
 function fuelPumpTick(dt) {
   if (!FUELP.on) return;
   if (mode !== 'foot' || !pumpNear()) { FUELP.g = null; fuelStop(); return; }
-  if (!FUELP.g) { camera.getWorldPosition(_fpB); capW(FUELP.cap, _fpA); if (Math.hypot(_fpA.x - _fpB.x, _fpA.z - _fpB.z) > FUELP.DESK_R + 1) { fuelStop(); return; } }
+  if (!FUELP.g) { camera.getWorldPosition(_fpB); capW(FUELP.cap, _fpA); if (hyp(_fpA.x - _fpB.x, _fpA.z - _fpB.z) > FUELP.DESK_R + 1) { fuelStop(); return; } }
   if (FUELP.g && nearestCap(FUELP.g.getWorldPosition(_fpB), FUELP.CAP_R + 0.1) < 0) { fuelStop(); return; }   // pulled the nozzle out
   if (fuel < FUEL_MAX || upgAuxRoom() > 0) { const dl = ecoFuelAllow(Math.min(FUELP.RATE * dt, FUEL_MAX - fuel + upgAuxRoom())); if (dl <= 0) { FUELP.g = null; fuelStop(); return; } const dm = Math.min(dl, FUEL_MAX - fuel); fuel = Math.min(FUEL_MAX, fuel + dm); if (dl > dm) UPG.aux = Math.min(AUX_L, UPG.aux + dl - dm);   // v0.57 then the aux
     if ((FUELP.sndT -= dt) <= 0) { sfx('pour', capW(FUELP.cap, _fpA)); FUELP.sndT = 0.13; } if (FUELP.g && Math.random() < dt * 6) HX.pulse(FUELP.g, 0.08, 10, 'fuel'); }
@@ -2078,14 +2079,14 @@ const WATERWAYS = [];   // { pts: [[x, z]...], hw }
 { const p = []; for (let z = 2400; z >= -5900; z -= 12) p.push([RIVER_X(z), z]); WATERWAYS.push({ pts: p, hw: 9, name: 'river' }); }
 for (const v of VALLEY.slice(4)) {    // creek: head of the drainage -> a kink -> its mouth
   const k = [[v[2], v[3]], [(v[0] + v[2]) / 2 + 60, (v[1] + v[3]) / 2], [v[0], v[1]]], p = [];
-  for (let s = 0; s < 2; s++) { const [ax, az] = k[s], [bx, bz] = k[s + 1], n = Math.ceil(Math.hypot(bx - ax, bz - az) / 12);
+  for (let s = 0; s < 2; s++) { const [ax, az] = k[s], [bx, bz] = k[s + 1], n = Math.ceil(hyp(bx - ax, bz - az) / 12);
     for (let i = 0; i < n; i++) { const t = i / n, w = Math.sin(t * Math.PI) * 18 * Math.sin(i * 0.21); p.push([ax + (bx - ax) * t + w * (bz - az) / (n * 12), az + (bz - az) * t - w * (bx - ax) / (n * 12)]); } }
   p.push(k[2]); WATERWAYS.push({ pts: p, hw: 3, name: 'creek' });
 }
-const inLake = (x, z) => LAKES.find(L => Math.hypot(x - L.x, z - L.z) < L.r);
+const inLake = (x, z) => LAKES.find(L => hyp(x - L.x, z - L.z) < L.r);
 function waterDist(x, z) {   // metres to the nearest water edge (<= 0 = in it), coarse-prefiltered
   let best = 1e9;
-  for (const L of LAKES) best = Math.min(best, Math.hypot(x - L.x, z - L.z) - L.r);
+  for (const L of LAKES) best = Math.min(best, hyp(x - L.x, z - L.z) - L.r);
   for (const w of WATERWAYS) { const P = w.pts;
     for (let i = 0; i < P.length - 1; i += 8) { const a = P[i], b = P[Math.min(i + 8, P.length - 1)];
       if (Math.abs(x - a[0]) + Math.abs(z - a[1]) > 400 + best) continue;
@@ -2104,7 +2105,7 @@ const WATER = (() => {
   for (const w of WATERWAYS) { const P = w.pts;
     for (let i = 0; i < P.length - 1; i++) {
       const [ax, az] = P[i], [bx, bz] = P[i + 1]; if (inLake(ax, az) && inLake(bx, bz)) continue;
-      const nrm = j => { const p = P[Math.max(0, j - 1)], q = P[Math.min(P.length - 1, j + 1)], dx = q[0] - p[0], dz = q[1] - p[1], L = Math.hypot(dx, dz) || 1; return [-dz / L * w.hw, dx / L * w.hw]; };   // shared cross-sections: no seams
+      const nrm = j => { const p = P[Math.max(0, j - 1)], q = P[Math.min(P.length - 1, j + 1)], dx = q[0] - p[0], dz = q[1] - p[1], L = hyp(dx, dz) || 1; return [-dz / L * w.hw, dx / L * w.hw]; };   // shared cross-sections: no seams
       const [nx, nz] = nrm(i), [mx, mz] = nrm(i + 1);
       const v = (x, z) => [x, groundY(x, z) + (w.hw > 5 ? 0.7 : 0.45), z];
       const a0 = v(ax - nx, az - nz), a1 = v(ax, az), a2 = v(ax + nx, az + nz), b0 = v(bx - mx, bz - mz), b1 = v(bx, bz), b2 = v(bx + mx, bz + mz);
@@ -2239,7 +2240,7 @@ const LODGE = { x: -380, z: -2440, a: 1.83, hl: 140, hw: 10 };   // backcountry 
   // 9. v0.31 fuel depot next to the hangar: fenced yard, avgas + mogas storage tanks with taps, drums, guard shack, floodlight - and its guards
   { const o = seat({ x: DRYFORK_STRIP.x + 52, z: DRYFORK_STRIP.z + 70, a: 0 }, 15, 11), L = (lx, lz) => { const [x, z] = W(o, lx, lz); return groundY(x, z) - o.y; };   // L: local ground height
     for (const [x0, z0, x1, z1] of [[-15, -11, 15, -11], [15, -11, 15, 11], [15, 11, -15, 11], [-15, 11, -15, 2.5], [-15, -2.5, -15, -11]]) {
-      const len = Math.hypot(x1 - x0, z1 - z0), ry = -Math.atan2(z1 - z0, x1 - x0), n = Math.round(len / 3);
+      const len = hyp(x1 - x0, z1 - z0), ry = -Math.atan2(z1 - z0, x1 - x0), n = Math.round(len / 3);
       const mx = (x0 + x1) / 2, mz = (z0 + z1) / 2, tilt = Math.atan2(L(x1, z1) - L(x0, z0), len), my = (L(x0, z0) + L(x1, z1)) / 2;
       for (const y of [0.45, 1.15, 1.85]) part(o, len, 0.05, 0.04, M.metal, mx, y + my, mz, ry, 0, tilt); part(o, len, 0.03, 0.03, M.dark, mx, 2.15 + my, mz, ry, 0, tilt);
       for (let k = 0; k <= n; k++) { const px = x0 + (x1 - x0) * k / n, pz = z0 + (z1 - z0) * k / n; part(o, 0.1, 2.7, 0.1, M.metal, px, 0.95 + L(px, pz), pz); }
@@ -2261,9 +2262,9 @@ const LODGE = { x: -380, z: -2440, a: 1.83, hl: 140, hw: 10 };   // backcountry 
 
   // ---- forests: deciduous groves on the valley floor + extra conifers feathering the forest edge down onto the benches ----
   const clearOf = (x, z, r) => Math.abs(x) < 70 + r && z > -700 - r && z < 300 + r ||                                    // home strip + its approaches
-    Math.hypot(x - MEADOW.x, z - MEADOW.z) < 260 + r || Math.hypot(x - PAD.x, z - PAD.z) < 220 + r ||
+    hyp(x - MEADOW.x, z - MEADOW.z) < 260 + r || hyp(x - PAD.x, z - PAD.z) < 220 + r ||
     segD(x, z, [LODGE.x - Math.sin(LODGE.a) * 420, LODGE.z - Math.cos(LODGE.a) * 420, LODGE.x + Math.sin(LODGE.a) * 420, LODGE.z + Math.cos(LODGE.a) * 420]) < 40 + r ||
-    POIS.some(s => Math.hypot(x - s.x, z - s.z) < 45 + r) || inTown(x, z, 15 + r) || segD(x, z, [DRYFORK_STRIP.x, DRYFORK_STRIP.z - DRYFORK_STRIP.hl - 200, DRYFORK_STRIP.x, DRYFORK_STRIP.z + DRYFORK_STRIP.hl + 200]) < 45 + r || FARMS.some(([a, b]) => Math.hypot(x - a, z - b) < 40 + r) || inLake(x, z) ||
+    POIS.some(s => hyp(x - s.x, z - s.z) < 45 + r) || inTown(x, z, 15 + r) || segD(x, z, [DRYFORK_STRIP.x, DRYFORK_STRIP.z - DRYFORK_STRIP.hl - 200, DRYFORK_STRIP.x, DRYFORK_STRIP.z + DRYFORK_STRIP.hl + 200]) < 45 + r || FARMS.some(([a, b]) => hyp(x - a, z - b) < 40 + r) || inLake(x, z) ||
     ROADS.some(rd => rd.some((p, i) => i && segD(x, z, [rd[i - 1][0], rd[i - 1][1], p[0], p[1]]) < 10 + r));
   const dec = [[], [], []], trunks = [];
   for (let tries = 0; GROVES.length < 55 && tries < 4000; tries++) {
@@ -2313,7 +2314,7 @@ const TOWN_MESH = [];
     // a building frame on the main street: side s (+1 / -1), lz along the street; its local +z faces the street, w along the street, d deep
     const frame = (s, lz, w, d, back = 0) => { const [x, z] = TW(T, s * (9 + back + d / 2), lz); return { x, z, a: T.a + (s > 0 ? -Math.PI / 2 : Math.PI / 2), w, d }; };
     const segs = (o, list) => list.map(([a, b, c, d]) => { const [x0, z0] = TW(o, a, b), [x1, z1] = TW(o, c, d); return [x0, z0, x1, z1]; });
-    const reg = (o, enter, sg, door) => { const b = { x: o.x, z: o.z, a: o.a, hw: o.w / 2, hd: o.d / 2, y: o.y, enter, segs: sg, R: Math.hypot(o.w, o.d) / 2 + 1 };
+    const reg = (o, enter, sg, door) => { const b = { x: o.x, z: o.z, a: o.a, hw: o.w / 2, hd: o.d / 2, y: o.y, enter, segs: sg, R: hyp(o.w, o.d) / 2 + 1 };
       if (door !== undefined) { b.out = TW(o, door, o.d / 2 + 1.4); b.inn = TW(o, door, o.d / 2 - 1.4); } B.push(b); return b; };
     T.spots = [];
     // ---- enterable shell: floor slab (foundation), 4 walls with a door gap in the front, ceiling, windows; returns the frame with o.y = floor ----
@@ -2448,7 +2449,7 @@ const MYS_SITES = {}, LAB = { floor: 0, rect: null };
   const roof = (o, len, h, wid, c, lx, ly, lz, ry = 0) => { const r = geo(ROOFG, c, o, lx, ly, lz, ry); r.scale.set(len, h, wid); return r; };
   const gpart = (o, w, h, d, c, lx, ly, lz, ry, rx, rz) => part(o, w, h, d, c, lx, ly + gy(o, lx, lz), lz, ry, rx, rz);   // sits on the local ground
   const solid = (o, x0, z0, x1, z1) => SOLID_SEGS.push([...W(o, x0, z0), ...W(o, x1, z1)]);
-  const fence = (o, pts, gapAt = -1) => { for (let i = 1; i < pts.length; i++) { if (i === gapAt) continue; const [x0, z0] = pts[i - 1], [x1, z1] = pts[i], len = Math.hypot(x1 - x0, z1 - z0), ry = -Math.atan2(z1 - z0, x1 - x0) + Math.PI / 2, n = Math.max(1, Math.round(len / 3.2));
+  const fence = (o, pts, gapAt = -1) => { for (let i = 1; i < pts.length; i++) { if (i === gapAt) continue; const [x0, z0] = pts[i - 1], [x1, z1] = pts[i], len = hyp(x1 - x0, z1 - z0), ry = -Math.atan2(z1 - z0, x1 - x0) + Math.PI / 2, n = Math.max(1, Math.round(len / 3.2));
       const mx = (x0 + x1) / 2, mz = (z0 + z1) / 2, tilt = Math.atan2(gy(o, x1, z1) - gy(o, x0, z0), len), my = (gy(o, x0, z0) + gy(o, x1, z1)) / 2;
       part(o, 0.03, 1.9, len, 0x8f979c, mx, 1.0 + my, mz, ry, -tilt); part(o, 0.05, 0.05, len, 0x6d747b, mx, 2.0 + my, mz, ry, -tilt);   // chain-link (a see-through grey sheet) + top rail
       for (let k = 0; k <= n; k++) { const px = x0 + (x1 - x0) * k / n, pz = z0 + (z1 - z0) * k / n; part(o, 0.07, 2.4, 0.07, 0x6d747b, px, 1.0 + gy(o, px, pz), pz); }
@@ -2580,7 +2581,7 @@ const MYS_SITES = {}, LAB = { floor: 0, rect: null };
     // the lab: 30 x 14 m, open bay door on the strip side, flat roof with plant on it
     const LW = 15, LD = 7, lx0 = -6, lz0 = -10, fy = Math.max(gy(o, lx0 - LW, lz0 - LD), gy(o, lx0 + LW, lz0 - LD), gy(o, lx0 - LW, lz0 + LD), gy(o, lx0 + LW, lz0 + LD), gy(o, lx0, lz0)) + 0.15;
     part(o, LW * 2, 1.2, LD * 2, GR, lx0, fy - 0.6, lz0);                                                                              // floor slab
-    const wall = (x0, z0, x1, z1) => { const len = Math.hypot(x1 - x0, z1 - z0), ry = -Math.atan2(z1 - z0, x1 - x0) + Math.PI / 2; part(o, 0.25, 4.6, len, WH, (x0 + x1) / 2, fy + 2.0, (z0 + z1) / 2, ry);
+    const wall = (x0, z0, x1, z1) => { const len = hyp(x1 - x0, z1 - z0), ry = -Math.atan2(z1 - z0, x1 - x0) + Math.PI / 2; part(o, 0.25, 4.6, len, WH, (x0 + x1) / 2, fy + 2.0, (z0 + z1) / 2, ry);
       part(o, 0.27, 0.5, len, BL, (x0 + x1) / 2, fy + 3.2, (z0 + z1) / 2, ry); solid(o, x0, z0, x1, z1); };
     const X0 = lx0 - LW, X1 = lx0 + LW, Z0 = lz0 - LD, Z1 = lz0 + LD;
     wall(X0, Z0, X1, Z0); wall(X1, Z0, X1, Z1); wall(X1, Z1, X0, Z1); wall(X0, Z1, X0, lz0 + 1.6); wall(X0, lz0 - 1.6, X0, Z0);       // west door gap (3.2 m) facing the gate
@@ -2653,7 +2654,7 @@ const V40 = { poles: 0, wires: null };   // v0.40 street & roadside dressing (bu
   const roof = (o, len, h, wid, c, lx, ly, lz, ry = 0) => { const r = geo(ROOFG, c, o, lx, ly, lz, ry); r.scale.set(len, h, wid); return r; };
   const gpart = (o, w, h, d, c, lx, ly, lz, ry, rx, rz) => part(o, w, h, d, c, lx, ly + gy(o, lx, lz), lz, ry, rx, rz);   // sits on the local ground
   const solid = (o, x0, z0, x1, z1) => SOLID_SEGS.push([...W(o, x0, z0), ...W(o, x1, z1)]);
-  const fence = (o, pts, gapAt = -1) => { for (let i = 1; i < pts.length; i++) { if (i === gapAt) continue; const [x0, z0] = pts[i - 1], [x1, z1] = pts[i], len = Math.hypot(x1 - x0, z1 - z0), ry = -Math.atan2(z1 - z0, x1 - x0) + Math.PI / 2, n = Math.max(1, Math.round(len / 3.2));
+  const fence = (o, pts, gapAt = -1) => { for (let i = 1; i < pts.length; i++) { if (i === gapAt) continue; const [x0, z0] = pts[i - 1], [x1, z1] = pts[i], len = hyp(x1 - x0, z1 - z0), ry = -Math.atan2(z1 - z0, x1 - x0) + Math.PI / 2, n = Math.max(1, Math.round(len / 3.2));
       const mx = (x0 + x1) / 2, mz = (z0 + z1) / 2, tilt = Math.atan2(gy(o, x1, z1) - gy(o, x0, z0), len), my = (gy(o, x0, z0) + gy(o, x1, z1)) / 2;
       part(o, 0.03, 1.9, len, 0x8f979c, mx, 1.0 + my, mz, ry, -tilt); part(o, 0.05, 0.05, len, 0x6d747b, mx, 2.0 + my, mz, ry, -tilt);   // chain-link (a see-through grey sheet) + top rail
       for (let k = 0; k <= n; k++) { const px = x0 + (x1 - x0) * k / n, pz = z0 + (z1 - z0) * k / n; part(o, 0.07, 2.4, 0.07, 0x6d747b, px, 1.0 + gy(o, px, pz), pz); }
@@ -2887,15 +2888,15 @@ const V40 = { poles: 0, wires: null };   // v0.40 street & roadside dressing (bu
   // ---- roadside: power line along the east road + the north-south road, farm mailboxes, a guide sign at the crossroads, abandoned cars ----
   { const P = [], PL = [ROADS[0], ROAD_NS]; let prev = null;
     const poleG = mergeGeometries([new THREE.BoxGeometry(0.24, 8.2, 0.24).translate(0, 4.1, 0), new THREE.BoxGeometry(2.2, 0.14, 0.14).translate(0, 7.6, 0), ...[-0.9, 0, 0.9].map(a => new THREE.BoxGeometry(0.08, 0.16, 0.08).translate(a, 7.75, 0))]);
-    for (const road of PL) { prev = null; let carry = 0; for (let i = 1; i < road.length; i++) { const [x0, z0] = road[i - 1], [x1, z1] = road[i], L = Math.hypot(x1 - x0, z1 - z0), dx = (x1 - x0) / L, dz = (z1 - z0) / L;
+    for (const road of PL) { prev = null; let carry = 0; for (let i = 1; i < road.length; i++) { const [x0, z0] = road[i - 1], [x1, z1] = road[i], L = hyp(x1 - x0, z1 - z0), dx = (x1 - x0) / L, dz = (z1 - z0) / L;
       for (let d = carry; d < L; d += 48) { const x = x0 + dx * d - dz * 9, z = z0 + dz * d + dx * 9; carry = d + 48 - L;
-        if (inTown(x, z, 12) || POIS.some(s => Math.hypot(x - s.x, z - s.z) < 40) || Math.hypot(x - 29, z + 15) < 60 || waterDist(x, z) < 3) { prev = null; continue; }
+        if (inTown(x, z, 12) || POIS.some(s => hyp(x - s.x, z - s.z) < 40) || hyp(x - 29, z + 15) < 60 || waterDist(x, z) < 3) { prev = null; continue; }
         const y = groundY(x, z), ry = Math.atan2(-dx, -dz); P.push([x, y, z, ry, 1, 1, 1]);
         const top = [-0.9, 0, 0.9].map(a => [x + Math.cos(ry) * a, y + 7.8, z - Math.sin(ry) * a]); if (prev) for (let k = 0; k < 3; k++) wire(prev[k], top[k], 1.2); prev = top; } } }
     instanced(poleG, mat(0x5a4a3a), P, { far: 2500 }); V40.poles = P.length; V40.P = P;
     const wg = new THREE.BufferGeometry(); wg.setAttribute('position', new THREE.Float32BufferAttribute(WIRES, 3)); const wl = new THREE.LineSegments(wg, new THREE.LineBasicMaterial({ color: 0x1e1e1e })); wl.userData.noCast = true; scene.add(wl); V40.wires = wl;
     // farm mailboxes (one merged mesh each, culled) + the guide sign + cars left on the road
-    FARMS.forEach(([fx, fz], i) => { let best = null; for (const road of ROADS) for (let k = 1; k < road.length; k++) { const [x0, z0] = road[k - 1], [x1, z1] = road[k], L2 = (x1 - x0) ** 2 + (z1 - z0) ** 2, t = clamp(((fx - x0) * (x1 - x0) + (fz - z0) * (z1 - z0)) / L2, 0, 1), px = x0 + (x1 - x0) * t, pz = z0 + (z1 - z0) * t, d = Math.hypot(fx - px, fz - pz);
+    FARMS.forEach(([fx, fz], i) => { let best = null; for (const road of ROADS) for (let k = 1; k < road.length; k++) { const [x0, z0] = road[k - 1], [x1, z1] = road[k], L2 = (x1 - x0) ** 2 + (z1 - z0) ** 2, t = clamp(((fx - x0) * (x1 - x0) + (fz - z0) * (z1 - z0)) / L2, 0, 1), px = x0 + (x1 - x0) * t, pz = z0 + (z1 - z0) * t, d = hyp(fx - px, fz - pz);
         if (!best || d < best.d) best = { d, px, pz, a: Math.atan2(fx - px, fz - pz) }; }
       if (!best || best.d > 400) return; G = new THREE.Group(); const o = { x: best.px + Math.sin(best.a) * 6, z: best.pz + Math.cos(best.a) * 6, a: best.a + Math.PI, y: 0 };
       mailbox(o, 0, 0, 0, [0x5a5e62, 0x2a4a6a, 0x8a2a1a, 0x3a5a3a][i % 4]); mailbox(o, 0.5, 0.1, 0.1, 0x5a5e62); finish('MAILBOX', o, 900);
@@ -2922,13 +2923,13 @@ function townPush(c, r = 0.35) {   // circle vs wall segments: slide along walls
   for (const T of TOWNS) { const dx = c.x - T.x, dz = c.z - T.z; if (dx > 130 || dx < -130 || dz > 130 || dz < -130) continue;
     for (const b of T.bld) { const ex = c.x - b.x, ez = c.z - b.z; if (ex > b.R + r || ex < -b.R - r || ez > b.R + r || ez < -b.R - r) continue;
       for (const [x0, z0, x1, z1] of b.segs) { const sx = x1 - x0, sz = z1 - z0, L2 = sx * sx + sz * sz || 1, t = clamp(((c.x - x0) * sx + (c.z - z0) * sz) / L2, 0, 1);
-        const px = c.x - (x0 + sx * t), pz = c.z - (z0 + sz * t), d = Math.hypot(px, pz), rr = r + 0.08;
+        const px = c.x - (x0 + sx * t), pz = c.z - (z0 + sz * t), d = hyp(px, pz), rr = r + 0.08;
         if (d < rr) { if (d > 1e-4) { c.x += px / d * (rr - d); c.z += pz / d * (rr - d); } else { c.x += sz / Math.sqrt(L2) * rr; c.z -= sx / Math.sqrt(L2) * rr; } hit = true; } } } }
   return hit;
 }
 function segPush(c, r, x0, z0, x1, z1) {   // circle vs one segment, same slide as the town walls
   const sx = x1 - x0, sz = z1 - z0, L2 = sx * sx + sz * sz || 1, t = clamp(((c.x - x0) * sx + (c.z - z0) * sz) / L2, 0, 1);
-  const px = c.x - (x0 + sx * t), pz = c.z - (z0 + sz * t), d = Math.hypot(px, pz);
+  const px = c.x - (x0 + sx * t), pz = c.z - (z0 + sz * t), d = hyp(px, pz);
   if (d >= r) return false;
   if (d > 1e-4) { c.x += px / d * (r - d); c.z += pz / d * (r - d); } else { c.x += sz / Math.sqrt(L2) * r; c.z -= sx / Math.sqrt(L2) * r; }
   return true;
@@ -2942,7 +2943,7 @@ function solidPush(c, r) {   // v0.34: on foot, the depot / checkpoint / lab wal
 let _twT = 0;
 function townTick(dt) {   // distance-cull the towns (and the strip dressing)
   if ((_twT -= dt) > 0) return; _twT = 0.5; camera.getWorldPosition(_lcP);
-  for (const t of TOWN_MESH) t.m.visible = Math.hypot(t.x - _lcP.x, t.z - _lcP.z) < (t.far || 5000);
+  for (const t of TOWN_MESH) t.m.visible = hyp(t.x - _lcP.x, t.z - _lcP.z) < (t.far || 5000);
 }
 // ---- v0.12 clouds: low-poly flat-shaded cumulus, one instanced draw call, drifting; fade out near the camera (no hard pop) ----
 const CLOUDS = (() => {
@@ -3033,7 +3034,7 @@ function drawMap() {
   x.lineCap = 'round';
   for (let py = 6; py < MAP_H; py += 7) for (let px = 6; px < MAP_W; px += 7) {
     const qx = px + j(2), qy = py + j(2), i = Math.round(qx / S), k = Math.round(qy / S);
-    const gx = (h(i + 1, k) - h(i - 1, k)) / (2 * S / MAP_PX), gz = (h(i, k + 1) - h(i, k - 1)) / (2 * S / MAP_PX), sl = Math.hypot(gx, gz);
+    const gx = (h(i + 1, k) - h(i - 1, k)) / (2 * S / MAP_PX), gz = (h(i, k + 1) - h(i, k - 1)) / (2 * S / MAP_PX), sl = hyp(gx, gz);
     if (sl < 0.32 || r() > 0.55 + sl * 0.3) continue;
     const L = Math.min(9, 3 + sl * 5), ux = -gx / sl, uz = -gz / sl;
     x.strokeStyle = `rgba(70,50,30,${Math.min(0.55, 0.18 + sl * 0.25 + (h(i, k) > 800 ? 0.12 : 0))})`; x.lineWidth = 1;
@@ -3051,7 +3052,7 @@ function drawMap() {
     x.stroke();
   }
   const wob = (pts, k = 2.5, step = 14) => { x.beginPath(); pts.forEach(([px, py], n) => {
-    if (!n) { x.moveTo(px, py); return; } const [ax, ay] = pts[n - 1], L = Math.hypot(px - ax, py - ay), m = Math.max(1, Math.round(L / step));
+    if (!n) { x.moveTo(px, py); return; } const [ax, ay] = pts[n - 1], L = hyp(px - ax, py - ay), m = Math.max(1, Math.round(L / step));
     for (let t = 1; t <= m; t++) x.lineTo(ax + (px - ax) * t / m + (t < m ? j(k) : 0), ay + (py - ay) * t / m + (t < m ? j(k) : 0)); }); x.stroke(); };
   const W2 = ([wx, wz]) => [X(wx), Z(wz)];
   const hand = (t, px, py, size = 22, col = '#2b2116', rot = 0) => {   // letter-by-letter with a little jitter
@@ -3584,11 +3585,11 @@ function kbLines() {   // the text, one entry per active job
   const A = dlvActive(), L = [], P = ac.pos;
   for (const j of A) { if (j.emg) { L.push(emgKb(j, P)); continue; }   // v0.58
     const T = dlvS(j.to), S = dlvS(j.from), its = DLV.items.filter(i => i.job === j.id), n = {}; for (const i of its) n[i.k] = (n[i.k] || 0) + 1;
-    const hu = j.hunt && !j.hunt.got ? DEER_HERDS[j.hunt.h] : null, hid = !hu && T.site && !T.found, dx = (hu ? hu.x0 ?? hu.x : hid ? T.B.hx : T.pad[0]) - P[0], dz = (hu ? hu.z0 ?? hu.z : hid ? T.B.hz : T.pad[1]) - P[2], km = Math.hypot(dx, dz) / 1000, hdg = Math.round(((Math.atan2(dx, -dz) * 180 / Math.PI) + 360) % 360 / 5) * 5 % 360;
+    const hu = j.hunt && !j.hunt.got ? DEER_HERDS[j.hunt.h] : null, hid = !hu && T.site && !T.found, dx = (hu ? hu.x0 ?? hu.x : hid ? T.B.hx : T.pad[0]) - P[0], dz = (hu ? hu.z0 ?? hu.z : hid ? T.B.hz : T.pad[1]) - P[2], km = hyp(dx, dz) / 1000, hdg = Math.round(((Math.atan2(dx, -dz) * 180 / Math.PI) + 360) % 360 / 5) * 5 % 360;
     const inC = its.filter(i => i.st === 'cargo'), loose = inC.filter(i => !cgSecured(i)).length, at = its.filter(i => i.st === 'ground' && dlvInPad(T, i.mesh.position.x, i.mesh.position.z)).length;
     const st = inC.length ? (inC.length + '/' + its.length + ' IN THE CUB - ' + (loose ? loose + ' LOOSE' : 'STRAPPED')) : at ? at + '/' + its.length + ' DELIVERED' : its.every(i => i.st === 'ground' && dlvInPad(S, i.mesh.position.x, i.mesh.position.z)) ? 'ON THE ' + S.name + ' PAD' : 'ON THE MOVE';
     const left = dlvLeft(j), due = j.sp ? dlvMeter(j, its).replace(' - ', '') : left === Infinity ? 'NO DEADLINE' : left < 0 ? 'LATE - HALF PAY' : 'DUE IN ' + Math.ceil(left) + ' MIN';
-    if (j.drop) { const D = DROPS[j.drop.s], ex = D.cx - P[0], ez = D.cz - P[2], dk = Math.hypot(ex, ez) / 1000, dh = Math.round(((Math.atan2(ex, -ez) * 180 / Math.PI) + 360) % 360 / 5) * 5 % 360;   // v0.54
+    if (j.drop) { const D = DROPS[j.drop.s], ex = D.cx - P[0], ez = D.cz - P[2], dk = hyp(ex, ez) / 1000, dh = Math.round(((Math.atan2(ex, -ez) * 180 / Math.PI) + 360) % 360 / 5) * 5 % 360;   // v0.54
       L.push({ col: '#' + DLV_COL[j.id % DLV_COL.length].toString(16).padStart(6, '0'), t: j.title, sp: null, rt: S.name + ' > ' + D.name + ' (AIRDROP)', nav: 'DROP ' + (dk < 10 ? dk.toFixed(1) : Math.round(dk)) + ' KM  HDG ' + String(dh).padStart(3, '0'),
         pcs: j.drop.n + ' BUNDLES ' + dlvLb(j) + ' LB', pay: '$' + j.pay, due: left === Infinity ? 'NO DEADLINE' : left < 0 ? 'LATE - HALF PAY' : 'DUE IN ' + Math.ceil(left) + ' MIN', st: j.drop.res.length + '/' + j.drop.n + ' DROPPED' + (inC.length ? ' - ' + inC.length + ' IN THE CUB' : ''), warn: left < 0 }); continue; }
     if (hu) { L.push({ col: '#' + DLV_COL[j.id % DLV_COL.length].toString(16).padStart(6, '0'), t: j.title, sp: null, rt: hu.name + ' > ' + T.name, nav: 'HUNT ' + (km < 10 ? km.toFixed(1) : Math.round(km)) + ' KM  HDG ' + String(hdg).padStart(3, '0'),
@@ -4039,7 +4040,7 @@ function ckPoke(i, g, st, dt) {                  // fingertip pokes: rocker, lan
   }
   { // START: press and hold the button in
     const s = pkS('start', i); _pkD.set(_plL.x - SW.start.p.x, _plL.y - SW.start.p.y, _plL.z - SWP.z);
-    const inXY = Math.hypot(_pkD.x, _pkD.y) < 0.014, front = _pkD.z - R_TIP;
+    const inXY = hyp(_pkD.x, _pkD.y) < 0.014, front = _pkD.z - R_TIP;
     if (!s.arm && !s.p && (front > 0.02 || !inXY)) s.arm = true;
     const p = s.p ? inXY && front < 0.018 && front > -0.02 : s.arm && inXY && front < 0.013 && front > -0.01 && _pkV.z < 0.05;
     if (p !== s.p) { s.p = p; if (p) { hap(g, 0.5, 16); sfx('click'); s.arm = false; } CKX.pokeStart[i] = p; starterSync(); }
@@ -4264,8 +4265,8 @@ const DEER_HERDS = [{ id: 'HOLLOW', name: 'HOLLOW TIMBER', x: -490, z: 70, n: 3 
 const HUNT_C = { LODGE: 'VENISON FOR THE LODGE', ELK: 'CAMP MEAT', RANCHS: 'VENISON FOR THE RANCH', DRYFORK: 'VENISON - BUTCHER' }, HUNT_P = 0.14, HUNT_R = 260;
 function huntGen(id, from, r) {   // one venison job: a customer (not this strip), one of the three herds nearest it; pays well, perishable once dressed
   const fS = dlvS(from), C = Object.keys(HUNT_C).filter(k => k !== from && dlvS(k)), to = C[Math.floor(r() * C.length)], T = dlvS(to);
-  const hs = DEER_HERDS.map((H, i) => [i, Math.hypot(H.x - T.x, H.z - T.z) + 0.5 * Math.hypot(H.x - fS.x, H.z - fS.z)]).sort((a, b) => a[1] - b[1]).slice(0, 3), hi = hs[Math.floor(r() * hs.length)][0], H = DEER_HERDS[hi];
-  const km = (Math.hypot(H.x - fS.x, H.z - fS.z) + Math.hypot(H.x - T.x, H.z - T.z)) / 1000, dl = r() < 0.5 ? Math.ceil(30 + km * 3) : 0, bx = T.site ? 1.2 : 1;
+  const hs = DEER_HERDS.map((H, i) => [i, hyp(H.x - T.x, H.z - T.z) + 0.5 * hyp(H.x - fS.x, H.z - fS.z)]).sort((a, b) => a[1] - b[1]).slice(0, 3), hi = hs[Math.floor(r() * hs.length)][0], H = DEER_HERDS[hi];
+  const km = (hyp(H.x - fS.x, H.z - fS.z) + hyp(H.x - T.x, H.z - T.z)) / 1000, dl = r() < 0.5 ? Math.ceil(30 + km * 3) : 0, bx = T.site ? 1.2 : 1;
   return { id, from, to, title: HUNT_C[to], items: [{ k: 'deer', lb: 125 }], pay: Math.round((150 + 0.9 * 125 + 30 * km) * (dl ? 1.25 : 1) * bx), dl, due: 0, st: 'offer',
     sp: 'perish', life: Math.ceil(25 + 2 * km), fresh: 1, stress: 0, wc: 'H', hunt: { h: hi, got: 0 } };
 }
@@ -4286,12 +4287,12 @@ const DROP = { air: [], decor: [], held: new Map(), vt: 24, ms: 0, hint: {}, sm:
 }
 // ---- jobs: from any strip, one site within reach; 2-4 bundles of 15-35 lb. The cargo loads like any other (by the door: the rear seat or the floor) ----
 function dropGen(id, from, r) {
-  const S = dlvS(from), C = DROPS.map((D, i) => [i, Math.hypot(D.cx - S.pad[0], D.cz - S.pad[1])]).filter(c => c[1] < 7000).sort((a, b) => a[1] - b[1]).slice(0, 3), [s, dist] = C[Math.floor(r() * C.length)], D = DROPS[s];
+  const S = dlvS(from), C = DROPS.map((D, i) => [i, hyp(D.cx - S.pad[0], D.cz - S.pad[1])]).filter(c => c[1] < 7000).sort((a, b) => a[1] - b[1]).slice(0, 3), [s, dist] = C[Math.floor(r() * C.length)], D = DROPS[s];
   const n = D.n[0] + Math.floor(r() * (D.n[1] - D.n[0] + 1)), items = []; for (let i = 0; i < n; i++) items.push({ k: 'bundle', lb: Math.round(15 + r() * 20) });
   const lb = items.reduce((a, i) => a + i.lb, 0), km = dist / 1000, dl = r() < 0.5 ? Math.ceil(10 + km * 2.5) : 0;
   return { id, from, to: from, title: D.title, items, pay: Math.round((90 + lb + 40 * km) * (dl ? 1.25 : 1)), dl, due: 0, st: 'offer', wc: 'L', drop: { s, n, res: [] } };
 }
-const dropKm = (j, S) => Math.hypot(DROPS[j.drop.s].cx - S.pad[0], DROPS[j.drop.s].cz - S.pad[1]) / 1000;
+const dropKm = (j, S) => hyp(DROPS[j.drop.s].cx - S.pad[0], DROPS[j.drop.s].cz - S.pad[1]) / 1000;
 const DLV_LMAX = 80, DLV_LMIN = 20, DLV_HP = 0.45;   // light jobs' total weight; the share of plain (not special) jobs that are heavy freight
 const dlvWc = j => j.wc || (j.items.reduce((s, i) => s + i.lb, 0) > 120 ? 'H' : 'L'), dlvFrt = j => dlvWc(j) === 'H' && !j.hunt;   // v0.53 heavy freight (a hunt isn't)
 function dlvCapL(items) {   // a light job: scale its pieces into 20-80 lb
@@ -4359,7 +4360,7 @@ for (const B of BUSH) { B.len = Math.round(B.hl * 2 / 10) * 10;   // the landing
   const logs = (o, lx, lz, n = 4, ry = 0) => { for (let k = 0; k < n; k++) gp(o, 1.5, 0.22, 0.22, 0x6a4a2a, lx, 0.12 + Math.floor(k / 2) * 0.22, lz + (k % 2) * 0.24, ry); };
   const drum = (o, lx, lz, c = 0x8a2a1a) => geo(new THREE.CylinderGeometry(0.29, 0.29, 0.88, 10), c, o, lx, 0.44 + gy(o, lx, lz), lz);
   const boat = (o, lx, lz, ry, c, L = 4.4) => { gp(o, 0.9, 0.36, L, c, lx, 0.2, lz, ry); geo(new THREE.ConeGeometry(0.5, 0.9, 4).rotateX(Math.PI / 2).rotateZ(Math.PI / 4).scale(0.9, 0.5, 1), c, o, lx + Math.sin(ry) * (L / 2 + 0.4), 0.2 + gy(o, lx, lz), lz + Math.cos(ry) * (L / 2 + 0.4), ry); };
-  const rails = (o, pts, c = 0x8a6a44) => { for (let i = 1; i < pts.length; i++) { const [x0, z0] = pts[i - 1], [x1, z1] = pts[i], len = Math.hypot(x1 - x0, z1 - z0), ry = Math.atan2(x1 - x0, z1 - z0), mx = (x0 + x1) / 2, mz = (z0 + z1) / 2;
+  const rails = (o, pts, c = 0x8a6a44) => { for (let i = 1; i < pts.length; i++) { const [x0, z0] = pts[i - 1], [x1, z1] = pts[i], len = hyp(x1 - x0, z1 - z0), ry = Math.atan2(x1 - x0, z1 - z0), mx = (x0 + x1) / 2, mz = (z0 + z1) / 2;
       for (const y of [0.55, 1.05]) gp(o, 0.08, 0.1, len, c, mx, y, mz, ry); for (let t = 0; t <= len; t += 3) gp(o, 0.14, 1.3, 0.14, c, x0 + (x1 - x0) * t / len, 0.55, z0 + (z1 - z0) * t / len); } };
   const sockAt = (x, z) => { const y = groundY(x, z); part({ x: 0, z: 0, a: 0, y: 0 }, 0.12, 6, 0.12, 0x8a8d90, x, y + 3, z); const s = new THREE.Mesh(new THREE.ConeGeometry(0.35, 1.8, 6, 1, true).rotateZ(Math.PI / 2), mat(0xe06a1e));
     s.position.set(x + 0.9, y + 5.85, z); scene.add(s); sockFix(s, 0.9); TOWN_MESH.push({ m: s, x, z, far: 2500 }); };
@@ -4429,7 +4430,7 @@ for (const B of BUSH) { B.len = Math.round(B.hl * 2 / 10) * 10;   // the landing
     mm.userData.tris = mm.geometry.attributes.position.count / 3; BUSH.mesh = mm; for (const B of BUSH) B.mesh = mm; }
   const c52 = MYS_SITES.clear, off = (x, z) => BUSH.some(B => { const dx = x - B.x, dz = z - B.z; if (dx * dx + dz * dz > 640000) return false;   // the strip (+40 m), a funnel off each end, the camp
     const sa = Math.sin(B.a), ca = Math.cos(B.a), l = Math.abs(dx * sa + dz * ca), w = Math.abs(dx * ca - dz * sa);
-    return (l < B.hl + 40 && w < B.hw + 8) || (l < B.hl + 260 && w < B.hw + 4 + (l - B.hl) * 0.12) || Math.hypot(x - B.cx, z - B.cz) < 24; });
+    return (l < B.hl + 40 && w < B.hw + 8) || (l < B.hl + 260 && w < B.hw + 4 + (l - B.hl) * 0.12) || hyp(x - B.cx, z - B.cz) < 24; });
   MYS_SITES.clear = () => { c52();
     for (const k of CHUNKS) for (let i = 0; i < k.n; i++) if (off(k.xz[i * 3], k.xz[i * 3 + 2])) k.full.fill(0, i * 16, i * 16 + 16);
     scene.traverse(m => { if (!m.isInstancedMesh || CHUNKS.some(k => k.im === m)) return; const A = m.instanceMatrix.array; let hit = false;
@@ -4442,10 +4443,10 @@ function bushFind(S, quiet) {   // a bush site goes on the map
   say('FOUND ' + S.name + ' - ' + BUSH_T[B.type] + ' ~' + B.len + ' M' + (B.land != null ? ', ONE-WAY: LAND UPHILL HDG ' + String(B.land).padStart(3, '0') : '') + ' - ' + B.cust + ' - ON YOUR MAP NOW');
 }
 function bushTick() {   // flown over low (within ~400 m, under ~250 m above it) or walked up to: found
-  for (const S of DLV_STRIPS) if (S.site && !S.found && Math.hypot(PP.x - S.x, PP.z - S.z) < 400 && PP.y - groundY(S.x, S.z) < 250) bushFind(S);
+  for (const S of DLV_STRIPS) if (S.site && !S.found && hyp(PP.x - S.x, PP.z - S.z) < 400 && PP.y - groundY(S.x, S.z) < 250) bushFind(S);
 }
 const dlvS = id => DLV_STRIPS.find(S => S.id === id);
-const dlvKm = (a, b) => Math.hypot(a.x - b.x, a.z - b.z) / 1000;
+const dlvKm = (a, b) => hyp(a.x - b.x, a.z - b.z) / 1000;
 function dlvInPad(S, x, z) { const dx = x - S.pad[0], dz = z - S.pad[1], c = Math.cos(S.ry), s = Math.sin(S.ry), lx = dx * c - dz * s, lz = dx * s + dz * c; return Math.abs(lx) < DLV_PAD && Math.abs(lz) < DLV_PAD; }
 function dlvPadAt(x, z) { for (const S of DLV_STRIPS) if (dlvInPad(S, x, z)) return S; return null; }
 // ---- boards + pads (posts / frame / pad are plain Lambert: the static batcher merges them; the paper is one canvas each) ----
@@ -4464,7 +4465,7 @@ const JB_W = 512, JB_H = 352, JB_PW = 1.28, JB_PH = 0.88, JB_Y = 1.45;
     for (const sx of [-1, 1]) box(0.12, 0.062, 2 * DLV_PAD * 1.3, padE, 0, 0.012, 0, P).rotation.y = sx * Math.PI / 4;   // the X
     S.padY = py + 0.04; S.key = '';
   }
-  const c0 = MYS_SITES.clear, off = (x, z) => DLV_STRIPS.some(S => Math.hypot(x - S.board[0], z - S.board[1]) < 6 || Math.hypot(x - S.pad[0], z - S.pad[1]) < 6);
+  const c0 = MYS_SITES.clear, off = (x, z) => DLV_STRIPS.some(S => hyp(x - S.board[0], z - S.board[1]) < 6 || hyp(x - S.pad[0], z - S.pad[1]) < 6);
   MYS_SITES.clear = () => { c0();   // no trees / bushes / rocks on the boards or pads
     for (const k of CHUNKS) for (let i = 0; i < k.n; i++) if (off(k.xz[i * 3], k.xz[i * 3 + 2])) k.full.fill(0, i * 16, i * 16 + 16);
     scene.traverse(m => { if (!m.isInstancedMesh || CHUNKS.some(k => k.im === m)) return; const A = m.instanceMatrix.array; let hit = false;
@@ -4551,7 +4552,8 @@ function dlvGen0(from, forceH) {   // one offer from this strip (seeded by the r
   return { id, from, to: to.id, title, items, pay, dl, due: 0, st: 'offer', wc: 'L' };
 }
 function dlvInit(fresh) { if (fresh) { DLV.cash = DLV_CASH0; DLV.gt = 0; DLV.seq = 1; } for (const S of DLV_STRIPS) { const L = DLV.offers[S.id] || (DLV.offers[S.id] = []); while (L.length < 3) L.push(dlvGen(S.id, L.length === 2 && !L.some(dlvFrt))); } }   // v0.52: a heavy job on every board
-const dlvActive = () => { const a = []; for (const S of DLV_STRIPS) for (const j of DLV.offers[S.id]) if (j.st === 'active') a.push(j); for (const j of EMG.jobs) if (j.st === 'active') a.push(j); return a; };   // v0.58 + an emergency
+function dlvActiveIn(a) { a.length = 0; for (let i = 0; i < DLV_STRIPS.length; i++) { const L = DLV.offers[DLV_STRIPS[i].id]; for (let k = 0; k < L.length; k++) if (L[k].st === 'active') a.push(L[k]); } for (let k = 0; k < EMG.jobs.length; k++) if (EMG.jobs[k].st === 'active') a.push(EMG.jobs[k]); return a; }   // v0.58 + an emergency
+const dlvActive = () => dlvActiveIn([]), _dlvA = [], dlvActiveR = () => dlvActiveIn(_dlvA);   // v0.59 R: one shared array for the read-only per-frame loops (no garbage)
 const dlvJob = id => { for (const S of DLV_STRIPS) for (const j of DLV.offers[S.id]) if (j.id === id) return j; for (const j of EMG.jobs) if (j.id === id) return j; return null; };
 const dlvLb = j => j.items.reduce((s, i) => s + i.lb, 0);
 const dlvRoom = () => Math.floor(WNB.GROSS_LB - (WBS.plan ? WBS.plan.lb : WNB.REF_LB));   // v0.52 payload left under max gross (you + the fuel aboard + any cargo already in)
@@ -4847,7 +4849,7 @@ function cgToggle(k, on) {
   if (DLV[k]) for (const it of cgIn()) if (it.cz === (k === 'belt' ? 'rear' : 'bag')) it.cv.set(0, 0, 0);
   saveSoon();
 }
-function nearPlane(r = 3.5) { camera.getWorldPosition(_w); if (mode === 'plane') return true; const dp = qRot(ac.q, [0.3, 0, 0.6]); return Math.hypot(_w.x - ac.pos[0] - dp[0], _w.z - ac.pos[2] - dp[2]) < r; }
+function nearPlane(r = 3.5) { camera.getWorldPosition(_w); if (mode === 'plane') return true; const dp = qRot(ac.q, [0.3, 0, 0.6]); return hyp(_w.x - ac.pos[0] - dp[0], _w.z - ac.pos[2] - dp[2]) < r; }
 function cargoStrapDesk() { if (!nearPlane()) { say('TOO FAR FROM THE CUB'); return; } const on = !(DLV.belt && DLV.net); DLV.belt = DLV.net = on; cgStraps(); sfx('click');
   if (on) for (const it of cgIn()) it.cv.set(0, 0, 0); say('CARGO ' + (on ? 'STRAPPED DOWN (SEAT BELT + NET)' : 'STRAPS UNDONE')); saveSoon(); }
 // ---- loose cargo: slides / hops / floats with the specific force the airframe feels ----
@@ -4867,7 +4869,7 @@ function cgMove(it, f, dt) {
     else if (f.y > 2.3 * G) { v.y = Math.min(1.2, (f.y - 2.3 * G) * 0.02); v.x += (Math.random() - 0.5) * v.y; v.z += (Math.random() - 0.5) * v.y; onS = false; hop = true; }   // hard landing: it bounces and shifts
   }
   if (onS) {
-    const fh = Math.hypot(f.x, f.z), vh = Math.hypot(v.x, v.z);
+    const fh = hyp(f.x, f.z), vh = hyp(v.x, v.z);
     if (vh < 0.02 && fh <= CG_MU_S * f.y) v.x = v.z = 0;
     else { const fr = CG_MU_K * f.y; let ax = -f.x, az = -f.z;
       if (vh >= 0.02) { ax -= fr * v.x / vh; az -= fr * v.z / vh; } else { ax *= 1 - fr / fh; az *= 1 - fr / fh; }
@@ -4900,7 +4902,7 @@ function cargoUpdate(dt) {
 }
 // ---- carrying: VR grip (either hand) / desktop E ----
 const _dg = new THREE.Vector3(), _dl = new THREE.Vector3(), _dp = new THREE.Vector3();
-function dlvDist(it, w) { it.mesh.worldToLocal(_dl.copy(w)); const s = it.sz; return Math.hypot(Math.max(0, Math.abs(_dl.x) - s[0] / 2), Math.max(0, Math.abs(_dl.y) - s[1] / 2), Math.max(0, Math.abs(_dl.z) - s[2] / 2)); }
+function dlvDist(it, w) { it.mesh.worldToLocal(_dl.copy(w)); const s = it.sz; return hyp(Math.max(0, Math.abs(_dl.x) - s[0] / 2), Math.max(0, Math.abs(_dl.y) - s[1] / 2), Math.max(0, Math.abs(_dl.z) - s[2] / 2)); }
 function dlvTake(it, quiet) {   // out of the Cub / off the ground into a hand: false if it's strapped in
   if (it.k === 'patient') { if (!quiet) say('THE PATIENT STAYS PUT - THE CLINIC NURSE HELPS THEM OUT'); return false; }   // v0.58
   if (it.st === 'cargo' && it.cz !== 'pod' && cgSecured(it)) { if (!quiet) say('UNDO THE ' + (it.cz === 'rear' ? 'SEAT BELT' : 'CARGO NET') + ' FIRST'); return false; }
@@ -4961,7 +4963,7 @@ function dlvDeskE() {   // desktop E on foot: pick up / put down / load / unload
     if (nearPlane()) { DLV.desk = null; it.st = 'held'; if (cgLoadAny(it)) return; DLV.desk = it; return; }
     _dg.copy(_w).addScaledVector(_d, 0.8); _dg.y = dlvGroundY(_dg.x, _dg.z) + it.h / 2 + 0.3; DLV.desk = null; dlvDrop(it, _dg, true); sfx('pick'); return; }
   let bi = null, bs = 1e9;
-  for (const it of DLV.items) { if (it.st !== 'ground') continue; const p = it.mesh.position, dx = p.x - _w.x, dz = p.z - _w.z, d = Math.hypot(dx, dz); if (d > 2.5) continue;
+  for (const it of DLV.items) { if (it.st !== 'ground') continue; const p = it.mesh.position, dx = p.x - _w.x, dz = p.z - _w.z, d = hyp(dx, dz); if (d > 2.5) continue;
     const s = d - (dx * _d.x + dz * _d.z) / Math.max(d, 1e-3) * 0.8; if (s < bs) { bs = s; bi = it; } }
   if (!bi && nearPlane()) { const L = cgIn().filter(it => !cgSecured(it) || (it.cz === 'pod' && upgNearPod())); bi = L[L.length - 1] || null;
     if (!bi && cgIn().length) { say('UNDO THE STRAPS FIRST (/)'); return; } }
@@ -4992,7 +4994,7 @@ function dlvSpecTick(dt) {
   const kf = 1 - Math.exp(-dt / 0.08), ks = 1 - Math.exp(-dt / 1.0); DLV.gF = (DLV.gF || 1) + (gl - (DLV.gF || 1)) * kf; DLV.gS = (DLV.gS || 1) + (gl - (DLV.gS || 1)) * ks;   // fast / slow G (frame-rate independent)
   const hit = Math.max(0, DLV.gF - Math.max(1, DLV.gS) - 1.2) * 2 + Math.max(0, DLV.gS - 3.5) * 0.1;   // fragile damage per second: jolts (touchdowns, bumps) + sustained hard pulls
   if (ac.crashed && !DLV.crashSeen) { DLV.crashSeen = true; for (const it of DLV.items) if (it.st === 'cargo') { const j = dlvJob(it.job); if (j?.sp === 'fragile') it.dmg = 1; if (j?.sp === 'live') j.stress = 1; } } else if (!ac.crashed) DLV.crashSeen = false;
-  for (const j of dlvActive()) { if (!j.sp) continue;
+  for (const j of dlvActiveR()) { if (!j.sp) continue;
     const its = DLV.items.filter(it => it.job === j.id), aboard = its.some(it => it.st === 'cargo');
     if (j.sp === 'perish' && !(j.hunt && !j.hunt.got)) { const f0 = j.fresh; j.fresh = Math.max(0, j.fresh - dt / 60 / j.life * (aboard && air && agl > 150 ? 0.5 : 1));   // cool air aloft: it keeps twice as long
       if (f0 > 0.5 && j.fresh <= 0.5) say(j.title + ' HALF FRESH - ' + Math.ceil(j.life * j.fresh * (aboard && air ? 2 : 1)) + ' MIN LEFT'); if (f0 > 0 && j.fresh <= 0) { say(j.title + ' HAS SPOILED - PAY DOCKED'); sfx('tick'); } }
@@ -5014,10 +5016,10 @@ function dlvPet(it, j, dt) {   // the dog looks about and jumps when it barks; t
 function dlvTick(dt) {
   const t0 = performance.now();
   DLV.gt += dt / 60; dlvFallTick(dt); cargoUpdate(dt); dlvSpecTick(dt); dlvTwoTick();
-  playerPos(); let nb = null, nd = 1e9; for (const S of DLV_STRIPS) { const d = Math.hypot(PP.x - S.board[0], PP.z - S.board[1]); if (d < nd) { nd = d; nb = S; } }
+  playerPos(); let nb = null, nd = 1e9; for (const S of DLV_STRIPS) { const d = hyp(PP.x - S.board[0], PP.z - S.board[1]); if (d < nd) { nd = d; nb = S; } }
   DLV.nearS = nd < 60 ? nb : null; DLV.nearD = nd;
   if ((DLV.jbT -= dt) <= 0) { DLV.jbT = 0.5; bushTick(); mapJobs(); if (mode === 'plane' || KB.desk) kbDraw();   // v0.51.1 job marks on the paper map, the kneeboard
-    for (const S of DLV_STRIPS) { const near = Math.hypot(PP.x - S.board[0], PP.z - S.board[1]) < 400; S.m.visible = near; if (!near) continue; const k = jbKey(S) + '|' + Math.ceil(DLV.gt); if (k !== S.key) { S.key = k; jbDraw(S); } }
+    for (const S of DLV_STRIPS) { const near = hyp(PP.x - S.board[0], PP.z - S.board[1]) < 400; S.m.visible = near; if (!near) continue; const k = jbKey(S) + '|' + Math.ceil(DLV.gt); if (k !== S.key) { S.key = k; jbDraw(S); } }
     for (const j of dlvActive()) if (j.dl && DLV.gt > j.due && !DLV.lateSaid[j.id]) { DLV.lateSaid[j.id] = 1; say(j.title + ' TO ' + dlvS(j.to).name + ' IS LATE - HALF PAY NOW'); } }
   if (mode === 'foot' && nd < 6 && DLV.hintS !== nb) { DLV.hintS = nb; say(nb.name + ' JOB BOARD - POKE ACCEPT' + (renderer.xr.isPresenting ? '' : ' (DESKTOP 1-3)')); } else if (nd > 12) DLV.hintS = null;
   DLV.ms = performance.now() - t0;
@@ -5329,7 +5331,7 @@ const TRH = { m: null, C: 16 };
 function treeHash() {   // every forest instance once (trunk / crown as a cylinder from its geometry's bounds), on the first shot
   const M = new Map(), C = TRH.C;
   for (const k of CHUNKS) { if (!k.tree) continue; const geo = k.im.geometry; if (!geo.boundingBox) geo.computeBoundingBox(); const bb = geo.boundingBox, r0 = Math.max(-bb.min.x, bb.max.x, -bb.min.z, bb.max.z);
-    for (let i = 0; i < k.n; i++) { const e = k.full, o = i * 16; if (!e[o + 15]) continue; const sx = Math.hypot(e[o], e[o + 1], e[o + 2]), sy = e[o + 5], x = e[o + 12], z = e[o + 14];
+    for (let i = 0; i < k.n; i++) { const e = k.full, o = i * 16; if (!e[o + 15]) continue; const sx = hyp(e[o], e[o + 1], e[o + 2]), sy = e[o + 5], x = e[o + 12], z = e[o + 14];
       const key = Math.floor(x / C) + ',' + Math.floor(z / C); let L = M.get(key); if (!L) M.set(key, L = []);
       const r = r0 * sx; L.push([x, e[o + 13] + bb.min.y * sy, z, r > 0.6 ? r * 0.62 : r, (bb.max.y - bb.min.y) * sy, r > 0.6 ? 'leaves' : 'wood']); } }
   TRH.m = M;
@@ -5435,7 +5437,7 @@ function rflTick(dt, vrOn) {
     if (gh.getWorldPosition(_rp2).distanceTo(rflPouch(_rp3)) < 0.12) rflTakeRound(gh); }
   rflBullets(dt); rflCases(dt); fxTick(dt);
   if ((rflHintT -= dt) <= 0 && mode === 'foot') { rflHintT = 0.5; camera.getWorldPosition(_rp2);   // walking up to the rack / the ammo box
-    const nr = _rp2.distanceTo(RACK.cabin.p) < 2.2 ? 'cabin' : null, nb = Math.hypot(_rp2.x - RACK.box.x, _rp2.z - RACK.box.z) < 2;
+    const nr = _rp2.distanceTo(RACK.cabin.p) < 2.2 ? 'cabin' : null, nb = hyp(_rp2.x - RACK.box.x, _rp2.z - RACK.box.z) < 2;
     const k = nb ? 'box' : nr && RFL.place === 'cabin' ? 'rack' : ''; if (k && k !== RFL.hint) { const d = !vrOn;
       say(k === 'box' ? 'AMMO BOX: 20 ROUNDS .44-40 FOR $10 - ' + (d ? 'Z TO BUY' : 'GRAB IT TO BUY') + ' (POUCH ' + RFL.spare + ')' : 'RIFLE RACK - ' + (d ? 'T TAKES THE RIFLE' : 'GRAB THE RIFLE')); }
     RFL.hint = k; }
@@ -5451,21 +5453,21 @@ function rflBuyAmmo() {
 }
 // ---- VR on foot: grabs + lets go (called from handGrab / handRelease) and the trigger ----
 function rflDistTo(p) {   // distance from p to the rifle's length (butt -> muzzle)
-  RFL.g.updateMatrixWorld(); RFL.g.worldToLocal(_rp3.copy(p)); const z = clamp(_rp3.z, RF.muz.z, RF.butt); return Math.hypot(_rp3.x, _rp3.y - 0.01, _rp3.z - z);
+  RFL.g.updateMatrixWorld(); RFL.g.worldToLocal(_rp3.copy(p)); const z = clamp(_rp3.z, RF.muz.z, RF.butt); return hyp(_rp3.x, _rp3.y - 0.01, _rp3.z - z);
 }
 function rflGrab(g, p) {
   if (!RFL.g || mode !== 'foot') return false;
   if (RFL.hand === g || RFL.sup === g || RFL.levHand === g) return true;
   if (RFL.place === 'vr') {   // the other hand: the lever loop, else the forend
     RFL.lever.updateWorldMatrix(true, false); if (RFL.lever.localToWorld(_rp2.copy(RF.loop)).distanceTo(p) < 0.07) { RFL.levHand = g; RFL.levFree = false; RFL.levGrab0 = rflHandAngle(p) - RFL.levA * GUN.leverMax; tick(g); return true; }
-    RFL.g.worldToLocal(_rp3.copy(p)); if (_rp3.z < -0.1 && _rp3.z > -0.45 && Math.hypot(_rp3.x, _rp3.y) < 0.09) { RFL.sup = g; tick(g); return true; }
+    RFL.g.worldToLocal(_rp3.copy(p)); if (_rp3.z < -0.1 && _rp3.z > -0.45 && hyp(_rp3.x, _rp3.y) < 0.09) { RFL.sup = g; tick(g); return true; }
   }
   if (!RFL.round.has(g) && rflHas() && RFL.place !== 'back' && p.distanceTo(rflPouch(_rp2)) < 0.12) return rflTakeRound(g);
   if (RFL.place !== 'vr' && RFL.place !== 'desk' && (RFL.place === 'back' ? p.distanceTo(RFL.g.localToWorld(_rp2.copy(RF.grip))) < 0.3 : rflDistTo(p) < 0.09)) {   // pick it up (rack, ground, your back)
     const was = RFL.place; rflPut('vr'); RFL.hand = g; RFL.prev.copy(p); RFL.stockF = RFL.stockW = RFL.stockFv = 0; sfx('pick'); HX.pulse(g, 0.5, 30, 'rifle');
     if (was !== 'back') say('RIFLE ' + RFL.tube + (RFL.ch ? '+1' : '') + ' - TRIGGER FIRES, FLICK DOWN OR WORK THE LEVER, ROUNDS FROM THE BELT POUCH INTO THE GATE');
     return true; }
-  if (Math.hypot(p.x - RACK.box.x, p.z - RACK.box.z) < 0.35 && Math.abs(p.y - RACK.box.y) < 0.3) { rflBuyAmmo(); HX.pulse(g, 0.4, 20, 'ammo'); return true; }
+  if (hyp(p.x - RACK.box.x, p.z - RACK.box.z) < 0.35 && Math.abs(p.y - RACK.box.y) < 0.3) { rflBuyAmmo(); HX.pulse(g, 0.4, 20, 'ammo'); return true; }
   return false;
 }
 function rflLevRelease() { RFL.levHand = null; if (RFL.levA < 0.06) { RFL.levFree = false; RFL.levS = invSmooth(RFL.levA); RFL.levReq = false; } else RFL.levFree = true; }   // it stays where you leave it
@@ -5478,7 +5480,7 @@ function rflRelease(g) {
   if (RFL.sup) { RFL.hand = RFL.sup; RFL.sup = null; tick(RFL.hand); return; }   // the other hand still has it
   RFL.g.getWorldPosition(_rp2); const rk = rflNearRack(_rp2); camera.getWorldPosition(_rp3);   // (rflNearRack uses _rp3)
   if (rk) { rflPut(rk); sfx('clack'); say('RIFLE ' + rflRackLabel(rk)); }
-  else if (_rp2.y > _rp3.y - 0.45 && Math.hypot(_rp2.x - _rp3.x, _rp2.z - _rp3.z) < 0.32 && RFL.g.localToWorld(_rp.copy(RF.fore)).y > _rp2.y) { rflPut('back'); sfx('pick'); say('RIFLE SLUNG - REACH OVER YOUR RIGHT SHOULDER FOR IT'); }   // let go by your head, muzzle up: slung
+  else if (_rp2.y > _rp3.y - 0.45 && hyp(_rp2.x - _rp3.x, _rp2.z - _rp3.z) < 0.32 && RFL.g.localToWorld(_rp.copy(RF.fore)).y > _rp2.y) { rflPut('back'); sfx('pick'); say('RIFLE SLUNG - REACH OVER YOUR RIGHT SHOULDER FOR IT'); }   // let go by your head, muzzle up: slung
   else { rflPut('ground', _rp2.x, _rp2.z, headYaw()); sfx('thud', _rp2); }
   HX.pulse(g, 0.15, 12, 'release'); saveSoon();
 }
@@ -5487,7 +5489,7 @@ function rflTrigger(g) { if (RFL.place === 'vr' && RFL.hand === g) rflShoot(); }
 function rflDeskT() {
   if (!RFL.g) { say('RIFLE STILL LOADING'); return; }
   if (mode !== 'foot') { say('THE RIFLE STAYS IN ITS RACK IN FLIGHT'); return; }
-  camera.getWorldPosition(_rp2); const atCabin = _rp2.distanceTo(RACK.cabin.p) < 2.5, atCub = nearPlane(), atGround = RFL.place === 'ground' && Math.hypot(_rp2.x - RFL.gp[0], _rp2.z - RFL.gp[2]) < 2.5;
+  camera.getWorldPosition(_rp2); const atCabin = _rp2.distanceTo(RACK.cabin.p) < 2.5, atCub = nearPlane(), atGround = RFL.place === 'ground' && hyp(_rp2.x - RFL.gp[0], _rp2.z - RFL.gp[2]) < 2.5;
   if (RFL.place === 'desk') { if (atCabin || atCub) { const rk = atCabin ? 'cabin' : 'cub'; rflPut(rk); sfx('clack'); say('RIFLE ' + rflRackLabel(rk)); } else { rflPut('back'); sfx('pick'); say('RIFLE SLUNG (T TO UNSLING)'); } saveSoon(); return; }
   if (RFL.place === 'back' || (RFL.place === 'cabin' && atCabin) || (RFL.place === 'cub' && atCub) || atGround) {
     if (DLV.desk) { say('HANDS FULL - SET THE CARGO DOWN FIRST (E)'); return; }
@@ -5495,7 +5497,7 @@ function rflDeskT() {
   say(RFL.place === 'cabin' ? 'THE RIFLE IS ON THE CABIN RACK AT HOME' : RFL.place === 'cub' ? 'THE RIFLE IS IN THE CUB\'S RACK' : 'YOUR RIFLE IS ON THE GROUND WHERE YOU LEFT IT');
 }
 function rflDeskZ() {
-  camera.getWorldPosition(_rp2); if (mode === 'foot' && Math.hypot(_rp2.x - RACK.box.x, _rp2.z - RACK.box.z) < 2.5) { rflBuyAmmo(); return; }
+  camera.getWorldPosition(_rp2); if (mode === 'foot' && hyp(_rp2.x - RACK.box.x, _rp2.z - RACK.box.z) < 2.5) { rflBuyAmmo(); return; }
   if (RFL.place !== 'desk') return; if (RFL.deskT > 0) return;
   if (RFL.levA > 0.02) { say('CLOSE THE LEVER TO LOAD'); return; }
   if (RFL.spare <= 0) { say('CARTRIDGE POUCH EMPTY - AMMO BOX BY THE CABIN ($10 / 20)'); return; }
@@ -5518,7 +5520,7 @@ addEventListener('mouseup', e => { if (e.button === 2) RFL.adsOn = false; });
 // ---- deer: Quaternius Deer + Stag (CC0, assets/animals/) in small herds; skinned + animated only near you, one instanced draw per species out to 900 m ----
 const DSP = { deer: { name: 'DEER', file: 'Deer', h: 1.75, hp: 2, walk: 0.35, run: 9, wRef: 1.2, rRef: 8, see: 35, rh: 0.13, rv: 0.19, rb: 0.23, lb: [100, 125] },
               stag: { name: 'STAG', file: 'Stag', h: 2.15, hp: 3, walk: 0.35, run: 9, wRef: 1.3, rRef: 8.5, see: 35, rh: 0.15, rv: 0.21, rb: 0.25, lb: [125, 150] } };
-const DEER = { pend: [], src: {}, list: [], inst: [], im: {}, R: 160, MAX: 8, CAP: { deer: 6, stag: 3 }, FAR: 900, t: 0, frame: 0, px: null, pz: 0, live: 0, far: 0, ms: 0, dress: null };
+const DEER = { pend: [], src: {}, list: [], inst: [], im: {}, imL: {}, LOD: 260, R: 160, MAX: 8, CAP: { deer: 6, stag: 3 }, FAR: 900, t: 0, frame: 0, px: null, pz: 0, live: 0, far: 0, ms: 0, dress: null };
 const AM_KEYS = [['idle', ['Idle']], ['eat', ['Eating']], ['walk', ['Walk']], ['run', ['Gallop']], ['die', ['Death']], ['hit', ['Idle_HitReact1']]];
 const BONE_N = ['Head', 'Torso3', 'Torso2', 'Back'];
 const DEERSPH = [[0, 1.65, -0.85, 0.14, 'head'], [0, 0.98, -0.32, 0.2, 'vitals'], [0, 1.0, 0.15, 0.4, 'body']];   // (before the model loads) nose toward -z
@@ -5533,6 +5535,14 @@ function sphParts(S, at, head) {   // at(name, v) -> a bone's position; head(v) 
   at('Torso2', v); out.push([v.x, v.y, v.z, S.rb, 'body']); at('Back', v); out.push([v.x, v.y, v.z, S.rb, 'body']);
   return out;
 }
+function deerLow(g, q) {   // v0.59 vertex clustering: snap to a q-metre grid, drop the triangles that collapse; each cell keeps the mean of its vertices
+  const P = g.attributes.position.array, C = g.attributes.color, n = P.length / 3, key = new Int32Array(n), M = new Map(), acc = [];
+  for (let i = 0; i < n; i++) { const k = Math.round(P[i * 3] / q) + 512 + (Math.round(P[i * 3 + 1] / q) + 512) * 1024 + (Math.round(P[i * 3 + 2] / q) + 512) * 1048576; let c = M.get(k); if (c === undefined) { c = acc.length; M.set(k, c); acc.push([0, 0, 0, 0]); } const A = acc[c]; A[0] += P[i * 3]; A[1] += P[i * 3 + 1]; A[2] += P[i * 3 + 2]; A[3]++; key[i] = c; }
+  const op = [], oc = [];
+  for (let t = 0; t < n; t += 3) { const a = key[t], b = key[t + 1], c = key[t + 2]; if (a === b || b === c || a === c) continue;
+    for (let v = 0; v < 3; v++) { const A = acc[key[t + v]]; op.push(A[0] / A[3], A[1] / A[3], A[2] / A[3]); if (C) oc.push(C.getX(t + v), C.getY(t + v), C.getZ(t + v)); } }
+  const o = new THREE.BufferGeometry(); o.setAttribute('position', new THREE.Float32BufferAttribute(op, 3)); if (C) o.setAttribute('color', new THREE.Float32BufferAttribute(oc, 3)); o.computeVertexNormals(); return o;
+}
 function deerSrc(sp, gl) {
   const root = gl.scene; root.updateMatrixWorld(true); const b = new THREE.Box3().setFromObject(root, true), k = DSP[sp].h / (b.max.y - b.min.y);
   const S = DEER.src[sp] = { scene: root, clips: gl.animations, k, y0: -b.min.y * k, pool: [] };
@@ -5542,6 +5552,7 @@ function deerSrc(sp, gl) {
     let g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); if (src.attributes.color) g.setAttribute('color', src.attributes.color.clone()); if (src.index) g.setIndex(src.index.clone());
     g = g.toNonIndexed(); g.computeVertexNormals(); S.tris = g.attributes.position.count / 3;
     const im = new THREE.InstancedMesh(g, DEER_IVM, DEER.list.length); im.count = 0; im.visible = false; im.frustumCulled = false; im.userData.noBatch = true; im.castShadow = false; scene.add(im); DEER.im[sp] = im; }
+  { const gl = deerLow(DEER.im[sp].geometry, 0.16), im = new THREE.InstancedMesh(gl, DEER_IVM, DEER.list.length); im.count = 0; im.visible = false; im.frustumCulled = false; im.userData.noBatch = true; scene.add(im); DEER.imL[sp] = im; S.trisL = gl.attributes.position.count / 3; }   // v0.59 far LOD (past DEER.LOD m): a vertex-clustered copy
   const bn = {}; root.traverse(o => { if (o.isBone) bn[o.name] = o; });
   if (BONE_N.every(n => bn[n])) { const flip = v => v.set(-v.x * k, v.y * k + S.y0, -v.z * k);
     const u = sphParts(DSP[sp], (n, v) => flip(v.setFromMatrixPosition(bn[n].matrixWorld)), v => { v.setFromMatrixColumn(bn.Head.matrixWorld, 1).normalize(); return v.set(-v.x, v.y, -v.z); });
@@ -5584,11 +5595,12 @@ function deerAnim(dt) {
     I.acc += dt; if (a.cd < 60 || (DEER.frame + I.id) % 3 === 0) { I.mx.update(I.acc); I.acc = 0; } }   // further out: a third of the update rate
   DEER.live = n;
 }
+function deerImUp(im) { if (!im) return 0; if (im.count !== im.n || im.n) { im.count = im.n; im.visible = im.n > 0; im.instanceMatrix.needsUpdate = true; } return im.n; }
 function deerDraw() {   // the rest (out to DEER.FAR): one instanced draw per species, the bind pose; a dead one lies on its side
-  for (const sp in DEER.im) DEER.im[sp].n = 0;
-  for (const a of DEER.list) { if (a.state === 'gone' || a.inst || a.cd > DEER.FAR) continue; const im = DEER.im[a.sp]; if (!im) continue;
+  for (const sp in DEER.im) { DEER.im[sp].n = 0; if (DEER.imL[sp]) DEER.imL[sp].n = 0; }
+  for (const a of DEER.list) { if (a.state === 'gone' || a.inst || a.cd > DEER.FAR) continue; const im = (a.cd > DEER.LOD && DEER.imL[a.sp]) || DEER.im[a.sp]; if (!im) continue;
     const dead = a.state === 'dead'; _fq.setFromEuler(_fe.set(0, a.yaw, dead ? a.fall * 1.45 : 0, 'YXZ')); im.setMatrixAt(im.n++, _fm.compose(_fv.set(a.x, a.y + (dead ? 0.18 * a.fall : 0), a.z), _fq, _fs.set(1, 1, 1))); }
-  let far = 0; for (const sp in DEER.im) { const im = DEER.im[sp]; far += im.n; if (im.count !== im.n || im.n) { im.count = im.n; im.visible = im.n > 0; im.instanceMatrix.needsUpdate = true; } } DEER.far = far;
+  let far = 0; for (const sp in DEER.im) far += deerImUp(DEER.im[sp]) + deerImUp(DEER.imL[sp]); DEER.far = far;
 }
 // hit spheres: on the animated skeleton near you, the bind-pose set (head down while grazing) further out
 const _bv = GV3(0, 0, 0), _bd = GV3(0, 0, 0);
@@ -5620,7 +5632,7 @@ function losClear(ax, ay, az, bx, by, bz) { for (let i = 1; i < 6; i++) { const 
 function deerScare(a, sx, sz) { if (a.state === 'dead' || a.state === 'gone') return; if (a.state !== 'flee' && a.cd < 250) sfx('hoof', _bv.set(a.x, a.y + 0.5, a.z)); a.state = 'flee'; a.t = 7 + Math.random() * 3; a.fx = sx; a.fz = sz; }
 function deerScareHerd(hi, sx, sz) { for (const a of DEER.list) if (a.h === hi) deerScare(a, sx, sz); }
 function deerNoise(p, r, lag) {   // lag: a startle delay plus the sound's travel time (a gunshot), so the bullet gets there before the herd bolts
-  const hs = new Map(); for (const a of DEER.list) { const d = Math.hypot(a.x - p.x, a.z - p.z); if (a.state !== 'dead' && a.state !== 'gone' && d < r && !(hs.get(a.h) < d)) hs.set(a.h, d); }
+  const hs = new Map(); for (const a of DEER.list) { const d = hyp(a.x - p.x, a.z - p.z); if (a.state !== 'dead' && a.state !== 'gone' && d < r && !(hs.get(a.h) < d)) hs.set(a.h, d); }
   for (const [h, d] of hs) { if (lag) DEER.pend.push({ t: lag + d / 340, h, x: p.x, z: p.z }); else deerScareHerd(h, p.x, p.z); }
 }
 function deerHit(a, part) {
@@ -5633,36 +5645,37 @@ function deerHit(a, part) {
 function deerTick(dt) {
   const t0 = performance.now(), pp = playerPos(), foot = mode === 'foot', V = ac.out.V || 0; DEER.frame++;
   for (let i = DEER.pend.length - 1; i >= 0; i--) { const q = DEER.pend[i]; q.t -= dt; if (q.t <= 0) { DEER.pend.splice(i, 1); deerScareHerd(q.h, q.x, q.z); } }
-  const pSpd = foot && DEER.px !== null ? Math.hypot(pp.x - DEER.px, pp.z - DEER.pz) / Math.max(dt, 1e-3) : 0; DEER.px = pp.x; DEER.pz = pp.z;
+  const pSpd = foot && DEER.px !== null ? hyp(pp.x - DEER.px, pp.z - DEER.pz) / Math.max(dt, 1e-3) : 0; DEER.px = pp.x; DEER.pz = pp.z;
   const seeK = (pSpd > 3.5 ? 2 : pSpd < 0.3 ? 0.75 : 1) * (crouchK() > 0.5 ? 0.5 : 1);   // sprinting is heard further, standing still / crouched gets you closer
-  for (const H of DEER_HERDS) { H.d = Math.hypot(pp.x - H.x0, pp.z - H.z0); H.away = H.d > 600 ? H.away + dt : 0;
-    if (H.d > 300) { const dx = H.x0 - H.x, dz = H.z0 - H.z, L = Math.hypot(dx, dz); if (L > 1) { H.x += dx / L * Math.min(L, 0.5 * dt); H.z += dz / L * Math.min(L, 0.5 * dt); } } }
+  for (const H of DEER_HERDS) { H.d = hyp(pp.x - H.x0, pp.z - H.z0); H.away = H.d > 600 ? H.away + dt : 0;
+    if (H.d > 300) { const dx = H.x0 - H.x, dz = H.z0 - H.z, L = hyp(dx, dz); if (L > 1) { H.x += dx / L * Math.min(L, 0.5 * dt); H.z += dz / L * Math.min(L, 0.5 * dt); } } }
   for (const a of DEER.list) {
     const H = DEER_HERDS[a.h], S = DSP[a.sp];
-    if (H.away > 240 && (a.state === 'dead' || a.state === 'gone' || Math.hypot(a.x - H.x0, a.z - H.z0) > 150)) { deerAt(a, H.x0 + (Math.random() - 0.5) * 24, H.z0 + (Math.random() - 0.5) * 24); H.x = H.x0; H.z = H.z0; }   // a while away: the herd is back
-    a.cd = Math.hypot(pp.x - a.x, pp.z - a.z);
+    if (H.away > 240 && (a.state === 'dead' || a.state === 'gone' || hyp(a.x - H.x0, a.z - H.z0) > 150)) { deerAt(a, H.x0 + (Math.random() - 0.5) * 24, H.z0 + (Math.random() - 0.5) * 24); H.x = H.x0; H.z = H.z0; }   // a while away: the herd is back
+    a.cd = hyp(pp.x - a.x, pp.z - a.z);
     if (a.cd > 1500 && a.state !== 'flee') continue;   // nothing to see that far out: they hold still
     if (a.cd < 160 && a.state !== 'dead' && a.state !== 'gone' && (a.losT -= dt) <= 0) { a.losT = 0.5 + Math.random() * 0.3; a.los = !foot || losClear(a.x, a.y + 0.8 * S.h, a.z, pp.x, pp.y, pp.z); }
     let spd = 0;
     if (a.state === 'dead') a.fall = Math.min(1, a.fall + dt * 2.5);
     else if (a.state !== 'gone') {
-      const planeNear = !foot && Math.hypot(ac.pos[0] - a.x, ac.pos[2] - a.z) < 90 && V > 5 && ac.pos[1] - a.y < 70;
+      const planeNear = !foot && hyp(ac.pos[0] - a.x, ac.pos[2] - a.z) < 90 && V > 5 && ac.pos[1] - a.y < 70;
       if (a.state !== 'flee' && ((foot && a.cd < S.see * seeK && (a.cd < 10 || a.los)) || planeNear)) deerScareHerd(a.h, foot ? pp.x : ac.pos[0], foot ? pp.z : ac.pos[2]);
       if (a.state === 'flee') {
-        let fy = yawTo(a.x, a.z, 2 * a.x - a.fx, 2 * a.z - a.fz); const hd = Math.hypot(a.x - H.x0, a.z - H.z0);
+        let fy = yawTo(a.x, a.z, 2 * a.x - a.fx, 2 * a.z - a.fz); const hd = hyp(a.x - H.x0, a.z - H.z0);
         if (hd > 330) fy = turnTo(fy, yawTo(a.x, a.z, H.x0, H.z0), clamp((hd - 330) / 60, 0, 1) * 2.2);   // they keep to their own woods
         const nx = a.x - Math.sin(a.yaw) * 6, nz = a.z - Math.cos(a.yaw) * 6; if (DEER.frame % 8 === a.id % 8 && waterDist(nx, nz) < 4) a.yaw += 1.2;   // and out of the water
         a.yaw = turnTo(a.yaw, fy, 4 * dt); spd = S.run; a.head = 0.25;
         if ((a.t -= dt) <= 0) { a.state = 'graze'; a.t = 3; H.x = a.x; H.z = a.z; }
       } else {
         a.t -= dt; if (a.t <= 0) { a.t = 2 + Math.random() * 6; a.look = Math.random() < 0.35; a.yaw += (Math.random() - 0.5) * 2; a.walk = Math.random() < 0.4; }
-        if (Math.hypot(a.x - H.x, a.z - H.z) > 18) a.yaw = turnTo(a.yaw, yawTo(a.x, a.z, H.x, H.z), dt);
+        if (hyp(a.x - H.x, a.z - H.z) > 18) a.yaw = turnTo(a.yaw, yawTo(a.x, a.z, H.x, H.z), dt);
         spd = a.walk ? S.walk : 0; a.head += ((a.look ? 0 : -2.0) - a.head) * Math.min(1, dt * 3);
       }
       a.x = clamp(a.x - Math.sin(a.yaw) * spd * dt, -2900, 2900); a.z = clamp(a.z - Math.cos(a.yaw) * spd * dt, -2900, 2900);
     }
     a.spd = spd; if (a.hitT > 0) a.hitT -= dt;
-    a.y = groundY(a.x, a.z) + (a.flinch > 0 && a.state !== 'dead' ? 0.18 * Math.sin(a.flinch * Math.PI) : 0); if (a.flinch > 0) a.flinch = Math.max(0, a.flinch - dt * 3);
+    if (a.gx !== a.x || a.gz !== a.z) { a.gx = a.x; a.gz = a.z; a.gy = groundY(a.x, a.z); }   // v0.59 the terrain lookup only when the deer moved (most graze still)
+    a.y = a.gy + (a.flinch > 0 && a.state !== 'dead' ? 0.18 * Math.sin(a.flinch * Math.PI) : 0); if (a.flinch > 0) a.flinch = Math.max(0, a.flinch - dt * 3);
   }
   if (HUNT.deerOk) { if ((DEER.t -= dt) <= 0) { DEER.t = 0.2; deerAssign(); } deerAnim(dt); deerDraw(); }
   deerDressTick(dt);
@@ -5675,7 +5688,7 @@ function deerStartDress(a, g) {
   if (!huntJobFor(a)) { say('NOBODY HAS ORDERED VENISON - TAKE A HUNTING JOB AT A JOB BOARD FIRST'); return true; }
   DEER.dress = { a, g, t: 0, n: 0 }; say('FIELD DRESSING THE ' + DSP[a.sp].name + ' - KEEP HOLDING'); if (g !== 'desk') HX.pulse(g, 0.4, 30, 'dress'); return true;
 }
-function deerNear(p, r) { let best = null, bd = r; for (const a of DEER.list) { if (a.state !== 'dead') continue; const d = Math.hypot(a.x - p.x, a.z - p.z); if (d < bd && Math.abs(p.y - a.y) < 2.2) { bd = d; best = a; } } return best; }
+function deerNear(p, r) { let best = null, bd = r; for (const a of DEER.list) { if (a.state !== 'dead') continue; const d = hyp(a.x - p.x, a.z - p.z); if (d < bd && Math.abs(p.y - a.y) < 2.2) { bd = d; best = a; } } return best; }
 function deerGrab(g, p) { const a = deerNear(p, 0.9); if (!a || p.y - a.y > 1.1) return false; return deerStartDress(a, g); }
 function deerRelease(g) { if (DEER.dress && DEER.dress.g === g) { DEER.dress = null; say('STOPPED DRESSING'); } }
 function deerDeskE() { camera.getWorldPosition(_bv); const a = deerNear(_bv, 2.2); if (!a) return false; return deerStartDress(a, 'desk'); }
@@ -5730,7 +5743,7 @@ function binoDesk(on) {
 }
 function binoSpot() {   // what's in the middle of the view: deer (count + range), a job board, a bush site (spotting one inside 1.5 km puts it on the map)
   camera.getWorldPosition(_bv); camera.getWorldDirection(_bd); let best = null, ba = 0.03;
-  const look = (x, y, z, f) => { const dx = x - _bv.x, dy = y - _bv.y, dz = z - _bv.z, L = Math.hypot(dx, dy, dz); if (L < 40 || L > 4000) return; const a = Math.acos(clamp((dx * _bd.x + dy * _bd.y + dz * _bd.z) / L, -1, 1)); if (a < ba) { ba = a; best = [f, L]; } };
+  const look = (x, y, z, f) => { const dx = x - _bv.x, dy = y - _bv.y, dz = z - _bv.z, L = hyp(dx, dy, dz); if (L < 40 || L > 4000) return; const a = Math.acos(clamp((dx * _bd.x + dy * _bd.y + dz * _bd.z) / L, -1, 1)); if (a < ba) { ba = a; best = [f, L]; } };
   for (const a of DEER.list) if (a.state !== 'gone' && a.cd < DEER.FAR) look(a.x, a.y + 0.9, a.z, { deer: a });
   for (const S of DLV_STRIPS) look(S.x, groundY(S.x, S.z) + 2, S.z, { S });
   emgBino(look);   // v0.58 an overdue party
@@ -5772,7 +5785,7 @@ function huntPlaneGrab(g, sq, edge) {   // in the seat (VR): the binoculars from
   if (!edge || BINO.place !== 'cub') return false; g.getWorldPosition(_hpg); return binoGrab(g, _hpg);
 }
 function huntBoard() {   // climbing in: a rifle you carry goes in the Cub's rack, the binoculars in their holder
-  if (rflHas() || (RFL.place === 'ground' && RFL.gp && Math.hypot(RFL.gp[0] - ac.pos[0], RFL.gp[2] - ac.pos[2]) < 4)) { for (const m of RFL.round.values()) { m.removeFromParent(); RFL.spare++; } RFL.round.clear(); rflPut('cub'); }
+  if (rflHas() || (RFL.place === 'ground' && RFL.gp && hyp(RFL.gp[0] - ac.pos[0], RFL.gp[2] - ac.pos[2]) < 4)) { for (const m of RFL.round.values()) { m.removeFromParent(); RFL.spare++; } RFL.round.clear(); rflPut('cub'); }
   if (BINO.desk) binoDesk(false); binoPut('cub'); DEER.dress = null;
 }
 function huntExit() { binoPut('chest'); }
@@ -5823,7 +5836,7 @@ setTimeout(function huntAssets(tries = 3) {   // the rifle + deer models: after 
   const pts = new THREE.Points(g, M); pts.frustumCulled = false; pts.userData.noBatch = true; pts.visible = false; scene.add(pts); DROP.sm = { pts, N, p: [], k: 0, at: null }; }
 function dropSmokeTick(dt) {
   const S = DROP.sm, P = playerPos(); let D = null, bd = 6000;
-  for (const j of dlvActive()) if (j.drop && j.drop.res.length < j.drop.n) { const Q = DROPS[j.drop.s], d = Math.hypot(Q.cx - P.x, Q.cz - P.z); if (d < bd) { bd = d; D = Q; } }   // the nearest one with a drop still to come
+  for (const j of dlvActiveR()) if (j.drop && j.drop.res.length < j.drop.n) { const Q = DROPS[j.drop.s], d = hyp(Q.cx - P.x, Q.cz - P.z); if (d < bd) { bd = d; D = Q; } }   // the nearest one with a drop still to come
   if (S.at !== D) { S.at = D; S.p.length = 0; } if (!D) { S.pts.visible = false; return; }
   S.k += dt * 7; while (S.k >= 1) { S.k--; if (S.p.length < S.N) S.p.push({ x: D.cx + 3, y: groundY(D.cx + 3, D.cz + 2) + 0.4, z: D.cz + 2, t: 0, vx: (Math.random() - 0.5) * 0.5, vz: (Math.random() - 0.5) * 0.5 }); else { const q = S.p.shift(); Object.assign(q, { x: D.cx + 3, y: groundY(D.cx + 3, D.cz + 2) + 0.4, z: D.cz + 2, t: 0 }); S.p.push(q); } }
   const A = S.pts.geometry.attributes, pa = A.position.array, sa = A.aS.array, aa = A.aA.array;
@@ -5854,7 +5867,7 @@ function dropStep(it, h) {   // one fixed step: gravity + quadratic drag (the st
 }
 function dropResult(it, L, quiet) {   // landed: how far from the X, what state it's in
   const j = dlvJob(it.job), D = j && j.drop ? DROPS[j.drop.s] : null, sp = it.av.length(), wet = waterDist(L.p.x, L.p.z) < 1;
-  const d = D ? Math.hypot(L.p.x - D.cx, L.p.z - D.cz) : 1e9, c = Math.max(0, Math.min(1, 1 - clamp((sp - 12) / 30, 0, 0.9) - (it.tree ? 0.1 : 0))), lost = wet || d > DROP_LOST;
+  const d = D ? hyp(L.p.x - D.cx, L.p.z - D.cz) : 1e9, c = Math.max(0, Math.min(1, 1 - clamp((sp - 12) / 30, 0, 0.9) - (it.tree ? 0.1 : 0))), lost = wet || d > DROP_LOST;
   return { d: Math.round(d * 10) / 10, c: Math.round(c * 100) / 100, lost: lost ? (wet ? 'water' : 'far') : 0, tree: it.tree ? 1 : 0 };
 }
 const dropF = q => q.lost ? 0 : (0.35 + 0.65 * (q.d <= DROP_OK ? 1 : Math.max(0, 1 - (q.d - DROP_OK) / (DROP_ZERO - DROP_OK)))) * (0.5 + 0.5 * q.c);   // one bundle's share of the pay
@@ -5890,15 +5903,15 @@ function dropTick(dt) {
   const t0 = performance.now(); DROP.t += dt;
   for (const it of DROP.air.slice()) { it.at += dt; let rem = Math.min(dt, 0.1), L = null; while (rem > 1e-6 && !L) { const h = Math.min(1 / 120, rem); rem -= h; L = dropStep(it, h); }
     if (L) { dropLand(it, L); continue; }
-    const v = it.av, m = it.mesh; m.rotation.set(0, Math.atan2(v.x, v.z), 0); m.rotateX(Math.atan2(-v.y, Math.hypot(v.x, v.z)) * 0.8 + Math.sin(it.at * 9) * 0.15);   // nose into the fall, a wobble
+    const v = it.av, m = it.mesh; m.rotation.set(0, Math.atan2(v.x, v.z), 0); m.rotateX(Math.atan2(-v.y, hyp(v.x, v.z)) * 0.8 + Math.sin(it.at * 9) * 0.15);   // nose into the fall, a wobble
     const T = it.tr; if (it.at - (it.tt || 0) > 0.014) { it.tt = it.at; T.pop(); T.unshift(m.position.clone()); } else T[0].copy(m.position);
     const a = it.strm.geometry.attributes.position.array; camera.getWorldPosition(_dr);
     for (let k = 0; k < T.length; k++) { const P = T[k], Q = T[Math.min(k + 1, T.length - 1)], dx = P.x - Q.x, dy = P.y - Q.y, dz = P.z - Q.z, ex = _dr.x - P.x, ey = _dr.y - P.y, ez = _dr.z - P.z;   // a ribbon facing you
-      let sx = dy * ez - dz * ey, sy = dz * ex - dx * ez, sz = dx * ey - dy * ex; const l = Math.hypot(sx, sy, sz) || 1, w = 0.05 + k * 0.004; sx *= w / l; sy *= w / l; sz *= w / l;
+      let sx = dy * ez - dz * ey, sy = dz * ex - dx * ez, sz = dx * ey - dy * ex; const l = hyp(sx, sy, sz) || 1, w = 0.05 + k * 0.004; sx *= w / l; sy *= w / l; sz *= w / l;
       a[k * 6] = P.x - sx; a[k * 6 + 1] = P.y - sy; a[k * 6 + 2] = P.z - sz; a[k * 6 + 3] = P.x + sx; a[k * 6 + 4] = P.y + sy; a[k * 6 + 5] = P.z + sz; }
     it.strm.geometry.attributes.position.needsUpdate = true; }
   dropSmokeTick(dt);
-  if (mode === 'plane') { const P = ac.pos; for (const j of dlvActive()) { if (!j.drop || j.drop.res.length >= j.drop.n || DROP.hint[j.id]) continue; const D = DROPS[j.drop.s]; if (Math.hypot(D.cx - P[0], D.cz - P[2]) < 1500) { DROP.hint[j.id] = 1;
+  if (mode === 'plane') { const P = ac.pos; for (const j of dlvActiveR()) { if (!j.drop || j.drop.res.length >= j.drop.n || DROP.hint[j.id]) continue; const D = DROPS[j.drop.s]; if (hyp(D.cx - P[0], D.cz - P[2]) < 1500) { DROP.hint[j.id] = 1;
       say(D.who + ' AT ' + D.name + ': SMOKE IS UP - OPEN THE DOOR, COME IN LOW AND SLOW INTO VIEW OF THE X, PUSH A BUNDLE OUT ' + (renderer.xr.isPresenting ? 'BY HAND' : '(G)') + ' A LITTLE BEFORE IT'); } } }
   DROP.ms = performance.now() - t0;
 }
@@ -5956,7 +5969,7 @@ for (const F of FUEL_ST) { const S = dlvS(F.id); F.S = S;
   if (F.id === 'HOME') { F.p = FUELP.p.clone(); F.b = [HANGAR.x + 5.6, HANGAR.z + 3.2, Math.PI / 2]; continue; }
   const v = S.G.localToWorld(new THREE.Vector3(-4.4, 0, 1.2)); v.y = groundY(v.x, v.z); F.p = v; ecoDrum(v);
   const w = S.G.localToWorld(new THREE.Vector3(-2.6, 0, 0)); F.b = [w.x, w.z, S.ry]; }
-function fuelSt() { for (const F of FUEL_ST) if (Math.hypot(ac.pos[0] - F.p.x, ac.pos[2] - F.p.z) < FUELP.REACH) return F; return null; }
+function fuelSt() { for (const F of FUEL_ST) if (hyp(ac.pos[0] - F.p.x, ac.pos[2] - F.p.z) < FUELP.REACH) return F; return null; }
 // ---- service boards: the hangar's (oil, tyres + brakes, repairs, the 100-hour) and a fuel + oil board by each drum ----
 const SVB_W = 512, SVB_H = 352;
 for (const F of FUEL_ST) { const [bx, bz, ry] = F.b, home = F.id === 'HOME', G = new THREE.Group(), PW = home ? 1.28 : 1.0, PH = home ? 0.88 : 0.69, Y = home ? 1.45 : 1.35, wood = mat(0x6b4a2a);
@@ -5993,7 +6006,7 @@ function ecoDraw(F) {
 function ecoDo(F, i) {   // a row on a service board
   const B = F.B, r = B.rows[i]; if (!r) return false; const [c, t, ok, q] = ecoCost(F, r), E = ECO;
   if (!ok) { say(t); sfx('tick'); return true; }
-  if (Math.hypot(ac.pos[0] - F.p.x, ac.pos[2] - F.p.z) > (B.home ? 40 : 25) || !cubParkedFuel()) { say('BRING THE CUB OVER AND SHUT HER DOWN FIRST'); sfx('tick'); return true; }
+  if (hyp(ac.pos[0] - F.p.x, ac.pos[2] - F.p.z) > (B.home ? 40 : 25) || !cubParkedFuel()) { say('BRING THE CUB OVER AND SHUT HER DOWN FIRST'); sfx('tick'); return true; }
   if (c > ecoRoom(B.home) && !(r === 'oil' && B.home && E.oil < 4)) { say('NOT ENOUGH MONEY: ' + ecoMoney(c) + ' NEEDED, YOU HAVE ' + ecoMoney(DLV.cash) + (B.home ? ' (+$' + ECO_CREDIT + ' ACCOUNT)' : '')); sfx('tick'); return true; }   // (oil at home: never left unable to run the engine)
   DLV.cash -= c; DLV.spent = (DLV.spent || 0) + c;
   if (r === 'oil') E.oil = Math.min(ECO_OILMAX, E.oil + q);
@@ -6018,7 +6031,7 @@ function ecoTouch(sink) {   // a wheel just came down: sink in m/s
     say('HARD LANDING ' + fpm + ' FPM - GEAR DAMAGE NOW ' + Math.round(E.gear * 100) + '% (REPAIRS AT THE HOME HANGAR)'); saveSoon(); }
 }
 function ecoCrash(why) {
-  const E = ECO, km = Math.hypot(ac.pos[0], ac.pos[2] + 145) / 1000, c = Math.round(250 + 80 * km), hard = /prop|nose|wing|airframe|lake/i.test(why);
+  const E = ECO, km = hyp(ac.pos[0], ac.pos[2] + 145) / 1000, c = Math.round(250 + 80 * km), hard = /prop|nose|wing|airframe|lake/i.test(why);
   E.gear = Math.min(1, Math.max(E.gear, 0.5) + 0.2); E.eng = Math.min(1, E.eng + (hard ? 0.35 : 0.1)); E.tyre = Math.max(0, E.tyre - 0.1);
   DLV.cash -= c; DLV.spent = (DLV.spent || 0) + c; E.crashC = c; say('CRASH: SALVAGE + FERRY HOME ' + ecoMoney(c) + ' - REPAIRS AT THE HOME HANGAR'); saveSoon();
 }
@@ -6049,9 +6062,9 @@ function ecoTick(dt) {
     if ((E.warnT -= dt) <= 0) { E.warnT = 45; const w = ecoWarn(); if (w && msgT <= 0) say(w); } }
   if (ac.crashed && !E.cr) { E.cr = true; ecoCrash(ac.crashReason || ''); } else if (!ac.crashed) E.cr = false;
   // the boards: the nearest within 5 m takes keys 1-n / pokes; redrawn when something on them changes
-  playerPos(); let nb = null, nd = 1e9; for (const F of FUEL_ST) { const d = Math.hypot(PP.x - F.b[0], PP.z - F.b[1]); if (d < nd) { nd = d; nb = F; } }
+  playerPos(); let nb = null, nd = 1e9; for (const F of FUEL_ST) { const d = hyp(PP.x - F.b[0], PP.z - F.b[1]); if (d < nd) { nd = d; nb = F; } }
   E.near = nd < 60 ? nb : null; E.nearD = nd;
-  if ((E.bT = (E.bT || 0) - dt) <= 0) { E.bT = 0.5; for (const F of FUEL_ST) { const near = Math.hypot(PP.x - F.b[0], PP.z - F.b[1]) < 300; F.B.m.visible = near; if (!near) continue;
+  if ((E.bT = (E.bT || 0) - dt) <= 0) { E.bT = 0.5; for (const F of FUEL_ST) { const near = hyp(PP.x - F.b[0], PP.z - F.b[1]) < 300; F.B.m.visible = near; if (!near) continue;
       const k = [Math.round(DLV.cash), E.oil.toFixed(1), E.svc.toFixed(1), E.tyre.toFixed(2), E.brake.toFixed(2), E.gear.toFixed(2), E.eng.toFixed(2), E.seized, E.ldg].join(); if (k !== F.B.key) { F.B.key = k; ecoDraw(F); } } }
   if (mode === 'foot' && nd < 5 && E.hint !== nb) { E.hint = nb; say((nb.B.home ? 'HANGAR SERVICE BOARD' : nb.S.name + ' FUEL $' + nb.price.toFixed(2) + '/GAL') + ' - POKE A PRICE' + (renderer.xr.isPresenting ? '' : ' (DESKTOP ' + (nb.B.rows.length > 1 ? '1-' + nb.B.rows.length : '1') + ')')); } else if (nd > 10) E.hint = null;
   E.ms = performance.now() - t0;
@@ -6138,7 +6151,7 @@ function upgPartFloor(k) {   // put a bought part back on its spot
   scene.add(P.mesh); upgPartPos(k, P.mesh.position); P.mesh.position.y += P.mesh.userData.lift; P.mesh.rotation.set(0, k === 'tyres' ? 0 : Math.PI / 2, 0); P.st = 'floor'; P.g = null; P.vy = 0;
 }
 function upgPartGone(k) { const P = UPG.parts[k]; if (!P) return; P.mesh.removeFromParent(); P.mesh.geometry.dispose(); delete UPG.parts[k]; if (UPG.desk === P) UPG.desk = null; }
-const upgCubHome = () => Math.hypot(ac.pos[0] - HANGAR.x, ac.pos[2] - HANGAR.z) < UPG_HOME_R;
+const upgCubHome = () => hyp(ac.pos[0] - HANGAR.x, ac.pos[2] - HANGAR.z) < UPG_HOME_R;
 function upgCanFit(k) {
   if (UPG[k]) return UPG_I[k].label + ' IS ALREADY FITTED';
   if (UPG.fit) return 'FINISH BOLTING THE ' + UPG_I[UPG.fit.key].label + ' FIRST';
@@ -6167,7 +6180,7 @@ const _ua = new THREE.Vector3(), _ub = new THREE.Vector3(), _uq = new THREE.Quat
 const upgMountW = (m, out) => { plane.updateMatrixWorld(); return plane.localToWorld(out.copy(m.p)); };
 function upgBoltNear(p, r) { const F = UPG.fit; if (!F) return -1; const m = UPG_M[F.key]; let b = -1, bd = r; for (let i = 0; i < m.bolts.length; i++) { if (F.d[i] >= 1) continue; const d = plane.localToWorld(_ub.copy(m.bolts[i])).distanceTo(p); if (d < bd) { bd = d; b = i; } } return b; }
 function upgPartNear(p, r) { let best = null, bd = r; for (const k in UPG.parts) { const P = UPG.parts[k]; if (P.st !== 'floor' && P.st !== 'fall') continue; P.mesh.worldToLocal(_ub.copy(p)); const B = P.mesh.userData.box;
-  const d = Math.hypot(Math.max(0, B.min.x - _ub.x, _ub.x - B.max.x), Math.max(0, B.min.y - _ub.y, _ub.y - B.max.y), Math.max(0, B.min.z - _ub.z, _ub.z - B.max.z)); if (d < bd) { bd = d; best = P; } } return best; }
+  const d = hyp(Math.max(0, B.min.x - _ub.x, _ub.x - B.max.x), Math.max(0, B.min.y - _ub.y, _ub.y - B.max.y), Math.max(0, B.min.z - _ub.z, _ub.z - B.max.z)); if (d < bd) { bd = d; best = P; } } return best; }
 function upgGrab(g, a) {   // VR on foot: a bolt head (twist it in), else a part off the floor
   if (mode !== 'foot' || UPG.held.has(g)) return false;
   const b = upgBoltNear(a, 0.07); if (b >= 0) { UPG.tw = { g, b, q: null }; HX.pulse(g, 0.3, 15, 'part'); return true; }
@@ -6194,7 +6207,7 @@ function upgDeskE() {   // desktop E on foot: carry a part / put it on the Cub /
   if (P) { if (nearPlane(5)) { const why = upgCanFit(P.k); if (why) { say(why); sfx('tick'); return true; } upgStart(P.k); return true; }
     camera.getWorldDirection(_ub); _ub.y = 0; _ub.normalize(); scene.attach(P.mesh); P.mesh.position.copy(_ua).addScaledVector(_ub, 0.9); P.mesh.rotation.set(0, Math.atan2(_ub.x, _ub.z), 0); P.st = 'fall'; P.vy = 0; UPG.desk = null; sfx('pick'); return true; }
   if (DLV.desk) return false;
-  let best = null, bd = 2.5; for (const k in UPG.parts) { const Q = UPG.parts[k]; if (Q.st !== 'floor') continue; const d = Math.hypot(Q.mesh.position.x - _ua.x, Q.mesh.position.z - _ua.z); if (d < bd) { bd = d; best = Q; } }
+  let best = null, bd = 2.5; for (const k in UPG.parts) { const Q = UPG.parts[k]; if (Q.st !== 'floor') continue; const d = hyp(Q.mesh.position.x - _ua.x, Q.mesh.position.z - _ua.z); if (d < bd) { bd = d; best = Q; } }
   if (!best) return false;
   camera.add(best.mesh); const big = best.k === 'pod' || best.k === 'tank'; best.mesh.position.set(big ? 0.25 : 0, big ? -0.62 : -0.35, big ? -0.85 : -0.6); best.mesh.rotation.set(0.1, big ? Math.PI / 2 : 0, 0); best.st = 'desk'; UPG.desk = best; sfx('pick');
   say('CARRYING THE ' + UPG_I[best.k].label + ' - E BY THE CUB PUTS IT ON ITS SPOT'); return true;
@@ -6274,7 +6287,7 @@ function upgTick(dt) {
     if (d < m.r) { const why = upgCanFit(P.k); if (why) { if ((UPG.say -= dt) <= 0) { say(why); UPG.say = 3; } } else { UPG.held.delete(g); HX.pulse(g, 0.6, 40, 'part'); upgStart(P.k); } } }
   if (UPG.desk && nearPlane(6) && !UPG.fit) gk = UPG.desk.k;
   upgGhost(mode === 'foot' ? gk : null); upgTwist(dt); upgRadioTick(dt);
-  playerPos(); UPB.d = Math.hypot(PP.x - UPB.b[0], PP.z - UPB.b[1]);
+  playerPos(); UPB.d = hyp(PP.x - UPB.b[0], PP.z - UPB.b[1]);
   if ((UPB.t = (UPB.t || 0) - dt) <= 0) { UPB.t = 0.5; const near = UPB.d < 300; UPB.m.visible = near; if (near) { const k = [Math.round(DLV.cash), UPG_K.map(k => UPG[k] + '' + (UPG.own[k] | 0)).join(''), UPG.fit ? UPG.fit.key : '', UPG_K.map(k => UPG_I[k].gate ? repOf(UPG_I[k].gate[0]) : 0).join(), renderer.xr.isPresenting].join('|'); if (k !== UPB.key) { UPB.key = k; upbDraw(); } } }
   if (mode === 'foot' && UPB.d < 5 && UPB.d <= ECO.nearD && !UPB.hint) { UPB.hint = true; say('HANGAR PARTS BOARD - POKE A PRICE' + (renderer.xr.isPresenting ? '' : ' (DESKTOP 1-7)')); } else if (UPB.d > 10) UPB.hint = false;
   UPG.ms = performance.now() - t0;
@@ -6423,11 +6436,11 @@ function folkTick(dt) {
   const P = playerPos(), foot = mode === 'foot';
   if (FOLK.q.length && (FOLK.q[0].w -= dt) <= 0) { const n = FOLK.q.shift(); if (!n.soft || msgT < 0.5) { say(n.t); msgT = Math.max(msgT, n.soft ? 5 : 7); } }
   let near = null, nd = 4;
-  for (const f of FOLK.figs) { const dx = P.x - f.x, dz = P.z - f.z, d = Math.hypot(dx, dz), vis = d < 200 && !(f.id === 'CREEK' && EMG.jobs.some(j => j.emg.joe)); f.g.visible = vis; if (!vis) continue;
+  for (const f of FOLK.figs) { const dx = P.x - f.x, dz = P.z - f.z, d = hyp(dx, dz), vis = d < 200 && !(f.id === 'CREEK' && EMG.jobs.some(j => j.emg.joe)); f.g.visible = vis; if (!vis) continue;
     if (foot && d < 12) { const want = Math.atan2(dx, dz); let e = want - f.g.rotation.y; e = Math.atan2(Math.sin(e), Math.cos(e)); f.g.rotation.y += e * Math.min(1, dt * 3); } else { let e = f.ry0 - f.g.rotation.y; e = Math.atan2(Math.sin(e), Math.cos(e)); f.g.rotation.y += e * Math.min(1, dt * 1.5); }
     if (foot && d < nd) { nd = d; near = f; } folkArm(f, dt); }
   if (near && FOLK.near !== near) { FOLK.near = near; near.wave = 2.2; FOLK.q.push({ t: folkName(near.id) + ': "' + folkLine(near.id) + '"', w: 1.2, soft: 1 }); FOLK.met[near.id] = 1; }   // (a hello waits for a quiet moment)
-  else if (!near && FOLK.near) { const f = FOLK.near; if (Math.hypot(P.x - f.x, P.z - f.z) > 9 || !foot) FOLK.near = null; }
+  else if (!near && FOLK.near) { const f = FOLK.near; if (hyp(P.x - f.x, P.z - f.z) > 9 || !foot) FOLK.near = null; }
 }
 function folkArm(f, dt) {   // idle: hangs, sways a little; waving: up and side to side
   f.ph += dt; if (f.wave > 0) f.wave -= dt; const w = f.wave > 0 || f.waveOn ? 1 : 0; f.wk = (f.wk || 0) + (w - (f.wk || 0)) * Math.min(1, dt * 6);
@@ -6460,7 +6473,7 @@ LBL_AT.patient = [0.05, 0.12, 0, null];
 const EMG_WHO = ['A LOGGER', 'A HIKER', 'A YOUNG GUEST', 'A FISHERMAN', 'THE CAMP COOK', 'A SURVEYOR', 'A KID'], EMG_INJ = ['BROKEN LEG', 'DEEP CUT', 'APPENDICITIS', 'BAD FALL', 'BURNS', 'CHEST PAINS', 'ALLERGIC REACTION'];
 const EMG_LOOKS = [{ sk: 0xe0b090, sh: 0x3a6a9a, tr: 0x2a2e3a, hat: 'beanie', hc: 0x2a2a2a }, { sk: 0xc89068, sh: 0xc0a020, tr: 0x3a3226, hat: 'cap', hc: 0x8a2a1a }, { sk: 0xf0c8a8, sh: 0x8a3a6a, tr: 0x2a3a5a, hat: 'long', hc: 0x3a2a1a, s: 0.94 }, { sk: 0x8a5a3a, sh: 0x4a8a4a, tr: 0x3a3a32, hat: 'none', hc: 0x1a1612 }];
 const emgClinic = () => dlvS('DRYFORK');
-const emgKm = (ax, az, bx, bz) => Math.hypot(ax - bx, az - bz) / 1000;
+const emgKm = (ax, az, bx, bz) => hyp(ax - bx, az - bz) / 1000;
 function emgGen(sc) {   // one call-out (seeded by its number, so a save reloads the same one); sc: a story beat's scripted call
   const id = 900000 + EMG.seq++, r = dlvRng(id * 7331 + 58), H = dlvS('HOME'), t = sc ? sc.emg.t : r() < 0.55 ? 'med' : 'sar';
   if (t === 'med') {
@@ -6488,7 +6501,7 @@ function emgNewCall() {
 }
 function emgAccept(from) {   // from: the strip whose sign you poked, or null (by radio: the nearest town strip)
   const j = EMG.call; if (!j) return false; if (emgActive()) { say('ONE EMERGENCY AT A TIME - FINISH THE ONE YOU HAVE'); sfx('tick'); return false; }
-  const P = playerPos(), S0 = from || DLV_STRIPS.filter(S => !S.site && !S.lock).reduce((a, S) => Math.hypot(S.pad[0] - P.x, S.pad[1] - P.z) < Math.hypot(a.pad[0] - P.x, a.pad[1] - P.z) ? S : a);
+  const P = playerPos(), S0 = from || DLV_STRIPS.filter(S => !S.site && !S.lock).reduce((a, S) => hyp(S.pad[0] - P.x, S.pad[1] - P.z) < hyp(a.pad[0] - P.x, a.pad[1] - P.z) ? S : a);
   EMG.call = null; j.st = 'active'; EMG.jobs.push(j); const T = dlvS(j.to);
   if (j.emg.t === 'med') { const S = dlvS(j.from); if (S.site && !S.found) bushFind(S, true);
     j.dl = Math.ceil(8 + 1.7 * (emgKm(P.x, P.z, S.pad[0], S.pad[1]) + emgKm(S.pad[0], S.pad[1], T.pad[0], T.pad[1]))); }
@@ -6511,12 +6524,12 @@ function emgVis(j) {   // the casualty (and their camp / companions) in the worl
 }
 function emgVisClear() { for (const f of EMG.vis) f.g.removeFromParent(); EMG.vis.length = 0; EMG.cas = null; }
 function emgSpot(j, how) {
-  if (j.emg.seen) return; j.emg.seen = 1; MAP.key = ''; KB.key = ''; sfx('clack'); const P = playerPos(), d = Math.hypot(j.emg.x - P.x, j.emg.z - P.z);
+  if (j.emg.seen) return; j.emg.seen = 1; MAP.key = ''; KB.key = ''; sfx('clack'); const P = playerPos(), d = hyp(j.emg.x - P.x, j.emg.z - P.z);
   say('SPOTTED: ' + j.emg.name + ' - ' + j.emg.ppl + (j.emg.ppl > 1 ? ' PEOPLE WAVING' : ' PERSON WAVING') + ' AT ' + SAR_A[j.emg.a].name + ', ' + Math.round(d / 10) * 10 + ' M' + (how ? ' (' + how + ')' : '') + ' - ON YOUR MAP: DROP THE BUNDLES ON THEM OR LAND NEARBY'); msgT = 7; saveSoon();
 }
 function emgBino(look) { const j = emgActive(); if (j && j.emg.t === 'sar' && !j.emg.seen) look(j.emg.x, groundY(j.emg.x, j.emg.z) + 1, j.emg.z, { sar: j }); }
 function emgBundle(it, p) {   // a SAR supply bundle came down at p: on them = done
-  const j = dlvJob(it.job); if (!j || !j.emg || j.st !== 'active') return; const d = Math.hypot(p.x - j.emg.x, p.z - j.emg.z), wet = waterDist(p.x, p.z) < 1;
+  const j = dlvJob(it.job); if (!j || !j.emg || j.st !== 'active') return; const d = hyp(p.x - j.emg.x, p.z - j.emg.z), wet = waterDist(p.x, p.z) < 1;
   if (wet || d > EMG_DROP_R) { say('SUPPLY BUNDLE ' + (wet ? 'IN THE WATER' : Math.round(d) + ' M AWAY') + ' - THEY CAN\'T GET TO IT (WITHIN ' + EMG_DROP_R + ' M)'); return; }
   if (!j.emg.seen) emgSpot(j, 'THE DROP');
   const late = j.dl && DLV.gt > j.due, pay = Math.round(j.pay * 0.6 * (late ? 0.5 : 1)), rp = folkJob(repAdd(j.emg.who, late ? -4 : 6));
@@ -6547,14 +6560,14 @@ function emgBoard(j) {   // the casualty at the door: onto the rear seat
   wbUpdate(); MAP.key = ''; KB.key = ''; saveSoon(); return '';
 }
 function emgCasTick(dt, j) {   // the casualty: waits; walk up (3.5 m) and they lean on you and follow; at the Cub's door they climb onto the rear seat
-  const C = EMG.cas; if (!C || C.st === 'aboard') return; const f = C.f, P = playerPos(), foot = mode === 'foot', d = Math.hypot(P.x - C.x, P.z - C.z);
+  const C = EMG.cas; if (!C || C.st === 'aboard') return; const f = C.f, P = playerPos(), foot = mode === 'foot', d = hyp(P.x - C.x, P.z - C.z);
   if (C.st === 'wait') { if (foot && d < 3.5) { C.st = 'follow'; if (f.pose === 'sit') { const L = f.L, nf = folkMake(L, 'stand', C.x, C.z, f.g.rotation.y); if (f.g.userData.props) { const pm = f.g.userData.props; f.g.remove(pm); pm.position.set(C.x, groundY(C.x, C.z), C.z); pm.rotation.y = f.g.rotation.y; scene.add(pm); EMG.vis.push({ g: pm }); } f.g.removeFromParent(); EMG.vis[EMG.vis.indexOf(f)] = nf; nf.cas = 1; C.f = nf; }
       say(j.emg.name + ': "THANK GOD. HELP ME TO THE PLANE."' + ' - THEY LEAN ON YOU: WALK TO THE CUB\'S DOOR'); msgT = Math.max(msgT, 5); } return; }
   if (!foot || d > 40) { C.st = 'wait'; return; }
-  const F = C.f, tx = P.x, tz = P.z, dd = Math.hypot(tx - C.x, tz - C.z); if (dd > 1.6) { const sp = Math.min(dd - 1.6, 1.25 * dt); C.x += (tx - C.x) / dd * sp; C.z += (tz - C.z) / dd * sp; }
+  const F = C.f, tx = P.x, tz = P.z, dd = hyp(tx - C.x, tz - C.z); if (dd > 1.6) { const sp = Math.min(dd - 1.6, 1.25 * dt); C.x += (tx - C.x) / dd * sp; C.z += (tz - C.z) / dd * sp; }
   F.x = C.x; F.z = C.z; F.g.position.set(C.x, groundY(C.x, C.z), C.z); F.g.rotation.y = Math.atan2(tx - C.x, tz - C.z); F.ry0 = F.g.rotation.y;
   const dp = qRot(ac.q, EMG_DOOR), dx = ac.pos[0] + dp[0] - C.x, dz = ac.pos[2] + dp[2] - C.z;
-  if (Math.hypot(dx, dz) < 3.2 && acGS() < 0.5) { const why = emgBoard(j); if (why && (EMG.sayT -= dt) <= 0) { EMG.sayT = 4; say(why); sfx('tick'); } }
+  if (hyp(dx, dz) < 3.2 && acGS() < 0.5) { const why = emgBoard(j); if (why && (EMG.sayT -= dt) <= 0) { EMG.sayT = 4; say(why); sfx('tick'); } }
 }
 function emgCond(j, dt) {   // the patient's condition: drains with time; rough flying and no belt make it worse; waiting on the ground half as fast
   const its = DLV.items.filter(it => it.job === j.id && it.k === 'patient'), aboard = its.some(it => it.st === 'cargo'), air = mode === 'plane' && !ac.gs.some(g => g.Fn > 0);
@@ -6568,15 +6581,15 @@ function emgCond(j, dt) {   // the patient's condition: drains with time; rough 
 function emgTick(dt) {
   const t0 = performance.now(), j = emgActive();
   if (j) { const aboard = emgCond(j, dt); emgCasTick(dt, j);
-    if (j.emg.t === 'sar' && !j.emg.seen) { const P = playerPos(), d = Math.hypot(j.emg.x - P.x, j.emg.z - P.z), agl = P.y - groundY(P.x, P.z); if ((mode === 'plane' && d < EMG_SEE_R && agl < 260) || (mode === 'foot' && d < 60)) emgSpot(j); }
-    if (aboard && j.emg.got) { const T = dlvS(j.to); if (acGS() < 0.5 && !ENG.running && Math.hypot(ac.pos[0] - T.pad[0], ac.pos[2] - T.pad[1]) < 90) emgHandOver(j); }
-    for (const f of EMG.vis) if (f.arm) { const P = playerPos(), d = Math.hypot(P.x - f.x, P.z - f.z); f.waveOn = !(EMG.cas && EMG.cas.f === f && EMG.cas.st !== 'wait') && ((mode === 'plane' && d < 900) || (mode === 'foot' && d < 25 && d > 4)); folkArm(f, dt); } }
+    if (j.emg.t === 'sar' && !j.emg.seen) { const P = playerPos(), d = hyp(j.emg.x - P.x, j.emg.z - P.z), agl = P.y - groundY(P.x, P.z); if ((mode === 'plane' && d < EMG_SEE_R && agl < 260) || (mode === 'foot' && d < 60)) emgSpot(j); }
+    if (aboard && j.emg.got) { const T = dlvS(j.to); if (acGS() < 0.5 && !ENG.running && hyp(ac.pos[0] - T.pad[0], ac.pos[2] - T.pad[1]) < 90) emgHandOver(j); }
+    for (const f of EMG.vis) if (f.arm) { const P = playerPos(), d = hyp(P.x - f.x, P.z - f.z); f.waveOn = !(EMG.cas && EMG.cas.f === f && EMG.cas.st !== 'wait') && ((mode === 'plane' && d < 900) || (mode === 'foot' && d < 25 && d > 4)); folkArm(f, dt); } }
   else if (!EMG.call && DLV.gt >= EMG.nextT) emgNewCall();
   if (EMG.call && EMG.call.emg.exp && DLV.gt > EMG.call.emg.exp) { const c = EMG.call; EMG.call = null; EMG.nextT = DLV.gt + EMG_GAP[0]; EMG.key = '';
     if (mode === 'plane' && UPG.radio && ENG.master) say('RADIO - RANGER KOWALSKI: "THE STATE HELICOPTER HAS THE ' + (c.emg.t === 'med' ? 'MEDEVAC' : 'SEARCH') + ' - STAND DOWN"'); }
   if (EMG.call && EMG.heard !== EMG.call.id && mode === 'plane' && UPG.radio && ENG.master) { EMG.heard = EMG.call.id; sfx('static'); say('RADIO - RANGER KOWALSKI: "ALL PILOTS, ' + emgCallText(EMG.call) + '" (C TO TAKE IT)'); msgT = Math.max(msgT, 7); }
   if (UPG.radio && mode === 'plane' && ENG.master && (FOLK.chatT -= dt) <= 0) { FOLK.chatT = 140 + Math.random() * 80; const c = folkChat(); if (c && !EMG.call) { sfx('static'); say('RADIO - ' + c); } }
-  if ((EMG.signT -= dt) <= 0) { EMG.signT = 0.5; const k = emgSignKey(); if (k !== EMG.key) { EMG.key = k; emgSignDraw(); } const P = playerPos(); for (const s of EMG_SIGNS) s.m.visible = Math.hypot(P.x - s.x, P.z - s.z) < 400; }
+  if ((EMG.signT -= dt) <= 0) { EMG.signT = 0.5; const k = emgSignKey(); if (k !== EMG.key) { EMG.key = k; emgSignDraw(); } const P = playerPos(); for (const s of EMG_SIGNS) s.m.visible = hyp(P.x - s.x, P.z - s.z) < 400; }
   folkTick(dt); EMG.ms = performance.now() - t0;
 }
 // ---- the red EMERGENCY signs: one shared canvas, beside the four town boards (the reader's left) ----
@@ -6616,14 +6629,14 @@ const _emL = new THREE.Vector3();
 function emgPoke() {   // VR fingertips: the nearest red sign; the COM radio's face in the Cub (accepts a call-out)
   if (!HANDS.st.length) return;
   for (let i = 0; i < 2; i++) { const st = HANDS.st[i]; if (!st.vis) continue;
-    if (mode === 'foot') { for (const s of EMG_SIGNS) { if (Math.hypot(st.tip.x - s.x, st.tip.z - s.z) > 1.5) continue; s.m.worldToLocal(_emL.copy(st.tip)); const on = Math.abs(_emL.x) < EMG_PW / 2 && Math.abs(_emL.y) < EMG_PH / 2 && _emL.z < 0.012 && _emL.z > -0.05;
+    if (mode === 'foot') { for (const s of EMG_SIGNS) { if (hyp(st.tip.x - s.x, st.tip.z - s.z) > 1.5) continue; s.m.worldToLocal(_emL.copy(st.tip)); const on = Math.abs(_emL.x) < EMG_PW / 2 && Math.abs(_emL.y) < EMG_PH / 2 && _emL.z < 0.012 && _emL.z > -0.05;
         if (!EMG.poke[i] && (_emL.z > 0.04 || Math.abs(_emL.x) > EMG_PW / 2 || Math.abs(_emL.y) > EMG_PH / 2)) EMG.poke[i] = true; if (EMG.poke[i] && on) { EMG.poke[i] = false; emgSignAct(s.S); if (grips[i]) HX.pulse(grips[i], 0.4, 14, 'ui'); } } }
     else if (UPG.radio && EMG.call) { plane.worldToLocal(_emL.copy(st.tip)); const d = _emL.distanceTo(UPG_M.radio.p); if (!EMG.rpoke[i] && d > 0.1) EMG.rpoke[i] = true; if (EMG.rpoke[i] && d < 0.05) { EMG.rpoke[i] = false; emgRadioTake(); if (grips[i]) HX.pulse(grips[i], 0.4, 14, 'ui'); } } }
 }
 function emgRadioTake() { if (!EMG.call) return false; if (!UPG.radio) { say('NO COM RADIO - TAKE CALL-OUTS AT A RED EMERGENCY SIGN'); return true; } sfx('static'); if (emgAccept(null)) msg = 'RADIO - YOU: "KOWALSKI, CUB TAKING IT." - ' + msg; return true; }
 function emgKey(e) {
   if (e.code === 'KeyC' && mode === 'plane' && EMG.call) return emgRadioTake();
-  if (e.code === 'Digit4' && mode === 'foot') { const s = EMG_SIGNS.find(q => Math.hypot(PP.x - q.x, PP.z - q.z) < 5); if (s) return emgSignAct(s.S); }
+  if (e.code === 'Digit4' && mode === 'foot') { const s = EMG_SIGNS.find(q => hyp(PP.x - q.x, PP.z - q.z) < 5); if (s) return emgSignAct(s.S); }
   return false;
 }
 // ---- map, kneeboard ----
@@ -6638,7 +6651,7 @@ function emgMap(x, X, Z, F) {
 }
 function emgKb(j, P) {
   const its = DLV.items.filter(i => i.job === j.id), got = j.emg.got, T = dlvS(j.to), left = dlvLeft(j), tgt = got ? [T.pad[0], T.pad[1]] : j.emg.t === 'med' ? dlvS(j.from).pad : j.emg.seen ? [j.emg.x, j.emg.z] : [j.emg.cx, j.emg.cz];
-  const dx = tgt[0] - P[0], dz = tgt[1] - P[2], km = Math.hypot(dx, dz) / 1000, hdg = Math.round(((Math.atan2(dx, -dz) * 180 / Math.PI) + 360) % 360 / 5) * 5 % 360, cond = 'CONDITION ' + Math.round(100 * j.fresh) + '%';
+  const dx = tgt[0] - P[0], dz = tgt[1] - P[2], km = hyp(dx, dz) / 1000, hdg = Math.round(((Math.atan2(dx, -dz) * 180 / Math.PI) + 360) % 360 / 5) * 5 % 360, cond = 'CONDITION ' + Math.round(100 * j.fresh) + '%';
   const nav = (got ? 'CLINIC ' : j.emg.t === 'med' ? 'PICKUP ' : j.emg.seen ? 'PARTY ' : 'SEARCH ') + (km < 10 ? km.toFixed(1) : Math.round(km)) + ' KM  HDG ' + String(hdg).padStart(3, '0');
   const b = its.filter(i => i.k === 'bundle').length;
   return { col: '#c01e14', t: j.emg.t === 'med' ? 'MEDEVAC' : 'SEARCH + RESCUE', sp: null, rt: (j.emg.t === 'med' ? dlvS(j.from).name : SAR_A[j.emg.a].name) + ' > DRY FORK CLINIC', nav, pcs: (j.emg.t === 'med' ? j.title.slice(10) + ' - ' + j.emg.name : j.emg.name).slice(0, 34) + (j.emg.t === 'sar' && b ? ' - ' + b + ' BUNDLES' : ''), pay: 'UP TO $' + j.pay,
@@ -6920,7 +6933,7 @@ function grassTick(dt) {
   camera.getWorldPosition(_gsF); const agl = _gsF.y - terrainHeight(_gsF.x, _gsF.z);
   if (agl > 40) { GRASS.im.visible = false; GRASS.job = null; GRASS.cx = 1e9; return; }
   const R = GFX.grass > 1 ? 26 : 16, S = GFX.grass > 1 ? 0.55 : 0.6;
-  if (!GRASS.job && Math.hypot(_gsF.x - GRASS.cx, _gsF.z - GRASS.cz) > R * 0.22) {
+  if (!GRASS.job && hyp(_gsF.x - GRASS.cx, _gsF.z - GRASS.cz) > R * 0.22) {
     const cx = Math.round(_gsF.x / S) * S, cz = Math.round(_gsF.z / S) * S, n = Math.ceil(R / S);
     GRASS.job = { cx, cz, R, S, n, i: -n, out: new Float32Array(GRASS.MAX * 16), col: new Float32Array(GRASS.MAX * 3), c: 0, wet: waterDist(cx, cz) < R + 6 }; }
   const J = GRASS.job; if (!J) return;
@@ -6929,7 +6942,7 @@ function grassTick(dt) {
     for (let j = -J.n; j <= J.n; j++) { budget++;
       const gx = J.cx + J.i * J.S, gz = J.cz + j * J.S, ix = Math.round(gx / J.S), iz = Math.round(gz / J.S);
       let h1 = Math.sin(ix * 12.9898 + iz * 78.233) * 43758.5453; h1 -= Math.floor(h1); let h2 = Math.sin(ix * 39.346 + iz * 11.135) * 24634.6345; h2 -= Math.floor(h2);
-      const x = gx + (h1 - 0.5) * J.S * 0.9, z = gz + (h2 - 0.5) * J.S * 0.9, d = Math.hypot(x - J.cx, z - J.cz); if (d > J.R || h1 < 0.1) continue;
+      const x = gx + (h1 - 0.5) * J.S * 0.9, z = gz + (h2 - 0.5) * J.S * 0.9, d = hyp(x - J.cx, z - J.cz); if (d > J.R || h1 < 0.1) continue;
       if (onStrip(x, z, -4)) continue;   // the mown strip stays short
       const y = terrainHeight(x, z); if (Math.abs(groundY(x, z) - y) > 0.05) continue;
       const gxs = terrainHeight(x + 1, z) - y, gzs = terrainHeight(x, z + 1) - y, tint = grassTint(x, z, y, gxs * gxs + gzs * gzs); if (!tint) continue;
