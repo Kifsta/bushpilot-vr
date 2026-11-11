@@ -41,6 +41,22 @@ Neil: "recurring townsfolk (named, simple low-poly figures at their strips/camps
 - **Save** (still v55) adds `emg` (call, active job, story queue, story beats, next call). The patient stays aboard across a reload. A bad save is cleaned up, and no save means a fresh start. Story beats are saved with it.
 - **Tests:** a new t58 (20 checks: figures, greeting, beats and notes, scripted call, first call, expiry, sign and key 4, radio and C, board offers untouched, pickup, prop, rear seat, W&B, condition rates, handover pay, SAR circle, proximity and binocular spotting, bundle within/outside 60 m, SAR land pickup, cancel rules, kneeboard, Joe hidden, save) was added to the suite.
 
+- **Perf** (1280×720 headless, v0.57 → v0.58). emgTick (call-outs, casualty, condition, figures, signs) costs 0.005 ms a frame. Draw calls go up by 0–7 for the figures and red signs; triangles barely change. CPU reads +0.1–0.3 ms on most views, including views with identical draw calls (the herd), which is the shared box's run-to-run noise. A first v0.58 run while the box was busy read 0.2–0.6 ms higher everywhere.
+
+| View | Draw calls | Triangles | CPU ms |
+|---|---|---|---|
+| Seat at home | 77 → 80 | 278k → 278k | 1.66 → 1.83 |
+| On foot at the cabin | 54 → 54 | 268k → 272k | 1.12 → 1.40 |
+| 60 m from a herd | 52 → 52 | 229k → 229k | 1.30 → 1.59 |
+| Same, binoculars up | 38 → 38 | 212k → 213k | 1.28 → 1.59 |
+| Over Pine Flats at 120 m | 94 → 94 | 257k → 257k | 1.50 → 1.59 |
+| On foot by the home hangar | 60 → 60 | 267k → 267k | 1.33 → 1.46 |
+| Over Burnt Hill, drop on | 93 → 93 | 235k → 235k | 1.42 → 1.54 |
+| On foot at the Halvorsen board | 28 → 30 | 167k → 167k | 1.05 → 1.17 |
+| By the Cub, all 5 parts on | 93 → 96 | 280k → 280k | 1.76 → 1.71 |
+| On foot at the home board (Old Pete, red sign) | 61 → 64 | 272k → 270k | 1.55 → 1.60 |
+| On foot at Erik's canoe camp (v0.57: empty bank) | 25 → 32 | 178k → 179k | 1.16 → 1.35 |
+
 ## v0.57 – plane upgrades: bought at the home hangar, carried out and bolted on
 Neil: "plane upgrades bought at the home hangar and fitted physically (reuse full-game v0.32 upgrade code where useful): long-range tank, tundra tyres (rough-field ability, slight drag), cargo pod (extra baggage capacity, drag), LED landing light, COM radio, and plan/stub floats & skis … Effects only through existing W&B/drag/input paths or opt-in paths so the stock Cub physics md5 stays identical. Some upgrades gated by reputation/cash." The physics block is untouched (md5 `eee6637e…`). With nothing fitted, the Cub gets exactly the stock CD0, gear and surface values, and t57 checks that a fly-out after fitting everything and taking it all off again is the same bit for bit.
 - **The hangar parts board** stands on the hangar's outside wall next to the service board. Poke a row in VR, or press desktop **1-7** at the board. It has 7 rows. Parts are **cash only**, and three are **gated by rep**:
