@@ -17,3 +17,5 @@ v0.45 removed them from the repo along with the systems that used them (v0.53 br
 - **Ultimate Animated Animals**: https://quaternius.com/packs/ultimateanimatedanimals.html (`assets/animals/`: Deer, Stag, Fox, Wolf, Cow, Bull, Horse, Donkey)
 
 Quaternius' packs are free to use in personal and commercial projects; credit is appreciated, not required. Thank you!
+
+v0.56 (reputation and unlocks) adds no third-party assets: the Halvorsen board, stars and request badges are drawn in code.

@@ -163,6 +163,28 @@ Some board offers are **airdrop jobs** (blue AIRDROP badge): people at a place w
 - The job pays when the last bundle is down: the job's pay × the average over all its bundles of (accuracy × condition). It's half pay if late. You can't cancel once a bundle is out.
 - With the door shut (or only half open) G says to open it; in VR a bundle you let go inside the cabin settles back in.
 
+## Reputation (v0.56)
+Every customer remembers you: the town or crew at each strip, each bush camp's customer and each airdrop party. Each has a rep from 0 to 100, and everyone starts at **30 (NEW)**.
+
+| Rep | Tier | Stars | What it does |
+|---|---|---|---|
+| 0–14 | UNHAPPY | ☆☆☆☆☆ / ★☆☆☆☆ | (nothing more, they just remember) |
+| 15–34 | NEW | ★★☆☆☆ | normal pay |
+| 35–54 | KNOWS YOU | ★★☆☆☆ / ★★★☆☆ | normal pay; Dry Fork at 55 opens Halvorsen |
+| 55–74 | TRUSTED | ★★★☆☆ / ★★★★☆ | their jobs pay more: +1 % per 2 rep over 50 |
+| 75–100 | REGULAR | ★★★★☆ / ★★★★★ | up to +25 % pay, and they **ask for you by name** |
+
+- **What changes it** (the delivery message shows the change, e.g. `THE RIDGE CREW +5 REP, NOW KNOWS YOU`):
+  - On time **+5**, with more than 40 % of the deadline to spare **+7**; late **−8**.
+  - Special cargo and venison: condition counts, from +9 for perfect to −4 for broken or spoiled.
+  - Heavy freight +1, and a request job +2.
+  - Airdrops: +10 for bundles on the X in good shape, 0 for an average drop, −15 if all are lost; −8 more if late.
+  - Cancelling a job: −2.
+- **Requests:** regular customers (75+) turn about 40 % of their freight jobs into **REQUEST** jobs (gold badge, e.g. `"ASK FOR NEIL" - MAE AT THE FEED STORE`). A light request carries up to twice the load (at most 320 lb) and pays **+35 %** on top. Hunts and airdrops are never requests. Add `?pilot=NAME` to the URL to be asked for by another name.
+- **Halvorsen station:** the Halvorsen Ag-Bio Station 4 board, across the gravel strip from the fenced compound in the NE, starts **closed** ("NO CIVILIAN CONTRACTS"), with a bar showing your Dry Fork rep. Reach **55 with DRY FORK FEED + SUPPLY** and they vouch for you: the board opens, shows on your map, and its jobs (and jobs to it) pay **+30 %**.
+- **Where you see it:** each job board's footer shows that town's rep, stars, tier and pay bonus, and each offer shows its customer's stars. The kneeboard shows the stars (and REQUEST) next to each job's heading. The wrist and HUD show `REP <TOWN> <n> <TIER>` for the board you stand at, or in the seat for your next job's customer.
+- Rep and the Halvorsen unlock are saved with your jobs. A new game (`?plane`) starts everyone at 30 again. R (reset the Cub) doesn't touch it.
+
 ## Fuel
 - Two wing tanks hold 36 gal (136 L). Burn scales with power: full throttle empties them in about 25 minutes. Below 3 % the engine sputters, and at empty it quits. The fuel gauge and the W&B card show what's aboard.
 - **Refuel at a red drum.** Since v0.55 there are four, and you pay for fuel as it flows. Prices: **HOME $6.40**/gal (left of the Cub's parking spot), **RIDGE STRIP $7.30**, **LODGE $8.90** and **DRY FORK $5.80** (the town depot, the cheapest). The drums away from home sit by the job board, and the paper map prints each price under the strip's JOBS square. Taxi to within 15 m of a drum, stop, and shut the engine down. Then:
@@ -239,7 +261,7 @@ The Cub keeps a log: tach hours, oil, tyre and brake wear, and gear and engine d
 
 ## Saving
 - Autosaves every 30 s, when you land and stop, and when you close the tab or take the headset off. It saves where the Cub is parked, the fuel, the time of day, and whether you were aboard or on foot (and where).
-- v0.50 also saves the wallet, the game clock, every board's jobs, every piece of cargo (on the ground where it lies, or in the Cub on its seat or in the bay) and the straps. It saves soon after you take, load or set down anything, and straight away when you get paid. A v0.45–v0.49 save still loads, with a fresh $150 wallet and new boards. v0.51 also saves the special cargo state (damage, freshness, how upset the animals are). v0.53 (save v53) also saves where the rifle is, its magazine, chamber and pouch, and your hunting jobs.
+- v0.50 also saves the wallet, the game clock, every board's jobs, every piece of cargo (on the ground where it lies, or in the Cub on its seat or in the bay) and the straps. It saves soon after you take, load or set down anything, and straight away when you get paid. A v0.45–v0.49 save still loads, with a fresh $150 wallet and new boards. v0.51 also saves the special cargo state (damage, freshness, how upset the animals are). v0.53 (save v53) also saves where the rifle is, its magazine, chamber and pouch, and your hunting jobs. v0.56 also saves every customer's rep and the Halvorsen unlock (an older save loads with everyone at 30).
 - v0.45 uses a new save key (`bushpilot-vr-blank-v1`), so older saves are left alone and never loaded.
 - `?nosave` plays without saving. `?plane` starts a new game in the seat instead of beside the Cub.
 
