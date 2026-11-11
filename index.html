@@ -19,7 +19,7 @@
 </script>
 </head>
 <body>
-<div id="info">BUSH PILOT VR v0.57 - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio). No wind, no weather.
+<div id="info">BUSH PILOT VR v0.58 - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
 You start on foot by the Cub at the cabin strip. Walk up to her and climb in (F / Y), then start her up off the checklist card (J).
 Desktop - flying: W/S or arrows pitch, A/D or arrows roll, Q/E rudder, Shift / Ctrl (or + / -) throttle, B brakes, [ ] flaps, PgUp / PgDn trim,
   R reset to the strip (cold and dark), F climb out, M map, L landing light, Home recentre, mouse looks (click to capture).
@@ -1755,6 +1755,7 @@ addEventListener('keydown', e => {
   if (dropKey(e)) return;   // v0.54 G: push a bundle out of the open door
   if (huntKey(e)) return;   // v0.53 T rifle, X lever, Z load / buy ammo, V binoculars, hold E over a carcass
   if (engKey(e)) return;     // v0.19 cockpit keys (U O Y H I P K J, 1-4 windows; Space = starter, held)
+  if (emgKey(e)) return;   // v0.58 C takes a call-out by COM radio; 4 at a red EMERGENCY sign
   if (upgKey(e)) return;   // v0.57 1-7 at the parts board; E carries / fits / bolts a part
   if (ecoKey(e)) return;   // v0.55 1-4 at a service board
   if (dlvDeskKey(e)) return;   // v0.50 on foot: E carry / load, 1-3 at a job board; / straps
@@ -3126,7 +3127,7 @@ MAP.canvas = document.createElement('canvas'); MAP.canvas.width = MAP_W; MAP.can
   box(0.06, 0.02, 0.012, mat(0x777777), 0, 0.095, -0.004, MAP.clip);                                                                             // the clip
 }
 function mapJobs() {   // v0.51.1: job boards (gold square) + every active job's destination (its colour, ringed, numbered, a dashed line from the origin)
-  const A = dlvActive(), k = A.map(j => j.id + j.to + j.from + (j.hunt ? 'h' + j.hunt.got : '') + (j.drop ? 'd' + j.drop.res.length : '')).join() + '|' + DLV_STRIPS.map(S => S.found || S.lock ? (S.lock ? 2 : 1) : 0).join(''); if (k === MAP.key) return; MAP.key = k;
+  const A = dlvActive(), k = A.map(j => j.id + j.to + j.from + (j.hunt ? 'h' + j.hunt.got : '') + (j.drop ? 'd' + j.drop.res.length : '') + (j.emg ? 'e' + j.emg.seen + j.emg.got : '')).join() + '|' + DLV_STRIPS.map(S => S.found || S.lock ? (S.lock ? 2 : 1) : 0).join(''); if (k === MAP.key) return; MAP.key = k;
   const x = MAP.cx, X = wx => (wx + MAP_X) * MAP_PX, Z = wz => (wz + MAP_Z) * MAP_PX, F = "'Segoe Print','Bradley Hand','Comic Sans MS','Comic Neue',cursive";
   x.drawImage(MAP.base, 0, 0); x.textBaseline = 'middle'; x.textAlign = 'center';
   for (const S of DLV_STRIPS) { if (!S.site || !S.found) continue; const B = S.B, sa = Math.sin(B.a), ca = Math.cos(B.a), p0x = X(B.x - sa * B.hl), p0y = Z(B.z - ca * B.hl), p1x = X(B.x + sa * B.hl), p1y = Z(B.z + ca * B.hl);   // v0.52
@@ -3146,7 +3147,8 @@ function mapJobs() {   // v0.51.1: job boards (gold square) + every active job's
     x.strokeStyle = '#e05a10'; x.lineWidth = 4; x.beginPath(); x.moveTo(dx - 7, dy - 7); x.lineTo(dx + 7, dy + 7); x.moveTo(dx + 7, dy - 7); x.lineTo(dx - 7, dy + 7); x.stroke();
     x.fillStyle = 'rgba(150,150,150,0.55)'; for (let k = 0; k < 3; k++) { x.beginPath(); x.arc(dx + 9 + k * 3, dy - 12 - k * 7, 4 + k * 1.5, 0, 6.283); x.fill(); }
     x.fillStyle = col; x.font = 'bold 15px ' + F; x.fillText('DROP: ' + D.who.toLowerCase(), dx, dy + 18); x.font = '12px ' + F; x.fillText(D.name.toLowerCase() + ' - no strip', dx, dy + 32); }
-  A.filter(j => !j.drop).forEach((j, n) => { const S = dlvS(j.from), T = dlvS(j.to), col = '#' + DLV_COL[j.id % DLV_COL.length].toString(16).padStart(6, '0'), ax = X(S.pad[0]), ay = Z(S.pad[1]), hid = T.site && !T.found, bx = X(hid ? T.B.hx : T.pad[0]), by = Z(hid ? T.B.hz : T.pad[1]);
+  emgMap(x, X, Z, F);   // v0.58
+  A.filter(j => !j.drop && !j.emg).forEach((j, n) => { const S = dlvS(j.from), T = dlvS(j.to), col = '#' + DLV_COL[j.id % DLV_COL.length].toString(16).padStart(6, '0'), ax = X(S.pad[0]), ay = Z(S.pad[1]), hid = T.site && !T.found, bx = X(hid ? T.B.hx : T.pad[0]), by = Z(hid ? T.B.hz : T.pad[1]);
     if (hid) { x.strokeStyle = col; x.lineWidth = 2; x.setLineDash([4, 5]); x.beginPath(); x.arc(bx, by, 320 * MAP_PX, 0, 6.283); x.stroke(); x.setLineDash([]); x.fillStyle = col; x.font = 'bold 22px ' + F; x.fillText('?', bx, by); }   // v0.52 search area
     x.strokeStyle = col; x.lineWidth = 2.5; x.setLineDash([8, 6]); x.beginPath(); x.moveTo(ax, ay); x.lineTo(bx, by); x.stroke(); x.setLineDash([]);
     const o = n * 7; x.lineWidth = 3.5; x.beginPath(); x.arc(bx, by, 15 + o, 0, 6.283); x.stroke();
@@ -3576,7 +3578,8 @@ function kbHome() { KB.g = null; KB.desk = false; plane.add(KB.m); KB.m.position
 kbHome();
 function kbLines() {   // the text, one entry per active job
   const A = dlvActive(), L = [], P = ac.pos;
-  for (const j of A) { const T = dlvS(j.to), S = dlvS(j.from), its = DLV.items.filter(i => i.job === j.id), n = {}; for (const i of its) n[i.k] = (n[i.k] || 0) + 1;
+  for (const j of A) { if (j.emg) { L.push(emgKb(j, P)); continue; }   // v0.58
+    const T = dlvS(j.to), S = dlvS(j.from), its = DLV.items.filter(i => i.job === j.id), n = {}; for (const i of its) n[i.k] = (n[i.k] || 0) + 1;
     const hu = j.hunt && !j.hunt.got ? DEER_HERDS[j.hunt.h] : null, hid = !hu && T.site && !T.found, dx = (hu ? hu.x0 ?? hu.x : hid ? T.B.hx : T.pad[0]) - P[0], dz = (hu ? hu.z0 ?? hu.z : hid ? T.B.hz : T.pad[1]) - P[2], km = Math.hypot(dx, dz) / 1000, hdg = Math.round(((Math.atan2(dx, -dz) * 180 / Math.PI) + 360) % 360 / 5) * 5 % 360;
     const inC = its.filter(i => i.st === 'cargo'), loose = inC.filter(i => !cgSecured(i)).length, at = its.filter(i => i.st === 'ground' && dlvInPad(T, i.mesh.position.x, i.mesh.position.z)).length;
     const st = inC.length ? (inC.length + '/' + its.length + ' IN THE CUB - ' + (loose ? loose + ' LOOSE' : 'STRAPPED')) : at ? at + '/' + its.length + ' DELIVERED' : its.every(i => i.st === 'ground' && dlvInPad(S, i.mesh.position.x, i.mesh.position.z)) ? 'ON THE ' + S.name + ' PAD' : 'ON THE MOVE';
@@ -4472,7 +4475,7 @@ const REP_NAME = { HOME: 'OLD PETE', RIDGE: 'FOREMAN DAWSON', LODGE: 'MRS ANDERS
 const PILOT = (new URLSearchParams(location.search).get('pilot') || 'NEIL').toUpperCase().replace(/[^A-Z .'-]/g, '').slice(0, 14) || 'NEIL';
 const HALV_T = ['SEALED LAB SAMPLES', 'SEED LOT HB-7 CRATES', 'STATION 4 STORES', 'FIELD KIT RETURNS', 'GREENHOUSE SUPPLIES'];
 DLV.rep = {};
-const repKey = j => j.drop ? DROPS[j.drop.s].id : j.to;
+const repKey = j => j.emg ? j.emg.who : j.drop ? DROPS[j.drop.s].id : j.to;   // v0.58 an emergency: whoever called it in
 const repOf = k => DLV.rep[k] ?? REP0;
 const repTier = v => REP_TIERS.find(t => v < t[0]);
 const repStars = v => { const n = Math.round(v / 20); return '\u2605'.repeat(n) + '\u2606'.repeat(5 - n); };
@@ -4486,9 +4489,9 @@ function repSay(r) { if (!r) return ''; return ' - ' + repWho(r.k) + ' ' + (r.d 
 function repJob(j, late, k) {   // a delivery: on time / early / late, the cargo's state
   let d = late ? (UPG.radio ? -4 : -8) : 5; if (!late && j.dl && j.due - DLV.gt > j.dl * 0.4) d += 2;   // v0.57 with the COM radio you called ahead: late costs half
   if (j.sp || j.hunt) d += Math.round((k - 0.75) * 16); if (dlvWc(j) === 'H') d += 1; if (j.req) d += 2;
-  return repAdd(repKey(j), d);
+  return folkJob(repAdd(repKey(j), d));   // v0.58 + their story
 }
-function repDrop(j, f, late) { return repAdd(repKey(j), (late ? (UPG.radio ? -4 : -8) : 0) + Math.round((f - 0.6) * 25)); }   // an airdrop: the average bundle share (accuracy x condition, lost = 0)
+function repDrop(j, f, late) { return folkJob(repAdd(repKey(j), (late ? (UPG.radio ? -4 : -8) : 0) + Math.round((f - 0.6) * 25))); }   // an airdrop: the average bundle share (accuracy x condition, lost = 0)
 function repUnlock(quiet) {   // Dry Fork vouches for you: the Halvorsen station's board opens
   const H = dlvS('HALV'); if (!H || !H.lock || repOf('DRYFORK') < REP_UNL) return;
   H.lock = false; MAP.key = ''; H.key = ''; if (!quiet) say(REP_UNL_T); return true;
@@ -4542,8 +4545,8 @@ function dlvGen0(from, forceH) {   // one offer from this strip (seeded by the r
   return { id, from, to: to.id, title, items, pay, dl, due: 0, st: 'offer', wc: 'L' };
 }
 function dlvInit(fresh) { if (fresh) { DLV.cash = DLV_CASH0; DLV.gt = 0; DLV.seq = 1; } for (const S of DLV_STRIPS) { const L = DLV.offers[S.id] || (DLV.offers[S.id] = []); while (L.length < 3) L.push(dlvGen(S.id, L.length === 2 && !L.some(dlvFrt))); } }   // v0.52: a heavy job on every board
-const dlvActive = () => { const a = []; for (const S of DLV_STRIPS) for (const j of DLV.offers[S.id]) if (j.st === 'active') a.push(j); return a; };
-const dlvJob = id => { for (const S of DLV_STRIPS) for (const j of DLV.offers[S.id]) if (j.id === id) return j; return null; };
+const dlvActive = () => { const a = []; for (const S of DLV_STRIPS) for (const j of DLV.offers[S.id]) if (j.st === 'active') a.push(j); for (const j of EMG.jobs) if (j.st === 'active') a.push(j); return a; };   // v0.58 + an emergency
+const dlvJob = id => { for (const S of DLV_STRIPS) for (const j of DLV.offers[S.id]) if (j.id === id) return j; for (const j of EMG.jobs) if (j.id === id) return j; return null; };
 const dlvLb = j => j.items.reduce((s, i) => s + i.lb, 0);
 const dlvRoom = () => Math.floor(WNB.GROSS_LB - (WBS.plan ? WBS.plan.lb : WNB.REF_LB));   // v0.52 payload left under max gross (you + the fuel aboard + any cargo already in)
 const dlvLeft = j => j.dl ? j.due - DLV.gt : Infinity;
@@ -4590,7 +4593,7 @@ function dlvItemGeo(k, col, slot) {
   return mergeGeometries(gs);
 }
 function dlvGeo(k, col) {
-  const key = k + ':' + col; let g = DLV_GEO.get(key); if (g) return g;
+  const key = k + ':' + col + (k === 'patient' ? JSON.stringify(folkPatLook()) : ''); let g = DLV_GEO.get(key); if (g) return g;
   const [w, h, d] = CARGO_K[k].sz, P = [];
   if (k === 'parcel') P.push(['b', w, h, d, 0, 0, 0, 0xb08552], ['b', 0.05, 0.004, d + 0.004, 0, h / 2, 0, 0xd9c79a], ['b', 0.05, h + 0.004, 0.004, 0, 0, d / 2, 0xd9c79a], ['b', 0.05, h + 0.004, 0.004, 0, 0, -d / 2, 0xd9c79a],
     ['b', 0.08, 0.005, 0.055, w / 4, h / 2, -d / 5, 0xf2f0e6]);
@@ -4629,6 +4632,7 @@ function dlvGeo(k, col) {
     for (const z of [d * 0.29, d * 0.37, -d * 0.33, -d * 0.41]) P.push(['c', 0.022, 0.32, 6, 0.25, y0 + 0.035, z, Dk, 0, 0, Math.PI / 2], ['b', 0.045, 0.04, 0.04, 0.43, y0 + 0.03, z, Hf]);   // legs out straight, hooves
     P.push(['b', 0.02, 0.03, d * 0.12, 0.36, y0 + 0.04, d * 0.33, Rp], ['b', 0.02, 0.03, d * 0.12, 0.36, y0 + 0.04, -d * 0.37, Rp]);   // the legs tied in pairs
     for (const z of [-d * 0.2, d * 0.12]) P.push(['b', 0.32, 0.27, 0.02, -0.06, y0 + 0.13, z, Rp]); }   // rope round the body
+  else if (k === 'patient') P.push(...folkSeatP(w, h, d));   // v0.58
   else { P.push(['b', w, h * 0.72, d, 0, -h * 0.14, 0, 0xc9b48a], ['b', w - 0.05, h * 0.3, d - 0.05, 0, h * 0.35, 0, 0xc2ad82], ['b', w + 0.004, 0.035, d + 0.004, 0, -h * 0.12, 0, 0x9a3a2a],
     ['c', 0.025, 0.07, 6, w / 2 - 0.02, h * 0.38, 0, 0xb09a6e, 0, 0, Math.PI / 2]); }
   const top = k === 'sack' ? h / 2 : k === 'hens' ? h / 2 + 0.002 : k === 'cooler' ? h / 2 + 0.009 : k === 'generator' ? h / 2 - 0.037 : k === 'feed' ? h / 2 + 0.006 : k === 'nails' ? h / 2 + 0.006 : h / 2 + 0.003;
@@ -4684,6 +4688,7 @@ function dlvMeter(j, its) {   // v0.51 special cargo meter text: ' - DAMAGE 12%'
   if (j.sp === 'fragile') return ' - DAMAGE ' + Math.round(100 * dlvDmg(j, its)) + '%';
   if (j.sp === 'perish') return j.fresh > 0 ? ' - FRESH ' + Math.ceil(100 * j.fresh) + '%' : ' - SPOILED';
   if (j.sp === 'live') return ' - CALM ' + Math.round(100 * (1 - j.stress)) + '%';
+  if (j.sp === 'med') return ' - CONDITION ' + Math.round(100 * j.fresh) + '%';   // v0.58
   return '';
 }
 const dlvDmg = (j, its) => { its = its || DLV.items.filter(it => it.job === j.id); return its.length ? its.reduce((s, it) => s + it.dmg, 0) / its.length : 0; };
@@ -4691,6 +4696,7 @@ function dlvSpPay(j) {   // v0.51: what the special cargo's condition leaves of 
   if (j.sp === 'fragile') return Math.max(0, 1 - dlvDmg(j));
   if (j.sp === 'perish') return j.fresh > 0 ? 0.4 + 0.6 * j.fresh : 0.2;
   if (j.sp === 'live') return 1 - 0.6 * j.stress;
+  if (j.sp === 'med') return 0.4 + 0.6 * j.fresh;   // v0.58 the patient's condition
   return 1;
 }
 function jbStatus(j) {
@@ -4725,7 +4731,7 @@ function jbDraw(S) {
     else { x.fillStyle = j.req ? '#8a6008' : j.sp ? '#8a1a6a' : j.dl ? '#9a4a10' : '#555'; x.font = (j.sp || j.req ? 'bold ' : '') + '14px sans-serif';
       x.fillText(j.req ? '"ASK FOR ' + PILOT + '" - ' + (REP_NAME[repKey(j)] || repWho(repKey(j))) + (j.dl ? ' - ' + j.dl + ' MIN' : '') : j.drop ? 'DROP ON THE SMOKE - PAID BY AIM + CONDITION' + (j.dl ? ' - ' + j.dl + ' MIN' : '') : j.hunt ? 'HUNTING JOB - ' + (j.dl ? 'DEADLINE ' + j.dl + ' MIN' : 'NO DEADLINE') + ' - KEEPS ' + j.life + ' MIN DRESSED' : (T.site ? BUSH_T[T.B.type] + ' ' + T.B.len + ' M - ' : '') + (j.sp === 'fragile' ? 'FRAGILE - KNOCKS + G DOCK PAY (+30%)' : j.sp === 'perish' ? 'PERISHABLE - FRESH ' + j.life + ' MIN (+25%)' : j.sp === 'live' ? 'LIVE ANIMALS - FLY SMOOTH (+35%)' : j.dl ? 'DEADLINE ' + j.dl + ' MIN (+40% PAY)' : 'NO DEADLINE'), 34, Y + 68, JB_W - 170);
       x.fillStyle = act >= DLV_MAX ? '#9a9a90' : '#2a7a2a'; x.fillRect(JB_W - 126, Y + 50, 100, 26); x.fillStyle = '#fff'; x.font = 'bold 15px sans-serif'; x.textAlign = 'center'; x.fillText('ACCEPT', JB_W - 76, Y + 68); x.textAlign = 'left'; } }
-  const inb = dlvActive().filter(j => j.to === S.id && !j.drop);
+  const inb = dlvActive().filter(j => j.to === S.id && !j.drop && !j.emg);
   { const v = repOf(S.id), T = repTier(v); x.fillStyle = T[2]; x.font = 'bold 14px sans-serif'; x.fillText('REP: ' + repWho(S.id) + '  ' + repStars(v) + '  ' + T[1] + ' (' + v + ')' + (repPayX(v) >= 1.01 ? ' - PAY +' + Math.round((repPayX(v) - 1) * 100) + '%' : ''), 20, JB_H - 30, JB_W - 40); }   // v0.56
   x.fillStyle = '#3a2a1a'; x.font = '13px sans-serif';
   x.fillText(inb.length ? 'DELIVER HERE: ' + inb.map(j => j.title).join(', ') + ' - SET IT ON THE YELLOW PAD' : 'JOBS ' + act + '/' + DLV_MAX + ' - POKE ACCEPT (DESKTOP 1-3) - DELIVER TO THE YELLOW PAD', 20, JB_H - 13, JB_W - 40);
@@ -4759,7 +4765,7 @@ const CZ = {   // load zones in body axes (plane-local); arm(z) = TCDS station o
 };
 CZ.bag.zc = (CZ.bag.z0 + CZ.bag.z1) / 2; CZ.bag.arm = z => WNB.BAG_ARM + (z - CZ.bag.zc) / WNB.IN;
 const cgIn = () => DLV.items.filter(it => it.st === 'cargo');
-const cgSecured = it => it.cz === 'rear' ? DLV.belt : it.cz === 'bag' ? DLV.net : it.cz === 'pod';   // v0.57 the closed pod holds its load
+const cgSecured = it => it.k === 'patient' ? true : it.cz === 'rear' ? DLV.belt : it.cz === 'bag' ? DLV.net : it.cz === 'pod';   // v0.57 the closed pod holds its load
 function cgHalf(it, Z) { const s = it.sz; return [Math.min(s[0] / 2, Z.x), Math.min(s[2] / 2, (Z.z1 - Z.z0) / 2)]; }
 function cgSupport(zn, it, x, z, below = Infinity) {   // floor / seat under (x, z), or the top of the cargo under it (only cargo lower than `below`)
   const Z = CZ[zn], s = it.sz; let y = Z.y(z);
@@ -4885,6 +4891,7 @@ function cargoUpdate(dt) {
 const _dg = new THREE.Vector3(), _dl = new THREE.Vector3(), _dp = new THREE.Vector3();
 function dlvDist(it, w) { it.mesh.worldToLocal(_dl.copy(w)); const s = it.sz; return Math.hypot(Math.max(0, Math.abs(_dl.x) - s[0] / 2), Math.max(0, Math.abs(_dl.y) - s[1] / 2), Math.max(0, Math.abs(_dl.z) - s[2] / 2)); }
 function dlvTake(it, quiet) {   // out of the Cub / off the ground into a hand: false if it's strapped in
+  if (it.k === 'patient') { if (!quiet) say('THE PATIENT STAYS PUT - THE CLINIC NURSE HELPS THEM OUT'); return false; }   // v0.58
   if (it.st === 'cargo' && it.cz !== 'pod' && cgSecured(it)) { if (!quiet) say('UNDO THE ' + (it.cz === 'rear' ? 'SEAT BELT' : 'CARGO NET') + ' FIRST'); return false; }
   const was = it.st; it.st = 'held'; it.cz = null; it.cv.set(0, 0, 0); if (was === 'cargo') { cgStraps(); wbUpdate(); } return true;
 }
@@ -4924,7 +4931,7 @@ function dlvFallTick(dt) {
     if (p.y <= rest) { p.y = rest; const v = -it.vy; it.vy = 0; it.st = 'ground'; if (v > 1) sfx('thud', p); if (v > 1.2) dlvKnock(it, (v - 1.2) * 0.12, 'DROPPED'); dlvCheck(it); saveSoon(); } }
 }
 function dlvCheck(it) {   // a piece came to rest on the ground: is its whole job on the destination pad?
-  const j = dlvJob(it.job); if (!j || j.st !== 'active' || j.drop) return;   // (v0.54 airdrop bundles are scored where they land from the air)
+  const j = dlvJob(it.job); if (!j || j.st !== 'active' || j.drop || j.emg) return;   // (v0.58 an emergency ends its own way) (v0.54 airdrop bundles are scored where they land from the air)
   const T = dlvS(j.to), its = DLV.items.filter(o => o.job === j.id), on = its.filter(o => o.st === 'ground' && dlvInPad(T, o.mesh.position.x, o.mesh.position.z)).length;
   if (!dlvInPad(T, it.mesh.position.x, it.mesh.position.z)) return;
   if (on < its.length) { say(j.title + ': ' + on + '/' + its.length + ' ON THE PAD'); return; }
@@ -5030,7 +5037,7 @@ function dlvLoad(d) {
       const it = dlvMake(j, o.k, o.lb, o.n || 0); it.dmg = clamp(+o.dmg || 0, 0, 1);
       if (o.s === 'c' && CZ[o.zn] && o.p?.length === 3) { it.st = 'loading'; if (cgPlace(it, o.zn, o.p[0], o.p[2]) || cgLoadAny(it, true)) it.st = 'cargo'; else dlvSetGround(it, ac.pos[0] + 2, ac.pos[2], 0); }
       else if (o.p?.length >= 2) dlvSetGround(it, o.p[0], o.p[1], o.ry || 0); }
-    for (const j of dlvActive()) if (!DLV.items.some(it => it.job === j.id) && !(j.hunt && !j.hunt.got) && !(j.drop && j.drop.res.length)) { j.st = 'offer'; j.due = 0; if (j.hunt) { j.hunt.got = 0; j.fresh = 1; } }   // (a hunt still on stays on)   // a job whose cargo is gone goes back on the board
+    for (const j of dlvActive()) if (!j.emg && !DLV.items.some(it => it.job === j.id) && !(j.hunt && !j.hunt.got) && !(j.drop && j.drop.res.length)) { j.st = 'offer'; j.due = 0; if (j.hunt) { j.hunt.got = 0; j.fresh = 1; } }   // (a hunt still on stays on)   // a job whose cargo is gone goes back on the board
   } else dlvInit(true);
   cgStraps(); for (const S of DLV_STRIPS) S.key = '';
 }
@@ -5715,9 +5722,11 @@ function binoSpot() {   // what's in the middle of the view: deer (count + range
   const look = (x, y, z, f) => { const dx = x - _bv.x, dy = y - _bv.y, dz = z - _bv.z, L = Math.hypot(dx, dy, dz); if (L < 40 || L > 4000) return; const a = Math.acos(clamp((dx * _bd.x + dy * _bd.y + dz * _bd.z) / L, -1, 1)); if (a < ba) { ba = a; best = [f, L]; } };
   for (const a of DEER.list) if (a.state !== 'gone' && a.cd < DEER.FAR) look(a.x, a.y + 0.9, a.z, { deer: a });
   for (const S of DLV_STRIPS) look(S.x, groundY(S.x, S.z) + 2, S.z, { S });
+  emgBino(look);   // v0.58 an overdue party
   if (!best) { BINO.last = ''; return; }
   const [f, L] = best, rng = L < 1000 ? Math.round(L / 10) * 10 + ' M' : (L / 1000).toFixed(1) + ' KM';
   let t, key;
+  if (f.sar) { emgSpot(f.sar, 'BINOCULARS, ' + rng); BINO.last = 'sar'; return; }   // v0.58
   if (f.deer) { const H = DEER_HERDS[f.deer.h], n = DEER.list.filter(a => a.h === f.deer.h && a.state !== 'gone' && a.state !== 'dead').length, st = DEER.list.some(a => a.h === f.deer.h && a.sp === 'stag' && a.state !== 'gone' && a.state !== 'dead');
     key = 'd' + f.deer.h + n; t = 'BINOCULARS: ' + (f.deer.state === 'dead' ? 'YOUR ' + DSP[f.deer.sp].name + ', DOWN' : n + ' DEER' + (st ? ' (A STAG)' : '') + (f.deer.state === 'flee' ? ', RUNNING' : f.deer.head < -1 ? ', GRAZING' : '')) + ' - ' + rng + ' - ' + H.name; }
   else { const S = f.S; key = 's' + S.id + S.found; if (S.site && !S.found && L < 1500) { bushFind(S); return; }
@@ -5821,7 +5830,7 @@ function dropLaunch(it, p, v) {   // world position + velocity
   const N = 10, g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(N * 6), 3)); const ix = []; for (let i = 0; i < N - 1; i++) ix.push(i * 2, i * 2 + 1, i * 2 + 2, i * 2 + 1, i * 2 + 3, i * 2 + 2); g.setIndex(ix);
   it.strm = new THREE.Mesh(g, DROP.smat || (DROP.smat = new THREE.MeshBasicMaterial({ color: 0xff5a10, side: THREE.DoubleSide }))); it.strm.frustumCulled = false; it.strm.userData.noBatch = true; scene.add(it.strm);
   for (let i = 0; i < N; i++) it.tr.push(p.clone());
-  DROP.air.push(it); cgStraps(); wbUpdate(); sfx('thud', p); const j = dlvJob(it.job); say('BUNDLE AWAY - ' + (j ? DROP.air.filter(o => o.job === j.id).length + j.drop.res.length + '/' + j.drop.n : ''));
+  DROP.air.push(it); cgStraps(); wbUpdate(); sfx('thud', p); const j = dlvJob(it.job); say('BUNDLE AWAY - ' + (j && j.drop ? DROP.air.filter(o => o.job === j.id).length + j.drop.res.length + '/' + j.drop.n : j && j.emg ? 'SUPPLIES FOR ' + j.emg.name : ''));
 }
 const _dv = GV3(0, 0, 0), _dq = GV3(0, 0, 0), _dr = GV3(0, 0, 0);
 function dropStep(it, h) {   // one fixed step: gravity + quadratic drag (the streamer: ~24 m/s terminal); returns a landing { p, kind } or null
@@ -5846,6 +5855,7 @@ function dropLand(it, L) {
     for (let k = 0; k < 10; k++) { const x = L.p.x - dx * k * 0.4, z = L.p.z - dz * k * 0.4, y = groundY(x, z) + 0.03; a[k * 6] = x - dz * 0.05; a[k * 6 + 1] = y; a[k * 6 + 2] = z + dx * 0.05; a[k * 6 + 3] = x + dz * 0.05; a[k * 6 + 4] = y; a[k * 6 + 5] = z - dx * 0.05; }
     it.strm.geometry.attributes.position.needsUpdate = true; DROP.decor.push([m, it.strm]); while (DROP.decor.length > 16) { const [o, s] = DROP.decor.shift(); o.removeFromParent(); s.removeFromParent(); s.geometry.dispose(); } }
   it.strm = null; dlvRemove(it);
+  if (j && j.emg) { emgBundle(it, L.p); return q; }   // v0.58
   if (!j || !j.drop) return q; j.drop.res.push(q); const D = DROPS[j.drop.s];
   say('BUNDLE ' + j.drop.res.length + '/' + j.drop.n + ': ' + (q.lost === 'water' ? 'IN THE WATER - LOST' : q.lost ? Math.round(q.d) + ' M OFF - LOST, THEY CAN\'T GET TO IT' : Math.round(q.d) + ' M FROM THE X - CONDITION ' + Math.round(q.c * 100) + '%' + (q.tree ? ' (THROUGH THE TREES)' : '') + ' - ' + D.who + ': ' + (q.d < 25 ? '"RIGHT ON IT!"' : q.d < 80 ? '"GOT IT"' : '"A LONG WALK - GOT IT"')));
   if (j.drop.res.length >= j.drop.n) dropFinish(j); else saveSoon(); MAP.key = ''; for (const S of DLV_STRIPS) S.key = '';
@@ -6270,6 +6280,375 @@ function upgLoad(d) {   // also a fresh start (d = null): a stock Cub
   for (const k of UPG_K) if (UPG.own[k] && !UPG[k]) upgPartFloor(k);   // (a part half bolted on when you saved is back on the floor)
 }
 upgLoad(null);
+// ================= v0.58 CHARACTERS + EMERGENCIES: the townsfolk at their boards, small stories across jobs; medevac + search-and-rescue call-outs =================
+// Every town's / camp's customer stands by their job board: a low-poly figure that turns to you, waves and says hello (the line follows your rep and their story).
+// Deliveries to six of them move a short story along: a note after the delivery, a radio line if the Cub has the COM radio; three stories turn into an emergency.
+// Call-outs come in every few minutes on the red EMERGENCY sign beside the four town boards (poke ACCEPT, desktop 4) or by COM radio (desktop C, VR: poke the radio).
+// MEDEVAC: the injured person leans on you to the Cub (walk up to them, they follow), rides on the rear seat (W&B: a real load at the rear seat); belt them in, fly smooth,
+// shut down at the Dry Fork clinic - the nurse takes over. Their condition drains with time, faster with rough flying or no belt, and sets the pay.
+// SEARCH + RESCUE: an overdue party somewhere inside a circle on the map. Find them from the air (binoculars help: V), then push the supply bundles out on them (within
+// 60 m), or land nearby, walk over and fly the injured one to the clinic. Nothing here touches the flight model: weights go through the cargo / W&B path.
+const EMG_SIGN_W = 384, EMG_SIGN_H = 256, EMG_FIRST = 3, EMG_GAP = [6, 10], EMG_EXP = 12, EMG_DROP_R = 60, EMG_SEE_R = 150, EMG_DOOR = [1.0, 0, 0.6];
+const FOLK = { figs: [], q: [], b: {}, met: {}, near: null, t: 0, ms: 0, chatT: 120 };
+const EMG = { call: null, jobs: [], seq: 1, nextT: EMG_FIRST, done: 0, story: [], vis: [], cas: null, sayT: 0, signT: 0, key: '', heard: 0, poke: [true, true], rpoke: [true, true], ms: 0 };
+// ---- looks: skin, shirt, trousers, hat (cap / brim / beanie / hard / ranger / bun / long / none), hat colour, size, beard, apron / coat colour ----
+const FOLK_L = {
+  HOME: { sk: 0xe0b090, sh: 0xa83a2a, tr: 0x3a3e4a, hat: 'cap', hc: 0x2a4a2a, s: 0.97, beard: 0xd8d8d0 },
+  RIDGE: { sk: 0xc89068, sh: 0xe8701a, tr: 0x4a3e2e, hat: 'hard', hc: 0xe8c81a, s: 1.04 },
+  LODGE: { sk: 0xf0c8a8, sh: 0x2a4a7a, tr: 0x2a4a7a, hat: 'bun', hc: 0xb8b8b8, s: 0.94, ap: 0xf2efe6 },
+  DRYFORK: { sk: 0xf0c0a0, sh: 0x5a8a4a, tr: 0x3a4a6a, hat: 'long', hc: 0xb8501e, s: 0.95, ap: 0x3a6a3a },
+  HALV: { sk: 0xf0d0b8, sh: 0x8aa0b8, tr: 0x3a3e4a, hat: 'none', hc: 0xe8d890, s: 1.0, coat: 0xf4f4f0 },
+  CREEK: { sk: 0xd8a078, sh: 0x6a4a8a, tr: 0x4a5a7a, hat: 'brim', hc: 0x6a5032, s: 0.98, beard: 0x8a6a4a },
+  FISHBAR: { sk: 0xd8a888, sh: 0x3a5a3a, tr: 0xd8c020, hat: 'beanie', hc: 0xc02a20, s: 1.0 },
+  NWSHORE: { sk: 0xd0a080, sh: 0x5a4030, tr: 0x3a3a32, hat: 'beanie', hc: 0x6a4a2a, s: 1.02, beard: 0x5a4a3a },
+  ESHORE: { sk: 0xe8c0a0, sh: 0xd8d8d0, tr: 0x2a3a5a, hat: 'cap', hc: 0x1e2a4a, s: 1.0 },
+  BENCH: { sk: 0xb88060, sh: 0x4a4e52, tr: 0x3a3226, hat: 'hard', hc: 0xd8d8d0, s: 1.03, beard: 0x2a2420 },
+  ELK: { sk: 0xe0b090, sh: 0x8a2a2a, tr: 0x3a3a32, hat: 'beanie', hc: 0xe0a020, s: 1.06, ap: 0xf0ece0 },
+  RANGER: { sk: 0xd8a888, sh: 0x8a7a50, tr: 0x3a4a2a, hat: 'ranger', hc: 0x6a5a3a, s: 1.0 },
+  RANCHS: { sk: 0xd09870, sh: 0x5a7aa0, tr: 0x2a3a5a, hat: 'brim', hc: 0xd8c8a0, s: 1.02 },
+  NURSE: { sk: 0x8a5a3a, sh: 0x3aa0a0, tr: 0x3aa0a0, hat: 'none', hc: 0x1a1612, s: 0.96 },
+  LILY: { sk: 0xf0c8a8, sh: 0xe05a8a, tr: 0x3a4a6a, hat: 'long', hc: 0xd8b060, s: 0.86 },
+};
+const FOLK_NAME = { NURSE: 'NURSE OKAFOR' };
+const folkName = id => FOLK_NAME[id] || REP_NAME[id] || repWho(id);
+const FOLK_TIER = { UNHAPPY: 'OH. IT\'S YOU.', NEW: 'YOU THE NEW PILOT? WE\'LL SEE.', 'KNOWS YOU': 'MORNING, {P}.', TRUSTED: 'GOOD TO SEE YOU, {P} - COFFEE\'S ON.', REGULAR: 'THERE\'S MY PILOT!' };
+// ---- stories: [rep needed, the note after a delivery, the hello line, a radio line]; emg = this beat is an emergency call-out; after = it opens when that call-out is done ----
+const FOLK_ST = {
+  HOME: [{ rep: 35, n: 'MY GRANDDAUGHTER LILY IS COMING UP FOR THE SUMMER. FIRST TIME OUT HERE.', g: 'LILY GETS IN ON THURSDAY.', r: 'LILY SAYS HI - SHE WATCHED YOU TAKE OFF.' },
+    { rep: 50, n: 'LILY WANTS TO LEARN TO FLY. I TOLD HER TO WATCH HOW YOU LAND.', g: 'LILY\'S READING MY OLD FLYING BOOKS.', r: 'LILY\'S GONE HIKING UP BALDY WITH THE SURVEY KIDS. KIDS.' },
+    { rep: 65, n: 'LILY WENT UP THE BALDY TRAIL ALONE. SHE SAID SHE\'D BE BACK LAST NIGHT. SHE ISN\'T.', g: 'PLEASE, {P} - FIND MY LILY.', emg: { t: 'sar', a: 'BALDY', name: 'LILY, PETE\'S GRANDDAUGHTER', look: 'LILY', ppl: 1 } },
+    { rep: 0, after: 1, n: 'YOU FOUND MY LILY. THE STORE\'S COFFEE IS ON ME. FOREVER.', g: 'LILY WANTS FLYING LESSONS. FROM YOU.', r: 'LILY\'S TELLING EVERYONE ABOUT THE CUB THAT FOUND HER.' }],
+  RIDGE: [{ rep: 35, n: 'THE CREW\'S PUTTING A NEW ROOF ON THE MESS HALL. KEEP THE NAILS COMING.', g: 'ROOF\'S HALF ON.', r: 'RIDGE CREW HERE - ROOF\'S DONE. THANKS FOR THE NAILS.' },
+    { rep: 50, n: 'WEATHER\'S TURNING. IF THE SAW CREW ISN\'T DONE BY FRIDAY WE LOSE THE CONTRACT.', g: 'WE\'RE PUSHING HARD UP HERE.', r: 'SAW CREW\'S ON DOUBLE SHIFTS. SOMEBODY\'S GOING TO GET HURT.' },
+    { rep: 65, n: 'YOUNG TOMMY PUT A CHAINSAW INTO HIS LEG. WE NEED YOU - NOW.', g: 'TOMMY\'S BLEEDING BAD.', emg: { t: 'med', at: 'RIDGE', name: 'TOMMY, THE RIDGE CREW\'S NEW HAND', inj: 'CHAINSAW CUT' } },
+    { rep: 0, after: 1, n: 'TOMMY\'S BACK ON HIS FEET. THE CREW CHIPPED IN - THERE\'S A HAT WITH YOUR NAME ON IT.', g: 'TOMMY TELLS THE STORY EVERY NIGHT.', r: 'CONTRACT\'S DONE AND NOBODY DIED. DRINKS ARE ON THE RIDGE.' }],
+  LODGE: [{ rep: 35, n: 'THE LODGE IS FULL - A WEDDING PARTY. THANK HEAVENS FOR YOU.', g: 'THE BRIDE LOVED THE FLOWERS.', r: 'THE WEDDING WENT BEAUTIFULLY. THANK YOU, DEAR.' },
+    { rep: 50, n: 'MY NEPHEW ERIK IS TAKING TWO GUESTS DOWN THE LOWER RIVER BY CANOE. HE KNOWS IT LIKE HIS OWN HAND.', g: 'ERIK LEFT THIS MORNING.', r: 'ERIK\'S PARTY SHOULD BE AT THE TAKE-OUT BY TONIGHT.' },
+    { rep: 65, n: 'ERIK AND THE GUESTS ARE OVERDUE ON THE LOWER RIVER. TWO DAYS NOW.', g: 'BRING THEM HOME, {P}.', emg: { t: 'sar', a: 'LOWER', name: 'ERIK\'S CANOE PARTY', ppl: 3 } },
+    { rep: 0, after: 1, n: 'ERIK SAYS HE SAW YOUR WINGS AND CRIED LIKE A BABY. DINNER IS ON THE HOUSE.', g: 'YOUR TABLE\'S BY THE WINDOW.', r: 'ERIK\'S BACK GUIDING. HE SAYS HE OWES YOU A FISH.' }],
+  DRYFORK: [{ rep: 35, n: 'THE NEW INCUBATOR CAME ON YOUR LAST RUN. FIFTY CHICKS BY SPRING!', g: 'THE CHICKS ARE PEEPING.', r: 'MAE HERE - THE FIRST CHICKS HATCHED!' },
+    { rep: 50, n: 'THE TOWN WANTS A FULL-TIME NURSE AT THE CLINIC. I\'M WRITING LETTERS.', g: 'STILL WRITING THOSE LETTERS.', r: 'ANOTHER LETTER TO THE COUNTY TODAY. THEY\'LL LISTEN.' },
+    { rep: 65, n: 'NURSE OKAFOR STARTS MONDAY. WE\'RE THE VALLEY CLINIC NOW - BRING US YOUR HURT.', g: 'OKAFOR\'S A WONDER.', r: 'THE CLINIC\'S OPEN ALL HOURS NOW. TELL THE CAMPS.' },
+    { rep: 80, n: 'THE KIDS PAINTED A SIGN FOR THE STRIP: \'{P}\'S FIELD\'. DON\'T LET IT GO TO YOUR HEAD.', g: 'WELCOME TO {P}\'S FIELD.', r: 'THE SIGN\'S UP. THE WHOLE TOWN SIGNED IT.' }],
+  CREEK: [{ rep: 35, n: 'COLOR IN THE PAN THIS WEEK! NOT MUCH, BUT IT\'S GOLD.', g: 'SHE\'S IN THAT CREEK SOMEWHERE.', r: 'JOE ON CREEK BAR - MORE COLOR TODAY!' },
+    { rep: 50, n: 'I\'M FOLLOWING THE BLACK SAND UPSTREAM. THE SLUICE IS GETTING DEEP.', g: 'BLACK SAND MEANS GOLD.', r: 'THE SLUICE IS SIX FOOT DEEP NOW. CAREFUL, JOE.' },
+    { rep: 65, n: 'JOE FELL INTO HIS SLUICE - THE ANKLE\'S BROKEN. THE CAMP CALLED IT IN.', g: 'OW.', emg: { t: 'med', at: 'CREEK', name: 'PROSPECTOR JOE', inj: 'BROKEN ANKLE', look: 'CREEK', joe: 1 } },
+    { rep: 0, after: 1, n: 'FIRST NUGGET\'S YOURS, PARTNER. WELL - HALF OF IT.', g: 'HALF A NUGGET, PARTNER.', r: 'JOE\'S BACK ON THE BAR, CAST AND ALL.' }],
+  RANGER: [{ rep: 35, n: 'FIRE SEASON\'S EARLY. KEEP AN EYE OUT FOR SMOKE UP THERE.', g: 'SEEN ANY SMOKE?', r: 'RANGER STATION: ALL QUIET ON THE WEST SIDE.' },
+    { rep: 50, n: 'I\'VE PUT YOU ON THE SEARCH-AND-RESCUE ROSTER. HOPE YOU DON\'T MIND.', g: 'YOU\'RE ON THE ROSTER.', r: 'KOWALSKI: KEEP YOUR RADIO ON, {P}.' },
+    { rep: 65, n: 'THE REGION HEARD ABOUT YOUR SAVES. THERE\'S A PATCH IN THE MAIL.', g: 'WEAR THE PATCH.', r: 'KOWALSKI: THE CHIEF ASKED WHO THE CUB PILOT IS.' },
+    { rep: 80, n: 'YOU\'RE THE FIRST CALL NOW, NOT THE LAST. THANKS, {P}.', g: 'FIRST CALL, {P}.', r: 'KOWALSKI: GOOD FLYING OUT THERE.' }],
+};
+const folkP = s => s.replace(/\{P\}/g, PILOT);
+// ---- the figure: low-poly boxes in vertex colour (one merged body + one arm that waves), origin at the feet, facing +z ----
+function folkParts(L, pose) {
+  const s = L.s || 1, P = [], B = 0x2a2018, sk = L.sk, sh = L.sh, tr = L.tr;
+  if (pose === 'sit') { for (const sx of [-0.09, 0.09]) P.push(['b', 0.13, 0.13, 0.5, sx, 0.08, 0.27, tr], ['b', 0.11, 0.2, 0.09, sx, 0.1, 0.55, B]); P.push(['b', 0.34, 0.14, 0.2, 0, 0.09, 0, tr]); }
+  else { for (const sx of [-0.09, 0.09]) P.push(['b', 0.11, 0.08, 0.22, sx, 0.04, 0.03, B], ['b', 0.13, 0.78, 0.15, sx, 0.47, 0, tr]); P.push(['b', 0.34, 0.14, 0.2, 0, 0.88, 0, tr]); }
+  const ty = pose === 'sit' ? 0.42 : 1.18, d = ty - 1.18;
+  P.push(['b', 0.38, 0.5, 0.22, 0, ty, 0, sh], ['b', 0.1, 0.56, 0.12, -0.25, ty - 0.04, 0, sh], ['b', 0.09, 0.1, 0.1, -0.25, ty - 0.36, 0, sk], ['b', 0.1, 0.06, 0.1, 0, 1.46 + d, 0, sk], ['b', 0.22, 0.26, 0.24, 0, 1.6 + d, 0, sk]);
+  for (const sx of [-0.05, 0.05]) P.push(['b', 0.04, 0.025, 0.01, sx, 1.62 + d, 0.121, 0x1a1612]);
+  if (L.beard) P.push(['b', 0.22, 0.12, 0.08, 0, 1.51 + d, 0.09, L.beard]);
+  if (L.ap) P.push(['b', 0.3, pose === 'sit' ? 0.4 : 0.66, 0.02, 0, pose === 'sit' ? 0.36 : 0.98, 0.115, L.ap]);
+  if (L.coat) P.push(['b', 0.4, pose === 'sit' ? 0.5 : 0.95, 0.235, 0, pose === 'sit' ? 0.42 : 1.0, 0, L.coat]);
+  const hy = 1.74 + d, hc = L.hc;
+  if (L.hat === 'cap') P.push(['b', 0.24, 0.07, 0.25, 0, hy, 0, hc], ['b', 0.2, 0.02, 0.12, 0, hy - 0.03, 0.17, hc]);
+  else if (L.hat === 'brim') P.push(['b', 0.42, 0.02, 0.42, 0, hy - 0.02, 0, hc], ['b', 0.24, 0.12, 0.25, 0, hy + 0.04, 0, hc]);
+  else if (L.hat === 'beanie') P.push(['b', 0.24, 0.1, 0.26, 0, hy, 0, hc]);
+  else if (L.hat === 'hard') P.push(['b', 0.27, 0.1, 0.29, 0, hy, 0, hc], ['b', 0.3, 0.02, 0.33, 0, hy - 0.05, 0.01, hc]);
+  else if (L.hat === 'ranger') P.push(['b', 0.44, 0.02, 0.44, 0, hy - 0.02, 0, hc], ['c', 0.12, 0.14, 4, 0, hy + 0.06, 0, hc]);
+  else if (L.hat === 'bun') P.push(['b', 0.24, 0.08, 0.26, 0, hy - 0.02, -0.01, hc], ['b', 0.12, 0.1, 0.1, 0, hy + 0.02, -0.14, hc]);
+  else if (L.hat === 'long') P.push(['b', 0.24, 0.08, 0.26, 0, hy - 0.02, -0.01, hc], ['b', 0.22, 0.34, 0.06, 0, hy - 0.22, -0.13, hc]);
+  else P.push(['b', 0.23, 0.05, 0.25, 0, hy - 0.04, -0.01, hc]);
+  if (s !== 1) for (const p of P) { p[1] *= s; p[2] *= s; if (p[0] !== 'c') p[3] *= s; p[4] *= s; p[5] *= s; p[6] *= s; }
+  return P;
+}
+function folkArmParts(L, pose) { const s = L.s || 1, ty = pose === 'sit' ? 0.42 : 1.18; return { P: [['b', 0.1 * s, 0.56 * s, 0.12 * s, 0, -0.27 * s, 0, L.sh], ['b', 0.09 * s, 0.1 * s, 0.1 * s, 0, -0.59 * s, 0, L.sk]], at: [0.25 * s, (ty + 0.24) * s, 0] }; }
+const FOLK_GEO = new Map();
+function folkGeo(L, pose, arm) {
+  const k = JSON.stringify(L) + pose + (arm ? 'a' : ''); let g = FOLK_GEO.get(k); if (g) return g;
+  const gs = (arm ? folkArmParts(L, pose).P : folkParts(L, pose)).map(partGeo); g = mergeGeometries(gs); for (const x of gs) x.dispose(); FOLK_GEO.set(k, g); return g;
+}
+function folkMake(L, pose, x, z, ry, extra) {   // a Group at (x, ground, z): body + waving arm (+ props in the same frame)
+  const G = new THREE.Group(), body = new THREE.Mesh(folkGeo(L, pose), ITEM_VM), ap = folkArmParts(L, pose), arm = new THREE.Mesh(folkGeo(L, pose, true), ITEM_VM);
+  body.castShadow = arm.castShadow = true; body.userData.noBatch = arm.userData.noBatch = true; arm.position.fromArray(ap.at); G.add(body, arm);
+  if (extra && extra.length) { const gs = extra.map(partGeo), m = new THREE.Mesh(mergeGeometries(gs), ITEM_VM); for (const q of gs) q.dispose(); m.userData.noBatch = true; m.castShadow = true; G.add(m); G.userData.props = m; }
+  G.position.set(x, groundY(x, z), z); G.rotation.y = ry; G.userData.noBatch = true; scene.add(G); return { g: G, arm, x, z, ry, ry0: ry, wave: 0, ph: Math.random() * 6, L, pose };
+}
+function folkPatLook() { return EMG.lookNow || (emgActive() ? emgLook(emgActive()) : FOLK_L.RANGER); }
+function folkSeatP(w, h, d) {   // v0.58 the patient on the rear seat (cargo piece 'patient'): seated, blanket over the legs, a white dressing; the box is the seat footprint
+  const L = folkPatLook(), y = -h / 2, P = [];
+  for (const sx of [-0.09, 0.09]) P.push(['b', 0.13, 0.13, 0.36, sx, y + 0.07, -0.1, L.tr], ['b', 0.12, 0.34, 0.13, sx, y - 0.12, -0.3, L.tr]);
+  P.push(['b', 0.34, 0.06, 0.4, 0, y + 0.15, -0.1, 0x2f5f8f], ['b', 0.36, 0.46, 0.22, 0, y + 0.37, 0.1, L.sh], ['b', 0.1, 0.42, 0.12, -0.24, y + 0.33, 0.08, L.sh], ['b', 0.1, 0.42, 0.12, 0.24, y + 0.33, 0.08, L.sh],
+    ['b', 0.1, 0.06, 0.1, 0, y + 0.63, 0.1, L.sk], ['b', 0.21, 0.25, 0.23, 0, y + 0.78, 0.1, L.sk], ['b', 0.16, 0.1, 0.18, 0.12, y + 0.2, -0.05, 0xf4f4f0]);
+  if (L.hc) P.push(['b', 0.23, 0.06, 0.25, 0, y + 0.92, 0.1, L.hc]);
+  return P;
+}
+// ---- the figures at the boards: beside each board (the reader's right), facing out; the nurse by the Dry Fork pad ----
+{ for (const S of DLV_STRIPS) { const L = FOLK_L[S.id]; if (!L) continue; const [bx, bz, ry] = S.board, rx = Math.cos(ry), rz = -Math.sin(ry), nx = Math.sin(ry), nz = Math.cos(ry);
+    const f = folkMake(L, 'stand', bx + rx * 1.35 + nx * 0.9, bz + rz * 1.35 + nz * 0.9, ry - 0.35); f.id = S.id; f.S = S; FOLK.figs.push(f); }
+  const D = dlvS('DRYFORK'), ry = D.board[2], rx = Math.cos(ry), rz = -Math.sin(ry), f = folkMake(FOLK_L.NURSE, 'stand', D.pad[0] - rx * 2.6, D.pad[1] - rz * 2.6, ry + 0.4); f.id = 'NURSE'; f.S = D; FOLK.figs.push(f); }
+function folkLine(id) {   // what they say when you walk up
+  const st = FOLK_ST[id], b = FOLK.b[id] || 0, v = repOf(id), t = folkP(FOLK_TIER[repTier(v)[1]] || 'HELLO.');
+  if (id === 'NURSE') { const a = EMG.jobs.find(j => j.emg.got); return a ? 'BRING THEM IN - I\'M READY.' : (FOLK.b.DRYFORK || 0) >= 3 ? 'THE VALLEY CLINIC\'S OPEN, ' + PILOT + '. FLY THEM IN, I\'LL DO THE REST.' : 'JUST VISITING FROM THE COUNTY - MAE WANTS A CLINIC HERE.'; }
+  const req = dlvActive().some(j => j.req && repKey(j) === id) ? ' THANKS FOR TAKING OUR REQUEST.' : '';
+  return st && b ? t + ' ' + folkP(st[b - 1].g) + req : t + req;
+}
+function folkJob(r) {   // a delivery / airdrop for customer r.k: the next story beat if their rep is there (one beat per delivery)
+  if (!r) return r; const id = r.k, st = FOLK_ST[id], b = FOLK.b[id] || 0; if (!st || b >= st.length) return r;
+  const B = st[b]; if (B.after || r.v < B.rep) return r; folkBeat(id); return r;
+}
+function folkBeat(id, quiet) {
+  const st = FOLK_ST[id], b = FOLK.b[id] || 0; if (!st || b >= st.length) return; const B = st[b]; FOLK.b[id] = b + 1;
+  if (!quiet) FOLK.q.push({ t: 'NOTE FROM ' + folkName(id) + ': "' + folkP(B.n) + '"', w: 3.6 });
+  if (B.emg && !EMG.story.some(s => s.id === id)) EMG.story.push({ id, i: b });
+  saveSoon();
+}
+function folkChat() {   // a COM radio line from someone whose story you're in (else null)
+  const ids = Object.keys(FOLK_ST).filter(id => (FOLK.b[id] || 0) > 0 && FOLK_ST[id][FOLK.b[id] - 1].r); if (!ids.length || Math.random() < 0.35) return null;
+  const id = ids[Math.floor(Math.random() * ids.length)]; return folkName(id) + ': "' + folkP(FOLK_ST[id][FOLK.b[id] - 1].r) + '"';
+}
+function folkTick(dt) {
+  const P = playerPos(), foot = mode === 'foot';
+  if (FOLK.q.length && (FOLK.q[0].w -= dt) <= 0) { const n = FOLK.q.shift(); if (!n.soft || msgT < 0.5) { say(n.t); msgT = n.soft ? 5 : 7; } }
+  let near = null, nd = 4;
+  for (const f of FOLK.figs) { const dx = P.x - f.x, dz = P.z - f.z, d = Math.hypot(dx, dz), vis = d < 200 && !(f.id === 'CREEK' && EMG.jobs.some(j => j.emg.joe)); f.g.visible = vis; if (!vis) continue;
+    if (foot && d < 12) { const want = Math.atan2(dx, dz); let e = want - f.g.rotation.y; e = Math.atan2(Math.sin(e), Math.cos(e)); f.g.rotation.y += e * Math.min(1, dt * 3); } else { let e = f.ry0 - f.g.rotation.y; e = Math.atan2(Math.sin(e), Math.cos(e)); f.g.rotation.y += e * Math.min(1, dt * 1.5); }
+    if (foot && d < nd) { nd = d; near = f; } folkArm(f, dt); }
+  if (near && FOLK.near !== near) { FOLK.near = near; near.wave = 2.2; FOLK.q.push({ t: folkName(near.id) + ': "' + folkLine(near.id) + '"', w: 1.2, soft: 1 }); FOLK.met[near.id] = 1; }   // (a hello waits for a quiet moment)
+  else if (!near && FOLK.near) { const f = FOLK.near; if (Math.hypot(P.x - f.x, P.z - f.z) > 9 || !foot) FOLK.near = null; }
+}
+function folkArm(f, dt) {   // idle: hangs, sways a little; waving: up and side to side
+  f.ph += dt; if (f.wave > 0) f.wave -= dt; const w = f.wave > 0 || f.waveOn ? 1 : 0; f.wk = (f.wk || 0) + (w - (f.wk || 0)) * Math.min(1, dt * 6);
+  f.arm.rotation.z = f.wk * (2.5 + Math.sin(f.ph * 9) * 0.35) + (1 - f.wk) * (0.06 + Math.sin(f.ph * 1.3) * 0.03);
+}
+// ---- search-and-rescue areas: 3 spots each, found at load (hikers: the flattest dry ground; canoe parties: on a river / lake bank), trees cleared round them ----
+const SAR_A = [
+  { id: 'BALDY', name: 'BALDY TRAIL', who: 'OVERDUE HIKER', kind: 'hiker', x: -2300, z: 400, ppl: 1 },
+  { id: 'SPRUCEH', name: 'SPRUCE HILLS', who: 'LOST HUNTER', kind: 'hiker', x: 1500, z: -2400, ppl: 1 },
+  { id: 'EASTW', name: 'EAST WOODS', who: 'OVERDUE HIKERS', kind: 'hiker', x: 2700, z: 300, ppl: 2 },
+  { id: 'LOWER', name: 'LOWER RIVER', who: 'OVERDUE CANOE PARTY', kind: 'canoe', x: RIVER_X(-3000), z: -3000, ppl: 2, river: 1 },
+  { id: 'BEND', name: 'BIG BEND', who: 'MISSING CANOEIST', kind: 'canoe', x: RIVER_X(1200), z: 1200, ppl: 1, river: 1 },
+  { id: 'ELAKE', name: 'EAST LAKE', who: 'OVERDUE KAYAKERS', kind: 'canoe', x: 1390, z: -1500, ppl: 2, lake: LAKES[1] }];
+for (const A of SAR_A) { A.sp = [];
+  for (let n = 0; n < 3; n++) { let best = null;
+    if (A.river) { const z = A.z + (n - 1) * 320, side = n === 1 ? -1 : 1; for (let k = 0; k < 9; k++) { const zz = z + (k - 4) * 12, x0 = RIVER_X(zz); for (let o = 10; o < 30; o += 2) { const x = x0 + side * o, w = waterDist(x, zz); if (w > 3 && w < 8) { const f = Math.abs(groundY(x + 3, zz) - groundY(x - 3, zz)) + Math.abs(groundY(x, zz + 3) - groundY(x, zz - 3)); if (!best || f < best[2]) best = [x, zz, f]; break; } } } }
+    else if (A.lake) { const L = A.lake, a0 = Math.PI + (n - 1) * 0.55; for (let k = 0; k < 7; k++) { const a = a0 + (k - 3) * 0.05, x = L.x + Math.cos(a) * (L.r + 6), z = L.z + Math.sin(a) * (L.r + 6), w = waterDist(x, z); if (w < 2.5) continue; const f = Math.abs(groundY(x + 3, z) - groundY(x - 3, z)) + Math.abs(groundY(x, z + 3) - groundY(x, z - 3)); if (!best || f < best[2]) best = [x, z, f]; } }
+    if (!best) { const a0 = n * 2.1 + 0.4; for (let r = 90; r <= 330; r += 40) for (let a = a0 - 0.5; a <= a0 + 0.5; a += 0.25) { const x = A.x + Math.cos(a) * r, z = A.z + Math.sin(a) * r; if (waterDist(x, z) < 8) continue;
+        let f = 0; for (const [dx, dz] of [[4, 0], [-4, 0], [0, 4], [0, -4]]) f = Math.max(f, Math.abs(groundY(x + dx, z + dz) - groundY(x, z))); if (!best || f < best[2]) best = [x, z, f]; } }
+    A.sp.push([best[0], best[1]]); } }
+{ const c58 = MYS_SITES.clear; MYS_SITES.clear = () => { c58();   // clear trees / bushes / rocks round every SAR spot (12 m) and the figures at the boards (3 m)
+    const off = (x, z) => SAR_A.some(A => A.sp.some(([sx, sz]) => (x - sx) ** 2 + (z - sz) ** 2 < 144)) || FOLK.figs.some(f => (x - f.x) ** 2 + (z - f.z) ** 2 < 9);
+    for (const k of CHUNKS) for (let i = 0; i < k.n; i++) if (off(k.xz[i * 3], k.xz[i * 3 + 2])) k.full.fill(0, i * 16, i * 16 + 16);
+    scene.traverse(m => { if (!m.isInstancedMesh || CHUNKS.some(k => k.im === m)) return; const A = m.instanceMatrix.array; let hit = false;
+      for (let i = 0; i < m.count; i++) if (A[i * 16 + 15] && off(A[i * 16 + 12], A[i * 16 + 14])) { A.fill(0, i * 16, i * 16 + 16); hit = true; } if (hit) m.instanceMatrix.needsUpdate = true; });
+    for (let i = TREES.length - 1; i >= 0; i--) if (off(TREES[i][0], TREES[i][2])) TREES.splice(i, 1); }; }
+// ---- call-outs ----
+CARGO_K.patient = { n: 'PATIENT', sz: [0.44, 0.56, 0.42], lb: [140, 200] };
+LBL_AT.patient = [0.05, 0.12, 0, null];
+const EMG_WHO = ['A LOGGER', 'A HIKER', 'A YOUNG GUEST', 'A FISHERMAN', 'THE CAMP COOK', 'A SURVEYOR', 'A KID'], EMG_INJ = ['BROKEN LEG', 'DEEP CUT', 'APPENDICITIS', 'BAD FALL', 'BURNS', 'CHEST PAINS', 'ALLERGIC REACTION'];
+const EMG_LOOKS = [{ sk: 0xe0b090, sh: 0x3a6a9a, tr: 0x2a2e3a, hat: 'beanie', hc: 0x2a2a2a }, { sk: 0xc89068, sh: 0xc0a020, tr: 0x3a3226, hat: 'cap', hc: 0x8a2a1a }, { sk: 0xf0c8a8, sh: 0x8a3a6a, tr: 0x2a3a5a, hat: 'long', hc: 0x3a2a1a, s: 0.94 }, { sk: 0x8a5a3a, sh: 0x4a8a4a, tr: 0x3a3a32, hat: 'none', hc: 0x1a1612 }];
+const emgClinic = () => dlvS('DRYFORK');
+const emgKm = (ax, az, bx, bz) => Math.hypot(ax - bx, az - bz) / 1000;
+function emgGen(sc) {   // one call-out (seeded by its number, so a save reloads the same one); sc: a story beat's scripted call
+  const id = 900000 + EMG.seq++, r = dlvRng(id * 7331 + 58), H = dlvS('HOME'), t = sc ? sc.emg.t : r() < 0.55 ? 'med' : 'sar';
+  if (t === 'med') {
+    const C = DLV_STRIPS.filter(S => S.id !== 'DRYFORK' && S.id !== 'HOME' && !S.lock), S = sc ? dlvS(sc.emg.at) : C[Math.floor(r() * C.length)], T = emgClinic();
+    const name = sc ? sc.emg.name : EMG_WHO[Math.floor(r() * EMG_WHO.length)] + ' AT ' + S.name, inj = sc ? sc.emg.inj : EMG_INJ[Math.floor(r() * EMG_INJ.length)], lb = Math.round(140 + r() * 60);
+    const km = emgKm(S.pad[0], S.pad[1], T.pad[0], T.pad[1]), out = emgKm(H.pad[0], H.pad[1], S.pad[0], S.pad[1]), look = sc && sc.emg.look ? sc.emg.look : null, lk = Math.floor(r() * EMG_LOOKS.length);
+    return { id, from: S.id, to: T.id, title: 'MEDEVAC - ' + inj, items: [{ k: 'patient', lb }], pay: Math.round(320 + 70 * km + 30 * out), dl: 0, due: 0, st: 'call', wc: 'L', sp: 'med', life: Math.ceil(30 + 2 * (km + out)), fresh: 1, stress: 0,
+      emg: { t, who: sc ? sc.id : S.id, name, inj, look, lk, got: 0, sc: sc ? sc.id : null, joe: sc && sc.emg.joe ? 1 : 0, exp: 0 } };
+  }
+  const ai = sc ? SAR_A.findIndex(A => A.id === sc.emg.a) : Math.floor(r() * SAR_A.length), A = SAR_A[ai], si = Math.floor(r() * 3), [x, z] = A.sp[si], ca = r() * 6.283, cr = 60 + r() * 220;
+  const ppl = sc && sc.emg.ppl ? sc.emg.ppl : A.ppl, km = emgKm(H.pad[0], H.pad[1], x, z), items = [{ k: 'bundle', lb: Math.round(15 + r() * 10) }, { k: 'bundle', lb: Math.round(15 + r() * 10) }];
+  return { id, from: 'HOME', to: emgClinic().id, title: 'SAR - ' + (sc ? sc.emg.name : A.who), items, pay: Math.round(380 + 60 * km), dl: 0, due: 0, st: 'call', wc: 'L', sp: 'med', life: 75, fresh: 1, stress: 0,
+    emg: { t: 'sar', who: sc ? sc.id : 'RANGER', name: sc ? sc.emg.name : A.who, a: ai, si, x, z, cx: x + Math.cos(ca) * cr, cz: z + Math.sin(ca) * cr, cr: 450, ppl, seen: 0, got: 0, look: sc && sc.emg.look ? sc.emg.look : null, lk: Math.floor(r() * EMG_LOOKS.length), sc: sc ? sc.id : null, exp: 0 } };
+}
+const emgLook = j => (j.emg.look && FOLK_L[j.emg.look]) || EMG_LOOKS[j.emg.lk % EMG_LOOKS.length];
+const emgActive = () => EMG.jobs.find(j => j.st === 'active') || null;
+function emgCallText(j) { return (j.emg.t === 'med' ? 'MEDEVAC: ' + j.emg.name + ' - ' + j.emg.inj + ', FLY THEM TO THE DRY FORK CLINIC' : 'SEARCH + RESCUE: ' + j.emg.name + ' (' + j.emg.ppl + ') SOMEWHERE NEAR ' + SAR_A[j.emg.a].name) + ' - UP TO $' + j.pay; }
+function emgNewCall() {
+  const sc = EMG.story.length ? EMG.story[0] : null, scd = sc ? { id: sc.id, emg: FOLK_ST[sc.id][sc.i].emg } : null;
+  const j = emgGen(scd); j.emg.exp = scd ? 0 : DLV.gt + EMG_EXP; if (sc) EMG.story.shift(); EMG.call = j; EMG.key = ''; MAP.key = '';
+  const atB = mode === 'foot' && DLV.nearS && !DLV.nearS.site && DLV.nearD < 60;
+  if (mode === 'plane' && UPG.radio && ENG.master) { sfx('static'); say('RADIO - RANGER KOWALSKI: "ALL PILOTS, ' + emgCallText(j) + '" (C TO TAKE IT)'); msgT = 7; EMG.heard = j.id; }
+  else if (atB) { say('EMERGENCY CALL-OUT ON THE RED SIGN: ' + emgCallText(j)); msgT = 6; EMG.heard = j.id; }
+  saveSoon();
+}
+function emgAccept(from) {   // from: the strip whose sign you poked, or null (by radio: the nearest town strip)
+  const j = EMG.call; if (!j) return false; if (emgActive()) { say('ONE EMERGENCY AT A TIME - FINISH THE ONE YOU HAVE'); sfx('tick'); return false; }
+  const P = playerPos(), S0 = from || DLV_STRIPS.filter(S => !S.site && !S.lock).reduce((a, S) => Math.hypot(S.pad[0] - P.x, S.pad[1] - P.z) < Math.hypot(a.pad[0] - P.x, a.pad[1] - P.z) ? S : a);
+  EMG.call = null; j.st = 'active'; EMG.jobs.push(j); const T = dlvS(j.to);
+  if (j.emg.t === 'med') { const S = dlvS(j.from); if (S.site && !S.found) bushFind(S, true);
+    j.dl = Math.ceil(8 + 1.7 * (emgKm(P.x, P.z, S.pad[0], S.pad[1]) + emgKm(S.pad[0], S.pad[1], T.pad[0], T.pad[1]))); }
+  else { j.from = S0.id; dlvSpawn(j); j.dl = Math.ceil(16 + 2.5 * emgKm(P.x, P.z, j.emg.cx, j.emg.cz)); }
+  j.due = DLV.gt + j.dl; emgVis(j); sfx('clack'); MAP.key = ''; EMG.key = ''; for (const S of DLV_STRIPS) S.key = ''; KB.key = '';
+  say('ACCEPTED: ' + (j.emg.t === 'med' ? 'MEDEVAC - ' + j.emg.name + ' (' + j.emg.inj + ') AT ' + dlvS(j.from).name + ' - WALK UP, THEY LEAN ON YOU TO THE CUB; REAR SEAT, BELT, FLY SMOOTH, SHUT DOWN AT THE DRY FORK CLINIC - ' + j.dl + ' MIN'
+    : 'SAR - ' + j.emg.name + ': SEARCH THE RED CIRCLE ON YOUR MAP (BINOCULARS: V) - 2 SUPPLY BUNDLES ON THE ' + S0.name + ' PAD - DROP THEM ON THE PARTY OR LAND AND FLY ONE OUT - ' + j.dl + ' MIN')); msgT = 8;
+  saveSoon(); return true;
+}
+function emgVis(j) {   // the casualty (and their camp / companions) in the world
+  emgVisClear(); const L = emgLook(j);
+  if (j.emg.t === 'med') { const S = dlvS(j.from), ry = S.ry, rx = Math.cos(ry), rz = -Math.sin(ry), x = S.pad[0] + rx * 2.6, z = S.pad[1] + rz * 2.6;
+    const f = folkMake(L, 'sit', x, z, ry, [['b', 0.62, 0.1, 2.0, 0, 0.07, 0.35, 0x9a9a9a], ['b', 0.56, 0.06, 1.0, 0, 0.13, 0.7, 0x2f5f8f], ['b', 0.04, 0.04, 2.3, -0.3, 0.06, 0.35, 0x6a6e72], ['b', 0.04, 0.04, 2.3, 0.3, 0.06, 0.35, 0x6a6e72]]);
+    f.g.children[0].position.y += 0.12; f.g.children[1].position.y += 0.12; f.cas = 1; EMG.vis.push(f); EMG.cas = { f, x, z, st: j.emg.got ? 'aboard' : 'wait' }; if (j.emg.got) f.g.visible = false; return; }
+  const A = SAR_A[j.emg.a], x = j.emg.x, z = j.emg.z, ry = Math.atan2(-x, -z), canoe = A.kind === 'canoe';
+  const props = canoe ? [['b', 0.8, 0.35, 4.4, 2.2, 0.18, 0.4, 0x3a8a4a, 0, 0.4], ['b', 2.6, 0.04, 2.0, -1.8, 0.03, -0.6, 0xff6a10], ['b', 0.5, 0.3, 0.3, 1.0, 0.15, -1.6, 0x5a4a3a], ['b', 0.05, 0.05, 2.2, 3.0, 0.03, -0.6, 0xc8a050, 0, 0.3]]
+    : [['b', 1.6, 0.9, 2.0, -2.0, 0.45, -1.4, 0xff6a10], ['b', 1.7, 0.06, 2.1, -2.0, 0.92, -1.4, 0xd85a10], ['b', 0.45, 0.6, 0.3, 0.9, 0.3, -0.9, 0x3a5a8a], ['b', 2.4, 0.03, 1.6, 1.5, 0.02, 1.6, 0xff6a10]];
+  const f = folkMake(L, 'sit', x, z, ry, props); f.cas = 1; EMG.vis.push(f); EMG.cas = { f, x, z, st: j.emg.got ? 'aboard' : 'wait' }; if (j.emg.got) f.g.children[0].visible = f.g.children[1].visible = false;
+  for (let k = 1; k < j.emg.ppl; k++) { const a = ry + 1.2 + k * 0.9, f2 = folkMake(EMG_LOOKS[(j.emg.lk + k) % EMG_LOOKS.length], 'stand', x + Math.sin(a) * 1.8, z + Math.cos(a) * 1.8, ry); f2.waveOn = false; EMG.vis.push(f2); }
+}
+function emgVisClear() { for (const f of EMG.vis) f.g.removeFromParent(); EMG.vis.length = 0; EMG.cas = null; }
+function emgSpot(j, how) {
+  if (j.emg.seen) return; j.emg.seen = 1; MAP.key = ''; KB.key = ''; sfx('clack'); const P = playerPos(), d = Math.hypot(j.emg.x - P.x, j.emg.z - P.z);
+  say('SPOTTED: ' + j.emg.name + ' - ' + j.emg.ppl + (j.emg.ppl > 1 ? ' PEOPLE WAVING' : ' PERSON WAVING') + ' AT ' + SAR_A[j.emg.a].name + ', ' + Math.round(d / 10) * 10 + ' M' + (how ? ' (' + how + ')' : '') + ' - ON YOUR MAP: DROP THE BUNDLES ON THEM OR LAND NEARBY'); msgT = 7; saveSoon();
+}
+function emgBino(look) { const j = emgActive(); if (j && j.emg.t === 'sar' && !j.emg.seen) look(j.emg.x, groundY(j.emg.x, j.emg.z) + 1, j.emg.z, { sar: j }); }
+function emgBundle(it, p) {   // a SAR supply bundle came down at p: on them = done
+  const j = dlvJob(it.job); if (!j || !j.emg || j.st !== 'active') return; const d = Math.hypot(p.x - j.emg.x, p.z - j.emg.z), wet = waterDist(p.x, p.z) < 1;
+  if (wet || d > EMG_DROP_R) { say('SUPPLY BUNDLE ' + (wet ? 'IN THE WATER' : Math.round(d) + ' M AWAY') + ' - THEY CAN\'T GET TO IT (WITHIN ' + EMG_DROP_R + ' M)'); return; }
+  if (!j.emg.seen) emgSpot(j, 'THE DROP');
+  const late = j.dl && DLV.gt > j.due, pay = Math.round(j.pay * 0.6 * (late ? 0.5 : 1)), rp = folkJob(repAdd(j.emg.who, late ? -4 : 6));
+  emgEnd(j, pay, 'SUPPLIES REACHED THEM - ' + Math.round(d) + ' M FROM THE PARTY - "WE\'RE OK NOW!" - THE GROUND TEAM WALKS THEM OUT +$' + pay + (late ? ' (LATE - HALF)' : '') + ' - WALLET $' + (DLV.cash + pay) + repSay(rp));
+}
+function emgEnd(j, pay, text) {
+  DLV.cash += pay; DLV.paid += pay; DLV.done++; EMG.done++; for (const it of DLV.items.filter(o => o.job === j.id)) dlvRemove(it);
+  j.st = 'done'; const i = EMG.jobs.indexOf(j); if (i >= 0) EMG.jobs.splice(i, 1); emgVisClear(); EMG.nextT = DLV.gt + EMG_GAP[0] + dlvRng(j.id * 31 + 7)() * (EMG_GAP[1] - EMG_GAP[0]);
+  sfx('cash'); say(text); msgT = 7; if (j.emg.sc) { repAdd(j.emg.sc, 10); if (FOLK_ST[j.emg.sc][FOLK.b[j.emg.sc] || 0]?.after) folkBeat(j.emg.sc); }
+  wbUpdate(); cgStraps(); MAP.key = ''; KB.key = ''; EMG.key = ''; for (const S of DLV_STRIPS) S.key = ''; saveGame('delivered');
+}
+function emgHandOver(j) {   // at the clinic, the Cub stopped and shut down: the nurse takes the patient
+  const late = j.dl && DLV.gt > j.due, k = dlvSpPay(j), pay = Math.round((late ? j.pay / 2 : j.pay) * k), rp = repJob(j, late, k);
+  emgEnd(j, pay, 'NURSE OKAFOR TAKES OVER: ' + j.emg.name + ' - CONDITION ' + Math.round(100 * j.fresh) + '% - "YOU GOT THEM HERE IN TIME." +$' + pay + (late ? ' (LATE - HALF PAY)' : '') + ' - WALLET $' + (DLV.cash + pay) + repSay(rp));
+  const n = FOLK.figs.find(f => f.id === 'NURSE'); if (n) n.wave = 3;
+}
+function emgCancel() { const j = emgActive(); if (!j) return; if (j.emg.got) { say('THEY\'RE ABOARD - FLY THEM TO THE CLINIC'); sfx('tick'); return; }
+  for (const it of DLV.items.filter(o => o.job === j.id)) dlvRemove(it); j.st = 'done'; EMG.jobs.splice(EMG.jobs.indexOf(j), 1); emgVisClear(); EMG.nextT = DLV.gt + EMG_GAP[0];
+  sfx('click'); say('HANDED OVER TO THE STATE HELICOPTER - ' + j.title + repSay(repAdd(j.emg.who, -6))); MAP.key = ''; KB.key = ''; EMG.key = ''; saveSoon(); }
+function emgBoard(j) {   // the casualty at the door: onto the rear seat
+  if (ENG.running) return 'SHUT THE ENGINE DOWN - THEY WON\'T WALK PAST A TURNING PROP';
+  if (DLV.items.some(it => it.st === 'cargo' && it.cz === 'rear')) return 'CLEAR THE REAR SEAT FOR THEM';
+  EMG.lookNow = emgLook(j); const it = dlvMake(j, 'patient', j.items.find(i => i.k === 'patient')?.lb || 170, 0); EMG.lookNow = null; it.st = 'held';
+  if (!loadCargo(it, 'rear', 0, REAR_ZC, true)) { dlvRemove(it); return 'NO ROOM ON THE REAR SEAT'; }
+  if (j.emg.t === 'sar' && !j.items.some(i => i.k === 'patient')) j.items.push({ k: 'patient', lb: it.lb });
+  j.emg.got = 1; EMG.cas.st = 'aboard'; EMG.cas.f.g.visible = false;
+  sfx('thud', it.mesh.getWorldPosition(new THREE.Vector3())); say('ABOARD: ' + j.emg.name + ' ON THE REAR SEAT (' + it.lb + ' LB)' + (DLV.belt ? ' - BELTED' : ' - BELT THEM IN (/)') + ' - FLY SMOOTH TO THE DRY FORK CLINIC AND SHUT DOWN THERE'); msgT = 7;
+  wbUpdate(); MAP.key = ''; KB.key = ''; saveSoon(); return '';
+}
+function emgCasTick(dt, j) {   // the casualty: waits; walk up (3.5 m) and they lean on you and follow; at the Cub's door they climb onto the rear seat
+  const C = EMG.cas; if (!C || C.st === 'aboard') return; const f = C.f, P = playerPos(), foot = mode === 'foot', d = Math.hypot(P.x - C.x, P.z - C.z);
+  if (C.st === 'wait') { if (foot && d < 3.5) { C.st = 'follow'; if (f.pose === 'sit') { const L = f.L, nf = folkMake(L, 'stand', C.x, C.z, f.g.rotation.y); if (f.g.userData.props) { const pm = f.g.userData.props; f.g.remove(pm); pm.position.set(C.x, groundY(C.x, C.z), C.z); pm.rotation.y = f.g.rotation.y; scene.add(pm); EMG.vis.push({ g: pm }); } f.g.removeFromParent(); EMG.vis[EMG.vis.indexOf(f)] = nf; nf.cas = 1; C.f = nf; }
+      say(j.emg.name + ': "THANK GOD. HELP ME TO THE PLANE."' + ' - THEY LEAN ON YOU: WALK TO THE CUB\'S DOOR'); msgT = 5; } return; }
+  if (!foot || d > 40) { C.st = 'wait'; return; }
+  const F = C.f, tx = P.x, tz = P.z, dd = Math.hypot(tx - C.x, tz - C.z); if (dd > 1.6) { const sp = Math.min(dd - 1.6, 1.25 * dt); C.x += (tx - C.x) / dd * sp; C.z += (tz - C.z) / dd * sp; }
+  F.x = C.x; F.z = C.z; F.g.position.set(C.x, groundY(C.x, C.z), C.z); F.g.rotation.y = Math.atan2(tx - C.x, tz - C.z); F.ry0 = F.g.rotation.y;
+  const dp = qRot(ac.q, EMG_DOOR), dx = ac.pos[0] + dp[0] - C.x, dz = ac.pos[2] + dp[2] - C.z;
+  if (Math.hypot(dx, dz) < 3.2 && acGS() < 0.5) { const why = emgBoard(j); if (why && (EMG.sayT -= dt) <= 0) { EMG.sayT = 4; say(why); sfx('tick'); } }
+}
+function emgCond(j, dt) {   // the patient's condition: drains with time; rough flying and no belt make it worse; waiting on the ground half as fast
+  const its = DLV.items.filter(it => it.job === j.id && it.k === 'patient'), aboard = its.some(it => it.st === 'cargo'), air = mode === 'plane' && !ac.gs.some(g => g.Fn > 0);
+  let k = aboard ? 1 : 0.5; if (aboard && air) { k += 4 * Math.max(0, (DLV.ag || 0) - 0.2); if (!DLV.belt) k += 0.5; }
+  const f0 = j.fresh; j.fresh = Math.max(0, j.fresh - dt / 60 / j.life * k); j.stress = Math.max(j.stress * 0.999, aboard && air ? Math.max(0, (DLV.ag || 0) - 0.2) : 0);
+  if (aboard && air && (DLV.ag || 0) > 0.45 && (EMG.sayT -= dt) <= 0) { EMG.sayT = 8; say(j.emg.name.split(',')[0] + ' CRIES OUT - FLY SMOOTHER (CONDITION ' + Math.round(100 * j.fresh) + '%)'); }
+  if (aboard && air && !DLV.belt && (EMG.beltT = (EMG.beltT ?? 20) - dt) <= 0) { EMG.beltT = 30; say('YOUR PASSENGER ISN\'T BELTED IN - (/) ON THE GROUND, BEFORE TAKE-OFF'); }
+  if (f0 > 0.5 && j.fresh <= 0.5) say(j.emg.name.split(',')[0] + ' IS GETTING WORSE - CONDITION 50%'); if (f0 > 0.25 && j.fresh <= 0.25) { say(j.emg.name.split(',')[0] + ' IS CRITICAL - HURRY'); sfx('tick'); }
+  return aboard;
+}
+function emgTick(dt) {
+  const t0 = performance.now(), j = emgActive();
+  if (j) { const aboard = emgCond(j, dt); emgCasTick(dt, j);
+    if (j.emg.t === 'sar' && !j.emg.seen) { const P = playerPos(), d = Math.hypot(j.emg.x - P.x, j.emg.z - P.z), agl = P.y - groundY(P.x, P.z); if ((mode === 'plane' && d < EMG_SEE_R && agl < 260) || (mode === 'foot' && d < 60)) emgSpot(j); }
+    if (aboard && j.emg.got) { const T = dlvS(j.to); if (acGS() < 0.5 && !ENG.running && Math.hypot(ac.pos[0] - T.pad[0], ac.pos[2] - T.pad[1]) < 90) emgHandOver(j); }
+    for (const f of EMG.vis) if (f.arm) { const P = playerPos(), d = Math.hypot(P.x - f.x, P.z - f.z); f.waveOn = !(EMG.cas && EMG.cas.f === f && EMG.cas.st !== 'wait') && ((mode === 'plane' && d < 900) || (mode === 'foot' && d < 25 && d > 4)); folkArm(f, dt); } }
+  else if (!EMG.call && DLV.gt >= EMG.nextT) emgNewCall();
+  if (EMG.call && EMG.call.emg.exp && DLV.gt > EMG.call.emg.exp) { const c = EMG.call; EMG.call = null; EMG.nextT = DLV.gt + EMG_GAP[0]; EMG.key = '';
+    if (mode === 'plane' && UPG.radio && ENG.master) say('RADIO - RANGER KOWALSKI: "THE STATE HELICOPTER HAS THE ' + (c.emg.t === 'med' ? 'MEDEVAC' : 'SEARCH') + ' - STAND DOWN"'); }
+  if (EMG.call && EMG.heard !== EMG.call.id && mode === 'plane' && UPG.radio && ENG.master) { EMG.heard = EMG.call.id; sfx('static'); say('RADIO - RANGER KOWALSKI: "ALL PILOTS, ' + emgCallText(EMG.call) + '" (C TO TAKE IT)'); msgT = 7; }
+  if (UPG.radio && mode === 'plane' && ENG.master && (FOLK.chatT -= dt) <= 0) { FOLK.chatT = 140 + Math.random() * 80; const c = folkChat(); if (c && !EMG.call) { sfx('static'); say('RADIO - ' + c); } }
+  if ((EMG.signT -= dt) <= 0) { EMG.signT = 0.5; const k = emgSignKey(); if (k !== EMG.key) { EMG.key = k; emgSignDraw(); } const P = playerPos(); for (const s of EMG_SIGNS) s.m.visible = Math.hypot(P.x - s.x, P.z - s.z) < 400; }
+  folkTick(dt); EMG.ms = performance.now() - t0;
+}
+// ---- the red EMERGENCY signs: one shared canvas, beside the four town boards (the reader's left) ----
+const EMG_SIGNS = [];
+const EMG_CV = document.createElement('canvas'); EMG_CV.width = EMG_SIGN_W; EMG_CV.height = EMG_SIGN_H; const EMG_CX = EMG_CV.getContext('2d');
+const EMG_TEX = new THREE.CanvasTexture(EMG_CV); EMG_TEX.colorSpace = THREE.SRGBColorSpace; EMG_TEX.anisotropy = 4;
+const EMG_PW = 0.66, EMG_PH = 0.44;
+{ const red = mat(0x8a1a12), post = mat(0x6b4a2a), M = new THREE.MeshBasicMaterial({ map: EMG_TEX });
+  for (const S of DLV_STRIPS) { if (S.site || S.id === 'HALV') continue; const [bx, bz, ry] = S.board, rx = Math.cos(ry), rz = -Math.sin(ry), x = bx - rx * 1.25, z = bz - rz * 1.25, G = new THREE.Group();
+    G.position.set(x, groundY(x, z), z); G.rotation.y = ry; scene.add(G); box(0.07, 1.75, 0.07, post, 0, 0.85, -0.03, G); box(EMG_PW + 0.06, EMG_PH + 0.06, 0.03, red, 0, 1.42, 0, G);
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(EMG_PW, EMG_PH), M); m.position.set(0, 1.42, 0.017); m.userData.noBatch = true; G.add(m); EMG_SIGNS.push({ S, m, x, z }); } }
+function emgSignKey() { const j = emgActive(), c = EMG.call; return (c ? 'c' + c.id + Math.ceil(c.emg.exp - DLV.gt) : '') + (j ? 'a' + j.id + j.emg.got + j.emg.seen + Math.ceil(100 * j.fresh) + Math.ceil(j.due - DLV.gt) : '') + '|' + Math.ceil(EMG.nextT - DLV.gt) + (UPG.radio ? 'r' : ''); }
+function emgSignDraw() {
+  const x = EMG_CX, W = EMG_SIGN_W, H = EMG_SIGN_H, j = emgActive(), c = EMG.call;
+  x.fillStyle = '#7a1410'; x.fillRect(0, 0, W, H); x.fillStyle = '#f4ece0'; x.fillRect(6, 6, W - 12, H - 12); x.fillStyle = '#b8201a'; x.fillRect(6, 6, W - 12, 40);
+  x.fillStyle = '#fff'; x.font = 'bold 22px sans-serif'; x.textAlign = 'left'; x.fillText('\u271A EMERGENCY CALL-OUTS', 16, 34); x.fillStyle = '#222';
+  const T = (t, y, f = '15px sans-serif', col = '#222') => { x.font = f; x.fillStyle = col; x.fillText(t, 16, y, W - 32); };
+  if (j) { T('ON THE GO: ' + j.title, 72, 'bold 16px sans-serif', '#7a1410'); T(j.emg.name, 96);
+    T(j.emg.t === 'sar' ? (j.emg.got ? 'ABOARD - FLY THEM TO THE DRY FORK CLINIC' : j.emg.seen ? 'SPOTTED - DROP SUPPLIES OR LAND NEARBY' : 'SEARCH THE RED CIRCLE ON YOUR MAP') : j.emg.got ? 'ABOARD - SHUT DOWN AT THE DRY FORK CLINIC' : 'WAITING AT ' + dlvS(j.from).name, 120, 'bold 15px sans-serif', '#2a5a22');
+    const l = j.due - DLV.gt; T('CONDITION ' + Math.round(100 * j.fresh) + '%  -  ' + (l < 0 ? 'LATE: HALF PAY' : 'DUE IN ' + Math.ceil(l) + ' MIN'), 146, 'bold 15px sans-serif', j.fresh < 0.5 || l < 0 ? '#b8201a' : '#222');
+    if (!j.emg.got) { x.fillStyle = '#8a8a80'; x.fillRect(W - 186, H - 52, 170, 34); x.fillStyle = '#fff'; x.font = 'bold 14px sans-serif'; x.textAlign = 'center'; x.fillText('HAND IT OVER (-6 REP)', W - 101, H - 30); x.textAlign = 'left'; }
+    T('UP TO $' + j.pay, H - 30, 'bold 18px sans-serif', '#1e6a2a'); }
+  else if (c) { T(c.emg.t === 'med' ? 'MEDEVAC' : 'SEARCH + RESCUE', 72, 'bold 18px sans-serif', '#7a1410');
+    T(c.emg.t === 'med' ? c.emg.name + ' - ' + c.emg.inj : c.emg.name + ' (' + c.emg.ppl + ') - ' + SAR_A[c.emg.a].name, 98, 'bold 15px sans-serif');
+    T(c.emg.t === 'med' ? 'PICK UP AT ' + dlvS(c.from).name + ', FLY TO THE DRY FORK CLINIC' : 'FIND THEM FROM THE AIR - DROP SUPPLIES OR FLY ONE OUT', 122);
+    T(c.emg.t === 'med' ? 'TIME-CRITICAL: CONDITION + SMOOTH FLYING SET THE PAY' : '2 SUPPLY BUNDLES ON THE PAD - BINOCULARS (V) HELP', 144, '14px sans-serif', '#555');
+    if (c.emg.exp) T('OPEN FOR ' + Math.max(0, Math.ceil(c.emg.exp - DLV.gt)) + ' MIN', 166, '13px sans-serif', '#555');
+    T('UP TO $' + c.pay, H - 30, 'bold 20px sans-serif', '#1e6a2a');
+    x.fillStyle = '#b8201a'; x.fillRect(W - 150, H - 54, 134, 38); x.fillStyle = '#fff'; x.font = 'bold 18px sans-serif'; x.textAlign = 'center'; x.fillText('ACCEPT', W - 83, H - 28); x.textAlign = 'left'; }
+  else { T('NO CALL-OUTS RIGHT NOW', 78, 'bold 18px sans-serif', '#555'); T('RANGER KOWALSKI RUNS THE LIST.', 108); T('NEXT CHECK-IN IN ~' + Math.max(1, Math.ceil(EMG.nextT - DLV.gt)) + ' MIN', 132);
+    T(UPG.radio ? 'YOUR COM RADIO WILL HEAR THE NEXT ONE (C TO TAKE IT)' : 'A COM RADIO (HANGAR PARTS BOARD) HEARS CALLS IN THE AIR', 160, '13px sans-serif', '#555'); }
+  T('POKE THE SIGN (DESKTOP 4) - ' + EMG.done + ' CALL-OUTS DONE', H - 10, '11px sans-serif', '#777'); EMG_TEX.needsUpdate = true;
+}
+function emgSignAct(S) { if (emgActive()) { emgCancel(); return true; } if (EMG.call) return emgAccept(S); say('NO CALL-OUTS RIGHT NOW - NEXT CHECK-IN IN ~' + Math.max(1, Math.ceil(EMG.nextT - DLV.gt)) + ' MIN'); sfx('tick'); return true; }
+const _emL = new THREE.Vector3();
+function emgPoke() {   // VR fingertips: the nearest red sign; the COM radio's face in the Cub (accepts a call-out)
+  if (!HANDS.st.length) return;
+  for (let i = 0; i < 2; i++) { const st = HANDS.st[i]; if (!st.vis) continue;
+    if (mode === 'foot') { for (const s of EMG_SIGNS) { if (Math.hypot(st.tip.x - s.x, st.tip.z - s.z) > 1.5) continue; s.m.worldToLocal(_emL.copy(st.tip)); const on = Math.abs(_emL.x) < EMG_PW / 2 && Math.abs(_emL.y) < EMG_PH / 2 && _emL.z < 0.012 && _emL.z > -0.05;
+        if (!EMG.poke[i] && (_emL.z > 0.04 || Math.abs(_emL.x) > EMG_PW / 2 || Math.abs(_emL.y) > EMG_PH / 2)) EMG.poke[i] = true; if (EMG.poke[i] && on) { EMG.poke[i] = false; emgSignAct(s.S); if (grips[i]) HX.pulse(grips[i], 0.4, 14, 'ui'); } } }
+    else if (UPG.radio && EMG.call) { plane.worldToLocal(_emL.copy(st.tip)); const d = _emL.distanceTo(UPG_M.radio.p); if (!EMG.rpoke[i] && d > 0.1) EMG.rpoke[i] = true; if (EMG.rpoke[i] && d < 0.05) { EMG.rpoke[i] = false; emgRadioTake(); if (grips[i]) HX.pulse(grips[i], 0.4, 14, 'ui'); } } }
+}
+function emgRadioTake() { if (!EMG.call) return false; if (!UPG.radio) { say('NO COM RADIO - TAKE CALL-OUTS AT A RED EMERGENCY SIGN'); return true; } sfx('static'); if (emgAccept(null)) msg = 'RADIO - YOU: "KOWALSKI, CUB TAKING IT." - ' + msg; return true; }
+function emgKey(e) {
+  if (e.code === 'KeyC' && mode === 'plane' && EMG.call) return emgRadioTake();
+  if (e.code === 'Digit4' && mode === 'foot') { const s = EMG_SIGNS.find(q => Math.hypot(PP.x - q.x, PP.z - q.z) < 5); if (s) return emgSignAct(s.S); }
+  return false;
+}
+// ---- map, kneeboard ----
+function emgMap(x, X, Z, F) {
+  const j = emgActive(); if (!j) return; x.lineWidth = 3;
+  if (j.emg.t === 'sar') { const cx = X(j.emg.cx), cy = Z(j.emg.cz), r = j.emg.cr * MAP_PX; x.fillStyle = 'rgba(200,30,20,0.12)'; x.strokeStyle = '#c01e14'; x.setLineDash([7, 5]); x.beginPath(); x.arc(cx, cy, r, 0, 6.283); x.fill(); x.stroke(); x.setLineDash([]);
+    x.fillStyle = '#9a1410'; x.font = 'bold 15px ' + F; x.fillText('SAR: ' + j.emg.name.toLowerCase(), cx, cy - r - 10);
+    if (j.emg.seen) { const px = X(j.emg.x), py = Z(j.emg.z); x.strokeStyle = '#c01e14'; x.lineWidth = 4; x.beginPath(); x.moveTo(px - 7, py - 7); x.lineTo(px + 7, py + 7); x.moveTo(px + 7, py - 7); x.lineTo(px - 7, py + 7); x.stroke(); x.font = 'bold 13px ' + F; x.fillText('found', px, py + 16); }
+    else { x.font = 'bold 26px ' + F; x.fillText('?', cx, cy); } }
+  else { const S = dlvS(j.from), px = X(S.pad[0]), py = Z(S.pad[1]); x.fillStyle = '#c01e14'; x.fillRect(px - 3, py - 10, 6, 20); x.fillRect(px - 10, py - 3, 20, 6); x.font = 'bold 14px ' + F; x.fillText('medevac', px, py - 18); }
+  const T = emgClinic(), tx = X(T.pad[0]), ty = Z(T.pad[1]); x.strokeStyle = '#c01e14'; x.lineWidth = 3; x.beginPath(); x.arc(tx, ty, 13, 0, 6.283); x.stroke(); x.fillStyle = '#9a1410'; x.font = 'bold 13px ' + F; x.fillText('clinic', tx, ty + 24);
+}
+function emgKb(j, P) {
+  const its = DLV.items.filter(i => i.job === j.id), got = j.emg.got, T = dlvS(j.to), left = dlvLeft(j), tgt = got ? [T.pad[0], T.pad[1]] : j.emg.t === 'med' ? dlvS(j.from).pad : j.emg.seen ? [j.emg.x, j.emg.z] : [j.emg.cx, j.emg.cz];
+  const dx = tgt[0] - P[0], dz = tgt[1] - P[2], km = Math.hypot(dx, dz) / 1000, hdg = Math.round(((Math.atan2(dx, -dz) * 180 / Math.PI) + 360) % 360 / 5) * 5 % 360, cond = 'CONDITION ' + Math.round(100 * j.fresh) + '%';
+  const nav = (got ? 'CLINIC ' : j.emg.t === 'med' ? 'PICKUP ' : j.emg.seen ? 'PARTY ' : 'SEARCH ') + (km < 10 ? km.toFixed(1) : Math.round(km)) + ' KM  HDG ' + String(hdg).padStart(3, '0');
+  const b = its.filter(i => i.k === 'bundle').length;
+  return { col: '#c01e14', t: j.title, sp: null, rt: (j.emg.t === 'med' ? dlvS(j.from).name : SAR_A[j.emg.a].name) + ' > DRY FORK CLINIC', nav, pcs: j.emg.name.slice(0, 30) + (j.emg.t === 'sar' && b ? ' - ' + b + ' BUNDLES' : ''), pay: 'UP TO $' + j.pay,
+    due: left < 0 ? 'LATE - HALF PAY' : 'DUE IN ' + Math.ceil(left) + ' MIN', st: got ? (DLV.belt ? 'ABOARD, BELTED - ' : 'ABOARD - BELT THEM IN! ') + cond : (j.emg.t === 'sar' && !j.emg.seen ? 'NOT FOUND YET - ' : 'WAITING - ') + cond, warn: left < 0 || j.fresh < 0.5 || (got && !DLV.belt) };
+}
+// ---- save / load ----
+function emgSaveJ(j) { const r3 = v => Math.round(v * 1000) / 1000; return { ...j, due: r3(j.due), fresh: r3(j.fresh), stress: r3(j.stress), items: j.items.map(i => ({ ...i })), emg: { ...j.emg } }; }
+function emgSave() { return { seq: EMG.seq, nextT: Math.round(EMG.nextT * 1000) / 1000, done: EMG.done, story: EMG.story.map(s => ({ ...s })), call: EMG.call ? emgSaveJ(EMG.call) : null, jobs: EMG.jobs.filter(j => j.st === 'active').map(emgSaveJ), fb: { ...FOLK.b } }; }
+function emgOkJ(j) { return j && typeof j === 'object' && j.emg && (j.emg.t === 'med' || j.emg.t === 'sar') && dlvS(j.to) && dlvS(j.from) && Array.isArray(j.items) && j.items.every(i => CARGO_K[i?.k]) && isFinite(j.pay) && (j.emg.t === 'med' || SAR_A[j.emg.a]); }
+function emgLoad(d) {   // before dlvLoad (so the patient / bundles in the save find their job); null = a fresh start
+  emgVisClear(); EMG.call = null; EMG.jobs = []; EMG.seq = 1; EMG.nextT = EMG_FIRST; EMG.done = 0; EMG.story = []; EMG.key = ''; EMG.heard = 0; FOLK.b = {}; FOLK.q = []; FOLK.near = null;
+  if (!d || typeof d !== 'object') return;
+  if (isFinite(d.seq)) EMG.seq = Math.max(1, d.seq | 0); if (isFinite(d.nextT)) EMG.nextT = +d.nextT; if (isFinite(d.done)) EMG.done = d.done | 0;
+  if (d.fb && typeof d.fb === 'object') for (const id of Object.keys(FOLK_ST)) if (isFinite(d.fb[id])) FOLK.b[id] = clamp(d.fb[id] | 0, 0, FOLK_ST[id].length);
+  if (Array.isArray(d.story)) EMG.story = d.story.filter(s => s && FOLK_ST[s.id] && FOLK_ST[s.id][s.i]?.emg).map(s => ({ id: s.id, i: s.i | 0 }));
+  if (emgOkJ(d.call)) EMG.call = { ...d.call, st: 'call', emg: { ...d.call.emg } };
+  if (Array.isArray(d.jobs)) for (const j of d.jobs.slice(0, 1)) if (emgOkJ(j)) EMG.jobs.push({ ...j, st: 'active', fresh: clamp(+j.fresh || 0, 0, 1), stress: 0, emg: { ...j.emg, seen: j.emg.seen ? 1 : 0, got: j.emg.got ? 1 : 0 } });
+}
+function emgFix() {   // after dlvLoad: a patient who was aboard is still aboard; otherwise they wait where they were picked up from
+  const j = emgActive(); if (!j) return; if (j.emg.got && !DLV.items.some(it => it.job === j.id && it.k === 'patient' && it.st === 'cargo')) { j.emg.got = 0; j.items = j.items.filter(i => j.emg.t === 'med' || i.k !== 'patient'); }
+  emgVis(j);
+}
 // ================= v0.45 save: where the Cub is parked, fuel, time of day, on foot or aboard. New key - older (v0.44 and before) saves are left alone and ignored =================
 const SAVE_KEY = 'bushpilot-vr-blank-v1', NOSAVE = /[?&]nosave\b/.test(location.search);
 const SV = { t: 30, due: -1, last: 0, off: false, air: false, cubT: 0, cub: null, n: 0, why: '' };
@@ -6278,7 +6657,7 @@ function cubParked() { return !ac.crashed && acGS() < 1 && ac.gs.some(g => g.Fn 
 function saveGame(why) {
   if (NOSAVE || SV.off) return false;
   if (cubParked()) SV.cub = { p: ac.pos.map(r3), q: ac.q.map(v => Math.round(v * 1e6) / 1e6) };
-  const d = { v: 55, at: Date.now(), cub: SV.cub, fuel: r3(fuel), h: r3(DAY.h), mode, foot: mode === 'foot' ? [r3(footRig.position.x), r3(footRig.position.z), r3(bodyYaw)] : null, dlv: dlvSave(), hunt: huntSave(), eco: ecoSave(), upg: upgSave() };   // v0.55 + the Cub's log (tach, oil, wear, damage)   // v0.53 + rifle / ammo   // v0.50: + wallet, jobs, cargo, straps
+  const d = { v: 55, at: Date.now(), cub: SV.cub, fuel: r3(fuel), h: r3(DAY.h), mode, foot: mode === 'foot' ? [r3(footRig.position.x), r3(footRig.position.z), r3(bodyYaw)] : null, dlv: dlvSave(), hunt: huntSave(), eco: ecoSave(), upg: upgSave(), emg: emgSave() };   // v0.55 + the Cub's log (tach, oil, wear, damage)   // v0.53 + rifle / ammo   // v0.50: + wallet, jobs, cargo, straps
   try { localStorage.setItem(SAVE_KEY, JSON.stringify(d)); } catch (e) { return false; }
   SV.last = Date.now(); SV.n++; SV.why = why || ''; SV.t = 30; SV.due = -1; return true;
 }
@@ -6299,7 +6678,8 @@ function gameLoad() {
   if (d.cub && d.cub.p?.length === 3 && d.cub.q?.length === 4) { ac.pos = d.cub.p.slice(); ac.q = d.cub.q.slice(); SV.cub = d.cub; }
   if (d.mode === 'foot' && d.foot) { exitPlane(); const [x, z, yaw] = d.foot; footRig.position.set(x, groundY(x, z) + EYE, z); footRig.rotation.set(0, yaw, 0); bodyYaw = yaw; }
   upgLoad(d.upg || null);   // v0.57 before the cargo (the pod)
-  dlvLoad(d.v >= 50 ? d.dlv : null); huntLoad(d.v >= 53 ? d.hunt : null); dropLoadFix(); ecoLoad(d.v >= 55 ? d.eco : null);   // v0.54 a save taken mid-drop: the last bundle down settles the job
+  emgLoad(d.emg || null);   // v0.58 before the cargo (a patient aboard finds their job)
+  dlvLoad(d.v >= 50 ? d.dlv : null); huntLoad(d.v >= 53 ? d.hunt : null); dropLoadFix(); ecoLoad(d.v >= 55 ? d.eco : null); emgFix();   // v0.54 a save taken mid-drop: the last bundle down settles the job
   msgT = 0; SV.last = d.at || 0; return true;
 }
 MYS_SITES.clear();   // the whole world is built now: clear trees and rocks off the strips and sites
@@ -6730,7 +7110,7 @@ renderer.setAnimationLoop(() => {
   } else if ((crashTimer += dt) > 2.5) resetFlight();
 
   plane.position.fromArray(ac.pos); plane.quaternion.fromArray(ac.q);
-  dlvTick(dt); wbWarn(dt); huntTick(dt, xr || HANDS.force); dropTick(dt); ecoTick(dt); upgTick(dt);   // v0.53 rifle, deer, binoculars; v0.54 bundles in the air, the signal smoke   // v0.50 delivery: game clock, falling / loose cargo, job boards
+  dlvTick(dt); wbWarn(dt); huntTick(dt, xr || HANDS.force); dropTick(dt); ecoTick(dt); upgTick(dt); emgTick(dt);   // v0.53 rifle, deer, binoculars; v0.54 bundles in the air, the signal smoke   // v0.50 delivery: game clock, falling / loose cargo, job boards
   GV.update(dt);   // v0.20 gear legs / tyres / tail wheel
   updateMap(); updateCockpitV19(dt);
   prop.rotation.z += ENG.rpm / 60 * 2 * Math.PI * dt * (ENG.rpm < 400 ? 1 : 0.13);   // aliased-looking slow spin (real speed while cranking)
@@ -6752,7 +7132,7 @@ renderer.setAnimationLoop(() => {
   if (instT > 0.1) { instT = 0; drawWrist(); }
   if ((chunkT += dt) > 0.2) { chunkT = 0; updateChunks(); }
   hxTick(dt);                                // v0.24 haptics (engine / buffet / gear + queued pulses)
-  if (xr || HANDS.force) { updateHands(dt); setpTick(); jbPoke(); ecoPoke(); upgPoke(); }
+  if (xr || HANDS.force) { updateHands(dt); setpTick(); jbPoke(); ecoPoke(); upgPoke(); emgPoke(); }
   vlTick(); batchTick(); if (GFX.shadows && ((FT.n & 1) || mode !== 'plane' || ac.vel[0] * ac.vel[0] + ac.vel[1] * ac.vel[1] + ac.vel[2] * ac.vel[2] > 0.1)) renderer.shadowMap.needsUpdate = true;   // v0.47 static batches; shadow map at half rate   // v0.23 gloves (after the stick / knobs have their final pose); v0.45 wrist SETTINGS board
   binoRender();   // v0.53 the 7x view (only while raised)
   renderer.render(scene, camera);
