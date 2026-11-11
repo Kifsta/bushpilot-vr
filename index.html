@@ -1944,7 +1944,7 @@ const hud = document.getElementById('hud'), cross = document.getElementById('cro
 function statusText() {
   const kt = (ac.out.V || 0) * 1.944, A = dlvActive(), nx = A.slice().sort((a, b) => (b.sp ? 1 : 0) - (a.sp ? 1 : 0) || dlvLeft(a) - dlvLeft(b))[0];   // v0.51: special cargo first (its meter shows)   // v0.50 wallet + the most urgent job
   return '$' + DLV.cash.toLocaleString('en-US') + (nx ? '  ' + A.length + ' JOB' + (A.length > 1 ? 'S' : '') + ' >' + dlvS(nx.to).name.replace(' STRIP', '') + (nx.sp ? dlvMeter(nx).replace(' - ', ' ').replace('DAMAGE', 'DMG') : nx.dl ? ' ' + Math.max(0, Math.ceil(dlvLeft(nx))) + 'M' : '') : '  NO JOBS') + '\n' + `FUEL ${(fuel / FUEL_MAX * 100).toFixed(0)}% ${(fuel / 3.785).toFixed(1)} GAL${FUELP.on ? ' FILLING' : ''}\n` +
-    (mode === 'plane' ? `ENG ${ENG.running ? 'RUN ' + Math.round(ENG.rpm) : ENG.cranking ? 'CRANK' : 'OFF'}  ${Math.round(kt)} KT` : 'ON FOOT') + (ecoWarn() ? '\n' + ecoWarn() : '') + (repLine() ? '\n' + repLine() : '') + (msgT > 0 ? '\n' + msg : '');   // v0.55 maintenance warnings
+    (mode === 'plane' ? `ENG ${ENG.running ? 'RUN ' + Math.round(ENG.rpm) : ENG.cranking ? 'CRANK' : 'OFF'}  ${Math.round(kt)} KT` : 'ON FOOT') + (ecoWarn() ? '\n' + ecoWarn() : '') + (msgT > 0 ? '\n' + msg : '') + (repLine() ? '\n' + repLine() : '');   // v0.55 maintenance warnings
 }
 let wristKey = '';
 function drawWrist() {   // v0.10: only re-uploads when something on it changed
@@ -4473,9 +4473,9 @@ const repWho = k => REP_WHO[k] || dlvS(k)?.B?.cust || DROPS.find(D => D.id === k
 const repPayX = v => v <= 50 ? 1 : 1 + (v - 50) / 200;   // 1.0 up to 50, 1.25 at 100
 function repAdd(k, d) {
   const v0 = repOf(k), v = clamp(Math.round(v0 + d), 0, 100), t0 = repTier(v0)[1], t1 = repTier(v)[1]; DLV.rep[k] = v;
-  const r = { k, d: v - v0, v, tier: t1, up: t1 !== t0 && v > v0, down: t1 !== t0 && v < v0 }; DLV.repLast = r; repUnlock(); for (const S of DLV_STRIPS) S.key = ''; KB.key = ''; return r;
+  const r = { k, d: v - v0, v, tier: t1, up: t1 !== t0 && v > v0, down: t1 !== t0 && v < v0 }; DLV.repLast = r; r.unl = repUnlock(true); for (const S of DLV_STRIPS) S.key = ''; KB.key = ''; return r;
 }
-function repSay(r) { if (!r) return ''; return ' - ' + repWho(r.k) + ' ' + (r.d >= 0 ? '+' : '') + r.d + ' REP' + (r.up ? ', NOW ' + r.tier + (r.tier === 'REGULAR' ? ': ' + (REP_NAME[r.k] || repWho(r.k)) + ' WILL ASK FOR ' + PILOT : '') : r.down ? ', DOWN TO ' + r.tier : ''); }
+function repSay(r) { if (!r) return ''; return ' - ' + repWho(r.k) + ' ' + (r.d >= 0 ? '+' : '') + r.d + ' REP' + (r.up ? ', NOW ' + r.tier + (r.tier === 'REGULAR' ? ': ' + (REP_NAME[r.k] || repWho(r.k)) + ' WILL ASK FOR ' + PILOT : '') : r.down ? ', DOWN TO ' + r.tier : '') + (r.unl ? ' | ' + REP_UNL_T : ''); }
 function repJob(j, late, k) {   // a delivery: on time / early / late, the cargo's state
   let d = late ? -8 : 5; if (!late && j.dl && j.due - DLV.gt > j.dl * 0.4) d += 2;
   if (j.sp || j.hunt) d += Math.round((k - 0.75) * 16); if (dlvWc(j) === 'H') d += 1; if (j.req) d += 2;
@@ -4484,8 +4484,9 @@ function repJob(j, late, k) {   // a delivery: on time / early / late, the cargo
 function repDrop(j, f, late) { return repAdd(repKey(j), (late ? -8 : 0) + Math.round((f - 0.6) * 25)); }   // an airdrop: the average bundle share (accuracy x condition, lost = 0)
 function repUnlock(quiet) {   // Dry Fork vouches for you: the Halvorsen station's board opens
   const H = dlvS('HALV'); if (!H || !H.lock || repOf('DRYFORK') < REP_UNL) return;
-  H.lock = false; MAP.key = ''; H.key = ''; if (!quiet) { say('DRY FORK VOUCHED FOR YOU: HALVORSEN AG-BIO STATION 4 WILL TAKE CONTRACTS - ITS BOARD IS OPEN (ON YOUR MAP), THEIR JOBS PAY +30%'); sfx('cash'); saveSoon(); }
+  H.lock = false; MAP.key = ''; H.key = ''; if (!quiet) say(REP_UNL_T); return true;
 }
+const REP_UNL_T = 'DRY FORK VOUCHED FOR YOU: HALVORSEN AG-BIO STATION 4 TAKES CONTRACTS NOW - ITS BOARD IS ON YOUR MAP, JOBS PAY +30%';
 function repShape(j) {   // a fresh offer: priced by the customer's rep; regulars ask for you (bigger load, +35 %); Halvorsen pays +30 %
   const k = repKey(j), v = repOf(k), x = repPayX(v); if (x > 1) j.pay = Math.round(j.pay * x);
   if (j.from === 'HALV' || j.to === 'HALV') { j.pay = Math.round(j.pay * 1.3); if (j.from === 'HALV' && !j.hunt && !j.drop && !j.sp) j.title = HALV_T[j.id % HALV_T.length]; }
@@ -4495,8 +4496,8 @@ function repShape(j) {   // a fresh offer: priced by the customer's rep; regular
   return j;
 }
 function repLine() {   // the wrist / HUD line: the board you're at, or the customer of your most urgent job
-  if (mode === 'foot' && DLV.nearS && DLV.nearD < 40) { const S = DLV.nearS; if (S.lock) return 'HALVORSEN: CLOSED - DRY FORK REP ' + repOf('DRYFORK') + '/' + REP_UNL; const v = repOf(S.id); return 'REP ' + S.name.replace(' STRIP', '') + ' ' + v + ' ' + repTier(v)[1]; }
-  const A = dlvActive(); if (mode !== 'plane' || !A.length) return ''; const j = A[0], k = repKey(j), v = repOf(k); return 'REP ' + repWho(k).slice(0, 16) + ' ' + v + ' ' + repTier(v)[1];
+  if (mode === 'foot' && DLV.nearS && DLV.nearD < 40) { const S = DLV.nearS; if (S.lock) return 'HALV CLOSED: DRYFORK ' + repOf('DRYFORK') + '/' + REP_UNL; const v = repOf(S.id); return 'REP ' + S.name.replace(' STRIP', '') + ' ' + v + ' ' + repTier(v)[1]; }
+  const A = dlvActive(); if (mode !== 'plane' || !A.length) return ''; const j = A.slice().sort((a, b) => (b.sp ? 1 : 0) - (a.sp ? 1 : 0) || dlvLeft(a) - dlvLeft(b))[0], k = repKey(j), v = repOf(k), nm = (j.drop ? DROPS[j.drop.s].name : dlvS(k).name).replace(' STRIP', ''); return 'REP ' + nm.slice(0, 12) + ' ' + v + ' ' + repTier(v)[1];
 }
 function jbLocked(S) {   // the Halvorsen board before Dry Fork vouches for you
   const x = S.cx, v = repOf('DRYFORK');
@@ -4718,7 +4719,7 @@ function jbDraw(S) {
       x.fillText(j.req ? '"ASK FOR ' + PILOT + '" - ' + (REP_NAME[repKey(j)] || repWho(repKey(j))) + (j.dl ? ' - ' + j.dl + ' MIN' : '') : j.drop ? 'DROP ON THE SMOKE - PAID BY AIM + CONDITION' + (j.dl ? ' - ' + j.dl + ' MIN' : '') : j.hunt ? 'HUNTING JOB - ' + (j.dl ? 'DEADLINE ' + j.dl + ' MIN' : 'NO DEADLINE') + ' - KEEPS ' + j.life + ' MIN DRESSED' : (T.site ? BUSH_T[T.B.type] + ' ' + T.B.len + ' M - ' : '') + (j.sp === 'fragile' ? 'FRAGILE - KNOCKS + G DOCK PAY (+30%)' : j.sp === 'perish' ? 'PERISHABLE - FRESH ' + j.life + ' MIN (+25%)' : j.sp === 'live' ? 'LIVE ANIMALS - FLY SMOOTH (+35%)' : j.dl ? 'DEADLINE ' + j.dl + ' MIN (+40% PAY)' : 'NO DEADLINE'), 34, Y + 68, JB_W - 170);
       x.fillStyle = act >= DLV_MAX ? '#9a9a90' : '#2a7a2a'; x.fillRect(JB_W - 126, Y + 50, 100, 26); x.fillStyle = '#fff'; x.font = 'bold 15px sans-serif'; x.textAlign = 'center'; x.fillText('ACCEPT', JB_W - 76, Y + 68); x.textAlign = 'left'; } }
   const inb = dlvActive().filter(j => j.to === S.id && !j.drop);
-  { const v = repOf(S.id), T = repTier(v); x.fillStyle = T[2]; x.font = 'bold 14px sans-serif'; x.fillText('REP: ' + repWho(S.id) + '  ' + repStars(v) + '  ' + T[1] + ' (' + v + ')' + (v > 50 ? ' - PAY +' + Math.round((repPayX(v) - 1) * 100) + '%' : ''), 20, JB_H - 30, JB_W - 40); }   // v0.56
+  { const v = repOf(S.id), T = repTier(v); x.fillStyle = T[2]; x.font = 'bold 14px sans-serif'; x.fillText('REP: ' + repWho(S.id) + '  ' + repStars(v) + '  ' + T[1] + ' (' + v + ')' + (repPayX(v) >= 1.01 ? ' - PAY +' + Math.round((repPayX(v) - 1) * 100) + '%' : ''), 20, JB_H - 30, JB_W - 40); }   // v0.56
   x.fillStyle = '#3a2a1a'; x.font = '13px sans-serif';
   x.fillText(inb.length ? 'DELIVER HERE: ' + inb.map(j => j.title).join(', ') + ' - SET IT ON THE YELLOW PAD' : 'JOBS ' + act + '/' + DLV_MAX + ' - POKE ACCEPT (DESKTOP 1-3) - DELIVER TO THE YELLOW PAD', 20, JB_H - 13, JB_W - 40);
   S.tex.needsUpdate = true;
