@@ -2608,7 +2608,7 @@ const MYS_SITES = {}, LAB = { floor: 0, rect: null };
 { const Z = [['MEDEVAC', 14], ['CHECKPOINT', 32], ['ELEVATOR', 48], ['STATION', 58]].map(([n, r]) => [MYS_SITES[n].o.x, MYS_SITES[n].o.z, r]), S = HALV, sa = Math.sin(S.a), ca = Math.cos(S.a);   // clear trees / bushes / rocks off the new sites
   const off = (x, z) => Z.some(([a, b, r]) => (x - a) ** 2 + (z - b) ** 2 < r * r) || segD(x, z, [S.x - sa * (S.hl + 60), S.z - ca * (S.hl + 60), S.x + sa * (S.hl + 60), S.z + ca * (S.hl + 60)]) < S.hw + 14;
   MYS_SITES.clear = () => {   // run once the whole world is built (some forests are instanced later in the file)
-    for (const k of CHUNKS) for (let i = 0; i < k.n; i++) if (off(k.xz[i * 2], k.xz[i * 2 + 1])) k.full.fill(0, i * 16, i * 16 + 16);
+    for (const k of CHUNKS) for (let i = 0; i < k.n; i++) if (off(k.xz[i * 3], k.xz[i * 3 + 2])) k.full.fill(0, i * 16, i * 16 + 16);
     scene.traverse(m => { if (!m.isInstancedMesh || CHUNKS.some(k => k.im === m)) return; const A = m.instanceMatrix.array; let hit = false;
       for (let i = 0; i < m.count; i++) if (A[i * 16 + 15] && off(A[i * 16 + 12], A[i * 16 + 14])) { A.fill(0, i * 16, i * 16 + 16); hit = true; } if (hit) m.instanceMatrix.needsUpdate = true; });
     for (const L of [TREES]) for (let i = L.length - 1; i >= 0; i--) if (off(L[i][0], L[i][2])) L.splice(i, 1); }; }
@@ -2888,7 +2888,7 @@ const V40 = { poles: 0, wires: null };   // v0.40 street & roadside dressing (bu
   V39.DECKS = DECKS;
   const off = (x, z) => ZN.some(([a, b, r]) => (x - a) ** 2 + (z - b) ** 2 < r * r), c38 = MYS_SITES.clear;
   MYS_SITES.clear = () => { c38();
-    for (const k of CHUNKS) for (let i = 0; i < k.n; i++) if (off(k.xz[i * 2], k.xz[i * 2 + 1])) k.full.fill(0, i * 16, i * 16 + 16);
+    for (const k of CHUNKS) for (let i = 0; i < k.n; i++) if (off(k.xz[i * 3], k.xz[i * 3 + 2])) k.full.fill(0, i * 16, i * 16 + 16);
     scene.traverse(m => { if (!m.isInstancedMesh || CHUNKS.some(k => k.im === m)) return; const A = m.instanceMatrix.array; let hit = false;
       for (let i = 0; i < m.count; i++) if (A[i * 16 + 15] && off(A[i * 16 + 12], A[i * 16 + 14])) { A.fill(0, i * 16, i * 16 + 16); hit = true; } if (hit) m.instanceMatrix.needsUpdate = true; });
     for (const L of [TREES]) for (let i = L.length - 1; i >= 0; i--) if (off(L[i][0], L[i][2])) L.splice(i, 1); };
@@ -4369,7 +4369,7 @@ for (const B of BUSH) { B.len = Math.round(B.hl * 2 / 10) * 10;   // the landing
     const sa = Math.sin(B.a), ca = Math.cos(B.a), l = Math.abs(dx * sa + dz * ca), w = Math.abs(dx * ca - dz * sa);
     return (l < B.hl + 40 && w < B.hw + 8) || (l < B.hl + 260 && w < B.hw + 4 + (l - B.hl) * 0.12) || Math.hypot(x - B.cx, z - B.cz) < 24; });
   MYS_SITES.clear = () => { c52();
-    for (const k of CHUNKS) for (let i = 0; i < k.n; i++) if (off(k.xz[i * 2], k.xz[i * 2 + 1])) k.full.fill(0, i * 16, i * 16 + 16);
+    for (const k of CHUNKS) for (let i = 0; i < k.n; i++) if (off(k.xz[i * 3], k.xz[i * 3 + 2])) k.full.fill(0, i * 16, i * 16 + 16);
     scene.traverse(m => { if (!m.isInstancedMesh || CHUNKS.some(k => k.im === m)) return; const A = m.instanceMatrix.array; let hit = false;
       for (let i = 0; i < m.count; i++) if (A[i * 16 + 15] && off(A[i * 16 + 12], A[i * 16 + 14])) { A.fill(0, i * 16, i * 16 + 16); hit = true; } if (hit) m.instanceMatrix.needsUpdate = true; });
     for (let i = TREES.length - 1; i >= 0; i--) if (off(TREES[i][0], TREES[i][2])) TREES.splice(i, 1); };
@@ -4404,7 +4404,7 @@ const JB_W = 512, JB_H = 352, JB_PW = 1.28, JB_PH = 0.88, JB_Y = 1.45;
   }
   const c0 = MYS_SITES.clear, off = (x, z) => DLV_STRIPS.some(S => Math.hypot(x - S.board[0], z - S.board[1]) < 6 || Math.hypot(x - S.pad[0], z - S.pad[1]) < 6);
   MYS_SITES.clear = () => { c0();   // no trees / bushes / rocks on the boards or pads
-    for (const k of CHUNKS) for (let i = 0; i < k.n; i++) if (off(k.xz[i * 2], k.xz[i * 2 + 1])) k.full.fill(0, i * 16, i * 16 + 16);
+    for (const k of CHUNKS) for (let i = 0; i < k.n; i++) if (off(k.xz[i * 3], k.xz[i * 3 + 2])) k.full.fill(0, i * 16, i * 16 + 16);
     scene.traverse(m => { if (!m.isInstancedMesh || CHUNKS.some(k => k.im === m)) return; const A = m.instanceMatrix.array; let hit = false;
       for (let i = 0; i < m.count; i++) if (A[i * 16 + 15] && off(A[i * 16 + 12], A[i * 16 + 14])) { A.fill(0, i * 16, i * 16 + 16); hit = true; } if (hit) m.instanceMatrix.needsUpdate = true; });
     for (let i = TREES.length - 1; i >= 0; i--) if (off(TREES[i][0], TREES[i][2])) TREES.splice(i, 1); };
