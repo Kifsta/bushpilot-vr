@@ -1923,7 +1923,7 @@ function drawWrist() {   // v0.10: only re-uploads when something on it changed
   const st = statusText(), key = st + '|' + SETP.open;
   if (key === wristKey) return; wristKey = key;
   wctx.fillStyle = '#111'; wctx.fillRect(0, 0, 256, 128); wctx.font = '16px monospace';
-  st.split('\n').forEach((l, i) => { wctx.fillStyle = i ? '#9f9' : '#ffd84a'; wctx.fillText(l.slice(0, 25), 8, 20 + i * 22); });   // v0.50: line 1 = wallet + jobs (gold)
+  st.split('\n').forEach((l, i) => { wctx.fillStyle = i ? '#9f9' : '#ffd84a'; wctx.font = i ? '16px monospace' : 'bold 14px monospace'; wctx.fillText(l.slice(0, i ? 26 : 30), 4, 20 + i * 22); });   // v0.50: line 1 = wallet + jobs (gold)
   wctx.fillStyle = SETP.open ? '#ffd84a' : '#3a3a3a'; wctx.fillRect(8, 100, 240, 22); wctx.fillStyle = SETP.open ? '#111' : '#ddd'; wctx.font = 'bold 15px monospace'; wctx.textAlign = 'center';
   wctx.fillText(SETP.open ? 'POKE: CLOSE SETTINGS' : 'POKE: SETTINGS', 128, 116); wctx.textAlign = 'left';
   wtex.needsUpdate = true; hud.textContent = st;
