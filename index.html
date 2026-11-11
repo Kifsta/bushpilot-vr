@@ -3090,12 +3090,19 @@ MAP.canvas = document.createElement('canvas'); MAP.canvas.width = MAP_W; MAP.can
   box(0.06, 0.02, 0.012, mat(0x777777), 0, 0.095, -0.004, MAP.clip);                                                                             // the clip
 }
 function mapJobs() {   // v0.51.1: job boards (gold square) + every active job's destination (its colour, ringed, numbered, a dashed line from the origin)
-  const A = dlvActive(), k = A.map(j => j.id + j.to + j.from).join() + '|' + DLV_STRIPS.length; if (k === MAP.key) return; MAP.key = k;
+  const A = dlvActive(), k = A.map(j => j.id + j.to + j.from).join() + '|' + DLV_STRIPS.map(S => S.found ? 1 : 0).join(''); if (k === MAP.key) return; MAP.key = k;
   const x = MAP.cx, X = wx => (wx + MAP_X) * MAP_PX, Z = wz => (wz + MAP_Z) * MAP_PX, F = "'Segoe Print','Bradley Hand','Comic Sans MS','Comic Neue',cursive";
   x.drawImage(MAP.base, 0, 0); x.textBaseline = 'middle'; x.textAlign = 'center';
-  for (const S of DLV_STRIPS) { const px = X(S.pad[0]), py = Z(S.pad[1]); x.fillStyle = '#e0a020'; x.strokeStyle = '#1e1810'; x.lineWidth = 1.5; x.fillRect(px - 5, py - 5, 10, 10); x.strokeRect(px - 5, py - 5, 10, 10);
+  for (const S of DLV_STRIPS) { if (!S.site || !S.found) continue; const B = S.B, sa = Math.sin(B.a), ca = Math.cos(B.a), p0x = X(B.x - sa * B.hl), p0y = Z(B.z - ca * B.hl), p1x = X(B.x + sa * B.hl), p1y = Z(B.z + ca * B.hl);   // v0.52
+    x.lineCap = 'round'; x.lineWidth = 6; x.strokeStyle = '#1e1810'; x.beginPath(); x.moveTo(p0x, p0y); x.lineTo(p1x, p1y); x.stroke(); x.lineWidth = 3; x.strokeStyle = B.type === 'short' ? '#d9cfae' : '#c8a860'; x.stroke(); x.lineCap = 'butt';
+    if (B.land != null) { const ux = -B.low * sa, uz = -B.low * ca, hx = X(B.x - ux * B.hl * 1.9), hy = Z(B.z - uz * B.hl * 1.9), tx = X(B.x + ux * B.hl * 0.4), ty = Z(B.z + uz * B.hl * 0.4), ang = Math.atan2(ty - hy, tx - hx);   // land uphill
+      x.strokeStyle = '#8a1a10'; x.fillStyle = '#8a1a10'; x.lineWidth = 2; x.beginPath(); x.moveTo(hx, hy); x.lineTo(tx, ty); x.stroke(); x.beginPath(); x.moveTo(tx, ty); x.lineTo(tx - 9 * Math.cos(ang - 0.4), ty - 9 * Math.sin(ang - 0.4)); x.lineTo(tx - 9 * Math.cos(ang + 0.4), ty - 9 * Math.sin(ang + 0.4)); x.closePath(); x.fill(); }
+    const lb = B.lab || [X(B.cx) > X(B.x) ? 14 : -14, 0, X(B.cx) > X(B.x) ? 'left' : 'right'], ox = X(B.x) + lb[0], oy = Z(B.z) + lb[1]; x.textAlign = lb[2]; x.fillStyle = '#1e1810'; x.font = 'bold 13px ' + F; x.fillText(S.name.toLowerCase(), ox, oy - 8);
+    x.font = '11px ' + F; x.fillText(B.cust.toLowerCase() + ' - ' + BUSH_T[B.type].toLowerCase() + ' ' + B.len + 'm' + (B.land != null ? ' 1-way' : ''), ox, oy + 6); x.textAlign = 'center'; }
+  for (const S of DLV_STRIPS) { if (S.site && !S.found) continue; const px = X(S.pad[0]), py = Z(S.pad[1]); x.fillStyle = '#e0a020'; x.strokeStyle = '#1e1810'; x.lineWidth = 1.5; x.fillRect(px - 5, py - 5, 10, 10); x.strokeRect(px - 5, py - 5, 10, 10);
     x.font = 'bold 12px ' + F; x.fillStyle = '#5a3a10'; x.fillText('JOBS', px, py + 14); }
-  A.forEach((j, n) => { const S = dlvS(j.from), T = dlvS(j.to), col = '#' + DLV_COL[j.id % DLV_COL.length].toString(16).padStart(6, '0'), ax = X(S.pad[0]), ay = Z(S.pad[1]), bx = X(T.pad[0]), by = Z(T.pad[1]);
+  A.forEach((j, n) => { const S = dlvS(j.from), T = dlvS(j.to), col = '#' + DLV_COL[j.id % DLV_COL.length].toString(16).padStart(6, '0'), ax = X(S.pad[0]), ay = Z(S.pad[1]), hid = T.site && !T.found, bx = X(hid ? T.B.hx : T.pad[0]), by = Z(hid ? T.B.hz : T.pad[1]);
+    if (hid) { x.strokeStyle = col; x.lineWidth = 2; x.setLineDash([4, 5]); x.beginPath(); x.arc(bx, by, 320 * MAP_PX, 0, 6.283); x.stroke(); x.setLineDash([]); x.fillStyle = col; x.font = 'bold 22px ' + F; x.fillText('?', bx, by); }   // v0.52 search area
     x.strokeStyle = col; x.lineWidth = 2.5; x.setLineDash([8, 6]); x.beginPath(); x.moveTo(ax, ay); x.lineTo(bx, by); x.stroke(); x.setLineDash([]);
     const o = n * 7; x.lineWidth = 3.5; x.beginPath(); x.arc(bx, by, 15 + o, 0, 6.283); x.stroke();
     x.fillStyle = col; x.font = 'bold 17px ' + F; const same = A.slice(0, n).filter(q => q.to === j.to).length; x.fillText((n + 1) + ' ' + j.title, bx, by - 26 - 7 * (A.length - 1) - same * 19); });
@@ -3525,11 +3532,11 @@ kbHome();
 function kbLines() {   // the text, one entry per active job
   const A = dlvActive(), L = [], P = ac.pos;
   for (const j of A) { const T = dlvS(j.to), S = dlvS(j.from), its = DLV.items.filter(i => i.job === j.id), n = {}; for (const i of its) n[i.k] = (n[i.k] || 0) + 1;
-    const dx = T.pad[0] - P[0], dz = T.pad[1] - P[2], km = Math.hypot(dx, dz) / 1000, hdg = Math.round(((Math.atan2(dx, -dz) * 180 / Math.PI) + 360) % 360 / 5) * 5 % 360;
+    const hid = T.site && !T.found, dx = (hid ? T.B.hx : T.pad[0]) - P[0], dz = (hid ? T.B.hz : T.pad[1]) - P[2], km = Math.hypot(dx, dz) / 1000, hdg = Math.round(((Math.atan2(dx, -dz) * 180 / Math.PI) + 360) % 360 / 5) * 5 % 360;
     const inC = its.filter(i => i.st === 'cargo'), loose = inC.filter(i => !cgSecured(i)).length, at = its.filter(i => i.st === 'ground' && dlvInPad(T, i.mesh.position.x, i.mesh.position.z)).length;
     const st = inC.length ? (inC.length + '/' + its.length + ' IN THE CUB - ' + (loose ? loose + ' LOOSE' : 'STRAPPED')) : at ? at + '/' + its.length + ' DELIVERED' : its.every(i => i.st === 'ground' && dlvInPad(S, i.mesh.position.x, i.mesh.position.z)) ? 'ON THE ' + S.name + ' PAD' : 'ON THE MOVE';
     const left = dlvLeft(j), due = j.sp ? dlvMeter(j, its).replace(' - ', '') : left === Infinity ? 'NO DEADLINE' : left < 0 ? 'LATE - HALF PAY' : 'DUE IN ' + Math.ceil(left) + ' MIN';
-    L.push({ col: '#' + DLV_COL[j.id % DLV_COL.length].toString(16).padStart(6, '0'), t: j.title, sp: j.sp, rt: S.name + ' > ' + T.name, nav: (km < 10 ? km.toFixed(1) : Math.round(km)) + ' KM  HDG ' + String(hdg).padStart(3, '0'),
+    L.push({ col: '#' + DLV_COL[j.id % DLV_COL.length].toString(16).padStart(6, '0'), t: j.title, sp: j.sp, rt: S.name + ' > ' + T.name, nav: (hid ? 'SEARCH ' : '') + (km < 10 ? km.toFixed(1) : Math.round(km)) + ' KM  HDG ' + String(hdg).padStart(3, '0') + (T.site && !hid ? '  ' + BUSH_T[T.B.type] + ' ' + T.B.len + 'M' : ''),
       pcs: Object.entries(n).map(([k, c]) => c + ' ' + CARGO_K[k].n + (c > 1 ? 'S' : '')).join(', ') + ' - ' + its.reduce((s, i) => s + i.lb, 0) + ' LB', pay: '$' + j.pay, due, st, warn: !!loose || left < 0 || (j.sp && dlvSpPay(j) < 0.75) }); }
   return L;
 }
@@ -4202,6 +4209,123 @@ const DLV_STRIPS = (() => {
     { id: 'DRYFORK', name: 'DRY FORK', x: DRYFORK_STRIP.x, z: DRYFORK_STRIP.z, board: [DRYFORK_STRIP.x + 18, DRYFORK_STRIP.z + 30, -Math.PI / 2], pad: [DRYFORK_STRIP.x + 18, DRYFORK_STRIP.z + 22] },
   ];
 })();
+// ===================== v0.52 bush sites: unprepared landing spots, each with a customer (found by flying over / walking up; then they're on the paper map) =====================
+// The spots came out of a search of the heights the gear rolls on (terrainHeight): along-strip slope, bumps off the best-fit line, cross slope at +-9 m,
+// and the ground beyond the low end staying under a climb line. Nothing is flattened: the gear feels the real ground (rough surface; the two short strips are graded).
+const BUSH_T = { sandbar: 'SANDBAR', shore: 'LAKE SHORE', ridge: 'RIDGE BENCH', meadow: 'MEADOW', short: 'SHORT STRIP' };
+const BUSH = [   // a = strip axis (x += sin a, z += cos a), hl/hw = half length / width (m), low = the downhill end of a one-way strip (+1 = +axis end)
+  { id: 'CREEK', name: 'CREEK BAR', type: 'sandbar', cust: 'PROSPECTOR CAMP', x: -910, z: 1750, a: 2.749, hl: 95, hw: 9 },
+  { id: 'FISHBAR', name: 'FISH CAMP BAR', type: 'sandbar', cust: 'FISH CAMP', x: -90, z: 2120, a: 2.749, hl: 105, hw: 9 },
+  { id: 'NWSHORE', name: 'NW LAKE SHORE', type: 'shore', cust: 'TRAPPER CABIN', x: -1000, z: 2620, a: 3.011, hl: 100, hw: 9 },
+  { id: 'ESHORE', name: 'EAST LAKE SHORE', type: 'shore', cust: 'BOATHOUSE', x: 1770, z: -1320, a: 2.356, hl: 100, hw: 9 },
+  { id: 'BENCH', name: 'GOAT BENCH', type: 'ridge', cust: 'LOST LODE MINE', x: -2770, z: -1410, a: 1.702, hl: 85, hw: 8, low: 1, lab: [-16, 4, 'right'] },
+  { id: 'ELK', name: 'ELK MEADOW', type: 'meadow', cust: 'ELK CAMP', x: -2220, z: -1150, a: 1.833, hl: 110, hw: 10, low: 1, lab: [0, 24, 'center'] },
+  { id: 'RANGER', name: 'RANGER STRIP', type: 'short', cust: 'RANGER STATION', x: -1410, z: -1210, a: 2.225, hl: 80, hw: 8, lab: [0, -24, 'center'] },
+  { id: 'RANCHS', name: 'RANCH STRIP', type: 'short', cust: 'RANCH', x: 1280, z: 2240, a: 2.618, hl: 90, hw: 8 },
+];
+const bushHdg = (dx, dz) => Math.round(((Math.atan2(dx, -dz) * 180 / Math.PI) + 360) % 360 / 5) * 5 % 360;
+for (const B of BUSH) { B.len = Math.round(B.hl * 2 / 10) * 10;   // the landing heading of a one-way strip: up the hill (from the low end)
+  if (B.low) B.land = bushHdg(-B.low * Math.sin(B.a), -B.low * Math.cos(B.a));
+  const r = dlvRng(B.x * 31 + B.z * 17 + 52), ang = r() * 6.283, d = 90 + r() * 120; B.hx = B.x + Math.cos(ang) * d; B.hz = B.z + Math.sin(ang) * d; }   // the search-area centre (map hint)
+{ const C = {}, M = c => C[c] || (C[c] = new THREE.MeshLambertMaterial({ color: c })), BOXG = new THREE.BoxGeometry(1, 1, 1), R = dlvRng(5252);
+  const ROOFG = new THREE.CylinderGeometry(1, 1, 1, 3).rotateZ(Math.PI / 2).rotateX(-Math.PI / 2).translate(0, 0.5, 0).scale(1, 1 / 1.5, 1 / 1.732);
+  const W = (o, lx, lz) => { const c = Math.cos(o.a), s = Math.sin(o.a); return [o.x + lx * c + lz * s, o.z - lx * s + lz * c]; };
+  const gy = (o, lx, lz) => { const [x, z] = W(o, lx, lz); return groundY(x, z) - o.y; };
+  let G;
+  const part = (o, w, h, d, c, lx, ly, lz, ry = 0, rx = 0, rz = 0) => { const [x, z] = W(o, lx, lz), b = new THREE.Mesh(BOXG, M(c)); b.scale.set(w, h, d); b.position.set(x, o.y + ly, z); b.rotation.set(rx, o.a + ry, rz, 'YXZ'); G.add(b); return b; };
+  const geo = (g, c, o, lx, ly, lz, ry = 0, rx = 0, rz = 0) => { const [x, z] = W(o, lx, lz), r = new THREE.Mesh(g, M(c)); r.position.set(x, o.y + ly, z); r.rotation.set(rx, o.a + ry, rz, 'YXZ'); G.add(r); return r; };
+  const gp = (o, w, h, d, c, lx, ly, lz, ry, rx, rz) => part(o, w, h, d, c, lx, ly + gy(o, lx, lz), lz, ry, rx, rz);   // on the local ground
+  const roof = (o, len, h, wid, c, lx, ly, lz, ry = 0) => { const r = geo(ROOFG, c, o, lx, ly + gy(o, lx, lz), lz, ry); r.scale.set(len, h, wid); return r; };
+  const house = (o, w, h, d, wall, rf, rh, lx, lz, ry = 0) => { gp(o, w, h + 1.2, d, wall, lx, h / 2 - 0.6, lz, ry); roof(o, w + 0.5, rh, d + 0.6, rf, lx, h, lz, ry); };
+  const tent = (o, lx, lz, ry = 0, w = 2.8, d = 3.6) => { gp(o, w, 1.2, d, 0xd8ceb0, lx, 0.6, lz, ry); roof(o, d + 0.2, 1.1, w + 0.2, 0xcfc4a4, lx, 1.2, lz, ry + Math.PI / 2);
+    gp(o, 0.12, 0.9, 0.12, 0x5a5e62, lx + 0.6, 2.7, lz - 0.8, ry); };   // wall tent + stove pipe
+  const ring = (o, lx, lz) => { for (let k = 0; k < 8; k++) { const t = k / 8 * 6.283; gp(o, 0.28, 0.2, 0.24, 0x7a766c, lx + Math.cos(t) * 0.6, 0.08, lz + Math.sin(t) * 0.6, t); } gp(o, 0.5, 0.06, 0.5, 0x2a2420, lx, 0.02, lz); };
+  const logs = (o, lx, lz, n = 4, ry = 0) => { for (let k = 0; k < n; k++) gp(o, 1.5, 0.22, 0.22, 0x6a4a2a, lx, 0.12 + Math.floor(k / 2) * 0.22, lz + (k % 2) * 0.24, ry); };
+  const drum = (o, lx, lz, c = 0x8a2a1a) => geo(new THREE.CylinderGeometry(0.29, 0.29, 0.88, 10), c, o, lx, 0.44 + gy(o, lx, lz), lz);
+  const boat = (o, lx, lz, ry, c, L = 4.4) => { gp(o, 0.9, 0.36, L, c, lx, 0.2, lz, ry); geo(new THREE.ConeGeometry(0.5, 0.9, 4).rotateX(Math.PI / 2).rotateZ(Math.PI / 4).scale(0.9, 0.5, 1), c, o, lx + Math.sin(ry) * (L / 2 + 0.4), 0.2 + gy(o, lx, lz), lz + Math.cos(ry) * (L / 2 + 0.4), ry); };
+  const rails = (o, pts, c = 0x8a6a44) => { for (let i = 1; i < pts.length; i++) { const [x0, z0] = pts[i - 1], [x1, z1] = pts[i], len = Math.hypot(x1 - x0, z1 - z0), ry = Math.atan2(x1 - x0, z1 - z0), mx = (x0 + x1) / 2, mz = (z0 + z1) / 2;
+      for (const y of [0.55, 1.05]) gp(o, 0.08, 0.1, len, c, mx, y, mz, ry); for (let t = 0; t <= len; t += 3) gp(o, 0.14, 1.3, 0.14, c, x0 + (x1 - x0) * t / len, 0.55, z0 + (z1 - z0) * t / len); } };
+  const sockAt = (x, z) => { const y = groundY(x, z); part({ x: 0, z: 0, a: 0, y: 0 }, 0.12, 6, 0.12, 0x8a8d90, x, y + 3, z); const s = new THREE.Mesh(new THREE.ConeGeometry(0.35, 1.8, 6, 1, true).rotateZ(Math.PI / 2), mat(0xe06a1e));
+    s.position.set(x + 0.9, y + 5.85, z); scene.add(s); sockFix(s, 0.9); TOWN_MESH.push({ m: s, x, z, far: 2500 }); };
+  const CUST = {   // each customer's camp, built facing the strip (local +z), origin on the ground
+    'PROSPECTOR CAMP': o => { tent(o, 0, -2); ring(o, 3.2, 2.2); logs(o, 4.6, 0.2, 2, 0.6);
+      for (let k = 0; k < 3; k++) gp(o, 0.5, 0.32, 1.1, 0x7a5a36, -4 + k * 0.05, 0.3 + k * 0.06, 1.5 - k * 1.05, 0.2, -0.06);   // the sluice box, three sections
+      gp(o, 0.6, 0.5, 0.9, 0x8a6a44, -4.6, 0.45, -2.2); gp(o, 0.7, 0.08, 0.7, 0x5a5e62, -4.6, 0.95, -2.2);                         // rocker + screen
+      for (const [a, b] of [[1.4, 2.6], [1.9, 2.9], [-1.2, 3.1]]) geo(new THREE.CylinderGeometry(0.22, 0.16, 0.07, 10), 0x4a4e52, o, a, 0.05 + gy(o, a, b), b);   // gold pans
+      gp(o, 0.05, 1.3, 0.05, 0x8a6a44, 2.6, 0.62, -1.4, 0, 0.25); gp(o, 0.22, 0.04, 0.28, 0x5a5e62, 2.6, 0.06, -1.2);                 // shovel
+      gp(o, 3.4, 0.05, 2.4, 0x3a5a7a, 3.8, 2.1, -1.8, 0, 0.12); for (const [a, b] of [[2.2, -0.7], [5.4, -0.7], [2.2, -2.9], [5.4, -2.9]]) gp(o, 0.08, 2.2, 0.08, 0x8a6a44, a, 1.05, b); },   // blue tarp
+    'FISH CAMP': o => { tent(o, -3.5, -2.5); house(o, 2.2, 2.2, 2.2, 0x4a3a2a, 0x2a2a2a, 1.1, 2.5, -2.4); gp(o, 0.14, 0.8, 0.14, 0x5a5e62, 2.5, 3.5, -2.4);   // smokehouse
+      for (const a of [-1.6, 1.6]) gp(o, 0.12, 2.0, 0.12, 0x8a6a44, a + 1.5, 1.0, 2.0); gp(o, 3.6, 0.08, 0.08, 0x8a6a44, 1.5, 1.95, 2.0);   // drying rack
+      for (let k = 0; k < 7; k++) gp(o, 0.18, 0.6, 0.05, 0xd0603a, -0.2 + k * 0.5, 1.6, 2.0);
+      boat(o, -5.5, 3.5, 0.3, 0x3a6a4a); for (let k = 0; k < 3; k++) gp(o, 0.8, 0.45, 0.5, 0x2a6ab0, -1.5 + k * 0.9, 0.23, 4.2); ring(o, 0, 0.6); },
+    'TRAPPER CABIN': o => { house(o, 4.2, 2.3, 3.6, 0x6a4a2a, 0x2a2a2a, 1.6, 0, -2); gp(o, 0.6, 3.8, 0.6, 0x7a766c, -1.8, 1.9, -3); gp(o, 0.9, 1.9, 0.06, 0x2a1e12, 0.6, 0.95, -0.17);
+      for (const [a, b] of [[-1.2, -1.2], [1.2, -1.2], [-1.2, 1.2], [1.2, 1.2]]) gp(o, 0.18, 2.6, 0.18, 0x6a4a2a, a + 5.5, 1.3, b - 2.5);   // the cache on stilts
+      gp(o, 2.2, 1.4, 2.2, 0x6a4a2a, 5.5, 3.2, -2.5); roof(o, 2.6, 0.7, 2.8, 0x2a2a2a, 5.5, 3.9, -2.5);
+      for (let k = 0; k < 4; k++) { gp(o, 0.35, 1.2, 0.04, 0xb89a6a, -3.4 + k * 0.5, 1.1, 0.1); gp(o, 0.25, 0.7, 0.05, 0x6a4a30, -3.4 + k * 0.5, 1.2, 0.12); }   // fur stretchers
+      boat(o, 3.5, 3.6, 1.4, 0x2a6a3a, 4.6); logs(o, -3.6, -3.8, 6); },
+    'BOATHOUSE': o => { house(o, 5, 3, 7, 0x8a2a1a, 0x3a3a3a, 1.8, -2, -2); gp(o, 3.4, 2.6, 0.06, 0x2a2a2a, -2, 1.3, 1.52);
+      for (let k = 0; k < 3; k++) boat(o, 3 + k * 1.1, -1.5, 0, [0xc04a1a, 0x2a6a3a, 0xe0c040][k], 4.2);
+      drum(o, 6.8, 1.6); drum(o, 7.4, 1.9, 0x2a4a8a); gp(o, 1.6, 0.9, 0.8, 0x8a6a44, 6.6, 0.45, -3.6); },
+    'LOST LODE MINE': o => { const y0 = gy(o, 0, -4);   // adit portal in the slope, tracks out to a tin shack + tailings
+      gp(o, 3.0, 2.8, 4, 0x6a6458, 0, 1.0, -6.2); gp(o, 1.9, 2.1, 0.3, 0x0a0a0a, 0, 1.05, -4.2);
+      for (const a of [-1.1, 1.1]) gp(o, 0.3, 2.5, 0.3, 0x5a3a20, a, 1.2, -4.0); gp(o, 2.8, 0.3, 0.35, 0x5a3a20, 0, 2.45, -4.0);
+      for (const a of [-0.45, 0.45]) gp(o, 0.08, 0.08, 9, 0x5a5e62, a, 0.05, 0.4); for (let t = -4; t <= 5; t += 1) gp(o, 1.3, 0.1, 0.2, 0x4a3a2a, 0, 0.02, t);
+      gp(o, 1.0, 0.7, 1.4, 0x6a5040, 0, 0.6, 1.2); for (const a of [-0.35, 0.35]) for (const b of [0.7, 1.7]) geo(new THREE.CylinderGeometry(0.15, 0.15, 0.08, 8).rotateZ(Math.PI / 2), 0x2a2a2a, o, a * 1.5, 0.15 + gy(o, a, b), b);   // ore cart
+      house(o, 3.4, 2.2, 3, 0x9a9c9e, 0x7a7c7e, 0.6, 5, -1); gp(o, 0.9, 1.9, 0.06, 0x3a3a3a, 5, 0.95, 0.52);
+      geo(new THREE.ConeGeometry(5, 2.4, 9), 0x9a8a6a, o, -6.5, 0.6 + gy(o, -6.5, 1), 1); gp(o, 1.2, 1.1, 1.2, 0x8a2a1a, 9, 0.55, -4); void y0; },   // tailings, powder magazine
+    'ELK CAMP': o => { tent(o, -3, -2.5); tent(o, 1.5, -3.2, 0.2); ring(o, -0.5, 1.2);
+      for (const a of [-2, 2]) { gp(o, 0.1, 3.2, 0.1, 0x8a6a44, 5 + a, 1.5, 0, 0, 0, 0.25); gp(o, 0.1, 3.2, 0.1, 0x8a6a44, 5 + a, 1.5, 0, 0, 0, -0.25); }
+      gp(o, 4.4, 0.1, 0.1, 0x8a6a44, 5, 2.9, 0); for (const a of [-1, 0, 1]) gp(o, 0.4, 1.1, 0.35, 0xe8dcc0, 5 + a, 2.2, 0);   // meat pole, game bags
+      rails(o, [[-8, 3], [-8, 9], [-2, 9], [-2, 3]]); gp(o, 2.4, 0.1, 0.1, 0x8a6a44, 2, 0.9, 4); for (const a of [1.4, 2.6]) gp(o, 0.5, 0.35, 0.6, 0x6a3a1a, a, 1.05, 4); },   // corral, hitch rail + saddles
+    'RANGER STATION': o => { house(o, 3.4, 2.6, 3.2, 0x3a5a3a, 0x2a2a2a, 1.2, 0, -2); gp(o, 1.0, 2.0, 0.06, 0x2a1e12, 0, 1.0, -0.37);
+      gp(o, 1.6, 0.5, 0.6, 0xc8b01a, 3, 0.25, -1); drum(o, 3.6, 0.4); drum(o, 4.2, 0.4); for (let k = 0; k < 3; k++) gp(o, 0.5, 0.06, 1.7, 0x8a3a1a, -3, 0.9 + k * 0.4, -1.5, 0, 0, 0.0); },   // fire cache: pump crates, fuel, tools
+    'RANCH': o => { for (const [a, b] of [[-3, -4], [3, -4], [-3, 0], [3, 0]]) gp(o, 0.25, 3.6, 0.25, 0x6a4a2a, a, 1.8, b - 1); roof(o, 7, 1.3, 5.2, 0x8a2a1a, 0, 3.5, -3);   // hay shed
+      for (let k = 0; k < 9; k++) gp(o, 1.0, 0.45, 0.5, 0xd8c070, -2 + (k % 3) * 1.6, 0.23 + Math.floor(k / 3) * 0.45, -3.5 + (k % 2) * 0.2);
+      gp(o, 2.2, 1.1, 1.1, 0xb8b8b0, 5.5, 1.6, -2); for (const a of [-0.8, 0.8]) gp(o, 0.12, 1.1, 0.12, 0x5a5e62, 5.5 + a, 0.55, -2); },   // farm fuel tank on its stand
+  };
+  const GS = [], RV = [], RC = [];   // every camp in one merged mesh, every strip surface in another: 2 draw calls for all 8 sites
+  for (const B of BUSH) {
+    const S = { x: B.x, z: B.z, a: B.a, y: 0 }, l0 = B.low ? -B.low * (B.hl - 25) : 0;   // strip frame: local x across, z along (W(S, w, l))
+    const score = s => { let e = 0; for (const w of [B.hw + 8, B.hw + 18, B.hw + 30]) for (const l of [l0 - 14, l0, l0 + 14]) { const [x, z] = W(S, s * w, l), [x0, z0] = W(S, s * (B.hw + 2), l); e += Math.abs(groundY(x, z) - groundY(x0, z0)); if (waterDist(x, z) < 10) e += 60; } return e; };
+    const s = B.side || (score(1) <= score(-1) ? 1 : -1); B.side = s;
+    const ry = B.a - s * Math.PI / 2, [bx, bz] = W(S, s * (B.hw + 10), l0), [px, pz] = W(S, s * (B.hw + 10), l0 + 8), [cx, cz] = W(S, s * (B.hw + 25), l0 - 4);
+    Object.assign(B, { bx, bz, ry, px, pz, cx, cz });
+    G = new THREE.Group(); const o = { x: cx, z: cz, a: ry, y: 0 }; o.y = groundY(cx, cz); CUST[B.cust](o);
+    const mk = (l, w, h = 0.35) => { const [x, z] = W(S, w, l), y = groundY(x, z); part({ x: 0, z: 0, a: 0, y: 0 }, 0.6, h, 0.45, 0xe8e2d0, x, y + h / 2 - 0.05, z, B.a); };
+    if (B.type === 'short') { for (let l = -B.hl; l <= B.hl + 0.1; l += 40) for (const w of [-B.hw - 1, B.hw + 1]) mk(l, w); const [wx, wz] = W(S, s * (B.hw + 14), -l0 - B.hl + 30); sockAt(wx, wz); MOWN.push({ x: B.x, z: B.z, a: B.a, hl: B.hl, hw: B.hw }); }
+    else for (const l of [-B.hl, B.hl]) for (const w of [-B.hw, B.hw]) mk(l, w, 0.5);   // painted rocks at the corners: someone uses this spot
+    // the strip surface: graded / gravel ribbon, or two worn wheel tracks in the grass (meadow / ridge bench)
+    const v = RV, col = RC, cA = new THREE.Color({ sandbar: 0xb3a98c, shore: 0xa69c7c, short: 0x86ad55, meadow: 0x6a8a3e, ridge: 0x8a7a5a }[B.type]), cc = new THREE.Color();
+    const Pt = (l, w) => { const [x, z] = W(S, w, l); return [x, groundY(x, z) + 0.07, z]; };
+    const quad = (l, w, dl, dw) => { const A = Pt(l, w), Bq = Pt(l, w + dw), Cq = Pt(l + dl, w), D = Pt(l + dl, w + dw); v.push(...A, ...Bq, ...Cq, ...Bq, ...D, ...Cq); cc.copy(cA).offsetHSL(0, 0, (R() - 0.5) * 0.06); for (let k = 0; k < 6; k++) col.push(cc.r, cc.g, cc.b); };
+    for (let l = -B.hl; l < B.hl; l += 10) { if (B.type === 'meadow' || B.type === 'ridge') { for (const w of [-1.6, 1.0]) quad(l, w, 10, 0.6); } else for (let w = -B.hw; w < B.hw; w += B.hw) quad(l, w, 10, B.hw); }
+    G.updateMatrixWorld(true); const gs = GS, n0 = gs.length;
+    for (const q of G.children) { const h = (q.geometry.index ? q.geometry.toNonIndexed() : q.geometry.clone()).applyMatrix4(q.matrix); for (const k of Object.keys(h.attributes)) if (k !== 'position') h.deleteAttribute(k); h.computeVertexNormals();
+      const n = h.attributes.position.count, c = q.material.color, cl = new Float32Array(n * 3); for (let i = 0; i < n; i++) cl.set([c.r, c.g, c.b], i * 3); h.setAttribute('color', new THREE.BufferAttribute(cl, 3)); gs.push(h); }
+    B.tris = gs.slice(n0).reduce((t, h) => t + h.attributes.position.count / 3, 0);
+    DLV_STRIPS.push({ id: B.id, name: B.name, x: B.x, z: B.z, board: [bx, bz, ry], pad: [px, pz], site: true, found: false, B });
+  }
+  { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(RV, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(RC, 3)); g.computeVertexNormals();
+    const rm = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -3 })); rm.userData.noBatch = true; scene.add(rm); BUSH.rib = rm;
+    const mm = new THREE.Mesh(mergeGeometries(GS), new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true })); mm.userData.noBatch = true; scene.add(mm); for (const h of GS) h.dispose();
+    mm.userData.tris = mm.geometry.attributes.position.count / 3; BUSH.mesh = mm; for (const B of BUSH) B.mesh = mm; }
+  const c52 = MYS_SITES.clear, off = (x, z) => BUSH.some(B => { const dx = x - B.x, dz = z - B.z; if (dx * dx + dz * dz > 640000) return false;   // the strip (+40 m), a funnel off each end, the camp
+    const sa = Math.sin(B.a), ca = Math.cos(B.a), l = Math.abs(dx * sa + dz * ca), w = Math.abs(dx * ca - dz * sa);
+    return (l < B.hl + 40 && w < B.hw + 8) || (l < B.hl + 260 && w < B.hw + 4 + (l - B.hl) * 0.12) || Math.hypot(x - B.cx, z - B.cz) < 24; });
+  MYS_SITES.clear = () => { c52();
+    for (const k of CHUNKS) for (let i = 0; i < k.n; i++) if (off(k.xz[i * 2], k.xz[i * 2 + 1])) k.full.fill(0, i * 16, i * 16 + 16);
+    scene.traverse(m => { if (!m.isInstancedMesh || CHUNKS.some(k => k.im === m)) return; const A = m.instanceMatrix.array; let hit = false;
+      for (let i = 0; i < m.count; i++) if (A[i * 16 + 15] && off(A[i * 16 + 12], A[i * 16 + 14])) { A.fill(0, i * 16, i * 16 + 16); hit = true; } if (hit) m.instanceMatrix.needsUpdate = true; });
+    for (let i = TREES.length - 1; i >= 0; i--) if (off(TREES[i][0], TREES[i][2])) TREES.splice(i, 1); };
+}
+function bushFind(S, quiet) {   // a bush site goes on the map
+  if (!S.site || S.found) return; S.found = true; MAP.key = ''; S.key = ''; DLV.found = (DLV.found || 0) + 1; if (quiet) return;
+  const B = S.B; sfx('clack'); saveSoon();
+  say('FOUND ' + S.name + ' - ' + BUSH_T[B.type] + ' ~' + B.len + ' M' + (B.land != null ? ', ONE-WAY: LAND UPHILL HDG ' + String(B.land).padStart(3, '0') : '') + ' - ' + B.cust + ' - ON YOUR MAP NOW');
+}
+function bushTick() {   // flown over low (within ~400 m, under ~250 m above it) or walked up to: found
+  for (const S of DLV_STRIPS) if (S.site && !S.found && Math.hypot(PP.x - S.x, PP.z - S.z) < 400 && PP.y - groundY(S.x, S.z) < 250) bushFind(S);
+}
 const dlvS = id => DLV_STRIPS.find(S => S.id === id);
 const dlvKm = (a, b) => Math.hypot(a.x - b.x, a.z - b.z) / 1000;
 function dlvInPad(S, x, z) { const dx = x - S.pad[0], dz = z - S.pad[1], c = Math.cos(S.ry), s = Math.sin(S.ry), lx = dx * c - dz * s, lz = dx * s + dz * c; return Math.abs(lx) < DLV_PAD && Math.abs(lz) < DLV_PAD; }
@@ -4232,16 +4356,17 @@ const JB_W = 512, JB_H = 352, JB_PW = 1.28, JB_PH = 0.88, JB_Y = 1.45;
 // ---- contracts ----
 function dlvRng(n) { let s = (n * 2654435761) >>> 0 || 1; return () => { s = (s + 0x6D2B79F5) | 0; let t = Math.imul(s ^ (s >>> 15), 1 | s); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
 function dlvGen(from) {   // one offer from this strip (seeded by the running job number, so a save reloads the same board)
-  const id = DLV.seq++, r = dlvRng(id * 7919 + 13), others = DLV_STRIPS.filter(S => S.id !== from), to = others[Math.floor(r() * others.length)];
+  const id = DLV.seq++, r = dlvRng(id * 7919 + 13), fS = dlvS(from), others = DLV_STRIPS.filter(S => S.id !== from), bush = others.filter(S => S.site), main = others.filter(S => !S.site);
+  const pool = bush.length && r() < (fS && fS.site ? 0.25 : 0.5) ? bush : main, to = pool[Math.floor(r() * pool.length)], bx = to.site || (fS && fS.site) ? 1.2 : 1;   // v0.52 bush sites
   const [title, kinds] = DLV_T[Math.floor(r() * DLV_T.length)], items = kinds.map(k => { const [a, b] = CARGO_K[k].lb; return { k, lb: Math.round(a + r() * (b - a)) }; });
   const lb = items.reduce((s, i) => s + i.lb, 0), km = dlvKm(dlvS(from), to), dl = r() < 0.45 ? Math.ceil(6 + km * 1.5) : 0;
   const r2 = dlvRng(id * 104729 + 7);
   if (r2() < 0.35) {   // v0.51: about a third of the jobs are special cargo (no deadline: perishables have their own clock)
     const [t2, k2, sp, life] = DLV_SP[Math.floor(r2() * DLV_SP.length)], it2 = k2.map(k => { const [a, b] = CARGO_K[k].lb; return { k, lb: Math.round(a + r2() * (b - a)) }; });
     const lb2 = it2.reduce((s, i) => s + i.lb, 0);
-    return { id, from, to: to.id, title: t2, items: it2, pay: Math.round((25 + 0.55 * lb2 + 22 * km) * DLV_SPX[sp]), dl: 0, due: 0, st: 'offer', sp, life: sp === 'perish' ? Math.ceil(life + 2 * km) : 0, fresh: 1, stress: 0 };
+    return { id, from, to: to.id, title: t2, items: it2, pay: Math.round((25 + 0.55 * lb2 + 22 * km) * DLV_SPX[sp] * bx), dl: 0, due: 0, st: 'offer', sp, life: sp === 'perish' ? Math.ceil(life + 2 * km) : 0, fresh: 1, stress: 0 };
   }
-  const pay = Math.round((25 + 0.55 * lb + 22 * km) * (dl ? 1.4 : 1));
+  const pay = Math.round((25 + 0.55 * lb + 22 * km) * (dl ? 1.4 : 1) * bx);
   return { id, from, to: to.id, title, items, pay, dl, due: 0, st: 'offer' };
 }
 function dlvInit(fresh) { if (fresh) { DLV.cash = DLV_CASH0; DLV.gt = 0; DLV.seq = 1; } for (const S of DLV_STRIPS) { const L = DLV.offers[S.id] || (DLV.offers[S.id] = []); while (L.length < 3) L.push(dlvGen(S.id)); } }
@@ -4377,7 +4502,7 @@ function jbStatus(j) {
 function jbDraw(S) {
   const x = S.cx, L = DLV.offers[S.id], act = dlvActive().length;
   x.fillStyle = '#5a3c22'; x.fillRect(0, 0, JB_W, JB_H); x.fillStyle = '#efe6cf'; x.fillRect(8, 8, JB_W - 16, JB_H - 16);
-  x.fillStyle = '#2a1e12'; x.font = 'bold 25px sans-serif'; x.textAlign = 'left'; x.fillText(S.name + ' - JOBS', 20, 40);
+  x.fillStyle = '#2a1e12'; x.textAlign = 'left'; { const t = S.site ? S.name + ' - ' + S.B.cust : S.name + ' - JOBS'; let f = 25; do x.font = 'bold ' + f-- + 'px sans-serif'; while (x.measureText(t).width > 360 && f > 14); x.fillText(t, 20, 40); }
   x.textAlign = 'right'; x.fillStyle = '#1e6a2a'; x.fillText('$' + DLV.cash.toLocaleString('en-US'), JB_W - 20, 40); x.textAlign = 'left';
   for (let i = 0; i < 3; i++) { const j = L[i], Y = 54 + i * 86, mine = j.st === 'active';
     x.fillStyle = mine ? '#dcebcf' : '#fbf6e6'; x.fillRect(16, Y, JB_W - 32, 80); x.strokeStyle = '#8a7350'; x.lineWidth = 2; x.strokeRect(16, Y, JB_W - 32, 80);
@@ -4385,11 +4510,11 @@ function jbDraw(S) {
     x.fillStyle = '#222'; x.font = 'bold 19px sans-serif'; x.fillText((i + 1) + '. ' + j.title, 34, Y + 24);
     x.textAlign = 'right'; x.fillStyle = '#1e6a2a'; x.fillText('$' + j.pay, JB_W - 26, Y + 24); x.textAlign = 'left';
     const T = dlvS(j.to), n = {}; for (const it of j.items) n[it.k] = (n[it.k] || 0) + 1;
-    x.fillStyle = '#333'; x.font = '15px sans-serif'; x.fillText('TO ' + T.name + ' ' + dlvKm(S, T).toFixed(1) + ' KM - ' + dlvLb(j) + ' LB (' + Object.entries(n).map(([k, c]) => c + ' ' + CARGO_K[k].n + (c > 1 ? 'S' : '')).join(', ') + ')', 34, Y + 46);
+    x.fillStyle = '#333'; x.font = '15px sans-serif'; x.fillText('TO ' + T.name + (T.site && !T.found ? ' (FIND IT)' : '') + ' ' + dlvKm(S, T).toFixed(1) + ' KM - ' + dlvLb(j) + ' LB (' + Object.entries(n).map(([k, c]) => c + ' ' + CARGO_K[k].n + (c > 1 ? 'S' : '')).join(', ') + ')', 34, Y + 46);
     if (mine) { const [a, t, onPad] = jbStatus(j); x.fillStyle = t.includes('LATE') ? '#b8301e' : '#2a5a22'; x.font = 'bold 14px sans-serif'; x.fillText((j.sp ? '' : 'ACCEPTED - ') + a + t, 34, Y + 68);
       if (onPad) { x.fillStyle = '#8a8a80'; x.fillRect(JB_W - 126, Y + 50, 100, 26); x.fillStyle = '#fff'; x.textAlign = 'center'; x.fillText('CANCEL', JB_W - 76, Y + 68); x.textAlign = 'left'; } }
     else { x.fillStyle = j.sp ? '#8a1a6a' : j.dl ? '#9a4a10' : '#555'; x.font = (j.sp ? 'bold ' : '') + '14px sans-serif';
-      x.fillText(j.sp === 'fragile' ? 'FRAGILE - KNOCKS + G DOCK PAY (+30%)' : j.sp === 'perish' ? 'PERISHABLE - FRESH ' + j.life + ' MIN (+25%)' : j.sp === 'live' ? 'LIVE ANIMALS - FLY SMOOTH (+35%)' : j.dl ? 'DEADLINE ' + j.dl + ' MIN (+40% PAY)' : 'NO DEADLINE', 34, Y + 68);
+      x.fillText((T.site ? BUSH_T[T.B.type] + ' ' + T.B.len + ' M - ' : '') + (j.sp === 'fragile' ? 'FRAGILE - KNOCKS + G DOCK PAY (+30%)' : j.sp === 'perish' ? 'PERISHABLE - FRESH ' + j.life + ' MIN (+25%)' : j.sp === 'live' ? 'LIVE ANIMALS - FLY SMOOTH (+35%)' : j.dl ? 'DEADLINE ' + j.dl + ' MIN (+40% PAY)' : 'NO DEADLINE'), 34, Y + 68);
       x.fillStyle = act >= DLV_MAX ? '#9a9a90' : '#2a7a2a'; x.fillRect(JB_W - 126, Y + 50, 100, 26); x.fillStyle = '#fff'; x.font = 'bold 15px sans-serif'; x.textAlign = 'center'; x.fillText('ACCEPT', JB_W - 76, Y + 68); x.textAlign = 'left'; } }
   const inb = dlvActive().filter(j => j.to === S.id);
   x.fillStyle = '#3a2a1a'; x.font = '14px sans-serif';
@@ -4648,7 +4773,7 @@ function dlvTick(dt) {
   DLV.gt += dt / 60; dlvFallTick(dt); cargoUpdate(dt); dlvSpecTick(dt);
   playerPos(); let nb = null, nd = 1e9; for (const S of DLV_STRIPS) { const d = Math.hypot(PP.x - S.board[0], PP.z - S.board[1]); if (d < nd) { nd = d; nb = S; } }
   DLV.nearS = nd < 60 ? nb : null; DLV.nearD = nd;
-  if ((DLV.jbT -= dt) <= 0) { DLV.jbT = 0.5; mapJobs(); if (mode === 'plane' || KB.desk) kbDraw();   // v0.51.1 job marks on the paper map, the kneeboard
+  if ((DLV.jbT -= dt) <= 0) { DLV.jbT = 0.5; bushTick(); mapJobs(); if (mode === 'plane' || KB.desk) kbDraw();   // v0.51.1 job marks on the paper map, the kneeboard
     for (const S of DLV_STRIPS) { const near = Math.hypot(PP.x - S.board[0], PP.z - S.board[1]) < 400; S.m.visible = near; if (!near) continue; const k = jbKey(S) + '|' + Math.ceil(DLV.gt); if (k !== S.key) { S.key = k; jbDraw(S); } }
     for (const j of dlvActive()) if (j.dl && DLV.gt > j.due && !DLV.lateSaid[j.id]) { DLV.lateSaid[j.id] = 1; say(j.title + ' TO ' + dlvS(j.to).name + ' IS LATE - HALF PAY NOW'); } }
   if (mode === 'foot' && nd < 6 && DLV.hintS !== nb) { DLV.hintS = nb; say(nb.name + ' JOB BOARD - POKE ACCEPT' + (renderer.xr.isPresenting ? '' : ' (DESKTOP 1-3)')); } else if (nd > 12) DLV.hintS = null;
@@ -4662,12 +4787,13 @@ function dlvSave() {
     else { it.mesh.getWorldPosition(_dg); o.s = 'g'; o.p = [r3(_dg.x), r3(_dg.z)]; o.ry = r3(it.st === 'ground' ? it.mesh.rotation.y : 0); }
     items.push(o); }
   const offers = {}; for (const S of DLV_STRIPS) offers[S.id] = DLV.offers[S.id].map(j => ({ id: j.id, from: j.from, to: j.to, title: j.title, items: j.items, pay: j.pay, dl: j.dl, due: r3(j.due), st: j.st, ...(j.sp ? { sp: j.sp, life: j.life, fresh: r3(j.fresh), stress: r3(j.stress) } : {}) }));   // v0.51 special cargo state
-  return { cash: DLV.cash, gt: r3(DLV.gt), seq: DLV.seq, paid: DLV.paid, done: DLV.done, offers, items, straps: [DLV.belt, DLV.net] };
+  return { cash: DLV.cash, gt: r3(DLV.gt), seq: DLV.seq, paid: DLV.paid, done: DLV.done, offers, items, straps: [DLV.belt, DLV.net], found: DLV_STRIPS.filter(S => S.site && S.found).map(S => S.id) };   // v0.52 + found sites
 }
 function dlvLoad(d) {
   for (const it of DLV.items.slice()) dlvRemove(it);
-  DLV.offers = {}; DLV.cash = DLV_CASH0; DLV.gt = 0; DLV.seq = 1;
+  DLV.offers = {}; DLV.cash = DLV_CASH0; DLV.gt = 0; DLV.seq = 1; DLV.found = 0; for (const S of DLV_STRIPS) if (S.site) S.found = false; MAP.key = '';
   if (d && typeof d === 'object') {
+    if (Array.isArray(d.found)) for (const id of d.found) { const S = dlvS(id); if (S) bushFind(S, true); }
     if (isFinite(d.cash)) DLV.cash = Math.round(d.cash); if (isFinite(d.gt)) DLV.gt = d.gt; if (isFinite(d.seq)) DLV.seq = d.seq; DLV.paid = d.paid || 0; DLV.done = d.done || 0;
     for (const S of DLV_STRIPS) { const L = d.offers?.[S.id]; if (Array.isArray(L)) DLV.offers[S.id] = L.filter(j => j && dlvS(j.to) && Array.isArray(j.items) && j.items.every(i => CARGO_K[i.k])).slice(0, 3).map(j => ({ ...j, from: S.id, ...(j.sp ? { sp: DLV_SPX[j.sp] ? j.sp : undefined, fresh: clamp(+j.fresh || 0, 0, 1), stress: clamp(+j.stress || 0, 0, 1), life: j.sp === 'perish' ? Math.max(1, +j.life || 1) : 0 } : {}) })); }
     dlvInit(false);
@@ -4755,7 +4881,7 @@ function cubParked() { return !ac.crashed && acGS() < 1 && ac.gs.some(g => g.Fn 
 function saveGame(why) {
   if (NOSAVE || SV.off) return false;
   if (cubParked()) SV.cub = { p: ac.pos.map(r3), q: ac.q.map(v => Math.round(v * 1e6) / 1e6) };
-  const d = { v: 51, at: Date.now(), cub: SV.cub, fuel: r3(fuel), h: r3(DAY.h), mode, foot: mode === 'foot' ? [r3(footRig.position.x), r3(footRig.position.z), r3(bodyYaw)] : null, dlv: dlvSave() };   // v0.50: + wallet, jobs, cargo, straps
+  const d = { v: 52, at: Date.now(), cub: SV.cub, fuel: r3(fuel), h: r3(DAY.h), mode, foot: mode === 'foot' ? [r3(footRig.position.x), r3(footRig.position.z), r3(bodyYaw)] : null, dlv: dlvSave() };   // v0.50: + wallet, jobs, cargo, straps
   try { localStorage.setItem(SAVE_KEY, JSON.stringify(d)); } catch (e) { return false; }
   SV.last = Date.now(); SV.n++; SV.why = why || ''; SV.t = 30; SV.due = -1; return true;
 }
@@ -4770,7 +4896,7 @@ function saveTick(dt) {
 }
 function gameLoad() {
   if (NOSAVE) return false; let d = null; try { d = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); } catch (e) { }
-  if (!d || ![45, 50, 51].includes(d.v)) return false;   // v0.50 reads a v0.45 save too (no jobs yet: a fresh wallet and boards)
+  if (!d || ![45, 50, 51, 52].includes(d.v)) return false;   // v0.50 reads a v0.45 save too (no jobs yet: a fresh wallet and boards)
   if (typeof d.fuel === 'number' && isFinite(d.fuel)) fuel = clamp(d.fuel, 0, FUEL_MAX);
   if (typeof d.h === 'number' && isFinite(d.h)) DAY.h = ((d.h % 24) + 24) % 24;
   if (d.cub && d.cub.p?.length === 3 && d.cub.q?.length === 4) { ac.pos = d.cub.p.slice(); ac.q = d.cub.q.slice(); SV.cub = d.cub; }
