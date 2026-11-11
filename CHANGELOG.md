@@ -2,6 +2,17 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.43 – Cockpit hands, part 2: 3D instrument panel
+
+- Instruments look like real 3D gauges, not screens: every dial sits in a machined bezel with a flange, a recessed cup, a lip and four screws, under glass with a soft glint that slides as your head moves. Needles stand about 4 mm off the face, and a painted shadow under the rim adds depth.
+- Painted instrument panel with worn paint, rivets, a glare pad and placards (PA-18 SUPER CUB, CARB HEAT IN RAIN!, TACH, FUEL, OIL), plus a compass correction card.
+- New OIL gauge (pressure on top, temperature below) that follows the engine. The FLAPS/warning info window is now a smaller framed display.
+- Panel lights: a new PANEL LT rheostat (OFF / DIM / BRT) in the switch strip. Twist it with your hand or press K in the plane. It only works with the MASTER on, and at night it gives the gauges a warm glow.
+- Wet compass rebuilt: an amber-glass housing, and a card that lags and swings past the heading, tilts with pitch, roll and the ball, and shivers with the engine.
+- The glove soft stop now stops on the front of the bezels.
+- Perf: all gauge faces, the switch strip and placards now share one texture atlas mesh, and the bezels and glass are one mesh each. Cockpit 135 → 130 draw calls (v0.42 → v0.43), 311k → 317k tris; alt600 112 → 107 / 301k; foot 96 / 309k; town 221 → 217 / 312k.
+- Tests: physics md5 unchanged (eee6637e...), ALL W&B TESTS PASS, t42 28/28, t43 4/4 (oil needles, K panel lights, master-gated tint, compass swing), RELOAD PASS. No save-format change.
+
 ## v0.42 – Cockpit hands, part 1: overhead flaps, trim crank, stick and throttle feel
 - **Flap handle moved to the roof.** It hangs from a new overhead console on the windscreen top bow, above your head to the left, like an overhead Johnson bar. Reach up, grab the black T-grip with either hand, and pull it **down** through the notches 0 / 15 / 30 / 50°. Push it up to retract. Each notch has a clunk, a firm buzz and a notched quadrant plate the pawl drops into. The handle stays close to its notch while you hold it, and you feel a bump at both end stops. It drives `ctl.flap` exactly as before. Desktop `[` / `]` are unchanged and now play the clunk too. The old left-wall lever and its quadrant plate are gone.
 - **Overhead elevator trim crank** beside the flap handle. Grab the knob and wind it: anticlockwise as you look at it = nose up. Three turns end to end, eight clicks a turn, and a white pointer slides along a slot next to it. Trim is a bias on the elevator (up to ±30 % of travel) that the stick doesn't show. It is applied around the physics step, so the flight model is untouched. Desktop: hold **PageDown** (nose up) / **PageUp** (nose down). It resets to neutral with the plane.
