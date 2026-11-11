@@ -1388,7 +1388,7 @@ function drawInfo(a) {
   if (ac.engineOut && fuel <= 0) warn.push(['NO FUEL', '#f44']); else if (fr < 0.15) warn.push(['LOW FUEL', '#fa3']);
   if (!ENG.running && !a.crashed) warn.push([ENG.cranking ? 'CRANKING' : 'ENGINE OFF', '#fa3']);
   if (a.ctl.brake > 0.05) warn.push(['BRAKES', '#fa3']);
-  const lines = a.crashed ? [a.crashReason.slice(0, 22), a.crashReason.slice(22, 44)] : (msgT > 0 && mode === 'plane' ? [msg.slice(0, 22), msg.slice(22, 44)].filter(l => l.trim()) : []);
+  const lines = a.crashed ? [a.crashReason.slice(0, 22), a.crashReason.slice(22, 44)] : (msgT > 0 && mode === 'plane' ? msgPage(22) : []);
   lines.push(`THR ${(a.ctl.throttle * 100).toFixed(0)}%  FPS ${fps}`);
   { const key = warn.join() + lines.join() + flapNotch + fr.toFixed(2); if (key === drawInfo.k) return; drawInfo.k = key; }   // v0.47: no re-upload when nothing changed
   const key = flapNotch + '|' + warn.map(w => w[0]).join() + '|' + lines.join('|');
@@ -1470,8 +1470,11 @@ let lookYaw = 0, lookPitch = 0, needRecenter = 0, crashTimer = 0;
 let mode = 'plane';                                 // 'plane' | 'foot'
 const footRig = new THREE.Group(); scene.add(footRig);
 const EYE = 1.6, WALK = 2.2;                          // on-foot eye height (m) and walk speed (m/s)
-let msg = '', msgT = 0;
-const say = m => { msg = m; msgT = 3; };
+let msg = '', msgT = 0, msgA = 0;
+const msgDur = m => Math.max(3, Math.ceil(m.length / 50) * 2.6);   // v0.59.1 long messages stay up long enough to page through on the wrist
+const say = m => { msg = m; msgT = msgDur(m); msgA = 0; };
+function wrapText(t, w) { const L = []; let l = ''; for (const wd of t.split(' ')) { for (let p = wd; p.length; ) { const c = p.slice(0, w); p = p.slice(w); if (!l) l = c; else if (l.length + 1 + c.length <= w) l += ' ' + c; else { L.push(l); l = c; } } } if (l) L.push(l); return L; }
+function msgPage(w) { const L = wrapText(msg, w), n = Math.ceil(L.length / 2), p = Math.min(n - 1, Math.floor(msgA / Math.max(2.6, (msgA + msgT) / n))); return L.slice(p * 2, p * 2 + 2); }   // two lines at a time, paged over the message's time
 const _a = new THREE.Vector3(), _b = new THREE.Vector3(), _w = new THREE.Vector3(), _d = new THREE.Vector3(), _qa = new THREE.Quaternion();
 
 // ---- sound: procedural Web Audio (no files). Engine / wind / tyres / stall horn loops + one-shots ----
@@ -1952,10 +1955,11 @@ function statusText() {
 }
 let wristKey = '';
 function drawWrist() {   // v0.10: only re-uploads when something on it changed
-  const st = statusText(), key = st + '|' + SETP.open;
+  const st = statusText(), key = st + '|' + SETP.open + '|' + (msgT > 0 ? msgPage(26).join() : '');
   if (key === wristKey) return; wristKey = key;
   wctx.fillStyle = '#111'; wctx.fillRect(0, 0, 256, 128); wctx.font = '16px monospace';
-  st.split('\n').forEach((l, i) => { wctx.fillStyle = i ? '#9f9' : '#ffd84a'; wctx.font = i ? '16px monospace' : 'bold 14px monospace'; wctx.fillText(l.slice(0, i ? 26 : 30), 4, 20 + i * 22); });   // v0.50: line 1 = wallet + jobs (gold)
+  const SL = st.split('\n'), ex = SL.slice(3).filter(l => l !== msg), W = SL.slice(0, 3).concat(msgT > 0 ? msgPage(26) : [], ex).slice(0, 5);   // v0.59.1 five lines above the button; the message (paged, two lines) before the warnings
+  W.forEach((l, i) => { wctx.fillStyle = i < 3 ? (i ? '#9f9' : '#ffd84a') : msgT > 0 && i < 3 + Math.min(2, wrapText(msg, 26).length) ? '#fff' : '#fc8'; wctx.font = i ? '15px monospace' : 'bold 14px monospace'; wctx.fillText(l.slice(0, i ? 27 : 30), 4, 16 + i * 18); });   // v0.50: line 1 = wallet + jobs (gold)
   wctx.fillStyle = SETP.open ? '#ffd84a' : '#3a3a3a'; wctx.fillRect(8, 100, 240, 22); wctx.fillStyle = SETP.open ? '#111' : '#ddd'; wctx.font = 'bold 15px monospace'; wctx.textAlign = 'center';
   wctx.fillText(SETP.open ? 'POKE: CLOSE SETTINGS' : 'POKE: SETTINGS', 128, 116); wctx.textAlign = 'left';
   wtex.needsUpdate = true; hud.textContent = st;
@@ -3591,21 +3595,23 @@ function kbLines() {   // the text, one entry per active job
       pcs: '1 DEER, ~100-150 LB (TWO-HAND)', pay: '$' + j.pay, due: left === Infinity ? 'NO DEADLINE' : left < 0 ? 'LATE - HALF PAY' : 'DUE IN ' + Math.ceil(left) + ' MIN', st: 'HUNTING - FIND THE HERD', warn: left < 0 }); continue; }   // v0.53
     L.push({ col: '#' + DLV_COL[j.id % DLV_COL.length].toString(16).padStart(6, '0'), t: j.title, sp: j.sp, rt: S.name + ' > ' + T.name, nav: (hu ? 'HUNT ' : hid ? 'SEARCH ' : '') + (km < 10 ? km.toFixed(1) : Math.round(km)) + ' KM  HDG ' + String(hdg).padStart(3, '0') + (T.site && !hid ? '  ' + BUSH_T[T.B.type] + ' ' + T.B.len + 'M' : ''),
       pcs: (dlvWc(j) === 'H' ? 'HEAVY ' : 'LIGHT ') + its.reduce((s, i) => s + i.lb, 0) + ' LB - ' + Object.entries(n).map(([k, c]) => c + ' ' + CARGO_K[k].n + (c > 1 ? 'S' : '')).join(', '), pay: '$' + j.pay, due, st, warn: !!loose || left < 0 || (j.sp && dlvSpPay(j) < 0.75) }); }
-  L.forEach((e, i) => { const k = repKey(A[i]); e.rep = repStars(repOf(k)); e.req = A[i].req ? 1 : 0; });   // v0.56 one entry per job, in order
-  return L;
+  L.forEach((e, i) => { const k = repKey(A[i]); e.rep = repStars(repOf(k)); e.req = A[i].req ? 1 : 0; e.emg = A[i].emg ? 1 : 0; });   // v0.56 one entry per job, in order
+  return L.sort((a, b) => b.emg - a.emg);   // v0.59.1 an emergency call is listed first
 }
 function kbDraw() {
   const L = kbLines(), k = DLV.cash + '|' + JSON.stringify(L); if (k === KB.key) return; KB.key = k;
   const x = KB.x; x.fillStyle = '#f4f1e6'; x.fillRect(0, 0, KB_W, KB_H); x.fillStyle = '#c9d6e8'; for (let y = 96; y < KB_H; y += 34) x.fillRect(0, y, KB_W, 1.5);
   x.textAlign = 'left'; x.textBaseline = 'alphabetic'; x.fillStyle = '#1a1a1a'; x.font = 'bold 34px sans-serif'; x.fillText('JOBS', 22, 66); x.textAlign = 'right'; x.fillStyle = '#1e6a2a'; x.fillText('$' + DLV.cash.toLocaleString('en-US'), KB_W - 22, 66); x.textAlign = 'left';
   if (!L.length) { x.fillStyle = '#555'; x.font = 'bold 26px sans-serif'; x.fillText('NO JOBS', 22, 140); x.font = '22px sans-serif'; x.fillText('TAKE ONE AT A STRIP\'S', 22, 180); x.fillText('JOB BOARD (GOLD ON THE MAP)', 22, 210); }
-  L.forEach((e, i) => { const Y = 92 + i * 204;
-    x.fillStyle = e.col; x.fillRect(14, Y + 6, 16, 190); x.fillStyle = '#111'; x.font = 'bold 27px sans-serif'; x.fillText((i + 1) + '. ' + e.t, 40, Y + 34);
-    x.textAlign = 'right'; x.fillStyle = '#1e6a2a'; x.fillText(e.pay, KB_W - 18, Y + 34); x.textAlign = 'left';
-    x.fillStyle = '#222'; x.font = 'bold 23px sans-serif'; x.fillText(e.rt, 40, Y + 66); x.font = '22px sans-serif'; x.fillText(e.nav, 40, Y + 96); x.textAlign = 'right'; x.fillStyle = '#a07010'; x.fillText((e.req ? 'REQUEST ' : '') + e.rep, KB_W - 18, Y + 96); x.textAlign = 'left';
-    x.fillStyle = '#333'; x.font = '19px sans-serif'; x.fillText(e.pcs.slice(0, 40), 40, Y + 124);
-    x.fillStyle = e.sp ? '#8a1a6a' : '#333'; x.font = 'bold 21px sans-serif'; x.fillText((e.sp ? { fragile: 'FRAGILE ', perish: 'PERISHABLE ', live: 'LIVE ' }[e.sp] : '') + e.due, 40, Y + 154);
-    x.fillStyle = e.warn ? '#b8301e' : '#2a5a22'; x.font = 'bold 20px sans-serif'; x.fillText(e.st, 40, Y + 184); });
+  const h = L.length > 3 ? 152 : 204, f = h / 204, F = n => Math.round(n * (f < 1 ? 0.82 : 1)) + 'px sans-serif', o = n => Math.round(n * f);   // v0.59.1 four entries (three jobs + a call) fit
+  L.forEach((e, i) => { const Y = 92 + i * h;
+    x.fillStyle = e.col; x.fillRect(14, Y + 6, 16, h - 14); x.fillStyle = '#111'; x.font = 'bold ' + F(27); const pw = x.measureText(e.pay).width; x.fillText((i + 1) + '. ' + e.t, 40, Y + o(34), KB_W - 76 - pw);
+    x.textAlign = 'right'; x.fillStyle = '#1e6a2a'; x.fillText(e.pay, KB_W - 18, Y + o(34)); x.textAlign = 'left';
+    x.font = F(22); const rs = (e.req ? 'REQUEST ' : '') + e.rep, rw = x.measureText(rs).width; x.textAlign = 'right'; x.fillStyle = '#a07010'; x.fillText(rs, KB_W - 18, Y + o(154)); x.textAlign = 'left';   // v0.59.1 rep on the short due line (it ran into the nav line)
+    x.fillStyle = '#222'; x.font = 'bold ' + F(23); x.fillText(e.rt, 40, Y + o(66), KB_W - 58); x.font = F(22); x.fillText(e.nav, 40, Y + o(96), KB_W - 58);
+    x.fillStyle = '#333'; x.font = F(19); x.fillText(e.pcs, 40, Y + o(124), KB_W - 58);
+    x.fillStyle = e.sp ? '#8a1a6a' : '#333'; x.font = 'bold ' + F(21); x.fillText((e.sp ? { fragile: 'FRAGILE ', perish: 'PERISHABLE ', live: 'LIVE ' }[e.sp] : '') + e.due, 40, Y + o(154), KB_W - 70 - rw);
+    x.fillStyle = e.warn ? '#b8301e' : '#2a5a22'; x.font = 'bold ' + F(20); x.fillText(e.st, 40, Y + o(184), KB_W - 58); });
   KB.t.needsUpdate = true;
 }
 function updateKb() {
@@ -4709,6 +4715,8 @@ function jbStatus(j) {
   const t = left === Infinity ? dlvMeter(j, its) : left < 0 ? ' - LATE: HALF PAY' : ' - DUE IN ' + Math.ceil(left) + ' MIN';
   return [onPad ? (j.sp ? 'ON THE PAD' : 'ON THE PAD - LOAD IT UP') : at ? at + '/' + its.length + ' DELIVERED' : its.some(it => it.st === 'cargo') ? 'IN THE CUB' : 'ON THE MOVE', t, onPad];
 }
+function fitText(x, L, X, Y, mw) { const f0 = x.font, px = parseFloat(f0.match(/(\d+)px/)[1]);   // v0.59.1 the first variant that fits, then the same 2 px smaller, else squeeze the shortest
+  for (const d of [0, 2]) { x.font = f0.replace(/\d+px/, (px - d) + 'px'); for (const t of L) if (x.measureText(t).width <= mw) { x.fillText(t, X, Y); x.font = f0; return; } } x.fillText(L[L.length - 1], X, Y, mw); x.font = f0; }
 function jbDraw(S) {
   if (S.lock) return jbLocked(S);   // v0.56
   const x = S.cx, L = DLV.offers[S.id], act = dlvActive().length;
@@ -4723,13 +4731,16 @@ function jbDraw(S) {
     { const H = dlvWc(j) === 'H', pw = x.measureText('$' + j.pay).width, t = j.req ? 'REQUEST' : j.hunt ? 'HUNT' : j.drop ? 'AIRDROP' : H ? 'HEAVY' : 'LIGHT'; x.font = 'bold 12px sans-serif'; const bw = x.measureText(t).width + 10, b0 = JB_W - 26 - pw - 10 - bw;   // v0.52 weight class
       x.fillStyle = j.req ? '#b08010' : j.hunt ? '#c06010' : j.drop ? '#2a5aa0' : H ? '#8a2a1a' : '#5a7a5a'; x.fillRect(b0, Y + 9, bw, 19); x.fillStyle = '#fff'; x.fillText(t, b0 + 5, Y + 23); }
     const T = dlvS(j.to), n = {}; for (const it of j.items) n[it.k] = (n[it.k] || 0) + 1;
-    x.fillStyle = '#333'; x.font = '15px sans-serif'; x.fillText((j.drop ? 'AIRDROP TO THE ' + DROPS[j.drop.s].who + ' AT ' + DROPS[j.drop.s].name + ' (NO STRIP) ' + dropKm(j, S).toFixed(1) + ' KM - ' + j.drop.n + ' BUNDLES ' + dlvLb(j) + ' LB' : j.hunt ? 'TO ' + T.name + (T.site && !T.found ? ' (FIND IT)' : '') + ' - 1 DEER (~100-150 LB) - HUNT AREA ON THE MAP: ' + DEER_HERDS[j.hunt.h].name : 'TO ' + T.name + (T.site && !T.found ? ' (FIND IT)' : '') + ' ' + dlvKm(S, T).toFixed(1) + ' KM - ' + dlvLb(j) + ' LB (' + Object.entries(n).map(([k, c]) => c + ' ' + CARGO_K[k].n + (c > 1 ? 'S' : '')).join(', ') + ')') + '  ' + repStars(repOf(repKey(j))), 34, Y + 46, JB_W - 56);
+    { const st = '  ' + repStars(repOf(repKey(j))), fd = T.site && !T.found ? ' (FIND IT)' : '', lb = dlvLb(j) + ' LB'; x.fillStyle = '#333'; x.font = '15px sans-serif';
+      fitText(x, j.drop ? ['AIRDROP TO THE ' + DROPS[j.drop.s].who + ' AT ' + DROPS[j.drop.s].name + ' (NO STRIP) ' + dropKm(j, S).toFixed(1) + ' KM - ' + j.drop.n + ' BUNDLES ' + lb + st, 'AIRDROP: ' + DROPS[j.drop.s].who + ' AT ' + DROPS[j.drop.s].name + ' - ' + dropKm(j, S).toFixed(1) + ' KM - ' + j.drop.n + ' BUNDLES' + st]
+        : j.hunt ? ['TO ' + T.name + fd + ' - 1 DEER (~100-150 LB) - HUNT AREA ON THE MAP: ' + DEER_HERDS[j.hunt.h].name + st, 'TO ' + T.name + fd + ' - 1 DEER (~100-150 LB) - HUNT AREA: ' + DEER_HERDS[j.hunt.h].name + st, 'TO ' + T.name + fd + ' - 1 DEER - HUNT AREA: ' + DEER_HERDS[j.hunt.h].name + st]
+        : ['TO ' + T.name + fd + ' ' + dlvKm(S, T).toFixed(1) + ' KM - ' + lb + ' (' + Object.entries(n).map(([k, c]) => c + ' ' + CARGO_K[k].n + (c > 1 ? 'S' : '')).join(', ') + ')' + st, 'TO ' + T.name + fd + ' ' + dlvKm(S, T).toFixed(1) + ' KM - ' + lb + ' - ' + j.items.length + (j.items.length > 1 ? ' PIECES' : ' PIECE') + st], 34, Y + 46, JB_W - 56); }   // v0.59.1 shorter line before squeezing
     if (mine) { const [a, t, onPad] = jbStatus(j); x.fillStyle = t.includes('LATE') ? '#b8301e' : '#2a5a22'; x.font = 'bold 14px sans-serif'; x.fillText((j.sp ? '' : 'ACCEPTED - ') + a + t, 34, Y + 68);
       if (onPad) { x.fillStyle = '#8a8a80'; x.fillRect(JB_W - 126, Y + 50, 100, 26); x.fillStyle = '#fff'; x.textAlign = 'center'; x.fillText('CANCEL', JB_W - 76, Y + 68); x.textAlign = 'left'; } }
     else if (!j.hunt && dlvLb(j) > dlvRoom()) { x.fillStyle = '#b8301e'; x.font = 'bold 14px sans-serif'; x.fillText('OVER PAYLOAD AT ' + Math.round(WBS.fuelGal) + ' GAL: MAX ' + Math.max(0, dlvRoom()) + ' LB', 34, Y + 68, JB_W - 170);   // v0.52
       x.fillStyle = act >= DLV_MAX ? '#9a9a90' : '#2a7a2a'; x.fillRect(JB_W - 126, Y + 50, 100, 26); x.fillStyle = '#fff'; x.font = 'bold 15px sans-serif'; x.textAlign = 'center'; x.fillText('ACCEPT', JB_W - 76, Y + 68); x.textAlign = 'left'; }
     else { x.fillStyle = j.req ? '#8a6008' : j.sp ? '#8a1a6a' : j.dl ? '#9a4a10' : '#555'; x.font = (j.sp || j.req ? 'bold ' : '') + '14px sans-serif';
-      x.fillText(j.req ? '"ASK FOR ' + PILOT + '" - ' + (REP_NAME[repKey(j)] || repWho(repKey(j))) + (j.dl ? ' - ' + j.dl + ' MIN' : '') : j.drop ? 'DROP ON THE SMOKE - PAID BY AIM + CONDITION' + (j.dl ? ' - ' + j.dl + ' MIN' : '') : j.hunt ? 'HUNTING JOB - ' + (j.dl ? 'DEADLINE ' + j.dl + ' MIN' : 'NO DEADLINE') + ' - KEEPS ' + j.life + ' MIN DRESSED' : (T.site ? BUSH_T[T.B.type] + ' ' + T.B.len + ' M - ' : '') + (j.sp === 'fragile' ? 'FRAGILE - KNOCKS + G DOCK PAY (+30%)' : j.sp === 'perish' ? 'PERISHABLE - FRESH ' + j.life + ' MIN (+25%)' : j.sp === 'live' ? 'LIVE ANIMALS - FLY SMOOTH (+35%)' : j.dl ? 'DEADLINE ' + j.dl + ' MIN (+40% PAY)' : 'NO DEADLINE'), 34, Y + 68, JB_W - 170);
+      fitText(x, [j.req ? '"ASK FOR ' + PILOT + '" - ' + (REP_NAME[repKey(j)] || repWho(repKey(j))) + (j.dl ? ' - ' + j.dl + ' MIN' : '') : j.drop ? 'DROP ON THE SMOKE - PAID BY AIM + CONDITION' + (j.dl ? ' - ' + j.dl + ' MIN' : '') : j.hunt ? 'HUNTING JOB - ' + (j.dl ? 'DEADLINE ' + j.dl + ' MIN' : 'NO DEADLINE') + ' - KEEPS ' + j.life + ' MIN DRESSED' : (T.site ? BUSH_T[T.B.type] + ' ' + T.B.len + ' M - ' : '') + (j.sp === 'fragile' ? 'FRAGILE - KNOCKS + G DOCK PAY (+30%)' : j.sp === 'perish' ? 'PERISHABLE - FRESH ' + j.life + ' MIN (+25%)' : j.sp === 'live' ? 'LIVE ANIMALS - FLY SMOOTH (+35%)' : j.dl ? 'DEADLINE ' + j.dl + ' MIN (+40% PAY)' : 'NO DEADLINE'), j.req ? '"ASK FOR ' + PILOT + '"' + (j.dl ? ' - ' + j.dl + ' MIN' : '') : j.drop ? 'DROP ON THE SMOKE' + (j.dl ? ' - ' + j.dl + ' MIN' : '') : j.hunt ? (j.dl ? 'HUNT - ' + j.dl + ' MIN' : 'HUNT - NO DEADLINE') + ' - KEEPS ' + j.life + ' MIN' : (T.site ? BUSH_T[T.B.type] + ' ' + T.B.len + ' M - ' : '') + (j.sp === 'fragile' ? 'FRAGILE (+30%)' : j.sp === 'perish' ? 'PERISHABLE ' + j.life + ' MIN (+25%)' : j.sp === 'live' ? 'LIVE ANIMALS (+35%)' : j.dl ? 'DEADLINE ' + j.dl + ' MIN (+40%)' : 'NO DEADLINE')], 34, Y + 68, JB_W - 170);
       x.fillStyle = act >= DLV_MAX ? '#9a9a90' : '#2a7a2a'; x.fillRect(JB_W - 126, Y + 50, 100, 26); x.fillStyle = '#fff'; x.font = 'bold 15px sans-serif'; x.textAlign = 'center'; x.fillText('ACCEPT', JB_W - 76, Y + 68); x.textAlign = 'left'; } }
   const inb = dlvActive().filter(j => j.to === S.id && !j.drop && !j.emg);
   { const v = repOf(S.id), T = repTier(v); x.fillStyle = T[2]; x.font = 'bold 14px sans-serif'; x.fillText('REP: ' + repWho(S.id) + '  ' + repStars(v) + '  ' + T[1] + ' (' + v + ')' + (repPayX(v) >= 1.01 ? ' - PAY +' + Math.round((repPayX(v) - 1) * 100) + '%' : ''), 20, JB_H - 30, JB_W - 40); }   // v0.56
@@ -5731,7 +5742,7 @@ function binoSpot() {   // what's in the middle of the view: deer (count + range
     key = 'd' + f.deer.h + n; t = 'BINOCULARS: ' + (f.deer.state === 'dead' ? 'YOUR ' + DSP[f.deer.sp].name + ', DOWN' : n + ' DEER' + (st ? ' (A STAG)' : '') + (f.deer.state === 'flee' ? ', RUNNING' : f.deer.head < -1 ? ', GRAZING' : '')) + ' - ' + rng + ' - ' + H.name; }
   else { const S = f.S; key = 's' + S.id + S.found; if (S.site && !S.found && L < 1500) { bushFind(S); return; }
     t = 'BINOCULARS: ' + (S.site && !S.found ? 'A CLEARING - SOMETHING BUILT THERE' : S.name + (S.site ? ' (' + S.B.cust + ')' : '')) + ' - ' + rng; }
-  if (key !== BINO.last) { BINO.last = key; say(t); msgT = 4; }
+  if (key !== BINO.last) { BINO.last = key; say(t); msgT = Math.max(msgT, 4); }
 }
 function binoRender() {
   if (!BINO.on || (BINO.n++ & 1)) return;   // every other frame
@@ -6410,7 +6421,7 @@ function folkChat() {   // a COM radio line from someone whose story you're in (
 }
 function folkTick(dt) {
   const P = playerPos(), foot = mode === 'foot';
-  if (FOLK.q.length && (FOLK.q[0].w -= dt) <= 0) { const n = FOLK.q.shift(); if (!n.soft || msgT < 0.5) { say(n.t); msgT = n.soft ? 5 : 7; } }
+  if (FOLK.q.length && (FOLK.q[0].w -= dt) <= 0) { const n = FOLK.q.shift(); if (!n.soft || msgT < 0.5) { say(n.t); msgT = Math.max(msgT, n.soft ? 5 : 7); } }
   let near = null, nd = 4;
   for (const f of FOLK.figs) { const dx = P.x - f.x, dz = P.z - f.z, d = Math.hypot(dx, dz), vis = d < 200 && !(f.id === 'CREEK' && EMG.jobs.some(j => j.emg.joe)); f.g.visible = vis; if (!vis) continue;
     if (foot && d < 12) { const want = Math.atan2(dx, dz); let e = want - f.g.rotation.y; e = Math.atan2(Math.sin(e), Math.cos(e)); f.g.rotation.y += e * Math.min(1, dt * 3); } else { let e = f.ry0 - f.g.rotation.y; e = Math.atan2(Math.sin(e), Math.cos(e)); f.g.rotation.y += e * Math.min(1, dt * 1.5); }
@@ -6471,8 +6482,8 @@ function emgNewCall() {
   const sc = EMG.story.length ? EMG.story[0] : null, scd = sc ? { id: sc.id, emg: FOLK_ST[sc.id][sc.i].emg } : null;
   const j = emgGen(scd); j.emg.exp = scd ? 0 : DLV.gt + EMG_EXP; if (sc) EMG.story.shift(); EMG.call = j; EMG.key = ''; MAP.key = '';
   const atB = mode === 'foot' && DLV.nearS && !DLV.nearS.site && DLV.nearD < 60;
-  if (mode === 'plane' && UPG.radio && ENG.master) { sfx('static'); say('RADIO - RANGER KOWALSKI: "ALL PILOTS, ' + emgCallText(j) + '" (C TO TAKE IT)'); msgT = 7; EMG.heard = j.id; }
-  else if (atB) { say('EMERGENCY CALL-OUT ON THE RED SIGN: ' + emgCallText(j)); msgT = 6; EMG.heard = j.id; }
+  if (mode === 'plane' && UPG.radio && ENG.master) { sfx('static'); say('RADIO - RANGER KOWALSKI: "ALL PILOTS, ' + emgCallText(j) + '" (C TO TAKE IT)'); msgT = Math.max(msgT, 7); EMG.heard = j.id; }
+  else if (atB) { say('EMERGENCY CALL-OUT ON THE RED SIGN: ' + emgCallText(j)); msgT = Math.max(msgT, 6); EMG.heard = j.id; }
   saveSoon();
 }
 function emgAccept(from) {   // from: the strip whose sign you poked, or null (by radio: the nearest town strip)
@@ -6514,7 +6525,7 @@ function emgBundle(it, p) {   // a SAR supply bundle came down at p: on them = d
 function emgEnd(j, pay, text) {
   DLV.cash += pay; DLV.paid += pay; DLV.done++; EMG.done++; for (const it of DLV.items.filter(o => o.job === j.id)) dlvRemove(it);
   j.st = 'done'; const i = EMG.jobs.indexOf(j); if (i >= 0) EMG.jobs.splice(i, 1); emgVisClear(); EMG.nextT = DLV.gt + EMG_GAP[0] + dlvRng(j.id * 31 + 7)() * (EMG_GAP[1] - EMG_GAP[0]);
-  sfx('cash'); say(text); msgT = 7; if (j.emg.sc) { repAdd(j.emg.sc, 10); if (FOLK_ST[j.emg.sc][FOLK.b[j.emg.sc] || 0]?.after) folkBeat(j.emg.sc); }
+  sfx('cash'); say(text); msgT = Math.max(msgT, 7); if (j.emg.sc) { repAdd(j.emg.sc, 10); if (FOLK_ST[j.emg.sc][FOLK.b[j.emg.sc] || 0]?.after) folkBeat(j.emg.sc); }
   wbUpdate(); cgStraps(); MAP.key = ''; KB.key = ''; EMG.key = ''; for (const S of DLV_STRIPS) S.key = ''; saveGame('delivered');
 }
 function emgHandOver(j) {   // at the clinic, the Cub stopped and shut down: the nurse takes the patient
@@ -6538,7 +6549,7 @@ function emgBoard(j) {   // the casualty at the door: onto the rear seat
 function emgCasTick(dt, j) {   // the casualty: waits; walk up (3.5 m) and they lean on you and follow; at the Cub's door they climb onto the rear seat
   const C = EMG.cas; if (!C || C.st === 'aboard') return; const f = C.f, P = playerPos(), foot = mode === 'foot', d = Math.hypot(P.x - C.x, P.z - C.z);
   if (C.st === 'wait') { if (foot && d < 3.5) { C.st = 'follow'; if (f.pose === 'sit') { const L = f.L, nf = folkMake(L, 'stand', C.x, C.z, f.g.rotation.y); if (f.g.userData.props) { const pm = f.g.userData.props; f.g.remove(pm); pm.position.set(C.x, groundY(C.x, C.z), C.z); pm.rotation.y = f.g.rotation.y; scene.add(pm); EMG.vis.push({ g: pm }); } f.g.removeFromParent(); EMG.vis[EMG.vis.indexOf(f)] = nf; nf.cas = 1; C.f = nf; }
-      say(j.emg.name + ': "THANK GOD. HELP ME TO THE PLANE."' + ' - THEY LEAN ON YOU: WALK TO THE CUB\'S DOOR'); msgT = 5; } return; }
+      say(j.emg.name + ': "THANK GOD. HELP ME TO THE PLANE."' + ' - THEY LEAN ON YOU: WALK TO THE CUB\'S DOOR'); msgT = Math.max(msgT, 5); } return; }
   if (!foot || d > 40) { C.st = 'wait'; return; }
   const F = C.f, tx = P.x, tz = P.z, dd = Math.hypot(tx - C.x, tz - C.z); if (dd > 1.6) { const sp = Math.min(dd - 1.6, 1.25 * dt); C.x += (tx - C.x) / dd * sp; C.z += (tz - C.z) / dd * sp; }
   F.x = C.x; F.z = C.z; F.g.position.set(C.x, groundY(C.x, C.z), C.z); F.g.rotation.y = Math.atan2(tx - C.x, tz - C.z); F.ry0 = F.g.rotation.y;
@@ -6563,7 +6574,7 @@ function emgTick(dt) {
   else if (!EMG.call && DLV.gt >= EMG.nextT) emgNewCall();
   if (EMG.call && EMG.call.emg.exp && DLV.gt > EMG.call.emg.exp) { const c = EMG.call; EMG.call = null; EMG.nextT = DLV.gt + EMG_GAP[0]; EMG.key = '';
     if (mode === 'plane' && UPG.radio && ENG.master) say('RADIO - RANGER KOWALSKI: "THE STATE HELICOPTER HAS THE ' + (c.emg.t === 'med' ? 'MEDEVAC' : 'SEARCH') + ' - STAND DOWN"'); }
-  if (EMG.call && EMG.heard !== EMG.call.id && mode === 'plane' && UPG.radio && ENG.master) { EMG.heard = EMG.call.id; sfx('static'); say('RADIO - RANGER KOWALSKI: "ALL PILOTS, ' + emgCallText(EMG.call) + '" (C TO TAKE IT)'); msgT = 7; }
+  if (EMG.call && EMG.heard !== EMG.call.id && mode === 'plane' && UPG.radio && ENG.master) { EMG.heard = EMG.call.id; sfx('static'); say('RADIO - RANGER KOWALSKI: "ALL PILOTS, ' + emgCallText(EMG.call) + '" (C TO TAKE IT)'); msgT = Math.max(msgT, 7); }
   if (UPG.radio && mode === 'plane' && ENG.master && (FOLK.chatT -= dt) <= 0) { FOLK.chatT = 140 + Math.random() * 80; const c = folkChat(); if (c && !EMG.call) { sfx('static'); say('RADIO - ' + c); } }
   if ((EMG.signT -= dt) <= 0) { EMG.signT = 0.5; const k = emgSignKey(); if (k !== EMG.key) { EMG.key = k; emgSignDraw(); } const P = playerPos(); for (const s of EMG_SIGNS) s.m.visible = Math.hypot(P.x - s.x, P.z - s.z) < 400; }
   folkTick(dt); EMG.ms = performance.now() - t0;
@@ -6589,10 +6600,11 @@ function emgSignDraw() {
     if (!j.emg.got) { x.fillStyle = '#8a8a80'; x.fillRect(W - 186, H - 52, 170, 34); x.fillStyle = '#fff'; x.font = 'bold 14px sans-serif'; x.textAlign = 'center'; x.fillText('HAND IT OVER (-6 REP)', W - 101, H - 30); x.textAlign = 'left'; }
     T('UP TO $' + j.pay, H - 30, 'bold 18px sans-serif', '#1e6a2a'); }
   else if (c) { T(c.emg.t === 'med' ? 'MEDEVAC' : 'SEARCH + RESCUE', 72, 'bold 18px sans-serif', '#7a1410');
-    T(c.emg.t === 'med' ? c.emg.name + ' - ' + c.emg.inj : c.emg.name + ' (' + c.emg.ppl + ') - ' + SAR_A[c.emg.a].name, 98, 'bold 15px sans-serif');
-    T(c.emg.t === 'med' ? 'PICK UP AT ' + dlvS(c.from).name + ', FLY TO THE DRY FORK CLINIC' : 'FIND THEM FROM THE AIR - DROP SUPPLIES OR FLY ONE OUT', 122);
-    T(c.emg.t === 'med' ? 'TIME-CRITICAL: CONDITION + SMOOTH FLYING SET THE PAY' : '2 SUPPLY BUNDLES ON THE PAD - BINOCULARS (V) HELP', 144, '14px sans-serif', '#555');
-    if (c.emg.exp) T('OPEN FOR ' + Math.max(0, Math.ceil(c.emg.exp - DLV.gt)) + ' MIN', 166, '13px sans-serif', '#555');
+    const md = c.emg.t === 'med', y = md ? 18 : 0;   // v0.59.1 medevac: the name and the injury on their own lines (they ran together and got squeezed)
+    T(md ? c.emg.name : c.emg.name + ' (' + c.emg.ppl + ') - ' + SAR_A[c.emg.a].name, 98, 'bold 15px sans-serif'); if (md) T(c.emg.inj, 116, 'bold 15px sans-serif', '#b8201a');
+    T(md ? 'PICK UP AT ' + dlvS(c.from).name + ' > DRY FORK CLINIC' : 'FIND THEM, DROP SUPPLIES OR FLY ONE OUT', 122 + y);
+    T(md ? 'TIME-CRITICAL: CONDITION + SMOOTH FLYING SET THE PAY' : '2 SUPPLY BUNDLES ON THE PAD - BINOCULARS (V) HELP', 144 + y, '14px sans-serif', '#555');
+    if (c.emg.exp) T('OPEN FOR ' + Math.max(0, Math.ceil(c.emg.exp - DLV.gt)) + ' MIN', 166 + y, '13px sans-serif', '#555');
     T('UP TO $' + c.pay, H - 30, 'bold 20px sans-serif', '#1e6a2a');
     x.fillStyle = '#b8201a'; x.fillRect(W - 150, H - 54, 134, 38); x.fillStyle = '#fff'; x.font = 'bold 18px sans-serif'; x.textAlign = 'center'; x.fillText('ACCEPT', W - 83, H - 28); x.textAlign = 'left'; }
   else { T('NO CALL-OUTS RIGHT NOW', 78, 'bold 18px sans-serif', '#555'); T('RANGER KOWALSKI RUNS THE LIST.', 108); T('NEXT CHECK-IN IN ~' + Math.max(1, Math.ceil(EMG.nextT - DLV.gt)) + ' MIN', 132);
@@ -7127,7 +7139,7 @@ renderer.setAnimationLoop(() => {
 
   fpsFrames++; fpsT += dt; instT += dt;
   if (fpsT >= 1) { fps = Math.round(fpsFrames / fpsT); fpsFrames = 0; fpsT = 0; }
-  if (msgT > 0) msgT -= dt;
+  if (msgT > 0) { msgT -= dt; msgA += dt; }
   fuelTick(dt); fuelPumpTick(dt); saveTick(dt); CLOUDS.tick(dt); updateDay(dt); gfxTick(dt); updateWater(dt); townTick(dt); updateFalling(dt); updateAudio(dt);
   panelUpdate(ac, dt); cmpWet(dt);
   if (instT > 0.1) { instT = 0; drawWrist(); }
