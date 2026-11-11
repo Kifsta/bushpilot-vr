@@ -1,4 +1,4 @@
-# Bush Pilot VR – controls (v0.52, bush delivery + bush sites)
+# Bush Pilot VR – controls (v0.53, bush delivery + bush sites + hunting)
 
 v0.45 is just the Super Cub, the valley and the paper map. There is no wind, weather, survival, combat, loot or story. The full game (v0.44) is tag `v0.44-full` and branch `full-game`.
 
@@ -128,6 +128,28 @@ Eight **unprepared landing spots** off the airfields, each with a customer camp,
 - **On the map:** found sites are drawn and labelled with the customer, the type and the length, plus `1-way` on the bench and the meadow. For those two, the FOUND message also gives the uphill landing heading (`ONE-WAY: LAND UPHILL HDG nnn`).
 - They're short: an empty Cub lifts off in 55–110 m, and at max gross in 130–195 m. Landing rolls run 50–130 m. Watch your weight going into the bench and the meadow, and use the slope.
 
+## Hunting (v0.53): lever rifle, deer, binoculars
+Some jobs on the boards are **hunting jobs**: a lodge, the elk camp, the ranch or the Dry Fork butcher wants one deer. The board says `1 DEER (~100-150 LB) - HUNT AREA ON THE MAP`, and the paper map circles the herd's forest in orange with a hoof. Hunting jobs pay well.
+
+| | VR (Quest) | Desktop |
+|---|---|---|
+| Take the rifle | It hangs on the **cabin wall rack** (outside the cabin, by the door) and, once you've flown with it, in the **Cub's rack** on the right cabin wall. Squeeze grip on the stock's wrist | **T** by a rack (T again: back on the rack, or slung on your back away from one) |
+| Support hand | Squeeze on the forend with the other hand. Bring the stock to your cheek: it settles into a virtual shoulder | (automatic) |
+| Aim | Look down the rear notch over the bead | Hold **RMB** (aim down the sights) |
+| Fire | Trigger, rifle hand only | **LMB** |
+| Work the lever | Pinch the lever loop with your support hand and swing it down and back up (or flick the rifle down and up one-handed): it ejects the case, cocks the hammer and chambers the next round | **X** |
+| Load | Squeeze on the **cartridge pouch** at your belt (front right) for a round and push its tip into the loading gate on the receiver's right side. Keep squeezing at the gate and the next one comes from the pouch | **Z** (one round per press) |
+| Buy ammo | The ammo box on the stump by the cabin: $10 for 20 rounds | **Z** by the box |
+| Sling / put down | Let go over your shoulder, muzzle up, to sling it. Let go at a rack to rack it. Let go anywhere else and it lies on the ground | T |
+| Binoculars | They hang on your **chest**, and in the Cub they sit in a holder by your right knee. Grab them and raise them to your eyes for a 7× view | **V** (toggle) |
+| Field dress | Squeeze grip on a downed deer and hold for 3 s | Hold **E** by it for 3 s |
+
+- **The rifle** is a Winchester 1892-style carbine (the full game's mechanics on the new model): 7 in the tube plus one chambered, 20 rounds in the pouch at the start. Hammer down means no shot until you work the lever. An empty chamber just clicks. The bullet flies at 400 m/s with drag and gravity, zeroed at 50 m (a little high inside that, dropping more and more past 100 m). It hits the ground, trees, the cabin, or a deer.
+- **Deer** graze in six forest herds (HOLLOW TIMBER, PINE FLATS, SPRUCE PARK, CEDAR GLADE, EAST WOODS and ELK MEADOW), about 20 deer and stags in all. They see you from about 35 m when you walk upright in the open, and less when you crouch (C) or keep still. A gunshot within about 320 m, or a low plane, sends the herd off running. A shot to the head or chest (just behind the shoulder) drops a deer. A body shot wounds it and it runs. Herds you scattered come back after a while.
+- **Field dressing** only works when you have taken a hunting job ("NOBODY HAS ORDERED VENISON" otherwise). It turns the deer into a **VENISON CARCASS** of 100–150 lb (deer 100–125, stags 125–150) lying on the ground. It takes **two hands** (desktop: E with the hand truck), counts on the W&B, and is **perishable**: its freshness clock only starts once it is dressed. Set it on the customer's pad to get paid. You can cancel a hunting job until you have dressed a deer for it.
+- **Binoculars** also show the distance to a deer or herd in the middle of the view, and a bush site you spot through them (within 1.5 km) goes on the map.
+- Climbing into the Cub puts a rifle you carry (or one lying beside the Cub) in its rack, and the binoculars in their holder. They go back on your chest when you get out.
+
 ## Fuel
 - Two wing tanks hold 36 gal (136 L). Burn scales with power: full throttle empties them in about 25 minutes. Below 3 % the engine sputters, and at empty it quits. The fuel gauge and the W&B card show what's aboard.
 - **Refuel at the home strip.** There is a red drum with a hand pump on the left of the Cub's parking spot. Taxi back to within 15 m of it, stop, and shut the engine down. Then:
@@ -178,7 +200,7 @@ Eight **unprepared landing spots** off the airfields, each with a customer camp,
 
 ## Saving
 - Autosaves every 30 s, when you land and stop, and when you close the tab or take the headset off. It saves where the Cub is parked, the fuel, the time of day, and whether you were aboard or on foot (and where).
-- v0.50 also saves the wallet, the game clock, every board's jobs, every piece of cargo (on the ground where it lies, or in the Cub on its seat or in the bay) and the straps. It saves soon after you take, load or set down anything, and straight away when you get paid. A v0.45–v0.49 save still loads, with a fresh $150 wallet and new boards. v0.51 also saves the special cargo state (damage, freshness, how upset the animals are).
+- v0.50 also saves the wallet, the game clock, every board's jobs, every piece of cargo (on the ground where it lies, or in the Cub on its seat or in the bay) and the straps. It saves soon after you take, load or set down anything, and straight away when you get paid. A v0.45–v0.49 save still loads, with a fresh $150 wallet and new boards. v0.51 also saves the special cargo state (damage, freshness, how upset the animals are). v0.53 (save v53) also saves where the rifle is, its magazine, chamber and pouch, and your hunting jobs.
 - v0.45 uses a new save key (`bushpilot-vr-blank-v1`), so older saves are left alone and never loaded.
 - `?nosave` plays without saving. `?plane` starts a new game in the seat instead of beside the Cub.
 

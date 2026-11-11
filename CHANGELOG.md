@@ -2,6 +2,38 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.53 – lever rifle, deer hunting jobs, binoculars
+Neil: "Put the upgraded gun model and mechanics in. Some missions require hunting deer in the forests. Add binoculars too." No weather or wind; the physics block is untouched (md5 unchanged).
+- **Lever-action carbine** (`assets/lever-rifle.glb`, Winchester 1892 style) with the full game's mechanics on the new model: 7-round tube plus chamber, a lever that ejects the case, cocks the hammer and chambers the next round (hammer down = no shot, empty = dry click), a loading gate, and animated hammer, trigger and gate. The sight line runs from the rear blade over the bead top (raised to 0.0517 m so it clears the receiver).
+  - **Ballistics:** 400 m/s, drag and gravity in fixed 1/240 s steps, zeroed at 50 m. It hits terrain, trees, the cabin and deer, with dust, wood, leaf or blood puffs and muzzle smoke.
+  - **Racks:** one on the cabin wall and one on the Cub's right cabin wall. Climbing in racks a rifle you carry. There's an **ammo box** by the cabin: $10 for 20 rounds.
+  - **VR:** grip the stock's wrist, the forend with the other hand, and a virtual shoulder stock when it comes to your cheek. Pinch the lever loop and swing it, or flick the rifle. Rounds come from the belt pouch into the gate. The trigger fires in the rifle hand only. Let go at a rack to rack it, over your shoulder to sling it.
+  - **Desktop:** T take / rack / sling, LMB fire, RMB aim down the sights, X lever, Z load.
+- **Deer** (Quaternius Deer + Stag back, CC0): six herds (about 20 animals) in forest meadows.
+  - **LOD:** an animated skinned pool for the nearest 8 within 160 m (animation at 1/3 rate past 60 m), one instanced bind-pose draw per species out to 900 m, frozen past 1.5 km.
+  - **Behaviour:** they graze, look up, and bolt from you (sight scaled by speed and crouch), from a low plane, or from a shot (once its sound reaches them). Head and chest shots drop them; a body shot wounds and they run. Scattered herds respawn.
+- **Field dressing:** hold E (VR: hold grip) by a downed deer for 3 s while you have a hunting job. It becomes a **VENISON CARCASS** of 100–150 lb, two-hand cargo that is perishable from that moment. With no job: "NOBODY HAS ORDERED VENISON".
+- **Hunting jobs** (about 14 % of board offers) from the lodge, the elk camp, the ranch and the Dry Fork butcher. They pay well (bush ×1.2, deadline ×1.25). The board shows `1 DEER (~100-150 LB) - HUNT AREA ON THE MAP` with a HUNT badge, and the map draws an orange dashed circle with a hoof. The kneeboard shows `HUNT` and the area. You can cancel one until you've dressed a deer for it.
+- **Binoculars:** on your chest on foot, in a holder by your right knee in the Cub. Raise them to your eyes for a 7× view, a 384 px render target drawn every other frame with no shadows (desktop V: fov 10). They read out deer count and range, and spotting a bush site within 1.5 km puts it on the map.
+- **Save v53** stores the rifle (place, tube, chamber, pouch) and hunting jobs. Older saves still load.
+- **Fixes found while testing:**
+  - The binocular holder grab used an aliased temp vector, which grabbed the binoculars from anywhere in the cockpit and broke cockpit grabs.
+  - Vital hits now register through the body sphere and across bullet steps.
+  - The recoil and stock springs are substepped (they diverged at slow frames).
+  - Sling-on-release used a clobbered temp vector.
+- **Perf** (1280×720 headless, v0.52.1 → v0.53):
+
+| View | Draw calls | CPU ms | Deer ms |
+|---|---|---|---|
+| Seat at home | 71 → 74 | 1.69 → 1.96 | |
+| On foot at the cabin | 45 → 52 | 1.27 → 1.59 | |
+| 60 m from a herd | 45 → 51 | 1.29 → 1.81 | 0.16 |
+| Same, binoculars up | 45 → 37 | | |
+| Over Pine Flats at 120 m | 83 → 90 | | 0.04 |
+
+- **Tests:** new t53 (34 checks: models, ADS sight alignment, zero, lever / gate / dry fire, ammo box, racks + boarding, LOD, flee, gunshot scare, chest / body shots, hunt jobs on board / map / kneeboard, dressing → cargo → paid delivery, save / load, VR grips / lever / gate / trigger / sling, binoculars VR + desktop, bush-site spotting). t45, t51, t52h and reload updated for v53.
+- **Known (pre-existing, not touched):** `MYS_SITES.clear` indexes `xz[i*2]` though `xz` holds triples.
+
 ## v0.52.1 – baggage limit on the W&B status line
 - **The W&B card status line now checks the baggage bay limit.** With more than 50 lb in the baggage bay it says **BAGGAGE OVERLOAD** (amber), not WITHIN LIMITS beside the "BAGGAGE OVER 50 LB MAX" footer. The order is OVER GROSS, then CG AFT / FWD OF LIMIT, then BAGGAGE OVERLOAD, then WITHIN LIMITS.
 - **The takeoff-roll reminder** (throttle up on the ground) now includes `BAGGAGE OVERLOAD n LB (MAX 50) - MOVE SOME TO THE REAR SEAT`, together with any over-gross, CG or loose-cargo warnings.
