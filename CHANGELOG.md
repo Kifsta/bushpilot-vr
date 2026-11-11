@@ -2,6 +2,19 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.44 – Cockpit hands, part 3: key, primer, valve, latches, cabin structure
+
+- Mag key is a real ignition key (chrome bezel, brass bow) that you turn by rolling your wrist through OFF / R / L / BOTH, then on into a spring-loaded START. START cranks the engine while you hold it (the spring buzzes back at you), and when you let go it springs back to BOTH with a click. The START button and the Space key still work. The key's label shows START.
+- Primer is locked in. Roll your wrist a quarter turn to unlock it (click and buzz), then stroke it: every full pull-out and push-in adds one shot, using the same cold-start maths as before. Push it home and twist it back to lock it. Tapping it still gives one shot, and so does the P key.
+- Fuel selector: a tapered red pointer handle on a boss. It turns by wrist roll, with a firm detent click at OFF and ON and a bump at the end stop. The fuel system has a single feed (the main tank, plus the aux tank when the v0.32 long-range tank is fitted), so the positions stay OFF / ON. The label says ON - MAIN + AUX when the aux tank is fitted.
+- Door and window latches: each of the four (right upper window, right lower door, left front and rear sliding windows) has a latch lever next to its handle. While shut they are latched: squeeze the handle and roll your wrist about 35° until it clacks free, then open it as before. Shut it and let go, and it latches again. Keys 1-4 and getting out work the latches for you. The four levers are one instanced mesh.
+- Toggles (MASTER rocker, landing-light bat) snap over with a spring and a little overshoot, and the key, fuel valve and primer handle snap to their detents. Fingertip flicks and grip both work, as before.
+- Hand poses: the START button gets a pointed index finger. Knobs, the key and switches keep the pinch, and the stick, throttle, flaps and window handles keep the fist.
+- Cabin structure, one merged mesh: a grey-green 4130 tube frame (longerons, windscreen and door posts, rear window posts, sill tubes, diagonals, roof carry-through tubes, skylight frames), wood stringers in the rear cabin, a fabric headliner with bows over the rear seat, and a front-seat harness (shoulder straps, lap belt halves, buckle, anchors). New placards in the panel atlas: FASTEN SEAT BELTS / NO SMOKING, the door latch instructions, and the window latch instructions with BAGGAGE 50 LB MAX.
+- The instrument panel wear speckles and chips are toned down (about 35% fewer, fainter), and the glass glint is a little subtler.
+- Perf (v0.43 → v0.44): cockpit 130 → 132 draw calls / 317k → 318k tris (the cabin frame and the latch levers are one call each); alt600 107 → 109 / 302k; foot 96 → 97 / 310k; town 217 → 219 / 313k.
+- Tests: physics md5 unchanged (eee6637e...), ALL W&B TESTS PASS, RELOAD PASS, t42 28/28, t43 4/4, new t44 22/22: key through every position into START and spring-back, primer lock / unlock / strokes / relock, valve twist with detent and stop, window and door latches, desktop keys working the latches, toggle snap overshoot, fingertip poke, START with a pointed finger, cabin mesh. No save-format change (the latch and primer-lock state is not saved; both reset to locked).
+
 ## v0.43 – Cockpit hands, part 2: 3D instrument panel
 
 - Instruments look like real 3D gauges, not screens: every dial sits in a machined bezel with a flange, a recessed cup, a lip and four screws, under glass with a soft glint that slides as your head moves. Needles stand about 4 mm off the face, and a painted shadow under the rim adds depth.

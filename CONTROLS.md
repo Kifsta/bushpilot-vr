@@ -16,13 +16,13 @@
 ## Engine start / shutdown (v0.19: the plane starts cold and dark)
 | | VR (Quest) | Desktop |
 |---|---|---|
-| Fuel valve ON / OFF | Grab the red lever (switch strip under the left of the panel) and twist a quarter turn | U |
+| Fuel valve ON / OFF | Grab the red pointer handle (switch strip under the left of the panel) and roll your wrist a quarter turn. It clicks into each detent and bumps at the stop. ON feeds the main tank, plus the aux tank if one is fitted | U |
 | Master ON / OFF | Push the half of the red rocker that sticks out with your fingertip | O |
 | Mixture RICH (in) / CUTOFF (out) | Grab the red knob and pull it out / push it in | Y |
 | Carb heat COLD (in) / HOT (out) | Grab the black knob and pull it out / push it in | H |
-| Primer | Grab the chrome T-handle, pull it all the way out and push it back in (one shot per stroke) | P |
-| Mags OFF > R > L > BOTH | Grab the key and twist clockwise / back (click + buzz per position) | I |
-| Starter | Press and hold the red START button with your fingertip (or squeeze and hold it) | Hold Space |
+| Primer | v0.44: it is locked in. Grab the chrome T-handle and twist it a quarter turn to unlock it, then pull it all the way out and push it back in (one shot per stroke). Push it home and twist it back to lock it | P (one stroke) |
+| Mags OFF > R > L > BOTH > START | Grab the key and twist clockwise / back (click + buzz per position). v0.44: keep twisting past BOTH, against the spring, to START, and the engine cranks while you hold it. Let go and it springs back to BOTH | I (Space to crank) |
+| Starter | Press and hold the red START button with your fingertip (or squeeze and hold it, and the glove points its index finger at it), or turn the key to START | Hold Space |
 | Checklist card | Squeeze it (under the right of the panel); let go to put it back | J |
 
 v0.23 hands (VTOL VR style, no laser): your hands are gloves. Squeeze with the trigger off = point the index finger; trigger curls it; thumb off the buttons lifts the thumb. A yellow ring shows what your hand will work. Squeezing a control and letting go without moving it still does the old one-step toggle. Quest hand tracking (no controllers) shows tracked gloves and pokes switches with your index tip.
@@ -30,6 +30,8 @@ v0.23 hands (VTOL VR style, no laser): your hands are gloves. Squeeze with the t
 v0.24 haptics: you feel the engine (rpm, rough running, cranking), stall buffet, touchdowns, bumps and skids through the stick and throttle; the rifle shot, lever, loading and misfires; grabs, stowing, page turns and crafting; zombie hits, knife hits, landings and a heartbeat when hurt. Strength: poke the HAPTICS button on the field guide's GUIDE page (Off / 35% / 65% / 100%), or add `?hx=0.5` to the URL.
 
 v0.24.1 grip on the ring: point your fingertip at a switch or knob, and a yellow ring appears on it (one ring per hand). Squeeze grip to use it. Toggles flip, START cranks while you hold grip, the mags key and fuel valve turn when you twist your wrist, and push-pull knobs follow your hand in and out. Window handles and the checklist drag. Poking with the fingertip still works. The stick, throttle and flap lever only take the grip when your hand is on them. With the rifle shouldered, your gloves stay clear of the iron sights.
+
+v0.44 cockpit: toggles (MASTER, landing light) snap over with a click, whether you flick them with a fingertip or squeeze them. The cabin has its steel tube frame, stringers, a headliner, a front-seat harness and placards. They are only scenery.
 
 v0.43 cockpit: PANEL LT knob (switch strip, far right) - twist it, or press K in the plane, to step OFF / DIM / BRIGHT. It needs the MASTER on. The OIL gauge (right of the tach) shows oil pressure on top and temperature below. The wet compass on the windscreen swings and settles after turns like a real one.
 
@@ -55,9 +57,11 @@ Shutdown: throttle idle, mixture CUTOFF (it stops), mags OFF, master OFF, fuel O
 ## Windows and door (v0.19)
 | | VR | Desktop |
 |---|---|---|
-| Right upper window (latches under the wing) | Grab its handle, swing it out and up | 1 |
-| Right lower door half (folds down) | Grab its handle, push it out | 2 |
-| Left front / rear window (slide aft) | Grab the handle and drag | 3 / 4 |
+| Right upper window (latches under the wing) | Grab its handle, roll your wrist to turn the latch, then swing it out and up | 1 |
+| Right lower door half (folds down) | Grab its handle, roll your wrist to turn the latch, then push it out | 2 |
+| Left front / rear window (slide aft) | Grab the handle, roll your wrist to turn the latch, then drag | 3 / 4 |
+
+v0.44 latches: every window and the door are latched while shut. Squeeze the handle and roll your wrist about 35° until the latch clacks free, then move it. Shut it and let go, and the latch drops back in. The desktop keys work the latch for you.
 
 ## On foot
 | | VR | Desktop |
