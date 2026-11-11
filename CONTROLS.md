@@ -1,4 +1,4 @@
-# Bush Pilot VR – controls (v0.48, blank slate)
+# Bush Pilot VR – controls (v0.49, blank slate)
 
 v0.45 is just the Super Cub, the valley and the paper map. There is no wind, weather, survival, combat, loot or story. The full game (v0.44) is tag `v0.44-full` and branch `full-game`.
 
@@ -34,6 +34,8 @@ Flooded? Throttle full and crank, then pull the throttle back when it fires.
 Shutdown: throttle idle, mixture CUTOFF (it stops), mags OFF, master OFF, fuel OFF.
 
 v0.23 hands (VTOL VR style, no laser): your hands are gloves. Squeeze with the trigger off = point the index finger; trigger curls it; thumb off the buttons lifts the thumb. A yellow ring shows what your hand will work. Squeezing a control and letting go without moving it still does the old one-step toggle. Quest hand tracking (no controllers) shows tracked gloves and pokes switches with your index tip.
+
+v0.49 flying gloves: the hands are now low-poly pilot gloves (fabric back, leather palm and fingertips, a short gauntlet with a velcro strap tab). They grab, point, poke and relax exactly as before. Change the colour with Settings > **Gloves**.
 
 v0.24.1 grip on the ring: point your fingertip at a switch or knob, and a yellow ring appears on it (one ring per hand). Squeeze grip to use it. Toggles flip, START cranks while you hold grip, the mags key and fuel valve turn when you twist your wrist, and push-pull knobs follow your hand in and out. Window handles and the checklist drag. Poking with the fingertip still works. The stick, throttle and flap lever only take the grip when your hand is on them.
 
@@ -115,6 +117,7 @@ Town walls and the fences at the depot, checkpoint and lab are solid. You walk r
 | Time of day | EARLY … NIGHT | fixed sun position (default MORNING) |
 | Stick on release | CENTRES / STAYS | VR: what the stick does when you let go |
 | Control labels | OFF / ON | VR: the name and state of the control by your hand |
+| Gloves | SAGE / BLACK / TAN | v0.49 flying-glove colours: sage Nomex back with tan leather palm (default), all black, or tan with brown leather |
 
 ## Saving
 - Autosaves every 30 s, when you land and stop, and when you close the tab or take the headset off. It saves where the Cub is parked, the fuel, the time of day, and whether you were aboard or on foot (and where).

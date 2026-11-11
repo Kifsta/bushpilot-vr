@@ -2,6 +2,18 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.49 – flying gloves (Neil: "Can you make the hands look like flying gloves.")
+- **New glove model.** The 34 boxes are replaced by one low-poly pilot flying glove per hand: 930 triangles, flat-shaded and faceted. It has:
+  - a shaped palm and back of the hand (superellipse sections), a thenar pad, and knuckle ridges with a seam across them;
+  - tapered six-sided finger segments with knuckle, PIP and DIP bumps;
+  - a thumb whose root blends into the heel of the palm to form the web;
+  - leather fingertip caps with a seam ring;
+  - a short flared gauntlet with a dark strap band, a raised velcro tab and a snap, and a dark inside at the cuff.
+- **Colours.** A fabric (Nomex) back and a contrasting leather palm and fingertips, with a small per-panel tone variation. New setting **Gloves: SAGE / BLACK / TAN** (board and desktop panel, saved). SAGE is the default: sage Nomex with a tan leather palm.
+- **Same skeleton.** The glove is skinned to the existing 17 hand bones: rigid per-segment frames plus a 50/50 blend on the shared joint rings, with 2-bone blending in the vertex shader (17 matrix uniforms). v0.46 procedural grips, the poke pose, the relaxed idle, the soft stop and hand tracking are unchanged. Every joint ring belongs to both bones, so curling cannot open a gap. Finger and thumb roots are pulled inside the palm, so they stay buried in every pose.
+- **Cost.** One mesh and one material per hand (2 draw calls, previously 1 instanced call for both). 1,860 triangles for both, previously 408. Per frame it writes 34 preallocated matrices and allocates nothing. The mesh is built once, lazily, and stays in the cockpit-carried frame (v0.46.1), so there is no far-from-origin jitter.
+- **Tests.** t49 (15 checks): triangle budget, draw calls, watertight / no gaps across idle, point, fist, stick, mag key, mixture and primer poses, joints not collapsing, the glove following the bones, the index tip at the poke point, little sinking into held controls, the mirrored left glove, palettes and saving, no per-frame allocations, a hidden hand not being drawn. t46.1 now checks the glove skin matrices.
+
 ## v0.48 – Quest GPU pass (Neil: "It was down to 40 after take off")
 
 **Part 1: what gets drawn once you are airborne**
