@@ -165,10 +165,36 @@ Some board offers are **airdrop jobs** (blue AIRDROP badge): people at a place w
 
 ## Fuel
 - Two wing tanks hold 36 gal (136 L). Burn scales with power: full throttle empties them in about 25 minutes. Below 3 % the engine sputters, and at empty it quits. The fuel gauge and the W&B card show what's aboard.
-- **Refuel at the home strip.** There is a red drum with a hand pump on the left of the Cub's parking spot. Taxi back to within 15 m of it, stop, and shut the engine down. Then:
+- **Refuel at a red drum.** Since v0.55 there are four, and you pay for fuel as it flows. Prices: **HOME $6.40**/gal (left of the Cub's parking spot), **RIDGE STRIP $7.30**, **LODGE $8.90** and **DRY FORK $5.80** (the town depot, the cheapest). The drums away from home sit by the job board, and the paper map prints each price under the strip's JOBS square. Taxi to within 15 m of a drum, stop, and shut the engine down. Then:
   - VR: get out, reach up to a wing-root filler cap (the silver caps on top of the wing, either side of the cabin) and squeeze grip there to put the nozzle in. Fuel runs at about 3 L/s while you hold it. Let go to stop.
   - Desktop: stand by a filler cap and press G. G again (or walking away) stops it.
 - A reset (R / B) tops the tanks up to 25 % only.
+- When you stop, you get a receipt: gallons and cost. Away from home it is **cash only**, so the pump stops when you run out of money. The **home drum always gives you 12 gal on account**, even when you are broke past the hangar's credit limit. That is enough to reach any job and back, so you can never be stuck.
+
+## Running costs (v0.55): oil, tach hours, wear, damage, the home hangar
+The Cub keeps a log: tach hours, oil, tyre and brake wear, and gear and engine damage. Tach time runs 20× real time, so 3 minutes with the engine running is 1 hour.
+
+| | VR (Quest) | Desktop |
+|---|---|---|
+| Buy oil, tyres, repairs, the 100-hour | Poke the price button on the **HANGAR** service board (at the open shed on the left of the home strip) or on a strip's fuel board | **1-4** standing at the board |
+
+- **The hangar board** shows avgas, tach hours, when the 100-hour is due, landings, oil, tyres, brakes and damage. Its four buttons are:
+  1. Top up oil ($9/qt).
+  2. New tyres and brake pads, priced by wear ($240 for tyres, $180 for pads, when fully worn).
+  3. Repair gear and engine damage ($1,200 × gear damage + $2,600 × engine damage).
+  4. 100-hour service with an oil change ($420). It resets the clock and takes a little engine wear off.
+- At the hangar you can run an **account up to $600** (shown in red), and job pay clears it. Oil at home is never refused while it is below 4 qt. The Cub has to be parked nearby with the engine off.
+- **Strip fuel boards** (Ridge, Lodge, Dry Fork) show the fuel price and sell oil ($10–12/qt), cash only. Repairs and service are done only at home.
+- **Oil:** the sump holds 6 qt and the engine uses about 1 qt every 12 hours (more when the 100-hour is overdue).
+  - Below 4 qt the oil pressure gauge drops and the temperature rises.
+  - Below 3 qt the engine starts to wear. Below 2 qt you lose about a quarter of your power.
+  - At about 0.3 qt it **seizes**: engine out. R recovers you to home, and a repair fixes it.
+- **100-hour service:** a warning at 95 h. Past 110 h the engine runs rough (92 % power) and slowly wears.
+- **Tyres** wear as you roll, skid under hard braking, and wear more on firm landings. Below 10 % braking is weaker. **Brakes** wear with use, and below 20 % they lose bite.
+- **Hard landings:** above about 400 fpm at touchdown the gear bends (28 % at 590 fpm), and a bent gear pulls you to one side on the ground. Over about 790 fpm is still a crash.
+- **A crash** costs salvage and a ferry home ($250 + $80/km from home) and damages the gear and engine. It can take you into debt.
+- **The HUD and wrist** show a maintenance line only when something needs attention: OIL LOW, 100-HR DUE / OVERDUE, GEAR DMG, ENG DMG, TYRES WORN, BRAKES WORN, ENGINE SEIZED.
+- Damage and wear only change what your controls do: a power cap on the throttle, weaker brakes, a rudder pull on the ground, or engine out when seized. A healthy Cub flies exactly as before.
 
 ## Paper map
 - It lives in the holder on the left cockpit wall. In VR, squeeze grip on it to take it, and grab the far edge with your other hand to open it out. Let go in the cockpit and it clips back into the holder.
