@@ -1,4 +1,4 @@
-# Bush Pilot VR – controls (v0.51, bush delivery)
+# Bush Pilot VR – controls (v0.51.1, bush delivery)
 
 v0.45 is just the Super Cub, the valley and the paper map. There is no wind, weather, survival, combat, loot or story. The full game (v0.44) is tag `v0.44-full` and branch `full-game`.
 
@@ -102,6 +102,8 @@ Four strips have a **job board** (a wooden notice board on two posts) and a **ye
   - **PERISHABLE** (fresh fish and ice cream in coolers, medicine in med kits, +25 %): a FRESH clock starts when you take the job (the board shows the minutes). It runs half as fast while you're flying more than 150 m above the ground. Pay drops with freshness, and spoiled pays 20 %.
   - **LIVE ANIMALS** (a dog crate, two crates of chickens, +35 %): you can see them inside. Rough flying (bumps, hard manoeuvres, skids) and knocks upset them, and they bark or cluck. Smooth flying calms them slowly. Pay × (1 − 0.6 × upset); the wrist shows CALM n%.
 - The belt and net are only drawn (and grabbable) when there is cargo under them.
+- **Shipping labels (v0.51.1):** every piece has a label on its front (the dog crate on its back) and a smaller one on top. It shows TO and the destination in big letters, the job colour, the weight, and an icon for special cargo: a red glass for fragile, a blue snowflake for perishable, a paw for animals.
+- **Weight and balance in flight:** every piece really changes the Cub: mass, CG and inertia, every frame. With about 150 lb aboard the takeoff run is about 25 % longer and the climb about 14 % weaker. Near max gross (317 lb of cargo) the run is about half again as long, the climb about a quarter weaker, and the stall 4–5 mph higher. A load aft (rear seat, baggage) needs more nose-down trim and makes the pitch livelier. Light jobs (20–80 lb) only make a small difference.
 
 ## Fuel
 - Two wing tanks hold 36 gal (136 L). Burn scales with power: full throttle empties them in about 25 minutes. Below 3 % the engine sputters, and at empty it quits. The fuel gauge and the W&B card show what's aboard.
@@ -114,6 +116,11 @@ Four strips have a **job board** (a wooden notice board on two posts) and a **ye
 - It lives in the holder on the left cockpit wall. In VR, squeeze grip on it to take it, and grab the far edge with your other hand to open it out. Let go in the cockpit and it clips back into the holder.
 - On foot you can carry it. Let go near the holder to clip it back, or anywhere else to drop it (pick it up off the ground with grip).
 - Desktop: M holds it up in front of you, anywhere. M again puts it away.
+- v0.51.1: the strips with a job board are gold squares marked JOBS. Each job you have taken draws a dashed line in its tag colour to its destination, which is ringed and labelled with the job's number and title.
+
+## Kneeboard (v0.51.1)
+- A clipboard on your left thigh lists your active jobs. For each one it shows the colour tag, the title and pay, FROM > TO, the distance and heading from the Cub to the destination pad, the pieces and weight, and the deadline or the special-cargo meter. It also shows where the cargo is: on the pad, in the Cub (STRAPPED or n LOOSE in red), or n/m delivered. It updates as you go.
+- VR: squeeze grip on it to lift it up to your eyes; let go and it goes back on your thigh. Desktop (in the plane): N holds it up, and N again puts it back.
 
 ## Lights and time of day
 - Landing light: flick the toggle under the panel (VR fingertip) or press L.

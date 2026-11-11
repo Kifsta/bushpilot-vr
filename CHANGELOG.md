@@ -2,6 +2,48 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.51.1 – the paper map is back, kneeboard, shipping labels; cargo-physics check
+Neil's headset feedback.
+- **The paper map was black. It's drawn again.** Since v0.45 (the blank slate), `drawMap()` had lost its last lines, including `return c`, so the map texture got no canvas and rendered black in the holder and in the hand.
+  - Restored: the terrain hachures and contours, rivers, lakes, roads, strips, towns and places, plus the north arrow, scale bar, title, notes and fold creases.
+  - The leftover "zeds" notes from the zombie era are gone.
+  - **New on the map:** every strip with a job board is marked with a gold square and JOBS. Every active job draws a dashed line in its tag colour from origin to destination, rings the destination pad, and labels it with its number and title.
+  - The marks go on a copy of the drawn map, which is redrawn and re-uploaded only when the set of active jobs changes.
+- **Kneeboard clipboard** on your left thigh: a board with a metal clip and a lined sheet listing every active job.
+  - Each entry shows its tag colour bar, number and title, pay, and FROM > TO.
+  - Then the live distance and heading from the Cub to the destination pad (`3.3 KM  HDG 090`), and the pieces and total weight.
+  - Then the deadline (`DUE IN 11 MIN`, `LATE - HALF PAY`), or for special cargo its meter (`FRAGILE DAMAGE 0%`, `PERISHABLE FRESH 90%`, `LIVE CALM 100%`).
+  - Finally the status: ON THE HOME STRIP PAD, `2/2 IN THE CUB - STRAPPED` (or `n LOOSE` in red), or `n/m DELIVERED`.
+  - VR: squeeze grip on it to lift it up in front of your eyes; let go and it goes back on your thigh. Desktop: N in the plane holds it up, and N again puts it back.
+  - The sheet is one 512 x 704 canvas, checked every 0.5 s while you're in the plane and redrawn only when its text changes (distance to 0.1 km, heading to 5°). That's 2 meshes.
+- **Shipping labels on every piece.** A white label on the front face (the back face for the dog crate, whose front is the wire door) and a smaller one on top. Each shows `TO` and the destination in big letters (RIDGE, LODGE, DRY FORK, HOME), the job colour as a stripe and top band, the weight, and the special-cargo icon: a red wine glass for fragile, a blue snowflake for perishable, a paw for live animals.
+  - All labels live in one 1024 x 528 atlas: 16 slots of 256 x 128, plus a white strip for the unlabelled faces. All cargo shares one vertex-coloured Lambert material with the atlas as its map.
+  - Each piece's mesh is its kind's shared geometry plus two label quads, merged, so it is still **one draw call per piece**. A slot is drawn once when the piece appears and freed when it is delivered or removed.
+- **Cargo and the flight model: verified, nothing was missing.** Every frame the game loop calls `wbUpdate()` before `stepAircraft()`. That turns every piece aboard (at its station; a loose piece at its current spot) into `massProps()` loads, so `ac.mass`, `ac.cgz` and `ac.I` (pitch, yaw and roll inertia about the shifted CG) all reach the flight model.
+  - The physics block turns those into acceleration (F/m), moments about the shifted CG (r × F on lift and drag), the angular response (I) and the gear sink limit.
+  - New checks in the live page (feelpage): an empty Cub gives exactly 650 kg, cgz 0 and the stock inertias. 150 lb gives 718 kg, cgz +7.4 cm and pitch inertia 1141. A loose 40 lb parcel sliding aft in the bay moves the CG live. A takeoff run on the game's own `ac` (with `wbUpdate` between steps) gives the same roll as the offline numbers.
+  - The offline cargo-feel benchmark (feel.mjs) runs the real physics block with the real `massProps` and the same autopilot for every load:
+
+| Load | Weight | CG | Takeoff roll | Liftoff | Climb, full power, 58 mph | Stall (idle, 1 g) | Elevator to trim, 67 mph level | Pitch rate 0.5 s after +0.15 elevator | Roll rate 0.5 s after 0.4 aileron | I pitch / roll |
+|---|---|---|---|---|---|---|---|---|---|---|
+| Empty (pilot + full fuel) | 1433 lb | +12.96 in | 120 m | 52 mph | 885 fpm | 42.3 mph | +0.005 | 8.5 °/s | 17.9 °/s | 1100 / 950 |
+| 150 lb strapped (50 bag + 100 rear seat) | 1583 lb | +15.87 in | 150 m (+25 %) | 54 mph | 758 fpm (−14 %) | 44.5 mph | −0.032 | 9.8 °/s | 18.3 °/s | 1141 / 952 |
+| Max gross, aft (50 bag + 267 rear) | 1750 lb | +17.89 in | 191 m (+59 %) | 56 mph | 635 fpm (−28 %) | 46.8 mph | −0.060 | 10.4 °/s (+21 %) | 18.6 °/s | 1161 / 953 |
+| Max gross, "fwd" (317 lb on the floor, +25 in) | 1750 lb | +15.14 in | 193 m | 56 mph | 636 fpm | 46.8 mph | +0.005 | 9.6 °/s | 18.5 °/s | 1111 / 953 |
+
+  - Before and after are the same numbers: nothing in the flight model changed, and `node physics-test.mjs | md5sum` is still `eee6637ebfc2fcee37f23c2813779dd9`. That test builds its Cub without `a.mass` / `cgz` / `I`, which is exactly the empty-load reference (`massProps` returns C.MASS, cgz 0 and the C inertias), so zero cargo is bit-identical. It bakes in no payload.
+  - Why a load can feel weak: typical jobs are 20–80 lb, which is 1–6 % of the Cub's weight, and the effects scale with it (a 60 lb job adds about 10 % to the takeoff roll). Every cargo station (rear seat +37, floor +25, baggage +57) is aft of the solo CG (+12.96), so cargo can only move the CG aft. The most nose-heavy the Cub gets is solo with nothing aboard.
+  - Roll inertia hardly changes because cargo rides on the centreline. Real Cubs behave the same way, and fuel in the wing tanks matters more there.
+  - Near max gross the differences are clear: half again the takeoff run, a quarter less climb, 4–5 mph higher stall, nose-down trim, and a livelier pitch with the CG aft.
+- **Perf:** (swiftshader, the same seated views on v0.51 and v0.51.1, 3 jobs aboard): looking back at an empty cabin, 51 → 51 draw calls; facing forward, 66 → 66; looking back at the strapped load, 56 → 56 (+12 triangles of labels); looking down at the left thigh and cargo, 60 → 62 (the kneeboard's paper and board). Labels cost no draw calls. The 1024 x 528 atlas uploads only when a piece is created; the kneeboard's 512 x 704 sheet and the map's 1024 x 768 copy upload only when their content changes. The delivery tick, with the 0.5 s map and kneeboard checks, averages 0.01–0.09 ms a frame (t511: 0.007 ms with no change). CPU 1.34–1.89 ms in both versions, which is noise on the shared box.
+- **Tests:**
+  - t511 (22 checks): the map has paper tone and detail and isn't black; north arrow; job-board squares; the active destination gets marked; the map re-uploads only on job changes.
+  - Labels: a unique slot per piece; one shared material; front + top quads merged; slot text drawn; slots freed on delivery and not leaked over a save/reload.
+  - Kneeboard: lists every active job with all fields; redraws only on change; on the thigh and in the grab targets; status follows loading and straps; desktop N; a VR grip lifts it and releasing puts it back.
+  - Tick cost; no console errors.
+  - feel.mjs (5 checks on the table above) and feelpage (5 live-game checks).
+  - All earlier tests pass: t42–t4911, t50, t51, reload.
+
 ## v0.51 – special cargo: fragile, perishable, live animals
 About a third of the jobs on the boards are now **special cargo**. They pay more but come with a condition meter that sets the final pay. Special jobs have no deadline; perishables run on their own clock.
 - **Fragile (+30 %): GLASSWARE (2 boxes), RADIO SET (1), EGGS (3).** Cardboard boxes with a red FRAGILE band and a white label (10–28 lb each).
