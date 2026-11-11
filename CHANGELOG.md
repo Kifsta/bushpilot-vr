@@ -2,6 +2,39 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.51 – special cargo: fragile, perishable, live animals
+About a third of the jobs on the boards are now **special cargo**. They pay more but come with a condition meter that sets the final pay. Special jobs have no deadline; perishables run on their own clock.
+- **Fragile (+30 %): GLASSWARE (2 boxes), RADIO SET (1), EGGS (3).** Cardboard boxes with a red FRAGILE band and a white label (10–28 lb each).
+  - Damage comes from jolts: touchdowns, bumps and yanks. The measure is a fast-smoothed load factor (0.08 s) minus a slow one (1 s); anything over 1.2 g above the slow one counts. A steady, eased-in steep turn doesn't hurt, but sustained pulls over 3.5 g wear it slowly.
+  - Knocks also count: loose cargo hitting the walls, up to 30 % per knock. So does a drop: a piece landing faster than 1.2 m/s, e.g. dropped 2 m ≈ 60 %. A crash breaks it all.
+  - A crunch plays and a message appears at each 25 % step. Pay × (1 − average damage).
+  - Measured with the real flight model: a 1.2 m/s touchdown does nothing, and a 3 m/s arrival dents the eggs about 20 %.
+- **Perishable (+25 %): FRESH FISH (cooler, 10 min + 2 min/km), ICE CREAM (cooler, 6 + 2/km), MEDICINE (2 med kits, 14 + 2/km).**
+  - Freshness runs down in real minutes from the moment you take the job. It runs at half rate while you're airborne more than 150 m above the ground (cool air), so climb.
+  - Messages at half fresh and when spoiled. Pay × (0.4 + 0.6 × fresh); spoiled pays 20 %.
+- **Live animals (+35 %): A DOG (wire-door crate, 40–65 lb) and CHICKENS (two slatted hen crates).**
+  - The animal is visible inside its crate. The dog looks about, the hens bob, and both get livelier when upset.
+  - Rough flying upsets them: anything off a smooth 1 g, plus side force from skids. Knocks and drops upset them too, with a bark or cluck each time. They calm slowly in smooth air.
+  - Barks and clucks repeat about once a second while it's rough. Pay × (1 − 0.6 × stress).
+- **Meters everywhere:**
+  - The board shows the special note on each offer (`FRAGILE - KNOCKS + G DOCK PAY (+30%)`, `PERISHABLE - FRESH 22 MIN (+25%)`, `LIVE ANIMALS - FLY SMOOTH (+35%)`) and the live meter on a taken job.
+  - The wrist wallet line lists special jobs first, with their meter (`$150  1 JOB >LODGE CALM 76%`, `DMG 25%`, `FRESH 64%`).
+  - The delivered message says why the pay is what it is.
+- **Straps drawn only when needed:** the rear seat belt is only drawn with cargo on the rear seat or floor, and the baggage net only with cargo in the bay. That's 2 draw calls saved with an empty Cub. A strap with no cargo under it can't be grabbed.
+- **Cargo specific force:** with cargo aboard but no measurable acceleration (first frame, teleports), the cabin now reads a resting 1 g instead of a stale value, so a freshly loaded dog isn't startled by a zero reading.
+- **Save v51:** special jobs save their type, life, freshness and stress, and pieces save their damage. v50 and v45 saves still load.
+- **New sounds:** `bark`, `cluck`, `crunch`.
+- **Perf:** (swiftshader, the same seated views on v0.50 and v0.51, best of 8 samples each): looking back at an empty cabin, 53 → 51 draw calls (belt + net hidden); facing forward empty, 66 → 66; looking back at two strapped jobs, 56 → 56; with a dog crate, two hen crates and two med kits aboard, 61 calls (each animal is one extra mesh, so +1 per live crate). CPU 1.25–1.93 ms in both versions, within run-to-run noise on the shared box. The delivery tick with special cargo aboard costs 0.01–0.05 ms a frame (t51: 0.012 ms).
+- **Tests:**
+  - t51 (34 checks): special share (25–45 %) and all 8 titles; pay bonuses; perishable life formula; no deadline.
+  - Pets inside the live crates; straps hidden with no cargo and drawn per zone.
+  - Parked frames hurt nothing.
+  - Fragile: steady 3 g = 0, a 4.5 g jolt damages and a 2.2 g bump doesn't, jolt damage within 30 % between 72 and 30 Hz, a 1.8 m/s knock = +30 %, a 2 m drop docks the pay to match, undamaged pays the full bonus.
+  - Perishable: ground and aloft rates, 70 % pay at half fresh, spoiled 20 %, medicine kits.
+  - Live: turbulence upsets the dog and it barks, smooth air is quiet and calming, a knock gives a bark, half calm pays 70 %, hens cluck and the wrist shows CALM.
+  - A crash smashes fragile cargo; save round trip; real 1.2 and 3 m/s touchdowns through the flight model; tick cost; no console errors.
+  - t50 still passes (25), and the reload test now expects a v51 save.
+
 ## v0.50 – bush delivery: job boards, physical cargo, straps, wallet
 The zombie theme is gone. This is the first stage of the **bush package delivery** game (Neil's pick: job board, physical cargo loading, special cargo, unprepared sites, airdrops, economy, reputation, upgrades, characters and emergencies; no weather or wind pressure). v0.50 is the core loop: take a job, load and strap the cargo, fly it out, set it down, get paid.
 - **Job boards.** HOME STRIP, RIDGE STRIP, LODGE and DRY FORK each have a wooden job board on two posts and a yellow pad with a black X.

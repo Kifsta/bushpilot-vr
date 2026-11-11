@@ -1,4 +1,4 @@
-# Bush Pilot VR – controls (v0.50, bush delivery)
+# Bush Pilot VR – controls (v0.51, bush delivery)
 
 v0.45 is just the Super Cub, the valley and the paper map. There is no wind, weather, survival, combat, loot or story. The full game (v0.44) is tag `v0.44-full` and branch `full-game`.
 
@@ -97,6 +97,11 @@ Four strips have a **job board** (a wooden notice board on two posts) and a **ye
 - **The wallet** is the gold top line of the screen on your left wrist (the desktop HUD shows the same line). It shows the cash and your most urgent job: where it goes and the minutes left. You start with $150.
 - **Weight and balance:** every piece has a real weight and sits at its station. The rear seat is +37 in, the floor about +25, and the baggage bay +57 (50 lb limit). That is what the flight model gets, as mass, CG and inertia. The laminated W&B card on the right wall lists the rear seat, baggage and floor loads (LOOSE in red until strapped) and plots the dot. Full fuel plus you leaves about 317 lb before max gross (1750 lb). Push the throttle up on the ground while over gross, out of CG limits, or with 10 lb or more of loose cargo, and you get one reminder.
 - **Loose cargo moves.** Unstrapped pieces slide under hard braking, full power, skids and rough ground. They hop on a hard landing, and a piece can slide off the rear seat onto the floor. You hear and feel the thump, and the CG moves with them. Strapped pieces stay put.
+- **Special cargo (v0.51).** About a third of the jobs are special. They pay more, have no deadline, and their condition sets the pay. The board shows the note, and the gold wrist line lists special jobs first with their meter.
+  - **FRAGILE** (glassware, radio set, eggs: boxes with a red band, +30 %): jolts damage it, from hard touchdowns, bumps and sudden yanks. A firm-but-normal landing is fine; arrive at 3 m/s and you'll dent it about 20 %. Loose pieces knocking about, dropping a box and crashing all damage it too. You hear a crunch. Pay × (1 − damage). Strap it, land gently, set it down; don't drop it.
+  - **PERISHABLE** (fresh fish and ice cream in coolers, medicine in med kits, +25 %): a FRESH clock starts when you take the job (the board shows the minutes). It runs half as fast while you're flying more than 150 m above the ground. Pay drops with freshness, and spoiled pays 20 %.
+  - **LIVE ANIMALS** (a dog crate, two crates of chickens, +35 %): you can see them inside. Rough flying (bumps, hard manoeuvres, skids) and knocks upset them, and they bark or cluck. Smooth flying calms them slowly. Pay × (1 − 0.6 × upset); the wrist shows CALM n%.
+- The belt and net are only drawn (and grabbable) when there is cargo under them.
 
 ## Fuel
 - Two wing tanks hold 36 gal (136 L). Burn scales with power: full throttle empties them in about 25 minutes. Below 3 % the engine sputters, and at empty it quits. The fuel gauge and the W&B card show what's aboard.
@@ -143,7 +148,7 @@ Four strips have a **job board** (a wooden notice board on two posts) and a **ye
 
 ## Saving
 - Autosaves every 30 s, when you land and stop, and when you close the tab or take the headset off. It saves where the Cub is parked, the fuel, the time of day, and whether you were aboard or on foot (and where).
-- v0.50 also saves the wallet, the game clock, every board's jobs, every piece of cargo (on the ground where it lies, or in the Cub on its seat or in the bay) and the straps. It saves soon after you take, load or set down anything, and straight away when you get paid. A v0.45–v0.49 save still loads, with a fresh $150 wallet and new boards.
+- v0.50 also saves the wallet, the game clock, every board's jobs, every piece of cargo (on the ground where it lies, or in the Cub on its seat or in the bay) and the straps. It saves soon after you take, load or set down anything, and straight away when you get paid. A v0.45–v0.49 save still loads, with a fresh $150 wallet and new boards. v0.51 also saves the special cargo state (damage, freshness, how upset the animals are).
 - v0.45 uses a new save key (`bushpilot-vr-blank-v1`), so older saves are left alone and never loaded.
 - `?nosave` plays without saving. `?plane` starts a new game in the seat instead of beside the Cub.
 
