@@ -5906,10 +5906,10 @@ function ecoDo(F, i) {   // a row on a service board
 // ---- paying for fuel as it flows (called by the pump) ----
 function ecoFuelAllow(dl) {   // litres wanted this frame -> litres you get (charged)
   const F = FUELP.st || FUEL_ST[0], c = dl / 3.785 * F.price, home = F.id === 'HOME';
-  if (DLV.cash - c < (home ? -ECO_CREDIT : 0)) { if (!(home && fuel < ECO_SAFE)) { say(home ? 'ACCOUNT LIMIT REACHED - FLY A JOB (' + (fuel / 3.785).toFixed(1) + ' GAL ABOARD)' : 'OUT OF CASH - ' + (fuel / 3.785).toFixed(1) + ' GAL ABOARD (HOME GIVES CREDIT)'); return 0; } ECO.acct = true; }   // the safety net: home never leaves you without enough to reach a job
+  if (DLV.cash - c < (home ? -ECO_CREDIT : 0)) { if (!(home && fuel < ECO_SAFE)) { ECO.why = home ? 'ACCOUNT LIMIT REACHED - FLY A JOB' : 'OUT OF CASH (THE HOME DRUM GIVES CREDIT)'; return 0; } ECO.acct = true; }   // the safety net: home never leaves you without enough to reach a job
   DLV.cash -= c; DLV.spent = (DLV.spent || 0) + c; ECO.fill += c; ECO.fillL += dl; return dl;
 }
-function ecoFuelReceipt() { if (!ECO.fillL) return ''; const s = ' - ' + (ECO.fillL / 3.785).toFixed(1) + ' GAL $' + ECO.fill.toFixed(2) + (ECO.acct ? ' ON ACCOUNT' : '') + ' (' + ecoMoney(DLV.cash) + ')'; DLV.cash = Math.round(DLV.cash * 100) / 100; ECO.fill = ECO.fillL = 0; ECO.acct = false; return s; }
+function ecoFuelReceipt() { const w = ECO.why ? ' - ' + ECO.why : ''; ECO.why = ''; if (!ECO.fillL) return w; const s = ' - ' + (ECO.fillL / 3.785).toFixed(1) + ' GAL $' + ECO.fill.toFixed(2) + (ECO.acct ? ' ON ACCOUNT' : '') + ' (' + ecoMoney(DLV.cash) + ')'; DLV.cash = Math.round(DLV.cash * 100) / 100; ECO.fill = ECO.fillL = 0; ECO.acct = false; return s + w; }
 // ---- wear, touchdowns, damage ----
 function ecoTouch(sink) {   // a wheel just came down: sink in m/s
   const E = ECO, fpm = Math.round(sink * 196.85); E.ldg++; E.sink = sink; E.tyre = Math.max(0, E.tyre - 0.0012 - Math.max(0, sink - 1) * 0.004);
