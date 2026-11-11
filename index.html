@@ -517,9 +517,10 @@ function stepAircraft(a, dt) {
 
 // ======================= RENDERING =======================
 // v0.35 settings (persist in localStorage 'bp_gfx'; ?gfx=shadows:2,grass:1 overrides for testing). Defaults = the v0.34 look and cost.
-const GFX_DEF = { shadows: 0, scale: 1, fov: 1, dist: 1, trees: 1, grass: 0, clouds: 1, fog: 1, msaa: 1, hz: 0, vig: 0, turn: 0, fps: 0, tod: 11, stk: 0, tips: 1 };
+const GFX_DEF = { shadows: 0, scale: 0.9, fov: 1, dist: 1, trees: 1, grass: 0, clouds: 1, fog: 1, msaa: 1, hz: 72, vig: 0, turn: 0, fps: 0, tod: 11, stk: 0, tips: 1, terr: 1, dyn: 1 };   // v0.48 BALANCED: 90 % scale, 72 Hz, fast terrain shading, auto resolution
 const GFX = Object.assign({}, GFX_DEF);
-try { const o = JSON.parse(localStorage.getItem('bp_gfx') || '{}'); for (const k in GFX_DEF) if (typeof o[k] === 'number' && isFinite(o[k])) GFX[k] = o[k]; } catch (e) { }
+try { const o = JSON.parse(localStorage.getItem('bp_gfx') || '{}'); if ((o.v || 0) < 48) { if (o.scale === 1) delete o.scale; if (o.hz === 0) delete o.hz; }   // v0.48: saved copies of the old defaults (100 %, AUTO Hz) move to the new ones once
+  for (const k in GFX_DEF) if (typeof o[k] === 'number' && isFinite(o[k])) GFX[k] = o[k]; } catch (e) { }
 try { const q = new URLSearchParams(location.search).get('gfx'); if (q) for (const kv of q.split(',')) { const [k, v] = kv.split(':'); if (k in GFX_DEF && isFinite(+v)) GFX[k] = +v; } } catch (e) { }
 const renderer = new THREE.WebGLRenderer({ antialias: !!GFX.msaa });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5) * GFX.scale);
@@ -540,6 +541,19 @@ const hemi = new THREE.HemisphereLight(0xdfefff, 0x56603a, 1.2); scene.add(hemi)
 const sun = new THREE.DirectionalLight(0xfff1dc, 2.0); sun.position.set(300, 500, 200); scene.add(sun);
 
 const mat = c => new THREE.MeshLambertMaterial({ color: c, flatShading: true });
+// ---- v0.48 vertex-lit look for the biggest fill, the ground: MeshBasic + hemisphere + sun per vertex, the same maths as Lambert ----
+// (diffuse / pi * (hemi(n) + sun * n.l)); flat faces come from face normals on non-indexed geometry. No per-pixel lights: the landing light / shadows switch back to Lambert.
+const VL = { vlS: { value: new THREE.Color() }, vlG: { value: new THREE.Color() }, vlC: { value: new THREE.Color() }, vlD: { value: new THREE.Vector3(0, 1, 0) }, key: '', by: new Map() };
+function vlMat(o) {
+  const m = new THREE.MeshBasicMaterial(o);
+  m.onBeforeCompile = sh => { Object.assign(sh.uniforms, { vlS: VL.vlS, vlG: VL.vlG, vlC: VL.vlC, vlD: VL.vlD });
+    sh.vertexShader = 'uniform vec3 vlS, vlG, vlC, vlD;\nvarying vec3 vLit;\n' + sh.vertexShader.replace('#include <project_vertex>', '#include <project_vertex>\n  vec3 vlN = normal;\n#ifdef USE_INSTANCING\n  vlN = mat3(instanceMatrix) * vlN;\n#endif\n  vlN = normalize(mat3(modelMatrix) * vlN);\n  vLit = (mix(vlG, vlS, 0.5 * vlN.y + 0.5) + vlC * max(dot(vlN, vlD), 0.0)) * 0.3183099;');
+    sh.fragmentShader = 'varying vec3 vLit;\n' + sh.fragmentShader.replace('#include <color_fragment>', '#include <color_fragment>\n  diffuseColor.rgb *= vLit;'); };
+  m.customProgramCacheKey = () => 'vl48'; return m;
+}
+function vlTwin(m, map) {   // the vertex-lit twin of a plain Lambert material (shared per material)
+  const k = m.uuid + (map ? 'm' : ''); let t = VL.by.get(k); if (!t) VL.by.set(k, t = vlMat({ color: m.color, vertexColors: m.vertexColors, map: map ? m.map : null, side: m.side })); return t;
+}
 let seed = 12345; const rand = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
 
 // ---- terrain: flat-shaded inner grid + coarse outer ring; colours by height/slope (fields, forest, rock, snow) ----
@@ -553,7 +567,7 @@ function grainTexture(repeat) {  // 64x64 canvas noise, mipmapped; averages out 
   t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t;
 }
 const nearMeadow = (x, z, m = 0) => Math.abs(x - MEADOW.x) < MEADOW.hw + m && Math.abs(z - MEADOW.z) < MEADOW.hl + m;
-let terrainMesh;
+let terrainMesh; const TERR_M = [];   // v0.48 the ground meshes (their material swaps with Terrain shading)
 function splitTiles(geo, tile) {   // non-indexed triangle soup -> one geometry per tile (by triangle centroid)
   const pos = geo.attributes.position, names = Object.keys(geo.attributes), buckets = new Map();
   for (let i = 0; i < pos.count; i += 3) {
@@ -610,7 +624,7 @@ function splitTiles(geo, tile) {   // non-indexed triangle soup -> one geometry 
     geo.computeVertexNormals();
     const material = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true, map: grainTexture([size / 6, size / 6]) }); WET_MATS.push(material);
     const tiles = (inner ? splitTiles(geo, 3000) : [geo]);          // v0.10: tiles so the GPU only gets what's in view
-    for (const g of tiles) { const tm = new THREE.Mesh(g, material); tm.userData.noCast = true; scene.add(tm); }   // v0.35: the ground only receives shadows
+    for (const g of tiles) { const tm = new THREE.Mesh(g, material); tm.userData.noCast = true; tm.userData.lm = material; scene.add(tm); TERR_M.push(tm); }   // v0.35: the ground only receives shadows
     return tiles;
   };
   terrainMesh = build(2 * T_IN, 2 * T_IN / T_C1, true);
@@ -664,21 +678,30 @@ function instanced1(geo, material, list, opt, tiled) {
   const im = new THREE.InstancedMesh(geo, material, list.length);
   list.forEach((o, i) => { _q.setFromEuler(_e.set(0, o[3], 0)); im.setMatrixAt(i, _m4.compose(_v.set(o[0], o[1], o[2]), _q, _s.set(o[4], o[5], o[6]))); });
   scene.add(im); im.matrixAutoUpdate = false; im.updateMatrix();   // v0.47: placed once
-  if (tiled) im.computeBoundingSphere();   // from every instance: stays valid while the count is compacted below
-  if (opt && list.length) { im.instanceMatrix.setUsage(THREE.DynamicDrawUsage); im.frustumCulled = tiled;
-    CHUNKS.push({ im, full: im.instanceMatrix.array.slice(), xz: Float32Array.from(list.flatMap(o => [o[0], o[2]])), far: opt.far || Infinity, lod: opt.lod || Infinity, n: list.length, tree: !!opt.tree }); }
+  im.computeBoundingSphere();   // from every instance: stays valid while the count is compacted below
+  if (list.length) { im.instanceMatrix.setUsage(THREE.DynamicDrawUsage); im.frustumCulled = tiled || !opt;   // v0.48: every type is managed; the old unmanaged ones keep their (whole-set) culling sphere
+    if (!im.geometry.boundingSphere) im.geometry.computeBoundingSphere(); const sc = list.map(o => Math.max(o[4], o[5], o[6])).sort((a, b) => a - b)[list.length >> 1];
+    CHUNKS.push({ im, full: im.instanceMatrix.array.slice(), xz: Float32Array.from(list.flatMap(o => [o[0], o[1], o[2]])), far: (opt && opt.far) || Infinity, lod: (opt && opt.lod) || Infinity, n: list.length, tree: !!(opt && opt.tree),
+      sz: im.geometry.boundingSphere.radius * sc, lm: material }); }
   return im;
 }
 const _cp = new THREE.Vector3(), _cpLast = new THREE.Vector3(1e9, 0, 0);
+const DYN = { on: false, lvl: 0, tk: 1, lk: 1, vs: 1, t: 0, ok: 0, hold: 10, f: 0, vw0: 0, vw: 0, vsOK: null, set: false, n: 0 };   // v0.48 auto resolution state (see dynTick)
+const CH_SZK = 900;   // v0.48: a small thing (bush, rock, post, bale) is drawn out to 900 x its size (about 1.5 px on a Quest 3 at that range)
+const CHS = { n: 0, ms: 0, up: 0 };   // stats: rebuilds, last cost, instances uploaded
 function updateChunks(force) {
-  camera.getWorldPosition(_cp); if (!force && Math.hypot(_cp.x - _cpLast.x, _cp.z - _cpLast.z) < 40) return; _cpLast.copy(_cp);
-  const D = GFX.dist, TD = GFX.trees;   // v0.35 settings: draw distance scales the cull radii, tree density thins forests by a stable per-tree hash
-  for (const k of CHUNKS) { const A = k.im.instanceMatrix.array, f2 = (k.far * D) ** 2, l2 = (k.lod * D) ** 2; let c = 0;
-    for (let i = 0; i < k.n; i++) { const dx = k.xz[i * 2] - _cp.x, dz = k.xz[i * 2 + 1] - _cp.z, d2 = dx * dx + dz * dz;
-      if (d2 > f2 || (d2 > l2 && i % 3)) continue;
-      if (k.tree && TD < 1) { const h = Math.sin(k.xz[i * 2] * 12.9898 + k.xz[i * 2 + 1] * 78.233) * 43758.5453; if (h - Math.floor(h) >= TD) continue; }
-      if (c !== i) { const F = k.full, s0 = i * 16, d0 = c * 16; for (let e = 0; e < 16; e++) A[d0 + e] = F[s0 + e]; } c++; }   // v0.47: no subarray garbage
-    k.im.count = c; k.im.visible = c > 0; k.im.instanceMatrix.needsUpdate = true; }
+  camera.getWorldPosition(_cp); const agl = Math.max(0, _cp.y - terrainHeight(_cp.x, _cp.z));
+  if (!force && Math.hypot(_cp.x - _cpLast.x, _cp.y - _cpLast.y, _cp.z - _cpLast.z) < 40 + 0.2 * Math.min(agl, 1500)) return; _cpLast.copy(_cp);   // v0.48: rarer rebuilds up high
+  const t0 = performance.now(), D = GFX.dist, TD = GFX.trees * DYN.tk, A = clamp((agl - 200) / 1000, 0, 1), LA = (1 - 0.45 * A) * DYN.lk;   // v0.35 draw distance / tree density; v0.48 thinner forest with height + auto resolution steps
+  let up = 0;
+  for (const k of CHUNKS) { const M = k.im.instanceMatrix, Ar = M.array, f = Math.min(k.far, k.tree ? Infinity : k.sz * CH_SZK) * D, f2 = f * f, l = (k.tree ? k.lod * LA : k.lod) * D, l2 = l * l, l4 = 4 * l2; let c = 0;
+    if (!(k.tree && TD <= 0)) for (let i = 0; i < k.n; i++) { const dx = k.xz[i * 3] - _cp.x, dy = k.xz[i * 3 + 1] - _cp.y, dz = k.xz[i * 3 + 2] - _cp.z, d2 = dx * dx + dy * dy + dz * dz;   // v0.48: 3D distance (height counts)
+      if (d2 > f2 || (d2 > l2 && i % 3) || (d2 > l4 && i % 6)) continue;
+      if (k.tree && TD < 1) { const h = Math.sin(k.xz[i * 3] * 12.9898 + k.xz[i * 3 + 2] * 78.233) * 43758.5453; if (h - Math.floor(h) >= TD) continue; }
+      if (c !== i) { const F = k.full, s0 = i * 16, d0 = c * 16; for (let e = 0; e < 16; e++) Ar[d0 + e] = F[s0 + e]; } c++; }   // v0.47: no subarray garbage
+    k.im.count = c; k.im.visible = c > 0;
+    if (c) { if (M.addUpdateRange) { M.clearUpdateRanges(); M.addUpdateRange(0, c * 16); } M.needsUpdate = true; up += c; } }   // v0.48: upload only what is drawn
+  CHS.n++; CHS.ms = performance.now() - t0; CHS.up = up;
 }
 // v0.37 the Hollow: a stand of timber west of the river where a new game wakes you, plus alders along both banks (own RNG - the world's rand() stream is untouched)
 const HOLLOW = { x: -430, z: -20 };
@@ -4026,7 +4049,7 @@ addEventListener('pagehide', () => saveGame('hidden'));
 // The originals stay where they are on a hidden layer and are watched: the first time code moves, hides, re-parents, recolours,
 // re-materials or rewrites one, it goes back on its own and its batch is rebuilt without it. Anything that animates keeps
 // working exactly as before; only the truly static parts stay merged.
-const BATCH = { list: [], on: /[?&]nobatch\b/.test(location.search) ? -1 : 0, rr: 0, LAYER: 30, _m: new THREE.Matrix4(), mats: new Map(), un: 0, n: 0, f: 0, t0: 0, CELL: 250 };
+const BATCH = { list: [], on: /[?&]nobatch\b/.test(location.search) ? -1 : 0, rr: 0, LAYER: 30, _m: new THREE.Matrix4(), mats: new Map(), un: 0, drop: 0, n: 0, f: 0, t0: 0, CELL: 250 };
 const _bc = new THREE.Color();
 function batchMat(m) {    // one shared vertex-coloured material per look
   const k = (m.flatShading ? 'f' : 's') + m.side + (m.fog ? 'F' : '');
@@ -4049,9 +4072,15 @@ function batchBuild(B) {  // (re)build one batch from its live members
     for (let i = 0; i < n; i++) { const r = src ? src.getX(i) : 1, gg = src ? src.getY(i) : 1, bb = src ? src.getZ(i) : 1; c[i * 3] = r * mc[0]; c[i * 3 + 1] = gg * mc[1]; c[i * 3 + 2] = bb * mc[2]; }
     g.setAttribute('color', new THREE.BufferAttribute(c, 3)); g.applyMatrix4(e.rel); gs.push(g);
   }
+  let v0 = 0; B.mem.forEach((e, i) => { e.s = v0; e.n = gs[i].attributes.position.count; v0 += e.n; });   // v0.48: where each member sits in the merged mesh
   const mg = gs.length > 1 ? mergeGeometries(gs) : null; for (const g of gs) g.dispose();
   if (!mg) { for (const e of B.mem) e.o.layers.mask = e.mask; B.mem.length = 0; }   // nothing (or one) left: leave them as they were
   const old = B.mesh.geometry; B.mesh.geometry = mg || new THREE.BufferGeometry(); if (old) old.dispose(); B.mesh.visible = !!mg;
+}
+function batchDrop(B, e) {   // v0.48: collapse one member's triangles in place (one small upload) instead of re-merging the batch
+  const P = B.mesh.geometry.attributes.position; if (!P || e.n === undefined) return false;
+  const a = P.array, x = a[e.s * 3], y = a[e.s * 3 + 1], z = a[e.s * 3 + 2]; for (let i = e.s; i < e.s + e.n; i++) { a[i * 3] = x; a[i * 3 + 1] = y; a[i * 3 + 2] = z; }
+  if (P.addUpdateRange) { P.clearUpdateRanges(); P.addUpdateRange(e.s * 3, e.n * 3); } P.needsUpdate = true; BATCH.drop++; return true;
 }
 function batchStatic(root, cell, skip) {
   root.updateMatrixWorld(true); const groups = new Map(), proto = THREE.Object3D.prototype.onBeforeRender;
@@ -4094,18 +4123,19 @@ function batchTick() {
   for (let bi = 0; bi < BATCH.list.length; bi++) {
     const B = BATCH.list[bi]; if (!B.mem.length || (B.root !== plane && bi % 8 !== BATCH.rr)) continue;   // the Cub's parts every frame, the world's in turn
     let ch = false;
-    for (let i = B.mem.length - 1; i >= 0; i--) { const e = B.mem[i]; if (!batchChanged(B, e)) continue; e.o.layers.mask = e.mask; B.mem.splice(i, 1); ch = true; BATCH.un++; }
-    if (ch) batchBuild(B);
+    for (let i = B.mem.length - 1; i >= 0; i--) { const e = B.mem[i]; if (!batchChanged(B, e)) continue; e.o.layers.mask = e.mask; B.mem.splice(i, 1); BATCH.un++; if (!batchDrop(B, e)) ch = true; }
+    if (ch || B.mem.length < 2) batchBuild(B);
   }
 }
 // ================= v0.35 settings: graphics / comfort / fps counter (v0.45: wrist SETTINGS board in VR, ` or F2 panel on desktop) =================
 // Defaults (GFX_DEF) reproduce v0.34 exactly: no shadow maps, scale 1, foveation 1, fog 1200-8500 m, all trees, no grass, one cloud layer, MSAA on.
 const GFX_OPT = [   // key, label, values, value labels, note (shown small under the label)
   ['shadows', 'Shadows', [0, 1, 2], ['OFF', 'LOW', 'HIGH'], 'sun shadows round you'],
-  ['scale', 'Render scale', [0.7, 0.85, 1, 1.2, 1.4], ['70%', '85%', '100%', '120%', '140%'], 'VR: next time you enter VR'],
+  ['scale', 'Render scale', [0.7, 0.8, 0.9, 1, 1.2], ['70%', '80%', '90%', '100%', '120%'], 'VR: next time you enter VR'],
   ['fov', 'Foveation', [0, 0.33, 0.66, 1], ['OFF', 'LOW', 'MEDIUM', 'HIGH'], 'blurrier edges = faster'],
   ['dist', 'Draw distance', [0.6, 0.8, 1, 1.3], ['NEAR', 'MEDIUM', 'NORMAL', 'FAR'], 'trees, rocks, haze'],
-  ['trees', 'Tree density', [0.4, 0.7, 1], ['SPARSE', 'MEDIUM', 'FULL'], 'forests'],
+  ['trees', 'Forest', [0, 0.4, 0.7, 1], ['OFF', 'SPARSE', 'MEDIUM', 'FULL'], 'tree density'],
+  ['terr', 'Terrain shading', [0, 1, 2], ['FAST', 'FAST+GRAIN', 'FULL'], 'ground: per-vertex light'],
   ['grass', 'Grass', [0, 1, 2], ['OFF', 'LOW', 'HIGH'], 'tufts round your feet'],
   ['clouds', 'Clouds', [0, 1, 2], ['OFF', 'NORMAL', 'HIGH'], 'sky detail'],
   ['fog', 'Haze', [0, 1, 2], ['LIGHT', 'NORMAL', 'THICK'], 'how far you can see'],
@@ -4121,7 +4151,7 @@ const GFX_OPT = [   // key, label, values, value labels, note (shown small under
 ];
 const GQ = { sig: '', xrRates: null, fogK: -1, fpsT: 0, menu: null, shadowT: 0 };
 function gfxLabel(k) { if (k === 'hx') return HX.gain ? Math.round(HX.gain * 100) + '%' : 'OFF'; const o = GFX_OPT.find(r => r[0] === k), i = o[2].findIndex(v => Math.abs(v - GFX[k]) < 1e-6); return i >= 0 ? o[3][i] : String(GFX[k]); }
-function gfxSave() { try { localStorage.setItem('bp_gfx', JSON.stringify(GFX)); } catch (e) { } }
+function gfxSave() { try { localStorage.setItem('bp_gfx', JSON.stringify(Object.assign({ v: 48 }, GFX))); } catch (e) { } }
 function gfxSet(k, v, quiet) {
   if (k === 'hx') { HX.cycle(); return; }
   GFX[k] = v; gfxSave(); gfxApply(k);
@@ -4129,11 +4159,21 @@ function gfxSet(k, v, quiet) {
   if (GQ.menu) gfxMenuSync();
 }
 function gfxCycle(k, d = 1) { if (k === 'hx') { HX.cycle(); if (GQ.menu) gfxMenuSync(); return; } const o = GFX_OPT.find(r => r[0] === k), i = o[2].findIndex(v => Math.abs(v - GFX[k]) < 1e-6); gfxSet(k, o[2][((i < 0 ? 0 : i) + d + o[2].length) % o[2].length]); }
+function vlWant() { return GFX.terr < 2 && !GFX.shadows && !LIGHTS.landing; }   // per-pixel lights (landing light) and shadow maps need the Lambert look
+function vlApply(force) {   // v0.48 Terrain shading: FAST / FAST+GRAIN (vertex-lit) or FULL (the v0.47 per-pixel Lambert)
+  const on = force === undefined ? vlWant() : force, key = on + '|' + GFX.terr; if (key === VL.key) return; VL.key = key;
+  for (const o of TERR_M) { const lm = o.userData.lm; o.material = on ? vlTwin(lm, GFX.terr > 0) : lm; if (lm.map) { const a = GFX.terr > 1 ? 4 : 2; if (lm.map.anisotropy !== a) { lm.map.anisotropy = a; lm.map.needsUpdate = true; } } }
+}
+function vlTick() {   // the vertex-lit uniforms follow the sun / moon and sky light
+  VL.vlS.value.copy(hemi.color).multiplyScalar(hemi.intensity); VL.vlG.value.copy(hemi.groundColor).multiplyScalar(hemi.intensity);
+  VL.vlC.value.copy(sun.color).multiplyScalar(sun.intensity); VL.vlD.value.copy(sun.position).sub(sun.target.position).normalize(); vlApply();
+}
 function gfxApply(k) {
   const all = !k;
+  if (all || k === 'terr' || k === 'shadows') { VL.key = ''; vlApply(); }
   if (all || k === 'scale') { renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5) * GFX.scale); if (!renderer.xr.isPresenting) renderer.xr.setFramebufferScaleFactor(GFX.scale); }
   if (all || k === 'fov') renderer.xr.setFoveation(GFX.fov);
-  if ((all && (GFX.dist !== 1 || GFX.trees !== 1)) || k === 'dist' || k === 'trees') updateChunks(true);
+  if (all || k === 'dist' || k === 'trees') updateChunks(true);
   if ((all && GFX.shadows) || k === 'shadows') gfxShadows();
   if (all || k === 'clouds') gfxClouds();
   if (all || k === 'hz') gfxRate();
@@ -4342,7 +4382,8 @@ function sockFix(m, dx = 0) {
   m.geometry = g; m.material = sockFix.mat ||= new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide }); m.position.x -= dx; m.rotation.order = 'YXZ'; m.rotation.z = -1.41; m.scale.set(1, 0.75, 0.75);
   return m; }
 gfxApply();
-{ PL.visible = SL.visible = true; renderer.compile(scene, camera); PL.visible = SL.visible = false; }   // v0.47 LIGHTS_WARM: precompile the lit-cockpit / landing-light variants
+{ PL.visible = SL.visible = true; renderer.compile(scene, camera); PL.visible = SL.visible = false; }
+{ vlTick(); for (const f of [true, false]) { vlApply(f); PL.visible = SL.visible = !f; renderer.compile(scene, camera); } PL.visible = SL.visible = false; VL.key = ''; vlApply(); }   // v0.48: both terrain looks compiled at load (landing light = no hitch)   // v0.47 LIGHTS_WARM: precompile the lit-cockpit / landing-light variants
 renderer.setAnimationLoop(() => {
   const t0 = performance.now(), rawDt = clock.getDelta(), dt = Math.min(rawDt, 0.05);
   const xr = renderer.xr.isPresenting;
@@ -4387,7 +4428,7 @@ renderer.setAnimationLoop(() => {
   if ((chunkT += dt) > 0.2) { chunkT = 0; updateChunks(); }
   hxTick(dt);                                // v0.24 haptics (engine / buffet / gear + queued pulses)
   if (xr || HANDS.force) { updateHands(dt); setpTick(); }
-  batchTick(); if (GFX.shadows && ((FT.n & 1) || mode !== 'plane' || ac.vel[0] * ac.vel[0] + ac.vel[1] * ac.vel[1] + ac.vel[2] * ac.vel[2] > 0.1)) renderer.shadowMap.needsUpdate = true;   // v0.47 static batches; shadow map at half rate   // v0.23 gloves (after the stick / knobs have their final pose); v0.45 wrist SETTINGS board
+  vlTick(); batchTick(); if (GFX.shadows && ((FT.n & 1) || mode !== 'plane' || ac.vel[0] * ac.vel[0] + ac.vel[1] * ac.vel[1] + ac.vel[2] * ac.vel[2] > 0.1)) renderer.shadowMap.needsUpdate = true;   // v0.47 static batches; shadow map at half rate   // v0.23 gloves (after the stick / knobs have their final pose); v0.45 wrist SETTINGS board
   renderer.render(scene, camera);
   const cpu = performance.now() - t0;            // JS + draw submission (GPU time isn't visible from here)
   FT.sf += rawDt * 1000; FT.sc += cpu; FT.sm = Math.max(FT.sm, rawDt * 1000); FT.n++;

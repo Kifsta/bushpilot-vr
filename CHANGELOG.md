@@ -2,6 +2,16 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.48 – Quest GPU pass (Neil: "It was down to 40 after take off")
+
+**Part 1: what gets drawn once you are airborne**
+- **The ground is vertex-lit** (Settings > Terrain shading, default FAST+GRAIN). The hemisphere and sun light are worked out per vertex with the same maths as Lambert, and the faces stay flat because the ground already has face normals. The fragment shader only does the grain texture, vertex colour and fog. Per-pixel lights are still needed for the landing light and for shadows, so those switch the ground back to FULL by themselves. Both looks are compiled at load. FAST+GRAIN and FULL screenshots differ only at the spinning prop. The grain texture's anisotropy drops from 4 to 2 unless FULL is set.
+- **Scenery instances are culled by size and 3D distance.** Every instanced type (bushes, rocks, posts, bales, tyres, poles, houses as well as trees) is now distance-managed. Small things are drawn out to 900 × their size (about 1.5 px on a Quest 3), measured in 3D, so from 600 m up they simply aren't sent. Previously bushes and rocks were drawn out to 1.8 km, and posts and bales always.
+- **The forest thins with height.** The every-3rd-tree band starts closer the higher you are (down to 55 % of the distance by 1200 m AGL), and an every-6th band starts at twice that distance.
+- **Fewer, smaller instance uploads in flight.** The cull lists rebuilt every 40 m, which meant about 1 MB of uploads every 0.8 s at cruise. Now they rebuild every 40 m + 0.2 × AGL, and only the drawn part of each buffer is uploaded.
+- **No batch hitch when something first moves.** When a batched part starts moving (seen on the takeoff roll), its triangles are now collapsed in place with one small upload. Before, the whole cell was re-merged, which cost 27–35 ms on desktop and probably several times that on Quest.
+- **Defaults (BALANCED):** render scale 90 % (it was 100 %), refresh 72 Hz (it was AUTO), Terrain shading FAST+GRAIN. A saved settings copy that still holds the old defaults (100 % / AUTO) moves to the new ones once. The Forest setting gains OFF.
+
 ## v0.46.1 – Headset fixes: steady hands, a primer that stays put
 
 Fixes from Neil's headset test (shipped on top of v0.47 part 2).
