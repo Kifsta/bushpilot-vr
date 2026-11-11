@@ -4312,10 +4312,10 @@ for (const B of BUSH) { B.len = Math.round(B.hl * 2 / 10) * 10;   // the landing
     if (B.type === 'short') { for (let l = -B.hl; l <= B.hl + 0.1; l += 40) for (const w of [-B.hw - 1, B.hw + 1]) mk(l, w); const [wx, wz] = W(S, s * (B.hw + 14), -l0 - B.hl + 30); sockAt(wx, wz); MOWN.push({ x: B.x, z: B.z, a: B.a, hl: B.hl, hw: B.hw }); }
     else for (const l of [-B.hl, B.hl]) for (const w of [-B.hw, B.hw]) mk(l, w, 0.5);   // painted rocks at the corners: someone uses this spot
     // the strip surface: graded / gravel ribbon, or two worn wheel tracks in the grass (meadow / ridge bench)
-    const v = RV, col = RC, cA = new THREE.Color({ sandbar: 0xb3a98c, shore: 0xa69c7c, short: 0x86ad55, meadow: 0x6a8a3e, ridge: 0x8a7a5a }[B.type]), cc = new THREE.Color();
+    const v = RV, col = RC, cA = new THREE.Color({ sandbar: 0xb3a98c, shore: 0xa69c7c, short: 0x86ad55, meadow: 0x7e6c48, ridge: 0x7e6c48 }[B.type]), cc = new THREE.Color();
     const Pt = (l, w) => { const [x, z] = W(S, w, l); return [x, groundY(x, z) + 0.07, z]; };
     const quad = (l, w, dl, dw) => { const A = Pt(l, w), Bq = Pt(l, w + dw), Cq = Pt(l + dl, w), D = Pt(l + dl, w + dw); v.push(...A, ...Bq, ...Cq, ...Bq, ...D, ...Cq); cc.copy(cA).offsetHSL(0, 0, (R() - 0.5) * 0.06); for (let k = 0; k < 6; k++) col.push(cc.r, cc.g, cc.b); };
-    for (let l = -B.hl; l < B.hl; l += 10) { if (B.type === 'meadow' || B.type === 'ridge') { for (const w of [-1.6, 1.0]) quad(l, w, 10, 0.6); } else for (let w = -B.hw; w < B.hw; w += B.hw) quad(l, w, 10, B.hw); }
+    for (let l = -B.hl; l < B.hl; l += 10) { if (B.type === 'meadow' || B.type === 'ridge') { for (const w of [-1.8, 1.0]) quad(l, w, 10, 0.8); } else for (let w = -B.hw; w < B.hw; w += B.hw) quad(l, w, 10, B.hw); }
     G.updateMatrixWorld(true); const gs = GS, n0 = gs.length;
     for (const q of G.children) { const h = (q.geometry.index ? q.geometry.toNonIndexed() : q.geometry.clone()).applyMatrix4(q.matrix); for (const k of Object.keys(h.attributes)) if (k !== 'position') h.deleteAttribute(k); h.computeVertexNormals();
       const n = h.attributes.position.count, c = q.material.color, cl = new Float32Array(n * 3); for (let i = 0; i < n; i++) cl.set([c.r, c.g, c.b], i * 3); h.setAttribute('color', new THREE.BufferAttribute(cl, 3)); gs.push(h); }
@@ -4545,17 +4545,17 @@ function jbDraw(S) {
     { const H = dlvWc(j) === 'H', pw = x.measureText('$' + j.pay).width, t = H ? 'HEAVY' : 'LIGHT'; x.font = 'bold 12px sans-serif'; const bw = x.measureText(t).width + 10, b0 = JB_W - 26 - pw - 10 - bw;   // v0.52 weight class
       x.fillStyle = H ? '#8a2a1a' : '#5a7a5a'; x.fillRect(b0, Y + 9, bw, 19); x.fillStyle = '#fff'; x.fillText(t, b0 + 5, Y + 23); }
     const T = dlvS(j.to), n = {}; for (const it of j.items) n[it.k] = (n[it.k] || 0) + 1;
-    x.fillStyle = '#333'; x.font = '15px sans-serif'; x.fillText('TO ' + T.name + (T.site && !T.found ? ' (FIND IT)' : '') + ' ' + dlvKm(S, T).toFixed(1) + ' KM - ' + dlvLb(j) + ' LB (' + Object.entries(n).map(([k, c]) => c + ' ' + CARGO_K[k].n + (c > 1 ? 'S' : '')).join(', ') + ')', 34, Y + 46);
+    x.fillStyle = '#333'; x.font = '15px sans-serif'; x.fillText('TO ' + T.name + (T.site && !T.found ? ' (FIND IT)' : '') + ' ' + dlvKm(S, T).toFixed(1) + ' KM - ' + dlvLb(j) + ' LB (' + Object.entries(n).map(([k, c]) => c + ' ' + CARGO_K[k].n + (c > 1 ? 'S' : '')).join(', ') + ')', 34, Y + 46, JB_W - 56);
     if (mine) { const [a, t, onPad] = jbStatus(j); x.fillStyle = t.includes('LATE') ? '#b8301e' : '#2a5a22'; x.font = 'bold 14px sans-serif'; x.fillText((j.sp ? '' : 'ACCEPTED - ') + a + t, 34, Y + 68);
       if (onPad) { x.fillStyle = '#8a8a80'; x.fillRect(JB_W - 126, Y + 50, 100, 26); x.fillStyle = '#fff'; x.textAlign = 'center'; x.fillText('CANCEL', JB_W - 76, Y + 68); x.textAlign = 'left'; } }
-    else if (dlvLb(j) > dlvRoom()) { x.fillStyle = '#b8301e'; x.font = 'bold 14px sans-serif'; x.fillText('OVER PAYLOAD AT ' + Math.round(WBS.fuelGal) + ' GAL: MAX ' + Math.max(0, dlvRoom()) + ' LB - CARRY LESS FUEL', 34, Y + 68);   // v0.52
+    else if (dlvLb(j) > dlvRoom()) { x.fillStyle = '#b8301e'; x.font = 'bold 14px sans-serif'; x.fillText('OVER PAYLOAD AT ' + Math.round(WBS.fuelGal) + ' GAL: MAX ' + Math.max(0, dlvRoom()) + ' LB', 34, Y + 68, JB_W - 170);   // v0.52
       x.fillStyle = act >= DLV_MAX ? '#9a9a90' : '#2a7a2a'; x.fillRect(JB_W - 126, Y + 50, 100, 26); x.fillStyle = '#fff'; x.font = 'bold 15px sans-serif'; x.textAlign = 'center'; x.fillText('ACCEPT', JB_W - 76, Y + 68); x.textAlign = 'left'; }
     else { x.fillStyle = j.sp ? '#8a1a6a' : j.dl ? '#9a4a10' : '#555'; x.font = (j.sp ? 'bold ' : '') + '14px sans-serif';
       x.fillText((T.site ? BUSH_T[T.B.type] + ' ' + T.B.len + ' M - ' : '') + (j.sp === 'fragile' ? 'FRAGILE - KNOCKS + G DOCK PAY (+30%)' : j.sp === 'perish' ? 'PERISHABLE - FRESH ' + j.life + ' MIN (+25%)' : j.sp === 'live' ? 'LIVE ANIMALS - FLY SMOOTH (+35%)' : j.dl ? 'DEADLINE ' + j.dl + ' MIN (+40% PAY)' : 'NO DEADLINE'), 34, Y + 68);
       x.fillStyle = act >= DLV_MAX ? '#9a9a90' : '#2a7a2a'; x.fillRect(JB_W - 126, Y + 50, 100, 26); x.fillStyle = '#fff'; x.font = 'bold 15px sans-serif'; x.textAlign = 'center'; x.fillText('ACCEPT', JB_W - 76, Y + 68); x.textAlign = 'left'; } }
   const inb = dlvActive().filter(j => j.to === S.id);
   x.fillStyle = '#3a2a1a'; x.font = '14px sans-serif';
-  x.fillText(inb.length ? 'DELIVER HERE: ' + inb.map(j => j.title).join(', ') + ' - SET IT ON THE YELLOW PAD' : 'JOBS ' + act + '/' + DLV_MAX + ' - POKE ACCEPT (DESKTOP 1-3) - DELIVER TO THE YELLOW PAD', 20, JB_H - 22);
+  x.fillText(inb.length ? 'DELIVER HERE: ' + inb.map(j => j.title).join(', ') + ' - SET IT ON THE YELLOW PAD' : 'JOBS ' + act + '/' + DLV_MAX + ' - POKE ACCEPT (DESKTOP 1-3) - DELIVER TO THE YELLOW PAD', 20, JB_H - 22, JB_W - 40);
   S.tex.needsUpdate = true;
 }
 function jbKey(S) { const L = DLV.offers[S.id]; let k = DLV.cash + '|' + dlvActive().length + '|' + dlvRoom() + '|'; for (const j of L) k += j.id + j.st + (j.st === 'active' ? jbStatus(j).join() : '') + ';';
