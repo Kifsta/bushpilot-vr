@@ -19,7 +19,7 @@
 </script>
 </head>
 <body>
-<div id="info">BUSH PILOT VR v0.50 - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. No wind, no weather.
+<div id="info">BUSH PILOT VR v0.51 - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo. No wind, no weather.
 You start on foot by the Cub at the cabin strip. Walk up to her and climb in (F / Y), then start her up off the checklist card (J).
 Desktop - flying: W/S or arrows pitch, A/D or arrows roll, Q/E rudder, Shift / Ctrl (or + / -) throttle, B brakes, [ ] flaps, PgUp / PgDn trim,
   R reset to the strip (cold and dark), F climb out, M map, L landing light, Home recentre, mouse looks (click to capture).
@@ -1639,6 +1639,9 @@ function sfx(kind, pos, delay = 0) {
   else if (kind === 'catch') { burst(0.16, 1, 0.7, 'lowpass', 420); burst(0.12, 1, 0.5, 'lowpass', 360, 0.1); burst(0.12, 1, 0.55, 'lowpass', 480, 0.19); burst(0.1, 1, 0.4, 'lowpass', 400, 0.27); }   // v0.19 first firing
   else if (kind === 'pick') burst(0.06, 1, 0.2, 'bandpass', 700);
   else if (kind === 'thud') { burst(0.09, 1, 0.55, 'lowpass', 260); burst(0.05, 1, 0.25, 'bandpass', 900, 0.01); }   // v0.50 cargo set down / shifting
+  else if (kind === 'bark') { for (const at of [0, 0.17]) { tone('sawtooth', 520, 300, 0.11, 0.22, at, 900); burst(0.06, 1, 0.18, 'bandpass', 1100, at); } }   // v0.51 the dog
+  else if (kind === 'cluck') { for (let i = 0; i < 3; i++) tone('square', 820 + Math.random() * 200, 600, 0.05, 0.07, i * 0.09, 1400); }   // v0.51 hens
+  else if (kind === 'crunch') { burst(0.05, 1, 0.3, 'highpass', 4200); ping(3200, 0.08, 0.05, 0.02); }   // v0.51 something fragile knocked
   else if (kind === 'cash') { ping(1320, 0.12, 0.12); ping(1760, 0.25, 0.12, 0.09); }   // v0.50 paid
   else if (kind === 'pour') burst(0.12, 1, 0.15, 'bandpass', 300 + Math.random() * 400);
 }
@@ -1914,8 +1917,8 @@ function updateFoot(dt) {
 const _eye = new THREE.Vector3(), _hf = new THREE.Vector3();
 const hud = document.getElementById('hud'), cross = document.getElementById('cross');
 function statusText() {
-  const kt = (ac.out.V || 0) * 1.944, A = dlvActive(), nx = A.slice().sort((a, b) => dlvLeft(a) - dlvLeft(b))[0];   // v0.50 wallet + the most urgent job
-  return '$' + DLV.cash.toLocaleString('en-US') + (nx ? '  ' + A.length + ' JOB' + (A.length > 1 ? 'S' : '') + ' >' + dlvS(nx.to).name.replace(' STRIP', '') + (nx.dl ? ' ' + Math.max(0, Math.ceil(dlvLeft(nx))) + 'M' : '') : '  NO JOBS') + '\n' + `FUEL ${(fuel / FUEL_MAX * 100).toFixed(0)}% ${(fuel / 3.785).toFixed(1)} GAL${FUELP.on ? ' FILLING' : ''}\n` +
+  const kt = (ac.out.V || 0) * 1.944, A = dlvActive(), nx = A.slice().sort((a, b) => (b.sp ? 1 : 0) - (a.sp ? 1 : 0) || dlvLeft(a) - dlvLeft(b))[0];   // v0.51: special cargo first (its meter shows)   // v0.50 wallet + the most urgent job
+  return '$' + DLV.cash.toLocaleString('en-US') + (nx ? '  ' + A.length + ' JOB' + (A.length > 1 ? 'S' : '') + ' >' + dlvS(nx.to).name.replace(' STRIP', '') + (nx.sp ? dlvMeter(nx).replace(' - ', ' ').replace('DAMAGE', 'DMG') : nx.dl ? ' ' + Math.max(0, Math.ceil(dlvLeft(nx))) + 'M' : '') : '  NO JOBS') + '\n' + `FUEL ${(fuel / FUEL_MAX * 100).toFixed(0)}% ${(fuel / 3.785).toFixed(1)} GAL${FUELP.on ? ' FILLING' : ''}\n` +
     (mode === 'plane' ? `ENG ${ENG.running ? 'RUN ' + Math.round(ENG.rpm) : ENG.cranking ? 'CRANK' : 'OFF'}  ${Math.round(kt)} KT` : 'ON FOOT') + (msgT > 0 ? '\n' + msg : '');
 }
 let wristKey = '';
@@ -4097,7 +4100,18 @@ const CARGO_K = {   // kind: size [w h d] (m), weight range (lb)
   parcel: { n: 'PARCEL', sz: [0.30, 0.18, 0.24], lb: [8, 20] },
   sack: { n: 'SACK', sz: [0.40, 0.20, 0.30], lb: [25, 50] },
   crate: { n: 'CRATE', sz: [0.44, 0.28, 0.36], lb: [35, 70] },
+  fbox: { n: 'FRAGILE BOX', sz: [0.34, 0.24, 0.28], lb: [10, 28] },          // v0.51 special cargo
+  cooler: { n: 'COOLER', sz: [0.46, 0.30, 0.30], lb: [25, 45] },
+  medkit: { n: 'MEDICINE CASE', sz: [0.30, 0.18, 0.22], lb: [6, 14] },
+  dog: { n: 'DOG CRATE', sz: [0.40, 0.36, 0.42], lb: [40, 65] },
+  hens: { n: 'CHICKEN CRATE', sz: [0.44, 0.26, 0.36], lb: [18, 32] },
 };
+// v0.51 special jobs: [title, kinds, type, freshness minutes (perishables: + 2 per km)]. Fragile: G and knocks damage it and dock the pay.
+// Perishable: a freshness clock (half as fast in the cool air above 150 m) sets the pay. Live: rough flying upsets the animals and docks the pay.
+const DLV_SP = [['GLASSWARE', ['fbox', 'fbox'], 'fragile'], ['RADIO SET', ['fbox'], 'fragile'], ['EGGS', ['fbox', 'fbox', 'fbox'], 'fragile'],
+  ['FRESH FISH', ['cooler'], 'perish', 10], ['ICE CREAM', ['cooler'], 'perish', 6], ['MEDICINE', ['medkit', 'medkit'], 'perish', 14],
+  ['A DOG', ['dog'], 'live'], ['CHICKENS', ['hens', 'hens'], 'live']];
+const DLV_SPX = { fragile: 1.3, perish: 1.25, live: 1.35 };
 const DLV_T = [   // job title, cargo kinds
   ['MAIL & PARCELS', ['parcel', 'parcel']], ['GROCERIES', ['crate', 'parcel']], ['FEED SACKS', ['sack', 'sack']], ['ENGINE PARTS', ['crate']],
   ['FLOUR & SUGAR', ['sack', 'parcel']], ['TOOLS & HARDWARE', ['crate', 'sack']], ['MEDICAL SUPPLIES', ['parcel', 'parcel', 'parcel']], ['CAMP STORES', ['crate', 'sack', 'parcel']],
@@ -4150,6 +4164,12 @@ function dlvGen(from) {   // one offer from this strip (seeded by the running jo
   const id = DLV.seq++, r = dlvRng(id * 7919 + 13), others = DLV_STRIPS.filter(S => S.id !== from), to = others[Math.floor(r() * others.length)];
   const [title, kinds] = DLV_T[Math.floor(r() * DLV_T.length)], items = kinds.map(k => { const [a, b] = CARGO_K[k].lb; return { k, lb: Math.round(a + r() * (b - a)) }; });
   const lb = items.reduce((s, i) => s + i.lb, 0), km = dlvKm(dlvS(from), to), dl = r() < 0.45 ? Math.ceil(6 + km * 1.5) : 0;
+  const r2 = dlvRng(id * 104729 + 7);
+  if (r2() < 0.35) {   // v0.51: about a third of the jobs are special cargo (no deadline: perishables have their own clock)
+    const [t2, k2, sp, life] = DLV_SP[Math.floor(r2() * DLV_SP.length)], it2 = k2.map(k => { const [a, b] = CARGO_K[k].lb; return { k, lb: Math.round(a + r2() * (b - a)) }; });
+    const lb2 = it2.reduce((s, i) => s + i.lb, 0);
+    return { id, from, to: to.id, title: t2, items: it2, pay: Math.round((25 + 0.55 * lb2 + 22 * km) * DLV_SPX[sp]), dl: 0, due: 0, st: 'offer', sp, life: sp === 'perish' ? Math.ceil(life + 2 * km) : 0, fresh: 1, stress: 0 };
+  }
   const pay = Math.round((25 + 0.55 * lb + 22 * km) * (dl ? 1.4 : 1));
   return { id, from, to: to.id, title, items, pay, dl, due: 0, st: 'offer' };
 }
@@ -4169,15 +4189,36 @@ function dlvGeo(k, col) {
     for (const y of [-h / 2 + 0.035, h / 2 - 0.035]) P.push(['b', w, 0.05, d, 0, y, 0, 0x6e5030]);
     for (const x of [-w / 2 + 0.03, w / 2 - 0.03]) P.push(['b', 0.05, h, d + 0.004, x, 0, 0, 0x6e5030]);
     P.push(['b', w - 0.12, 0.004, 0.05, 0, h / 2 - 0.01, 0, 0x5a4026]); }
+  else if (k === 'fbox') P.push(['b', w, h, d, 0, 0, 0, 0xc9a06a], ['b', w + 0.004, 0.04, d + 0.004, 0, h * 0.18, 0, 0xc42a20], ['b', 0.11, 0.08, 0.004, 0, -0.03, d / 2 + 0.001, 0xf2f0e6],
+    ['b', 0.03, 0.035, 0.005, 0, -0.015, d / 2 + 0.002, 0xc42a20], ['b', 0.008, 0.03, 0.005, 0, -0.045, d / 2 + 0.002, 0xc42a20], ['b', 0.11, 0.08, 0.004, 0, -0.03, -d / 2 - 0.001, 0xf2f0e6]);   // red FRAGILE band + glass labels
+  else if (k === 'cooler') P.push(['b', w, h * 0.78, d, 0, -h * 0.11, 0, 0xe8eef2], ['b', w + 0.012, h * 0.22, d + 0.012, 0, h * 0.39, 0, 0x2a5aa0], ['b', 0.02, 0.03, 0.12, w / 2 + 0.01, h * 0.12, 0, 0x2a2a2a], ['b', 0.02, 0.03, 0.12, -w / 2 - 0.01, h * 0.12, 0, 0x2a2a2a]);
+  else if (k === 'medkit') P.push(['b', w, h, d, 0, 0, 0, 0xf0f0ea], ['b', 0.11, 0.004, 0.035, 0, h / 2, 0, 0xc82020], ['b', 0.035, 0.004, 0.11, 0, h / 2, 0, 0xc82020], ['b', 0.1, 0.02, 0.02, 0, h * 0.2, d / 2 + 0.01, 0x333333]);
+  else if (k === 'dog') { const G = 0x7a7e82; P.push(['b', w, 0.02, d, 0, h / 2 - 0.01, 0, 0x8a8e92], ['b', w, 0.03, d, 0, -h / 2 + 0.015, 0, 0x6a6e72], ['b', 0.02, h, d, w / 2 - 0.01, 0, 0, G], ['b', 0.02, h, d, -w / 2 + 0.01, 0, 0, G], ['b', w, h, 0.02, 0, 0, -d / 2 + 0.01, G]);
+    for (let i = 0; i < 6; i++) P.push(['c', 0.004, h - 0.04, 4, -w / 2 + 0.05 + i * (w - 0.1) / 5, 0, d / 2 - 0.012, 0xb8b8b8]);
+    P.push(['b', w - 0.06, 0.008, 0.008, 0, h * 0.2, d / 2 - 0.012, 0xb8b8b8], ['b', w - 0.06, 0.008, 0.008, 0, -h * 0.25, d / 2 - 0.012, 0xb8b8b8]);
+    for (const sx of [-1, 1]) for (let i = 0; i < 3; i++) P.push(['b', 0.004, 0.018, 0.08, sx * (w / 2 + 0.001), h * 0.18, -0.1 + i * 0.1, 0x2a2a2a]); }   // grey shell, wire door, side vents
+  else if (k === 'hens') { const Wd = 0x9a7442; for (const sx of [-1, 1]) for (const sz of [-1, 1]) P.push(['b', 0.03, h, 0.03, sx * (w / 2 - 0.015), 0, sz * (d / 2 - 0.015), Wd]);
+    P.push(['b', w, 0.02, d, 0, -h / 2 + 0.01, 0, 0x7a5a32]);
+    for (const y of [-h * 0.12, h * 0.25]) { P.push(['b', w, 0.035, 0.012, 0, y, d / 2 - 0.006, Wd], ['b', w, 0.035, 0.012, 0, y, -d / 2 + 0.006, Wd], ['b', 0.012, 0.035, d, w / 2 - 0.006, y, 0, Wd], ['b', 0.012, 0.035, d, -w / 2 + 0.006, y, 0, Wd]); }
+    for (const z of [-d / 3, 0, d / 3]) P.push(['b', w, 0.012, 0.05, 0, h / 2 - 0.006, z, Wd]); }   // slatted wooden crate
   else { P.push(['b', w, h * 0.72, d, 0, -h * 0.14, 0, 0xc9b48a], ['b', w - 0.05, h * 0.3, d - 0.05, 0, h * 0.35, 0, 0xc2ad82], ['b', w + 0.004, 0.035, d + 0.004, 0, -h * 0.12, 0, 0x9a3a2a],
     ['c', 0.025, 0.07, 6, w / 2 - 0.02, h * 0.38, 0, 0xb09a6e, 0, 0, Math.PI / 2]); }
-  const top = k === 'sack' ? h / 2 : h / 2 + 0.003;
+  const top = k === 'sack' ? h / 2 : k === 'hens' ? h / 2 + 0.002 : k === 'cooler' ? h / 2 + 0.009 : h / 2 + 0.003;
   P.push(['b', 0.07, 0.005, 0.05, -w / 4, top, d / 4, col], ['b', 0.05, 0.006, 0.016, -w / 4, top, d / 4 - 0.012, 0xf4f4f0]);   // the job tag (colour = the job on the board)
+  const gs = P.map(partGeo); g = mergeGeometries(gs); for (const x of gs) x.dispose(); DLV_GEO.set(key, g); return g;
+}
+function dlvPetGeo(k) {   // v0.51: the dog (brown, facing the wire door) / two hens, built on the crate floor (y = 0)
+  const key = 'pet:' + k; let g = DLV_GEO.get(key); if (g) return g;
+  const P = k === 'dog' ? [['b', 0.15, 0.12, 0.26, 0, 0.12, -0.05, 0x8a5a2a], ['b', 0.12, 0.11, 0.12, 0, 0.2, 0.11, 0x8a5a2a], ['b', 0.07, 0.06, 0.06, 0, 0.18, 0.19, 0xa87a4a], ['b', 0.025, 0.02, 0.015, 0, 0.2, 0.225, 0x111111],
+      ['b', 0.03, 0.06, 0.02, 0.05, 0.25, 0.1, 0x4a2e14], ['b', 0.03, 0.06, 0.02, -0.05, 0.25, 0.1, 0x4a2e14], ['b', 0.02, 0.02, 0.008, 0.03, 0.225, 0.171, 0x111111], ['b', 0.02, 0.02, 0.008, -0.03, 0.225, 0.171, 0x111111],
+      ['b', 0.04, 0.06, 0.04, 0.05, 0.04, 0.06, 0x7a4a22], ['b', 0.04, 0.06, 0.04, -0.05, 0.04, 0.06, 0x7a4a22], ['b', 0.04, 0.06, 0.04, 0.05, 0.04, -0.15, 0x7a4a22], ['b', 0.04, 0.06, 0.04, -0.05, 0.04, -0.15, 0x7a4a22]]
+    : [-0.1, 0.1].flatMap((x, i) => [['b', 0.12, 0.1, 0.15, x, 0.07, 0, i ? 0xf2efe6 : 0x9a5a2a], ['b', 0.05, 0.06, 0.05, x, 0.14, 0.07, i ? 0xf2efe6 : 0x9a5a2a], ['b', 0.015, 0.025, 0.035, x, 0.18, 0.07, 0xd02020], ['b', 0.02, 0.012, 0.025, x, 0.14, 0.105, 0xe0b020]]);
   const gs = P.map(partGeo); g = mergeGeometries(gs); for (const x of gs) x.dispose(); DLV_GEO.set(key, g); return g;
 }
 function dlvMake(job, k, lb, n) {
   const sz = CARGO_K[k].sz, m = new THREE.Mesh(dlvGeo(k, DLV_COL[job.id % DLV_COL.length]), ITEM_VM); m.userData.noBatch = true; m.castShadow = true; m.receiveShadow = true;
-  const it = { id: DLV.iseq++, job: job.id, k, lb, n, sz, h: sz[1], mesh: m, st: 'ground', cz: null, cv: new THREE.Vector3(), vy: 0, g: null };
+  const it = { id: DLV.iseq++, job: job.id, k, lb, n, sz, h: sz[1], mesh: m, st: 'ground', cz: null, cv: new THREE.Vector3(), vy: 0, g: null, dmg: 0 };
+  if (k === 'dog' || k === 'hens') { it.pet = new THREE.Mesh(dlvPetGeo(k), ITEM_VM); it.pet.userData.noBatch = true; it.pet.position.y = k === 'dog' ? -sz[1] / 2 + 0.03 : -sz[1] / 2 + 0.02; m.add(it.pet); it.ph = Math.random() * 6; }   // v0.51 the animals (one extra mesh, animated)
   DLV.items.push(it); return it;
 }
 function dlvGroundY(x, z) { const S = dlvPadAt(x, z); return Math.max(groundY(x, z), S ? S.padY : -1e9); }
@@ -4202,12 +4243,25 @@ function jbAccept(S, i) {
   }
   S.key = '';
 }
+function dlvMeter(j, its) {   // v0.51 special cargo meter text: ' - DAMAGE 12%' / ' - FRESH 64%' / ' - CALM 80%'
+  if (j.sp === 'fragile') return ' - DAMAGE ' + Math.round(100 * dlvDmg(j, its)) + '%';
+  if (j.sp === 'perish') return j.fresh > 0 ? ' - FRESH ' + Math.ceil(100 * j.fresh) + '%' : ' - SPOILED';
+  if (j.sp === 'live') return ' - CALM ' + Math.round(100 * (1 - j.stress)) + '%';
+  return '';
+}
+const dlvDmg = (j, its) => { its = its || DLV.items.filter(it => it.job === j.id); return its.length ? its.reduce((s, it) => s + it.dmg, 0) / its.length : 0; };
+function dlvSpPay(j) {   // v0.51: what the special cargo's condition leaves of the pay (0..1)
+  if (j.sp === 'fragile') return Math.max(0, 1 - dlvDmg(j));
+  if (j.sp === 'perish') return j.fresh > 0 ? 0.4 + 0.6 * j.fresh : 0.2;
+  if (j.sp === 'live') return 1 - 0.6 * j.stress;
+  return 1;
+}
 function jbStatus(j) {
   const its = DLV.items.filter(it => it.job === j.id), S = dlvS(j.from), T = dlvS(j.to), left = dlvLeft(j);
   const at = its.filter(it => it.st === 'ground' && dlvInPad(T, it.mesh.position.x, it.mesh.position.z)).length;
   const onPad = its.every(it => it.st === 'ground' && dlvInPad(S, it.mesh.position.x, it.mesh.position.z));
-  const t = left === Infinity ? '' : left < 0 ? ' - LATE: HALF PAY' : ' - DUE IN ' + Math.ceil(left) + ' MIN';
-  return [onPad ? 'ON THE PAD - LOAD IT UP' : at ? at + '/' + its.length + ' DELIVERED' : its.some(it => it.st === 'cargo') ? 'IN THE CUB' : 'ON THE MOVE', t, onPad];
+  const t = left === Infinity ? dlvMeter(j, its) : left < 0 ? ' - LATE: HALF PAY' : ' - DUE IN ' + Math.ceil(left) + ' MIN';
+  return [onPad ? (j.sp ? 'ON THE PAD' : 'ON THE PAD - LOAD IT UP') : at ? at + '/' + its.length + ' DELIVERED' : its.some(it => it.st === 'cargo') ? 'IN THE CUB' : 'ON THE MOVE', t, onPad];
 }
 function jbDraw(S) {
   const x = S.cx, L = DLV.offers[S.id], act = dlvActive().length;
@@ -4221,9 +4275,10 @@ function jbDraw(S) {
     x.textAlign = 'right'; x.fillStyle = '#1e6a2a'; x.fillText('$' + j.pay, JB_W - 26, Y + 24); x.textAlign = 'left';
     const T = dlvS(j.to), n = {}; for (const it of j.items) n[it.k] = (n[it.k] || 0) + 1;
     x.fillStyle = '#333'; x.font = '15px sans-serif'; x.fillText('TO ' + T.name + ' ' + dlvKm(S, T).toFixed(1) + ' KM - ' + dlvLb(j) + ' LB (' + Object.entries(n).map(([k, c]) => c + ' ' + CARGO_K[k].n + (c > 1 ? 'S' : '')).join(', ') + ')', 34, Y + 46);
-    if (mine) { const [a, t, onPad] = jbStatus(j); x.fillStyle = t.includes('LATE') ? '#b8301e' : '#2a5a22'; x.font = 'bold 14px sans-serif'; x.fillText('ACCEPTED - ' + a + t, 34, Y + 68);
+    if (mine) { const [a, t, onPad] = jbStatus(j); x.fillStyle = t.includes('LATE') ? '#b8301e' : '#2a5a22'; x.font = 'bold 14px sans-serif'; x.fillText((j.sp ? '' : 'ACCEPTED - ') + a + t, 34, Y + 68);
       if (onPad) { x.fillStyle = '#8a8a80'; x.fillRect(JB_W - 126, Y + 50, 100, 26); x.fillStyle = '#fff'; x.textAlign = 'center'; x.fillText('CANCEL', JB_W - 76, Y + 68); x.textAlign = 'left'; } }
-    else { x.fillStyle = j.dl ? '#9a4a10' : '#555'; x.font = '14px sans-serif'; x.fillText(j.dl ? 'DEADLINE ' + j.dl + ' MIN (+40% PAY)' : 'NO DEADLINE', 34, Y + 68);
+    else { x.fillStyle = j.sp ? '#8a1a6a' : j.dl ? '#9a4a10' : '#555'; x.font = (j.sp ? 'bold ' : '') + '14px sans-serif';
+      x.fillText(j.sp === 'fragile' ? 'FRAGILE - KNOCKS + G DOCK PAY (+30%)' : j.sp === 'perish' ? 'PERISHABLE - FRESH ' + j.life + ' MIN (+25%)' : j.sp === 'live' ? 'LIVE ANIMALS - FLY SMOOTH (+35%)' : j.dl ? 'DEADLINE ' + j.dl + ' MIN (+40% PAY)' : 'NO DEADLINE', 34, Y + 68);
       x.fillStyle = act >= DLV_MAX ? '#9a9a90' : '#2a7a2a'; x.fillRect(JB_W - 126, Y + 50, 100, 26); x.fillStyle = '#fff'; x.font = 'bold 15px sans-serif'; x.textAlign = 'center'; x.fillText('ACCEPT', JB_W - 76, Y + 68); x.textAlign = 'left'; } }
   const inb = dlvActive().filter(j => j.to === S.id);
   x.fillStyle = '#3a2a1a'; x.font = '14px sans-serif';
@@ -4316,7 +4371,8 @@ const BELT = { on: new THREE.Group(), off: new THREE.Group() }, NET = { on: new 
   for (const G of [BELT.on, BELT.off, NET.on, NET.off]) { const m = new THREE.Group(); mergeInto(G, m); G.clear(); while (m.children.length) { const c = m.children[0]; c.userData.noBatch = true; G.add(c); } plane.add(G); } }
 function cgTop(zn) { let y = CZ[zn].y(zn === 'bag' ? CZ.bag.zc : REAR_ZC); for (const o of DLV.items) if (o.st === 'cargo' && o.cz === zn) y = Math.max(y, o.mesh.position.y + o.h / 2); return y; }
 function cgStraps() {
-  BELT.on.visible = DLV.belt; BELT.off.visible = !DLV.belt; NET.on.visible = DLV.net; NET.off.visible = !DLV.net;
+  let rH = false, bH = false; for (const it of DLV.items) if (it.st === 'cargo') { if (it.cz === 'rear') rH = true; else if (it.cz === 'bag') bH = true; }   // v0.51: no cargo there = no strap drawn (2 draw calls saved)
+  DLV.rH = rH; DLV.bH = bH; BELT.on.visible = rH && DLV.belt; BELT.off.visible = rH && !DLV.belt; NET.on.visible = bH && DLV.net; NET.off.visible = bH && !DLV.net;
   BELT.on.position.set(0, cgTop('rear') + 0.008, REAR_ZC - 0.02); BELT.off.position.set(0, CZ.rear.y() + 0.007, REAR_ZC);
   NET.on.position.set(0, cgTop('bag') + 0.006, CZ.bag.zc); NET.off.position.set(0.17, CZ.bag.y(CZ.bag.z1 - 0.06) + 0.025, CZ.bag.z1 - 0.06);
 }
@@ -4333,6 +4389,7 @@ function cargoStrapDesk() { if (!nearPlane()) { say('TOO FAR FROM THE CUB'); ret
 // ---- loose cargo: slides / hops / floats with the specific force the airframe feels ----
 const CG_MU_S = 0.55, CG_MU_K = 0.4, _cf = new THREE.Vector3(), _cgq = new THREE.Quaternion();
 function cgHit(it, v) {
+  if (v >= 0.6) dlvKnock(it, Math.min(0.3, (v - 0.6) * 0.25), 'KNOCKED');   // v0.51 fragile / live cargo feel every knock
   if (v < 0.6 || it.lb < 5 || DLV.thudT > 0) return;
   DLV.thudT = 0.25; sfx('thud', it.mesh.getWorldPosition(_w)); if (mode === 'plane') HX.both(Math.min(0.6, 0.15 + v * 0.15), 40, 'cargo');
   if (DLV.sayT <= 0) { DLV.sayT = 5; say('LOOSE CARGO SHIFTED (' + CARGO_K[it.k].n + ') - STRAP IT DOWN'); }
@@ -4368,6 +4425,7 @@ function cgMove(it, f, dt) {
 function cargoUpdate(dt) {
   DLV.thudT -= dt; DLV.sayT -= dt;
   const pv = DLV.pv; DLV.pv = ac.vel.slice();
+  DLV.f.set(0, 9.81, 0);   // v0.51: a resting 1 g unless a real acceleration is measured below (the special cargo reads it)
   if (!pv) return; let any = false; for (const it of DLV.items) if (it.st === 'cargo') { any = true; break; } if (!any) return;
   _cf.set(ac.vel[0] - pv[0], ac.vel[1] - pv[1], ac.vel[2] - pv[2]);
   if (_cf.length() > 30 || ac.crashed) return;                   // reset / teleport (a 30 m/s jump in one frame): not a real acceleration
@@ -4386,7 +4444,7 @@ function dlvTake(it, quiet) {   // out of the Cub / off the ground into a hand: 
 function dlvGrab(g, a) {   // VR on foot: strap anchor first, then the nearest piece of cargo under the hand
   if (mode !== 'foot' || DLV.held.has(g)) return false;
   plane.updateMatrixWorld(); cgStraps();
-  for (const [k, p] of cgStrapPoints()) if (p.distanceTo(a) < 0.13) { cgToggle(k); HX.pulse(g, 0.5, 25, 'strap'); return true; }
+  for (const [k, p] of cgStrapPoints()) if ((k === 'belt' ? DLV.rH : DLV.bH) && p.distanceTo(a) < 0.13) { cgToggle(k); HX.pulse(g, 0.5, 25, 'strap'); return true; }
   let bi = null, bd = 0.09; for (const it of DLV.items) { if (it.st !== 'ground' && it.st !== 'cargo' && it.st !== 'fall') continue; const d = dlvDist(it, a); if (d < bd) { bd = d; bi = it; } }
   if (!bi) return false;
   if (!dlvTake(bi)) { HX.pulse(g, 0.2, 15, 'strap'); return true; }
@@ -4403,17 +4461,18 @@ function dlvRelease(g) { const it = DLV.held.get(g); if (!it) return; it.mesh.ge
 function dlvFallTick(dt) {
   for (const it of DLV.items) { if (it.st !== 'fall') continue; const p = it.mesh.position, rest = dlvGroundY(p.x, p.z) + it.h / 2;
     it.vy -= 9.81 * dt; p.y += it.vy * dt;
-    if (p.y <= rest) { p.y = rest; const v = -it.vy; it.vy = 0; it.st = 'ground'; if (v > 1) sfx('thud', p); dlvCheck(it); saveSoon(); } }
+    if (p.y <= rest) { p.y = rest; const v = -it.vy; it.vy = 0; it.st = 'ground'; if (v > 1) sfx('thud', p); if (v > 1.2) dlvKnock(it, (v - 1.2) * 0.12, 'DROPPED'); dlvCheck(it); saveSoon(); } }
 }
 function dlvCheck(it) {   // a piece came to rest on the ground: is its whole job on the destination pad?
   const j = dlvJob(it.job); if (!j || j.st !== 'active') return;
   const T = dlvS(j.to), its = DLV.items.filter(o => o.job === j.id), on = its.filter(o => o.st === 'ground' && dlvInPad(T, o.mesh.position.x, o.mesh.position.z)).length;
   if (!dlvInPad(T, it.mesh.position.x, it.mesh.position.z)) return;
   if (on < its.length) { say(j.title + ': ' + on + '/' + its.length + ' ON THE PAD'); return; }
-  const late = j.dl && DLV.gt > j.due, pay = late ? Math.round(j.pay / 2) : j.pay;
+  const late = j.dl && DLV.gt > j.due, k = dlvSpPay(j), pay = Math.round((late ? j.pay / 2 : j.pay) * k);
+  const why = j.sp === 'fragile' ? ' (DAMAGE ' + Math.round(100 * dlvDmg(j, its)) + '%)' : j.sp === 'perish' ? (j.fresh > 0 ? ' (FRESH ' + Math.ceil(100 * j.fresh) + '%)' : ' (SPOILED)') : j.sp === 'live' ? ' (CALM ' + Math.round(100 * (1 - j.stress)) + '%)' : '';
   DLV.cash += pay; DLV.paid += pay; DLV.done++; for (const o of its) dlvRemove(o);
   const L = DLV.offers[j.from], i = L.indexOf(j); j.st = 'done'; if (i >= 0) L[i] = dlvGen(j.from);
-  sfx('cash'); say('DELIVERED: ' + j.title + ' TO ' + T.name + ' +$' + pay + (late ? ' (LATE - HALF PAY)' : '') + ' - WALLET $' + DLV.cash); saveGame('delivered');
+  sfx('cash'); say('DELIVERED: ' + j.title + ' TO ' + T.name + ' +$' + pay + (late ? ' (LATE - HALF PAY)' : '') + why + ' - WALLET $' + DLV.cash); saveGame('delivered');
   for (const S of DLV_STRIPS) S.key = '';
 }
 function dlvDeskE() {   // desktop E on foot: pick up / put down / load / unload
@@ -4440,10 +4499,42 @@ function dlvDeskKey(e) {   // desktop keys on foot: E carry, / straps, 1-3 at a 
   if (/^Digit[1-3]$/.test(e.code) && DLV.nearS && DLV.nearD < 5) { jbAccept(DLV.nearS, +e.code[5] - 1); return true; }
   return false;
 }
+// ---- v0.51 special cargo: fragile damage, perishable freshness, live animals ----
+function dlvKnock(it, d, why) {   // a knock / drop: fragile pieces take damage, animals get upset
+  const j = dlvJob(it.job); if (!j || !j.sp || d <= 0) return;
+  if (j.sp === 'fragile') { const b = Math.floor(it.dmg * 4); it.dmg = Math.min(1, it.dmg + d); const st = Math.floor(it.dmg * 4) > b; if ((d > 0.02 || st) && (DLV.crT || 0) < DLV.gt * 60) { DLV.crT = DLV.gt * 60 + 0.3; sfx('crunch', it.mesh.getWorldPosition(_w)); } if (st) say(j.title + ' ' + why + ' - DAMAGE ' + Math.round(100 * dlvDmg(j)) + '% (PAY DOCKED)'); }
+  else if (j.sp === 'live') { j.stress = Math.min(1, j.stress + d * 0.6); dlvNoise(it, j, 1); }
+}
+function dlvNoise(it, j, force) { if (!force && (it.nT || 0) > DLV.gt * 60) return; it.nT = DLV.gt * 60 + 0.9 + Math.random() * 0.8; it.yap = 0.35; sfx(it.k === 'dog' ? 'bark' : 'cluck', it.mesh.getWorldPosition(_w)); DLV.noises = (DLV.noises || 0) + 1; }
+function dlvSpecTick(dt) {
+  const air = mode === 'plane' && !ac.gs.some(g => g.Fn > 0), agl = ac.pos[1] - groundY(ac.pos[0], ac.pos[2]);
+  const gl = DLV.f.length() / 9.81, ag = Math.abs(gl - 1) + Math.abs(DLV.f.x) / 9.81;   // load factor; how far from smooth 1 g the cabin is
+  DLV.ag = (DLV.ag || 0) + (ag - (DLV.ag || 0)) * Math.min(1, dt * 8);
+  const kf = 1 - Math.exp(-dt / 0.08), ks = 1 - Math.exp(-dt / 1.0); DLV.gF = (DLV.gF || 1) + (gl - (DLV.gF || 1)) * kf; DLV.gS = (DLV.gS || 1) + (gl - (DLV.gS || 1)) * ks;   // fast / slow G (frame-rate independent)
+  const hit = Math.max(0, DLV.gF - Math.max(1, DLV.gS) - 1.2) * 2 + Math.max(0, DLV.gS - 3.5) * 0.1;   // fragile damage per second: jolts (touchdowns, bumps) + sustained hard pulls
+  if (ac.crashed && !DLV.crashSeen) { DLV.crashSeen = true; for (const it of DLV.items) if (it.st === 'cargo') { const j = dlvJob(it.job); if (j?.sp === 'fragile') it.dmg = 1; if (j?.sp === 'live') j.stress = 1; } } else if (!ac.crashed) DLV.crashSeen = false;
+  for (const j of dlvActive()) { if (!j.sp) continue;
+    const its = DLV.items.filter(it => it.job === j.id), aboard = its.some(it => it.st === 'cargo');
+    if (j.sp === 'perish') { const f0 = j.fresh; j.fresh = Math.max(0, j.fresh - dt / 60 / j.life * (aboard && air && agl > 150 ? 0.5 : 1));   // cool air aloft: it keeps twice as long
+      if (f0 > 0.5 && j.fresh <= 0.5) say(j.title + ' HALF FRESH - ' + Math.ceil(j.life * j.fresh * (aboard && air ? 2 : 1)) + ' MIN LEFT'); if (f0 > 0 && j.fresh <= 0) { say(j.title + ' HAS SPOILED - PAY DOCKED'); sfx('tick'); } }
+    if (j.sp === 'fragile' && aboard && hit > 0) for (const it of its) if (it.st === 'cargo') dlvKnock(it, hit * dt, 'JOLTED AT ' + DLV.gF.toFixed(1) + ' G');
+    if (j.sp === 'live') {
+      if (aboard && DLV.ag > 0.3) { j.stress = Math.min(1, j.stress + (DLV.ag - 0.3) * dt * 0.25); for (const it of its) if (it.st === 'cargo' && DLV.ag > 0.35) dlvNoise(it, j); }
+      else j.stress = Math.max(0, j.stress - dt * 0.004);
+      if (j.stress > 0.5 && !j.saidUp) { j.saidUp = true; say(j.title === 'A DOG' ? 'THE DOG IS UPSET - FLY SMOOTHER' : 'THE CHICKENS ARE IN A FLAP - FLY SMOOTHER'); }
+      for (const it of its) dlvPet(it, j, dt); }
+  }
+}
+function dlvPet(it, j, dt) {   // the dog looks about and jumps when it barks; the hens bob and shuffle
+  const p = it.pet; if (!p || !p.parent) return; it.ph += dt * (1.2 + 3 * (it.yap || 0) + 2 * j.stress); it.yap = Math.max(0, (it.yap || 0) - dt);
+  const e = Math.min(1, j.stress + (it.yap || 0) * 2);
+  if (it.k === 'dog') { p.rotation.y = Math.sin(it.ph * 0.7) * (0.25 + 0.3 * e); p.position.y = -it.sz[1] / 2 + 0.03 + Math.max(0, Math.sin(it.ph * 9)) * 0.012 * e + (it.yap > 0.2 ? 0.015 : 0); }
+  else { p.rotation.y = Math.sin(it.ph * 1.3) * (0.15 + 0.5 * e); p.position.y = -it.sz[1] / 2 + 0.02 + Math.abs(Math.sin(it.ph * 5)) * 0.01 * (0.3 + e); p.position.x = Math.sin(it.ph * 2.1) * 0.01 * e; }
+}
 // ---- every frame (after the physics step): game clock, falling pieces, loose cargo, the nearest board ----
 function dlvTick(dt) {
   const t0 = performance.now();
-  DLV.gt += dt / 60; dlvFallTick(dt); cargoUpdate(dt);
+  DLV.gt += dt / 60; dlvFallTick(dt); cargoUpdate(dt); dlvSpecTick(dt);
   playerPos(); let nb = null, nd = 1e9; for (const S of DLV_STRIPS) { const d = Math.hypot(PP.x - S.board[0], PP.z - S.board[1]); if (d < nd) { nd = d; nb = S; } }
   DLV.nearS = nd < 60 ? nb : null; DLV.nearD = nd;
   if ((DLV.jbT -= dt) <= 0) { DLV.jbT = 0.5;
@@ -4455,11 +4546,11 @@ function dlvTick(dt) {
 // ---- save / load (v0.50 save fields) ----
 function dlvSave() {
   const r3 = v => Math.round(v * 1000) / 1000, items = [];
-  for (const it of DLV.items) { const o = { j: it.job, k: it.k, lb: it.lb, n: it.n };
+  for (const it of DLV.items) { const o = { j: it.job, k: it.k, lb: it.lb, n: it.n }; if (it.dmg) o.dmg = r3(it.dmg);
     if (it.st === 'cargo') { o.s = 'c'; o.zn = it.cz; o.p = [r3(it.mesh.position.x), r3(it.mesh.position.y), r3(it.mesh.position.z)]; }
     else { it.mesh.getWorldPosition(_dg); o.s = 'g'; o.p = [r3(_dg.x), r3(_dg.z)]; o.ry = r3(it.st === 'ground' ? it.mesh.rotation.y : 0); }
     items.push(o); }
-  const offers = {}; for (const S of DLV_STRIPS) offers[S.id] = DLV.offers[S.id].map(j => ({ id: j.id, from: j.from, to: j.to, title: j.title, items: j.items, pay: j.pay, dl: j.dl, due: r3(j.due), st: j.st }));
+  const offers = {}; for (const S of DLV_STRIPS) offers[S.id] = DLV.offers[S.id].map(j => ({ id: j.id, from: j.from, to: j.to, title: j.title, items: j.items, pay: j.pay, dl: j.dl, due: r3(j.due), st: j.st, ...(j.sp ? { sp: j.sp, life: j.life, fresh: r3(j.fresh), stress: r3(j.stress) } : {}) }));   // v0.51 special cargo state
   return { cash: DLV.cash, gt: r3(DLV.gt), seq: DLV.seq, paid: DLV.paid, done: DLV.done, offers, items, straps: [DLV.belt, DLV.net] };
 }
 function dlvLoad(d) {
@@ -4467,11 +4558,11 @@ function dlvLoad(d) {
   DLV.offers = {}; DLV.cash = DLV_CASH0; DLV.gt = 0; DLV.seq = 1;
   if (d && typeof d === 'object') {
     if (isFinite(d.cash)) DLV.cash = Math.round(d.cash); if (isFinite(d.gt)) DLV.gt = d.gt; if (isFinite(d.seq)) DLV.seq = d.seq; DLV.paid = d.paid || 0; DLV.done = d.done || 0;
-    for (const S of DLV_STRIPS) { const L = d.offers?.[S.id]; if (Array.isArray(L)) DLV.offers[S.id] = L.filter(j => j && dlvS(j.to) && Array.isArray(j.items) && j.items.every(i => CARGO_K[i.k])).slice(0, 3).map(j => ({ ...j, from: S.id })); }
+    for (const S of DLV_STRIPS) { const L = d.offers?.[S.id]; if (Array.isArray(L)) DLV.offers[S.id] = L.filter(j => j && dlvS(j.to) && Array.isArray(j.items) && j.items.every(i => CARGO_K[i.k])).slice(0, 3).map(j => ({ ...j, from: S.id, ...(j.sp ? { sp: DLV_SPX[j.sp] ? j.sp : undefined, fresh: clamp(+j.fresh || 0, 0, 1), stress: clamp(+j.stress || 0, 0, 1), life: j.sp === 'perish' ? Math.max(1, +j.life || 1) : 0 } : {}) })); }
     dlvInit(false);
     if (Array.isArray(d.straps)) { DLV.belt = !!d.straps[0]; DLV.net = !!d.straps[1]; }
     for (const o of d.items || []) { const j = dlvJob(o.j); if (!j || j.st !== 'active' || !CARGO_K[o.k]) continue;
-      const it = dlvMake(j, o.k, o.lb, o.n || 0);
+      const it = dlvMake(j, o.k, o.lb, o.n || 0); it.dmg = clamp(+o.dmg || 0, 0, 1);
       if (o.s === 'c' && CZ[o.zn] && o.p?.length === 3) { it.st = 'loading'; if (cgPlace(it, o.zn, o.p[0], o.p[2]) || cgLoadAny(it, true)) it.st = 'cargo'; else dlvSetGround(it, ac.pos[0] + 2, ac.pos[2], 0); }
       else if (o.p?.length >= 2) dlvSetGround(it, o.p[0], o.p[1], o.ry || 0); }
     for (const j of dlvActive()) if (!DLV.items.some(it => it.job === j.id)) { j.st = 'offer'; j.due = 0; }   // a job whose cargo is gone goes back on the board
@@ -4553,7 +4644,7 @@ function cubParked() { return !ac.crashed && acGS() < 1 && ac.gs.some(g => g.Fn 
 function saveGame(why) {
   if (NOSAVE || SV.off) return false;
   if (cubParked()) SV.cub = { p: ac.pos.map(r3), q: ac.q.map(v => Math.round(v * 1e6) / 1e6) };
-  const d = { v: 50, at: Date.now(), cub: SV.cub, fuel: r3(fuel), h: r3(DAY.h), mode, foot: mode === 'foot' ? [r3(footRig.position.x), r3(footRig.position.z), r3(bodyYaw)] : null, dlv: dlvSave() };   // v0.50: + wallet, jobs, cargo, straps
+  const d = { v: 51, at: Date.now(), cub: SV.cub, fuel: r3(fuel), h: r3(DAY.h), mode, foot: mode === 'foot' ? [r3(footRig.position.x), r3(footRig.position.z), r3(bodyYaw)] : null, dlv: dlvSave() };   // v0.50: + wallet, jobs, cargo, straps
   try { localStorage.setItem(SAVE_KEY, JSON.stringify(d)); } catch (e) { return false; }
   SV.last = Date.now(); SV.n++; SV.why = why || ''; SV.t = 30; SV.due = -1; return true;
 }
@@ -4568,7 +4659,7 @@ function saveTick(dt) {
 }
 function gameLoad() {
   if (NOSAVE) return false; let d = null; try { d = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); } catch (e) { }
-  if (!d || (d.v !== 45 && d.v !== 50)) return false;   // v0.50 reads a v0.45 save too (no jobs yet: a fresh wallet and boards)
+  if (!d || ![45, 50, 51].includes(d.v)) return false;   // v0.50 reads a v0.45 save too (no jobs yet: a fresh wallet and boards)
   if (typeof d.fuel === 'number' && isFinite(d.fuel)) fuel = clamp(d.fuel, 0, FUEL_MAX);
   if (typeof d.h === 'number' && isFinite(d.h)) DAY.h = ((d.h % 24) + 24) % 24;
   if (d.cub && d.cub.p?.length === 3 && d.cub.q?.length === 4) { ac.pos = d.cub.p.slice(); ac.q = d.cub.q.slice(); SV.cub = d.cub; }
