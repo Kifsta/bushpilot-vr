@@ -27,7 +27,19 @@ Neil: "fuel purchase at strips with differing prices, oil use, engine hours, tyr
 - **The HUD and wrist** get a maintenance line only when something needs attention (OIL LOW, 100-HR DUE / OVERDUE, GEAR DMG, ENG DMG, TYRES WORN, BRAKES WORN, ENGINE SEIZED). The engine log repeats the warnings every 45 s while you fly.
 - **Balance:** across 433 sample jobs the average pay is $198. Fuel, oil, the 100-hour reserve and tyre and brake wear come to about $45 per job (23 %), and mistakes (a hard landing $300+, a crash $400+ plus repairs) cost more.
 - **Save v55** adds the log (`eco`). Older saves load with the starting log.
-- **Perf** (1280×720 headless, v0.54 → v0.55): PERF_TABLE
+- **Perf** (1280×720 headless, v0.54 → v0.55):
+
+| View | Draw calls | Triangles | CPU ms |
+|---|---|---|---|
+| Seat at home | 75 → 76 | 277k → 278k | 2.29 → 1.87 |
+| On foot at the cabin | 53 → 53 | 270k → 270k | 1.46 → 1.49 |
+| 60 m from a herd | 52 → 52 | 228k → 229k | 1.98 → 2.00 |
+| Same, binoculars up | 38 → 38 | 213k → 212k | 1.64 → 1.72 |
+| Over Pine Flats at 120 m | 91 → 94 | 256k → 257k | 1.82 → 1.79 |
+| On foot by the home hangar | 55 → 59 | 266k → 267k | 1.43 → 1.58 |
+| Over Burnt Hill, drop on | 90 → 93 | 234k → 235k | 1.85 → 1.91 |
+
+  The hangar is one merged mesh plus its sign. Each board adds a draw call within 300 m, and each new drum 1–2. ecoTick costs 0.0008 ms a frame. The box was loaded during these runs, so CPU varies by ±0.3 ms.
 - **Tests:** a new **t55** (22 checks):
   - The stations and prices.
   - The healthy-Cub identity and the damaged-Cub difference.
