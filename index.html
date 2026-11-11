@@ -5098,7 +5098,7 @@ function rflShoot() {
   RFL.bullets.push({ p: o.clone(), v, t: 0, o: o.clone() });
   RFL.flashT = 0.045; RFL.flash.visible = true; RFL.flash.material.rotation = Math.random() * 6.3;
   FX.smoke(o, _rd.set(0, 0, -1).applyQuaternion(_rq));
-  sfx('bang'); deerNoise(o, 320);
+  sfx('bang'); deerNoise(o, 320, 0.3);
   const mF = RFL.sup ? RECOIL2.twoHand : 1, m = (g === 'desk' ? RECOIL2.desk : mF + (RECOIL2.stock - mF) * RFL.stockW), j = 1 + (Math.random() - 0.5) * 2 * RECOIL2.random;
   RFL.rec.av += RECOIL2.rise * m * j; RFL.rec.yv += (Math.random() - 0.5) * 2 * RECOIL2.yaw * m; RFL.rec.zv += RECOIL2.kick * m * j;
   if (g === 'desk') lookPitch = clamp(lookPitch + 0.012, -1.4, 1.4);
@@ -5206,7 +5206,7 @@ function impact(h) {
   else if (h.kind === 'wood') { FX.wood(h.p, d); sfx('thock', h.p, dl); }
   else if (h.kind === 'leaves') { FX.leaves(h.p, d); sfx('leaf', h.p, dl); }
   else { h.p.y += 0.02; FX.dust(h.p, d); sfx('thud', h.p, dl); }
-  if (h.kind !== 'flesh') deerNoise(h.p, 30);   // a round smacking in close by spooks them too
+  if (h.kind !== 'flesh') deerNoise(h.p, 30, 0.15);   // a round smacking in close by spooks them too
 }
 function rflBullets(dt) {
   for (let i = RFL.bullets.length - 1; i >= 0; i--) { const b = RFL.bullets[i]; let rem = dt, done = false;
@@ -5219,9 +5219,10 @@ const _yq = new THREE.Quaternion(), _sp = GV3(0, 0, 0), _sq = new THREE.Quaterni
 function headYaw() { camera.getWorldDirection(_rd); return Math.atan2(-_rd.x, -_rd.z); }
 function rflPose(dt) {
   const g = RFL.g, R = RFL.rec, h = Math.min(dt, 0.05);
-  R.av += (-RECOIL2.wn * RECOIL2.wn * R.a - 2 * RECOIL2.zeta * RECOIL2.wn * R.av) * h; R.a += R.av * h;   // recoil springs (visual: the bullet left already)
-  R.yv += (-RECOIL2.wn * RECOIL2.wn * R.y - 2 * RECOIL2.zeta * RECOIL2.wn * R.yv) * h; R.y += R.yv * h;
-  R.zv += (-RECOIL2.kwn * RECOIL2.kwn * R.z - 2 * RECOIL2.kzeta * RECOIL2.kwn * R.zv) * h; R.z += R.zv * h;
+  for (let n = Math.ceil(h / 0.004), k = 0; k < n; k++) { const s = h / n;   // recoil springs (visual: the bullet left already), substepped: stiff springs at a slow frame stay stable
+    R.av += (-RECOIL2.wn * RECOIL2.wn * R.a - 2 * RECOIL2.zeta * RECOIL2.wn * R.av) * s; R.a += R.av * s;
+    R.yv += (-RECOIL2.wn * RECOIL2.wn * R.y - 2 * RECOIL2.zeta * RECOIL2.wn * R.yv) * s; R.y += R.yv * s;
+    R.zv += (-RECOIL2.kwn * RECOIL2.kwn * R.z - 2 * RECOIL2.kzeta * RECOIL2.kwn * R.zv) * s; R.z += R.zv * s; }
   if (RFL.place === 'back') {   // slung across your back, muzzle up over the right shoulder
     camera.getWorldPosition(_rp2); _yq.setFromAxisAngle(_ry, headYaw()); g.position.set(0.1, -0.34, 0.16).applyQuaternion(_yq).add(_rp2);
     g.quaternion.copy(_yq).multiply(_rq.setFromEuler(_fe.set(1.25, 0, 0.45, 'ZYX'))); return; }
@@ -5238,7 +5239,7 @@ function rflPose(dt) {
     const M = eyeWorld(G.userData.src?.handedness === 'left' ? 0 : 1); _rE.setFromMatrixPosition(M); _rd.set(0, 0, -1).transformDirection(M); _rp3.set(0, 1, 0).transformDirection(M);
     _rp2.copy(_rE).addScaledVector(_rd, -CHEEK.z).addScaledVector(_rp3, CHEEK.y);                      // where the grip hand sits when shouldered
     const dS = _rH.distanceTo(_rp2), xS = 1 - clamp((dS - GUN.stockFull) / (GUN.stockEngage - GUN.stockFull), 0, 1), wT = xS * xS * xS * (xS * (xS * 6 - 15) + 10);
-    { const wn = 2 / GUN.stockTau; RFL.stockFv += (wn * wn * (wT - RFL.stockF) - 2 * wn * RFL.stockFv) * h; RFL.stockF = clamp(RFL.stockF + RFL.stockFv * h, 0, 1); }
+    { const wn = 2 / GUN.stockTau; for (let n = Math.ceil(h / 0.008), k = 0; k < n; k++) { const s = h / n; RFL.stockFv += (wn * wn * (wT - RFL.stockF) - 2 * wn * RFL.stockFv) * s; RFL.stockF = clamp(RFL.stockF + RFL.stockFv * s, 0, 1); } }
     if (RFL.sup) { RFL.sup.getWorldPosition(_rp2); _rd.subVectors(_rp2, _rH).normalize(); aimQuat(_rd, _ru, _rq).multiply(Q_SUP); } else _rq.copy(q1);   // two hands: grip -> forend
     _rp.copy(RF.grip).applyQuaternion(_rq).negate().add(_rH);
     if (RFL.stockF > 1e-4 || RFL.stockW > 0) {   // shouldered: the sight line from the eye over the forend, the cheek on the comb
@@ -5321,7 +5322,7 @@ function rflRelease(g) {
   if (RFL.hand !== g || RFL.place !== 'vr') return;
   if (RFL.levHand) rflLevRelease();
   if (RFL.sup) { RFL.hand = RFL.sup; RFL.sup = null; tick(RFL.hand); return; }   // the other hand still has it
-  RFL.g.getWorldPosition(_rp2); camera.getWorldPosition(_rp3); const rk = rflNearRack(_rp2);
+  RFL.g.getWorldPosition(_rp2); const rk = rflNearRack(_rp2); camera.getWorldPosition(_rp3);   // (rflNearRack uses _rp3)
   if (rk) { rflPut(rk); sfx('clack'); say('RIFLE ' + rflRackLabel(rk)); }
   else if (_rp2.y > _rp3.y - 0.45 && Math.hypot(_rp2.x - _rp3.x, _rp2.z - _rp3.z) < 0.32 && RFL.g.localToWorld(_rp.copy(RF.fore)).y > _rp2.y) { rflPut('back'); sfx('pick'); say('RIFLE SLUNG - REACH OVER YOUR RIGHT SHOULDER FOR IT'); }   // let go by your head, muzzle up: slung
   else { rflPut('ground', _rp2.x, _rp2.z, headYaw()); sfx('thud', _rp2); }
@@ -5363,7 +5364,7 @@ addEventListener('mouseup', e => { if (e.button === 2) RFL.adsOn = false; });
 // ---- deer: Quaternius Deer + Stag (CC0, assets/animals/) in small herds; skinned + animated only near you, one instanced draw per species out to 900 m ----
 const DSP = { deer: { name: 'DEER', file: 'Deer', h: 1.75, hp: 2, walk: 0.35, run: 9, wRef: 1.2, rRef: 8, see: 35, rh: 0.13, rv: 0.19, rb: 0.23, lb: [100, 125] },
               stag: { name: 'STAG', file: 'Stag', h: 2.15, hp: 3, walk: 0.35, run: 9, wRef: 1.3, rRef: 8.5, see: 35, rh: 0.15, rv: 0.21, rb: 0.25, lb: [125, 150] } };
-const DEER = { src: {}, list: [], inst: [], im: {}, R: 160, MAX: 8, CAP: { deer: 6, stag: 3 }, FAR: 900, t: 0, frame: 0, px: null, pz: 0, live: 0, far: 0, ms: 0, dress: null };
+const DEER = { pend: [], src: {}, list: [], inst: [], im: {}, R: 160, MAX: 8, CAP: { deer: 6, stag: 3 }, FAR: 900, t: 0, frame: 0, px: null, pz: 0, live: 0, far: 0, ms: 0, dress: null };
 const AM_KEYS = [['idle', ['Idle']], ['eat', ['Eating']], ['walk', ['Walk']], ['run', ['Gallop']], ['die', ['Death']], ['hit', ['Idle_HitReact1']]];
 const BONE_N = ['Head', 'Torso3', 'Torso2', 'Back'];
 const DEERSPH = [[0, 1.65, -0.85, 0.14, 'head'], [0, 0.98, -0.32, 0.2, 'vitals'], [0, 1.0, 0.15, 0.4, 'body']];   // (before the model loads) nose toward -z
@@ -5464,7 +5465,10 @@ const turnTo = (a, b, k) => { let d = ((b - a + Math.PI) % 6.283185 + 6.283185) 
 function losClear(ax, ay, az, bx, by, bz) { for (let i = 1; i < 6; i++) { const t = i / 6, x = ax + (bx - ax) * t, z = az + (bz - az) * t; if (groundY(x, z) > ay + (by - ay) * t - 0.3) return false; } return true; }
 function deerScare(a, sx, sz) { if (a.state === 'dead' || a.state === 'gone') return; if (a.state !== 'flee' && a.cd < 250) sfx('hoof', _bv.set(a.x, a.y + 0.5, a.z)); a.state = 'flee'; a.t = 7 + Math.random() * 3; a.fx = sx; a.fz = sz; }
 function deerScareHerd(hi, sx, sz) { for (const a of DEER.list) if (a.h === hi) deerScare(a, sx, sz); }
-function deerNoise(p, r) { const hs = new Set(); for (const a of DEER.list) if (a.state !== 'dead' && a.state !== 'gone' && Math.hypot(a.x - p.x, a.z - p.z) < r) hs.add(a.h); for (const h of hs) deerScareHerd(h, p.x, p.z); }
+function deerNoise(p, r, lag) {   // lag: a startle delay plus the sound's travel time (a gunshot), so the bullet gets there before the herd bolts
+  const hs = new Map(); for (const a of DEER.list) { const d = Math.hypot(a.x - p.x, a.z - p.z); if (a.state !== 'dead' && a.state !== 'gone' && d < r && !(hs.get(a.h) < d)) hs.set(a.h, d); }
+  for (const [h, d] of hs) { if (lag) DEER.pend.push({ t: lag + d / 340, h, x: p.x, z: p.z }); else deerScareHerd(h, p.x, p.z); }
+}
 function deerHit(a, part) {
   if (a.state === 'dead' || a.state === 'gone') return; const S = DSP[a.sp], pp = playerPos();
   a.hp -= (part === 'head' || part === 'vitals') ? 99 : 1; a.flinch = 1; a.hitT = 0.35;
@@ -5474,6 +5478,7 @@ function deerHit(a, part) {
 }
 function deerTick(dt) {
   const t0 = performance.now(), pp = playerPos(), foot = mode === 'foot', V = ac.out.V || 0; DEER.frame++;
+  for (let i = DEER.pend.length - 1; i >= 0; i--) { const q = DEER.pend[i]; q.t -= dt; if (q.t <= 0) { DEER.pend.splice(i, 1); deerScareHerd(q.h, q.x, q.z); } }
   const pSpd = foot && DEER.px !== null ? Math.hypot(pp.x - DEER.px, pp.z - DEER.pz) / Math.max(dt, 1e-3) : 0; DEER.px = pp.x; DEER.pz = pp.z;
   const seeK = (pSpd > 3.5 ? 2 : pSpd < 0.3 ? 0.75 : 1) * (crouchK() > 0.5 ? 0.5 : 1);   // sprinting is heard further, standing still / crouched gets you closer
   for (const H of DEER_HERDS) { H.d = Math.hypot(pp.x - H.x0, pp.z - H.z0); H.away = H.d > 600 ? H.away + dt : 0;
