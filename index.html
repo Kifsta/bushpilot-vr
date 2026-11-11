@@ -1967,7 +1967,7 @@ for (const c of CAPS) { const m = new THREE.Mesh(new THREE.CylinderGeometry(0.03
 // the pump: a red 55-gal drum with a hand pump, on the left of the Cub's parking spot. Fills either tank while the nozzle is on its cap.
 // v0.55 economy (state; the rest is in the v0.55 module further down): fuel drums at the 4 main strips at their own prices, oil, tach hours, tyres / brakes, damage
 const FUEL_ST = [{ id: 'HOME', price: 6.40, oil: 9 }, { id: 'RIDGE', price: 7.30, oil: 11 }, { id: 'LODGE', price: 8.90, oil: 12 }, { id: 'DRYFORK', price: 5.80, oil: 10 }];   // $/gal avgas, $/qt oil (Dry Fork has the fuel depot)
-const ECO = { hrs: 1262.4, svc: 62.4, oil: 5.5, tyre: 0.85, brake: 0.9, gear: 0, eng: 0, seized: false, ldg: 0, wow: true, air: 0, vy: 0, cr: false, sink: 0, fill: 0, fillL: 0, acct: false, warnT: 20, ms: 0, poke: [true, true], near: null, nearD: 1e9, hint: null };
+const ECO = { hrs: 1262.4, svc: 62.4, oil: 5.5, tyre: 0.85, brake: 0.9, gear: 0, eng: 0, seized: false, ldg: 0, wow: true, air: 0, vy: 0, cr: false, sink: 0, fill: 0, fillL: 0, acct: false, warnT: 20, frac: 0, ms: 0, poke: [true, true], near: null, nearD: 1e9, hint: null };
 const ECO_TX = 20, ECO_OILMAX = 6, ECO_CREDIT = 600, ECO_SAFE = 12 * 3.785;   // tach hours run 20x real time; 6 qt sump; the hangar runs a $600 account; the home drum always gives you 12 gal on account
 const FUELP = { p: new THREE.Vector3(-7.5, 0, 3), on: false, g: null, cap: -1, sndT: 0, fullSaid: false, RATE: 3, REACH: 15, CAP_R: 0.3, DESK_R: 3 };
 FUELP.p.y = groundY(FUELP.p.x, FUELP.p.z);
@@ -5887,7 +5887,7 @@ function ecoDraw(F) {
     x.fillStyle = '#222'; ecoFit(x, (i + 1) + '. ' + t, 24, Y + B.rh / 2 + 3, W - 150, 15, 1);
     x.fillStyle = !ok ? '#9a9a90' : afford ? '#2a7a2a' : '#a04030'; x.fillRect(W - 112, Y + 4, 92, B.rh - 14); x.fillStyle = '#fff'; x.textAlign = 'center'; x.font = 'bold 16px sans-serif'; x.fillText(!ok ? 'OK' : '$' + c, W - 66, Y + B.rh / 2 + 3); x.textAlign = 'left'; });
   if (!B.home) { x.fillStyle = '#555'; ecoFit(x, 'FUEL: PARK BY THE DRUM, ENGINE OFF, NOZZLE ON A WING CAP (DESKTOP G)', 18, 220, W - 36, 15); ecoFit(x, 'PAID AS IT FLOWS. ' + (F.id === 'DRYFORK' ? 'THE DEPOT: CHEAPEST FUEL IN THE VALLEY.' : 'HOME $' + FUEL_ST[0].price.toFixed(2) + ', DRY FORK $' + FUEL_ST[3].price.toFixed(2)), 18, 242, W - 36, 15); }
-  x.fillStyle = '#666'; ecoFit(x, 'POKE A PRICE TO PAY (DESKTOP 1-' + B.rows.length + ') - THE CUB PARKED NEARBY, ENGINE OFF', 18, SVB_H - 12, W - 36, 13);
+  x.fillStyle = '#666'; ecoFit(x, 'POKE A PRICE TO PAY (DESKTOP ' + (B.rows.length > 1 ? '1-' + B.rows.length : '1') + ') - THE CUB PARKED NEARBY, ENGINE OFF', 18, SVB_H - 12, W - 36, 13);
   B.tex.needsUpdate = true;
 }
 function ecoDo(F, i) {   // a row on a service board
@@ -5906,10 +5906,10 @@ function ecoDo(F, i) {   // a row on a service board
 // ---- paying for fuel as it flows (called by the pump) ----
 function ecoFuelAllow(dl) {   // litres wanted this frame -> litres you get (charged)
   const F = FUELP.st || FUEL_ST[0], c = dl / 3.785 * F.price, home = F.id === 'HOME';
-  if (DLV.cash - c < (home ? -ECO_CREDIT : 0)) { if (!(home && fuel < ECO_SAFE)) { ECO.why = home ? 'ACCOUNT LIMIT REACHED - FLY A JOB' : 'OUT OF CASH (THE HOME DRUM GIVES CREDIT)'; return 0; } ECO.acct = true; }   // the safety net: home never leaves you without enough to reach a job
-  DLV.cash -= c; DLV.spent = (DLV.spent || 0) + c; ECO.fill += c; ECO.fillL += dl; return dl;
+  if (DLV.cash - ECO.frac - c < (home ? -ECO_CREDIT : 0)) { if (!(home && fuel < ECO_SAFE)) { ECO.why = home ? 'ACCOUNT LIMIT REACHED - FLY A JOB' : 'OUT OF CASH (THE HOME DRUM GIVES CREDIT)'; return 0; } ECO.acct = true; }   // the safety net: home never leaves you without enough to reach a job
+  ECO.frac += c; const w = Math.floor(ECO.frac); DLV.cash -= w; ECO.frac -= w; DLV.spent = (DLV.spent || 0) + c; ECO.fill += c; ECO.fillL += dl; return dl;   // the wallet stays in whole dollars
 }
-function ecoFuelReceipt() { const w = ECO.why ? ' - ' + ECO.why : ''; ECO.why = ''; if (!ECO.fillL) return w; const s = ' - ' + (ECO.fillL / 3.785).toFixed(1) + ' GAL $' + ECO.fill.toFixed(2) + (ECO.acct ? ' ON ACCOUNT' : '') + ' (' + ecoMoney(DLV.cash) + ')'; DLV.cash = Math.round(DLV.cash * 100) / 100; ECO.fill = ECO.fillL = 0; ECO.acct = false; return s + w; }
+function ecoFuelReceipt() { const w = ECO.why ? ' - ' + ECO.why : ''; ECO.why = ''; if (!ECO.fillL) return w; const s = ' - ' + (ECO.fillL / 3.785).toFixed(1) + ' GAL $' + ECO.fill.toFixed(2) + (ECO.acct ? ' ON ACCOUNT' : '') + ' (' + ecoMoney(DLV.cash) + ')'; if (ECO.frac >= 0.5) DLV.cash -= 1; ECO.frac = 0; ECO.fill = ECO.fillL = 0; ECO.acct = false; return s + w; }
 // ---- wear, touchdowns, damage ----
 function ecoTouch(sink) {   // a wheel just came down: sink in m/s
   const E = ECO, fpm = Math.round(sink * 196.85); E.ldg++; E.sink = sink; E.tyre = Math.max(0, E.tyre - 0.0012 - Math.max(0, sink - 1) * 0.004);
@@ -5952,7 +5952,7 @@ function ecoTick(dt) {
   E.near = nd < 60 ? nb : null; E.nearD = nd;
   if ((E.bT = (E.bT || 0) - dt) <= 0) { E.bT = 0.5; for (const F of FUEL_ST) { const near = Math.hypot(PP.x - F.b[0], PP.z - F.b[1]) < 300; F.B.m.visible = near; if (!near) continue;
       const k = [Math.round(DLV.cash), E.oil.toFixed(1), E.svc.toFixed(1), E.tyre.toFixed(2), E.brake.toFixed(2), E.gear.toFixed(2), E.eng.toFixed(2), E.seized, E.ldg].join(); if (k !== F.B.key) { F.B.key = k; ecoDraw(F); } } }
-  if (mode === 'foot' && nd < 5 && E.hint !== nb) { E.hint = nb; say((nb.B.home ? 'HANGAR SERVICE BOARD' : nb.S.name + ' FUEL $' + nb.price.toFixed(2) + '/GAL') + ' - POKE A PRICE' + (renderer.xr.isPresenting ? '' : ' (DESKTOP 1-' + nb.B.rows.length + ')')); } else if (nd > 10) E.hint = null;
+  if (mode === 'foot' && nd < 5 && E.hint !== nb) { E.hint = nb; say((nb.B.home ? 'HANGAR SERVICE BOARD' : nb.S.name + ' FUEL $' + nb.price.toFixed(2) + '/GAL') + ' - POKE A PRICE' + (renderer.xr.isPresenting ? '' : ' (DESKTOP ' + (nb.B.rows.length > 1 ? '1-' + nb.B.rows.length : '1') + ')')); } else if (nd > 10) E.hint = null;
   E.ms = performance.now() - t0;
 }
 function ecoKey(e) { if (mode !== 'foot' || !ECO.near || ECO.nearD > 5 || DLV.nearD < 5) return false; const m = /^Digit([1-4])$/.exec(e.code); if (!m) return false; return ecoDo(ECO.near, +m[1] - 1); }
