@@ -1,4 +1,4 @@
-# Bush Pilot VR – controls (v0.51.1, bush delivery)
+# Bush Pilot VR – controls (v0.52, bush delivery + bush sites)
 
 v0.45 is just the Super Cub, the valley and the paper map. There is no wind, weather, survival, combat, loot or story. The full game (v0.44) is tag `v0.44-full` and branch `full-game`.
 
@@ -104,6 +104,29 @@ Four strips have a **job board** (a wooden notice board on two posts) and a **ye
 - The belt and net are only drawn (and grabbable) when there is cargo under them.
 - **Shipping labels (v0.51.1):** every piece has a label on its front (the dog crate on its back) and a smaller one on top. It shows TO and the destination in big letters, the job colour, the weight, and an icon for special cargo: a red glass for fragile, a blue snowflake for perishable, a paw for animals.
 - **Weight and balance in flight:** every piece really changes the Cub: mass, CG and inertia, every frame. With about 150 lb aboard the takeoff run is about 25 % longer and the climb about 14 % weaker. Near max gross (317 lb of cargo) the run is about half again as long, the climb about a quarter weaker, and the stall 4–5 mph higher. A load aft (rear seat, baggage) needs more nose-down trim and makes the pitch livelier. Light jobs (20–80 lb) only make a small difference.
+
+- **Light and heavy jobs (v0.52).** Each job is LIGHT (20–80 lb parcel runs) or HEAVY (about 150–400 lb of freight: cement bags, feed sacks, nail kegs, fuel cans, an outboard motor, a generator). The class shows as a badge on the board, at the start of the kneeboard's pieces line (`HEAVY 241 LB - ...`) and in the top-right corner of every label. Each board usually has at least one heavy job. Heavy pays more (about $40 + $0.45/lb + $30/km), and you'll feel it: with 241 lb aboard the home-strip takeoff roll goes from about 130 m to 178 m and the climb from about 940 to 640 fpm.
+  - **Pieces** weigh about 35–60 lb each, so you can carry them one at a time. The outboard and the generator are **two-hand** pieces. In VR, grab it with one hand and then the other; it lifts only when both hands hold it, and sits between them. On desktop, **E** puts it **ON THE HAND TRUCK**. You walk slower while carrying anything over 35 lb, and slower again over 80 lb.
+  - **Payload warning:** if a job is heavier than what you can still load at your current fuel, the board shows `OVER PAYLOAD AT n GAL: MAX x LB` in red. Fly with less fuel or split the trip. The W&B card shows `PAYLOAD LEFT x LB`, or `OVER MAX GROSS 1750 BY x LB` in red.
+
+## Bush sites (v0.52)
+Eight **unprepared landing spots** off the airfields, each with a customer camp, a small job board and a yellow pad. Nothing is graded except the two short strips. Land on what's there.
+
+| Site | Type | Customer | Length | Notes |
+|---|---|---|---|---|
+| CREEK BAR | river sandbar | prospector camp | 190 m | gravel by the creek |
+| FISH CAMP BAR | river sandbar | fish camp | 210 m | |
+| NW LAKE SHORE | lake shore | trapper cabin | 200 m | beach along the north-west lake |
+| EAST LAKE SHORE | lake shore | boathouse | 200 m | |
+| GOAT BENCH | mountain ridge bench | Lost Lode mine | 170 m | **one-way**: land uphill, take off downhill |
+| ELK MEADOW | meadow | elk camp | 220 m | **one-way**, wheel tracks in the grass |
+| RANGER STRIP | short strip | ranger station | 160 m | graded, windsock |
+| RANCH STRIP | short strip | ranch | 180 m | graded, windsock |
+
+- **Finding them.** A site isn't on your map until you've found it. Fly over within about 400 m (and below 250 m above it), or walk up to it. You'll get `FOUND <site> - <type> ~<length> M - <customer> - ON YOUR MAP NOW`. Found sites stay found in your save.
+- **Jobs to sites.** About half the jobs from the airfields go to bush sites, and sites send some of their jobs to other sites. Bush jobs pay 20 % more. If you haven't found the place yet, the board says `(FIND IT)` and the map draws a dashed **?** search circle (320 m radius) with the site somewhere inside it, and the kneeboard says `SEARCH ...` with the distance and heading to that circle. Once found, the board and kneeboard show the type and length (`LAKE SHORE 200M`).
+- **On the map:** found sites are drawn and labelled with the customer, the type and the length, plus `1-way` on the bench and the meadow. For those two, the FOUND message also gives the uphill landing heading (`ONE-WAY: LAND UPHILL HDG nnn`).
+- They're short: an empty Cub lifts off in 55–110 m, and at max gross in 130–195 m. Landing rolls run 50–130 m. Watch your weight going into the bench and the meadow, and use the slope.
 
 ## Fuel
 - Two wing tanks hold 36 gal (136 L). Burn scales with power: full throttle empties them in about 25 minutes. Below 3 % the engine sputters, and at empty it quits. The fuel gauge and the W&B card show what's aboard.

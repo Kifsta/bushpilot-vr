@@ -2,6 +2,89 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.52 – bush sites; light and heavy jobs
+Unprepared landing spots with customers, found by flying low, marked on the paper map, with jobs to and from them. Neil's cargo-weight decision ships as its own commit: a mix of LIGHT parcel runs and HEAVY freight. No weather or wind; the physics block is untouched.
+- **8 bush sites** (`BUSH`, appended to `DLV_STRIPS` with `site: true`). Each was placed by a terrain search (`sitesearch.mjs` plus an in-browser water-distance scan): the centreline stays within slope limits, and sandbars and shores stay 12–55 m from the water without running into it. The ground isn't flattened (`terrainHeight` is unchanged), so the gear rolls on the real slope and the rough surface. Only the two short strips are mown (`MOWN`).
+
+| Site | Type | Customer | Length | Notes |
+|---|---|---|---|---|
+| CREEK BAR | sandbar | prospector camp | 190 m | |
+| FISH CAMP BAR | sandbar | fish camp | 210 m | |
+| NW LAKE SHORE | lake shore | trapper cabin | 200 m | |
+| EAST LAKE SHORE | lake shore | boathouse | 200 m | |
+| GOAT BENCH | mountain ridge bench (about 10 %) | Lost Lode mine | 170 m | one-way, land uphill |
+| ELK MEADOW | meadow | elk camp | 220 m | one-way (departing uphill met rising ground) |
+| RANGER STRIP | graded short strip | ranger station | 160 m | windsock |
+| RANCH STRIP | graded short strip | ranch | 180 m | windsock |
+
+  - **Each site** has a customer camp built for its trade (for example a mine adit with a tin shack, ore cart and tailings; a trapper's cabin with fur stretchers; a corral with saddles at the elk camp; a fire cache at the ranger station; a hay shed at the ranch), a small job board and a yellow pad. The camp side is picked by score (flatness, away from water). Painted corner rocks or a graded ribbon mark the strip, or two worn wheel tracks in the grass on the meadow and the bench.
+  - **Trees** are cleared from the strip (+40 m), from a 260 m funnel off each end, and within 24 m of each camp.
+  - **All 8 camps are one merged mesh and all ribbons and tracks are another**, so the sites cost 2 draw calls plus a windsock.
+- **Discovery.** Sites start unknown. `bushTick` (every 0.5 s) finds one when you're within 400 m and less than 250 m above it, on foot or flying. You get `FOUND CREEK BAR - SANDBAR ~190 M - PROSPECTOR CAMP - ON YOUR MAP NOW`; the bench and the meadow add `ONE-WAY: LAND UPHILL HDG nnn`. Found sites are saved (save v52; v45, v50 and v51 saves still load).
+- **Map.** Found sites are drawn by type and labelled with the customer, type, length and `1-way`, with per-site label offsets so they don't overlap. An active job to an unfound site draws a dashed **?** circle (320 m radius) whose centre is 90–210 m off the real spot.
+- **Jobs.** From the four airfields, about 50 % of jobs go to bush sites; from a site, 25 % go on to another site. Bush ends pay ×1.2. The board says `(FIND IT)` for unfound destinations, and shows the type and length (`LAKE SHORE 200 M`) on line 3. The kneeboard says `SEARCH 2.9 KM HDG 315` until it's found, then gives the type and length.
+- **Measured on the sites** (real flight model, 1/120 s step, gear pitched to the local slope):
+
+| | Empty (pilot + full fuel) | Max gross 1733 lb |
+|---|---|---|
+| Lift-off distance, all 8 sites | 55–109 m | 129–194 m, no crashes |
+| Landing stop (all 8) | 50–127 m | |
+
+  Strip lengths are 160–220 m, so the heavy end is tight on purpose. Watch your weight going into the bench.
+- **Light and heavy jobs** (separate commit). Every job is **LIGHT** (20–80 lb; `dlvCapL` trims the light templates) or **HEAVY** (about 150–400 lb).
+  - **Heavy templates:** CEMENT (bags), FEED (sacks), BUILDING SUPPLIES (nail kegs and lumber), AVGAS (fuel cans), OUTBOARD MOTOR, GENERATOR. They use the new cargo kinds cement, feed, nails, fuel, outboard and generator. Pieces weigh 34–60 lb; the outboard and the generator are **two-hand** pieces (130 lb or less).
+  - **Mix:** about 45 % of new jobs are heavy (`DLV_HP`; measured about 30 % once special cargo takes its share). A board with no heavy job gets one forced when it's dealt (`dlvInit` / `dlvCheck`).
+  - **Pay:** heavy pays round((40 + 0.45 × lb + 30 × km) × deadline 1.3 × bush 1.2). 30 % have a deadline.
+  - **The class shows** as a LIGHT / HEAVY badge on the board, at the start of the kneeboard line (`HEAVY 241 LB - ...`) and in the top-right corner of every shipping label. Saves from before v0.52 get their class from the weight (over 120 lb is heavy).
+  - **Payload warning.** `dlvRoom()` = 1750 − the W&B plan's gross. A job heavier than that shows `OVER PAYLOAD AT n GAL: MAX x LB` in red on the board. The W&B card footer shows `PAYLOAD LEFT x LB`, or `OVER MAX GROSS 1750 BY x LB` (which now takes priority over the baggage-limit line, so it's never hidden).
+  - **Carrying.** In VR, one grip on a two-hand piece marks it pending; it lifts when the second hand grips, and rides at the hands' midpoint (5 cm below). Let go with either hand to drop it. On desktop, E puts it ON THE HAND TRUCK. Walking speed drops to 0.8 when carrying more than 35 lb and to 0.5 over 80 lb.
+  - **Every heavy job fits physically** in the Cub: 120 of 120 generated jobs, loaded by `cgLoadAny`.
+
+| Template | Weight range |
+|---|---|
+| OUTBOARD MOTOR | 156–184 lb |
+| CEMENT | 196–370 lb |
+| AVGAS | 176–259 lb |
+| FEED | 198–317 lb |
+| GENERATOR | 174–238 lb |
+| BUILDING SUPPLIES | 196–316 lb |
+
+  - **What heavy feels like** (HOME strip, full fuel, real flight model):
+
+| Load | Takeoff roll | Climb |
+|---|---|---|
+| Empty | 129 m | 965 fpm |
+| LIGHT 21 lb | 130 m | 938 fpm |
+| HEAVY FEED 241 lb | 178 m (+38 %) | 643 fpm (−33 %) |
+
+- **Perf** (swiftshader, the final v0.52 build vs v0.51.1, same views; box load about 6–7):
+
+| View | v0.51.1 | v0.52 |
+|---|---|---|
+| Seated, facing forward | 66 draw calls, 262.7k triangles, 1.79 ms | 71, 266.7k, 1.79 ms |
+| Seated, facing west | 55, 262.2k, 1.61 ms | 61, 266.3k, 1.60 ms |
+| On foot at CREEK BAR | 73, 221.7k, 1.56 ms | 79, 225.8k, 1.65 ms |
+| Over GOAT BENCH | 16, 160.7k, 1.21 ms | 20, 164.5k, 1.19 ms |
+
+  An isolation probe puts v0.52's own cost at +3 draw calls (the 2 merged site meshes and a windsock); the rest is the extra board, pad and visible terrain or tree chunks in those views. The delivery tick, with the 0.5 s discovery check, is 0.05 ms or less.
+- **Tests:**
+  - **t52:**
+    - Site layout: 8 sites with camps (one mesh), boards and pads.
+    - Usable ground: slope, bumps, cross slope; the one-way low end; dry (beside the water, not in it); no trees; graded short strips vs rough.
+    - Flying: empty and max-gross lift-off and climb-out from every strip in each allowed direction; heavy loads lengthen the lift-off.
+    - Discovery: found by low overflight, not from 600 m up or 1.5 km away; by walking; the uphill heading really is uphill.
+    - Map and nav: unfound sites hidden; FIND IT; the search circle has the site inside but off-centre; kneeboard SEARCH, then pad and type.
+    - Jobs: about half go to sites (all 8 get some); site jobs mostly go back to the main strips; +20 % bush pay, main pay unchanged; special cargo still about a third; delivery to a site pad pays.
+    - Save and reload, including v0.51 saves and junk ids; discovery tick < 0.02 ms and 2 draw calls; no console errors.
+  - **t52h:**
+    - Weights: 20–80 / 150–400 lb; about 30 % heavy; carryable pieces; pay formulas.
+    - Every board starts with a heavy job and refills one; every heavy job fits; heavy clearly lengthens the roll and flattens the climb; light is within 12 % of empty.
+    - Payload warning at full tanks (317 lb), gone with less fuel; LIGHT/HEAVY on the board, kneeboard and labels; W&B over-gross and payload-left lines.
+    - VR two-hand hold, lift and drop; desktop hand truck and walking speeds; the class saves, and old saves derive it; no console errors.
+  - **Updated:** t50 (12 boards), t51 (×1.2 bush pay), t511 (the `LIGHT|HEAVY n LB -` pieces line) and reload (save v52).
+  - **All pass:** md5 unchanged, W&B tests, lint 25, feel 5/5, feelpage, t42–t4911, t50, t51, t511, t52, t52h, reload; r404 shows only the favicon.
+- **Screenshots:** `deliv-v052-*.png`. For each site, an aerial on approach and the view standing at its board. Also the heavy board, the board, kneeboard and map canvases, the heavy freight on the home pad, the generator and fuel cans in the Cub, and the W&B card.
+
 ## v0.51.1 – the paper map is back, kneeboard, shipping labels; cargo-physics check
 Neil's headset feedback.
 - **The paper map was black. It's drawn again.** Since v0.45 (the blank slate), `drawMap()` had lost its last lines, including `return c`, so the map texture got no canvas and rendered black in the holder and in the hand.
