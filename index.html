@@ -6629,7 +6629,7 @@ function emgKb(j, P) {
   const dx = tgt[0] - P[0], dz = tgt[1] - P[2], km = Math.hypot(dx, dz) / 1000, hdg = Math.round(((Math.atan2(dx, -dz) * 180 / Math.PI) + 360) % 360 / 5) * 5 % 360, cond = 'CONDITION ' + Math.round(100 * j.fresh) + '%';
   const nav = (got ? 'CLINIC ' : j.emg.t === 'med' ? 'PICKUP ' : j.emg.seen ? 'PARTY ' : 'SEARCH ') + (km < 10 ? km.toFixed(1) : Math.round(km)) + ' KM  HDG ' + String(hdg).padStart(3, '0');
   const b = its.filter(i => i.k === 'bundle').length;
-  return { col: '#c01e14', t: j.title, sp: null, rt: (j.emg.t === 'med' ? dlvS(j.from).name : SAR_A[j.emg.a].name) + ' > DRY FORK CLINIC', nav, pcs: j.emg.name.slice(0, 30) + (j.emg.t === 'sar' && b ? ' - ' + b + ' BUNDLES' : ''), pay: 'UP TO $' + j.pay,
+  return { col: '#c01e14', t: j.emg.t === 'med' ? 'MEDEVAC' : 'SEARCH + RESCUE', sp: null, rt: (j.emg.t === 'med' ? dlvS(j.from).name : SAR_A[j.emg.a].name) + ' > DRY FORK CLINIC', nav, pcs: (j.emg.t === 'med' ? j.title.slice(10) + ' - ' + j.emg.name : j.emg.name).slice(0, 34) + (j.emg.t === 'sar' && b ? ' - ' + b + ' BUNDLES' : ''), pay: 'UP TO $' + j.pay,
     due: left < 0 ? 'LATE - HALF PAY' : 'DUE IN ' + Math.ceil(left) + ' MIN', st: got ? (DLV.belt ? 'ABOARD, BELTED - ' : 'ABOARD - BELT THEM IN! ') + cond : (j.emg.t === 'sar' && !j.emg.seen ? 'NOT FOUND YET - ' : 'WAITING - ') + cond, warn: left < 0 || j.fresh < 0.5 || (got && !DLV.belt) };
 }
 // ---- save / load ----
