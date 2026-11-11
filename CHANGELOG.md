@@ -2,6 +2,33 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.46 – Procedural hand grabbing
+
+Neil: "I want the hands to procedurally grab the knobs realistically".
+
+- **Your hand now takes hold of each control by its own shape.** The preset snap poses (fist, pinch) are gone for the stick, throttle, flap T-grip, trim crank, primer T-handle, mag key, fuel valve pointer, mixture, carb heat and panel-light knobs, the MASTER rocker, the landing-light toggle, and the four window / door handles.
+- **On grab, the glove lines up with the control.**
+  - Wrap grips (stick, throttle, flap T, primer T, trim knob, window handles): the hand's finger-width axis lies along the grip, the palm sits on it at the grip's radius, and it slides along the grip to where your hand is. How far round the grip your hand goes is set by your wrist, so it matches how you reached.
+  - Pinch grips (key, valve pointer, small knobs, rocker, toggle): the hand keeps your wrist angle with the knob between thumb and index.
+  - A flat handle's depth under the palm is worked out from your hand angle.
+- **The fingers close joint by joint until they touch.** Knuckle, middle and tip joints curl in turn until a bone touches the control's shape: a capped cylinder or a box, sized per control. On a pinch, the ring and little fingers tuck. The thumb opposes, pulled onto the far surface with its metacarpal swung round to reach it. Thin grips (primer T, trim knob) close tighter than the fat stick grip.
+- **The fingers stay on and roll with the control.** The grip is stored in the control's own frame. The hand turns with the mag key through every detent and into the START spring, comes out with the mixture / carb / primer knobs, tilts with the stick, swings with the flap lever and window frames, and orbits the trim crank's spinning knob without twisting.
+- **Blend in and out:** 100 ms smoothstep from your free hand to the grip and back when you let go.
+- Unchanged:
+  - The idle hand: relaxed, thumb tucked, following your real fingers (trigger = index, grip = lower fingers).
+  - Squeezing with nothing to hold still points the index for pokes.
+  - START keeps its pointed finger, and the checklist card keeps its hold.
+  - Hand tracking.
+- **Cost:** one solve per grab takes about 0.06 ms (desktop, swiftshader). Holding costs one matrix product a frame, with no allocations: all scratch vectors and the per-hand arrays are made once. Draw calls and triangles are unchanged (91/277k cockpit, 85/264k at 600 m, 55/269k on foot, 131/266k in town).
+- **Tests:** new t46 (15 checks).
+  - Every control gets finger contact, with no bone inside the shape and the thumb on the surface.
+  - Thin grips close tighter.
+  - Stick: blend in partway at 56 ms and done by 125 ms; it rides the stick; solved once per grab; blends back out to the free hand.
+  - The hand turns with the mag key, comes out with the mixture, wraps the flap T-grip, and orbits the trim crank.
+  - Idle and point poses.
+  - Cost, and no console errors.
+- Physics md5, W&B, t42–t45 and the reload test all pass unchanged.
+
 ## v0.45 – Blank slate: the Cub, the valley and the map
 
 Neil: "Can we create a blank slate. Remove all game mechanics bar the aeroplane and map and systems required to fly the plane. Remove wind."

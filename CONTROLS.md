@@ -1,4 +1,4 @@
-# Bush Pilot VR – controls (v0.45 blank slate)
+# Bush Pilot VR – controls (v0.46, blank slate)
 
 v0.45 is just the Super Cub, the valley and the paper map. There is no wind, weather, survival, combat, loot or story. The full game (v0.44) is tag `v0.44-full` and branch `full-game`.
 
@@ -42,6 +42,8 @@ v0.44 cockpit: toggles (MASTER, landing light) snap over with a click, whether y
 v0.43 cockpit: PANEL LT knob (switch strip, far right) - twist it, or press K in the plane, to step OFF / DIM / BRIGHT. It needs the MASTER on. The OIL gauge (right of the tach) shows oil pressure on top and temperature below. The wet compass on the windscreen swings and settles after turns like a real one.
 
 v0.42 cockpit: your glove stops on the instrument panel instead of going through it (the switches still feel your real finger). A small label by your hand names the control your hand is on or ringed and its state (MASTER ON, FLAPS 30°, THROTTLE 45%, TRIM NOSE UP 3...); turn it off with Settings > CONTROL LABELS. The flap handle and trim crank work with either hand.
+
+v0.46 grabbing: you don't need to line your hand up exactly. Squeeze on any control and the glove takes hold of it by its shape within a tenth of a second: it wraps the stick, throttle, flap T-grip, primer T and window handles, and pinches the key, valve and knobs. It stays on the control as it turns, pulls or swings, and opens back into your own hand when you let go. Hold the grip the way you'd hold the real one: the angle you reach at is the angle you hold it at.
 
 v0.24 haptics: you feel the engine (rpm, rough running, cranking), stall buffet, touchdowns, bumps and skids through the stick and throttle, plus clicks for every switch, detent and grab. Set the strength in Settings (Off / 35% / 65% / 100%), or add `?hx=0.5` to the URL.
 

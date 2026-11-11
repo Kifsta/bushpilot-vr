@@ -19,7 +19,7 @@
 </script>
 </head>
 <body>
-<div id="info">BUSH PILOT VR v0.45 - PA-18 Super Cub, blank slate: the Cub, the valley, the paper map. No wind, no weather - just flying.
+<div id="info">BUSH PILOT VR v0.46 - PA-18 Super Cub, blank slate: the Cub, the valley, the paper map. No wind, no weather - just flying.
 You start on foot by the Cub at the cabin strip. Walk up to her and climb in (F / Y), then start her up off the checklist card (J).
 Desktop - flying: W/S or arrows pitch, A/D or arrows roll, Q/E rudder, Shift / Ctrl (or + / -) throttle, B brakes, [ ] flaps, PgUp / PgDn trim,
   R reset to the strip (cold and dark), F climb out, M map, L landing light, Home recentre, mouse looks (click to capture).
@@ -3541,9 +3541,9 @@ function buildHand(st, sx) {                      // posed glove in hand space f
   hBone(st, 0, _hs.set(sx * 0.031, 0.16, 0), _hd.set(0, -1, 0), 0.055, 0.05, 0.068, _hzZ);   // cuff
   hBone(st, 1, _hs.set(sx * 0.033, 0.05, -0.002), _hd.set(0, -1, 0), 0.083, 0.027, 0.088, _hzZ);   // palm
   for (let f = 0; f < 4; f++) {
-    const [kz, L, w, spl] = HF[f], c = st.c[f]; let a = 0.05; _hs.set(sx * 0.033, -0.03, kz);
+    const [kz, L, w, spl] = HF[f], c = st.c[f], e = st.ge, cs = c + (1 - G_SPL - c) * e; let a = 0.05; _hs.set(sx * 0.033, -0.03, kz);
     for (let j = 0; j < 3; j++) {
-      a += FIST[j] * c; _hd.set(-sx * Math.sin(a), -Math.cos(a), 0.45 * spl * (1 - c)).normalize();
+      a += FIST[j] * c + (st.ja[f * 3 + j] - FIST[j] * c) * e; _hd.set(-sx * Math.sin(a), -Math.cos(a), 0.45 * spl * (1 - cs)).normalize();   // v0.46: solved grip angles
       hBone(st, 2 + f * 3 + j, _hs, _hd, L[j], 0.017 - j * 0.0015, w - j * 0.001, _hzZ); _hs.addScaledVector(_hd, L[j]);
     }
     if (f === 0) st.tipH.copy(_hs);
@@ -3553,6 +3553,7 @@ function buildHand(st, sx) {                      // posed glove in hand space f
   const mix = (k, i) => { const a = R0[k][i] + (U0[k][i] - R0[k][i]) * u; return a + (W0[k][i] - a) * w; };
   _tA.set(mix(0, 0), mix(0, 1), mix(0, 2)); _tT.set(mix(1, 0), mix(1, 1), mix(1, 2));
   if (pn > 0) { _tP.set(st.tipH.x * sx - 0.004, st.tipH.y + 0.006, st.tipH.z - 0.012); _tT.lerp(_tP, pn); _tA.lerp(_tU.set(-0.55, -0.6, -0.58), pn); }
+  if (st.ge > 0) { _tT.lerp(st.gT, st.ge); _tA.lerp(st.gA, st.ge); }   // v0.46: thumb onto the control
   _tA.x *= sx; _tA.normalize(); _tT.x *= sx;
   _hs.set(sx * TH_B.x, TH_B.y, TH_B.z); hBone(st, 14, _hs, _tA, TH_L[0], 0.019, 0.02, _hzY); _hs.addScaledVector(_tA, TH_L[0]);
   _tU.subVectors(_tT, _hs); const D = clamp(_tU.length(), 0.012, TH_L[1] + TH_L[2] - 1e-4); _tU.normalize();      // 2-bone reach, knuckle bulging out
@@ -3578,39 +3579,129 @@ function buildTracked(st, hand) {                // optional hand tracking: bone
   J['index-finger-tip'].getWorldPosition(st.tip); return true;
 }
 function hap(g, a = 0.45, ms = 14) { CKX.haps++; HX.pulse(g, a, ms, 'cockpit'); }
-// snap frames: hand space -> control local (fist wraps the control's own axis)
-const HB_STICK = new THREE.Matrix4().makeBasis(new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, -1, 0));   // thumb up the knob, wrist aft
-const HB_OHR = new THREE.Matrix4().makeBasis(new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, -1, 0), new THREE.Vector3(1, 0, 0));   // v0.42 overhead T-grip: palm forward, fingers over the top, back of the hand toward you
-const HB_OHL = new THREE.Matrix4().makeBasis(new THREE.Vector3(0, 0, -1), new THREE.Vector3(0, -1, 0), new THREE.Vector3(-1, 0, 0));   // (the left glove is built mirrored)
+// ================= v0.46 procedural grip: the glove takes hold of each control by its own shape =================
+// On grab: the hand frame lines up with the control (wrap = the finger-width axis along the grip, palm on it at its radius; pinch = your wrist
+// angle, the knob between thumb and index), then each finger curls joint by joint until a bone touches the control's analytic shape
+// (capped cylinder or box) and the thumb opposes onto its surface. The result is stored in the control's own frame, so the hand rides
+// and rolls with the knob / lever / window. Solved once per grab (no per-frame work beyond one matrix product, no allocations), blended in / out over GRIP_T.
+const GRIP_T = 0.1, G_MAX = [1.7, 1.9, 1.35], G_TUCK = [1.25, 1.45, 1.0], G_SPL = 0.3, G_STEP = 0.1;   // joint limits (rad), pinch: ring / pinky tuck, grasp splay
+const GV3 = (x, y, z) => new THREE.Vector3(x, y, z);
+const G_PIN = GV3(-0.008, -0.065, -0.042);   // pinch anchor (right hand, x mirrors): where a knob sits between thumb and index
+// sh: 'cyl' (axis a = 0 / 1 / 2, radius r, half-length hl) | 'box' (half extents b); st: 'wrap' (wa axis, wr radius, wc centre, tl slide, wz anchor across the hand) | 'pinch' (pc centre)
+const GDEF = {
+  stick: { o: () => stick, sh: 'cyl', c: GV3(0, 0.475, 0), a: 1, r: 0.0175, hl: 0.055, st: 'wrap', wa: 1, wr: 0.0175, tl: 0.02, wz: -0.004 },
+  thr: { o: () => throttleKnob, sh: 'cyl', c: GV3(0.012, 0, 0), a: 0, r: 0.02, hl: 0.015, st: 'wrap', wa: 1, wr: 0.02, tl: 0, wz: -0.012 },
+  flap: { o: () => flapLever, sh: 'cyl', c: GV3(0, -0.004, FLAP_L), a: 0, r: 0.017, hl: 0.055, st: 'wrap', wa: 0, wr: 0.017, tl: 0.025, wz: -0.004 },
+  trim: { o: null, sh: 'cyl', c: GV3(0, 0, -0.004), a: 2, r: 0.0075, hl: 0.016, st: 'wrap', wa: 2, wr: 0.0075, tl: 0, wz: -0.022 },
+  prime: { o: () => SW.prime.mesh, sh: 'box', c: GV3(0, 0, 0.014), b: GV3(0.015, 0.0045, 0.005), st: 'wrap', wa: 0, wr: 0.005, tl: 0, wz: -0.022 },
+  master: { o: () => SW.master.mesh, sh: 'box', c: GV3(0, 0, 0.006), b: GV3(0.009, 0.015, 0.006), st: 'pinch', pc: GV3(0, 0, 0.008) },
+  mags: { o: () => SW.mags.mesh, sh: 'box', c: GV3(0, 0.01, 0.0195), b: GV3(0.009, 0.012, 0.0025), st: 'pinch', pc: GV3(0, 0.012, 0.0195) },
+  valve: { o: () => SW.valve.mesh, sh: 'box', c: GV3(0, 0.012, 0.012), b: GV3(0.006, 0.015, 0.0045), st: 'pinch', pc: GV3(0, 0.014, 0.012) },
+  plt: { o: () => SW.plt.mesh, sh: 'cyl', c: GV3(0, 0, 0.006), a: 2, r: 0.011, hl: 0.006, st: 'pinch', pc: GV3(0, 0, 0.008) },
+  mix: { o: () => SW.mix.mesh, sh: 'cyl', c: GV3(0, 0, 0.012), a: 2, r: 0.012, hl: 0.009, st: 'pinch', pc: GV3(0, 0, 0.014) },
+  carb: { o: () => SW.carb.mesh, sh: 'cyl', c: GV3(0, 0, 0.012), a: 2, r: 0.012, hl: 0.009, st: 'pinch', pc: GV3(0, 0, 0.014) },
+  ldg: { o: () => ldgTog, sh: 'box', c: GV3(0, 0, 0.002), b: GV3(0.003, 0.003, 0.011), st: 'pinch', pc: GV3(0, 0, 0.006) },
+  lf: { o: () => LWF.hp, sh: 'box', c: GV3(0, 0, 0), b: GV3(0.009, 0.017, 0.015), st: 'wrap', wa: 1, wr: 0.012, tl: 0, wz: -0.022 },
+  lr: { o: () => LWR.hp, sh: 'box', c: GV3(0, 0, 0), b: GV3(0.009, 0.017, 0.015), st: 'wrap', wa: 1, wr: 0.012, tl: 0, wz: -0.022 },
+  rup: { o: () => rupH, sh: 'box', c: GV3(0.005, 0, 0), b: GV3(0.025, 0.01, 0.035), st: 'wrap', wa: 2, wr: 0.011, tl: 0.012, wz: -0.012 },
+  rlo: { o: () => rloH, sh: 'box', c: GV3(0, 0, 0), b: GV3(0.017, 0.0125, 0.04), st: 'wrap', wa: 2, wr: 0.013, tl: 0.015, wz: -0.012 },
+};
+const _gF = new THREE.Matrix4(), _gI = new THREE.Matrix4(), _gH = new THREE.Matrix4(), _gx = GV3(0, 0, 0), _gy = GV3(0, 0, 0), _gz = GV3(0, 0, 0), _gA = GV3(0, 0, 0),
+  _ga = GV3(0, 0, 0), _gb = GV3(0, 0, 0), _gc = GV3(0, 0, 0), _gs = GV3(0, 0, 0), _gd = GV3(0, 0, 0), _gm = GV3(0, 0, 0), _gq = GV3(0, 0, 0),
+  _gP0 = GV3(0, 0, 0), _gP1 = GV3(0, 0, 0), _gS = GV3(1, 1, 1), _gQ0 = new THREE.Quaternion(), _gQ1 = new THREE.Quaternion(), _gJ = [0, 0, 0];
+function gripFrame(k, out) {   // the control's frame (world). The trim knob spins on its pin: plane-oriented frame at the knob
+  if (k === 'trim') { trimKnob.getWorldPosition(_gc); plane.updateWorldMatrix(true, false); return out.copy(plane.matrixWorld).setPosition(_gc); }
+  const o = GDEF[k].o(); o.updateWorldMatrix(true, false); return out.copy(o.matrixWorld);
+}
+function gSdf(gp, p) {   // signed distance from p (hand space) to the control's shape
+  _gq.subVectors(p, gp.C);
+  if (gp.cyl) { const t = _gq.dot(gp.A), rx = _gq.x - gp.A.x * t, ry = _gq.y - gp.A.y * t, rz = _gq.z - gp.A.z * t;
+    const dr = Math.sqrt(rx * rx + ry * ry + rz * rz) - gp.r, dt = Math.abs(t) - gp.hl;
+    return dr > 0 && dt > 0 ? Math.sqrt(dr * dr + dt * dt) : Math.max(dr, dt); }
+  const qx = Math.abs(_gq.dot(gp.X)) - gp.b.x, qy = Math.abs(_gq.dot(gp.Y)) - gp.b.y, qz = Math.abs(_gq.dot(gp.Z)) - gp.b.z;
+  const ox = Math.max(qx, 0), oy = Math.max(qy, 0), oz = Math.max(qz, 0);
+  return Math.sqrt(ox * ox + oy * oy + oz * oz) + Math.min(Math.max(qx, qy, qz), 0);
+}
+function gFingerHit(gp, sx, f, j0) {   // does any bone from joint j0 on (angles _gJ) touch the shape?
+  const [kz, L, , spl] = HF[f]; let a = 0.05; _gs.set(sx * 0.033, -0.03, kz);
+  for (let j = 0; j < 3; j++) {
+    a += _gJ[j]; _gd.set(-sx * Math.sin(a), -Math.cos(a), 0.45 * spl * G_SPL).normalize(); const rb = (0.017 - j * 0.0015) / 2 + 0.0008;
+    if (j >= j0) { _gm.copy(_gs).addScaledVector(_gd, L[j] * 0.5); if (gSdf(gp, _gm) < rb) return true; _gm.addScaledVector(_gd, L[j] * 0.5); if (gSdf(gp, _gm) < rb) return true; }
+    _gs.addScaledVector(_gd, L[j]);
+  }
+  return false;
+}
+function gripSolve(st, k, sx) {   // on grab: hand frame in the control's frame (st.Hc) + finger angles (st.ja) + thumb target (st.gT, st.gA)
+  const D = GDEF[k], gp = st.gp; gripFrame(k, _gF); _gI.copy(_gF).invert(); _gH.multiplyMatrices(_gI, st.W); _gH.extractBasis(_gx, _gy, _gz);
+  if (D.st === 'wrap') {
+    _gA.set(0, 0, 0).setComponent(D.wa, 1); if (_gz.dot(_gA) < 0) _gA.negate();          // finger-width axis along the grip, the way your hand already faces
+    _gy.addScaledVector(_gA, -_gy.dot(_gA)); if (_gy.lengthSq() < 1e-6) _gy.copy(_gx).cross(_gA); _gy.normalize(); _gx.crossVectors(_gy, _gA);
+    st.Hc.makeBasis(_gx, _gy, _gA);
+    let wr = D.wr; if (D.sh === 'box') wr = Math.max(wr, D.b.x * Math.abs(_gx.x) + D.b.y * Math.abs(_gx.y) + D.b.z * Math.abs(_gx.z));   // a flat handle: its depth under the palm
+    _ga.set(sx * (0.0155 - wr), -0.045, D.wz); _gb.copy(_ga).applyMatrix4(_gH);         // palm anchor; slide along the grip to where your hand is
+    const c = D.wc || D.c; _gA.set(0, 0, 0).setComponent(D.wa, 1); const t = clamp(_gc.subVectors(_gb, c).dot(_gA), -D.tl, D.tl);
+    _gc.copy(c).addScaledVector(_gA, t).sub(_gb.copy(_ga).applyMatrix4(st.Hc)); st.Hc.setPosition(_gc);
+  } else {
+    st.Hc.copy(_gH); _ga.set(sx * G_PIN.x, G_PIN.y, G_PIN.z); _gb.copy(_ga).applyMatrix4(_gH); _gc.subVectors(D.pc, _gb);   // keep your wrist angle, knob between thumb and index
+    st.Hc.elements[12] += _gc.x; st.Hc.elements[13] += _gc.y; st.Hc.elements[14] += _gc.z;
+  }
+  _gI.copy(st.Hc).invert();                                                                   // shape into hand space
+  gp.cyl = D.sh === 'cyl'; gp.C.copy(D.c).applyMatrix4(_gI);
+  gp.X.set(1, 0, 0).transformDirection(_gI); gp.Y.set(0, 1, 0).transformDirection(_gI); gp.Z.set(0, 0, 1).transformDirection(_gI);
+  if (gp.cyl) { gp.A.copy(D.a === 0 ? gp.X : D.a === 1 ? gp.Y : gp.Z); gp.r = D.r; gp.hl = D.hl; } else gp.b.copy(D.b);
+  for (let f = 0; f < 4; f++) {                                                               // curl joint by joint until a bone touches
+    const lim = D.st === 'pinch' && f >= 1 ? G_TUCK : G_MAX; _gJ[0] = _gJ[1] = _gJ[2] = 0;
+    for (let j = 0; j < 3; j++) {
+      let lo = 0, hi = -1;
+      if (gFingerHit(gp, sx, f, j)) { _gJ[j] = 0; continue; }
+      for (let th = G_STEP; th <= lim[j] + 1e-6; th += G_STEP) { _gJ[j] = th; if (gFingerHit(gp, sx, f, j)) { hi = th; break; } lo = th; }
+      if (hi < 0) { _gJ[j] = lim[j]; continue; }
+      for (let n = 0; n < 4; n++) { const m = (lo + hi) / 2; _gJ[j] = m; if (gFingerHit(gp, sx, f, j)) hi = m; else lo = m; }
+      _gJ[j] = lo;
+    }
+    st.ja[f * 3] = _gJ[0]; st.ja[f * 3 + 1] = _gJ[1]; st.ja[f * 3 + 2] = _gJ[2];
+  }
+  const R = D.st === 'wrap' ? TH_P.wrap : null;                                               // thumb opposes: natural tip target pulled onto the surface
+  if (R) { st.gT.set(sx * R[1][0], R[1][1], R[1][2]); st.gA.set(R[0][0], R[0][1], R[0][2]); } else { st.gT.set(-sx * 0.012, -0.06, -0.052); st.gA.set(-0.55, -0.6, -0.58); }
+  for (let n = 0; n < 3; n++) {
+    const d = gSdf(gp, st.gT) - 0.0085, e = 1e-4; _gm.copy(st.gT);
+    _gm.x += e; const dx = gSdf(gp, _gm); _gm.x -= e; _gm.y += e; const dy = gSdf(gp, _gm); _gm.y -= e; _gm.z += e; const dz = gSdf(gp, _gm);
+    _gd.set(dx, dy, dz).subScalar(d + 0.0085).divideScalar(e); if (_gd.lengthSq() < 1e-8) break; _gd.normalize(); st.gT.addScaledVector(_gd, -d);
+  }
+  _gd.set(sx * TH_B.x, TH_B.y, TH_B.z); _gd.subVectors(st.gT, _gd).normalize(); _gd.x *= sx;   // swing the thumb's metacarpal toward its contact so it reaches
+  st.gT.x *= sx; st.gA.normalize().lerp(_gd, 0.6).normalize();   // buildHand mixes the thumb in right-hand space
+}
+function gripOn(st, k, sx) {      // while a control is held: (re)solve on a new grab, then ride the control
+  if (st.gk !== k) { st.gk = k; gripSolve(st, k, sx); st.gn++; }
+  st.gt = 1; st.GW.multiplyMatrices(gripFrame(k, _gF), st.Hc);
+}
+function gripBlend(st, dt) {      // 0 -> 1 over GRIP_T on grab, back on release (smoothstep); W = free hand -> grip frame
+  st.gw = st.gt ? Math.min(1, st.gw + dt / GRIP_T) : Math.max(0, st.gw - dt / GRIP_T); const w = st.gw; st.ge = w * w * (3 - 2 * w);
+  if (!st.gt) st.gk = null;
+  if (st.ge <= 0) return; if (st.ge >= 1) { st.W.copy(st.GW); return; }
+  st.W.decompose(_gP0, _gQ0, _gS); st.GW.decompose(_gP1, _gQ1, _gS); _gP0.lerp(_gP1, st.ge); _gQ0.slerp(_gQ1, st.ge); st.W.compose(_gP0, _gQ0, _gS.set(1, 1, 1));
+}
+for (const st of HANDS.st) Object.assign(st, { gk: null, gt: 0, gw: 0, ge: 0, gn: 0, ja: new Float32Array(12), gT: GV3(0, 0, 0), gA: GV3(0, 0, 0), Hc: new THREE.Matrix4(), GW: new THREE.Matrix4(),
+  gp: { cyl: false, C: GV3(0, 0, 0), A: GV3(0, 0, 0), X: GV3(1, 0, 0), Y: GV3(0, 1, 0), Z: GV3(0, 0, 1), b: GV3(0, 0, 0), r: 0, hl: 0 } });
 const _pinch = new THREE.Vector3();
 function handTargets(i, g, st) {                 // decide pose + world matrix for one controller hand
   const src = g.userData.src, gp = src?.gamepad, b = gp?.buttons || [], right = src?.handedness !== 'left';
   const trig = b[0]?.value ?? (b[0]?.pressed ? 1 : 0), trigT = !!(b[0]?.touched || trig > 0.05), grip = b[1]?.value ?? (b[1]?.pressed ? 1 : 0);
   const thumbT = !!(b[3]?.touched || b[4]?.touched || b[5]?.touched || b[6]?.touched);
-  const fist = (idx = 1, th = 0, tw = 1) => { st.tc[0] = idx; st.tc[1] = st.tc[2] = st.tc[3] = 1; st.tth = th; st.ttw = tw; };
-  g.updateWorldMatrix(true, false); st.W.multiplyMatrices(g.matrixWorld, HOFF); st.mode = 'free';
+  g.updateWorldMatrix(true, false); st.W.multiplyMatrices(g.matrixWorld, HOFF); st.mode = 'free'; st.gt = 0;
   // free hand: grip curls the three lower fingers, trigger curls the index, grip without trigger points, thumb off the face lifts it
   st.tc[0] = trigT ? 0.35 + 0.6 * trig : grip > 0.5 ? 0.03 : 0.28; st.tc[1] = 0.3 + 0.7 * grip; st.tc[2] = 0.34 + 0.66 * grip; st.tc[3] = 0.38 + 0.62 * grip;   // v0.24.1 relaxed
   st.tth = thumbT ? 0 : 1; st.ttw = grip > 0.5 && trig > 0.5 ? 0.7 : 0; st.ttp = 0;
   if (mode === 'plane') {
-    const h = CKH.get(g);
-    if (vr.flapG === g) { flapLever.updateWorldMatrix(true, false); st.W.multiplyMatrices(flapLever.matrixWorld, _hm.copy(right ? HB_OHR : HB_OHL).setPosition(0, -0.004, FLAP_L)); fist(1, 0); st.mode = 'flap'; }   // v0.42 overhead T-grip
-    else if (TRIM.g === g) { trimW(_hv); st.tc[0] = 0.65; st.tc[1] = 0.9; st.tc[2] = st.tc[3] = 0.95; st.tth = 0; st.ttw = 0; st.ttp = 1;
-      _pinch.set(right ? -0.004 : 0.004, -0.075, -0.05).applyMatrix4(st.W); st.W.elements[12] += _hv.x - _pinch.x; st.W.elements[13] += _hv.y - _pinch.y; st.W.elements[14] += _hv.z - _pinch.z; st.mode = 'trim'; }
-    else if (right && vr.stick) { stick.updateWorldMatrix(true, false); st.W.multiplyMatrices(stick.matrixWorld, _hm.copy(HB_STICK).setPosition(0, 0.475, 0)); fist(0.9 + 0.1 * trig, thumbT ? 0 : 0.25, 0.45); st.mode = 'stick'; }
-    else if (!right && vr.thr) { throttleKnob.updateWorldMatrix(true, false); st.W.multiplyMatrices(throttleKnob.matrixWorld, _hm.copy(HB_STICK).setPosition(0, 0.004, 0)); fist(1, 0); st.mode = 'thr'; }
+    const h = CKH.get(g), gk = vr.flapG === g ? 'flap' : TRIM.g === g ? 'trim' : right && vr.stick ? 'stick' : !right && vr.thr ? 'thr' : h && h.k in GDEF ? h.k : null;
+    if (gk) { gripOn(st, gk, right ? 1 : -1); st.mode = gk === 'flap' || gk === 'trim' || gk === 'stick' || gk === 'thr' ? gk : 'ck'; }   // v0.46 procedural grip
     else if (h) {
-      const pt = h.k in SW ? plane.localToWorld(_hv.copy(SW[h.k].p).setZ(SWP.z + (h.k === 'start' ? 0.016 : 0.014))) : h.k === 'ldg' ? plane.localToWorld(_hv.copy(LDG_SW).setZ(LDG_SW.z + 0.016)) :
-        h.k === 'card' ? null : ({ rup: rupH, rlo: rloH, lf: LWF.hp, lr: LWR.hp }[h.k]).getWorldPosition(_hv);
+      const pt = h.k === 'start' ? plane.localToWorld(_hv.copy(SW.start.p).setZ(SWP.z + 0.016)) : null;
       if (h.k === 'card') { st.tc[0] = st.tc[1] = st.tc[2] = st.tc[3] = 0.55; st.tth = 0.4; st.ttw = 0.3; }
       else if (h.k === 'start') {                    // v0.44: press START with a pointed index finger
         st.tc[0] = 0.04; st.tc[1] = st.tc[2] = st.tc[3] = 1; st.tth = 0; st.ttw = 0.8; st.ttp = 0;
         _pinch.set(right ? 0.03 : -0.03, -0.118, -0.034).applyMatrix4(st.W); st.W.elements[12] += pt.x - _pinch.x; st.W.elements[13] += pt.y - _pinch.y; st.W.elements[14] += pt.z - _pinch.z;
       }
-      else if (h.k in SW || h.k === 'ldg') {         // pinch: thumb + index meet on the knob
-        st.tc[0] = 0.65; st.tc[1] = 0.9; st.tc[2] = st.tc[3] = 0.95; st.tth = 0; st.ttw = 0; st.ttp = 1;   // pinch pose
-        _pinch.set(right ? -0.004 : 0.004, -0.075, -0.05).applyMatrix4(st.W); st.W.elements[12] += pt.x - _pinch.x; st.W.elements[13] += pt.y - _pinch.y; st.W.elements[14] += pt.z - _pinch.z;
-      } else { fist(1, 0); _pinch.set(0, 0, 0).applyMatrix4(st.W); st.W.elements[12] += pt.x - _pinch.x; st.W.elements[13] += pt.y - _pinch.y; st.W.elements[14] += pt.z - _pinch.z; }
       st.mode = 'ck';
     }
   } else if (MAP.g === g || MAP.g2 === g || FUELP.g === g) { st.tc[0] = st.tc[1] = st.tc[2] = st.tc[3] = 0.6; st.tth = 0.3; st.ttw = 0.5; st.mode = 'hold'; }
@@ -3738,7 +3829,7 @@ function updateHands(dt) {
       st.tracked = !!hand && buildTracked(st, hand);
       if (st.tracked) { st.W.identity(); st.hide = 0; st.mode = 'tracked'; st.vis = true; }
       else {
-        handTargets(i, g, st); st.hide = 0; const k = 1 - Math.exp(-dt * 22);
+        handTargets(i, g, st); gripBlend(st, dt); st.hide = 0; const k = 1 - Math.exp(-dt * 22);
         for (let f = 0; f < 4; f++) st.c[f] += (st.tc[f] - st.c[f]) * (st.mode === 'free' || st.mode === 'hold' ? k : 1);
         const kt = st.mode === 'free' || st.mode === 'hold' ? k : 1; st.th += (st.tth - st.th) * kt; st.tw += ((st.ttw || 0) - st.tw) * kt; st.tp += ((st.ttp || 0) - st.tp) * kt;
         buildHand(st, st.right ? 1 : -1); st.tip.copy(st.tipH).applyMatrix4(st.W); st.vis = true;
