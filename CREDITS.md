@@ -19,3 +19,5 @@ v0.45 removed them from the repo along with the systems that used them (v0.53 br
 Quaternius' packs are free to use in personal and commercial projects; credit is appreciated, not required. Thank you!
 
 v0.56 (reputation and unlocks) adds no third-party assets: the Halvorsen board, stars and request badges are drawn in code.
+
+v0.57 (plane upgrades) adds no third-party assets. The tank, pod, light, radio, tyres, bolts and parts board are built in code, with the mounts ported from the project's own full-game v0.32 upgrade code.

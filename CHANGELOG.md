@@ -2,6 +2,39 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.57 – plane upgrades: bought at the home hangar, carried out and bolted on
+Neil: "plane upgrades bought at the home hangar and fitted physically (reuse full-game v0.32 upgrade code where useful): long-range tank, tundra tyres (rough-field ability, slight drag), cargo pod (extra baggage capacity, drag), LED landing light, COM radio, and plan/stub floats & skis … Effects only through existing W&B/drag/input paths or opt-in paths so the stock Cub physics md5 stays identical. Some upgrades gated by reputation/cash." The physics block is untouched (md5 `eee6637e…`). With nothing fitted, the Cub gets exactly the stock CD0, gear and surface values, and t57 checks that a fly-out after fitting everything and taking it all off again is the same bit for bit.
+- **The hangar parts board** stands on the hangar's outside wall next to the service board. Poke a row in VR, or press desktop **1-7** at the board. It has 7 rows. Parts are **cash only**, and three are **gated by rep**:
+
+| Part | Price | Needs | Weight (arm) | Effect |
+|---|---|---|---|---|
+| LED landing light | $380 | – | 3 lb | Beam 450 m / 0.42 rad / 520 (stock 260 / 0.3 / 220) |
+| COM radio | $650 | – | 4 lb (−8 in) | Customers call you with offers. Late jobs cost −4 rep instead of −8 |
+| Cargo pod | $1,150 | Dry Fork rep 55 | 30 lb (+42 in) | A closed 100 lb belly locker. CD0 +0.003 |
+| Tundra tyres 39" | $1,450 | Ridge Crew rep 35 | 14 lb (−2 in) | Rough ground roll ×0.78 and bumps ×0.4. Hard-landing limit 2.4 m/s (stock 2.0). CD0 +0.002 |
+| Long-range tank | $2,100 | Lodge rep 55 | 22 lb (+26 in, right wing) | +16 gal aux that feeds the mains. CD0 +0.001 |
+| Amphibious floats / wheel-skis | – | – | – | Listed as NOT IN STOCK YET (a later version) |
+
+- **Fitting is physical.** A bought part waits on the hangar bench or floor. Carry it to the Cub, and a green outline shows its spot. Hold it there and it clicks on loose. Then drive the bolts home: 2 for the light and radio, 4 for the tank, pod and tyres.
+  - **VR:** grip the part to carry it. To tighten, grip a bolt head and twist your wrist (270° per bolt, with a ratchet click every 30° and haptics).
+  - **Desktop:** press **E** to pick a part up, **E** at the Cub to put it on its spot, then **E** once per bolt.
+  - Parts go on and come off only **at the home hangar**: on foot, with the Cub stopped within 45 m and the engine off. The pod must be empty to take it off.
+  - The board's REMOVE button puts a part back on the floor. Fuel left in the aux tank is credited at the home drum price.
+- **Mounts and models** are ported from the full-game v0.32 upgrade code: the tank under the right wing, the pod under the belly, the light in the left wing's leading edge, the radio under the panel, and the bigger tyres (same axle, +5 cm radius).
+- **How each effect plugs in** (all opt-in, outside the physics block):
+  - Weights go in as W&B loads. The W&B card gets PARTS, AUX and CARGO POD rows.
+  - Drag is added to C.CD0. All five parts take it from 0.050 to 0.056.
+  - The tyres change the C.GEAR radius and the SURF roll and bump values off-strip.
+  - The light uses the landing-light spotlight's settings.
+  - The radio uses the existing rep and message paths.
+- **Long-range tank:** the drum fills the mains first, then the aux ("TANKS FULL - 36 GAL + 16 AUX"). With the master on, the aux feeds the mains at 0.25 L/s whenever they drop below 90 %. The HUD fuel line shows `+x.x AUX`, and the aux fuel's weight goes into W&B.
+- **Cargo pod:** a new cargo zone. Light pieces up to 100 lb fit (no dog crates). They count as secured and don't slide. In VR, load and unload it by hand. On desktop, press E standing on the left side of the Cub by the pod.
+- **COM radio:** static chatter every 20–45 s. Every 75 s or so, a customer calls about the best offer you haven't heard yet, with requests first (`RADIO - MRS ANDERS: "NEIL, WE ASKED FOR YOU - MEDICAL SUPPLIES FROM DRY FORK, $562. SEE YOU AT THE BOARD"`).
+- **Plan for floats and wheel-skis (a later stage):** they would swap the gear (C.GEAR contact points and a water or snow SURF type) on the same opt-in path. Floats need a water contact model and docking at lakes, and skis need snow surfaces on the glacier strips. They are on the board as "NOT IN STOCK YET".
+- **Save** (still v55) adds `upg` (fitted, owned, aux fuel). Older or bad saves load as a stock Cub. A part that was half bolted on when you saved is back on the floor.
+- **Fix:** the v0.57 radio patch (84fe4dc) briefly hid the early-delivery +2 rep bonus behind a comment. It was fixed two commits later.
+- **Tests:** a new t57 (21 checks: stock identity, board and gates, desktop and VR fitting, home-only fitting, each effect, the aux fill and feed, pod limits, radio rep and calls, removal, save) was added to the suite.
+
 ## v0.56 – reputation and unlocks: per-customer rep, requests by name, the Halvorsen board
 Neil: "reputation per town/customer (on-time, condition, accuracy raise it; late/damaged/lost lower it), unlocking new strips/towns (e.g. Halvorsen Station board), bigger and better-paying jobs, and regular customers who ask for you by name. Show rep on boards/kneeboard/wrist. Leave the R reset key as is." The physics block is untouched (md5 unchanged), and R works as before.
 - **Rep 0–100 per customer:** each strip's town or crew (THE STRIP STORE, THE RIDGE CREW, THE LODGE, DRY FORK FEED + SUPPLY, HALVORSEN AG-BIO), each bush camp's customer and each airdrop party. Everyone starts at 30 (NEW). Tiers: UNHAPPY < 15, NEW < 35, KNOWS YOU < 55, TRUSTED < 75, REGULAR. Shown as 5 stars.

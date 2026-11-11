@@ -218,6 +218,26 @@ The Cub keeps a log: tach hours, oil, tyre and brake wear, and gear and engine d
 - **The HUD and wrist** show a maintenance line only when something needs attention: OIL LOW, 100-HR DUE / OVERDUE, GEAR DMG, ENG DMG, TYRES WORN, BRAKES WORN, ENGINE SEIZED.
 - Damage and wear only change what your controls do: a power cap on the throttle, weaker brakes, a rudder pull on the ground, or engine out when seized. A healthy Cub flies exactly as before.
 
+## Plane upgrades (v0.57)
+Parts are sold on the **PARTS** board on the home hangar wall, next to the service board. They are cash only, and the tank, tyres and pod also need rep: Lodge 55, Ridge Crew 35 and Dry Fork 55.
+
+| | VR (Quest) | Desktop |
+|---|---|---|
+| Buy / fit / remove | Poke the row on the parts board | **1-7** standing at the board |
+| Carry a part | Grip it on the hangar bench or floor | **E** by the part |
+| Put it on | Hold it at the green outline on the Cub; it clicks on | **E** at the Cub |
+| Tighten the bolts | Grip a bolt head and twist your wrist (270° each, ratchet clicks) | **E** once per bolt |
+| Load / unload the cargo pod | By hand at the pod under the belly | **E** standing on the left side of the Cub by the pod |
+
+- Fit and remove parts only at the home hangar: on foot, with the Cub stopped nearby and the engine off. Empty the pod before you take it off. Removed parts go back on the hangar floor, and fuel left in the aux tank is credited.
+- **Long-range tank:** after the mains are full, the drum fills 16 gal of aux. With the master on, it feeds the mains in flight. The HUD shows `+x.x AUX`.
+- **Tundra tyres 39":** roll easier on rough ground and take a firmer landing before the gear bends. They add a little drag.
+- **Cargo pod:** holds 100 lb of light pieces that can't slide. It adds drag.
+- **LED landing light:** brighter, wider and longer than stock. It uses the same landing-light switch.
+- **COM radio:** customers call with offers (requests first), and being late costs half the rep.
+- Floats and wheel-skis are on the board as "not in stock yet" (a later version).
+- Every part's weight shows on the W&B card. With nothing fitted, the Cub flies exactly as stock.
+
 ## Paper map
 - It lives in the holder on the left cockpit wall. In VR, squeeze grip on it to take it, and grab the far edge with your other hand to open it out. Let go in the cockpit and it clips back into the holder.
 - On foot you can carry it. Let go near the holder to clip it back, or anywhere else to drop it (pick it up off the ground with grip).
