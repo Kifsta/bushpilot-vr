@@ -2,6 +2,45 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.58 – townsfolk, medevac and search-and-rescue
+Neil: "recurring townsfolk (named, simple low-poly figures at their strips/camps, short notes/radio lines that build small stories across jobs, tied to rep/requests), medevac jobs (stretcher/injured passenger loaded into the rear seat, W&B, time-critical, smooth flying matters), and search-and-rescue (find an overdue hiker/canoe party from the air using binoculars, mark/airdrop supplies or land nearby to pick up)." The physics block is untouched (md5 `eee6637e…`). Emergencies run on their own list, outside the job boards, so every board offer and every pay stays the same as in v0.57 (t54 and t56 pay checks pass unchanged).
+- **Townsfolk:** 14 low-poly figures, each one merged body plus a waving arm.
+  - One customer stands beside each of the 13 job boards: Old Pete, Foreman Dawson, Mrs Anders, Mae at the feed store, Prospector Joe, Trapper Bill, Ranger Kowalski, Dr Lindqvist, and the rest. Nurse Okafor stands by the Dry Fork pad.
+  - They turn to face you within 12 m. Walk within 4 m and they wave and say hello. The hello depends on their rep tier ("OH. IT'S YOU." / "MORNING, NEIL." / "THERE'S MY PILOT!"), adds their current story line, and thanks you if you're carrying their request.
+  - A hello waits for a quiet moment, so it never covers a message that is still showing.
+- **Stories:** each story has four beats. A delivery or airdrop to that customer moves their story on one beat at rep 35, 50 and 65, then at 80 or after a rescue.
+  - Each beat arrives as a NOTE a few seconds after the delivery message.
+  - With the COM radio fitted, their latest radio line comes up every few minutes.
+  - Beat 3 of four stories is a **scripted emergency**. It is the next call-out, it doesn't expire, and finishing it gives +10 rep and opens the last beat:
+    - Old Pete: his granddaughter Lily goes up the Baldy trail alone (SAR).
+    - The Ridge Crew: young Tommy and a chainsaw (medevac).
+    - Mrs Anders: nephew Erik's canoe party is overdue on the Lower River (SAR, 3 people).
+    - Prospector Joe: falls into his own sluice (medevac). His figure is missing from Creek Bar while he's the patient.
+  - Mae's story leads to the valley clinic: Nurse Okafor starts work and the kids paint "NEIL'S FIELD". Ranger Kowalski puts you on the SAR roster.
+- **Call-outs:** the first comes at 3 min of game time, then every 6–10 min after the last one ends. Unscripted ones expire after 12 min ("THE STATE HELICOPTER HAS THE MEDEVAC - STAND DOWN"). One emergency runs at a time, alongside your board jobs.
+  - **The red EMERGENCY CALL-OUTS sign** stands on the left of the Home, Ridge, Lodge and Dry Fork boards. It shows the call, the pay and the time left. Poke it in VR, or press desktop **4**, to accept. When you're on an emergency, the same sign shows its status and a poke or 4 hands it over to the state helicopter (−6 rep; not possible once the patient is aboard).
+  - **By COM radio** in the Cub (master on): `RADIO - RANGER KOWALSKI: "ALL PILOTS, MEDEVAC: …" (C TO TAKE IT)`. Press **C**, or poke the radio's face in VR. Without the radio you only hear about call-outs at a sign.
+- **Medevac:** pick up at a strip, camp or bush site (bush sites go onto the map), and fly to the **Dry Fork clinic**.
+  - Pay is $320 + $70/km + $30/km out from Home, roughly $500–900.
+  - Due in 8 + 1.7 min per km.
+  - The patient's condition clock runs for 30 + 2 min per km.
+  - The casualty sits on a stretcher, waving. Walk up and they lean on you and follow at 1.25 m/s. At the Cub's door, with the Cub stopped and the engine off ("THEY WON'T WALK PAST A TURNING PROP") and the rear seat clear, they climb onto the rear seat.
+  - **The patient** is a cargo piece on the rear seat: 140–200 lb, seated, blanket and dressing. Their weight goes into W&B automatically: the rear-seat row and the plan line move. They can't be lifted out, and they count as secured.
+  - **Condition** drops 1/life per minute, at half that rate while they wait on the ground. Flying rough (cabin roughness above 0.2) makes it faster: at 0.5 it is ×2.2 and they cry out "FLY SMOOTHER". Flying with no belt (/) adds ×0.5. Warnings come at 50 % and 25 %.
+  - **The handover:** shut down within 90 m of the Dry Fork pad and Nurse Okafor takes over. Pay = pay × (0.4 + 0.6 × condition), half if late. Rep goes through the normal job path.
+- **Search-and-rescue:** an overdue hiker, hunter, canoe party or kayakers in one of 6 areas: Baldy Trail, Spruce Hills, East Woods, Lower River, Big Bend and East Lake. Each area has 3 spots found at load on flat dry ground or a river or lake bank, with the trees cleared round them.
+  - Pay is $380 + $60/km. Due in 16 + 2.5 min per km.
+  - Two 15–25 lb supply bundles appear on the pad of the strip you took it from.
+  - The map and kneeboard show only a **450 m search circle**. The party is 60–280 m off its centre.
+  - **Spot them:** fly within 150 m below 260 m AGL, or look through the **binoculars (V)** from up to 4 km. That gives "SPOTTED: ERIK'S CANOE PARTY - 3 PEOPLE WAVING AT LOWER RIVER, 460 M (BINOCULARS)", and an X on the map.
+  - The party is a tent or a canoe and orange tarp, plus 1–3 people who wave at the Cub within 900 m.
+  - **Airdrop:** use the v0.52 bundle drop (G, or push one out the door). A bundle that lands within 60 m and not in the water finishes the job: 60 % of the pay and +6 rep. Further away, or in the water: "THEY CAN'T GET TO IT".
+  - **Or land nearby:** walk up, and one of the party climbs aboard just like a medevac patient. Fly them to the clinic for the full pay.
+- **Map:** the call-out shows as a red ring with a ?, the found party as a red X, a medevac pickup as a red cross, and the clinic as a ring.
+- **Kneeboard:** MEDEVAC / SEARCH + RESCUE entries with route, heading and distance to the pickup, search circle, party or clinic, condition, belt and due time.
+- **Save** (still v55) adds `emg` (call, active job, story queue, story beats, next call). The patient stays aboard across a reload. A bad save is cleaned up, and no save means a fresh start. Story beats are saved with it.
+- **Tests:** a new t58 (20 checks: figures, greeting, beats and notes, scripted call, first call, expiry, sign and key 4, radio and C, board offers untouched, pickup, prop, rear seat, W&B, condition rates, handover pay, SAR circle, proximity and binocular spotting, bundle within/outside 60 m, SAR land pickup, cancel rules, kneeboard, Joe hidden, save) was added to the suite.
+
 ## v0.57 – plane upgrades: bought at the home hangar, carried out and bolted on
 Neil: "plane upgrades bought at the home hangar and fitted physically (reuse full-game v0.32 upgrade code where useful): long-range tank, tundra tyres (rough-field ability, slight drag), cargo pod (extra baggage capacity, drag), LED landing light, COM radio, and plan/stub floats & skis … Effects only through existing W&B/drag/input paths or opt-in paths so the stock Cub physics md5 stays identical. Some upgrades gated by reputation/cash." The physics block is untouched (md5 `eee6637e…`). With nothing fitted, the Cub gets exactly the stock CD0, gear and surface values, and t57 checks that a fly-out after fitting everything and taking it all off again is the same bit for bit.
 - **The hangar parts board** stands on the hangar's outside wall next to the service board. Poke a row in VR, or press desktop **1-7** at the board. It has 7 rows. Parts are **cash only**, and three are **gated by rep**:

@@ -21,3 +21,5 @@ Quaternius' packs are free to use in personal and commercial projects; credit is
 v0.56 (reputation and unlocks) adds no third-party assets: the Halvorsen board, stars and request badges are drawn in code.
 
 v0.57 (plane upgrades) adds no third-party assets. The tank, pod, light, radio, tyres, bolts and parts board are built in code, with the mounts ported from the project's own full-game v0.32 upgrade code.
+
+v0.58 (townsfolk and emergencies) adds no third-party assets. The townsfolk, casualties, stretchers, tents, canoes, the patient and the red signs are built in code from boxes.

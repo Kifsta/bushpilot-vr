@@ -238,6 +238,22 @@ Parts are sold on the **PARTS** board on the home hangar wall, next to the servi
 - Floats and wheel-skis are on the board as "not in stock yet" (a later version).
 - Every part's weight shows on the W&B card. With nothing fitted, the Cub flies exactly as stock.
 
+## Townsfolk and emergencies (v0.58)
+A customer stands at every job board. Walk up to them for a hello: their rep tier and where their story is. Deliveries move their story on (a NOTE after the delivery, and radio lines with the COM radio). Emergency call-outs come every 6–10 min; one runs at a time.
+
+| | VR (Quest) | Desktop |
+|---|---|---|
+| Take a call-out | Poke the red EMERGENCY sign (Home, Ridge, Lodge, Dry Fork boards) | **4** at the sign |
+| Take it by radio (COM radio fitted, master on) | Poke the radio's face | **C** in the Cub |
+| Hand your emergency to the state helicopter (−6 rep) | Poke the red sign again | **4** at the sign |
+| Help a casualty to the Cub | Walk up to them (they lean on you and follow), then walk to the Cub's door | Same |
+| Belt the patient in | Squeeze the rear seat **belt buckle** | **/** |
+| Spot a search party | Binoculars | **V** |
+| Drop supplies | Push a bundle out the door | **G** |
+
+- **Medevac:** the patient boards only with the Cub stopped, the engine off and the rear seat clear. Their weight is on the W&B card. Their condition drops with time, faster with rough flying or no belt. Shut down within 90 m of the Dry Fork pad and Nurse Okafor takes over. Pay follows their condition.
+- **Search-and-rescue:** the map and kneeboard show a 450 m search circle. Fly within 150 m below 260 m AGL, or use the binoculars, to spot the party (a red X on the map). Then drop a supply bundle within 60 m of them (not in the water) for 60 % of the pay. Or land nearby and walk up: one climbs aboard, and you fly them to the clinic for the full pay.
+
 ## Paper map
 - It lives in the holder on the left cockpit wall. In VR, squeeze grip on it to take it, and grab the far edge with your other hand to open it out. Let go in the cockpit and it clips back into the holder.
 - On foot you can carry it. Let go near the holder to clip it back, or anywhere else to drop it (pick it up off the ground with grip).
