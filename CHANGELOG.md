@@ -2,6 +2,11 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.52.1 – baggage limit on the W&B status line
+- **The W&B card status line now checks the baggage bay limit.** With more than 50 lb in the baggage bay it says **BAGGAGE OVERLOAD** (amber), not WITHIN LIMITS beside the "BAGGAGE OVER 50 LB MAX" footer. The order is OVER GROSS, then CG AFT / FWD OF LIMIT, then BAGGAGE OVERLOAD, then WITHIN LIMITS.
+- **The takeoff-roll reminder** (throttle up on the ground) now includes `BAGGAGE OVERLOAD n LB (MAX 50) - MOVE SOME TO THE REAR SEAT`, together with any over-gross, CG or loose-cargo warnings.
+- **Tests:** a new t52h check (20 pass) covers the card status, the footer and the spoken reminder. md5, W&B tests, lint 25, t50, t51 and reload all pass.
+
 ## v0.52 – bush sites; light and heavy jobs
 Unprepared landing spots with customers, found by flying low, marked on the paper map, with jobs to and from them. Neil's cargo-weight decision ships as its own commit: a mix of LIGHT parcel runs and HEAVY freight. No weather or wind; the physics block is untouched.
 - **8 bush sites** (`BUSH`, appended to `DLV_STRIPS` with `site: true`). Each was placed by a terrain search (`sitesearch.mjs` plus an in-browser water-distance scan): the centreline stays within slope limits, and sandbars and shores stay 12–55 m from the water without running into it. The ground isn't flattened (`terrainHeight` is unchanged), so the gear rolls on the real slope and the rough surface. Only the two short strips are mown (`MOWN`).

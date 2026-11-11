@@ -4881,6 +4881,7 @@ function wbWarn(dt) {   // v0.50 (from the full-game branch): one reminder when 
   const B = WBS.plan; let m = '';
   if (B.over) m = 'OVER GROSS: ' + B.lb.toFixed(0) + ' LB (MAX 1750) - LONG ROLL, SLOW CLIMB, GO EASY ON THE LANDING';
   else if (!B.inEnv) m = 'CG ' + (B.arm > WNB.AFT ? 'AFT' : 'FORWARD') + ' OF LIMIT (+' + B.arm.toFixed(1) + ' IN)';
+  if (WBS.bagLb > WNB.BAG_MAX_LB) m = (m ? m + ' | ' : '') + 'BAGGAGE OVERLOAD ' + WBS.bagLb.toFixed(0) + ' LB (MAX 50) - MOVE SOME TO THE REAR SEAT';   // v0.52.1
   if (WBS.loose >= 10) m = (m ? m + ' | ' : '') + 'LOOSE CARGO ' + WBS.loose.toFixed(0) + ' LB - STRAP IT DOWN';
   if (m) { say(m); WBS.warnT = 30; }
 }
@@ -4905,7 +4906,7 @@ function wbChart(x, X, Y, W, H, P, fs = 1) {   // CG (in) across, weight (lb) up
   const dx = clamp(px(P.arm), X + 4, X + W - 4), dy = clamp(py(P.lb), Y + 4, Y + H - 4);
   x.fillStyle = P.over ? '#d02a1a' : P.inEnv ? '#1a8a2a' : '#e08a10'; x.beginPath(); x.arc(dx, dy, 6 * fs, 0, 6.283); x.fill(); x.strokeStyle = '#111'; x.lineWidth = 1.5 * fs; x.stroke();
 }
-function wbStatus(P) { return P.over ? ['OVER GROSS +' + (P.lb - WNB.GROSS_LB).toFixed(0) + ' LB', '#d02a1a'] : P.arm > WNB.AFT ? ['CG AFT OF LIMIT', '#e08a10'] : P.arm < P.fwd ? ['CG FWD OF LIMIT', '#e08a10'] : ['WITHIN LIMITS', '#1a7a2a']; }
+function wbStatus(P) { return P.over ? ['OVER GROSS +' + (P.lb - WNB.GROSS_LB).toFixed(0) + ' LB', '#d02a1a'] : P.arm > WNB.AFT ? ['CG AFT OF LIMIT', '#e08a10'] : P.arm < P.fwd ? ['CG FWD OF LIMIT', '#e08a10'] : WBS.bagLb > WNB.BAG_MAX_LB ? ['BAGGAGE OVERLOAD', '#e08a10'] : ['WITHIN LIMITS', '#1a7a2a']; }   // v0.52.1 bag limit
 function wbCardDraw() {
   const x = WBC_X, P = WBS.plan; if (!P) return;
   x.fillStyle = '#efeadb'; x.fillRect(0, 0, 256, 352); x.fillStyle = '#1e2a3a'; x.fillRect(0, 0, 256, 30);
