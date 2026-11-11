@@ -19,7 +19,7 @@
 </script>
 </head>
 <body>
-<div id="info">BUSH PILOT VR v0.55 - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs). No wind, no weather.
+<div id="info">BUSH PILOT VR v0.56 - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board). No wind, no weather.
 You start on foot by the Cub at the cabin strip. Walk up to her and climb in (F / Y), then start her up off the checklist card (J).
 Desktop - flying: W/S or arrows pitch, A/D or arrows roll, Q/E rudder, Shift / Ctrl (or + / -) throttle, B brakes, [ ] flaps, PgUp / PgDn trim,
   R reset to the strip (cold and dark), F climb out, M map, L landing light, Home recentre, mouse looks (click to capture).
@@ -1944,7 +1944,7 @@ const hud = document.getElementById('hud'), cross = document.getElementById('cro
 function statusText() {
   const kt = (ac.out.V || 0) * 1.944, A = dlvActive(), nx = A.slice().sort((a, b) => (b.sp ? 1 : 0) - (a.sp ? 1 : 0) || dlvLeft(a) - dlvLeft(b))[0];   // v0.51: special cargo first (its meter shows)   // v0.50 wallet + the most urgent job
   return '$' + DLV.cash.toLocaleString('en-US') + (nx ? '  ' + A.length + ' JOB' + (A.length > 1 ? 'S' : '') + ' >' + dlvS(nx.to).name.replace(' STRIP', '') + (nx.sp ? dlvMeter(nx).replace(' - ', ' ').replace('DAMAGE', 'DMG') : nx.dl ? ' ' + Math.max(0, Math.ceil(dlvLeft(nx))) + 'M' : '') : '  NO JOBS') + '\n' + `FUEL ${(fuel / FUEL_MAX * 100).toFixed(0)}% ${(fuel / 3.785).toFixed(1)} GAL${FUELP.on ? ' FILLING' : ''}\n` +
-    (mode === 'plane' ? `ENG ${ENG.running ? 'RUN ' + Math.round(ENG.rpm) : ENG.cranking ? 'CRANK' : 'OFF'}  ${Math.round(kt)} KT` : 'ON FOOT') + (ecoWarn() ? '\n' + ecoWarn() : '') + (msgT > 0 ? '\n' + msg : '');   // v0.55 maintenance warnings
+    (mode === 'plane' ? `ENG ${ENG.running ? 'RUN ' + Math.round(ENG.rpm) : ENG.cranking ? 'CRANK' : 'OFF'}  ${Math.round(kt)} KT` : 'ON FOOT') + (ecoWarn() ? '\n' + ecoWarn() : '') + (repLine() ? '\n' + repLine() : '') + (msgT > 0 ? '\n' + msg : '');   // v0.55 maintenance warnings
 }
 let wristKey = '';
 function drawWrist() {   // v0.10: only re-uploads when something on it changed
@@ -3119,7 +3119,7 @@ MAP.canvas = document.createElement('canvas'); MAP.canvas.width = MAP_W; MAP.can
   box(0.06, 0.02, 0.012, mat(0x777777), 0, 0.095, -0.004, MAP.clip);                                                                             // the clip
 }
 function mapJobs() {   // v0.51.1: job boards (gold square) + every active job's destination (its colour, ringed, numbered, a dashed line from the origin)
-  const A = dlvActive(), k = A.map(j => j.id + j.to + j.from + (j.hunt ? 'h' + j.hunt.got : '') + (j.drop ? 'd' + j.drop.res.length : '')).join() + '|' + DLV_STRIPS.map(S => S.found ? 1 : 0).join(''); if (k === MAP.key) return; MAP.key = k;
+  const A = dlvActive(), k = A.map(j => j.id + j.to + j.from + (j.hunt ? 'h' + j.hunt.got : '') + (j.drop ? 'd' + j.drop.res.length : '')).join() + '|' + DLV_STRIPS.map(S => S.found || S.lock ? (S.lock ? 2 : 1) : 0).join(''); if (k === MAP.key) return; MAP.key = k;
   const x = MAP.cx, X = wx => (wx + MAP_X) * MAP_PX, Z = wz => (wz + MAP_Z) * MAP_PX, F = "'Segoe Print','Bradley Hand','Comic Sans MS','Comic Neue',cursive";
   x.drawImage(MAP.base, 0, 0); x.textBaseline = 'middle'; x.textAlign = 'center';
   for (const S of DLV_STRIPS) { if (!S.site || !S.found) continue; const B = S.B, sa = Math.sin(B.a), ca = Math.cos(B.a), p0x = X(B.x - sa * B.hl), p0y = Z(B.z - ca * B.hl), p1x = X(B.x + sa * B.hl), p1y = Z(B.z + ca * B.hl);   // v0.52
@@ -3128,7 +3128,7 @@ function mapJobs() {   // v0.51.1: job boards (gold square) + every active job's
       x.strokeStyle = '#8a1a10'; x.fillStyle = '#8a1a10'; x.lineWidth = 2; x.beginPath(); x.moveTo(hx, hy); x.lineTo(tx, ty); x.stroke(); x.beginPath(); x.moveTo(tx, ty); x.lineTo(tx - 9 * Math.cos(ang - 0.4), ty - 9 * Math.sin(ang - 0.4)); x.lineTo(tx - 9 * Math.cos(ang + 0.4), ty - 9 * Math.sin(ang + 0.4)); x.closePath(); x.fill(); }
     const lb = B.lab || [X(B.cx) > X(B.x) ? 14 : -14, 0, X(B.cx) > X(B.x) ? 'left' : 'right'], ox = X(B.x) + lb[0], oy = Z(B.z) + lb[1]; x.textAlign = lb[2]; x.fillStyle = '#1e1810'; x.font = 'bold 13px ' + F; x.fillText(S.name.toLowerCase(), ox, oy - 8);
     x.font = '11px ' + F; x.fillText(B.cust.toLowerCase() + ' - ' + BUSH_T[B.type].toLowerCase() + ' ' + B.len + 'm' + (B.land != null ? ' 1-way' : ''), ox, oy + 6); x.textAlign = 'center'; }
-  for (const S of DLV_STRIPS) { if (S.site && !S.found) continue; const px = X(S.pad[0]), py = Z(S.pad[1]); x.fillStyle = '#e0a020'; x.strokeStyle = '#1e1810'; x.lineWidth = 1.5; x.fillRect(px - 5, py - 5, 10, 10); x.strokeRect(px - 5, py - 5, 10, 10);
+  for (const S of DLV_STRIPS) { if ((S.site && !S.found) || S.lock) continue; const px = X(S.pad[0]), py = Z(S.pad[1]); x.fillStyle = '#e0a020'; x.strokeStyle = '#1e1810'; x.lineWidth = 1.5; x.fillRect(px - 5, py - 5, 10, 10); x.strokeRect(px - 5, py - 5, 10, 10);
     x.font = 'bold 12px ' + F; x.fillStyle = '#5a3a10'; x.fillText('JOBS', px, py + 14); const fs = FUEL_ST.find(f => f.id === S.id); if (fs) { x.fillStyle = '#9a2a1a'; x.fillText('fuel $' + fs.price.toFixed(2), px, py + 27); } }   // v0.55
   for (const j of A) { if (!j.hunt || j.hunt.got) continue; const H = DEER_HERDS[j.hunt.h], hx = X(H.x0 ?? H.x), hy = Z(H.z0 ?? H.z);   // v0.53 the hunting area
     x.fillStyle = 'rgba(224,112,16,0.16)'; x.strokeStyle = '#c05a08'; x.lineWidth = 2.5; x.setLineDash([6, 4]); x.beginPath(); x.arc(hx, hy, HUNT_R * MAP_PX, 0, 6.283); x.fill(); x.stroke(); x.setLineDash([]);
@@ -3581,6 +3581,7 @@ function kbLines() {   // the text, one entry per active job
       pcs: '1 DEER, ~100-150 LB (TWO-HAND)', pay: '$' + j.pay, due: left === Infinity ? 'NO DEADLINE' : left < 0 ? 'LATE - HALF PAY' : 'DUE IN ' + Math.ceil(left) + ' MIN', st: 'HUNTING - FIND THE HERD', warn: left < 0 }); continue; }   // v0.53
     L.push({ col: '#' + DLV_COL[j.id % DLV_COL.length].toString(16).padStart(6, '0'), t: j.title, sp: j.sp, rt: S.name + ' > ' + T.name, nav: (hu ? 'HUNT ' : hid ? 'SEARCH ' : '') + (km < 10 ? km.toFixed(1) : Math.round(km)) + ' KM  HDG ' + String(hdg).padStart(3, '0') + (T.site && !hid ? '  ' + BUSH_T[T.B.type] + ' ' + T.B.len + 'M' : ''),
       pcs: (dlvWc(j) === 'H' ? 'HEAVY ' : 'LIGHT ') + its.reduce((s, i) => s + i.lb, 0) + ' LB - ' + Object.entries(n).map(([k, c]) => c + ' ' + CARGO_K[k].n + (c > 1 ? 'S' : '')).join(', '), pay: '$' + j.pay, due, st, warn: !!loose || left < 0 || (j.sp && dlvSpPay(j) < 0.75) }); }
+  L.forEach((e, i) => { const k = repKey(A[i]); e.rep = repStars(repOf(k)); e.req = A[i].req ? 1 : 0; });   // v0.56 one entry per job, in order
   return L;
 }
 function kbDraw() {
@@ -3591,7 +3592,7 @@ function kbDraw() {
   L.forEach((e, i) => { const Y = 92 + i * 204;
     x.fillStyle = e.col; x.fillRect(14, Y + 6, 16, 190); x.fillStyle = '#111'; x.font = 'bold 27px sans-serif'; x.fillText((i + 1) + '. ' + e.t, 40, Y + 34);
     x.textAlign = 'right'; x.fillStyle = '#1e6a2a'; x.fillText(e.pay, KB_W - 18, Y + 34); x.textAlign = 'left';
-    x.fillStyle = '#222'; x.font = 'bold 23px sans-serif'; x.fillText(e.rt, 40, Y + 66); x.font = '22px sans-serif'; x.fillText(e.nav, 40, Y + 96);
+    x.fillStyle = '#222'; x.font = 'bold 23px sans-serif'; x.fillText(e.rt, 40, Y + 66); x.font = '22px sans-serif'; x.fillText(e.nav, 40, Y + 96); x.textAlign = 'right'; x.fillStyle = '#a07010'; x.fillText((e.req ? 'REQUEST ' : '') + e.rep, KB_W - 18, Y + 96); x.textAlign = 'left';
     x.fillStyle = '#333'; x.font = '19px sans-serif'; x.fillText(e.pcs.slice(0, 40), 40, Y + 124);
     x.fillStyle = e.sp ? '#8a1a6a' : '#333'; x.font = 'bold 21px sans-serif'; x.fillText((e.sp ? { fragile: 'FRAGILE ', perish: 'PERISHABLE ', live: 'LIVE ' }[e.sp] : '') + e.due, 40, Y + 154);
     x.fillStyle = e.warn ? '#b8301e' : '#2a5a22'; x.font = 'bold 20px sans-serif'; x.fillText(e.st, 40, Y + 184); });
@@ -4404,6 +4405,8 @@ for (const B of BUSH) { B.len = Math.round(B.hl * 2 / 10) * 10;   // the landing
     B.tris = gs.slice(n0).reduce((t, h) => t + h.attributes.position.count / 3, 0);
     DLV_STRIPS.push({ id: B.id, name: B.name, x: B.x, z: B.z, board: [bx, bz, ry], pad: [px, pz], site: true, found: false, B });
   }
+  { const S = HALV, sa = Math.sin(S.a), ca = Math.cos(S.a), P = (w, l) => [S.x - ca * w + sa * l, S.z + sa * w + ca * l];   // v0.56 the Halvorsen station board: across the strip from the compound
+    const [bx, bz] = P(30, -40), [px, pz] = P(22, -32); DLV_STRIPS.push({ id: 'HALV', name: 'HALVORSEN STN', x: S.x, z: S.z, board: [bx, bz, Math.atan2(ca, -sa)], pad: [px, pz], lock: true }); }
   { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(RV, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(RC, 3)); g.computeVertexNormals();
     const rm = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -3 })); rm.userData.noBatch = true; scene.add(rm); BUSH.rib = rm;
     const mm = new THREE.Mesh(mergeGeometries(GS), new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true })); mm.userData.noBatch = true; scene.add(mm); for (const h of GS) h.dispose();
@@ -4452,12 +4455,67 @@ const JB_W = 512, JB_H = 352, JB_PW = 1.28, JB_PH = 0.88, JB_Y = 1.45;
       for (let i = 0; i < m.count; i++) if (A[i * 16 + 15] && off(A[i * 16 + 12], A[i * 16 + 14])) { A.fill(0, i * 16, i * 16 + 16); hit = true; } if (hit) m.instanceMatrix.needsUpdate = true; });
     for (let i = TREES.length - 1; i >= 0; i--) if (off(TREES[i][0], TREES[i][2])) TREES.splice(i, 1); };
 }
+// ================= v0.56 REPUTATION: every customer (each strip's town / camp, each airdrop party) keeps a 0-100 rep with you =================
+// On time, early, in good shape, on the X raise it; late, damaged, spoiled, lost, cancelled lower it. Above 50 their jobs pay more (to +25 %), at REGULAR (75+) they ask for you by name:
+// bigger loads at +35 %. Dry Fork vouching for you (55) opens the Halvorsen station's board. Rep lives in the delivery save (DLV.rep).
+const REP0 = 30, REP_UNL = 55, REP_TIERS = [[15, 'UNHAPPY', '#b8301e'], [35, 'NEW', '#6a6a6a'], [55, 'KNOWS YOU', '#3a6a2a'], [75, 'TRUSTED', '#1e6a2a'], [101, 'REGULAR', '#a07010']];
+const REP_WHO = { HOME: 'THE STRIP STORE', RIDGE: 'THE RIDGE CREW', LODGE: 'THE LODGE', DRYFORK: 'DRY FORK FEED + SUPPLY', HALV: 'HALVORSEN AG-BIO' };
+const REP_NAME = { HOME: 'OLD PETE', RIDGE: 'FOREMAN DAWSON', LODGE: 'MRS ANDERS', DRYFORK: 'MAE AT THE FEED STORE', HALV: 'DR LINDQVIST', CREEK: 'PROSPECTOR JOE', FISHBAR: 'THE FISH CAMP BOYS', NWSHORE: 'TRAPPER BILL', ESHORE: 'THE BOATHOUSE', BENCH: 'THE LOST LODE CREW',
+  ELK: 'THE ELK CAMP COOK', RANGER: 'RANGER KOWALSKI', RANCHS: 'THE RANCH FOREMAN', BALDY: 'THE HIKER', SPUR: 'THE SURVEY CHIEF', BURNT: 'THE FIRE BOSS', DEEP: 'THE TRAPPER', LOWER: 'THE CANOE PARTY' };
+const PILOT = (new URLSearchParams(location.search).get('pilot') || 'NEIL').toUpperCase().replace(/[^A-Z .'-]/g, '').slice(0, 14) || 'NEIL';
+const HALV_T = ['SEALED LAB SAMPLES', 'SEED LOT HB-7 CRATES', 'STATION 4 STORES', 'FIELD KIT RETURNS', 'GREENHOUSE SUPPLIES'];
+DLV.rep = {};
+const repKey = j => j.drop ? DROPS[j.drop.s].id : j.to;
+const repOf = k => DLV.rep[k] ?? REP0;
+const repTier = v => REP_TIERS.find(t => v < t[0]);
+const repStars = v => { const n = Math.round(v / 20); return '\u2605'.repeat(n) + '\u2606'.repeat(5 - n); };
+const repWho = k => REP_WHO[k] || dlvS(k)?.B?.cust || DROPS.find(D => D.id === k)?.who || k;
+const repPayX = v => v <= 50 ? 1 : 1 + (v - 50) / 200;   // 1.0 up to 50, 1.25 at 100
+function repAdd(k, d) {
+  const v0 = repOf(k), v = clamp(Math.round(v0 + d), 0, 100), t0 = repTier(v0)[1], t1 = repTier(v)[1]; DLV.rep[k] = v;
+  const r = { k, d: v - v0, v, tier: t1, up: t1 !== t0 && v > v0, down: t1 !== t0 && v < v0 }; DLV.repLast = r; repUnlock(); for (const S of DLV_STRIPS) S.key = ''; KB.key = ''; return r;
+}
+function repSay(r) { if (!r) return ''; return ' - ' + repWho(r.k) + ' ' + (r.d >= 0 ? '+' : '') + r.d + ' REP' + (r.up ? ', NOW ' + r.tier + (r.tier === 'REGULAR' ? ': ' + (REP_NAME[r.k] || repWho(r.k)) + ' WILL ASK FOR ' + PILOT : '') : r.down ? ', DOWN TO ' + r.tier : ''); }
+function repJob(j, late, k) {   // a delivery: on time / early / late, the cargo's state
+  let d = late ? -8 : 5; if (!late && j.dl && j.due - DLV.gt > j.dl * 0.4) d += 2;
+  if (j.sp || j.hunt) d += Math.round((k - 0.75) * 16); if (dlvWc(j) === 'H') d += 1; if (j.req) d += 2;
+  return repAdd(repKey(j), d);
+}
+function repDrop(j, f, late) { return repAdd(repKey(j), (late ? -8 : 0) + Math.round((f - 0.6) * 25)); }   // an airdrop: the average bundle share (accuracy x condition, lost = 0)
+function repUnlock(quiet) {   // Dry Fork vouches for you: the Halvorsen station's board opens
+  const H = dlvS('HALV'); if (!H || !H.lock || repOf('DRYFORK') < REP_UNL) return;
+  H.lock = false; MAP.key = ''; H.key = ''; if (!quiet) { say('DRY FORK VOUCHED FOR YOU: HALVORSEN AG-BIO STATION 4 WILL TAKE CONTRACTS - ITS BOARD IS OPEN (ON YOUR MAP), THEIR JOBS PAY +30%'); sfx('cash'); saveSoon(); }
+}
+function repShape(j) {   // a fresh offer: priced by the customer's rep; regulars ask for you (bigger load, +35 %); Halvorsen pays +30 %
+  const k = repKey(j), v = repOf(k), x = repPayX(v); if (x > 1) j.pay = Math.round(j.pay * x);
+  if (j.from === 'HALV' || j.to === 'HALV') { j.pay = Math.round(j.pay * 1.3); if (j.from === 'HALV' && !j.hunt && !j.drop && !j.sp) j.title = HALV_T[j.id % HALV_T.length]; }
+  if (v >= 75 && !j.hunt && !j.drop && dlvRng(j.id * 2750159 + 17)() < 0.4) { j.req = 1;
+    if (!j.sp && dlvWc(j) === 'L') { const lb0 = dlvLb(j), add = []; let t = lb0; for (const i of j.items) if (t + i.lb <= Math.min(2 * lb0, 320)) { add.push({ ...i }); t += i.lb; } j.items = j.items.concat(add); j.pay = Math.round(j.pay * Math.pow(dlvLb(j) / lb0, 0.8)); if (dlvLb(j) > 120) j.wc = 'H'; }
+    j.pay = Math.round(j.pay * 1.35); }
+  return j;
+}
+function repLine() {   // the wrist / HUD line: the board you're at, or the customer of your most urgent job
+  if (mode === 'foot' && DLV.nearS && DLV.nearD < 40) { const S = DLV.nearS; if (S.lock) return 'HALVORSEN: CLOSED - DRY FORK REP ' + repOf('DRYFORK') + '/' + REP_UNL; const v = repOf(S.id); return 'REP ' + S.name.replace(' STRIP', '') + ' ' + v + ' ' + repTier(v)[1]; }
+  const A = dlvActive(); if (mode !== 'plane' || !A.length) return ''; const j = A[0], k = repKey(j), v = repOf(k); return 'REP ' + repWho(k).slice(0, 16) + ' ' + v + ' ' + repTier(v)[1];
+}
+function jbLocked(S) {   // the Halvorsen board before Dry Fork vouches for you
+  const x = S.cx, v = repOf('DRYFORK');
+  x.fillStyle = '#2f3a48'; x.fillRect(0, 0, JB_W, JB_H); x.fillStyle = '#e8ecef'; x.fillRect(8, 8, JB_W - 16, JB_H - 16); x.textAlign = 'left';
+  x.fillStyle = '#1e3a6a'; x.font = 'bold 25px sans-serif'; x.fillText('HALVORSEN AG-BIO - STATION 4', 20, 42);
+  x.fillStyle = '#b8301e'; x.font = 'bold 20px sans-serif'; x.fillText('NO CIVILIAN CONTRACTS', 20, 82);
+  x.fillStyle = '#222'; x.font = '17px sans-serif'; x.fillText('Station flights are by referral only.', 20, 118); x.fillText('A pilot vouched for by DRY FORK FEED + SUPPLY', 20, 144); x.fillText('may apply. Station jobs pay +30 %.', 20, 170);
+  x.fillStyle = '#ccd3da'; x.fillRect(20, 196, JB_W - 40, 26); x.fillStyle = '#2a7a2a'; x.fillRect(20, 196, (JB_W - 40) * Math.min(1, v / REP_UNL), 26);
+  x.fillStyle = '#111'; x.font = 'bold 15px sans-serif'; x.fillText('YOUR REP AT DRY FORK: ' + v + ' / ' + REP_UNL + ' ' + repStars(v), 28, 214);
+  x.fillStyle = '#444'; x.font = '15px sans-serif'; x.fillText('Deliver to Dry Fork on time and in good shape to raise it.', 20, 254); x.fillText('- C. Lindqvist, Station Director', 20, 290);
+  S.tex.needsUpdate = true;
+}
 // ---- contracts ----
 function dlvRng(n) { let s = (n * 2654435761) >>> 0 || 1; return () => { s = (s + 0x6D2B79F5) | 0; let t = Math.imul(s ^ (s >>> 15), 1 | s); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
-function dlvGen(from, forceH) {   // one offer from this strip (seeded by the running job number, so a save reloads the same board); forceH: heavy freight
+function dlvGen(from, forceH) { return repShape(dlvGen0(from, forceH)); }   // v0.56 priced by rep
+function dlvGen0(from, forceH) {   // one offer from this strip (seeded by the running job number, so a save reloads the same board); forceH: heavy freight
   const id = DLV.seq++; { const rh = dlvRng(id * 49979687 + 11); if (!forceH && rh() < HUNT_P) return huntGen(id, from, rh); }   // v0.53
   { const ra = dlvRng(id * 86028121 + 5); if (!forceH && ra() < DROP_P) return dropGen(id, from, ra); }   // v0.54 airdrops
-  const r = dlvRng(id * 7919 + 13), fS = dlvS(from), others = DLV_STRIPS.filter(S => S.id !== from), bush = others.filter(S => S.site), main = others.filter(S => !S.site);
+  const r = dlvRng(id * 7919 + 13), fS = dlvS(from), others = DLV_STRIPS.filter(S => S.id !== from && !S.lock), bush = others.filter(S => S.site), main = others.filter(S => !S.site);
   const pool = bush.length && r() < (fS && fS.site ? 0.25 : 0.5) ? bush : main, to = pool[Math.floor(r() * pool.length)], bx = to.site || (fS && fS.site) ? 1.2 : 1;   // v0.52 bush sites
   const [title, kinds] = DLV_T[Math.floor(r() * DLV_T.length)], items = dlvCapL(kinds.map(k => { const [a, b] = CARGO_K[k].lb; return { k, lb: Math.round(a + r() * (b - a)) }; }));
   const lb = items.reduce((s, i) => s + i.lb, 0), km = dlvKm(dlvS(from), to), dl = r() < 0.45 ? Math.ceil(6 + km * 1.5) : 0;
@@ -4597,6 +4655,7 @@ function dlvSpawn(job) {   // the cargo appears on the origin pad, in a row
 function dlvRemove(it) { it.mesh.removeFromParent(); if (it.slot >= 0) { it.mesh.geometry.dispose(); LBL.free.push(it.slot); it.slot = -1; } for (const [g, h] of DLV.held) if (h === it) DLV.held.delete(g); if (DLV.desk === it) DLV.desk = null; const i = DLV.items.indexOf(it); if (i >= 0) DLV.items.splice(i, 1); }
 // ---- the boards ----
 function jbAccept(S, i) {
+  if (S.lock) { say('HALVORSEN: NO CIVILIAN CONTRACTS - DRY FORK HAS TO VOUCH FOR YOU (REP ' + repOf('DRYFORK') + '/' + REP_UNL + ')'); sfx('tick'); return; }   // v0.56
   const j = DLV.offers[S.id][i]; if (!j) return;
   if (j.st === 'offer') {
     if (dlvActive().length >= DLV_MAX) { say('THREE JOBS ON THE GO ALREADY - DELIVER ONE FIRST'); sfx('tick'); return; }
@@ -4609,7 +4668,7 @@ function jbAccept(S, i) {
     if (j.drop && (j.drop.res.length || DROP.air.some(it => it.job === j.id))) { say('CANCEL: BUNDLES ALREADY DROPPED - FINISH THE AIRDROP'); sfx('tick'); return; }   // v0.54
     if (its.some(it => it.st !== 'ground' || !dlvInPad(S, it.mesh.position.x, it.mesh.position.z))) { say('CANCEL: PUT ALL OF IT BACK ON THIS PAD FIRST'); sfx('tick'); return; }
     if (j.hunt && j.hunt.got) { say('CANCEL: THE VENISON IS DRESSED - DELIVER IT'); sfx('tick'); return; }   // v0.53
-    for (const it of its) dlvRemove(it); j.st = 'offer'; j.due = 0; sfx('click'); say('JOB CANCELLED - ' + j.title); saveSoon();
+    for (const it of its) dlvRemove(it); j.st = 'offer'; j.due = 0; sfx('click'); say('JOB CANCELLED - ' + j.title + repSay(repAdd(repKey(j), -2))); saveSoon();
   }
   S.key = '';
 }
@@ -4637,6 +4696,7 @@ function jbStatus(j) {
   return [onPad ? (j.sp ? 'ON THE PAD' : 'ON THE PAD - LOAD IT UP') : at ? at + '/' + its.length + ' DELIVERED' : its.some(it => it.st === 'cargo') ? 'IN THE CUB' : 'ON THE MOVE', t, onPad];
 }
 function jbDraw(S) {
+  if (S.lock) return jbLocked(S);   // v0.56
   const x = S.cx, L = DLV.offers[S.id], act = dlvActive().length;
   x.fillStyle = '#5a3c22'; x.fillRect(0, 0, JB_W, JB_H); x.fillStyle = '#efe6cf'; x.fillRect(8, 8, JB_W - 16, JB_H - 16);
   x.fillStyle = '#2a1e12'; x.textAlign = 'left'; { const t = S.site ? S.name + ' - ' + S.B.cust : S.name + ' - JOBS'; let f = 25; do x.font = 'bold ' + f-- + 'px sans-serif'; while (x.measureText(t).width > 360 && f > 14); x.fillText(t, 20, 40); }
@@ -4646,23 +4706,24 @@ function jbDraw(S) {
     x.fillStyle = '#' + DLV_COL[j.id % DLV_COL.length].toString(16).padStart(6, '0'); x.fillRect(16, Y, 10, 80);
     x.fillStyle = '#222'; x.font = 'bold 19px sans-serif'; x.fillText((i + 1) + '. ' + j.title, 34, Y + 24);
     x.textAlign = 'right'; x.fillStyle = '#1e6a2a'; x.fillText('$' + j.pay, JB_W - 26, Y + 24); x.textAlign = 'left';
-    { const H = dlvWc(j) === 'H', pw = x.measureText('$' + j.pay).width, t = j.hunt ? 'HUNT' : j.drop ? 'AIRDROP' : H ? 'HEAVY' : 'LIGHT'; x.font = 'bold 12px sans-serif'; const bw = x.measureText(t).width + 10, b0 = JB_W - 26 - pw - 10 - bw;   // v0.52 weight class
-      x.fillStyle = j.hunt ? '#c06010' : j.drop ? '#2a5aa0' : H ? '#8a2a1a' : '#5a7a5a'; x.fillRect(b0, Y + 9, bw, 19); x.fillStyle = '#fff'; x.fillText(t, b0 + 5, Y + 23); }
+    { const H = dlvWc(j) === 'H', pw = x.measureText('$' + j.pay).width, t = j.req ? 'REQUEST' : j.hunt ? 'HUNT' : j.drop ? 'AIRDROP' : H ? 'HEAVY' : 'LIGHT'; x.font = 'bold 12px sans-serif'; const bw = x.measureText(t).width + 10, b0 = JB_W - 26 - pw - 10 - bw;   // v0.52 weight class
+      x.fillStyle = j.req ? '#b08010' : j.hunt ? '#c06010' : j.drop ? '#2a5aa0' : H ? '#8a2a1a' : '#5a7a5a'; x.fillRect(b0, Y + 9, bw, 19); x.fillStyle = '#fff'; x.fillText(t, b0 + 5, Y + 23); }
     const T = dlvS(j.to), n = {}; for (const it of j.items) n[it.k] = (n[it.k] || 0) + 1;
-    x.fillStyle = '#333'; x.font = '15px sans-serif'; x.fillText(j.drop ? 'AIRDROP TO THE ' + DROPS[j.drop.s].who + ' AT ' + DROPS[j.drop.s].name + ' (NO STRIP) ' + dropKm(j, S).toFixed(1) + ' KM - ' + j.drop.n + ' BUNDLES ' + dlvLb(j) + ' LB' : j.hunt ? 'TO ' + T.name + (T.site && !T.found ? ' (FIND IT)' : '') + ' - 1 DEER (~100-150 LB) - HUNT AREA ON THE MAP: ' + DEER_HERDS[j.hunt.h].name : 'TO ' + T.name + (T.site && !T.found ? ' (FIND IT)' : '') + ' ' + dlvKm(S, T).toFixed(1) + ' KM - ' + dlvLb(j) + ' LB (' + Object.entries(n).map(([k, c]) => c + ' ' + CARGO_K[k].n + (c > 1 ? 'S' : '')).join(', ') + ')', 34, Y + 46, JB_W - 56);
+    x.fillStyle = '#333'; x.font = '15px sans-serif'; x.fillText((j.drop ? 'AIRDROP TO THE ' + DROPS[j.drop.s].who + ' AT ' + DROPS[j.drop.s].name + ' (NO STRIP) ' + dropKm(j, S).toFixed(1) + ' KM - ' + j.drop.n + ' BUNDLES ' + dlvLb(j) + ' LB' : j.hunt ? 'TO ' + T.name + (T.site && !T.found ? ' (FIND IT)' : '') + ' - 1 DEER (~100-150 LB) - HUNT AREA ON THE MAP: ' + DEER_HERDS[j.hunt.h].name : 'TO ' + T.name + (T.site && !T.found ? ' (FIND IT)' : '') + ' ' + dlvKm(S, T).toFixed(1) + ' KM - ' + dlvLb(j) + ' LB (' + Object.entries(n).map(([k, c]) => c + ' ' + CARGO_K[k].n + (c > 1 ? 'S' : '')).join(', ') + ')') + '  ' + repStars(repOf(repKey(j))), 34, Y + 46, JB_W - 56);
     if (mine) { const [a, t, onPad] = jbStatus(j); x.fillStyle = t.includes('LATE') ? '#b8301e' : '#2a5a22'; x.font = 'bold 14px sans-serif'; x.fillText((j.sp ? '' : 'ACCEPTED - ') + a + t, 34, Y + 68);
       if (onPad) { x.fillStyle = '#8a8a80'; x.fillRect(JB_W - 126, Y + 50, 100, 26); x.fillStyle = '#fff'; x.textAlign = 'center'; x.fillText('CANCEL', JB_W - 76, Y + 68); x.textAlign = 'left'; } }
     else if (!j.hunt && dlvLb(j) > dlvRoom()) { x.fillStyle = '#b8301e'; x.font = 'bold 14px sans-serif'; x.fillText('OVER PAYLOAD AT ' + Math.round(WBS.fuelGal) + ' GAL: MAX ' + Math.max(0, dlvRoom()) + ' LB', 34, Y + 68, JB_W - 170);   // v0.52
       x.fillStyle = act >= DLV_MAX ? '#9a9a90' : '#2a7a2a'; x.fillRect(JB_W - 126, Y + 50, 100, 26); x.fillStyle = '#fff'; x.font = 'bold 15px sans-serif'; x.textAlign = 'center'; x.fillText('ACCEPT', JB_W - 76, Y + 68); x.textAlign = 'left'; }
-    else { x.fillStyle = j.sp ? '#8a1a6a' : j.dl ? '#9a4a10' : '#555'; x.font = (j.sp ? 'bold ' : '') + '14px sans-serif';
-      x.fillText(j.drop ? 'DROP ON THE SMOKE - PAID BY AIM + CONDITION' + (j.dl ? ' - ' + j.dl + ' MIN' : '') : j.hunt ? 'HUNTING JOB - ' + (j.dl ? 'DEADLINE ' + j.dl + ' MIN' : 'NO DEADLINE') + ' - KEEPS ' + j.life + ' MIN DRESSED' : (T.site ? BUSH_T[T.B.type] + ' ' + T.B.len + ' M - ' : '') + (j.sp === 'fragile' ? 'FRAGILE - KNOCKS + G DOCK PAY (+30%)' : j.sp === 'perish' ? 'PERISHABLE - FRESH ' + j.life + ' MIN (+25%)' : j.sp === 'live' ? 'LIVE ANIMALS - FLY SMOOTH (+35%)' : j.dl ? 'DEADLINE ' + j.dl + ' MIN (+40% PAY)' : 'NO DEADLINE'), 34, Y + 68);
+    else { x.fillStyle = j.req ? '#8a6008' : j.sp ? '#8a1a6a' : j.dl ? '#9a4a10' : '#555'; x.font = (j.sp || j.req ? 'bold ' : '') + '14px sans-serif';
+      x.fillText(j.req ? '"ASK FOR ' + PILOT + '" - ' + (REP_NAME[repKey(j)] || repWho(repKey(j))) + (j.dl ? ' - ' + j.dl + ' MIN' : '') : j.drop ? 'DROP ON THE SMOKE - PAID BY AIM + CONDITION' + (j.dl ? ' - ' + j.dl + ' MIN' : '') : j.hunt ? 'HUNTING JOB - ' + (j.dl ? 'DEADLINE ' + j.dl + ' MIN' : 'NO DEADLINE') + ' - KEEPS ' + j.life + ' MIN DRESSED' : (T.site ? BUSH_T[T.B.type] + ' ' + T.B.len + ' M - ' : '') + (j.sp === 'fragile' ? 'FRAGILE - KNOCKS + G DOCK PAY (+30%)' : j.sp === 'perish' ? 'PERISHABLE - FRESH ' + j.life + ' MIN (+25%)' : j.sp === 'live' ? 'LIVE ANIMALS - FLY SMOOTH (+35%)' : j.dl ? 'DEADLINE ' + j.dl + ' MIN (+40% PAY)' : 'NO DEADLINE'), 34, Y + 68, JB_W - 170);
       x.fillStyle = act >= DLV_MAX ? '#9a9a90' : '#2a7a2a'; x.fillRect(JB_W - 126, Y + 50, 100, 26); x.fillStyle = '#fff'; x.font = 'bold 15px sans-serif'; x.textAlign = 'center'; x.fillText('ACCEPT', JB_W - 76, Y + 68); x.textAlign = 'left'; } }
   const inb = dlvActive().filter(j => j.to === S.id && !j.drop);
-  x.fillStyle = '#3a2a1a'; x.font = '14px sans-serif';
-  x.fillText(inb.length ? 'DELIVER HERE: ' + inb.map(j => j.title).join(', ') + ' - SET IT ON THE YELLOW PAD' : 'JOBS ' + act + '/' + DLV_MAX + ' - POKE ACCEPT (DESKTOP 1-3) - DELIVER TO THE YELLOW PAD', 20, JB_H - 22, JB_W - 40);
+  { const v = repOf(S.id), T = repTier(v); x.fillStyle = T[2]; x.font = 'bold 14px sans-serif'; x.fillText('REP: ' + repWho(S.id) + '  ' + repStars(v) + '  ' + T[1] + ' (' + v + ')' + (v > 50 ? ' - PAY +' + Math.round((repPayX(v) - 1) * 100) + '%' : ''), 20, JB_H - 30, JB_W - 40); }   // v0.56
+  x.fillStyle = '#3a2a1a'; x.font = '13px sans-serif';
+  x.fillText(inb.length ? 'DELIVER HERE: ' + inb.map(j => j.title).join(', ') + ' - SET IT ON THE YELLOW PAD' : 'JOBS ' + act + '/' + DLV_MAX + ' - POKE ACCEPT (DESKTOP 1-3) - DELIVER TO THE YELLOW PAD', 20, JB_H - 13, JB_W - 40);
   S.tex.needsUpdate = true;
 }
-function jbKey(S) { const L = DLV.offers[S.id]; let k = DLV.cash + '|' + dlvActive().length + '|' + dlvRoom() + '|'; for (const j of L) k += j.id + j.st + (j.st === 'active' ? jbStatus(j).join() : '') + ';';
+function jbKey(S) { const L = DLV.offers[S.id]; let k = DLV.cash + '|' + (S.lock ? 'L' + repOf('DRYFORK') : repOf(S.id)) + '|' + dlvActive().length + '|' + dlvRoom() + '|'; for (const j of L) k += j.id + j.st + (j.st === 'active' ? jbStatus(j).join() : '') + ';';
   for (const j of dlvActive()) if (j.to === S.id) k += 'i' + j.id; return k; }
 const _jbL = new THREE.Vector3();
 function jbHit(S, w) {   // world point -> [row, onButton] on the paper, or null
@@ -4862,7 +4923,8 @@ function dlvCheck(it) {   // a piece came to rest on the ground: is its whole jo
   const why = j.sp === 'fragile' ? ' (DAMAGE ' + Math.round(100 * dlvDmg(j, its)) + '%)' : j.sp === 'perish' ? (j.fresh > 0 ? ' (FRESH ' + Math.ceil(100 * j.fresh) + '%)' : ' (SPOILED)') : j.sp === 'live' ? ' (CALM ' + Math.round(100 * (1 - j.stress)) + '%)' : '';
   DLV.cash += pay; DLV.paid += pay; DLV.done++; for (const o of its) dlvRemove(o);
   const L = DLV.offers[j.from], i = L.indexOf(j); j.st = 'done'; if (i >= 0) L[i] = dlvGen(j.from, !L.some((q, k) => k !== i && dlvFrt(q)));
-  sfx('cash'); say('DELIVERED: ' + j.title + ' TO ' + T.name + ' +$' + pay + (late ? ' (LATE - HALF PAY)' : '') + why + ' - WALLET $' + DLV.cash); saveGame('delivered');
+  const rp = repJob(j, late, k);   // v0.56
+  sfx('cash'); say('DELIVERED: ' + j.title + ' TO ' + T.name + ' +$' + pay + (late ? ' (LATE - HALF PAY)' : '') + why + ' - WALLET $' + DLV.cash + repSay(rp)); saveGame('delivered');
   for (const S of DLV_STRIPS) S.key = '';
 }
 function dlvDeskE() {   // desktop E on foot: pick up / put down / load / unload
@@ -4940,13 +5002,16 @@ function dlvSave() {
     if (it.st === 'cargo') { o.s = 'c'; o.zn = it.cz; o.p = [r3(it.mesh.position.x), r3(it.mesh.position.y), r3(it.mesh.position.z)]; }
     else { it.mesh.getWorldPosition(_dg); o.s = 'g'; o.p = [r3(_dg.x), r3(_dg.z)]; o.ry = r3(it.st === 'ground' ? it.mesh.rotation.y : 0); }
     items.push(o); }
-  const offers = {}; for (const S of DLV_STRIPS) offers[S.id] = DLV.offers[S.id].map(j => ({ id: j.id, from: j.from, to: j.to, title: j.title, items: j.items, pay: j.pay, dl: j.dl, due: r3(j.due), st: j.st, wc: dlvWc(j), ...(j.hunt ? { hunt: { h: j.hunt.h, got: j.hunt.got ? 1 : 0 } } : {}), ...(j.drop ? { drop: { s: j.drop.s, n: j.drop.n, res: dropSaveRes(j) } } : {}), ...(j.sp ? { sp: j.sp, life: j.life, fresh: r3(j.fresh), stress: r3(j.stress) } : {}) }));   // v0.51 special cargo state
-  return { cash: DLV.cash, gt: r3(DLV.gt), seq: DLV.seq, paid: DLV.paid, done: DLV.done, offers, items, straps: [DLV.belt, DLV.net], found: DLV_STRIPS.filter(S => S.site && S.found).map(S => S.id) };   // v0.52 + found sites
+  const offers = {}; for (const S of DLV_STRIPS) offers[S.id] = DLV.offers[S.id].map(j => ({ id: j.id, from: j.from, to: j.to, title: j.title, items: j.items, pay: j.pay, dl: j.dl, due: r3(j.due), st: j.st, wc: dlvWc(j), ...(j.hunt ? { hunt: { h: j.hunt.h, got: j.hunt.got ? 1 : 0 } } : {}), ...(j.drop ? { drop: { s: j.drop.s, n: j.drop.n, res: dropSaveRes(j) } } : {}), ...(j.req ? { req: 1 } : {}), ...(j.sp ? { sp: j.sp, life: j.life, fresh: r3(j.fresh), stress: r3(j.stress) } : {}) }));   // v0.51 special cargo state
+  return { cash: DLV.cash, gt: r3(DLV.gt), seq: DLV.seq, paid: DLV.paid, done: DLV.done, offers, items, straps: [DLV.belt, DLV.net], rep: { ...DLV.rep }, unl: DLV_STRIPS.filter(S => S.lock === false).map(S => S.id), found: DLV_STRIPS.filter(S => S.site && S.found).map(S => S.id) };   // v0.52 + found sites
 }
 function dlvLoad(d) {
   for (const it of DLV.items.slice()) dlvRemove(it);
   DLV.offers = {}; DLV.cash = DLV_CASH0; DLV.gt = 0; DLV.seq = 1; DLV.found = 0; for (const S of DLV_STRIPS) if (S.site) S.found = false; MAP.key = '';
+  DLV.rep = {}; DLV.repLast = null; dlvS('HALV').lock = true;   // v0.56
   if (d && typeof d === 'object') {
+    if (d.rep && typeof d.rep === 'object') for (const [k, v] of Object.entries(d.rep)) if (isFinite(+v) && v !== null) DLV.rep[k] = clamp(Math.round(+v), 0, 100);
+    if (Array.isArray(d.unl) && d.unl.includes('HALV')) dlvS('HALV').lock = false; repUnlock(true);
     if (Array.isArray(d.found)) for (const id of d.found) { const S = dlvS(id); if (S) bushFind(S, true); }
     if (isFinite(d.cash)) DLV.cash = Math.round(d.cash); if (isFinite(d.gt)) DLV.gt = d.gt; if (isFinite(d.seq)) DLV.seq = d.seq; DLV.paid = d.paid || 0; DLV.done = d.done || 0;
     for (const S of DLV_STRIPS) { const L = d.offers?.[S.id]; if (Array.isArray(L)) DLV.offers[S.id] = L.filter(j => j && dlvS(j.to) && Array.isArray(j.items) && j.items.every(i => CARGO_K[i.k])).slice(0, 3).map(j => ({ ...j, from: S.id, ...(j.hunt ? { hunt: { h: clamp(j.hunt.h | 0, 0, DEER_HERDS.length - 1), got: j.hunt.got ? 1 : 0 } } : {}), ...(j.drop ? { drop: { s: clamp(j.drop.s | 0, 0, DROPS.length - 1), n: Math.max(1, j.drop.n | 0), res: Array.isArray(j.drop.res) ? j.drop.res.filter(q => q && isFinite(q.d)).map(q => ({ d: +q.d, c: clamp(+q.c || 0, 0, 1), lost: q.lost || 0, tree: q.tree ? 1 : 0 })) : [] } } : {}), ...(j.sp ? { sp: DLV_SPX[j.sp] ? j.sp : undefined, fresh: clamp(+j.fresh || 0, 0, 1), stress: clamp(+j.stress || 0, 0, 1), life: j.sp === 'perish' ? Math.max(1, +j.life || 1) : 0 } : {}) })); }
@@ -5778,7 +5843,8 @@ function dropFinish(j) {   // all bundles down: paid by accuracy + condition (la
   const got = R.filter(q => !q.lost), avg = got.length ? Math.round(got.reduce((s, q) => s + q.d, 0) / got.length) : 0, cond = got.length ? Math.round(100 * got.reduce((s, q) => s + q.c, 0) / got.length) : 0;
   DLV.cash += pay; DLV.paid += pay; DLV.done++; for (const it of DLV.items.filter(o => o.job === j.id)) dlvRemove(it);
   const L = DLV.offers[j.from], i = L.indexOf(j); j.st = 'done'; if (i >= 0) L[i] = dlvGen(j.from, !L.some((q, k) => k !== i && dlvFrt(q)));
-  sfx('cash'); say('AIRDROP DONE: ' + D.who + ' GOT ' + got.length + '/' + j.drop.n + (got.length ? ' - AVG ' + avg + ' M FROM THE X, CONDITION ' + cond + '%' : '') + ' +$' + pay + (late ? ' (LATE - HALF PAY)' : '') + ' - WALLET $' + DLV.cash); saveGame('delivered');
+  const rp = repDrop(j, f, late);   // v0.56
+  sfx('cash'); say('AIRDROP DONE: ' + D.who + ' GOT ' + got.length + '/' + j.drop.n + (got.length ? ' - AVG ' + avg + ' M FROM THE X, CONDITION ' + cond + '%' : '') + ' +$' + pay + (late ? ' (LATE - HALF PAY)' : '') + ' - WALLET $' + DLV.cash + repSay(rp)); saveGame('delivered');
   MAP.key = ''; for (const S of DLV_STRIPS) S.key = '';
   return pay;
 }
