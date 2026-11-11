@@ -2,6 +2,44 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.50 – bush delivery: job boards, physical cargo, straps, wallet
+The zombie theme is gone. This is the first stage of the **bush package delivery** game (Neil's pick: job board, physical cargo loading, special cargo, unprepared sites, airdrops, economy, reputation, upgrades, characters and emergencies; no weather or wind pressure). v0.50 is the core loop: take a job, load and strap the cargo, fly it out, set it down, get paid.
+- **Job boards.** HOME STRIP, RIDGE STRIP, LODGE and DRY FORK each have a wooden job board on two posts and a yellow pad with a black X.
+  - A board offers three contracts from that strip. Each shows the job, the destination strip and distance, the total weight and the pieces, the pay, and an optional deadline in game minutes (+40 % pay).
+  - VR: poke **ACCEPT** with a fingertip. It arms when your finger is clear of the paper and fires once on touch, like the Settings board. Desktop: stand by the board and press 1–3.
+  - Up to 3 jobs at once. A taken job turns green and shows where its cargo is and the time left. CANCEL works while all of its cargo is still on the pad.
+  - Offers come from a seeded generator, keyed to the running job number, so a reloaded board shows the same jobs.
+- **Physical cargo.** Accepting a job puts its pieces on the origin pad:
+  - parcels (8–20 lb, taped cardboard);
+  - sacks (25–50 lb, burlap with a red band);
+  - crates (35–70 lb, slatted wood).
+  - Each piece has a coloured job tag that matches the job's bar on the board. A piece is one vertex-coloured mesh with one shared material.
+  - VR: squeeze grip on a piece to carry it (either hand) and let go over the rear seat, rear floor or baggage bay to load it there. Let go anywhere else and it falls to the ground or pad.
+  - Desktop: E picks up the nearest piece in front of you. E by the Cub loads it (heavy pieces on the rear seat, light ones in the baggage bay, else wherever it fits). E elsewhere sets it down, and E by the Cub with empty hands takes the last unstrapped piece out.
+  - Climbing in with a piece in your arms puts it in the back.
+- **Strap-down.** The rear seat lap belt and the baggage net from the full-game branch's v0.25 cargo code are the strap anchors. Squeeze the buckle or the net anchor to buckle or undo it. Desktop: / does both.
+  - A strapped piece can't be taken out until you undo it.
+- **Real weight and balance.** Each piece is a load at its station: rear seat +37 in, floor +25, baggage +57 (50 lb limit).
+  - It goes through the existing `massProps()` into `ac.mass` / `ac.cgz` / `ac.I`, the same W&B inputs the flight model always had. The physics block is untouched (md5 unchanged).
+  - A piece held in your hands in the seat rides at +11.
+  - The laminated W&B card gains REAR SEAT / BAGGAGE / FLOOR rows (LOOSE in red until strapped, baggage red over 50 lb).
+  - The full-game W&B reminder is back: one warning when the throttle goes up on the ground while over gross, out of CG limits, or with 10 lb or more of loose cargo.
+- **Loose cargo shifts.** This is the v0.25 full-game loose-cargo model, adapted. Unstrapped pieces slide, hop and float with the specific force the airframe feels: hard braking, full power, skids, rough ground, and a hard landing (over 2.3 g makes them bounce).
+  - Pieces bump the walls and bulkhead with a thump in the hands, and a piece can slide off the rear seat onto the floor. The CG follows them.
+  - Strapped pieces never move.
+- **Delivery.** Set every piece of a job down on the destination's yellow pad and the job completes. The customer takes the cargo, the wallet is paid (half pay if the deadline passed), a cash-register ping plays, the game saves, and the board posts a new job.
+- **Wallet on the wrist board.** The top line of the left-wrist screen is now gold: the cash and your most urgent job (destination and minutes left, e.g. `$150  2 JOBS >DRY FORK 11M`). It is also the first line of the desktop HUD. The wrist font is now 16 px so four lines fit above the SETTINGS button. New games start with $150.
+- **Save v50.** New `dlv` save field: wallet, game clock, job counter, every board's three jobs, every piece of cargo (ground position and yaw, or zone and spot in the Cub) and both straps.
+  - Saves soon after a take / load / set-down / strap, and straight away on payment.
+  - Migration: a v45 save (v0.45–v0.49.1) still loads its Cub, fuel, time and on-foot spot, and starts a fresh $150 wallet with new boards.
+  - A held or falling piece is saved where it is, as lying on the ground.
+- **New sounds:** `thud` (cargo set down or shifting) and `cash` (paid).
+- **Placement:** the boards and pads are clear of the roads, buildings and windsocks, and the trees, bushes and rocks near them are cleared the same way the v0.38 sites clear theirs. Boards and pads are plain Lambert, so the static batcher merges them. Only the four 512 x 352 paper canvases are extra draw calls, and boards more than 400 m away are hidden.
+- **Perf** (swiftshader, same views as v0.49.1): +1 draw call on foot facing a board and pad with two jobs accepted, one per piece of cargo in view, about 0.005 ms of JS per frame for the delivery tick, and CPU frame time unchanged within noise. See the v0.50 report for the numbers.
+- **Tests:**
+  - t50 (25 checks): poke accept (once per touch), the 3-job limit, cancel rules, a VR grip carry and release onto the rear seat, desktop E carry and load, gross = 1433 + cargo, baggage at +57, `ac.mass` / `cgz` / `I` equal to `massProps` with the cargo, belt buckle grab, strapped pieces locked, loose baggage sliding to the bulkhead under power, a hard-landing hop, a real flight-model hard landing (loose baggage moves 11–14 cm, the belted load doesn't), delivery and pay, half pay when late, save-field round trip, delivery tick cost, and no console errors.
+  - The reload test now expects a v50 save, checks that wallet, jobs, loaded cargo and the belt survive a real reload, and that a v45 save migrates.
+
 ## v0.49.1 – stick stays put, thumb fixed
 - **The stick stays where you let go of it** (Neil: "Make the stick stay where it is when the player lets go as opposed to centering.").
   - Settings > Stick on release now defaults to **STAYS**. A released stick keeps its deflection: the stick mesh, the aileron and elevator inputs the flight model gets, and the knob position all stay put, and the glove lets go.

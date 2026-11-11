@@ -19,18 +19,20 @@
 </script>
 </head>
 <body>
-<div id="info">BUSH PILOT VR v0.47 - PA-18 Super Cub, blank slate: the Cub, the valley, the paper map. No wind, no weather - just flying.
+<div id="info">BUSH PILOT VR v0.50 - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. No wind, no weather.
 You start on foot by the Cub at the cabin strip. Walk up to her and climb in (F / Y), then start her up off the checklist card (J).
 Desktop - flying: W/S or arrows pitch, A/D or arrows roll, Q/E rudder, Shift / Ctrl (or + / -) throttle, B brakes, [ ] flaps, PgUp / PgDn trim,
   R reset to the strip (cold and dark), F climb out, M map, L landing light, Home recentre, mouse looks (click to capture).
 Desktop - engine: U fuel valve, O master, Y mixture, H carb heat, P primer, I mags (OFF > R > L > BOTH), hold Space = starter, K panel lights,
   1-4 windows / door, J checklist card.
 Desktop - on foot: WASD walk, Shift run, C crouch, Space hop, F climb in, G refuel at the strip pump (near a wing filler cap), M map.
+  Jobs: 1-3 at a job board accept / cancel, E pick up / set down cargo (E by the Cub loads or unloads it), / seat belt + cargo net.
 VR - in the cockpit: grip the stick (right) and throttle (left), left stick = rudder, left trigger = brakes, reach up and pull the flap handle down
   a notch at a time, wind the trim crank, turn knobs / the mag key / the primer / the fuel valve with your hand, poke the rocker and toggles.
   A / X recentre, B reset, Y climb out. Poke the screen on your left wrist with your right finger for SETTINGS.
 VR - on foot: left stick walks (click = run), right stick turns (snap / smooth in Settings), right stick down = crouch, up = hop,
   Y climb in, grab a wing filler cap at the home strip to refuel from the pump, grab the map off its cockpit holder.
+  Jobs: poke ACCEPT on a strip's job board, grip cargo to carry it, let go over the rear seat / baggage bay, grab the belt buckle / net to strap.
 Settings (` or F2 on desktop, the wrist board in VR): graphics, comfort, FPS counter, stick on release, control labels, haptics, time of day.
 </div>
 <div id="hud"></div><div id="cross"></div>
@@ -1636,6 +1638,8 @@ function sfx(kind, pos, delay = 0) {
   else if (kind === 'clunk') { burst(0.05, 1, 0.5, 'lowpass', 700); ping(190, 0.07, 0.18, 0, 'triangle'); burst(0.018, 1, 0.28, 'bandpass', 2600); }   // v0.42 flap detent
   else if (kind === 'catch') { burst(0.16, 1, 0.7, 'lowpass', 420); burst(0.12, 1, 0.5, 'lowpass', 360, 0.1); burst(0.12, 1, 0.55, 'lowpass', 480, 0.19); burst(0.1, 1, 0.4, 'lowpass', 400, 0.27); }   // v0.19 first firing
   else if (kind === 'pick') burst(0.06, 1, 0.2, 'bandpass', 700);
+  else if (kind === 'thud') { burst(0.09, 1, 0.55, 'lowpass', 260); burst(0.05, 1, 0.25, 'bandpass', 900, 0.01); }   // v0.50 cargo set down / shifting
+  else if (kind === 'cash') { ping(1320, 0.12, 0.12); ping(1760, 0.25, 0.12, 0.09); }   // v0.50 paid
   else if (kind === 'pour') burst(0.12, 1, 0.15, 'bandpass', 300 + Math.random() * 400);
 }
 const _lf = new THREE.Vector3(), _lu = new THREE.Vector3(), _lp = new THREE.Vector3();
@@ -1681,7 +1685,7 @@ function recenter() {
   xrOffset.quaternion.copy(yq);
   xrOffset.position.copy(camera.position).applyQuaternion(yq).negate();
 }
-function toPlane() { rig.add(xrOffset); mode = 'plane'; ctl.brake = 0; lookYaw = lookPitch = 0; needRecenter = renderer.xr.isPresenting ? 2 : 0; FUELP.on = false;
+function toPlane() { dlvBoard(); rig.add(xrOffset); mode = 'plane'; ctl.brake = 0; lookYaw = lookPitch = 0; needRecenter = renderer.xr.isPresenting ? 2 : 0; FUELP.on = false;
   if (MAP.state === 'world') mapStow('clip'); }   // v0.19: the map rides in the cockpit holder while you fly
 function resetFlight() {
   IN.prevHdg = null;
@@ -1710,10 +1714,12 @@ renderer.xr.addEventListener('sessionend', () => { xrOffset.position.set(0, 0, 0
 function handGrab(g) {   // on foot: the map (ground / cockpit holder / other edge) or the pump nozzle at a filler cap
   g.getWorldPosition(_a);
   if (mapGrab(g, _a)) return;
-  fuelGrab(g, _a);
+  if (fuelGrab(g, _a)) return;
+  dlvGrab(g, _a);   // v0.50 cargo / strap anchors
 }
 function handRelease(g) {       // called every frame the grip is up: keep it cheap / idempotent
-  const hs = HX.st(g); if (hs.armed) { hs.armed = false; if (MAP.g === g || FUELP.g === g) HX.pulse(g, 0.15, 12, 'release'); }   // v0.24 let-go tap, once per squeeze
+  const hs = HX.st(g); if (hs.armed) { hs.armed = false; if (MAP.g === g || FUELP.g === g) HX.pulse(g, 0.15, 12, 'release'); }
+  dlvRelease(g);   // v0.50 let go of cargo   // v0.24 let-go tap, once per squeeze
   mapRelease(g); fuelRelease(g);
 }
 
@@ -1723,6 +1729,7 @@ addEventListener('keydown', e => {
   keys[e.code] = true;
   if (e.repeat) return;
   if (engKey(e)) return;     // v0.19 cockpit keys (U O Y H I P K J, 1-4 windows; Space = starter, held)
+  if (dlvDeskKey(e)) return;   // v0.50 on foot: E carry / load, 1-3 at a job board; / straps
   if (e.code === 'KeyR') resetFlight();
   if (e.code === 'KeyM') mapDesk();
   if (e.code === 'KeyL' && mode === 'plane') toggleLanding();
@@ -1822,6 +1829,7 @@ function xrInput(dt) {
     const src = g.userData.src; if (!src || !src.gamepad) continue;
     const gp = src.gamepad, squeeze = !!gp.buttons[1]?.pressed, sqE = squeeze && !vr.prev['sq' + src.handedness]; vr.prev['sq' + src.handedness] = squeeze;
     const right = src.handedness === 'right', oh = vr.flapG === g || TRIM.g === g;
+    if (!squeeze && DLV.held.has(g)) dlvRelease(g);   // v0.50: a piece carried aboard goes in the back when you let go
     _p.copy(g.position).applyQuaternion(xrOffset.quaternion);   // hand position in cockpit axes
     if (mapCockpit(g, squeeze, (right ? vr.stick : vr.thr) || oh)) { if (right) vr.stick = false; else vr.thr = false; if (vr.flapG === g) vr.flapG = null; if (TRIM.g === g) TRIM.g = null; continue; }
     const onOH = !(right ? vr.stick : vr.thr) && ohHand(g, squeeze, sqE);   // v0.42 overhead flap handle / trim crank
@@ -1906,16 +1914,16 @@ function updateFoot(dt) {
 const _eye = new THREE.Vector3(), _hf = new THREE.Vector3();
 const hud = document.getElementById('hud'), cross = document.getElementById('cross');
 function statusText() {
-  const kt = (ac.out.V || 0) * 1.944;
-  return `FUEL ${(fuel / FUEL_MAX * 100).toFixed(0)}% ${(fuel / 3.785).toFixed(1)} GAL${FUELP.on ? ' FILLING' : ''}\n` +
+  const kt = (ac.out.V || 0) * 1.944, A = dlvActive(), nx = A.slice().sort((a, b) => dlvLeft(a) - dlvLeft(b))[0];   // v0.50 wallet + the most urgent job
+  return '$' + DLV.cash.toLocaleString('en-US') + (nx ? '  ' + A.length + ' JOB' + (A.length > 1 ? 'S' : '') + ' >' + dlvS(nx.to).name.replace(' STRIP', '') + (nx.dl ? ' ' + Math.max(0, Math.ceil(dlvLeft(nx))) + 'M' : '') : '  NO JOBS') + '\n' + `FUEL ${(fuel / FUEL_MAX * 100).toFixed(0)}% ${(fuel / 3.785).toFixed(1)} GAL${FUELP.on ? ' FILLING' : ''}\n` +
     (mode === 'plane' ? `ENG ${ENG.running ? 'RUN ' + Math.round(ENG.rpm) : ENG.cranking ? 'CRANK' : 'OFF'}  ${Math.round(kt)} KT` : 'ON FOOT') + (msgT > 0 ? '\n' + msg : '');
 }
 let wristKey = '';
 function drawWrist() {   // v0.10: only re-uploads when something on it changed
   const st = statusText(), key = st + '|' + SETP.open;
   if (key === wristKey) return; wristKey = key;
-  wctx.fillStyle = '#111'; wctx.fillRect(0, 0, 256, 128); wctx.font = '18px monospace'; wctx.fillStyle = '#9f9';
-  st.split('\n').forEach((l, i) => wctx.fillText(l.slice(0, 22), 8, 26 + i * 26));
+  wctx.fillStyle = '#111'; wctx.fillRect(0, 0, 256, 128); wctx.font = '16px monospace';
+  st.split('\n').forEach((l, i) => { wctx.fillStyle = i ? '#9f9' : '#ffd84a'; wctx.fillText(l.slice(0, 25), 8, 20 + i * 22); });   // v0.50: line 1 = wallet + jobs (gold)
   wctx.fillStyle = SETP.open ? '#ffd84a' : '#3a3a3a'; wctx.fillRect(8, 100, 240, 22); wctx.fillStyle = SETP.open ? '#111' : '#ddd'; wctx.font = 'bold 15px monospace'; wctx.textAlign = 'center';
   wctx.fillText(SETP.open ? 'POKE: CLOSE SETTINGS' : 'POKE: SETTINGS', 128, 116); wctx.textAlign = 'left';
   wtex.needsUpdate = true; hud.textContent = st;
@@ -4079,17 +4087,424 @@ mapStow('clip');
 const clock = new THREE.Clock();
 let fpsFrames = 0, fpsT = 0, instT = 0;
 let chunkT = 1;
-// ===================== v0.25 weight & balance (v0.45: the empty Cub + you + fuel; no cargo) =====================
+// ===================== v0.50 BUSH DELIVERY: job boards, physical cargo, straps, wallet =====================
+// Every strip has a job board (poke a job with a fingertip, desktop 1-3 standing by it) and a yellow pad. Accepting a job puts its
+// cargo on that strip's pad: carry it to the Cub (grip in VR, E on the desktop), set it on the rear seat, the floor or in the baggage
+// bay, buckle the seat belt / cargo net (grab the strap anchor, desktop /), fly it over and set it down on the destination's pad.
+// Each piece has a real weight: the W&B maths (massProps in the physics block) gets it as a load at its station, nothing else.
+// Loose cargo slides, hops and thumps with the specific force the airframe feels (v0.25 cargo code from the full-game branch).
+const CARGO_K = {   // kind: size [w h d] (m), weight range (lb)
+  parcel: { n: 'PARCEL', sz: [0.30, 0.18, 0.24], lb: [8, 20] },
+  sack: { n: 'SACK', sz: [0.40, 0.20, 0.30], lb: [25, 50] },
+  crate: { n: 'CRATE', sz: [0.44, 0.28, 0.36], lb: [35, 70] },
+};
+const DLV_T = [   // job title, cargo kinds
+  ['MAIL & PARCELS', ['parcel', 'parcel']], ['GROCERIES', ['crate', 'parcel']], ['FEED SACKS', ['sack', 'sack']], ['ENGINE PARTS', ['crate']],
+  ['FLOUR & SUGAR', ['sack', 'parcel']], ['TOOLS & HARDWARE', ['crate', 'sack']], ['MEDICAL SUPPLIES', ['parcel', 'parcel', 'parcel']], ['CAMP STORES', ['crate', 'sack', 'parcel']],
+];
+const DLV_COL = [0xd03a2a, 0x2a6ad0, 0x2a9a3a, 0xe0a020, 0x8a3ad0, 0x20b0b0];   // job tag colours
+const DLV_MAX = 3, DLV_PAD = 1.5, DLV_CASH0 = 150;
+const DLV = { cash: DLV_CASH0, gt: 0, seq: 1, offers: {}, items: [], held: new Map(), desk: null, belt: false, net: false, f: new THREE.Vector3(), pv: null, thudT: 0, sayT: 0,
+  moved: false, iseq: 1, nearS: null, hintS: null, poke: [true, true], jbT: 0, paid: 0, done: 0, ms: 0, lateSaid: {} };
+// the strips: board [x, z, facing], pad [x, z] (world)
+const DLV_STRIPS = (() => {
+  const L = LODGE, ax = Math.sin(L.a), az = Math.cos(L.a), px = az, pz = -ax, Lp = (l, w) => [L.x + ax * l + px * w, L.z + az * l + pz * w];
+  const [lbx, lbz] = Lp(-100, 22), [lpx, lpz] = Lp(-92, 22);
+  return [
+    { id: 'HOME', name: 'HOME STRIP', x: 0, z: -145, board: [18, -28, -Math.PI / 2], pad: [18, -20] },
+    { id: 'RIDGE', name: 'RIDGE STRIP', x: MEADOW.x, z: MEADOW.z, board: [MEADOW.x + 22, MEADOW.z + 90, -Math.PI / 2], pad: [MEADOW.x + 22, MEADOW.z + 82] },
+    { id: 'LODGE', name: 'LODGE', x: L.x, z: L.z, board: [lbx, lbz, Math.atan2(-px, -pz)], pad: [lpx, lpz] },
+    { id: 'DRYFORK', name: 'DRY FORK', x: DRYFORK_STRIP.x, z: DRYFORK_STRIP.z, board: [DRYFORK_STRIP.x + 18, DRYFORK_STRIP.z + 30, -Math.PI / 2], pad: [DRYFORK_STRIP.x + 18, DRYFORK_STRIP.z + 22] },
+  ];
+})();
+const dlvS = id => DLV_STRIPS.find(S => S.id === id);
+const dlvKm = (a, b) => Math.hypot(a.x - b.x, a.z - b.z) / 1000;
+function dlvInPad(S, x, z) { const dx = x - S.pad[0], dz = z - S.pad[1], c = Math.cos(S.ry), s = Math.sin(S.ry), lx = dx * c - dz * s, lz = dx * s + dz * c; return Math.abs(lx) < DLV_PAD && Math.abs(lz) < DLV_PAD; }
+function dlvPadAt(x, z) { for (const S of DLV_STRIPS) if (dlvInPad(S, x, z)) return S; return null; }
+// ---- boards + pads (posts / frame / pad are plain Lambert: the static batcher merges them; the paper is one canvas each) ----
+const JB_W = 512, JB_H = 352, JB_PW = 1.28, JB_PH = 0.88, JB_Y = 1.45;
+{ const wood = mat(0x6b4a2a), dk = mat(0x3a2a1a), padM = mat(0xe0b830), padE = mat(0x2a2a2a);
+  for (const S of DLV_STRIPS) {
+    const [bx, bz, ry] = S.board, G = new THREE.Group(), gy = Math.min(groundY(bx - 0.6, bz), groundY(bx + 0.6, bz), groundY(bx, bz));
+    G.position.set(bx, gy, bz); G.rotation.y = ry; scene.add(G); S.ry = ry; S.G = G;
+    for (const sx of [-0.62, 0.62]) box(0.09, JB_Y + 0.55, 0.09, wood, sx, (JB_Y + 0.55) / 2 - 0.1, -0.03, G);
+    box(JB_PW + 0.08, JB_PH + 0.08, 0.04, wood, 0, JB_Y, 0, G); box(JB_PW + 0.3, 0.05, 0.3, dk, 0, JB_Y + JB_PH / 2 + 0.12, 0.06, G);
+    S.cv = document.createElement('canvas'); S.cv.width = JB_W; S.cv.height = JB_H; S.cx = S.cv.getContext('2d');
+    S.tex = new THREE.CanvasTexture(S.cv); S.tex.colorSpace = THREE.SRGBColorSpace; S.tex.anisotropy = 4;
+    S.m = new THREE.Mesh(new THREE.PlaneGeometry(JB_PW, JB_PH), new THREE.MeshBasicMaterial({ map: S.tex })); S.m.position.set(0, JB_Y, 0.022); S.m.userData.noBatch = true; G.add(S.m);
+    const [px, pz] = S.pad, P = new THREE.Group(), py = groundY(px, pz); P.position.set(px, py, pz); P.rotation.y = ry; scene.add(P);
+    box(2 * DLV_PAD + 0.2, 0.05, 2 * DLV_PAD + 0.2, padE, 0, 0.0, 0, P); box(2 * DLV_PAD, 0.06, 2 * DLV_PAD, padM, 0, 0.01, 0, P);
+    for (const sx of [-1, 1]) box(0.12, 0.062, 2 * DLV_PAD * 1.3, padE, 0, 0.012, 0, P).rotation.y = sx * Math.PI / 4;   // the X
+    S.padY = py + 0.04; S.key = '';
+  }
+  const c0 = MYS_SITES.clear, off = (x, z) => DLV_STRIPS.some(S => Math.hypot(x - S.board[0], z - S.board[1]) < 6 || Math.hypot(x - S.pad[0], z - S.pad[1]) < 6);
+  MYS_SITES.clear = () => { c0();   // no trees / bushes / rocks on the boards or pads
+    for (const k of CHUNKS) for (let i = 0; i < k.n; i++) if (off(k.xz[i * 2], k.xz[i * 2 + 1])) k.full.fill(0, i * 16, i * 16 + 16);
+    scene.traverse(m => { if (!m.isInstancedMesh || CHUNKS.some(k => k.im === m)) return; const A = m.instanceMatrix.array; let hit = false;
+      for (let i = 0; i < m.count; i++) if (A[i * 16 + 15] && off(A[i * 16 + 12], A[i * 16 + 14])) { A.fill(0, i * 16, i * 16 + 16); hit = true; } if (hit) m.instanceMatrix.needsUpdate = true; });
+    for (let i = TREES.length - 1; i >= 0; i--) if (off(TREES[i][0], TREES[i][2])) TREES.splice(i, 1); };
+}
+// ---- contracts ----
+function dlvRng(n) { let s = (n * 2654435761) >>> 0 || 1; return () => { s = (s + 0x6D2B79F5) | 0; let t = Math.imul(s ^ (s >>> 15), 1 | s); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+function dlvGen(from) {   // one offer from this strip (seeded by the running job number, so a save reloads the same board)
+  const id = DLV.seq++, r = dlvRng(id * 7919 + 13), others = DLV_STRIPS.filter(S => S.id !== from), to = others[Math.floor(r() * others.length)];
+  const [title, kinds] = DLV_T[Math.floor(r() * DLV_T.length)], items = kinds.map(k => { const [a, b] = CARGO_K[k].lb; return { k, lb: Math.round(a + r() * (b - a)) }; });
+  const lb = items.reduce((s, i) => s + i.lb, 0), km = dlvKm(dlvS(from), to), dl = r() < 0.45 ? Math.ceil(6 + km * 1.5) : 0;
+  const pay = Math.round((25 + 0.55 * lb + 22 * km) * (dl ? 1.4 : 1));
+  return { id, from, to: to.id, title, items, pay, dl, due: 0, st: 'offer' };
+}
+function dlvInit(fresh) { if (fresh) { DLV.cash = DLV_CASH0; DLV.gt = 0; DLV.seq = 1; } for (const S of DLV_STRIPS) { const L = DLV.offers[S.id] || (DLV.offers[S.id] = []); while (L.length < 3) L.push(dlvGen(S.id)); } }
+const dlvActive = () => { const a = []; for (const S of DLV_STRIPS) for (const j of DLV.offers[S.id]) if (j.st === 'active') a.push(j); return a; };
+const dlvJob = id => { for (const S of DLV_STRIPS) for (const j of DLV.offers[S.id]) if (j.id === id) return j; return null; };
+const dlvLb = j => j.items.reduce((s, i) => s + i.lb, 0);
+const dlvLeft = j => j.dl ? j.due - DLV.gt : Infinity;
+// ---- cargo pieces ----
+const DLV_GEO = new Map();
+function dlvGeo(k, col) {
+  const key = k + ':' + col; let g = DLV_GEO.get(key); if (g) return g;
+  const [w, h, d] = CARGO_K[k].sz, P = [];
+  if (k === 'parcel') P.push(['b', w, h, d, 0, 0, 0, 0xb08552], ['b', 0.05, 0.004, d + 0.004, 0, h / 2, 0, 0xd9c79a], ['b', 0.05, h + 0.004, 0.004, 0, 0, d / 2, 0xd9c79a], ['b', 0.05, h + 0.004, 0.004, 0, 0, -d / 2, 0xd9c79a],
+    ['b', 0.08, 0.005, 0.055, w / 4, h / 2, -d / 5, 0xf2f0e6]);
+  else if (k === 'crate') { P.push(['b', w - 0.02, h - 0.02, d - 0.02, 0, 0, 0, 0x9a7442]);
+    for (const y of [-h / 2 + 0.035, h / 2 - 0.035]) P.push(['b', w, 0.05, d, 0, y, 0, 0x6e5030]);
+    for (const x of [-w / 2 + 0.03, w / 2 - 0.03]) P.push(['b', 0.05, h, d + 0.004, x, 0, 0, 0x6e5030]);
+    P.push(['b', w - 0.12, 0.004, 0.05, 0, h / 2 - 0.01, 0, 0x5a4026]); }
+  else { P.push(['b', w, h * 0.72, d, 0, -h * 0.14, 0, 0xc9b48a], ['b', w - 0.05, h * 0.3, d - 0.05, 0, h * 0.35, 0, 0xc2ad82], ['b', w + 0.004, 0.035, d + 0.004, 0, -h * 0.12, 0, 0x9a3a2a],
+    ['c', 0.025, 0.07, 6, w / 2 - 0.02, h * 0.38, 0, 0xb09a6e, 0, 0, Math.PI / 2]); }
+  const top = k === 'sack' ? h / 2 : h / 2 + 0.003;
+  P.push(['b', 0.07, 0.005, 0.05, -w / 4, top, d / 4, col], ['b', 0.05, 0.006, 0.016, -w / 4, top, d / 4 - 0.012, 0xf4f4f0]);   // the job tag (colour = the job on the board)
+  const gs = P.map(partGeo); g = mergeGeometries(gs); for (const x of gs) x.dispose(); DLV_GEO.set(key, g); return g;
+}
+function dlvMake(job, k, lb, n) {
+  const sz = CARGO_K[k].sz, m = new THREE.Mesh(dlvGeo(k, DLV_COL[job.id % DLV_COL.length]), ITEM_VM); m.userData.noBatch = true; m.castShadow = true; m.receiveShadow = true;
+  const it = { id: DLV.iseq++, job: job.id, k, lb, n, sz, h: sz[1], mesh: m, st: 'ground', cz: null, cv: new THREE.Vector3(), vy: 0, g: null };
+  DLV.items.push(it); return it;
+}
+function dlvGroundY(x, z) { const S = dlvPadAt(x, z); return Math.max(groundY(x, z), S ? S.padY : -1e9); }
+function dlvSetGround(it, x, z, ry) { scene.add(it.mesh); it.st = 'ground'; it.cz = null; it.g = null; it.mesh.position.set(x, dlvGroundY(x, z) + it.h / 2, z); it.mesh.rotation.set(0, ry || 0, 0); }
+function dlvSpawn(job) {   // the cargo appears on the origin pad, in a row
+  const S = dlvS(job.from), c = Math.cos(S.ry), s = Math.sin(S.ry);
+  job.items.forEach((d, i) => { const it = dlvMake(job, d.k, d.lb, i), lx = -0.9 + (i % 3) * 0.9, lz = -0.6 + Math.floor(i / 3) * 0.7 + (job.id % 3 - 1) * 0.45;
+    dlvSetGround(it, S.pad[0] + lx * c + lz * s, S.pad[1] - lx * s + lz * c, S.ry); });
+}
+function dlvRemove(it) { it.mesh.removeFromParent(); for (const [g, h] of DLV.held) if (h === it) DLV.held.delete(g); if (DLV.desk === it) DLV.desk = null; const i = DLV.items.indexOf(it); if (i >= 0) DLV.items.splice(i, 1); }
+// ---- the boards ----
+function jbAccept(S, i) {
+  const j = DLV.offers[S.id][i]; if (!j) return;
+  if (j.st === 'offer') {
+    if (dlvActive().length >= DLV_MAX) { say('THREE JOBS ON THE GO ALREADY - DELIVER ONE FIRST'); sfx('tick'); return; }
+    j.st = 'active'; j.due = j.dl ? DLV.gt + j.dl : 0; dlvSpawn(j); sfx('clack'); saveSoon();
+    say('ACCEPTED: ' + j.title + ' TO ' + dlvS(j.to).name + ' - ' + dlvLb(j) + ' LB ON THE PAD' + (j.dl ? ' - ' + j.dl + ' MIN' : ''));
+  } else if (j.st === 'active') {   // cancel: only while every piece still sits on this pad
+    const its = DLV.items.filter(it => it.job === j.id);
+    if (its.some(it => it.st !== 'ground' || !dlvInPad(S, it.mesh.position.x, it.mesh.position.z))) { say('CANCEL: PUT ALL OF IT BACK ON THIS PAD FIRST'); sfx('tick'); return; }
+    for (const it of its) dlvRemove(it); j.st = 'offer'; j.due = 0; sfx('click'); say('JOB CANCELLED - ' + j.title); saveSoon();
+  }
+  S.key = '';
+}
+function jbStatus(j) {
+  const its = DLV.items.filter(it => it.job === j.id), S = dlvS(j.from), T = dlvS(j.to), left = dlvLeft(j);
+  const at = its.filter(it => it.st === 'ground' && dlvInPad(T, it.mesh.position.x, it.mesh.position.z)).length;
+  const onPad = its.every(it => it.st === 'ground' && dlvInPad(S, it.mesh.position.x, it.mesh.position.z));
+  const t = left === Infinity ? '' : left < 0 ? ' - LATE: HALF PAY' : ' - DUE IN ' + Math.ceil(left) + ' MIN';
+  return [onPad ? 'ON THE PAD - LOAD IT UP' : at ? at + '/' + its.length + ' DELIVERED' : its.some(it => it.st === 'cargo') ? 'IN THE CUB' : 'ON THE MOVE', t, onPad];
+}
+function jbDraw(S) {
+  const x = S.cx, L = DLV.offers[S.id], act = dlvActive().length;
+  x.fillStyle = '#5a3c22'; x.fillRect(0, 0, JB_W, JB_H); x.fillStyle = '#efe6cf'; x.fillRect(8, 8, JB_W - 16, JB_H - 16);
+  x.fillStyle = '#2a1e12'; x.font = 'bold 25px sans-serif'; x.textAlign = 'left'; x.fillText(S.name + ' - JOBS', 20, 40);
+  x.textAlign = 'right'; x.fillStyle = '#1e6a2a'; x.fillText('$' + DLV.cash.toLocaleString('en-US'), JB_W - 20, 40); x.textAlign = 'left';
+  for (let i = 0; i < 3; i++) { const j = L[i], Y = 54 + i * 86, mine = j.st === 'active';
+    x.fillStyle = mine ? '#dcebcf' : '#fbf6e6'; x.fillRect(16, Y, JB_W - 32, 80); x.strokeStyle = '#8a7350'; x.lineWidth = 2; x.strokeRect(16, Y, JB_W - 32, 80);
+    x.fillStyle = '#' + DLV_COL[j.id % DLV_COL.length].toString(16).padStart(6, '0'); x.fillRect(16, Y, 10, 80);
+    x.fillStyle = '#222'; x.font = 'bold 19px sans-serif'; x.fillText((i + 1) + '. ' + j.title, 34, Y + 24);
+    x.textAlign = 'right'; x.fillStyle = '#1e6a2a'; x.fillText('$' + j.pay, JB_W - 26, Y + 24); x.textAlign = 'left';
+    const T = dlvS(j.to), n = {}; for (const it of j.items) n[it.k] = (n[it.k] || 0) + 1;
+    x.fillStyle = '#333'; x.font = '15px sans-serif'; x.fillText('TO ' + T.name + ' ' + dlvKm(S, T).toFixed(1) + ' KM - ' + dlvLb(j) + ' LB (' + Object.entries(n).map(([k, c]) => c + ' ' + CARGO_K[k].n + (c > 1 ? 'S' : '')).join(', ') + ')', 34, Y + 46);
+    if (mine) { const [a, t, onPad] = jbStatus(j); x.fillStyle = t.includes('LATE') ? '#b8301e' : '#2a5a22'; x.font = 'bold 14px sans-serif'; x.fillText('ACCEPTED - ' + a + t, 34, Y + 68);
+      if (onPad) { x.fillStyle = '#8a8a80'; x.fillRect(JB_W - 126, Y + 50, 100, 26); x.fillStyle = '#fff'; x.textAlign = 'center'; x.fillText('CANCEL', JB_W - 76, Y + 68); x.textAlign = 'left'; } }
+    else { x.fillStyle = j.dl ? '#9a4a10' : '#555'; x.font = '14px sans-serif'; x.fillText(j.dl ? 'DEADLINE ' + j.dl + ' MIN (+40% PAY)' : 'NO DEADLINE', 34, Y + 68);
+      x.fillStyle = act >= DLV_MAX ? '#9a9a90' : '#2a7a2a'; x.fillRect(JB_W - 126, Y + 50, 100, 26); x.fillStyle = '#fff'; x.font = 'bold 15px sans-serif'; x.textAlign = 'center'; x.fillText('ACCEPT', JB_W - 76, Y + 68); x.textAlign = 'left'; } }
+  const inb = dlvActive().filter(j => j.to === S.id);
+  x.fillStyle = '#3a2a1a'; x.font = '14px sans-serif';
+  x.fillText(inb.length ? 'DELIVER HERE: ' + inb.map(j => j.title).join(', ') + ' - SET IT ON THE YELLOW PAD' : 'JOBS ' + act + '/' + DLV_MAX + ' - POKE ACCEPT (DESKTOP 1-3) - DELIVER TO THE YELLOW PAD', 20, JB_H - 22);
+  S.tex.needsUpdate = true;
+}
+function jbKey(S) { const L = DLV.offers[S.id]; let k = DLV.cash + '|' + dlvActive().length + '|'; for (const j of L) k += j.id + j.st + (j.st === 'active' ? jbStatus(j).join() : '') + ';';
+  for (const j of dlvActive()) if (j.to === S.id) k += 'i' + j.id; return k; }
+const _jbL = new THREE.Vector3();
+function jbHit(S, w) {   // world point -> [row, onButton] on the paper, or null
+  S.m.worldToLocal(_jbL.copy(w)); const u = (_jbL.x / JB_PW + 0.5) * JB_W, v = (0.5 - _jbL.y / JB_PH) * JB_H;
+  if (u < 0 || u > JB_W || v < 0 || v > JB_H) return null; const r = Math.floor((v - 54) / 86); return { u, v, z: _jbL.z, r: r >= 0 && r < 3 && v - 54 - r * 86 < 80 ? r : -1 };
+}
+function jbPokeAt(S, w, i) {   // a fingertip at w (world): arms when it is clear of the paper, fires once when it touches it
+  const h = jbHit(S, w), on = !!h && h.z < 0.012 && h.z > -0.05;
+  if (!DLV.poke[i] && (!h || h.z > 0.04)) DLV.poke[i] = true;
+  if (DLV.poke[i] && on) { DLV.poke[i] = false; if (h.r >= 0) { jbAccept(S, h.r); return true; } }
+  return false;
+}
+function jbPoke() {   // after updateHands: either fingertip on the nearest board
+  const S = DLV.nearS; if (!S || !HANDS.st.length || mode !== 'foot') return;
+  for (let i = 0; i < 2; i++) { const st = HANDS.st[i]; if (!st.vis) continue; if (jbPokeAt(S, st.tip, i) && grips[i]) HX.pulse(grips[i], 0.4, 14, 'ui'); }
+}
+// ---- cargo in the Cub: load zones, straps, loose cargo (v0.25 full-game code, adapted) ----
+const FLOOR_PL = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0.25).applyMatrix4(CUB_M), BAG_PL = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0.13).applyMatrix4(CUB_M);
+const plY = (pl, z) => -(pl.normal.z * z + pl.constant) / pl.normal.y;
+const REAR_ZC = 1.0 + CK.z;
+const CZ = {   // load zones in body axes (plane-local); arm(z) = TCDS station of that spot
+  rear: { name: 'REAR SEAT', x: 0.24, z0: 0.775 + CK.z, z1: 1.215 + CK.z, y: () => -0.33 + CK.y, top: 0.6, arm: z => WNB.REAR_ARM + (z - REAR_ZC) / WNB.IN },
+  foot: { name: 'REAR FLOOR', x: 0.22, z0: 0.485 + CK.z, z1: 0.775 + CK.z, y: z => plY(FLOOR_PL, z), top: 0.32, arm: z => WNB.REAR_ARM + (z - REAR_ZC) / WNB.IN },
+  bag: { name: 'BAGGAGE', x: 0.25, z0: D2B(0, 1.07, -0.13).z, z1: D2B(0, 1.43, -0.13).z, y: z => plY(BAG_PL, z), top: 0.46 },
+};
+CZ.bag.zc = (CZ.bag.z0 + CZ.bag.z1) / 2; CZ.bag.arm = z => WNB.BAG_ARM + (z - CZ.bag.zc) / WNB.IN;
+const cgIn = () => DLV.items.filter(it => it.st === 'cargo');
+const cgSecured = it => it.cz === 'rear' ? DLV.belt : it.cz === 'bag' ? DLV.net : false;
+function cgHalf(it, Z) { const s = it.sz; return [Math.min(s[0] / 2, Z.x), Math.min(s[2] / 2, (Z.z1 - Z.z0) / 2)]; }
+function cgSupport(zn, it, x, z, below = Infinity) {   // floor / seat under (x, z), or the top of the cargo under it (only cargo lower than `below`)
+  const Z = CZ[zn], s = it.sz; let y = Z.y(z);
+  for (const o of DLV.items) if (o !== it && o.st === 'cargo' && o.cz === zn) { const os = o.sz, op = o.mesh.position;
+    if (Math.abs(op.x - x) < (s[0] + os[0]) / 2 - 0.01 && Math.abs(op.z - z) < (s[2] + os[2]) / 2 - 0.01 && op.y < below) y = Math.max(y, op.y + o.h / 2); }
+  return y;
+}
+function cgPlace(it, zn, x, z) {
+  const Z = CZ[zn], s = it.sz, [hx, hz] = cgHalf(it, Z);
+  x = clamp(x, -Z.x + hx, Z.x - hx); z = clamp(z, Z.z0 + hz, Z.z1 - hz);
+  const y = cgSupport(zn, it, x, z);
+  if (y + s[1] > Z.y(z) + Z.top + 0.02) return false;
+  plane.add(it.mesh); it.cz = zn; it.mesh.position.set(x, y + s[1] / 2, z); it.mesh.rotation.set(0, 0, 0); return true;
+}
+function cgAuto(it, zn) {   // lowest free spot in the zone (desktop, or the hand spot is full)
+  const Z = CZ[zn], [hx, hz] = cgHalf(it, Z); let best = null, by = 1e9;
+  for (let z = Z.z0 + hz; z <= Z.z1 - hz + 1e-6; z += 0.05) for (let x = -Z.x + hx; x <= Z.x - hx + 1e-6; x += 0.05) {
+    if (it.sz[1] + cgSupport(zn, it, x, z) > Z.y(z) + Z.top + 0.02) continue;
+    const y = cgSupport(zn, it, x, z) - Z.y(z); if (y < by - 1e-4) { by = y; best = [x, z]; } }
+  return best;
+}
+function dlvUnhold(it) { for (const [g, h] of DLV.held) if (h === it) DLV.held.delete(g); if (DLV.desk === it) DLV.desk = null; it.g = null; }
+function loadCargo(it, zn, x, z, quiet) {
+  const prev = it.mesh.parent, pst = it.st, pcz = it.cz; it.st = 'loading'; it.cz = null;
+  let ok = x !== undefined && cgPlace(it, zn, x, z);
+  if (!ok) { const b = cgAuto(it, zn); ok = !!b && cgPlace(it, zn, b[0], b[1]); }
+  if (!ok) { it.st = pst; it.cz = pcz; if (prev && it.mesh.parent !== prev) prev.add(it.mesh); if (!quiet) say('NO ROOM - ' + CZ[zn].name + ' IS FULL'); return false; }
+  dlvUnhold(it); it.st = 'cargo'; it.cv.set(0, 0, 0);
+  wbUpdate(); cgStraps(); saveSoon();
+  if (!quiet) { sfx('thud', it.mesh.getWorldPosition(new THREE.Vector3())); const B = WBS.plan;
+    say('LOADED ' + CARGO_K[it.k].n + ' ' + it.lb + ' LB - ' + CZ[zn].name + (zn === 'foot' ? '' : cgSecured(it) ? ' (STRAPPED)' : ' (LOOSE - STRAP IT)') +
+      ' | ' + B.lb.toFixed(0) + ' LB CG +' + B.arm.toFixed(1) + (B.over ? ' OVER GROSS' : B.inEnv ? '' : ' OUT OF LIMITS') + (WBS.bagLb > WNB.BAG_MAX_LB ? ' | BAGGAGE OVER 50 LB' : '')); }
+  return true;
+}
+function cgLoadAny(it, quiet) {   // desktop / from the seat: heavy pieces on the rear seat, light ones in the baggage bay (50 lb max), else wherever it fits
+  const zn = it.lb >= 15 || WBS.bagLb + it.lb > WNB.BAG_MAX_LB ? 'rear' : 'bag';
+  for (const z of [zn, zn === 'rear' ? 'bag' : 'rear', 'foot']) if (loadCargo(it, z, undefined, undefined, true)) { if (!quiet) loadCargoSay(it); return true; }
+  if (!quiet) say('NO ROOM IN THE CUB'); return false;
+}
+function loadCargoSay(it) { const B = WBS.plan; sfx('thud', it.mesh.getWorldPosition(new THREE.Vector3()));
+  say('LOADED ' + CARGO_K[it.k].n + ' ' + it.lb + ' LB - ' + CZ[it.cz].name + (it.cz === 'foot' ? '' : cgSecured(it) ? ' (STRAPPED)' : ' (LOOSE - / STRAPS)') + ' | ' + B.lb.toFixed(0) + ' LB CG +' + B.arm.toFixed(1) + (B.over ? ' OVER GROSS' : B.inEnv ? '' : ' OUT OF LIMITS')); }
+function cgZoneAt(p) {   // p in body axes -> the zone a released piece lands in
+  for (const zn of ['bag', 'rear', 'foot']) { const Z = CZ[zn], y0 = Z.y(clamp(p.z, Z.z0, Z.z1));
+    if (Math.abs(p.x) < Z.x + 0.12 && p.z > Z.z0 - 0.08 && p.z < Z.z1 + 0.08 && p.y > y0 - 0.12 && p.y < y0 + Z.top + 0.3) return zn; }
+  return null;
+}
+// ---- rear seat lap belt + baggage net: buckled = that zone's cargo can't move. Grab the buckle / net anchor (it's the strap anchor) ----
+const CG_WEB = mat(0x55553a);
+const BELT = { on: new THREE.Group(), off: new THREE.Group() }, NET = { on: new THREE.Group(), off: new THREE.Group() };
+{ box(0.5, 0.012, 0.05, CG_WEB, 0, 0, 0, BELT.on); box(0.05, 0.02, 0.06, CG_WEB, 0, 0.008, 0, BELT.on);                       // webbing + buckle
+  box(0.04, 0.012, 0.18, CG_WEB, -0.24, 0, 0.02, BELT.off); box(0.04, 0.012, 0.15, CG_WEB, 0.24, 0, 0.0, BELT.off); box(0.035, 0.02, 0.05, CG_WEB, 0.24, 0.006, -0.07, BELT.off);
+  for (const x of [-0.18, -0.06, 0.06, 0.18]) box(0.008, 0.008, 0.34, CG_WEB, x, 0, 0, NET.on);
+  for (const z of [-0.14, -0.05, 0.05, 0.14]) box(0.46, 0.008, 0.008, CG_WEB, 0, 0, z, NET.on);
+  box(0.12, 0.05, 0.1, CG_WEB, 0, 0, 0, NET.off);
+  for (const G of [BELT.on, BELT.off, NET.on, NET.off]) { const m = new THREE.Group(); mergeInto(G, m); G.clear(); while (m.children.length) { const c = m.children[0]; c.userData.noBatch = true; G.add(c); } plane.add(G); } }
+function cgTop(zn) { let y = CZ[zn].y(zn === 'bag' ? CZ.bag.zc : REAR_ZC); for (const o of DLV.items) if (o.st === 'cargo' && o.cz === zn) y = Math.max(y, o.mesh.position.y + o.h / 2); return y; }
+function cgStraps() {
+  BELT.on.visible = DLV.belt; BELT.off.visible = !DLV.belt; NET.on.visible = DLV.net; NET.off.visible = !DLV.net;
+  BELT.on.position.set(0, cgTop('rear') + 0.008, REAR_ZC - 0.02); BELT.off.position.set(0, CZ.rear.y() + 0.007, REAR_ZC);
+  NET.on.position.set(0, cgTop('bag') + 0.006, CZ.bag.zc); NET.off.position.set(0.17, CZ.bag.y(CZ.bag.z1 - 0.06) + 0.025, CZ.bag.z1 - 0.06);
+}
+function cgStrapPoints() { return [['belt', (DLV.belt ? BELT.on : BELT.off).localToWorld(new THREE.Vector3(DLV.belt ? 0 : 0.24, 0, DLV.belt ? 0 : -0.07))], ['net', NET[DLV.net ? 'on' : 'off'].localToWorld(new THREE.Vector3())]]; }
+function cgToggle(k, on) {
+  DLV[k] = on ?? !DLV[k]; cgStraps(); sfx('click'); const n = cgIn().filter(it => it.cz === (k === 'belt' ? 'rear' : 'bag')).length;
+  say((k === 'belt' ? 'REAR SEAT BELT ' : 'BAGGAGE NET ') + (DLV[k] ? 'SECURED' : 'UNDONE') + (n ? ' (' + n + ' PIECE' + (n > 1 ? 'S' : '') + ')' : ''));
+  if (DLV[k]) for (const it of cgIn()) if (it.cz === (k === 'belt' ? 'rear' : 'bag')) it.cv.set(0, 0, 0);
+  saveSoon();
+}
+function nearPlane(r = 3.5) { camera.getWorldPosition(_w); if (mode === 'plane') return true; const dp = qRot(ac.q, [0.3, 0, 0.6]); return Math.hypot(_w.x - ac.pos[0] - dp[0], _w.z - ac.pos[2] - dp[2]) < r; }
+function cargoStrapDesk() { if (!nearPlane()) { say('TOO FAR FROM THE CUB'); return; } const on = !(DLV.belt && DLV.net); DLV.belt = DLV.net = on; cgStraps(); sfx('click');
+  if (on) for (const it of cgIn()) it.cv.set(0, 0, 0); say('CARGO ' + (on ? 'STRAPPED DOWN (SEAT BELT + NET)' : 'STRAPS UNDONE')); saveSoon(); }
+// ---- loose cargo: slides / hops / floats with the specific force the airframe feels ----
+const CG_MU_S = 0.55, CG_MU_K = 0.4, _cf = new THREE.Vector3(), _cgq = new THREE.Quaternion();
+function cgHit(it, v) {
+  if (v < 0.6 || it.lb < 5 || DLV.thudT > 0) return;
+  DLV.thudT = 0.25; sfx('thud', it.mesh.getWorldPosition(_w)); if (mode === 'plane') HX.both(Math.min(0.6, 0.15 + v * 0.15), 40, 'cargo');
+  if (DLV.sayT <= 0) { DLV.sayT = 5; say('LOOSE CARGO SHIFTED (' + CARGO_K[it.k].n + ') - STRAP IT DOWN'); }
+}
+function cgMove(it, f, dt) {
+  const p = it.mesh.position, v = it.cv, s = it.sz, G = 9.81;
+  let Z = CZ[it.cz], sup = cgSupport(it.cz, it, p.x, p.z, p.y) + s[1] / 2, onS = p.y <= sup + 0.003 && v.y <= 0.01, hop = false;
+  if (onS) {
+    p.y = sup; v.y = 0;
+    if (f.y < 2) onS = false;                                                       // pushed over / bunt: it floats
+    else if (f.y > 2.3 * G) { v.y = Math.min(1.2, (f.y - 2.3 * G) * 0.02); v.x += (Math.random() - 0.5) * v.y; v.z += (Math.random() - 0.5) * v.y; onS = false; hop = true; }   // hard landing: it bounces and shifts
+  }
+  if (onS) {
+    const fh = Math.hypot(f.x, f.z), vh = Math.hypot(v.x, v.z);
+    if (vh < 0.02 && fh <= CG_MU_S * f.y) v.x = v.z = 0;
+    else { const fr = CG_MU_K * f.y; let ax = -f.x, az = -f.z;
+      if (vh >= 0.02) { ax -= fr * v.x / vh; az -= fr * v.z / vh; } else { ax *= 1 - fr / fh; az *= 1 - fr / fh; }
+      const nx = v.x + ax * dt, nz = v.z + az * dt;
+      if (vh >= 0.02 && nx * v.x + nz * v.z < 0) v.x = v.z = 0; else { v.x = nx; v.z = nz; } }
+  } else if (!hop) { v.x -= f.x * dt; v.y -= f.y * dt; v.z -= f.z * dt; }
+  if (v.lengthSq() < 1e-8) return;
+  p.addScaledVector(v, dt);
+  const [hx, hz] = cgHalf(it, Z);
+  if (Math.abs(p.x) > Z.x - hx) { cgHit(it, Math.abs(v.x)); p.x = Math.sign(p.x) * (Z.x - hx); v.x = 0; }
+  if (p.z > Z.z1 - hz) { cgHit(it, Math.abs(v.z)); p.z = Z.z1 - hz; v.z = 0; }
+  if (it.cz === 'rear' && p.z < Z.z0) { it.cz = 'foot'; Z = CZ.foot; if (DLV.sayT <= 0) { DLV.sayT = 5; say(CARGO_K[it.k].n + ' SLID OFF THE REAR SEAT ONTO THE FLOOR'); } }
+  else if (it.cz !== 'rear' && p.z < Z.z0 + hz) { cgHit(it, Math.abs(v.z)); p.z = Z.z0 + hz; v.z = 0; }
+  const s2 = cgSupport(it.cz, it, p.x, p.z, p.y + 0.01) + s[1] / 2;
+  if (p.y < s2) { cgHit(it, -v.y); p.y = s2; v.y = 0; }
+  const ceil = Z.y(p.z) + Z.top + 0.25 - s[1] / 2; if (p.y > ceil) { cgHit(it, v.y); p.y = ceil; v.y = Math.min(0, v.y); }
+  DLV.moved = true;
+}
+function cargoUpdate(dt) {
+  DLV.thudT -= dt; DLV.sayT -= dt;
+  const pv = DLV.pv; DLV.pv = ac.vel.slice();
+  if (!pv) return; let any = false; for (const it of DLV.items) if (it.st === 'cargo') { any = true; break; } if (!any) return;
+  _cf.set(ac.vel[0] - pv[0], ac.vel[1] - pv[1], ac.vel[2] - pv[2]);
+  if (_cf.length() > 30 || ac.crashed) return;                   // reset / teleport (a 30 m/s jump in one frame): not a real acceleration
+  _cf.divideScalar(Math.max(dt, 1e-3)); _cf.y += 9.81; _cf.applyQuaternion(_cgq.fromArray(ac.q).invert()); DLV.f.copy(_cf);
+  DLV.moved = false;
+  for (const it of DLV.items) if (it.st === 'cargo' && !cgSecured(it)) cgMove(it, _cf, dt);
+  if (DLV.moved) cgStraps();
+}
+// ---- carrying: VR grip (either hand) / desktop E ----
+const _dg = new THREE.Vector3(), _dl = new THREE.Vector3(), _dp = new THREE.Vector3();
+function dlvDist(it, w) { it.mesh.worldToLocal(_dl.copy(w)); const s = it.sz; return Math.hypot(Math.max(0, Math.abs(_dl.x) - s[0] / 2), Math.max(0, Math.abs(_dl.y) - s[1] / 2), Math.max(0, Math.abs(_dl.z) - s[2] / 2)); }
+function dlvTake(it, quiet) {   // out of the Cub / off the ground into a hand: false if it's strapped in
+  if (it.st === 'cargo' && cgSecured(it)) { if (!quiet) say('UNDO THE ' + (it.cz === 'rear' ? 'SEAT BELT' : 'CARGO NET') + ' FIRST'); return false; }
+  const was = it.st; it.st = 'held'; it.cz = null; it.cv.set(0, 0, 0); if (was === 'cargo') { cgStraps(); wbUpdate(); } return true;
+}
+function dlvGrab(g, a) {   // VR on foot: strap anchor first, then the nearest piece of cargo under the hand
+  if (mode !== 'foot' || DLV.held.has(g)) return false;
+  plane.updateMatrixWorld(); cgStraps();
+  for (const [k, p] of cgStrapPoints()) if (p.distanceTo(a) < 0.13) { cgToggle(k); HX.pulse(g, 0.5, 25, 'strap'); return true; }
+  let bi = null, bd = 0.09; for (const it of DLV.items) { if (it.st !== 'ground' && it.st !== 'cargo' && it.st !== 'fall') continue; const d = dlvDist(it, a); if (d < bd) { bd = d; bi = it; } }
+  if (!bi) return false;
+  if (!dlvTake(bi)) { HX.pulse(g, 0.2, 15, 'strap'); return true; }
+  g.attach(bi.mesh); bi.g = g; DLV.held.set(g, bi); sfx('pick'); HX.pulse(g, 0.3 + Math.min(0.4, bi.lb / 150), 30, 'cargo'); say(CARGO_K[bi.k].n + ' ' + bi.lb + ' LB - ' + dlvJob(bi.job)?.title); return true;
+}
+function dlvDrop(it, w, quiet) {   // let go at world point w: into the Cub if it's over a load zone, else it falls to the ground
+  plane.updateMatrixWorld(); const pb = plane.worldToLocal(_dp.copy(w)), zn = cgZoneAt(pb);
+  if (zn && loadCargo(it, zn, pb.x, pb.z, quiet)) return 'cargo';
+  if (mode === 'plane') { if (cgLoadAny(it, quiet)) return 'cargo'; }
+  dlvUnhold(it); const e = new THREE.Euler().setFromQuaternion(it.mesh.getWorldQuaternion(_cgq), 'YXZ');
+  scene.attach(it.mesh); it.mesh.position.copy(w); it.mesh.rotation.set(0, e.y, 0); it.st = 'fall'; it.vy = 0; return 'fall';
+}
+function dlvRelease(g) { const it = DLV.held.get(g); if (!it) return; it.mesh.getWorldPosition(_dg); dlvDrop(it, _dg); HX.pulse(g, 0.15, 12, 'release'); }
+function dlvFallTick(dt) {
+  for (const it of DLV.items) { if (it.st !== 'fall') continue; const p = it.mesh.position, rest = dlvGroundY(p.x, p.z) + it.h / 2;
+    it.vy -= 9.81 * dt; p.y += it.vy * dt;
+    if (p.y <= rest) { p.y = rest; const v = -it.vy; it.vy = 0; it.st = 'ground'; if (v > 1) sfx('thud', p); dlvCheck(it); saveSoon(); } }
+}
+function dlvCheck(it) {   // a piece came to rest on the ground: is its whole job on the destination pad?
+  const j = dlvJob(it.job); if (!j || j.st !== 'active') return;
+  const T = dlvS(j.to), its = DLV.items.filter(o => o.job === j.id), on = its.filter(o => o.st === 'ground' && dlvInPad(T, o.mesh.position.x, o.mesh.position.z)).length;
+  if (!dlvInPad(T, it.mesh.position.x, it.mesh.position.z)) return;
+  if (on < its.length) { say(j.title + ': ' + on + '/' + its.length + ' ON THE PAD'); return; }
+  const late = j.dl && DLV.gt > j.due, pay = late ? Math.round(j.pay / 2) : j.pay;
+  DLV.cash += pay; DLV.paid += pay; DLV.done++; for (const o of its) dlvRemove(o);
+  const L = DLV.offers[j.from], i = L.indexOf(j); j.st = 'done'; if (i >= 0) L[i] = dlvGen(j.from);
+  sfx('cash'); say('DELIVERED: ' + j.title + ' TO ' + T.name + ' +$' + pay + (late ? ' (LATE - HALF PAY)' : '') + ' - WALLET $' + DLV.cash); saveGame('delivered');
+  for (const S of DLV_STRIPS) S.key = '';
+}
+function dlvDeskE() {   // desktop E on foot: pick up / put down / load / unload
+  if (mode !== 'foot') return;
+  camera.getWorldPosition(_w); camera.getWorldDirection(_d); _d.y = 0; _d.normalize();
+  if (DLV.desk) { const it = DLV.desk;
+    if (nearPlane()) { DLV.desk = null; it.st = 'held'; if (cgLoadAny(it)) return; DLV.desk = it; return; }
+    _dg.copy(_w).addScaledVector(_d, 0.8); _dg.y = dlvGroundY(_dg.x, _dg.z) + it.h / 2 + 0.3; DLV.desk = null; dlvDrop(it, _dg, true); sfx('pick'); return; }
+  let bi = null, bs = 1e9;
+  for (const it of DLV.items) { if (it.st !== 'ground') continue; const p = it.mesh.position, dx = p.x - _w.x, dz = p.z - _w.z, d = Math.hypot(dx, dz); if (d > 2.5) continue;
+    const s = d - (dx * _d.x + dz * _d.z) / Math.max(d, 1e-3) * 0.8; if (s < bs) { bs = s; bi = it; } }
+  if (!bi && nearPlane()) { const L = cgIn().filter(it => !cgSecured(it)); bi = L[L.length - 1] || null;
+    if (!bi && cgIn().length) { say('UNDO THE STRAPS FIRST (/)'); return; } }
+  if (!bi) { say(DLV.items.length ? 'NO CARGO WITHIN REACH' : 'NO CARGO - TAKE A JOB AT THE BOARD'); return; }
+  if (!dlvTake(bi)) return;
+  camera.add(bi.mesh); bi.mesh.position.set(0, -0.32, -0.62); bi.mesh.rotation.set(0.15, 0, 0); DLV.desk = bi; sfx('pick');
+  say('CARRYING ' + CARGO_K[bi.k].n + ' ' + bi.lb + ' LB (' + dlvJob(bi.job)?.title + ' TO ' + dlvS(dlvJob(bi.job)?.to)?.name + ') - E BY THE CUB LOADS IT, E ELSEWHERE SETS IT DOWN');
+}
+function dlvBoard() { const it = DLV.desk; if (!it) return; DLV.desk = null; it.st = 'held'; if (!cgLoadAny(it)) { camera.getWorldPosition(_w); dlvDrop(it, _w.setY(_w.y - 1), true); } }   // climbing in with a load: it goes in the back
+function dlvDeskKey(e) {   // desktop keys on foot: E carry, / straps, 1-3 at a board
+  if (e.code === 'Slash') { e.preventDefault(); cargoStrapDesk(); return true; }
+  if (mode !== 'foot') return false;
+  if (e.code === 'KeyE') { dlvDeskE(); return true; }
+  if (/^Digit[1-3]$/.test(e.code) && DLV.nearS && DLV.nearD < 5) { jbAccept(DLV.nearS, +e.code[5] - 1); return true; }
+  return false;
+}
+// ---- every frame (after the physics step): game clock, falling pieces, loose cargo, the nearest board ----
+function dlvTick(dt) {
+  const t0 = performance.now();
+  DLV.gt += dt / 60; dlvFallTick(dt); cargoUpdate(dt);
+  playerPos(); let nb = null, nd = 1e9; for (const S of DLV_STRIPS) { const d = Math.hypot(PP.x - S.board[0], PP.z - S.board[1]); if (d < nd) { nd = d; nb = S; } }
+  DLV.nearS = nd < 60 ? nb : null; DLV.nearD = nd;
+  if ((DLV.jbT -= dt) <= 0) { DLV.jbT = 0.5;
+    for (const S of DLV_STRIPS) { const near = Math.hypot(PP.x - S.board[0], PP.z - S.board[1]) < 400; S.m.visible = near; if (!near) continue; const k = jbKey(S) + '|' + Math.ceil(DLV.gt); if (k !== S.key) { S.key = k; jbDraw(S); } }
+    for (const j of dlvActive()) if (j.dl && DLV.gt > j.due && !DLV.lateSaid[j.id]) { DLV.lateSaid[j.id] = 1; say(j.title + ' TO ' + dlvS(j.to).name + ' IS LATE - HALF PAY NOW'); } }
+  if (mode === 'foot' && nd < 6 && DLV.hintS !== nb) { DLV.hintS = nb; say(nb.name + ' JOB BOARD - POKE ACCEPT' + (renderer.xr.isPresenting ? '' : ' (DESKTOP 1-3)')); } else if (nd > 12) DLV.hintS = null;
+  DLV.ms = performance.now() - t0;
+}
+// ---- save / load (v0.50 save fields) ----
+function dlvSave() {
+  const r3 = v => Math.round(v * 1000) / 1000, items = [];
+  for (const it of DLV.items) { const o = { j: it.job, k: it.k, lb: it.lb, n: it.n };
+    if (it.st === 'cargo') { o.s = 'c'; o.zn = it.cz; o.p = [r3(it.mesh.position.x), r3(it.mesh.position.y), r3(it.mesh.position.z)]; }
+    else { it.mesh.getWorldPosition(_dg); o.s = 'g'; o.p = [r3(_dg.x), r3(_dg.z)]; o.ry = r3(it.st === 'ground' ? it.mesh.rotation.y : 0); }
+    items.push(o); }
+  const offers = {}; for (const S of DLV_STRIPS) offers[S.id] = DLV.offers[S.id].map(j => ({ id: j.id, from: j.from, to: j.to, title: j.title, items: j.items, pay: j.pay, dl: j.dl, due: r3(j.due), st: j.st }));
+  return { cash: DLV.cash, gt: r3(DLV.gt), seq: DLV.seq, paid: DLV.paid, done: DLV.done, offers, items, straps: [DLV.belt, DLV.net] };
+}
+function dlvLoad(d) {
+  for (const it of DLV.items.slice()) dlvRemove(it);
+  DLV.offers = {}; DLV.cash = DLV_CASH0; DLV.gt = 0; DLV.seq = 1;
+  if (d && typeof d === 'object') {
+    if (isFinite(d.cash)) DLV.cash = Math.round(d.cash); if (isFinite(d.gt)) DLV.gt = d.gt; if (isFinite(d.seq)) DLV.seq = d.seq; DLV.paid = d.paid || 0; DLV.done = d.done || 0;
+    for (const S of DLV_STRIPS) { const L = d.offers?.[S.id]; if (Array.isArray(L)) DLV.offers[S.id] = L.filter(j => j && dlvS(j.to) && Array.isArray(j.items) && j.items.every(i => CARGO_K[i.k])).slice(0, 3).map(j => ({ ...j, from: S.id })); }
+    dlvInit(false);
+    if (Array.isArray(d.straps)) { DLV.belt = !!d.straps[0]; DLV.net = !!d.straps[1]; }
+    for (const o of d.items || []) { const j = dlvJob(o.j); if (!j || j.st !== 'active' || !CARGO_K[o.k]) continue;
+      const it = dlvMake(j, o.k, o.lb, o.n || 0);
+      if (o.s === 'c' && CZ[o.zn] && o.p?.length === 3) { it.st = 'loading'; if (cgPlace(it, o.zn, o.p[0], o.p[2]) || cgLoadAny(it, true)) it.st = 'cargo'; else dlvSetGround(it, ac.pos[0] + 2, ac.pos[2], 0); }
+      else if (o.p?.length >= 2) dlvSetGround(it, o.p[0], o.p[1], o.ry || 0); }
+    for (const j of dlvActive()) if (!DLV.items.some(it => it.job === j.id)) { j.st = 'offer'; j.due = 0; }   // a job whose cargo is gone goes back on the board
+  } else dlvInit(true);
+  cgStraps(); for (const S of DLV_STRIPS) S.key = '';
+}
+dlvInit(true); cgStraps();
+// ===================== v0.25 weight & balance (v0.45: the empty Cub + you + fuel; v0.50: + the cargo aboard) =====================
 // massProps() (physics block) turns the load into mass, CG and inertia for the flight model every frame.
-const WBS = { plan: null, act: null, fuelGal: 36, key: '' };
+const WBS = { plan: null, act: null, fuelGal: 36, key: '', rearLb: 0, bagLb: 0, footLb: 0, loose: 0, warnT: 0 };
 const WB_OFF = [{ lb: -WNB.PILOT_LB, arm: WNB.PILOT_ARM, y: 0.1 }];   // on foot the pilot isn't aboard
-function wbUpdate() {
-  const fuelGal = fuel / FUEL_MAX * WNB.FUEL_GAL, plan = massProps(fuelGal, []);
-  const act = mode === 'plane' ? plan : massProps(fuelGal, WB_OFF);
+const WB_L = [];
+function wbUpdate() {   // v0.50: every piece of cargo aboard is a load at its station (rear seat +37, floor, baggage +57); one held in the seat rides at +11
+  const fuelGal = fuel / FUEL_MAX * WNB.FUEL_GAL; let rear = 0, bag = 0, foot = 0, loose = 0, held = 0; WB_L.length = 0;
+  for (const it of DLV.items) {
+    if (it.st === 'cargo') { WB_L.push({ lb: it.lb, arm: CZ[it.cz].arm(it.mesh.position.z), y: Math.max(0.1, Math.abs(it.mesh.position.x)) });
+      if (it.cz === 'rear') rear += it.lb; else if (it.cz === 'bag') bag += it.lb; else foot += it.lb; if (!cgSecured(it)) loose += it.lb; }
+    else if (it.st === 'held' && mode === 'plane') held += it.lb; }
+  if (held) WB_L.push({ lb: held, arm: WNB.PILOT_ARM, y: 0.1 });
+  const plan = massProps(fuelGal, WB_L);
+  const act = mode === 'plane' ? plan : massProps(fuelGal, WB_L.length ? WB_L.concat(WB_OFF) : WB_OFF);
   ac.mass = act.mass; ac.cgz = act.cgz; ac.I = act.I;
-  WBS.plan = plan; WBS.act = act; WBS.fuelGal = fuelGal;
-  const k = plan.lb.toFixed(0) + '|' + plan.arm.toFixed(1) + '|' + fuelGal.toFixed(1);
+  Object.assign(WBS, { plan, act, fuelGal, rearLb: rear, bagLb: bag, footLb: foot, loose });
+  const k = plan.lb.toFixed(0) + '|' + plan.arm.toFixed(1) + '|' + fuelGal.toFixed(1) + '|' + rear + '|' + bag + '|' + foot + '|' + loose + '|' + DLV.belt + DLV.net;
   if (k !== WBS.key) { WBS.key = k; wbCardDraw(); }
+}
+function wbWarn(dt) {   // v0.50 (from the full-game branch): one reminder when the throttle goes up on the ground
+  if ((WBS.warnT -= dt) > 0 || mode !== 'plane' || !ac.gs.some(g => g.Fn > 0) || ctl.throttle < 0.6 || acGS() > 8) return;
+  const B = WBS.plan; let m = '';
+  if (B.over) m = 'OVER GROSS: ' + B.lb.toFixed(0) + ' LB (MAX 1750) - LONG ROLL, SLOW CLIMB, GO EASY ON THE LANDING';
+  else if (!B.inEnv) m = 'CG ' + (B.arm > WNB.AFT ? 'AFT' : 'FORWARD') + ' OF LIMIT (+' + B.arm.toFixed(1) + ' IN)';
+  if (WBS.loose >= 10) m = (m ? m + ' | ' : '') + 'LOOSE CARGO ' + WBS.loose.toFixed(0) + ' LB - STRAP IT DOWN';
+  if (m) { say(m); WBS.warnT = 30; }
 }
 // ---- the laminated W&B card (right cabin wall) and the shared envelope chart ----
 const WBC_C = document.createElement('canvas'); WBC_C.width = 256; WBC_C.height = 352;
@@ -4117,14 +4532,16 @@ function wbCardDraw() {
   const x = WBC_X, P = WBS.plan; if (!P) return;
   x.fillStyle = '#efeadb'; x.fillRect(0, 0, 256, 352); x.fillStyle = '#1e2a3a'; x.fillRect(0, 0, 256, 30);
   x.fillStyle = '#fff'; x.font = 'bold 17px sans-serif'; x.textAlign = 'center'; x.fillText('WEIGHT & BALANCE', 128, 21); x.textAlign = 'left';
-  const rows = [['EMPTY', WNB.EMPTY_LB, '+' + WNB.EMPTY_ARM.toFixed(1)], ['PILOT', WNB.PILOT_LB, '+11'], ['FUEL ' + WBS.fuelGal.toFixed(1) + ' GAL', WBS.fuelGal * WNB.FUEL_LB_GAL, '+24']];
+  const rows = [['EMPTY', WNB.EMPTY_LB, '+' + WNB.EMPTY_ARM.toFixed(1)], ['PILOT', WNB.PILOT_LB, '+11'], ['FUEL ' + WBS.fuelGal.toFixed(1) + ' GAL', WBS.fuelGal * WNB.FUEL_LB_GAL, '+24'],
+    ['REAR SEAT' + (WBS.rearLb ? DLV.belt ? ' \u2713BELT' : ' LOOSE' : ''), WBS.rearLb, '+37'], ['BAGGAGE' + (WBS.bagLb ? DLV.net ? ' \u2713NET' : ' LOOSE' : ''), WBS.bagLb, '+57']];   // v0.50 cargo rows
+  if (WBS.footLb) rows.push(['FLOOR (LOOSE)', WBS.footLb, '+25']);
   x.font = '13px sans-serif'; let y = 48;
-  for (const [n, lb, arm] of rows) { x.fillStyle = '#222'; x.fillText(n, 8, y); x.textAlign = 'right'; x.fillText(lb.toFixed(0), 196, y); x.fillStyle = '#666'; x.fillText(arm, 248, y); x.textAlign = 'left'; y += 17; }
+  for (const [n, lb, arm] of rows) { x.fillStyle = (n.startsWith('BAGGAGE') && lb > WNB.BAG_MAX_LB) || n.includes('LOOSE') ? '#b8301e' : '#222'; x.fillText(n, 8, y); x.textAlign = 'right'; x.fillText(lb.toFixed(0), 196, y); x.fillStyle = '#666'; x.fillText(arm, 248, y); x.textAlign = 'left'; y += 17; }
   x.fillStyle = '#222'; x.fillRect(8, y - 11, 240, 1.5); x.font = 'bold 14px sans-serif'; x.fillText('TOTAL', 8, y + 5); x.textAlign = 'right'; x.fillText(P.lb.toFixed(0) + ' LB', 196, y + 5);
   x.fillText('+' + P.arm.toFixed(1), 248, y + 5); x.textAlign = 'left';
   wbChart(x, 40, y + 16, 206, 296 - (y + 16), P);   // chart fills down to the axis labels
   const [st, col] = wbStatus(P); x.fillStyle = col; x.font = 'bold 15px sans-serif'; x.textAlign = 'center'; x.fillText(st, 128, 347);
-  x.font = '10px sans-serif'; x.fillStyle = '#555'; x.fillText('MAX GROSS 1750 LB \u00B7 BAGGAGE 50 LB', 128, 329); x.textAlign = 'left';
+  x.font = '10px sans-serif'; x.fillStyle = '#555'; x.fillText(WBS.bagLb > WNB.BAG_MAX_LB ? 'BAGGAGE OVER 50 LB MAX' : 'MAX GROSS 1750 LB \u00B7 BAGGAGE 50 LB', 128, 329); x.textAlign = 'left';
   WBC_T.needsUpdate = true;
 }
 wbUpdate();
@@ -4136,7 +4553,7 @@ function cubParked() { return !ac.crashed && acGS() < 1 && ac.gs.some(g => g.Fn 
 function saveGame(why) {
   if (NOSAVE || SV.off) return false;
   if (cubParked()) SV.cub = { p: ac.pos.map(r3), q: ac.q.map(v => Math.round(v * 1e6) / 1e6) };
-  const d = { v: 45, at: Date.now(), cub: SV.cub, fuel: r3(fuel), h: r3(DAY.h), mode, foot: mode === 'foot' ? [r3(footRig.position.x), r3(footRig.position.z), r3(bodyYaw)] : null };
+  const d = { v: 50, at: Date.now(), cub: SV.cub, fuel: r3(fuel), h: r3(DAY.h), mode, foot: mode === 'foot' ? [r3(footRig.position.x), r3(footRig.position.z), r3(bodyYaw)] : null, dlv: dlvSave() };   // v0.50: + wallet, jobs, cargo, straps
   try { localStorage.setItem(SAVE_KEY, JSON.stringify(d)); } catch (e) { return false; }
   SV.last = Date.now(); SV.n++; SV.why = why || ''; SV.t = 30; SV.due = -1; return true;
 }
@@ -4151,11 +4568,12 @@ function saveTick(dt) {
 }
 function gameLoad() {
   if (NOSAVE) return false; let d = null; try { d = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); } catch (e) { }
-  if (!d || d.v !== 45) return false;
+  if (!d || (d.v !== 45 && d.v !== 50)) return false;   // v0.50 reads a v0.45 save too (no jobs yet: a fresh wallet and boards)
   if (typeof d.fuel === 'number' && isFinite(d.fuel)) fuel = clamp(d.fuel, 0, FUEL_MAX);
   if (typeof d.h === 'number' && isFinite(d.h)) DAY.h = ((d.h % 24) + 24) % 24;
   if (d.cub && d.cub.p?.length === 3 && d.cub.q?.length === 4) { ac.pos = d.cub.p.slice(); ac.q = d.cub.q.slice(); SV.cub = d.cub; }
   if (d.mode === 'foot' && d.foot) { exitPlane(); const [x, z, yaw] = d.foot; footRig.position.set(x, groundY(x, z) + EYE, z); footRig.rotation.set(0, yaw, 0); bodyYaw = yaw; }
+  dlvLoad(d.v >= 50 ? d.dlv : null);
   msgT = 0; SV.last = d.at || 0; return true;
 }
 MYS_SITES.clear();   // the whole world is built now: clear trees and rocks off the strips and sites
@@ -4585,6 +5003,7 @@ renderer.setAnimationLoop(() => {
   } else if ((crashTimer += dt) > 2.5) resetFlight();
 
   plane.position.fromArray(ac.pos); plane.quaternion.fromArray(ac.q);
+  dlvTick(dt); wbWarn(dt);   // v0.50 delivery: game clock, falling / loose cargo, job boards
   GV.update(dt);   // v0.20 gear legs / tyres / tail wheel
   updateMap(); updateCockpitV19(dt);
   prop.rotation.z += ENG.rpm / 60 * 2 * Math.PI * dt * (ENG.rpm < 400 ? 1 : 0.13);   // aliased-looking slow spin (real speed while cranking)
@@ -4606,7 +5025,7 @@ renderer.setAnimationLoop(() => {
   if (instT > 0.1) { instT = 0; drawWrist(); }
   if ((chunkT += dt) > 0.2) { chunkT = 0; updateChunks(); }
   hxTick(dt);                                // v0.24 haptics (engine / buffet / gear + queued pulses)
-  if (xr || HANDS.force) { updateHands(dt); setpTick(); }
+  if (xr || HANDS.force) { updateHands(dt); setpTick(); jbPoke(); }
   vlTick(); batchTick(); if (GFX.shadows && ((FT.n & 1) || mode !== 'plane' || ac.vel[0] * ac.vel[0] + ac.vel[1] * ac.vel[1] + ac.vel[2] * ac.vel[2] > 0.1)) renderer.shadowMap.needsUpdate = true;   // v0.47 static batches; shadow map at half rate   // v0.23 gloves (after the stick / knobs have their final pose); v0.45 wrist SETTINGS board
   renderer.render(scene, camera);
   const cpu = performance.now() - t0;            // JS + draw submission (GPU time isn't visible from here)

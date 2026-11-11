@@ -1,8 +1,10 @@
-# Bush Pilot VR – controls (v0.49.1, blank slate)
+# Bush Pilot VR – controls (v0.50, bush delivery)
 
 v0.45 is just the Super Cub, the valley and the paper map. There is no wind, weather, survival, combat, loot or story. The full game (v0.44) is tag `v0.44-full` and branch `full-game`.
 
 A new game starts **on foot beside the Cub** at the cabin strip. Climb in (Y / F), start her off the checklist card and fly.
+
+v0.50 turns it into a **bush delivery** game: take a job off a strip's job board, carry the cargo to the Cub, strap it down, fly it out and set it down on the destination's yellow pad to get paid. See **Delivery jobs** below.
 
 ## Flying
 | | VR (Quest) | Desktop |
@@ -76,6 +78,26 @@ v0.44 latches: every window and the door are latched while shut. Squeeze the han
 
 Town walls and the fences at the depot, checkpoint and lab are solid. You walk round them, not through them.
 
+## Delivery jobs (v0.50)
+Four strips have a **job board** (a wooden notice board on two posts) and a **yellow pad** with a black X beside it: HOME STRIP (about 20 m to the right of where the Cub parks, by the cabin), RIDGE STRIP, LODGE (north side) and DRY FORK (east side, south of the hangar).
+
+| | VR (Quest) | Desktop (on foot) |
+|---|---|---|
+| Take a job | Walk up to the board and poke **ACCEPT** on a job with your fingertip | Stand by the board, press **1 / 2 / 3** |
+| Cancel a job | Poke **CANCEL**. This only works while all of its cargo is still on that strip's pad | Press its number again |
+| Pick up cargo | Put your hand on a box, sack or crate and squeeze grip (either hand) | **E** picks up the nearest piece in front of you |
+| Load it | Carry it to the Cub and let go over the rear seat, the rear floor or the baggage bay behind the rear seat | **E** within about 3 m of the Cub's door: heavy pieces go on the rear seat, light ones in the baggage bay (50 lb max), and anything else wherever it fits |
+| Strap it down | Squeeze the rear seat **belt buckle** or the **cargo net** anchor in the baggage bay (they are the strap anchors) | **/** does both, and works from the seat too |
+| Unload | Undo the strap, then grab the piece and take it out | **E** by the Cub takes out the last unstrapped piece |
+| Deliver | Set every piece of the job down on the destination's yellow pad | **E** away from the Cub sets the piece down in front of you |
+
+- **The board** lists three jobs, each with what it is, where it goes and how far, the total weight and what the pieces are, the pay, and a deadline if it has one (deadline jobs pay 40 % more). A job you have taken turns green and shows where its cargo is (ON THE PAD, IN THE CUB, n/3 DELIVERED) and the time left. You can run **3 jobs** at once. Each job's pieces carry a coloured tag that matches the bar beside it on the board.
+- **Deadlines** are in game minutes, and a game minute is one real minute. Deliver late and you get half pay.
+- **Payment** comes once every piece of the job is on the destination pad. The customer takes the cargo away, the money goes in your **wallet**, and the board puts up a new job.
+- **The wallet** is the gold top line of the screen on your left wrist (the desktop HUD shows the same line). It shows the cash and your most urgent job: where it goes and the minutes left. You start with $150.
+- **Weight and balance:** every piece has a real weight and sits at its station. The rear seat is +37 in, the floor about +25, and the baggage bay +57 (50 lb limit). That is what the flight model gets, as mass, CG and inertia. The laminated W&B card on the right wall lists the rear seat, baggage and floor loads (LOOSE in red until strapped) and plots the dot. Full fuel plus you leaves about 317 lb before max gross (1750 lb). Push the throttle up on the ground while over gross, out of CG limits, or with 10 lb or more of loose cargo, and you get one reminder.
+- **Loose cargo moves.** Unstrapped pieces slide under hard braking, full power, skids and rough ground. They hop on a hard landing, and a piece can slide off the rear seat onto the floor. You hear and feel the thump, and the CG moves with them. Strapped pieces stay put.
+
 ## Fuel
 - Two wing tanks hold 36 gal (136 L). Burn scales with power: full throttle empties them in about 25 minutes. Below 3 % the engine sputters, and at empty it quits. The fuel gauge and the W&B card show what's aboard.
 - **Refuel at the home strip.** There is a red drum with a hand pump on the left of the Cub's parking spot. Taxi back to within 15 m of it, stop, and shut the engine down. Then:
@@ -121,6 +143,7 @@ Town walls and the fences at the depot, checkpoint and lab are solid. You walk r
 
 ## Saving
 - Autosaves every 30 s, when you land and stop, and when you close the tab or take the headset off. It saves where the Cub is parked, the fuel, the time of day, and whether you were aboard or on foot (and where).
+- v0.50 also saves the wallet, the game clock, every board's jobs, every piece of cargo (on the ground where it lies, or in the Cub on its seat or in the bay) and the straps. It saves soon after you take, load or set down anything, and straight away when you get paid. A v0.45–v0.49 save still loads, with a fresh $150 wallet and new boards.
 - v0.45 uses a new save key (`bushpilot-vr-blank-v1`), so older saves are left alone and never loaded.
 - `?nosave` plays without saving. `?plane` starts a new game in the seat instead of beside the Cub.
 
