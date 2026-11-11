@@ -19,7 +19,7 @@
 </script>
 </head>
 <body>
-<div id="info">BUSH PILOT VR v0.53 - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs. No wind, no weather.
+<div id="info">BUSH PILOT VR v0.54 - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops. No wind, no weather.
 You start on foot by the Cub at the cabin strip. Walk up to her and climb in (F / Y), then start her up off the checklist card (J).
 Desktop - flying: W/S or arrows pitch, A/D or arrows roll, Q/E rudder, Shift / Ctrl (or + / -) throttle, B brakes, [ ] flaps, PgUp / PgDn trim,
   R reset to the strip (cold and dark), F climb out, M map, L landing light, Home recentre, mouse looks (click to capture).
@@ -28,6 +28,7 @@ Desktop - engine: U fuel valve, O master, Y mixture, H carb heat, P primer, I ma
 Desktop - on foot: WASD walk, Shift run, C crouch, Space hop, F climb in, G refuel at the strip pump (near a wing filler cap), M map.
   Jobs: 1-3 at a job board accept / cancel, E pick up / set down cargo (E by the Cub loads or unloads it), / seat belt + cargo net.
   Hunting: T take / sling / rack the rifle, LMB fire, RMB aim, X lever, Z load a round (by the ammo box: buy 20 for $10), V binoculars, hold E by a downed deer to field dress it.
+  Airdrops: in flight open the right door (1 upper window, 2 lower door), G pushes the next bundle out - drop it on the smoke / X.
 VR - in the cockpit: grip the stick (right) and throttle (left), left stick = rudder, left trigger = brakes, reach up and pull the flap handle down
   a notch at a time, wind the trim crank, turn knobs / the mag key / the primer / the fuel valve with your hand, poke the rocker and toggles.
   A / X recentre, B reset, Y climb out. Poke the screen on your left wrist with your right finger for SETTINGS.
@@ -35,6 +36,7 @@ VR - on foot: left stick walks (click = run), right stick turns (snap / smooth i
   Y climb in, grab a wing filler cap at the home strip to refuel from the pump, grab the map off its cockpit holder.
   Jobs: poke ACCEPT on a strip's job board, grip cargo to carry it, let go over the rear seat / baggage bay, grab the belt buckle / net to strap.
   Hunting: grip the rifle's wrist (cabin / Cub rack), other hand on the forend, trigger fires, pinch the lever loop and swing it (or flick), rounds from the belt pouch into the gate; binoculars on your chest, raise them to your eyes; grip and hold a downed deer to dress it.
+  Airdrops: unlatch + open both halves of the right door, reach back and grip a bundle, put your hand out through the door and let go.
 Settings (` or F2 on desktop, the wrist board in VR): graphics, comfort, FPS counter, stick on release, control labels, haptics, time of day.
 </div>
 <div id="hud"></div><div id="cross"></div>
@@ -1746,6 +1748,7 @@ const keys = {};
 addEventListener('keydown', e => {
   keys[e.code] = true;
   if (e.repeat) return;
+  if (dropKey(e)) return;   // v0.54 G: push a bundle out of the open door
   if (huntKey(e)) return;   // v0.53 T rifle, X lever, Z load / buy ammo, V binoculars, hold E over a carcass
   if (engKey(e)) return;     // v0.19 cockpit keys (U O Y H I P K J, 1-4 windows; Space = starter, held)
   if (dlvDeskKey(e)) return;   // v0.50 on foot: E carry / load, 1-3 at a job board; / straps
@@ -1852,6 +1855,7 @@ function xrInput(dt) {
     _p.copy(g.position).applyQuaternion(xrOffset.quaternion);   // hand position in cockpit axes
     if (mapCockpit(g, squeeze, (right ? vr.stick : vr.thr) || oh)) { if (right) vr.stick = false; else vr.thr = false; if (vr.flapG === g) vr.flapG = null; if (TRIM.g === g) TRIM.g = null; continue; }
     if (huntPlaneGrab(g, squeeze, sqE && !((right ? vr.stick : vr.thr) || oh))) { if (right) vr.stick = false; else vr.thr = false; continue; }   // v0.53 binoculars from their holder
+    if (dropPlaneGrab(g, squeeze, sqE && !((right ? vr.stick : vr.thr) || oh))) { if (right) vr.stick = false; else vr.thr = false; continue; }   // v0.54 an airdrop bundle: reach back, hand it out of the door
     const onOH = !(right ? vr.stick : vr.thr) && ohHand(g, squeeze, sqE);   // v0.42 overhead flap handle / trim crank
     let busy = onOH;
     if (onOH) vr.prev['ck' + src.handedness] = squeeze; else busy = ckHand(g, squeeze, 'ck' + src.handedness);   // v0.19: a hand on a switch / window handle / checklist isn't on the stick or throttle
@@ -3108,7 +3112,7 @@ MAP.canvas = document.createElement('canvas'); MAP.canvas.width = MAP_W; MAP.can
   box(0.06, 0.02, 0.012, mat(0x777777), 0, 0.095, -0.004, MAP.clip);                                                                             // the clip
 }
 function mapJobs() {   // v0.51.1: job boards (gold square) + every active job's destination (its colour, ringed, numbered, a dashed line from the origin)
-  const A = dlvActive(), k = A.map(j => j.id + j.to + j.from + (j.hunt ? 'h' + j.hunt.got : '')).join() + '|' + DLV_STRIPS.map(S => S.found ? 1 : 0).join(''); if (k === MAP.key) return; MAP.key = k;
+  const A = dlvActive(), k = A.map(j => j.id + j.to + j.from + (j.hunt ? 'h' + j.hunt.got : '') + (j.drop ? 'd' + j.drop.res.length : '')).join() + '|' + DLV_STRIPS.map(S => S.found ? 1 : 0).join(''); if (k === MAP.key) return; MAP.key = k;
   const x = MAP.cx, X = wx => (wx + MAP_X) * MAP_PX, Z = wz => (wz + MAP_Z) * MAP_PX, F = "'Segoe Print','Bradley Hand','Comic Sans MS','Comic Neue',cursive";
   x.drawImage(MAP.base, 0, 0); x.textBaseline = 'middle'; x.textAlign = 'center';
   for (const S of DLV_STRIPS) { if (!S.site || !S.found) continue; const B = S.B, sa = Math.sin(B.a), ca = Math.cos(B.a), p0x = X(B.x - sa * B.hl), p0y = Z(B.z - ca * B.hl), p1x = X(B.x + sa * B.hl), p1y = Z(B.z + ca * B.hl);   // v0.52
@@ -3123,7 +3127,12 @@ function mapJobs() {   // v0.51.1: job boards (gold square) + every active job's
     x.fillStyle = 'rgba(224,112,16,0.16)'; x.strokeStyle = '#c05a08'; x.lineWidth = 2.5; x.setLineDash([6, 4]); x.beginPath(); x.arc(hx, hy, HUNT_R * MAP_PX, 0, 6.283); x.fill(); x.stroke(); x.setLineDash([]);
     x.fillStyle = '#8a3a04'; x.font = 'bold 13px ' + F; x.fillText('DEER - ' + H.name.toLowerCase(), hx, hy + HUNT_R * MAP_PX + 11);
     for (const [ox, oy] of [[-4, 0], [4, 0], [0, -5]]) { x.beginPath(); x.arc(hx + ox, hy + oy, 2.5, 0, 6.283); x.fill(); } x.beginPath(); x.ellipse(hx, hy + 6, 4, 5, 0, 0, 6.283); x.fill(); }   // a hoof print
-  A.forEach((j, n) => { const S = dlvS(j.from), T = dlvS(j.to), col = '#' + DLV_COL[j.id % DLV_COL.length].toString(16).padStart(6, '0'), ax = X(S.pad[0]), ay = Z(S.pad[1]), hid = T.site && !T.found, bx = X(hid ? T.B.hx : T.pad[0]), by = Z(hid ? T.B.hz : T.pad[1]);
+  for (const j of A) { if (!j.drop) continue; const D = DROPS[j.drop.s], S = dlvS(j.from), col = '#' + DLV_COL[j.id % DLV_COL.length].toString(16).padStart(6, '0'), dx = X(D.cx), dy = Z(D.cz);   // v0.54 the drop site: an X + smoke
+    x.strokeStyle = col; x.lineWidth = 2.5; x.setLineDash([8, 6]); x.beginPath(); x.moveTo(X(S.pad[0]), Z(S.pad[1])); x.lineTo(dx, dy); x.stroke(); x.setLineDash([]);
+    x.strokeStyle = '#e05a10'; x.lineWidth = 4; x.beginPath(); x.moveTo(dx - 7, dy - 7); x.lineTo(dx + 7, dy + 7); x.moveTo(dx + 7, dy - 7); x.lineTo(dx - 7, dy + 7); x.stroke();
+    x.fillStyle = 'rgba(150,150,150,0.55)'; for (let k = 0; k < 3; k++) { x.beginPath(); x.arc(dx + 9 + k * 3, dy - 12 - k * 7, 4 + k * 1.5, 0, 6.283); x.fill(); }
+    x.fillStyle = col; x.font = 'bold 15px ' + F; x.fillText('DROP: ' + D.who.toLowerCase(), dx, dy + 18); x.font = '12px ' + F; x.fillText(D.name.toLowerCase() + ' - no strip', dx, dy + 32); }
+  A.filter(j => !j.drop).forEach((j, n) => { const S = dlvS(j.from), T = dlvS(j.to), col = '#' + DLV_COL[j.id % DLV_COL.length].toString(16).padStart(6, '0'), ax = X(S.pad[0]), ay = Z(S.pad[1]), hid = T.site && !T.found, bx = X(hid ? T.B.hx : T.pad[0]), by = Z(hid ? T.B.hz : T.pad[1]);
     if (hid) { x.strokeStyle = col; x.lineWidth = 2; x.setLineDash([4, 5]); x.beginPath(); x.arc(bx, by, 320 * MAP_PX, 0, 6.283); x.stroke(); x.setLineDash([]); x.fillStyle = col; x.font = 'bold 22px ' + F; x.fillText('?', bx, by); }   // v0.52 search area
     x.strokeStyle = col; x.lineWidth = 2.5; x.setLineDash([8, 6]); x.beginPath(); x.moveTo(ax, ay); x.lineTo(bx, by); x.stroke(); x.setLineDash([]);
     const o = n * 7; x.lineWidth = 3.5; x.beginPath(); x.arc(bx, by, 15 + o, 0, 6.283); x.stroke();
@@ -3558,6 +3567,9 @@ function kbLines() {   // the text, one entry per active job
     const inC = its.filter(i => i.st === 'cargo'), loose = inC.filter(i => !cgSecured(i)).length, at = its.filter(i => i.st === 'ground' && dlvInPad(T, i.mesh.position.x, i.mesh.position.z)).length;
     const st = inC.length ? (inC.length + '/' + its.length + ' IN THE CUB - ' + (loose ? loose + ' LOOSE' : 'STRAPPED')) : at ? at + '/' + its.length + ' DELIVERED' : its.every(i => i.st === 'ground' && dlvInPad(S, i.mesh.position.x, i.mesh.position.z)) ? 'ON THE ' + S.name + ' PAD' : 'ON THE MOVE';
     const left = dlvLeft(j), due = j.sp ? dlvMeter(j, its).replace(' - ', '') : left === Infinity ? 'NO DEADLINE' : left < 0 ? 'LATE - HALF PAY' : 'DUE IN ' + Math.ceil(left) + ' MIN';
+    if (j.drop) { const D = DROPS[j.drop.s], ex = D.cx - P[0], ez = D.cz - P[2], dk = Math.hypot(ex, ez) / 1000, dh = Math.round(((Math.atan2(ex, -ez) * 180 / Math.PI) + 360) % 360 / 5) * 5 % 360;   // v0.54
+      L.push({ col: '#' + DLV_COL[j.id % DLV_COL.length].toString(16).padStart(6, '0'), t: j.title, sp: null, rt: S.name + ' > ' + D.name + ' (AIRDROP)', nav: 'DROP ' + (dk < 10 ? dk.toFixed(1) : Math.round(dk)) + ' KM  HDG ' + String(dh).padStart(3, '0'),
+        pcs: j.drop.n + ' BUNDLES ' + dlvLb(j) + ' LB', pay: '$' + j.pay, due: left === Infinity ? 'NO DEADLINE' : left < 0 ? 'LATE - HALF PAY' : 'DUE IN ' + Math.ceil(left) + ' MIN', st: j.drop.res.length + '/' + j.drop.n + ' DROPPED' + (inC.length ? ' - ' + inC.length + ' IN THE CUB' : ''), warn: left < 0 }); continue; }
     if (hu) { L.push({ col: '#' + DLV_COL[j.id % DLV_COL.length].toString(16).padStart(6, '0'), t: j.title, sp: null, rt: hu.name + ' > ' + T.name, nav: 'HUNT ' + (km < 10 ? km.toFixed(1) : Math.round(km)) + ' KM  HDG ' + String(hdg).padStart(3, '0'),
       pcs: '1 DEER, ~100-150 LB (TWO-HAND)', pay: '$' + j.pay, due: left === Infinity ? 'NO DEADLINE' : left < 0 ? 'LATE - HALF PAY' : 'DUE IN ' + Math.ceil(left) + ' MIN', st: 'HUNTING - FIND THE HERD', warn: left < 0 }); continue; }   // v0.53
     L.push({ col: '#' + DLV_COL[j.id % DLV_COL.length].toString(16).padStart(6, '0'), t: j.title, sp: j.sp, rt: S.name + ' > ' + T.name, nav: (hu ? 'HUNT ' : hid ? 'SEARCH ' : '') + (km < 10 ? km.toFixed(1) : Math.round(km)) + ' KM  HDG ' + String(hdg).padStart(3, '0') + (T.site && !hid ? '  ' + BUSH_T[T.B.type] + ' ' + T.B.len + 'M' : ''),
@@ -4215,6 +4227,7 @@ const CARGO_K = {   // kind: size [w h d] (m), weight range (lb)
   outboard: { n: 'OUTBOARD MOTOR', sz: [0.42, 0.40, 0.34], lb: [85, 110], two: 1 },   // two-hand lift (desktop: the hand truck)
   generator: { n: 'GENERATOR', sz: [0.44, 0.40, 0.36], lb: [95, 130], two: 1 },
   deer: { n: 'VENISON CARCASS', sz: [0.46, 0.34, 0.80], lb: [100, 150], two: 1 },   // v0.53 a field-dressed deer, tied (hunting jobs only)
+  bundle: { n: 'DROP BUNDLE', sz: [0.30, 0.24, 0.44], lb: [15, 35] },   // v0.54 a canvas airdrop bundle with its streamer (airdrop jobs only)
 };
 // v0.52 weight classes: LIGHT parcel runs 20-80 lb, HEAVY freight ~150-400 lb (it lengthens the takeoff roll and flattens the climb). [title, [kind, min, max pieces]]
 const DLV_H = [['BUILDING SUPPLIES', [['cement', 3, 4], ['nails', 1, 2]]], ['AVGAS', [['fuel', 5, 7]]], ['OUTBOARD MOTOR', [['outboard', 1, 1], ['fuel', 2, 2]]],
@@ -4232,6 +4245,29 @@ function huntGen(id, from, r) {   // one venison job: a customer (not this strip
   return { id, from, to, title: HUNT_C[to], items: [{ k: 'deer', lb: 125 }], pay: Math.round((150 + 0.9 * 125 + 30 * km) * (dl ? 1.25 : 1) * bx), dl, due: 0, st: 'offer',
     sp: 'perish', life: Math.ceil(25 + 2 * km), fresh: 1, stress: 0, wc: 'H', hunt: { h: hi, got: 0 } };
 }
+const DROPS = [
+  { id: 'BALDY', name: 'BALDY RIDGE', who: 'STRANDED HIKER', x: -2700, z: 900, title: 'SUPPLIES FOR A STRANDED HIKER', n: [2, 3], ppl: 1 },
+  { id: 'SPUR', name: 'EAST SPUR', who: 'SURVEY PARTY', x: 3180, z: -1260, title: 'SURVEY PARTY STORES', n: [2, 4], ppl: 3 },
+  { id: 'BURNT', name: 'BURNT HILL', who: 'FIRE CREW', x: 2580, z: 1020, title: 'FIRE CREW RATIONS + TOOLS', n: [3, 4], ppl: 3, fire: 1 },
+  { id: 'DEEP', name: 'DEEP WOODS', who: 'TRAPPER', x: -480, z: -960, title: 'TRAPPER\'S STORES', n: [2, 3], ppl: 1 },
+  { id: 'LOWER', name: 'LOWER RIVER', who: 'CANOE PARTY', x: 0, z: -3240, title: 'CANOE PARTY RESUPPLY', n: [2, 3], ppl: 2 }];
+const DROP_P = 0.14, DROP_OK = 10, DROP_ZERO = 150, DROP_LOST = 250, DROP_CLR = 18;   // job share; full marks inside 10 m, none past 150 m, lost past 250 m; trees cleared round the X
+const DROP = { air: [], decor: [], held: new Map(), vt: 24, ms: 0, hint: {}, sm: null, t: 0 };
+{ for (const D of DROPS) {   // the X goes on the flattest dry spot within 30 m of the searched point; the camp 12 m off, uphill side
+    let best = null; for (let r = 0; r <= 30; r += 6) for (let a = 0; a < 6.28; a += r ? 6 / r : 7) { const x = D.x + Math.cos(a) * r, z = D.z + Math.sin(a) * r; if (waterDist(x, z) < 4) continue;
+      let f = 0; for (const [dx, dz] of [[4, 0], [-4, 0], [0, 4], [0, -4]]) f = Math.max(f, Math.abs(groundY(x + dx, z + dz) - groundY(x, z))); if (!best || f < best[2]) best = [x, z, f]; }
+    D.cx = best[0]; D.cz = best[1]; D.cy = groundY(D.cx, D.cz);
+    let ca = 0, cb = -1e9; for (let a = 0; a < 6.28; a += 0.785) { const x = D.cx + Math.cos(a) * 12, z = D.cz + Math.sin(a) * 12, s = -Math.abs(groundY(x, z) - D.cy) - (waterDist(x, z) < 5 ? 99 : 0); if (s > cb) { cb = s; ca = a; } }
+    D.kx = D.cx + Math.cos(ca) * 12; D.kz = D.cz + Math.sin(ca) * 12; }
+}
+// ---- jobs: from any strip, one site within reach; 2-4 bundles of 15-35 lb. The cargo loads like any other (by the door: the rear seat or the floor) ----
+function dropGen(id, from, r) {
+  const S = dlvS(from), C = DROPS.map((D, i) => [i, Math.hypot(D.cx - S.pad[0], D.cz - S.pad[1])]).filter(c => c[1] < 7000).sort((a, b) => a[1] - b[1]).slice(0, 3), [s, dist] = C[Math.floor(r() * C.length)], D = DROPS[s];
+  const n = D.n[0] + Math.floor(r() * (D.n[1] - D.n[0] + 1)), items = []; for (let i = 0; i < n; i++) items.push({ k: 'bundle', lb: Math.round(15 + r() * 20) });
+  const lb = items.reduce((a, i) => a + i.lb, 0), km = dist / 1000, dl = r() < 0.5 ? Math.ceil(10 + km * 2.5) : 0;
+  return { id, from, to: from, title: D.title, items, pay: Math.round((90 + lb + 40 * km) * (dl ? 1.25 : 1)), dl, due: 0, st: 'offer', wc: 'L', drop: { s, n, res: [] } };
+}
+const dropKm = (j, S) => Math.hypot(DROPS[j.drop.s].cx - S.pad[0], DROPS[j.drop.s].cz - S.pad[1]) / 1000;
 const DLV_LMAX = 80, DLV_LMIN = 20, DLV_HP = 0.45;   // light jobs' total weight; the share of plain (not special) jobs that are heavy freight
 const dlvWc = j => j.wc || (j.items.reduce((s, i) => s + i.lb, 0) > 120 ? 'H' : 'L'), dlvFrt = j => dlvWc(j) === 'H' && !j.hunt;   // v0.53 heavy freight (a hunt isn't)
 function dlvCapL(items) {   // a light job: scale its pieces into 20-80 lb
@@ -4413,6 +4449,7 @@ const JB_W = 512, JB_H = 352, JB_PW = 1.28, JB_PH = 0.88, JB_Y = 1.45;
 function dlvRng(n) { let s = (n * 2654435761) >>> 0 || 1; return () => { s = (s + 0x6D2B79F5) | 0; let t = Math.imul(s ^ (s >>> 15), 1 | s); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
 function dlvGen(from, forceH) {   // one offer from this strip (seeded by the running job number, so a save reloads the same board); forceH: heavy freight
   const id = DLV.seq++; { const rh = dlvRng(id * 49979687 + 11); if (!forceH && rh() < HUNT_P) return huntGen(id, from, rh); }   // v0.53
+  { const ra = dlvRng(id * 86028121 + 5); if (!forceH && ra() < DROP_P) return dropGen(id, from, ra); }   // v0.54 airdrops
   const r = dlvRng(id * 7919 + 13), fS = dlvS(from), others = DLV_STRIPS.filter(S => S.id !== from), bush = others.filter(S => S.site), main = others.filter(S => !S.site);
   const pool = bush.length && r() < (fS && fS.site ? 0.25 : 0.5) ? bush : main, to = pool[Math.floor(r() * pool.length)], bx = to.site || (fS && fS.site) ? 1.2 : 1;   // v0.52 bush sites
   const [title, kinds] = DLV_T[Math.floor(r() * DLV_T.length)], items = dlvCapL(kinds.map(k => { const [a, b] = CARGO_K[k].lb; return { k, lb: Math.round(a + r() * (b - a)) }; }));
@@ -4470,7 +4507,7 @@ function lblQuad(slot, w, h, px, py, pz, rx, ry) {   // a label quad in the piec
 }
 const LBL_AT = {   // front label: [y, z offset past d/2, back face?]; top label: y offset past h/2 (null = no top label)
   cement: [0, 0.004, 0, 0.004], feed: [0, 0.004, 0, 0.008], nails: [0.02, 0.003, 0, 0.004], fuel: [0, 0.004, 0, null], outboard: [0, 0.004, 0, 0.004], generator: [-0.05, 0.004, 0, -0.035],
-  parcel: [-0.01, 0.004, 0, 0.004], sack: [-0.03, 0.006, 0, null], crate: [0, 0.004, 0, 0.003], fbox: [-0.035, 0.006, 0, 0.004], cooler: [-0.05, 0.003, 0, 0.012], medkit: [-0.035, 0.003, 0, 0.004], dog: [0.02, 0.003, 1, 0.004], hens: [0.1, 0.003, 0, 0.006], deer: [0.02, 0.003, 1, 0.012],
+  parcel: [-0.01, 0.004, 0, 0.004], sack: [-0.03, 0.006, 0, null], crate: [0, 0.004, 0, 0.003], fbox: [-0.035, 0.006, 0, 0.004], cooler: [-0.05, 0.003, 0, 0.012], medkit: [-0.035, 0.003, 0, 0.004], dog: [0.02, 0.003, 1, 0.004], hens: [0.1, 0.003, 0, 0.006], deer: [0.02, 0.003, 1, 0.012], bundle: [0, 0.004, 0, 0.012],
 };
 function dlvItemGeo(k, col, slot) {
   const base = dlvGeo(k, col); if (slot < 0) return base;
@@ -4508,6 +4545,8 @@ function dlvGeo(k, col) {
   else if (k === 'generator') { const T = 0x2a2a2a; P.push(['b', w - 0.04, h - 0.08, d - 0.04, 0, -0.02, 0, 0xc8a01a], ['b', 0.16, 0.16, 0.2, -0.1, -0.06, 0.01, 0x6a6e72], ['b', 0.12, 0.08, 0.004, 0.1, 0.02, d / 2 - 0.018, 0x2a2a2a]);
     for (const sx of [-1, 1]) for (const sz of [-1, 1]) P.push(['c', 0.012, h, 6, sx * (w / 2 - 0.012), 0, sz * (d / 2 - 0.012), T]);
     for (const sz of [-1, 1]) P.push(['b', w, 0.024, 0.024, 0, h / 2 - 0.012, sz * (d / 2 - 0.012), T], ['b', w, 0.024, 0.024, 0, -h / 2 + 0.012, sz * (d / 2 - 0.012), T]); }   // tube frame
+  else if (k === 'bundle') { const Cv = 0xb8a878, Rp = 0x6a5a3a, O = 0xff5a10; P.push(['b', w, h, d, 0, 0, 0, Cv], ['b', w + 0.006, h + 0.006, 0.03, 0, 0, d * 0.28, Rp], ['b', w + 0.006, h + 0.006, 0.03, 0, 0, -d * 0.28, Rp], ['b', 0.03, h + 0.006, d + 0.006, 0, 0, 0, Rp]);   // v0.54 canvas, rope cross
+    P.push(['b', w * 0.7, 0.03, d * 0.5, 0, h / 2 + 0.015, 0, O], ['b', 0.06, 0.02, 0.2, w * 0.2, h / 2 + 0.04, -d * 0.1, O, 0, 0.4]); }   // the streamer, rolled up on top
   else if (k === 'deer') { const B = 0x8a5a34, Dk = 0x6a4226, Hf = 0x1a1612, Rp = 0x8a7a58, y0 = -h / 2;   // v0.53.1 a field-dressed deer on its side: back to -x, legs out to +x and tied, head and neck on in front
     P.push(['b', 0.3, 0.26, d * 0.6, -0.06, y0 + 0.13, -0.02, B], ['b', 0.28, 0.25, 0.16, -0.06, y0 + 0.125, d * 0.33, B], ['b', 0.26, 0.24, 0.13, -0.06, y0 + 0.12, -d * 0.38, Dk],   // barrel, shoulders, haunch
       ['b', 0.14, 0.12, 0.012, -0.02, y0 + 0.12, -d * 0.445 - 0.006, 0xece4d4], ['b', 0.04, 0.05, 0.06, -0.1, y0 + 0.13, -d * 0.47, 0xece4d4],   // white rump, tail
@@ -4556,11 +4595,13 @@ function jbAccept(S, i) {
     if (dlvActive().length >= DLV_MAX) { say('THREE JOBS ON THE GO ALREADY - DELIVER ONE FIRST'); sfx('tick'); return; }
     j.st = 'active'; j.due = j.dl ? DLV.gt + j.dl : 0; dlvSpawn(j); sfx('clack'); saveSoon();
     if (j.hunt) { const H = DEER_HERDS[j.hunt.h]; say('ACCEPTED: ' + j.title + ' - HUNT 1 DEER AT ' + H.name + ' (ON YOUR MAP), DELIVER TO ' + dlvS(j.to).name + (j.dl ? ' IN ' + j.dl + ' MIN' : '') + (RFL.place === 'cabin' ? ' - RIFLE ON THE CABIN RACK' : '')); MAP.key = ''; S.key = ''; return; }   // v0.53
+    if (j.drop) { const D = DROPS[j.drop.s]; say('ACCEPTED: ' + j.title + ' - AIRDROP ' + j.drop.n + ' BUNDLES (' + dlvLb(j) + ' LB) TO THE ' + D.who + ' AT ' + D.name + ' (NO STRIP - ON YOUR MAP)' + (j.dl ? ' IN ' + j.dl + ' MIN' : '') + ' - LOAD THEM, OPEN THE DOOR IN FLIGHT, PUSH THEM OUT ON THE SMOKE'); MAP.key = ''; S.key = ''; return; }   // v0.54
     say('ACCEPTED: ' + j.title + ' TO ' + dlvS(j.to).name + ' - ' + dlvLb(j) + ' LB ' + (dlvWc(j) === 'H' ? 'HEAVY ' : '') + 'ON THE PAD' + (j.dl ? ' - ' + j.dl + ' MIN' : '') + (dlvLb(j) > dlvRoom() ? ' - OVER PAYLOAD AT THIS FUEL (MAX ' + Math.max(0, dlvRoom()) + ' LB)' : ''));
   } else if (j.st === 'active') {   // cancel: only while every piece still sits on this pad
     const its = DLV.items.filter(it => it.job === j.id);
     if (its.some(it => it.st !== 'ground' || !dlvInPad(S, it.mesh.position.x, it.mesh.position.z))) { say('CANCEL: PUT ALL OF IT BACK ON THIS PAD FIRST'); sfx('tick'); return; }
     if (j.hunt && j.hunt.got) { say('CANCEL: THE VENISON IS DRESSED - DELIVER IT'); sfx('tick'); return; }   // v0.53
+    if (j.drop && j.drop.res.length) { say('CANCEL: BUNDLES ALREADY DROPPED - FINISH THE AIRDROP'); sfx('tick'); return; }   // v0.54
     for (const it of its) dlvRemove(it); j.st = 'offer'; j.due = 0; sfx('click'); say('JOB CANCELLED - ' + j.title); saveSoon();
   }
   S.key = '';
@@ -4581,6 +4622,8 @@ function dlvSpPay(j) {   // v0.51: what the special cargo's condition leaves of 
 function jbStatus(j) {
   if (j.hunt && !j.hunt.got) { const l = dlvLeft(j); return ['HUNTING AT ' + DEER_HERDS[j.hunt.h].name, l === Infinity ? '' : l < 0 ? ' - LATE: HALF PAY' : ' - DUE IN ' + Math.ceil(l) + ' MIN', true]; }   // v0.53 (cancel allowed till you've dressed one)
   const its = DLV.items.filter(it => it.job === j.id), S = dlvS(j.from), T = dlvS(j.to), left = dlvLeft(j);
+  if (j.drop) { const onP = !j.drop.res.length && its.every(it => it.st === 'ground' && dlvInPad(S, it.mesh.position.x, it.mesh.position.z)), t = left === Infinity ? '' : left < 0 ? ' - LATE: HALF PAY' : ' - DUE IN ' + Math.ceil(left) + ' MIN';   // v0.54
+    return [onP ? 'ON THE PAD - LOAD IT UP' : 'AIRDROP AT ' + DROPS[j.drop.s].name + ': ' + j.drop.res.length + '/' + j.drop.n + ' DROPPED', t, onP]; }
   const at = its.filter(it => it.st === 'ground' && dlvInPad(T, it.mesh.position.x, it.mesh.position.z)).length;
   const onPad = its.every(it => it.st === 'ground' && dlvInPad(S, it.mesh.position.x, it.mesh.position.z));
   const t = left === Infinity ? dlvMeter(j, its) : left < 0 ? ' - LATE: HALF PAY' : ' - DUE IN ' + Math.ceil(left) + ' MIN';
@@ -4596,18 +4639,18 @@ function jbDraw(S) {
     x.fillStyle = '#' + DLV_COL[j.id % DLV_COL.length].toString(16).padStart(6, '0'); x.fillRect(16, Y, 10, 80);
     x.fillStyle = '#222'; x.font = 'bold 19px sans-serif'; x.fillText((i + 1) + '. ' + j.title, 34, Y + 24);
     x.textAlign = 'right'; x.fillStyle = '#1e6a2a'; x.fillText('$' + j.pay, JB_W - 26, Y + 24); x.textAlign = 'left';
-    { const H = dlvWc(j) === 'H', pw = x.measureText('$' + j.pay).width, t = j.hunt ? 'HUNT' : H ? 'HEAVY' : 'LIGHT'; x.font = 'bold 12px sans-serif'; const bw = x.measureText(t).width + 10, b0 = JB_W - 26 - pw - 10 - bw;   // v0.52 weight class
-      x.fillStyle = j.hunt ? '#c06010' : H ? '#8a2a1a' : '#5a7a5a'; x.fillRect(b0, Y + 9, bw, 19); x.fillStyle = '#fff'; x.fillText(t, b0 + 5, Y + 23); }
+    { const H = dlvWc(j) === 'H', pw = x.measureText('$' + j.pay).width, t = j.hunt ? 'HUNT' : j.drop ? 'AIRDROP' : H ? 'HEAVY' : 'LIGHT'; x.font = 'bold 12px sans-serif'; const bw = x.measureText(t).width + 10, b0 = JB_W - 26 - pw - 10 - bw;   // v0.52 weight class
+      x.fillStyle = j.hunt ? '#c06010' : j.drop ? '#2a5aa0' : H ? '#8a2a1a' : '#5a7a5a'; x.fillRect(b0, Y + 9, bw, 19); x.fillStyle = '#fff'; x.fillText(t, b0 + 5, Y + 23); }
     const T = dlvS(j.to), n = {}; for (const it of j.items) n[it.k] = (n[it.k] || 0) + 1;
-    x.fillStyle = '#333'; x.font = '15px sans-serif'; x.fillText(j.hunt ? 'TO ' + T.name + (T.site && !T.found ? ' (FIND IT)' : '') + ' - 1 DEER (~100-150 LB) - HUNT AREA ON THE MAP: ' + DEER_HERDS[j.hunt.h].name : 'TO ' + T.name + (T.site && !T.found ? ' (FIND IT)' : '') + ' ' + dlvKm(S, T).toFixed(1) + ' KM - ' + dlvLb(j) + ' LB (' + Object.entries(n).map(([k, c]) => c + ' ' + CARGO_K[k].n + (c > 1 ? 'S' : '')).join(', ') + ')', 34, Y + 46, JB_W - 56);
+    x.fillStyle = '#333'; x.font = '15px sans-serif'; x.fillText(j.drop ? 'AIRDROP TO THE ' + DROPS[j.drop.s].who + ' AT ' + DROPS[j.drop.s].name + ' (NO STRIP) ' + dropKm(j, S).toFixed(1) + ' KM - ' + j.drop.n + ' BUNDLES ' + dlvLb(j) + ' LB' : j.hunt ? 'TO ' + T.name + (T.site && !T.found ? ' (FIND IT)' : '') + ' - 1 DEER (~100-150 LB) - HUNT AREA ON THE MAP: ' + DEER_HERDS[j.hunt.h].name : 'TO ' + T.name + (T.site && !T.found ? ' (FIND IT)' : '') + ' ' + dlvKm(S, T).toFixed(1) + ' KM - ' + dlvLb(j) + ' LB (' + Object.entries(n).map(([k, c]) => c + ' ' + CARGO_K[k].n + (c > 1 ? 'S' : '')).join(', ') + ')', 34, Y + 46, JB_W - 56);
     if (mine) { const [a, t, onPad] = jbStatus(j); x.fillStyle = t.includes('LATE') ? '#b8301e' : '#2a5a22'; x.font = 'bold 14px sans-serif'; x.fillText((j.sp ? '' : 'ACCEPTED - ') + a + t, 34, Y + 68);
       if (onPad) { x.fillStyle = '#8a8a80'; x.fillRect(JB_W - 126, Y + 50, 100, 26); x.fillStyle = '#fff'; x.textAlign = 'center'; x.fillText('CANCEL', JB_W - 76, Y + 68); x.textAlign = 'left'; } }
     else if (!j.hunt && dlvLb(j) > dlvRoom()) { x.fillStyle = '#b8301e'; x.font = 'bold 14px sans-serif'; x.fillText('OVER PAYLOAD AT ' + Math.round(WBS.fuelGal) + ' GAL: MAX ' + Math.max(0, dlvRoom()) + ' LB', 34, Y + 68, JB_W - 170);   // v0.52
       x.fillStyle = act >= DLV_MAX ? '#9a9a90' : '#2a7a2a'; x.fillRect(JB_W - 126, Y + 50, 100, 26); x.fillStyle = '#fff'; x.font = 'bold 15px sans-serif'; x.textAlign = 'center'; x.fillText('ACCEPT', JB_W - 76, Y + 68); x.textAlign = 'left'; }
     else { x.fillStyle = j.sp ? '#8a1a6a' : j.dl ? '#9a4a10' : '#555'; x.font = (j.sp ? 'bold ' : '') + '14px sans-serif';
-      x.fillText(j.hunt ? 'HUNTING JOB - ' + (j.dl ? 'DEADLINE ' + j.dl + ' MIN' : 'NO DEADLINE') + ' - KEEPS ' + j.life + ' MIN DRESSED' : (T.site ? BUSH_T[T.B.type] + ' ' + T.B.len + ' M - ' : '') + (j.sp === 'fragile' ? 'FRAGILE - KNOCKS + G DOCK PAY (+30%)' : j.sp === 'perish' ? 'PERISHABLE - FRESH ' + j.life + ' MIN (+25%)' : j.sp === 'live' ? 'LIVE ANIMALS - FLY SMOOTH (+35%)' : j.dl ? 'DEADLINE ' + j.dl + ' MIN (+40% PAY)' : 'NO DEADLINE'), 34, Y + 68);
+      x.fillText(j.drop ? 'DOOR OPEN, LOW + SLOW, DROP ON THE SMOKE - PAY BY ACCURACY + CONDITION' + (j.dl ? ' - ' + j.dl + ' MIN' : '') : j.hunt ? 'HUNTING JOB - ' + (j.dl ? 'DEADLINE ' + j.dl + ' MIN' : 'NO DEADLINE') + ' - KEEPS ' + j.life + ' MIN DRESSED' : (T.site ? BUSH_T[T.B.type] + ' ' + T.B.len + ' M - ' : '') + (j.sp === 'fragile' ? 'FRAGILE - KNOCKS + G DOCK PAY (+30%)' : j.sp === 'perish' ? 'PERISHABLE - FRESH ' + j.life + ' MIN (+25%)' : j.sp === 'live' ? 'LIVE ANIMALS - FLY SMOOTH (+35%)' : j.dl ? 'DEADLINE ' + j.dl + ' MIN (+40% PAY)' : 'NO DEADLINE'), 34, Y + 68);
       x.fillStyle = act >= DLV_MAX ? '#9a9a90' : '#2a7a2a'; x.fillRect(JB_W - 126, Y + 50, 100, 26); x.fillStyle = '#fff'; x.font = 'bold 15px sans-serif'; x.textAlign = 'center'; x.fillText('ACCEPT', JB_W - 76, Y + 68); x.textAlign = 'left'; } }
-  const inb = dlvActive().filter(j => j.to === S.id);
+  const inb = dlvActive().filter(j => j.to === S.id && !j.drop);
   x.fillStyle = '#3a2a1a'; x.font = '14px sans-serif';
   x.fillText(inb.length ? 'DELIVER HERE: ' + inb.map(j => j.title).join(', ') + ' - SET IT ON THE YELLOW PAD' : 'JOBS ' + act + '/' + DLV_MAX + ' - POKE ACCEPT (DESKTOP 1-3) - DELIVER TO THE YELLOW PAD', 20, JB_H - 22, JB_W - 40);
   S.tex.needsUpdate = true;
@@ -4804,7 +4847,7 @@ function dlvFallTick(dt) {
     if (p.y <= rest) { p.y = rest; const v = -it.vy; it.vy = 0; it.st = 'ground'; if (v > 1) sfx('thud', p); if (v > 1.2) dlvKnock(it, (v - 1.2) * 0.12, 'DROPPED'); dlvCheck(it); saveSoon(); } }
 }
 function dlvCheck(it) {   // a piece came to rest on the ground: is its whole job on the destination pad?
-  const j = dlvJob(it.job); if (!j || j.st !== 'active') return;
+  const j = dlvJob(it.job); if (!j || j.st !== 'active' || j.drop) return;   // (v0.54 airdrop bundles are scored where they land from the air)
   const T = dlvS(j.to), its = DLV.items.filter(o => o.job === j.id), on = its.filter(o => o.st === 'ground' && dlvInPad(T, o.mesh.position.x, o.mesh.position.z)).length;
   if (!dlvInPad(T, it.mesh.position.x, it.mesh.position.z)) return;
   if (on < its.length) { say(j.title + ': ' + on + '/' + its.length + ' ON THE PAD'); return; }
@@ -4886,11 +4929,11 @@ function dlvTick(dt) {
 // ---- save / load (v0.50 save fields) ----
 function dlvSave() {
   const r3 = v => Math.round(v * 1000) / 1000, items = [];
-  for (const it of DLV.items) { const o = { j: it.job, k: it.k, lb: it.lb, n: it.n }; if (it.dmg) o.dmg = r3(it.dmg);
+  for (const it of DLV.items) { if (it.st === 'air') continue; const o = { j: it.job, k: it.k, lb: it.lb, n: it.n }; if (it.dmg) o.dmg = r3(it.dmg);   // (v0.54 a bundle in the air: its landing goes in the job)
     if (it.st === 'cargo') { o.s = 'c'; o.zn = it.cz; o.p = [r3(it.mesh.position.x), r3(it.mesh.position.y), r3(it.mesh.position.z)]; }
     else { it.mesh.getWorldPosition(_dg); o.s = 'g'; o.p = [r3(_dg.x), r3(_dg.z)]; o.ry = r3(it.st === 'ground' ? it.mesh.rotation.y : 0); }
     items.push(o); }
-  const offers = {}; for (const S of DLV_STRIPS) offers[S.id] = DLV.offers[S.id].map(j => ({ id: j.id, from: j.from, to: j.to, title: j.title, items: j.items, pay: j.pay, dl: j.dl, due: r3(j.due), st: j.st, wc: dlvWc(j), ...(j.hunt ? { hunt: { h: j.hunt.h, got: j.hunt.got ? 1 : 0 } } : {}), ...(j.sp ? { sp: j.sp, life: j.life, fresh: r3(j.fresh), stress: r3(j.stress) } : {}) }));   // v0.51 special cargo state
+  const offers = {}; for (const S of DLV_STRIPS) offers[S.id] = DLV.offers[S.id].map(j => ({ id: j.id, from: j.from, to: j.to, title: j.title, items: j.items, pay: j.pay, dl: j.dl, due: r3(j.due), st: j.st, wc: dlvWc(j), ...(j.hunt ? { hunt: { h: j.hunt.h, got: j.hunt.got ? 1 : 0 } } : {}), ...(j.drop ? { drop: { s: j.drop.s, n: j.drop.n, res: dropSaveRes(j) } } : {}), ...(j.sp ? { sp: j.sp, life: j.life, fresh: r3(j.fresh), stress: r3(j.stress) } : {}) }));   // v0.51 special cargo state
   return { cash: DLV.cash, gt: r3(DLV.gt), seq: DLV.seq, paid: DLV.paid, done: DLV.done, offers, items, straps: [DLV.belt, DLV.net], found: DLV_STRIPS.filter(S => S.site && S.found).map(S => S.id) };   // v0.52 + found sites
 }
 function dlvLoad(d) {
@@ -4899,14 +4942,14 @@ function dlvLoad(d) {
   if (d && typeof d === 'object') {
     if (Array.isArray(d.found)) for (const id of d.found) { const S = dlvS(id); if (S) bushFind(S, true); }
     if (isFinite(d.cash)) DLV.cash = Math.round(d.cash); if (isFinite(d.gt)) DLV.gt = d.gt; if (isFinite(d.seq)) DLV.seq = d.seq; DLV.paid = d.paid || 0; DLV.done = d.done || 0;
-    for (const S of DLV_STRIPS) { const L = d.offers?.[S.id]; if (Array.isArray(L)) DLV.offers[S.id] = L.filter(j => j && dlvS(j.to) && Array.isArray(j.items) && j.items.every(i => CARGO_K[i.k])).slice(0, 3).map(j => ({ ...j, from: S.id, ...(j.hunt ? { hunt: { h: clamp(j.hunt.h | 0, 0, DEER_HERDS.length - 1), got: j.hunt.got ? 1 : 0 } } : {}), ...(j.sp ? { sp: DLV_SPX[j.sp] ? j.sp : undefined, fresh: clamp(+j.fresh || 0, 0, 1), stress: clamp(+j.stress || 0, 0, 1), life: j.sp === 'perish' ? Math.max(1, +j.life || 1) : 0 } : {}) })); }
+    for (const S of DLV_STRIPS) { const L = d.offers?.[S.id]; if (Array.isArray(L)) DLV.offers[S.id] = L.filter(j => j && dlvS(j.to) && Array.isArray(j.items) && j.items.every(i => CARGO_K[i.k])).slice(0, 3).map(j => ({ ...j, from: S.id, ...(j.hunt ? { hunt: { h: clamp(j.hunt.h | 0, 0, DEER_HERDS.length - 1), got: j.hunt.got ? 1 : 0 } } : {}), ...(j.drop ? { drop: { s: clamp(j.drop.s | 0, 0, DROPS.length - 1), n: Math.max(1, j.drop.n | 0), res: Array.isArray(j.drop.res) ? j.drop.res.filter(q => q && isFinite(q.d)).map(q => ({ d: +q.d, c: clamp(+q.c || 0, 0, 1), lost: q.lost || 0, tree: q.tree ? 1 : 0 })) : [] } } : {}), ...(j.sp ? { sp: DLV_SPX[j.sp] ? j.sp : undefined, fresh: clamp(+j.fresh || 0, 0, 1), stress: clamp(+j.stress || 0, 0, 1), life: j.sp === 'perish' ? Math.max(1, +j.life || 1) : 0 } : {}) })); }
     dlvInit(false);
     if (Array.isArray(d.straps)) { DLV.belt = !!d.straps[0]; DLV.net = !!d.straps[1]; }
     for (const o of d.items || []) { const j = dlvJob(o.j); if (!j || j.st !== 'active' || !CARGO_K[o.k]) continue;
       const it = dlvMake(j, o.k, o.lb, o.n || 0); it.dmg = clamp(+o.dmg || 0, 0, 1);
       if (o.s === 'c' && CZ[o.zn] && o.p?.length === 3) { it.st = 'loading'; if (cgPlace(it, o.zn, o.p[0], o.p[2]) || cgLoadAny(it, true)) it.st = 'cargo'; else dlvSetGround(it, ac.pos[0] + 2, ac.pos[2], 0); }
       else if (o.p?.length >= 2) dlvSetGround(it, o.p[0], o.p[1], o.ry || 0); }
-    for (const j of dlvActive()) if (!DLV.items.some(it => it.job === j.id) && !(j.hunt && !j.hunt.got)) { j.st = 'offer'; j.due = 0; if (j.hunt) { j.hunt.got = 0; j.fresh = 1; } }   // (a hunt still on stays on)   // a job whose cargo is gone goes back on the board
+    for (const j of dlvActive()) if (!DLV.items.some(it => it.job === j.id) && !(j.hunt && !j.hunt.got) && !(j.drop && j.drop.res.length)) { j.st = 'offer'; j.due = 0; if (j.hunt) { j.hunt.got = 0; j.fresh = 1; } }   // (a hunt still on stays on)   // a job whose cargo is gone goes back on the board
   } else dlvInit(true);
   cgStraps(); for (const S of DLV_STRIPS) S.key = '';
 }
@@ -5615,7 +5658,7 @@ Object.assign(GDEF, {   // v0.53 procedural grips on the rifle mesh: wrap the wr
   rlev: { o: () => RFL.lever, sh: 'box', c: GV3(0, -0.05, 0.15), b: GV3(0.005, 0.022, 0.035), st: 'pinch', pc: GV3(0, -0.068, 0.15) },
 });
 function huntHandK(g) { return !RFL.g ? null : RFL.place === 'vr' && RFL.hand === g ? 'rgrip' : RFL.sup === g ? 'rfore' : RFL.levHand === g ? 'rlev' : null; }
-function huntHold(g) { return BINO.g === g || RFL.round.has(g) || (DEER.dress && DEER.dress.g === g); }
+function huntHold(g) { return DROP.held.has(g) || BINO.g === g || RFL.round.has(g) || (DEER.dress && DEER.dress.g === g); }
 function huntGrab(g, p) { return rflGrab(g, p) || binoGrab(g, p) || deerGrab(g, p); }
 function huntRelease(g) { rflRelease(g); binoRelease(g); deerRelease(g); }
 const _hpg = GV3(0, 0, 0);
@@ -5646,6 +5689,138 @@ setTimeout(function huntAssets(tries = 3) {   // the rifle + deer models: after 
     for (const sp of ['deer', 'stag']) L.load('assets/animals/' + DSP[sp].file + '.glb', g => { try { deerSrc(sp, g); } catch (e) { HUNT.err.push(sp + ': ' + e); console.warn(sp + ' model', e); } }, undefined, e => HUNT.err.push(sp + ': ' + (e?.message || e)));
   }).catch(e => { if (--tries > 0) return setTimeout(() => huntAssets(tries), 1000); HUNT.err.push(String(e)); });
 }, 400);
+// ================= v0.54 AIRDROPS: streamer bundles pushed out of the open door to people where no strip is - scored by distance to the X and the bundle's condition =================
+// Five drop sites from a terrain search (dropsearch.js: 900 m+ from any strip, steep ground, woods or a river bank): an orange X panel, a smoke pot (only while a drop is on), a camp.
+{  const P = [], ORG = 0xff6a10, sx = (x, z, w, h, d, c, ry = 0, dy = 0) => P.push(['b', w, h, d, x, groundY(x, z) + h / 2 + dy, z, c, 0, ry]);
+  for (const D of DROPS) {
+    for (const s of [-1, 1]) for (let i = -3; i <= 3; i++) { const t = i * 1.05, a = Math.PI / 4 * s; sx(D.cx + Math.cos(a) * t, D.cz + Math.sin(a) * t, 1.1, 0.04, 0.85, ORG, -a, -0.01); }   // the X: 7 m arms of orange panel, laid on the ground
+    sx(D.cx + 3, D.cz + 2, 0.18, 0.22, 0.18, 0x3a3a3a);   // the smoke pot
+    const kx = D.kx, kz = D.kz, ky = groundY(kx, kz);
+    P.push(['k', 1.3, 1.5, 4, kx, ky + 0.75, kz, D.fire ? 0xc8a020 : 0x3a6a3a, 0, 0.6]);   // a tent
+    for (let k = 0; k < D.ppl; k++) { const px = kx + 2.2 + k * 1.1, pz = kz - 1.5 + k * 0.7, py = groundY(px, pz), jc = D.fire ? 0xd8b020 : [0xc02a20, 0x2a5ab0, 0x2a8a3a][k % 3];
+      P.push(['b', 0.36, 0.62, 0.24, px, py + 0.85, pz, jc], ['b', 0.3, 0.8, 0.2, px, py + 0.4, pz, 0x2a2e3a], ['b', 0.2, 0.22, 0.2, px, py + 1.3, pz, 0xe0b090], ['b', 0.1, 0.6, 0.1, px + 0.24, py + 1.35, pz, jc, 0, 0, -0.35], ['b', 0.1, 0.5, 0.1, px - 0.22, py + 0.85, pz, jc]); }   // a waving arm
+    if (D.fire) for (let k = 0; k < 14; k++) { const a = k * 2.4, r = 20 + (k * 7) % 16, x = D.cx + Math.cos(a) * r, z = D.cz + Math.sin(a) * r; sx(x, z, 0.3, 2.2 + (k % 3), 0.3, 0x1a1612); }   // burnt snags
+    sx(kx + 1.2, kz + 1.4, 0.5, 0.35, 0.3, 0x5a4a3a); }   // packs
+  const gs = P.map(partGeo); DROP.geo = mergeGeometries(gs); for (const g of gs) g.dispose();
+  const m = new THREE.Mesh(DROP.geo, ITEM_VM); m.userData.noBatch = true; m.receiveShadow = true; scene.add(m); DROP.mesh = m; }
+{ const c38 = MYS_SITES.clear; MYS_SITES.clear = () => { c38();   // clear trees / bushes / rocks off the X and the camp
+    const off = (x, z) => DROPS.some(D => (x - D.cx) ** 2 + (z - D.cz) ** 2 < DROP_CLR * DROP_CLR || (x - D.kx) ** 2 + (z - D.kz) ** 2 < 100);
+    for (const k of CHUNKS) for (let i = 0; i < k.n; i++) if (off(k.xz[i * 3], k.xz[i * 3 + 2])) k.full.fill(0, i * 16, i * 16 + 16);
+    scene.traverse(m => { if (!m.isInstancedMesh || CHUNKS.some(k => k.im === m)) return; const A = m.instanceMatrix.array; let hit = false;
+      for (let i = 0; i < m.count; i++) if (A[i * 16 + 15] && off(A[i * 16 + 12], A[i * 16 + 14])) { A.fill(0, i * 16, i * 16 + 16); hit = true; } if (hit) m.instanceMatrix.needsUpdate = true; });
+    for (let i = TREES.length - 1; i >= 0; i--) if (off(TREES[i][0], TREES[i][2])) TREES.splice(i, 1); }; }
+// ---- the signal smoke: one Points draw (soft puffs rising, no wind), only at sites with a drop on and within 6 km ----
+{ const N = 64, cv = document.createElement('canvas'); cv.width = cv.height = 64; const x = cv.getContext('2d'), gr = x.createRadialGradient(32, 32, 2, 32, 32, 31); gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = gr; x.fillRect(0, 0, 64, 64);
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(N * 3), 3)); g.setAttribute('aS', new THREE.BufferAttribute(new Float32Array(N), 1)); g.setAttribute('aA', new THREE.BufferAttribute(new Float32Array(N), 1));
+  const M = new THREE.ShaderMaterial({ transparent: true, depthWrite: false, uniforms: { map: { value: new THREE.CanvasTexture(cv) }, col: { value: new THREE.Color(0xf08a3a) }, uH: { value: 400 }, fc: { value: scene.fog.color }, fn: { value: scene.fog.near }, ff: { value: scene.fog.far } },
+    vertexShader: 'attribute float aS; attribute float aA; varying float vA; varying float vF; uniform float uH, fn, ff; void main() { vec4 mv = modelViewMatrix * vec4(position, 1.0); gl_Position = projectionMatrix * mv; gl_PointSize = aS * uH * projectionMatrix[1][1] / max(1.0, -mv.z); vA = aA; vF = smoothstep(fn, ff, -mv.z); }',
+    fragmentShader: 'uniform sampler2D map; uniform vec3 col, fc; varying float vA; varying float vF; void main() { vec4 t = texture2D(map, gl_PointCoord); gl_FragColor = vec4(mix(col, fc, vF), t.a * vA * (1.0 - vF * 0.7)); }' });
+  const pts = new THREE.Points(g, M); pts.frustumCulled = false; pts.userData.noBatch = true; pts.visible = false; scene.add(pts); DROP.sm = { pts, N, p: [], k: 0, at: null }; }
+function dropSmokeTick(dt) {
+  const S = DROP.sm, P = playerPos(); let D = null, bd = 6000;
+  for (const j of dlvActive()) if (j.drop && j.drop.res.length < j.drop.n) { const Q = DROPS[j.drop.s], d = Math.hypot(Q.cx - P.x, Q.cz - P.z); if (d < bd) { bd = d; D = Q; } }   // the nearest one with a drop still to come
+  if (S.at !== D) { S.at = D; S.p.length = 0; } if (!D) { S.pts.visible = false; return; }
+  S.k += dt * 7; while (S.k >= 1) { S.k--; if (S.p.length < S.N) S.p.push({ x: D.cx + 3, y: groundY(D.cx + 3, D.cz + 2) + 0.4, z: D.cz + 2, t: 0, vx: (Math.random() - 0.5) * 0.5, vz: (Math.random() - 0.5) * 0.5 }); else { const q = S.p.shift(); Object.assign(q, { x: D.cx + 3, y: groundY(D.cx + 3, D.cz + 2) + 0.4, z: D.cz + 2, t: 0 }); S.p.push(q); } }
+  const A = S.pts.geometry.attributes, pa = A.position.array, sa = A.aS.array, aa = A.aA.array;
+  for (let i = 0; i < S.N; i++) { const q = S.p[i]; if (!q) { sa[i] = 0; aa[i] = 0; continue; } q.t += dt; q.y += (2.6 - q.t * 0.12) * dt; q.x += q.vx * dt; q.z += q.vz * dt;
+    pa[i * 3] = q.x; pa[i * 3 + 1] = q.y; pa[i * 3 + 2] = q.z; sa[i] = 1.2 + q.t * 1.1; aa[i] = Math.min(1, q.t * 2) * Math.max(0, 1 - q.t / 9) * 0.75; }
+  A.position.needsUpdate = A.aS.needsUpdate = A.aA.needsUpdate = true; S.pts.material.uniforms.uH.value = renderer.getDrawingBufferSize(_dsz).y * 0.5; S.pts.visible = true;
+}
+const _dsz = new THREE.Vector2();
+// ---- the door: both right halves open (upper window latched up under the wing, lower door down); a bundle leaves through it ----
+const DOOR_L = GV3(0.47, 0.32, -0.2);   // (cubD axes) just outside the opening
+const dropDoor = () => WIN.rup > 0.6 && WIN.rlo > 0.6;
+function dropLaunch(it, p, v) {   // world position + velocity
+  dlvUnhold(it); for (const [g, h] of DROP.held) if (h === it) DROP.held.delete(g);
+  it.st = 'air'; it.cz = null; scene.attach(it.mesh); it.mesh.position.copy(p); it.av = v.clone(); it.tree = false; it.at = 0; it.tr = [];
+  const N = 10, g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(N * 6), 3)); const ix = []; for (let i = 0; i < N - 1; i++) ix.push(i * 2, i * 2 + 1, i * 2 + 2, i * 2 + 1, i * 2 + 3, i * 2 + 2); g.setIndex(ix);
+  it.strm = new THREE.Mesh(g, DROP.smat || (DROP.smat = new THREE.MeshBasicMaterial({ color: 0xff5a10, side: THREE.DoubleSide }))); it.strm.frustumCulled = false; it.strm.userData.noBatch = true; scene.add(it.strm);
+  for (let i = 0; i < N; i++) it.tr.push(p.clone());
+  DROP.air.push(it); cgStraps(); wbUpdate(); sfx('thud', p); const j = dlvJob(it.job); say('BUNDLE AWAY - ' + (j ? DROP.air.filter(o => o.job === j.id).length + j.drop.res.length + '/' + j.drop.n : ''));
+}
+const _dv = GV3(0, 0, 0), _dq = GV3(0, 0, 0), _dr = GV3(0, 0, 0);
+function dropStep(it, h) {   // one fixed step: gravity + quadratic drag (the streamer: ~24 m/s terminal); returns a landing { p, kind } or null
+  const v = it.av, s = v.length(), k = 9.81 / (DROP.vt * DROP.vt); _dq.copy(it.mesh.position);
+  v.x -= k * s * v.x * h; v.y -= (9.81 + k * s * v.y) * h; v.z -= k * s * v.z * h; it.mesh.position.addScaledVector(v, h); const p = it.mesh.position;
+  if (!it.tree) { const H = hitSegment(_dq, p); if (H && H.kind !== 'flesh') { if (H.kind === 'ground' || H.kind === 'wood') return { p: H.p, kind: 'ground' };
+      it.tree = true; v.multiplyScalar(0.25); v.x *= 0.3; v.z *= 0.3; p.copy(H.p); sfx('thock', p); return null; } }   // through the branches: slowed, knocked about
+  const gy = groundY(p.x, p.z); if (p.y <= gy) { p.y = gy; return { p: p.clone(), kind: 'ground' }; }
+  return null;
+}
+function dropResult(it, L, quiet) {   // landed: how far from the X, what state it's in
+  const j = dlvJob(it.job), D = j && j.drop ? DROPS[j.drop.s] : null, sp = it.av.length(), wet = waterDist(L.p.x, L.p.z) < 1;
+  const d = D ? Math.hypot(L.p.x - D.cx, L.p.z - D.cz) : 1e9, c = Math.max(0, Math.min(1, 1 - clamp((sp - 12) / 30, 0, 0.9) - (it.tree ? 0.1 : 0))), lost = wet || d > DROP_LOST;
+  return { d: Math.round(d * 10) / 10, c: Math.round(c * 100) / 100, lost: lost ? (wet ? 'water' : 'far') : 0, tree: it.tree ? 1 : 0 };
+}
+const dropF = q => q.lost ? 0 : (0.35 + 0.65 * (q.d <= DROP_OK ? 1 : Math.max(0, 1 - (q.d - DROP_OK) / (DROP_ZERO - DROP_OK)))) * (0.5 + 0.5 * q.c);   // one bundle's share of the pay
+function dropLand(it, L) {
+  const j = dlvJob(it.job), q = dropResult(it, L); const i = DROP.air.indexOf(it); if (i >= 0) DROP.air.splice(i, 1);
+  sfx('thud', L.p);
+  { const m = new THREE.Mesh(dlvGeo('bundle', DLV_COL[it.job % DLV_COL.length]), CARGO_M); m.userData.noBatch = true; m.castShadow = true; m.position.copy(L.p); m.position.y = q.lost === 'water' ? L.p.y - 0.2 : groundY(L.p.x, L.p.z) + it.h / 2; m.rotation.set(0, Math.atan2(it.av.x, it.av.z), 0.3 * (Math.random() - 0.5)); scene.add(m);
+    const a = it.strm.geometry.attributes.position.array, dx = Math.sin(m.rotation.y), dz = Math.cos(m.rotation.y);   // the streamer lies out behind it
+    for (let k = 0; k < 10; k++) { const x = L.p.x - dx * k * 0.4, z = L.p.z - dz * k * 0.4, y = groundY(x, z) + 0.03; a[k * 6] = x - dz * 0.05; a[k * 6 + 1] = y; a[k * 6 + 2] = z + dx * 0.05; a[k * 6 + 3] = x + dz * 0.05; a[k * 6 + 4] = y; a[k * 6 + 5] = z - dx * 0.05; }
+    it.strm.geometry.attributes.position.needsUpdate = true; DROP.decor.push([m, it.strm]); while (DROP.decor.length > 16) { const [o, s] = DROP.decor.shift(); o.removeFromParent(); s.removeFromParent(); s.geometry.dispose(); } }
+  it.strm = null; dlvRemove(it);
+  if (!j || !j.drop) return q; j.drop.res.push(q); const D = DROPS[j.drop.s];
+  say('BUNDLE ' + j.drop.res.length + '/' + j.drop.n + ': ' + (q.lost === 'water' ? 'IN THE WATER - LOST' : q.lost ? Math.round(q.d) + ' M OFF - LOST, THEY CAN\'T GET TO IT' : Math.round(q.d) + ' M FROM THE X - CONDITION ' + Math.round(q.c * 100) + '%' + (q.tree ? ' (THROUGH THE TREES)' : '') + ' - ' + D.who + ': ' + (q.d < 25 ? '"RIGHT ON IT!"' : q.d < 80 ? '"GOT IT"' : '"A LONG WALK - GOT IT"')));
+  if (j.drop.res.length >= j.drop.n) dropFinish(j); else saveSoon(); MAP.key = ''; for (const S of DLV_STRIPS) S.key = '';
+  return q;
+}
+function dropFinish(j) {   // all bundles down: paid by accuracy + condition (late: half)
+  if (j.st !== 'active') return; const R = j.drop.res, f = R.reduce((s, q) => s + dropF(q), 0) / Math.max(1, j.drop.n), late = j.dl && DLV.gt > j.due, pay = Math.round((late ? j.pay / 2 : j.pay) * f), D = DROPS[j.drop.s];
+  const got = R.filter(q => !q.lost), avg = got.length ? Math.round(got.reduce((s, q) => s + q.d, 0) / got.length) : 0, cond = got.length ? Math.round(100 * got.reduce((s, q) => s + q.c, 0) / got.length) : 0;
+  DLV.cash += pay; DLV.paid += pay; DLV.done++; for (const it of DLV.items.filter(o => o.job === j.id)) dlvRemove(it);
+  const L = DLV.offers[j.from], i = L.indexOf(j); j.st = 'done'; if (i >= 0) L[i] = dlvGen(j.from, !L.some((q, k) => k !== i && dlvFrt(q)));
+  sfx('cash'); say('AIRDROP DONE: ' + D.who + ' GOT ' + got.length + '/' + j.drop.n + (got.length ? ' - AVG ' + avg + ' M FROM THE X, CONDITION ' + cond + '%' : '') + ' +$' + pay + (late ? ' (LATE - HALF PAY)' : '') + ' - WALLET $' + DLV.cash); saveGame('delivered');
+  MAP.key = ''; for (const S of DLV_STRIPS) S.key = '';
+  return pay;
+}
+function dropPredict(it) {   // where a bundle in the air will come down (for a save mid-fall): a copy, nothing moves
+  const c = { av: it.av.clone(), mesh: { position: it.mesh.position.clone() }, tree: it.tree, job: it.job, h: it.h }; let L = null;
+  for (let n = 0; n < 120 * 40 && !L; n++) L = dropStep(c, 1 / 120); return dropResult(c, L || { p: c.mesh.position });
+}
+function dropTick(dt) {
+  const t0 = performance.now(); DROP.t += dt;
+  for (const it of DROP.air.slice()) { it.at += dt; let rem = Math.min(dt, 0.1), L = null; while (rem > 1e-6 && !L) { const h = Math.min(1 / 120, rem); rem -= h; L = dropStep(it, h); }
+    if (L) { dropLand(it, L); continue; }
+    const v = it.av, m = it.mesh; m.rotation.set(0, Math.atan2(v.x, v.z), 0); m.rotateX(Math.atan2(-v.y, Math.hypot(v.x, v.z)) * 0.8 + Math.sin(it.at * 9) * 0.15);   // nose into the fall, a wobble
+    const T = it.tr; if (it.at - (it.tt || 0) > 0.04) { it.tt = it.at; T.pop(); T.unshift(m.position.clone()); } else T[0].copy(m.position);
+    const a = it.strm.geometry.attributes.position.array; camera.getWorldPosition(_dr);
+    for (let k = 0; k < T.length; k++) { const P = T[k], Q = T[Math.min(k + 1, T.length - 1)], dx = P.x - Q.x, dy = P.y - Q.y, dz = P.z - Q.z, ex = _dr.x - P.x, ey = _dr.y - P.y, ez = _dr.z - P.z;   // a ribbon facing you
+      let sx = dy * ez - dz * ey, sy = dz * ex - dx * ez, sz = dx * ey - dy * ex; const l = Math.hypot(sx, sy, sz) || 1, w = 0.05 + k * 0.004; sx *= w / l; sy *= w / l; sz *= w / l;
+      a[k * 6] = P.x - sx; a[k * 6 + 1] = P.y - sy; a[k * 6 + 2] = P.z - sz; a[k * 6 + 3] = P.x + sx; a[k * 6 + 4] = P.y + sy; a[k * 6 + 5] = P.z + sz; }
+    it.strm.geometry.attributes.position.needsUpdate = true; }
+  dropSmokeTick(dt);
+  if (mode === 'plane') { const P = ac.pos; for (const j of dlvActive()) { if (!j.drop || j.drop.res.length >= j.drop.n || DROP.hint[j.id]) continue; const D = DROPS[j.drop.s]; if (Math.hypot(D.cx - P[0], D.cz - P[2]) < 1500) { DROP.hint[j.id] = 1;
+      say(D.who + ' AT ' + D.name + ': SMOKE IS UP - OPEN THE DOOR, COME IN LOW AND SLOW INTO VIEW OF THE X, PUSH A BUNDLE OUT ' + (renderer.xr.isPresenting ? 'BY HAND' : '(G)') + ' A LITTLE BEFORE IT'); } } }
+  DROP.ms = performance.now() - t0;
+}
+// ---- pushing one out: desktop G (the nearest bundle to the door); VR: reach back, grab one, put your hand out through the door and let go ----
+function dropBundles() { return DLV.items.filter(it => it.k === 'bundle' && (it.st === 'cargo' || it.st === 'held')); }
+function dropDesk() {
+  if (mode !== 'plane') return false; const L = dropBundles().filter(it => it.st === 'cargo');
+  if (!L.length) { say(DLV.items.some(it => it.k === 'bundle') ? 'NO BUNDLES ABOARD' : 'NO AIRDROP BUNDLES ABOARD - TAKE AN AIRDROP JOB AT A BOARD'); return true; }
+  if (!dropDoor()) { say('OPEN THE DOOR FIRST: 1 = UPPER WINDOW (UP UNDER THE WING), 2 = LOWER DOOR'); return true; }
+  plane.updateMatrixWorld(); cubD.localToWorld(_dv.copy(DOOR_L)); L.sort((a, b) => a.mesh.getWorldPosition(_dq).distanceTo(_dv) - b.mesh.getWorldPosition(_dr).distanceTo(_dv));
+  _dq.set(ac.vel[0], ac.vel[1], ac.vel[2]); _dr.set(1.6, -0.4, 0).applyQuaternion(plane.quaternion); dropLaunch(L[0], _dv, _dq.add(_dr)); return true;
+}
+function dropPlaneGrab(g, sq, edge) {   // VR in the seat
+  const it = DROP.held.get(g);
+  if (it) { g.getWorldPosition(_dv); const H = it.hv || (it.hv = []); H.push([_dv.clone(), performance.now()]); if (H.length > 6) H.shift();
+    if (sq) return true;
+    cubD.worldToLocal(_dq.copy(_dv)); DROP.held.delete(g); const P = it.mesh.getWorldPosition(new THREE.Vector3());
+    if (_dq.x > 0.36 && dropDoor()) { const [a, ta] = H[0], [b, tb] = H[H.length - 1], v = b.clone().sub(a).divideScalar(Math.max(0.008, (tb - ta) / 1000)); it.hv = null; dropLaunch(it, P, v); HX.pulse(g, 0.4, 25, 'cargo'); return true; }
+    if (_dq.x > 0.36) say('OPEN THE DOOR (BOTH HALVES) TO PUSH IT OUT'); it.hv = null; it.st = 'held'; dlvDrop(it, P, true); HX.pulse(g, 0.15, 12, 'release'); return true; }
+  if (!edge) return false; g.getWorldPosition(_dv); let bi = null, bd = 0.26;
+  for (const o of DLV.items) { if (o.k !== 'bundle' || o.st !== 'cargo') continue; const d = o.mesh.getWorldPosition(_dq).distanceTo(_dv); if (d < bd) { bd = d; bi = o; } }
+  if (!bi) return false;
+  bi.st = 'held'; bi.cz = null; bi.cv.set(0, 0, 0); cgStraps(); wbUpdate(); g.attach(bi.mesh); DROP.held.set(g, bi); bi.hv = []; sfx('pick'); HX.pulse(g, 0.4, 25, 'cargo');
+  say('BUNDLE ' + bi.lb + ' LB - ' + (dropDoor() ? 'HAND OUT THROUGH THE DOOR AND LET GO' : 'OPEN THE DOOR TO DROP IT')); return true;
+}
+function dropKey(e) { if (e.code === 'KeyG' && mode === 'plane') return dropDesk(); return false; }
+function dropSaveRes(j) { return j.drop.res.concat(DROP.air.filter(it => it.job === j.id).map(dropPredict)); }   // a save mid-fall: those land where they were going
+function dropLoadFix() { for (const j of dlvActive()) if (j.drop && j.drop.res.length >= j.drop.n) dropFinish(j); }
+
 // ================= v0.45 save: where the Cub is parked, fuel, time of day, on foot or aboard. New key - older (v0.44 and before) saves are left alone and ignored =================
 const SAVE_KEY = 'bushpilot-vr-blank-v1', NOSAVE = /[?&]nosave\b/.test(location.search);
 const SV = { t: 30, due: -1, last: 0, off: false, air: false, cubT: 0, cub: null, n: 0, why: '' };
@@ -5654,7 +5829,7 @@ function cubParked() { return !ac.crashed && acGS() < 1 && ac.gs.some(g => g.Fn 
 function saveGame(why) {
   if (NOSAVE || SV.off) return false;
   if (cubParked()) SV.cub = { p: ac.pos.map(r3), q: ac.q.map(v => Math.round(v * 1e6) / 1e6) };
-  const d = { v: 53, at: Date.now(), cub: SV.cub, fuel: r3(fuel), h: r3(DAY.h), mode, foot: mode === 'foot' ? [r3(footRig.position.x), r3(footRig.position.z), r3(bodyYaw)] : null, dlv: dlvSave(), hunt: huntSave() };   // v0.53 + rifle / ammo   // v0.50: + wallet, jobs, cargo, straps
+  const d = { v: 54, at: Date.now(), cub: SV.cub, fuel: r3(fuel), h: r3(DAY.h), mode, foot: mode === 'foot' ? [r3(footRig.position.x), r3(footRig.position.z), r3(bodyYaw)] : null, dlv: dlvSave(), hunt: huntSave() };   // v0.53 + rifle / ammo   // v0.50: + wallet, jobs, cargo, straps
   try { localStorage.setItem(SAVE_KEY, JSON.stringify(d)); } catch (e) { return false; }
   SV.last = Date.now(); SV.n++; SV.why = why || ''; SV.t = 30; SV.due = -1; return true;
 }
@@ -5669,12 +5844,12 @@ function saveTick(dt) {
 }
 function gameLoad() {
   if (NOSAVE) return false; let d = null; try { d = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); } catch (e) { }
-  if (!d || ![45, 50, 51, 52, 53].includes(d.v)) return false;   // v0.50 reads a v0.45 save too (no jobs yet: a fresh wallet and boards)
+  if (!d || ![45, 50, 51, 52, 53, 54].includes(d.v)) return false;   // v0.50 reads a v0.45 save too (no jobs yet: a fresh wallet and boards)
   if (typeof d.fuel === 'number' && isFinite(d.fuel)) fuel = clamp(d.fuel, 0, FUEL_MAX);
   if (typeof d.h === 'number' && isFinite(d.h)) DAY.h = ((d.h % 24) + 24) % 24;
   if (d.cub && d.cub.p?.length === 3 && d.cub.q?.length === 4) { ac.pos = d.cub.p.slice(); ac.q = d.cub.q.slice(); SV.cub = d.cub; }
   if (d.mode === 'foot' && d.foot) { exitPlane(); const [x, z, yaw] = d.foot; footRig.position.set(x, groundY(x, z) + EYE, z); footRig.rotation.set(0, yaw, 0); bodyYaw = yaw; }
-  dlvLoad(d.v >= 50 ? d.dlv : null); huntLoad(d.v >= 53 ? d.hunt : null);
+  dlvLoad(d.v >= 50 ? d.dlv : null); huntLoad(d.v >= 53 ? d.hunt : null); dropLoadFix();   // v0.54 a save taken mid-drop: the last bundle down settles the job
   msgT = 0; SV.last = d.at || 0; return true;
 }
 MYS_SITES.clear();   // the whole world is built now: clear trees and rocks off the strips and sites
@@ -6104,7 +6279,7 @@ renderer.setAnimationLoop(() => {
   } else if ((crashTimer += dt) > 2.5) resetFlight();
 
   plane.position.fromArray(ac.pos); plane.quaternion.fromArray(ac.q);
-  dlvTick(dt); wbWarn(dt); huntTick(dt, xr || HANDS.force);   // v0.53 rifle, deer, binoculars   // v0.50 delivery: game clock, falling / loose cargo, job boards
+  dlvTick(dt); wbWarn(dt); huntTick(dt, xr || HANDS.force); dropTick(dt);   // v0.53 rifle, deer, binoculars; v0.54 bundles in the air, the signal smoke   // v0.50 delivery: game clock, falling / loose cargo, job boards
   GV.update(dt);   // v0.20 gear legs / tyres / tail wheel
   updateMap(); updateCockpitV19(dt);
   prop.rotation.z += ENG.rpm / 60 * 2 * Math.PI * dt * (ENG.rpm < 400 ? 1 : 0.13);   // aliased-looking slow spin (real speed while cranking)
