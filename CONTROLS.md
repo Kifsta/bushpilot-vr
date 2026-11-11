@@ -1,4 +1,4 @@
-# Bush Pilot VR – controls (v0.46, blank slate)
+# Bush Pilot VR – controls (v0.47, blank slate)
 
 v0.45 is just the Super Cub, the valley and the paper map. There is no wind, weather, survival, combat, loot or story. The full game (v0.44) is tag `v0.44-full` and branch `full-game`.
 
@@ -120,3 +120,8 @@ Town walls and the fences at the depot, checkpoint and lab are solid. You walk r
 - Autosaves every 30 s, when you land and stop, and when you close the tab or take the headset off. It saves where the Cub is parked, the fuel, the time of day, and whether you were aboard or on foot (and where).
 - v0.45 uses a new save key (`bushpilot-vr-blank-v1`), so older saves are left alone and never loaded.
 - `?nosave` plays without saving. `?plane` starts a new game in the seat instead of beside the Cub.
+
+## Frame rate (v0.47)
+- Turn the FPS counter on in Settings to see fps, frame ms, CPU ms, draw calls and triangles.
+- If the Quest 3 still drops frames, lower these first: **Render scale** to 85 %, keep **Foveation** on HIGH (the default), **Draw distance** MEDIUM, **Shadows** OFF and **Grass** OFF.
+- `?nobatch` turns off v0.47's static mesh batching (for comparing).

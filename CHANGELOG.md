@@ -2,6 +2,29 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.47 – Frame-rate pass (Quest 3: steady 72 / 90 Hz)
+
+Neil: "Do whatever you need to bring it back to a good fps".
+
+**Profile (v0.46, desktop / swiftshader, so the counts are exact but the times are only relative).**
+- JS per frame was already small: physics, cockpit, hands, chunks and audio together come to well under 0.1 ms. The big costs were draw-call submission (×2 eyes in VR) and per-pixel shading.
+- Every lit pixel paid for four lights, including an unlit point light and an unlit spot light.
+- The clouds were alpha-blended for their whole lifetime.
+- The far plane was 14 km, while the haze ends at 8.5 km.
+
+**Part 1 changes**
+- **Static batching.** Plain-coloured Lambert meshes are baked to vertex colours and merged into one mesh per look: the Cub's parts (cockpit and airframe, not your hands or rig) in one group, and the world's scenery per 250 m cell. The originals stay put on a hidden layer and are watched. The first time code moves, hides, recolours or rewrites one (a knob, a needle, a window), it goes back to drawing itself and its batch is rebuilt without it. So everything that animates still animates. The build takes about 40 ms once, half a second after load. Watching costs about 0.005 ms a frame. `?nobatch` turns it off for comparing.
+- **Lights only while lit.** The panel-glow point light and the landing-light spot light are only in the shaders while they are on. Both shader variants are compiled at load, so switching has no hitch. By day, every lit pixel now does two lights instead of four.
+- **Opaque clouds.** No blending and no sorting. They fade out with a 4×4 ordered dither when you fly into one, instead of alpha.
+- **Far plane at the haze.** The far plane is now just past the fog end (8.75 km at default settings, never below 7.3 km, so the stars and moon stay in). Past the fog end everything is sky colour anyway.
+- **Less per-frame work.**
+  - Forest / rock compaction no longer allocates a typed-array view per instance.
+  - The panel info screen only re-uploads when its text changes (it was every 0.25 s).
+  - Instanced scenery has `matrixAutoUpdate` off.
+  - With shadows on, the shadow map refreshes every other frame.
+- **Numbers.** Draw calls / triangles, v0.46 → v0.47: cockpit 91/277k → 64/305k, 600 m 86/260k → 63/291k, on foot 55/269k → 47/304k, town 131/266k → 84/266k. Render submission (desktop ms): cockpit 1.26 → 0.40, town 0.85 → 0.57. Triangles go up a little where merged cells can no longer be culled piece by piece. That is a deliberate trade: Quest 3 is limited by draw calls and pixels long before triangles.
+- **Visuals:** the same. Batched vs unbatched screenshots differ by under 1.3 % of pixels, and only at anti-aliased edges and the spinning prop.
+
 ## v0.46 – Procedural hand grabbing
 
 Neil: "I want the hands to procedurally grab the knobs realistically".
