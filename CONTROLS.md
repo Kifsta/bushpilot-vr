@@ -3,10 +3,11 @@
 ## Flying
 | | VR (Quest) | Desktop |
 |---|---|---|
-| Stick (pitch / roll) | Put your right hand on the stick and squeeze (the glove locks on it), move your hand | W / S pitch, A / D roll (click to mouse-look) |
+| Stick (pitch / roll) | Put your right hand on the stick and squeeze (the glove locks on it), move your hand: the stick pivots under it, to round-cornered stops (a bump at the stop). Let go and it centres (Settings: STICK ON RELEASE = STAYS keeps it where you leave it) | W / S pitch, A / D roll (click to mouse-look) |
 | Rudder | Left stick left / right | Q / E |
-| Throttle | Left hand on the throttle knob (left wall), squeeze, push / pull | Shift / Ctrl (or = / -) |
-| Flaps (0-15-30-50) | Grab the flap handle (left wall, by your hip) and pull it up / push it down through the notches (click + buzz per notch) | [ and ] |
+| Throttle | Left hand on the throttle knob (left wall), squeeze, push / pull (light tick every 10 %, firm stop at idle and full) | Shift / Ctrl (or = / -) |
+| Flaps (0-15-30-50) | v0.42: the handle is on the cabin ROOF, above your head to the left. Reach up, grab the black T-grip (either hand) and pull it DOWN through the notches; push it up to retract (clunk + buzz per notch) | [ and ] |
+| Elevator trim | v0.42: the crank on the roof console, right of the flap handle. Grab its knob and wind it: anticlockwise (as you look at it) = nose up, clockwise = nose down, 3 turns end to end, 8 clicks a turn. The white pointer beside it shows where it is | PageDown nose up, PageUp nose down (hold) |
 | Brakes | Left trigger | B |
 | Get out (stopped, idle) | Y | F |
 | Landing light | Flick the toggle under the panel up / down with your fingertip (or squeeze it) | L |
@@ -29,6 +30,8 @@ v0.23 hands (VTOL VR style, no laser): your hands are gloves. Squeeze with the t
 v0.24 haptics: you feel the engine (rpm, rough running, cranking), stall buffet, touchdowns, bumps and skids through the stick and throttle; the rifle shot, lever, loading and misfires; grabs, stowing, page turns and crafting; zombie hits, knife hits, landings and a heartbeat when hurt. Strength: poke the HAPTICS button on the field guide's GUIDE page (Off / 35% / 65% / 100%), or add `?hx=0.5` to the URL.
 
 v0.24.1 grip on the ring: point your fingertip at a switch or knob, and a yellow ring appears on it (one ring per hand). Squeeze grip to use it. Toggles flip, START cranks while you hold grip, the mags key and fuel valve turn when you twist your wrist, and push-pull knobs follow your hand in and out. Window handles and the checklist drag. Poking with the fingertip still works. The stick, throttle and flap lever only take the grip when your hand is on them. With the rifle shouldered, your gloves stay clear of the iron sights.
+
+v0.42 cockpit: your glove stops on the instrument panel instead of going through it (the switches still feel your real finger). A small label by your hand names the control your hand is on or ringed and its state (MASTER ON, FLAPS 30°, THROTTLE 45%, TRIM NOSE UP 3...); turn it off with Settings > CONTROL LABELS. The flap handle and trim crank work with either hand.
 
 v0.25 cargo + weight and balance:
 - Load: hold loot over the rear seat, the rear floor or the baggage bay (behind the rear seat) and let go. Grab it again to take it out.
