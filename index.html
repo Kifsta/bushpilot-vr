@@ -4246,11 +4246,11 @@ function huntGen(id, from, r) {   // one venison job: a customer (not this strip
     sp: 'perish', life: Math.ceil(25 + 2 * km), fresh: 1, stress: 0, wc: 'H', hunt: { h: hi, got: 0 } };
 }
 const DROPS = [
-  { id: 'BALDY', name: 'BALDY RIDGE', who: 'STRANDED HIKER', x: -2700, z: 900, title: 'SUPPLIES FOR A STRANDED HIKER', n: [2, 3], ppl: 1 },
-  { id: 'SPUR', name: 'EAST SPUR', who: 'SURVEY PARTY', x: 3180, z: -1260, title: 'SURVEY PARTY STORES', n: [2, 4], ppl: 3 },
-  { id: 'BURNT', name: 'BURNT HILL', who: 'FIRE CREW', x: 2580, z: 1020, title: 'FIRE CREW RATIONS + TOOLS', n: [3, 4], ppl: 3, fire: 1 },
+  { id: 'BALDY', name: 'BALDY RIDGE', who: 'STRANDED HIKER', x: -2700, z: 900, title: 'HIKER SUPPLIES', n: [2, 3], ppl: 1 },
+  { id: 'SPUR', name: 'EAST SPUR', who: 'SURVEY PARTY', x: 3180, z: -1260, title: 'SURVEY STORES', n: [2, 4], ppl: 3 },
+  { id: 'BURNT', name: 'BURNT HILL', who: 'FIRE CREW', x: 2580, z: 1020, title: 'FIRE CREW RATIONS', n: [3, 4], ppl: 3, fire: 1 },
   { id: 'DEEP', name: 'DEEP WOODS', who: 'TRAPPER', x: -480, z: -960, title: 'TRAPPER\'S STORES', n: [2, 3], ppl: 1 },
-  { id: 'LOWER', name: 'LOWER RIVER', who: 'CANOE PARTY', x: 0, z: -3240, title: 'CANOE PARTY RESUPPLY', n: [2, 3], ppl: 2 }];
+  { id: 'LOWER', name: 'LOWER RIVER', who: 'CANOE PARTY', x: 0, z: -3240, title: 'CANOE RESUPPLY', n: [2, 3], ppl: 2 }];
 const DROP_P = 0.14, DROP_OK = 10, DROP_ZERO = 150, DROP_LOST = 250, DROP_CLR = 18;   // job share; full marks inside 10 m, none past 150 m, lost past 250 m; trees cleared round the X
 const DROP = { air: [], decor: [], held: new Map(), vt: 24, ms: 0, hint: {}, sm: null, t: 0 };
 { for (const D of DROPS) {   // the X goes on the flattest dry spot within 30 m of the searched point; the camp 12 m off, uphill side
@@ -4648,7 +4648,7 @@ function jbDraw(S) {
     else if (!j.hunt && dlvLb(j) > dlvRoom()) { x.fillStyle = '#b8301e'; x.font = 'bold 14px sans-serif'; x.fillText('OVER PAYLOAD AT ' + Math.round(WBS.fuelGal) + ' GAL: MAX ' + Math.max(0, dlvRoom()) + ' LB', 34, Y + 68, JB_W - 170);   // v0.52
       x.fillStyle = act >= DLV_MAX ? '#9a9a90' : '#2a7a2a'; x.fillRect(JB_W - 126, Y + 50, 100, 26); x.fillStyle = '#fff'; x.font = 'bold 15px sans-serif'; x.textAlign = 'center'; x.fillText('ACCEPT', JB_W - 76, Y + 68); x.textAlign = 'left'; }
     else { x.fillStyle = j.sp ? '#8a1a6a' : j.dl ? '#9a4a10' : '#555'; x.font = (j.sp ? 'bold ' : '') + '14px sans-serif';
-      x.fillText(j.drop ? 'DOOR OPEN, LOW + SLOW, DROP ON THE SMOKE - PAY BY ACCURACY + CONDITION' + (j.dl ? ' - ' + j.dl + ' MIN' : '') : j.hunt ? 'HUNTING JOB - ' + (j.dl ? 'DEADLINE ' + j.dl + ' MIN' : 'NO DEADLINE') + ' - KEEPS ' + j.life + ' MIN DRESSED' : (T.site ? BUSH_T[T.B.type] + ' ' + T.B.len + ' M - ' : '') + (j.sp === 'fragile' ? 'FRAGILE - KNOCKS + G DOCK PAY (+30%)' : j.sp === 'perish' ? 'PERISHABLE - FRESH ' + j.life + ' MIN (+25%)' : j.sp === 'live' ? 'LIVE ANIMALS - FLY SMOOTH (+35%)' : j.dl ? 'DEADLINE ' + j.dl + ' MIN (+40% PAY)' : 'NO DEADLINE'), 34, Y + 68);
+      x.fillText(j.drop ? 'DROP ON THE SMOKE - PAID BY AIM + CONDITION' + (j.dl ? ' - ' + j.dl + ' MIN' : '') : j.hunt ? 'HUNTING JOB - ' + (j.dl ? 'DEADLINE ' + j.dl + ' MIN' : 'NO DEADLINE') + ' - KEEPS ' + j.life + ' MIN DRESSED' : (T.site ? BUSH_T[T.B.type] + ' ' + T.B.len + ' M - ' : '') + (j.sp === 'fragile' ? 'FRAGILE - KNOCKS + G DOCK PAY (+30%)' : j.sp === 'perish' ? 'PERISHABLE - FRESH ' + j.life + ' MIN (+25%)' : j.sp === 'live' ? 'LIVE ANIMALS - FLY SMOOTH (+35%)' : j.dl ? 'DEADLINE ' + j.dl + ' MIN (+40% PAY)' : 'NO DEADLINE'), 34, Y + 68);
       x.fillStyle = act >= DLV_MAX ? '#9a9a90' : '#2a7a2a'; x.fillRect(JB_W - 126, Y + 50, 100, 26); x.fillStyle = '#fff'; x.font = 'bold 15px sans-serif'; x.textAlign = 'center'; x.fillText('ACCEPT', JB_W - 76, Y + 68); x.textAlign = 'left'; } }
   const inb = dlvActive().filter(j => j.to === S.id && !j.drop);
   x.fillStyle = '#3a2a1a'; x.font = '14px sans-serif';
@@ -5723,7 +5723,7 @@ function dropSmokeTick(dt) {
   S.k += dt * 7; while (S.k >= 1) { S.k--; if (S.p.length < S.N) S.p.push({ x: D.cx + 3, y: groundY(D.cx + 3, D.cz + 2) + 0.4, z: D.cz + 2, t: 0, vx: (Math.random() - 0.5) * 0.5, vz: (Math.random() - 0.5) * 0.5 }); else { const q = S.p.shift(); Object.assign(q, { x: D.cx + 3, y: groundY(D.cx + 3, D.cz + 2) + 0.4, z: D.cz + 2, t: 0 }); S.p.push(q); } }
   const A = S.pts.geometry.attributes, pa = A.position.array, sa = A.aS.array, aa = A.aA.array;
   for (let i = 0; i < S.N; i++) { const q = S.p[i]; if (!q) { sa[i] = 0; aa[i] = 0; continue; } q.t += dt; q.y += (2.6 - q.t * 0.12) * dt; q.x += q.vx * dt; q.z += q.vz * dt;
-    pa[i * 3] = q.x; pa[i * 3 + 1] = q.y; pa[i * 3 + 2] = q.z; sa[i] = 1.2 + q.t * 1.1; aa[i] = Math.min(1, q.t * 2) * Math.max(0, 1 - q.t / 9) * 0.75; }
+    pa[i * 3] = q.x; pa[i * 3 + 1] = q.y; pa[i * 3 + 2] = q.z; sa[i] = 1.6 + q.t * 1.8; aa[i] = Math.min(1, q.t * 2) * Math.max(0, 1 - q.t / 9) * 0.75; }
   A.position.needsUpdate = A.aS.needsUpdate = A.aA.needsUpdate = true; S.pts.material.uniforms.uH.value = renderer.getDrawingBufferSize(_dsz).y * 0.5; S.pts.visible = true;
 }
 const _dsz = new THREE.Vector2();
@@ -5784,7 +5784,7 @@ function dropTick(dt) {
   for (const it of DROP.air.slice()) { it.at += dt; let rem = Math.min(dt, 0.1), L = null; while (rem > 1e-6 && !L) { const h = Math.min(1 / 120, rem); rem -= h; L = dropStep(it, h); }
     if (L) { dropLand(it, L); continue; }
     const v = it.av, m = it.mesh; m.rotation.set(0, Math.atan2(v.x, v.z), 0); m.rotateX(Math.atan2(-v.y, Math.hypot(v.x, v.z)) * 0.8 + Math.sin(it.at * 9) * 0.15);   // nose into the fall, a wobble
-    const T = it.tr; if (it.at - (it.tt || 0) > 0.04) { it.tt = it.at; T.pop(); T.unshift(m.position.clone()); } else T[0].copy(m.position);
+    const T = it.tr; if (it.at - (it.tt || 0) > 0.014) { it.tt = it.at; T.pop(); T.unshift(m.position.clone()); } else T[0].copy(m.position);
     const a = it.strm.geometry.attributes.position.array; camera.getWorldPosition(_dr);
     for (let k = 0; k < T.length; k++) { const P = T[k], Q = T[Math.min(k + 1, T.length - 1)], dx = P.x - Q.x, dy = P.y - Q.y, dz = P.z - Q.z, ex = _dr.x - P.x, ey = _dr.y - P.y, ez = _dr.z - P.z;   // a ribbon facing you
       let sx = dy * ez - dz * ey, sy = dz * ex - dx * ez, sz = dx * ey - dy * ex; const l = Math.hypot(sx, sy, sz) || 1, w = 0.05 + k * 0.004; sx *= w / l; sy *= w / l; sz *= w / l;
