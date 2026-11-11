@@ -4214,7 +4214,7 @@ const CARGO_K = {   // kind: size [w h d] (m), weight range (lb)
   fuel: { n: 'FUEL CAN', sz: [0.17, 0.28, 0.28], lb: [34, 38] },            // 5 gal of avgas + the can
   outboard: { n: 'OUTBOARD MOTOR', sz: [0.42, 0.40, 0.34], lb: [85, 110], two: 1 },   // two-hand lift (desktop: the hand truck)
   generator: { n: 'GENERATOR', sz: [0.44, 0.40, 0.36], lb: [95, 130], two: 1 },
-  deer: { n: 'VENISON CARCASS', sz: [0.46, 0.34, 0.80], lb: [100, 150], two: 1 },   // v0.53 a field-dressed deer in a game bag (hunting jobs only)
+  deer: { n: 'VENISON CARCASS', sz: [0.46, 0.34, 0.80], lb: [100, 150], two: 1 },   // v0.53 a field-dressed deer, tied (hunting jobs only)
 };
 // v0.52 weight classes: LIGHT parcel runs 20-80 lb, HEAVY freight ~150-400 lb (it lengthens the takeoff roll and flattens the climb). [title, [kind, min, max pieces]]
 const DLV_H = [['BUILDING SUPPLIES', [['cement', 3, 4], ['nails', 1, 2]]], ['AVGAS', [['fuel', 5, 7]]], ['OUTBOARD MOTOR', [['outboard', 1, 1], ['fuel', 2, 2]]],
@@ -4508,9 +4508,15 @@ function dlvGeo(k, col) {
   else if (k === 'generator') { const T = 0x2a2a2a; P.push(['b', w - 0.04, h - 0.08, d - 0.04, 0, -0.02, 0, 0xc8a01a], ['b', 0.16, 0.16, 0.2, -0.1, -0.06, 0.01, 0x6a6e72], ['b', 0.12, 0.08, 0.004, 0.1, 0.02, d / 2 - 0.018, 0x2a2a2a]);
     for (const sx of [-1, 1]) for (const sz of [-1, 1]) P.push(['c', 0.012, h, 6, sx * (w / 2 - 0.012), 0, sz * (d / 2 - 0.012), T]);
     for (const sz of [-1, 1]) P.push(['b', w, 0.024, 0.024, 0, h / 2 - 0.012, sz * (d / 2 - 0.012), T], ['b', w, 0.024, 0.024, 0, -h / 2 + 0.012, sz * (d / 2 - 0.012), T]); }   // tube frame
-  else if (k === 'deer') { const C = 0xd6cba8, Rp = 0x8a7a58, L = 0x5a4028; P.push(['b', w, h, d - 0.12, 0, 0, 0.02, C], ['b', w * 0.7, h * 0.7, 0.12, 0, -h * 0.05, -d / 2 + 0.06, 0xcfc39e]);   // v0.53 game bag, rope ties, the legs bound at the back
-    for (const z of [-d * 0.3, 0, d * 0.3]) P.push(['b', w + 0.008, 0.016, 0.02, 0, 0, z, Rp], ['b', 0.02, h + 0.008, 0.016, 0, 0, z, Rp]);
-    for (const sx of [-1, 1]) P.push(['c', 0.022, 0.2, 6, sx * 0.07, -h * 0.15, d / 2 + 0.04, L, Math.PI / 2 - 0.25], ['b', 0.035, 0.04, 0.04, sx * 0.07, -h * 0.15 - 0.03, d / 2 + 0.14, 0x1a1a1a]); }
+  else if (k === 'deer') { const B = 0x8a5a34, Dk = 0x6a4226, Hf = 0x1a1612, Rp = 0x8a7a58, y0 = -h / 2;   // v0.53.1 a field-dressed deer on its side: back to -x, legs out to +x and tied, head and neck on in front
+    P.push(['b', 0.3, 0.26, d * 0.6, -0.06, y0 + 0.13, -0.02, B], ['b', 0.28, 0.25, 0.16, -0.06, y0 + 0.125, d * 0.33, B], ['b', 0.26, 0.24, 0.13, -0.06, y0 + 0.12, -d * 0.38, Dk],   // barrel, shoulders, haunch
+      ['b', 0.14, 0.12, 0.012, -0.02, y0 + 0.12, -d * 0.445 - 0.006, 0xece4d4], ['b', 0.04, 0.05, 0.06, -0.1, y0 + 0.13, -d * 0.47, 0xece4d4],   // white rump, tail
+      ['b', 0.012, 0.12, d * 0.32, 0.09, y0 + 0.13, 0, 0x7a1e18], ['b', 0.02, 0.2, d * 0.5, 0.085, y0 + 0.13, -0.02, 0xc8a878],   // the opened belly cavity on the pale belly
+      ['b', 0.11, 0.1, 0.24, -0.04, y0 + 0.11, d * 0.5 + 0.06, B, 0, -0.25], ['b', 0.11, 0.1, 0.2, 0.0, y0 + 0.1, d * 0.5 + 0.24, Dk], ['b', 0.07, 0.07, 0.06, 0.02, y0 + 0.09, d * 0.5 + 0.36, 0x2a1e16],   // neck, head, muzzle
+      ['b', 0.07, 0.02, 0.05, -0.09, y0 + 0.11, d * 0.5 + 0.16, Dk, 0, 0.5], ['b', 0.07, 0.02, 0.05, -0.08, y0 + 0.17, d * 0.5 + 0.16, Dk, 0, 0.5]);   // ears laid back
+    for (const z of [d * 0.29, d * 0.37, -d * 0.33, -d * 0.41]) P.push(['c', 0.022, 0.32, 6, 0.25, y0 + 0.035, z, Dk, 0, 0, Math.PI / 2], ['b', 0.045, 0.04, 0.04, 0.43, y0 + 0.03, z, Hf]);   // legs out straight, hooves
+    P.push(['b', 0.02, 0.03, d * 0.12, 0.36, y0 + 0.04, d * 0.33, Rp], ['b', 0.02, 0.03, d * 0.12, 0.36, y0 + 0.04, -d * 0.37, Rp]);   // the legs tied in pairs
+    for (const z of [-d * 0.2, d * 0.12]) P.push(['b', 0.32, 0.27, 0.02, -0.06, y0 + 0.13, z, Rp]); }   // rope round the body
   else { P.push(['b', w, h * 0.72, d, 0, -h * 0.14, 0, 0xc9b48a], ['b', w - 0.05, h * 0.3, d - 0.05, 0, h * 0.35, 0, 0xc2ad82], ['b', w + 0.004, 0.035, d + 0.004, 0, -h * 0.12, 0, 0x9a3a2a],
     ['c', 0.025, 0.07, 6, w / 2 - 0.02, h * 0.38, 0, 0xb09a6e, 0, 0, Math.PI / 2]); }
   const top = k === 'sack' ? h / 2 : k === 'hens' ? h / 2 + 0.002 : k === 'cooler' ? h / 2 + 0.009 : k === 'generator' ? h / 2 - 0.037 : k === 'feed' ? h / 2 + 0.006 : k === 'nails' ? h / 2 + 0.006 : h / 2 + 0.003;
