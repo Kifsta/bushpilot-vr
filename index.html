@@ -3570,7 +3570,7 @@ function starterSync() { ENG.starterVR = CKX.grabStart || CKX.pokeStart[0] || CK
     M: Array.from({ length: HN }, () => new THREE.Matrix4()), R: Array.from({ length: HN }, () => new THREE.Matrix4()), tipH: new THREE.Vector3(), tracked: false, hide: 0 });
 }
 const _hx = new THREE.Vector3(), _hy = new THREE.Vector3(), _hz = new THREE.Vector3(), _hs = new THREE.Vector3(), _hd = new THREE.Vector3(), _hm = new THREE.Matrix4(),
-      _hm2 = new THREE.Matrix4(), _hv = new THREE.Vector3(), _hq = new THREE.Quaternion(), _hzX = new THREE.Vector3(1, 0, 0), _hzY = new THREE.Vector3(0, 1, 0), _hzZ = new THREE.Vector3(0, 0, 1);
+      _hm2 = new THREE.Matrix4(), _hv = new THREE.Vector3(), _hq = new THREE.Quaternion(), _hzX = new THREE.Vector3(1, 0, 0), _hzZ = new THREE.Vector3(0, 0, 1), _hzZn = new THREE.Vector3(0, 0, -1), _thz = new THREE.Vector3(), _thD = new THREE.Vector3(), _thq = new THREE.Quaternion();
 function hBone(st, k, s, d, len, t, w, zh) {     // box k from point s along unit d (hand space or world), width across zh
   _hz.copy(zh).addScaledVector(d, -zh.dot(d)); if (_hz.lengthSq() < 1e-8) _hz.set(0, 0, 1); _hz.normalize(); _hx.crossVectors(d, _hz);
   if (st.R) st.R[k].makeBasis(_hx, d, _hz).setPosition(s.x, s.y, s.z);   // v0.49: the rigid bone frame the glove is skinned to
@@ -3594,7 +3594,7 @@ function gloveBuild() {   // -> { pos, sk, reg } (non-indexed triangles, right h
     if (pull) { _pc.set(0, y, 0).applyMatrix4(B[k]).applyMatrix4(B1i); _pc.x = 0; _pc.z = 0; _pc.applyMatrix4(B[1]); }
     for (let i = 0; i < sides; i++) { const t = rot + i * 2 * Math.PI / sides, c = Math.cos(t), s = Math.sin(t);
       let x = a * c, z = b * s; if (c < 0 && bump) x -= bump * (-c) * (bz === undefined ? 1 : Math.exp(-(((z - bz) / 0.006) ** 2)));
-      v.set(x, y, z).applyMatrix4(B[k]); if (pull) v.lerp(_pc, pull); n.set(c / a, 0, s / b).transformDirection(B[k]); pts.push({ p: v.clone(), n: n.clone(), sk: [sa, sb, w] }); }
+      v.set(x, y, z).applyMatrix4(B[k]); if (pull) v.lerp(_pc, pull); n.set(c / a, 0, s / b).transformDirection(B[k]); pts.push({ p: v.clone(), n: n.clone(), sk: [sa, sb, w], c }); }
     return pts; };
   const tri = (A, Bp, C, reg) => { for (const o of [A, Bp, C]) { P.push(o.p.x, o.p.y, o.p.z); S.push(...o.sk); G.push(reg); } };
   const loft = (R, regOf) => {   // quads between consecutive rings; regOf(ringIndex, side, mean outward normal) -> region
@@ -3646,8 +3646,14 @@ function gloveBuild() {   // -> { pos, sk, reg } (non-indexed triangles, right h
       [16, 0.3 * L[2], a0 * 0.88, w0 * 0.88, 16, 16, 1, 0], [16, 0.38 * L[2], a0 * 0.87, w0 * 0.87, 16, 16, 1, 0], [16, 0.7 * L[2], a0 * 0.8, w0 * 0.8, 16, 16, 1, 0],
       [16, 0.92 * L[2], a0 * 0.62, w0 * 0.62, 16, 16, 1, 0], [16, 1.0 * L[2], a0 * 0.3, w0 * 0.3, 16, 16, 1, 0]];
     for (const [k, y, a, b, sa, sb, ww, bump, pull] of spec) R.push(ring(k, y, a, b, FS, sa, sb, ww, ROT, bump, undefined, pull));
-    const PAD = GV3(-0.55, 0.1, 0.83).normalize();   // the thumb pad faces the index / palm
-    loft(R, (r, i, nn) => { const pm = nn.dot(PAD); if (r >= 8) return 1; if (r === 7) return pm > 0.2 ? 1 : 2; return pm > 0.2 || (r < 2 && nn.dot(PALM) > 0.3) ? 1 : 0; });
+    // v0.49.1 web: on the metacarpal and the base of the thumb, the side facing the index is drawn onto the palm's thumb-side edge and skinned partly to the palm, so the thumb grows out of a webbed heel instead of a stalk
+    const WEB = [[0, 0, 0], [0.35, 0.02, 0.006], [0.55, 0.036, 0.004], [0.62, 0.054, 0.002], [0.5, 0.07, 0.001], [0.22, 0.08, 0]], T = new THREE.Vector3(), C = new THREE.Vector3(), dT = new THREE.Vector3();
+    for (let r = 1; r < WEB.length; r++) { const [wr, ty, tx] = WEB[r]; let j = 5; while (SEC[j + 1][0] < ty) j++; const u = (ty - SEC[j][0]) / (SEC[j + 1][0] - SEC[j][0]), bz = SEC[j][2] + u * (SEC[j + 1][2] - SEC[j][2]);
+      T.set(tx, ty, -(bz - 0.004)).applyMatrix4(B[1]); C.set(0, 0, 0); for (const o of R[r]) C.add(o.p); C.multiplyScalar(1 / FS); dT.subVectors(T, C).normalize();
+      for (const o of R[r]) { const f = wr * Math.max(0, o.n.dot(dT)) ** 1.5; if (f <= 0) continue; o.p.lerp(T, f); o.web = f;
+        if (o.sk[0] === 1) o.sk[2] = o.sk[2] + (1 - o.sk[2]) * f; else o.sk = [1, o.sk[0] === o.sk[1] ? o.sk[0] : 14, f]; } }
+    loft(R, (r, i) => { const A = R[r][i], Bq = R[r][(i + 1) % FS], c = (A.c + Bq.c) / 2, web = Math.max(A.web || 0, Bq.web || 0);
+      if (r >= 8) return 1; if (r === 7) return c > 0.2 ? 1 : 2; if (web > 0.25) return 1; return c > 0.2 ? 1 : 0; });   // leather pad and web, fabric over the nail side, seam ring at the tip
     const end = R[R.length - 1]; v.set(0, 0, 0); for (const o of end) v.add(o.p); v.multiplyScalar(1 / FS); v.addScaledVector(GV3(0, 1, 0).transformDirection(B[16]), 0.0022);
     cap(end, { p: v.clone(), sk: [16, 16, 1] }, 1, true); }
   GLOVE.sec = SEC;
@@ -3690,13 +3696,14 @@ function gloveSkin(i, st, inv) {   // this frame's skin matrices: (xrOffset^-1 *
   for (let k = 0; k < HN; k++) U[k].multiplyMatrices(_hm, st.R[k]).multiply(GLOVE.B[h][k]);
 }
 function buildHand(st, sx) {                      // posed glove in hand space from st.c (finger curls 0..1) and st.th (0 thumb resting .. 1 lifted)
-  hBone(st, 0, _hs.set(sx * 0.031, 0.16, 0), _hd.set(0, -1, 0), 0.055, 0.05, 0.068, _hzZ);   // cuff
-  hBone(st, 1, _hs.set(sx * 0.033, 0.05, -0.002), _hd.set(0, -1, 0), 0.083, 0.027, 0.088, _hzZ);   // palm
+  const zL = sx > 0 ? _hzZ : _hzZn;   // v0.49.1: the left hand's bone frames mirror the right's (and match WebXR joints for tracked hands)
+  hBone(st, 0, _hs.set(sx * 0.031, 0.16, 0), _hd.set(0, -1, 0), 0.055, 0.05, 0.068, zL);   // cuff
+  hBone(st, 1, _hs.set(sx * 0.033, 0.05, -0.002), _hd.set(0, -1, 0), 0.083, 0.027, 0.088, zL);   // palm
   for (let f = 0; f < 4; f++) {
     const [kz, L, w, spl] = HF[f], c = st.c[f], e = st.ge, cs = c + (1 - G_SPL - c) * e; let a = 0.05; _hs.set(sx * 0.033, -0.03, kz);
     for (let j = 0; j < 3; j++) {
       a += FIST[j] * c + (st.ja[f * 3 + j] - FIST[j] * c) * e; _hd.set(-sx * Math.sin(a), -Math.cos(a), 0.45 * spl * (1 - cs)).normalize();   // v0.46: solved grip angles
-      hBone(st, 2 + f * 3 + j, _hs, _hd, L[j], 0.017 - j * 0.0015, w - j * 0.001, _hzZ); _hs.addScaledVector(_hd, L[j]);
+      hBone(st, 2 + f * 3 + j, _hs, _hd, L[j], 0.017 - j * 0.0015, w - j * 0.001, zL); _hs.addScaledVector(_hd, L[j]);
     }
     if (f === 0) st.tipH.copy(_hs);
   }
@@ -3707,13 +3714,14 @@ function buildHand(st, sx) {                      // posed glove in hand space f
   if (pn > 0) { _tP.set(st.tipH.x * sx - 0.004, st.tipH.y + 0.006, st.tipH.z - 0.012); _tT.lerp(_tP, pn); _tA.lerp(_tU.set(-0.55, -0.6, -0.58), pn); }
   if (st.ge > 0) { _tT.lerp(st.gT, st.ge); _tA.lerp(st.gA, st.ge); }   // v0.46: thumb onto the control
   _tA.x *= sx; _tA.normalize(); _tT.x *= sx;
-  _hs.set(sx * TH_B.x, TH_B.y, TH_B.z); hBone(st, 14, _hs, _tA, TH_L[0], 0.019, 0.02, _hzY); _hs.addScaledVector(_tA, TH_L[0]);
+  _thz.crossVectors(_tA, _thD.set(sx * 0.45, 0, -0.89)).normalize();   // v0.49.1: thumb roll from a fixed nail direction (~60 deg off the back of the hand, toward the thumb side), then carried down the next 2 bones by minimal rotation: no twist, no flips
+  _hs.set(sx * TH_B.x, TH_B.y, TH_B.z); hBone(st, 14, _hs, _tA, TH_L[0], 0.019, 0.02, _thz); _hs.addScaledVector(_tA, TH_L[0]);
   _tU.subVectors(_tT, _hs); const D = clamp(_tU.length(), 0.012, TH_L[1] + TH_L[2] - 1e-4); _tU.normalize();      // 2-bone reach, knuckle bulging out
   _tW.set(TH_HINT.x * sx, TH_HINT.y, TH_HINT.z).addScaledVector(_tU, -_tW.set(TH_HINT.x * sx, TH_HINT.y, TH_HINT.z).dot(_tU)); if (_tW.lengthSq() < 1e-8) _tW.set(0, 0, -1); _tW.normalize();
   const ca = clamp((TH_L[1] * TH_L[1] + D * D - TH_L[2] * TH_L[2]) / (2 * TH_L[1] * D), -1, 1), sa = Math.sqrt(1 - ca * ca);
-  _hd.copy(_tU).multiplyScalar(ca).addScaledVector(_tW, sa); hBone(st, 15, _hs, _hd, TH_L[1], 0.0175, 0.0185, _hzY); _hs.addScaledVector(_hd, TH_L[1]);
+  _hd.copy(_tU).multiplyScalar(ca).addScaledVector(_tW, sa); _thz.applyQuaternion(_thq.setFromUnitVectors(_tA, _hd)); _thD.copy(_hd); hBone(st, 15, _hs, _hd, TH_L[1], 0.0175, 0.0185, _thz); _hs.addScaledVector(_hd, TH_L[1]);
   _hd.subVectors(_tT, _hs).normalize();      // last bone to the target
-  hBone(st, 16, _hs, _hd, TH_L[2], 0.016, 0.017, _hzY);
+  _thz.applyQuaternion(_thq.setFromUnitVectors(_thD, _hd)); hBone(st, 16, _hs, _hd, TH_L[2], 0.016, 0.017, _thz);
 }
 function buildTracked(st, hand) {                // optional hand tracking: bones straight from the XR joints (world space)
   const J = hand.joints, wr = J['wrist'], mk = J['middle-finger-phalanx-proximal']; if (!wr || !mk || !wr.visible || !mk.visible) return false;

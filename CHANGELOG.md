@@ -2,6 +2,23 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.49.1 – stick stays put, thumb fixed
+- **The stick stays where you let go of it** (Neil: "Make the stick stay where it is when the player lets go as opposed to centering.").
+  - Settings > Stick on release now defaults to **STAYS**. A released stick keeps its deflection: the stick mesh, the aileron and elevator inputs the flight model gets, and the knob position all stay put, and the glove lets go.
+  - Re-grabbing picks up from the held position with no jump in inputs or knob.
+  - **CENTRES** is still available.
+  - Saved settings from before v0.49.1 that hold CENTRES (the old default) switch to STAYS once. Settings now save as version 49, so CENTRES chosen after that sticks.
+- **Glove thumb fixed** (Neil: "Some of the glove thumb geometry is not correct").
+  - **Twisted thumb.** The thumb bones took their roll from the hand's wrist axis projected across each bone. Between the proximal and distal segments that flipped by 170–260° in every pose, so the blended joint ring twisted into a pinched neck, and the metacarpal rolled 9–60° depending on the pose. Now the metacarpal's roll comes from a fixed nail direction, and the next two bones carry it by minimal rotation. Twist is now 0° in all poses, and the nail side faces out at 50–62° from the back-of-hand plane.
+  - **No web.** The thumb came out of the heel of the palm as a separate stalk. Now the index-facing side of the metacarpal and thumb base is drawn onto the palm's thumb-side edge and skinned partly to the palm, which forms a leather web that follows the thumb.
+  - **Thumb colours** (leather pad and web, fabric over the nail) now come from the thumb's own frame.
+  - **Left-hand bone frames** now mirror the right hand's, matching the WebXR joint convention. In v0.49 a tracked left hand (Quest hand tracking) would have shown its glove rolled half a turn on every bone.
+  - Both gloves were checked for inside-out faces (positive enclosed volume) and gaps or spikes at joints.
+- **Tests.**
+  - t491 (13 checks): the default, release holding the inputs, the mesh and the flight-model inputs, the glove letting go, a re-grab with no jump, moving on from the held position, CENTRES still centring, and the migration.
+  - t49 has 2 new thumb checks (twist, nail angle).
+  - t42 now tests CENTRES explicitly and STAYS as the default.
+
 ## v0.49 – flying gloves (Neil: "Can you make the hands look like flying gloves.")
 - **New glove model.** The 34 boxes are replaced by one low-poly pilot flying glove per hand: 930 triangles, flat-shaded and faceted. It has:
   - a shaped palm and back of the hand (superellipse sections), a thenar pad, and knuckle ridges with a seam across them;

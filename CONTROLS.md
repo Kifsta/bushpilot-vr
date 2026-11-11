@@ -1,4 +1,4 @@
-# Bush Pilot VR – controls (v0.49, blank slate)
+# Bush Pilot VR – controls (v0.49.1, blank slate)
 
 v0.45 is just the Super Cub, the valley and the paper map. There is no wind, weather, survival, combat, loot or story. The full game (v0.44) is tag `v0.44-full` and branch `full-game`.
 
@@ -7,7 +7,7 @@ A new game starts **on foot beside the Cub** at the cabin strip. Climb in (Y / F
 ## Flying
 | | VR (Quest) | Desktop |
 |---|---|---|
-| Stick (pitch / roll) | Put your right hand on the stick and squeeze (the glove locks on it), move your hand: the stick pivots under it, to round-cornered stops (a bump at the stop). Let go and it centres (Settings: STICK ON RELEASE = STAYS keeps it where you leave it) | W / S pitch, A / D roll (click to mouse-look) |
+| Stick (pitch / roll) | Put your right hand on the stick and squeeze (the glove locks on it), move your hand: the stick pivots under it, to round-cornered stops (a bump at the stop). Let go and it stays where you left it (v0.49.1; Settings: STICK ON RELEASE = CENTRES makes it spring back to centre) | W / S pitch, A / D roll (click to mouse-look) |
 | Rudder | Left stick left / right | Q / E |
 | Throttle | Left hand on the throttle knob (left wall), squeeze, push / pull (light tick every 10 %, firm stop at idle and full) | Shift / Ctrl (or = / -) |
 | Flaps (0-15-30-50) | v0.42: the handle is on the cabin ROOF, above your head to the left. Reach up, grab the black T-grip (either hand) and pull it DOWN through the notches; push it up to retract (clunk + buzz per notch) | [ and ] |
@@ -115,7 +115,7 @@ Town walls and the fences at the depot, checkpoint and lab are solid. You walk r
 | Turning | SNAP 30° / SNAP 45° / SMOOTH | right stick, on foot |
 | FPS counter | OFF / ON | fps, ms, CPU ms, draw calls and triangles, lower left of your view |
 | Time of day | EARLY … NIGHT | fixed sun position (default MORNING) |
-| Stick on release | CENTRES / STAYS | VR: what the stick does when you let go |
+| Stick on release | STAYS / CENTRES | VR: what the stick does when you let go. Default STAYS (v0.49.1): it holds where you left it, and grabbing it again carries on from there |
 | Control labels | OFF / ON | VR: the name and state of the control by your hand |
 | Gloves | SAGE / BLACK / TAN | v0.49 flying-glove colours: sage Nomex back with tan leather palm (default), all black, or tan with brown leather |
 
