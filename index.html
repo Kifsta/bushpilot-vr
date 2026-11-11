@@ -19,7 +19,7 @@
 </script>
 </head>
 <body>
-<div id="info">BUSH PILOT VR v0.54 - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops. No wind, no weather.
+<div id="info">BUSH PILOT VR v0.55 - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs). No wind, no weather.
 You start on foot by the Cub at the cabin strip. Walk up to her and climb in (F / Y), then start her up off the checklist card (J).
 Desktop - flying: W/S or arrows pitch, A/D or arrows roll, Q/E rudder, Shift / Ctrl (or + / -) throttle, B brakes, [ ] flaps, PgUp / PgDn trim,
   R reset to the strip (cold and dark), F climb out, M map, L landing light, Home recentre, mouse looks (click to capture).
@@ -29,6 +29,7 @@ Desktop - on foot: WASD walk, Shift run, C crouch, Space hop, F climb in, G refu
   Jobs: 1-3 at a job board accept / cancel, E pick up / set down cargo (E by the Cub loads or unloads it), / seat belt + cargo net.
   Hunting: T take / sling / rack the rifle, LMB fire, RMB aim, X lever, Z load a round (by the ammo box: buy 20 for $10), V binoculars, hold E by a downed deer to field dress it.
   Airdrops: in flight open the right door (1 upper window, 2 lower door), G pushes the next bundle out - drop it on the smoke / X.
+  Running costs: fuel is paid at the red drums (4 strips, 4 prices); oil, tyres + brakes, repairs and the 100-hour service at the home HANGAR board (1-4 there).
 VR - in the cockpit: grip the stick (right) and throttle (left), left stick = rudder, left trigger = brakes, reach up and pull the flap handle down
   a notch at a time, wind the trim crank, turn knobs / the mag key / the primer / the fuel valve with your hand, poke the rocker and toggles.
   A / X recentre, B reset, Y climb out. Poke the screen on your left wrist with your right finger for SETTINGS.
@@ -37,6 +38,7 @@ VR - on foot: left stick walks (click = run), right stick turns (snap / smooth i
   Jobs: poke ACCEPT on a strip's job board, grip cargo to carry it, let go over the rear seat / baggage bay, grab the belt buckle / net to strap.
   Hunting: grip the rifle's wrist (cabin / Cub rack), other hand on the forend, trigger fires, pinch the lever loop and swing it (or flick), rounds from the belt pouch into the gate; binoculars on your chest, raise them to your eyes; grip and hold a downed deer to dress it.
   Airdrops: unlatch + open both halves of the right door, reach back and grip a bundle, put your hand out through the door and let go.
+  Running costs: grab a wing cap by any strip's red drum to buy fuel; poke a price on the hangar / fuel boards for oil, tyres, repairs, the 100-hour.
 Settings (` or F2 on desktop, the wrist board in VR): graphics, comfort, FPS counter, stick on release, control labels, haptics, time of day.
 </div>
 <div id="hud"></div><div id="cross"></div>
@@ -1414,7 +1416,7 @@ function panelUpdate(a, dt) {
   ND.ball[0].position.x = ND.ball[1].position.x = IN.ball * 50 * gSc(G.tc); ND.tcSym.rotation.z = -clamp(IN.rate / 3, -2.2, 2.2) * 18 * D2R;   // standard rate = 18 deg mark
   ND.hiCard.rotation.z = IN.hdg;
   { const E = ENG, k = Math.min(1, dt * 2), tT = 60 + 130 * E.temp + (E.running ? 30 * Math.min(1, E.rpm / 2600) : 0), tP = E.running ? (52 + 28 * Math.min(1, E.rpm / 2300)) * (1.15 - 0.15 * E.temp) : E.cranking ? 9 : 0;   // v0.43 oil
-    OIL.t += (tT - OIL.t) * Math.min(1, dt / 6); OIL.p += (tP - OIL.p) * k; ND.oilP.rotation.z = -aOILP(OIL.p); ND.oilT.rotation.z = -aOILT(OIL.t); }
+    OIL.t += (tT + (E.running ? ecoOilT() : 0) - OIL.t) * Math.min(1, dt / 6); OIL.p += (tP * ecoOilP() - OIL.p) * k; ND.oilP.rotation.z = -aOILP(OIL.p); ND.oilT.rotation.z = -aOILT(OIL.t); }   // v0.55 low oil: pressure down, temp up
   panelTint();
   aiMatrix(IN.pitch, IN.roll); ND.skyPtr.rotation.z = IN.roll; gpUpdate();
   if ((infoT += dt) >= 0.25) { infoT = 0; drawInfo(a); }
@@ -1751,6 +1753,7 @@ addEventListener('keydown', e => {
   if (dropKey(e)) return;   // v0.54 G: push a bundle out of the open door
   if (huntKey(e)) return;   // v0.53 T rifle, X lever, Z load / buy ammo, V binoculars, hold E over a carcass
   if (engKey(e)) return;     // v0.19 cockpit keys (U O Y H I P K J, 1-4 windows; Space = starter, held)
+  if (ecoKey(e)) return;   // v0.55 1-4 at a service board
   if (dlvDeskKey(e)) return;   // v0.50 on foot: E carry / load, 1-3 at a job board; / straps
   if (e.code === 'KeyR') resetFlight();
   if (e.code === 'KeyM') mapDesk();
@@ -1941,7 +1944,7 @@ const hud = document.getElementById('hud'), cross = document.getElementById('cro
 function statusText() {
   const kt = (ac.out.V || 0) * 1.944, A = dlvActive(), nx = A.slice().sort((a, b) => (b.sp ? 1 : 0) - (a.sp ? 1 : 0) || dlvLeft(a) - dlvLeft(b))[0];   // v0.51: special cargo first (its meter shows)   // v0.50 wallet + the most urgent job
   return '$' + DLV.cash.toLocaleString('en-US') + (nx ? '  ' + A.length + ' JOB' + (A.length > 1 ? 'S' : '') + ' >' + dlvS(nx.to).name.replace(' STRIP', '') + (nx.sp ? dlvMeter(nx).replace(' - ', ' ').replace('DAMAGE', 'DMG') : nx.dl ? ' ' + Math.max(0, Math.ceil(dlvLeft(nx))) + 'M' : '') : '  NO JOBS') + '\n' + `FUEL ${(fuel / FUEL_MAX * 100).toFixed(0)}% ${(fuel / 3.785).toFixed(1)} GAL${FUELP.on ? ' FILLING' : ''}\n` +
-    (mode === 'plane' ? `ENG ${ENG.running ? 'RUN ' + Math.round(ENG.rpm) : ENG.cranking ? 'CRANK' : 'OFF'}  ${Math.round(kt)} KT` : 'ON FOOT') + (msgT > 0 ? '\n' + msg : '');
+    (mode === 'plane' ? `ENG ${ENG.running ? 'RUN ' + Math.round(ENG.rpm) : ENG.cranking ? 'CRANK' : 'OFF'}  ${Math.round(kt)} KT` : 'ON FOOT') + (ecoWarn() ? '\n' + ecoWarn() : '') + (msgT > 0 ? '\n' + msg : '');   // v0.55 maintenance warnings
 }
 let wristKey = '';
 function drawWrist() {   // v0.10: only re-uploads when something on it changed
@@ -1962,6 +1965,10 @@ let fuel = FUEL_MAX, sputT = 0, sput = false;
 const CAPS = [-1, 1].map(sx => D2B(sx * 0.62, -0.20, wy(0.62, -0.20) + 0.18));   // wing-root tank filler caps
 for (const c of CAPS) { const m = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.03, 8), mat(0xb8b8b8)); m.position.copy(c); plane.add(m); }
 // the pump: a red 55-gal drum with a hand pump, on the left of the Cub's parking spot. Fills either tank while the nozzle is on its cap.
+// v0.55 economy (state; the rest is in the v0.55 module further down): fuel drums at the 4 main strips at their own prices, oil, tach hours, tyres / brakes, damage
+const FUEL_ST = [{ id: 'HOME', price: 6.40, oil: 9 }, { id: 'RIDGE', price: 7.30, oil: 11 }, { id: 'LODGE', price: 8.90, oil: 12 }, { id: 'DRYFORK', price: 5.80, oil: 10 }];   // $/gal avgas, $/qt oil (Dry Fork has the fuel depot)
+const ECO = { hrs: 1262.4, svc: 62.4, oil: 5.5, tyre: 0.85, brake: 0.9, gear: 0, eng: 0, seized: false, ldg: 0, wow: true, air: 0, vy: 0, cr: false, sink: 0, fill: 0, fillL: 0, acct: false, warnT: 20, ms: 0, poke: [true, true], near: null, nearD: 1e9, hint: null };
+const ECO_TX = 20, ECO_OILMAX = 6, ECO_CREDIT = 600, ECO_SAFE = 12 * 3.785;   // tach hours run 20x real time; 6 qt sump; the hangar runs a $600 account; the home drum always gives you 12 gal on account
 const FUELP = { p: new THREE.Vector3(-7.5, 0, 3), on: false, g: null, cap: -1, sndT: 0, fullSaid: false, RATE: 3, REACH: 15, CAP_R: 0.3, DESK_R: 3 };
 FUELP.p.y = groundY(FUELP.p.x, FUELP.p.z);
 { const G = new THREE.Group(), red = mat(0xb02a1c), dk = mat(0x2b2b2b);
@@ -1974,31 +1981,31 @@ FUELP.line = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.
 FUELP.line.frustumCulled = false; FUELP.line.visible = false; scene.add(FUELP.line);
 const _fpA = new THREE.Vector3(), _fpB = new THREE.Vector3();
 const capW = (i, out) => plane.localToWorld(out.copy(CAPS[i]));
-function pumpNear() { return Math.hypot(ac.pos[0] - FUELP.p.x, ac.pos[2] - FUELP.p.z) < FUELP.REACH && cubParkedFuel(); }
+function pumpNear() { const F = fuelSt(); if (!F) return false; if (FUELP.st !== F) { FUELP.st = F; FUELP.p.copy(F.p); } return cubParkedFuel(); }   // v0.55 any of the 4 drums
 const cubParkedFuel = () => !ac.crashed && acGS() < 0.5 && !ENG.running;
 function nearestCap(p, r) { let best = -1, bd = r; for (let i = 0; i < 2; i++) { const d = capW(i, _fpA).distanceTo(p); if (d < bd) { bd = d; best = i; } } return best; }
 function fuelGrab(g, p) {   // VR: grip at a filler cap = the nozzle goes in
   if (mode !== 'foot' || FUELP.g) return false;
   const c = nearestCap(p, FUELP.CAP_R); if (c < 0) return false;
-  if (!pumpNear()) { say(ENG.running ? 'SHUT THE ENGINE DOWN TO REFUEL' : 'NO PUMP HERE - TAXI BACK TO THE HOME STRIP (RED DRUM)'); return true; }
-  FUELP.g = g; FUELP.cap = c; FUELP.on = true; FUELP.fullSaid = false; tick(g); sfx('click'); say('REFUELLING...'); return true;
+  if (!pumpNear()) { say(ENG.running ? 'SHUT THE ENGINE DOWN TO REFUEL' : 'NO FUEL HERE - RED DRUMS AT HOME, RIDGE, LODGE + DRY FORK'); return true; }
+  FUELP.g = g; FUELP.cap = c; FUELP.on = true; FUELP.fullSaid = false; tick(g); sfx('click'); say('REFUELLING - $' + FUELP.st.price.toFixed(2) + '/GAL'); return true;
 }
 function fuelRelease(g) { if (FUELP.g !== g) return; FUELP.g = null; fuelStop(); }
-function fuelStop() { if (!FUELP.on) return; FUELP.on = false; FUELP.cap = -1; FUELP.line.visible = false; say('FUEL ' + (fuel / 3.785).toFixed(1) + ' GAL'); }
+function fuelStop() { if (!FUELP.on) return; FUELP.on = false; FUELP.cap = -1; FUELP.line.visible = false; say('FUEL ' + (fuel / 3.785).toFixed(1) + ' GAL' + ecoFuelReceipt()); }
 function fuelDesk() {   // desktop G: start / stop the pump when you stand by a filler cap
   if (FUELP.on) { fuelStop(); return; }
   camera.getWorldPosition(_fpB); let c = -1, bd = FUELP.DESK_R;
   for (let i = 0; i < 2; i++) { capW(i, _fpA); const d = Math.hypot(_fpA.x - _fpB.x, _fpA.z - _fpB.z); if (d < bd) { bd = d; c = i; } }
   if (c < 0) { say('STAND BY A WING FILLER CAP TO REFUEL'); return; }
-  if (!pumpNear()) { say(ENG.running ? 'SHUT THE ENGINE DOWN TO REFUEL' : 'NO PUMP HERE - TAXI BACK TO THE HOME STRIP (RED DRUM)'); return; }
-  FUELP.cap = c; FUELP.on = true; FUELP.fullSaid = false; sfx('click'); say('REFUELLING... (G TO STOP)');
+  if (!pumpNear()) { say(ENG.running ? 'SHUT THE ENGINE DOWN TO REFUEL' : 'NO FUEL HERE - RED DRUMS AT HOME, RIDGE, LODGE + DRY FORK'); return; }
+  FUELP.cap = c; FUELP.on = true; FUELP.fullSaid = false; sfx('click'); say('REFUELLING - $' + FUELP.st.price.toFixed(2) + '/GAL (G TO STOP)');
 }
 function fuelPumpTick(dt) {
   if (!FUELP.on) return;
   if (mode !== 'foot' || !pumpNear()) { FUELP.g = null; fuelStop(); return; }
   if (!FUELP.g) { camera.getWorldPosition(_fpB); capW(FUELP.cap, _fpA); if (Math.hypot(_fpA.x - _fpB.x, _fpA.z - _fpB.z) > FUELP.DESK_R + 1) { fuelStop(); return; } }
   if (FUELP.g && nearestCap(FUELP.g.getWorldPosition(_fpB), FUELP.CAP_R + 0.1) < 0) { fuelStop(); return; }   // pulled the nozzle out
-  if (fuel < FUEL_MAX) { fuel = Math.min(FUEL_MAX, fuel + FUELP.RATE * dt); if ((FUELP.sndT -= dt) <= 0) { sfx('pour', capW(FUELP.cap, _fpA)); FUELP.sndT = 0.13; } if (FUELP.g && Math.random() < dt * 6) HX.pulse(FUELP.g, 0.08, 10, 'fuel'); }
+  if (fuel < FUEL_MAX) { const dl = ecoFuelAllow(Math.min(FUELP.RATE * dt, FUEL_MAX - fuel)); if (dl <= 0) { FUELP.g = null; fuelStop(); return; } fuel = Math.min(FUEL_MAX, fuel + dl); if ((FUELP.sndT -= dt) <= 0) { sfx('pour', capW(FUELP.cap, _fpA)); FUELP.sndT = 0.13; } if (FUELP.g && Math.random() < dt * 6) HX.pulse(FUELP.g, 0.08, 10, 'fuel'); }
   else if (!FUELP.fullSaid) { FUELP.fullSaid = true; say('TANKS FULL - 36 GAL'); if (FUELP.g) HX.pulse(FUELP.g, 0.4, 30, 'fuel'); }
   _fpA.copy(FUELP.p).y += 1.42; capW(FUELP.cap, _fpB); FUELP.line.geometry.attributes.position.setXYZ(0, _fpA.x, _fpA.y, _fpA.z); FUELP.line.geometry.attributes.position.setXYZ(1, _fpB.x, _fpB.y, _fpB.z);
   FUELP.line.geometry.attributes.position.needsUpdate = true; FUELP.line.visible = true;
@@ -2966,7 +2973,7 @@ function fuelTick(dt) {   // burn scales with engine power; sputter below 3 %, q
   if (!ac.crashed && !ac.engineOut) fuel = Math.max(0, fuel - BURN_FULL * ac.power * dt);
   if (fuel > 0 && fuel < FUEL_MAX * 0.03 && mode === 'plane') { if ((sputT -= dt) <= 0) { sput = !sput; sputT = sput ? 0.12 + Math.random() * 0.3 : 0.3 + Math.random() * 1.2; } }
   else sput = false;
-  ac.engineOut = mode === 'foot' || fuel <= 0 || sput || !ENG.running;   // v0.19: start / shutdown state machine (updateEngine)
+  ac.engineOut = mode === 'foot' || fuel <= 0 || sput || !ENG.running || ECO.seized;   // v0.55 + a seized engine   // v0.19: start / shutdown state machine (updateEngine)
 }
 // ---- small shared helpers ----
 const pulse = (g, a, ms, tag) => HX.pulse(g, a, ms, tag);   // v0.24: through the haptics helper
@@ -3122,7 +3129,7 @@ function mapJobs() {   // v0.51.1: job boards (gold square) + every active job's
     const lb = B.lab || [X(B.cx) > X(B.x) ? 14 : -14, 0, X(B.cx) > X(B.x) ? 'left' : 'right'], ox = X(B.x) + lb[0], oy = Z(B.z) + lb[1]; x.textAlign = lb[2]; x.fillStyle = '#1e1810'; x.font = 'bold 13px ' + F; x.fillText(S.name.toLowerCase(), ox, oy - 8);
     x.font = '11px ' + F; x.fillText(B.cust.toLowerCase() + ' - ' + BUSH_T[B.type].toLowerCase() + ' ' + B.len + 'm' + (B.land != null ? ' 1-way' : ''), ox, oy + 6); x.textAlign = 'center'; }
   for (const S of DLV_STRIPS) { if (S.site && !S.found) continue; const px = X(S.pad[0]), py = Z(S.pad[1]); x.fillStyle = '#e0a020'; x.strokeStyle = '#1e1810'; x.lineWidth = 1.5; x.fillRect(px - 5, py - 5, 10, 10); x.strokeRect(px - 5, py - 5, 10, 10);
-    x.font = 'bold 12px ' + F; x.fillStyle = '#5a3a10'; x.fillText('JOBS', px, py + 14); }
+    x.font = 'bold 12px ' + F; x.fillStyle = '#5a3a10'; x.fillText('JOBS', px, py + 14); const fs = FUEL_ST.find(f => f.id === S.id); if (fs) { x.fillStyle = '#9a2a1a'; x.fillText('fuel $' + fs.price.toFixed(2), px, py + 27); } }   // v0.55
   for (const j of A) { if (!j.hunt || j.hunt.got) continue; const H = DEER_HERDS[j.hunt.h], hx = X(H.x0 ?? H.x), hy = Z(H.z0 ?? H.z);   // v0.53 the hunting area
     x.fillStyle = 'rgba(224,112,16,0.16)'; x.strokeStyle = '#c05a08'; x.lineWidth = 2.5; x.setLineDash([6, 4]); x.beginPath(); x.arc(hx, hy, HUNT_R * MAP_PX, 0, 6.283); x.fill(); x.stroke(); x.setLineDash([]);
     x.fillStyle = '#8a3a04'; x.font = 'bold 13px ' + F; x.fillText('DEER - ' + H.name.toLowerCase(), hx, hy + HUNT_R * MAP_PX + 11);
@@ -5821,6 +5828,145 @@ function dropKey(e) { if (e.code === 'KeyG' && mode === 'plane') return dropDesk
 function dropSaveRes(j) { return j.drop.res.concat(DROP.air.filter(it => it.job === j.id).map(dropPredict)); }   // a save mid-fall: those land where they were going
 function dropLoadFix() { for (const j of dlvActive()) if (j.drop && j.drop.res.length >= j.drop.n) dropFinish(j); }
 
+// ================= v0.55 ECONOMY: fuel you pay for (4 strips, 4 prices), oil, tach hours + the 100-hour service, tyre / brake wear, hard-landing damage, the home hangar =================
+// Effects only go through the pilot's inputs (ctl.throttle cap, ctl.brake scale, a rudder pull on the ground) or the engine-out flag; a healthy Cub sees none of it (the physics block is untouched).
+const HANGAR = { x: -25.5, z: -9, ry: Math.PI / 2 };
+{ const P = [], gy = (x, z) => groundY(x, z), b = (w, h, d, x, y, z, c, ry = 0) => P.push(['b', w, h, d, x, y, z, c, 0, ry]);
+  const X0 = HANGAR.x, Z0 = HANGAR.z, y0 = Math.min(gy(X0 - 4.5, Z0 - 6), gy(X0 + 4.5, Z0 + 6), gy(X0, Z0)) - 0.1, W = 0x8a8e92, R = 0x6a2a20, Wd = 0x6b4a2a;
+  b(9.4, 0.2, 12.4, X0, y0 + 0.1, Z0, 0x7a7a72);   // slab
+  b(0.15, 4.4, 12, X0 - 4.6, y0 + 2.2, Z0, W); for (const s of [-1, 1]) b(9.2, 4.4, 0.15, X0, y0 + 2.2, Z0 + s * 6, W);   // back + side walls (open to the strip)
+  for (const s of [-1, 1]) P.push(['b', 9.8, 0.12, 6.6, X0, y0 + 4.95, Z0 + s * 3.15, R, s * 0.18, 0, 0]);   // the roof
+  b(0.25, 4.6, 0.25, X0 + 4.6, y0 + 2.3, Z0 - 5.9, W); b(0.25, 4.6, 0.25, X0 + 4.6, y0 + 2.3, Z0 + 5.9, W); b(0.25, 0.4, 12, X0 + 4.6, y0 + 4.4, Z0, W);   // front header
+  b(0.8, 0.9, 2.6, X0 - 4, y0 + 0.45, Z0 + 3, Wd); b(0.85, 0.06, 2.7, X0 - 4, y0 + 0.92, Z0 + 3, 0x4a3a2a);   // bench
+  for (let k = 0; k < 4; k++) P.push(['c', 0.32, 0.16, 10, X0 - 3.6, y0 + 0.28 + k * 0.17, Z0 - 4.6, 0x1a1a1a]);   // a stack of tyres
+  for (let k = 0; k < 6; k++) b(0.12, 0.2, 0.08, X0 - 4.1, y0 + 1.06, Z0 + 2.1 + k * 0.22, 0x2a5aa0);   // oil quarts on the bench
+  b(0.4, 1.8, 0.8, X0 - 4.2, y0 + 1.1, Z0 - 2, 0xa03020);   // tool chest
+  b(2.2, 0.5, 0.06, X0 + 4.7, y0 + 4.4, Z0, 0xe8e4d0);   // the sign board (lettered by the texture below)
+  const gs = P.map(partGeo); HANGAR.geo = mergeGeometries(gs); for (const g of gs) g.dispose();
+  const m = new THREE.Mesh(HANGAR.geo, ITEM_VM); m.castShadow = m.receiveShadow = true; scene.add(m); HANGAR.mesh = m; HANGAR.y = y0;
+  { const cv = document.createElement('canvas'); cv.width = 256; cv.height = 64; const x = cv.getContext('2d'); x.fillStyle = '#e8e4d0'; x.fillRect(0, 0, 256, 64); x.fillStyle = '#6a2a20'; x.font = 'bold 34px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('HANGAR', 128, 34);
+    const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; const s = new THREE.Mesh(new THREE.PlaneGeometry(2.1, 0.46), new THREE.MeshBasicMaterial({ map: t })); s.position.set(X0 + 4.74, y0 + 4.4, Z0); s.rotation.y = Math.PI / 2; s.userData.noBatch = true; scene.add(s); }
+  SOLID_SEGS.push([X0 - 4.6, Z0 - 6, X0 - 4.6, Z0 + 6], [X0 - 4.6, Z0 - 6, X0 + 4.6, Z0 - 6], [X0 - 4.6, Z0 + 6, X0 + 4.6, Z0 + 6]);
+  }
+// ---- the fuel drums: home's is the v0.45 pump; one each by the job boards at the other three main strips ----
+function ecoDrum(p) { const G = new THREE.Group(), red = mat(0xb02a1c), dk = mat(0x2b2b2b);
+  G.add(new THREE.Mesh(new THREE.CylinderGeometry(0.29, 0.29, 0.88, 12).translate(0, 0.44, 0), red)); for (const y of [0.29, 0.59]) G.add(new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.03, 12).translate(0, y, 0), dk));
+  box(0.06, 0.55, 0.06, mat(0x8a8a8a), 0.1, 1.15, 0, G); box(0.24, 0.03, 0.03, dk, 0.2, 1.42, 0, G); G.add(new THREE.Mesh(new THREE.TorusGeometry(0.16, 0.025, 5, 12).rotateX(Math.PI / 2).translate(0, 0.9, 0), dk));
+  const g2 = new THREE.Group(); mergeInto(G, g2); g2.position.copy(p); scene.add(g2); }
+for (const F of FUEL_ST) { const S = dlvS(F.id); F.S = S;
+  if (F.id === 'HOME') { F.p = FUELP.p.clone(); F.b = [HANGAR.x + 5.6, HANGAR.z + 3.2, Math.PI / 2]; continue; }
+  const v = S.G.localToWorld(new THREE.Vector3(-4.4, 0, 1.2)); v.y = groundY(v.x, v.z); F.p = v; ecoDrum(v);
+  const w = S.G.localToWorld(new THREE.Vector3(-2.6, 0, 0)); F.b = [w.x, w.z, S.ry]; }
+function fuelSt() { for (const F of FUEL_ST) if (Math.hypot(ac.pos[0] - F.p.x, ac.pos[2] - F.p.z) < FUELP.REACH) return F; return null; }
+// ---- service boards: the hangar's (oil, tyres + brakes, repairs, the 100-hour) and a fuel + oil board by each drum ----
+const SVB_W = 512, SVB_H = 352;
+for (const F of FUEL_ST) { const [bx, bz, ry] = F.b, home = F.id === 'HOME', G = new THREE.Group(), PW = home ? 1.28 : 1.0, PH = home ? 0.88 : 0.69, Y = home ? 1.45 : 1.35, wood = mat(0x6b4a2a);
+  G.position.set(bx, Math.min(groundY(bx - 0.5, bz), groundY(bx + 0.5, bz), groundY(bx, bz)), bz); G.rotation.y = ry; scene.add(G);
+  for (const sx of [-PW / 2 + 0.03, PW / 2 - 0.03]) box(0.08, Y + 0.45, 0.08, wood, sx, (Y + 0.45) / 2 - 0.1, -0.03, G); box(PW + 0.08, PH + 0.08, 0.04, wood, 0, Y, 0, G);
+  const cv = document.createElement('canvas'); cv.width = SVB_W; cv.height = SVB_H; const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(PW, PH), new THREE.MeshBasicMaterial({ map: tex })); m.position.set(0, Y, 0.022); m.userData.noBatch = true; G.add(m);
+  F.B = { home, G, cv, cx: cv.getContext('2d'), tex, m, PW, PH, key: '', rows: home ? ['oil', 'tyre', 'fix', 'svc'] : ['oil'] }; }
+function ecoCost(F, r) {   // [cost, what it does, can it be done]
+  const E = ECO;
+  if (r === 'oil') { const q = Math.ceil((ECO_OILMAX - E.oil) * 2 - 0.05) / 2; return [Math.round(q * F.oil), q > 0 ? 'ADD ' + q + ' QT OIL ($' + F.oil + '/QT)' : 'OIL FULL - ' + E.oil.toFixed(1) + ' QT', q > 0, q]; }
+  if (r === 'tyre') { const c = Math.round(240 * (1 - E.tyre) + 180 * (1 - E.brake)); return [c, c > 0 ? 'NEW TYRES + BRAKE PADS (TYRES ' + Math.round(E.tyre * 100) + '%, BRAKES ' + Math.round(E.brake * 100) + '%)' : 'TYRES + BRAKES AS NEW', c > 0]; }
+  if (r === 'fix') { const c = Math.round(1200 * E.gear + 2600 * E.eng + (E.seized ? 400 : 0)); return [c, c > 0 ? 'REPAIR: GEAR ' + Math.round(E.gear * 100) + '%, ENGINE ' + Math.round(E.eng * 100) + '% DAMAGE' + (E.seized ? ' (SEIZED)' : '') : 'NO DAMAGE', c > 0]; }
+  if (r === 'svc') return [420, '100-HOUR SERVICE + OIL CHANGE (' + (E.svc > 100 ? 'OVERDUE ' + (E.svc - 100).toFixed(1) + ' HRS' : 'DUE IN ' + (100 - E.svc).toFixed(1) + ' HRS') + ')', true];
+}
+const ecoRoom = home => DLV.cash + (home ? ECO_CREDIT : 0);   // what you can spend: cash, plus the hangar account at home
+const ecoMoney = v => (v < 0 ? '-$' : '$') + Math.abs(Math.round(v)).toLocaleString('en-US');
+function ecoDraw(F) {
+  const B = F.B, x = B.cx, E = ECO, W = SVB_W; x.fillStyle = '#f2ead6'; x.fillRect(0, 0, W, SVB_H); x.strokeStyle = '#5a3a20'; x.lineWidth = 8; x.strokeRect(4, 4, W - 8, SVB_H - 8);
+  x.textBaseline = 'alphabetic'; x.textAlign = 'left'; x.fillStyle = '#222'; x.font = 'bold 26px sans-serif'; x.fillText(B.home ? 'HOME HANGAR - SERVICE' : F.S.name + ' - FUEL + OIL', 18, 38);
+  x.textAlign = 'right'; x.fillStyle = DLV.cash < 0 ? '#b8301e' : '#1e6a2a'; x.fillText(ecoMoney(DLV.cash), W - 18, 38); x.textAlign = 'left';
+  x.fillStyle = '#333'; x.font = 'bold 17px sans-serif'; x.fillText('AVGAS $' + F.price.toFixed(2) + '/GAL AT THE RED DRUM' + (B.home ? ' (ALWAYS 12 GAL ON ACCOUNT)' : ''), 18, 64);
+  x.font = '16px sans-serif'; x.fillText('TACH ' + E.hrs.toFixed(1) + ' HRS - 100-HOUR ' + (E.svc > 100 ? 'OVERDUE ' + (E.svc - 100).toFixed(1) : 'DUE IN ' + (100 - E.svc).toFixed(1)) + ' - LANDINGS ' + E.ldg, 18, 86);
+  x.fillText('OIL ' + E.oil.toFixed(1) + '/' + ECO_OILMAX + ' QT   TYRES ' + Math.round(E.tyre * 100) + '%   BRAKES ' + Math.round(E.brake * 100) + '%   GEAR DMG ' + Math.round(E.gear * 100) + '%   ENGINE DMG ' + Math.round(E.eng * 100) + '%', 18, 106);
+  x.fillStyle = DLV.cash < 0 ? '#b8301e' : '#555'; x.fillText(B.home ? (DLV.cash < 0 ? 'ON ACCOUNT: YOU OWE ' + ecoMoney(-DLV.cash) + ' (LIMIT $' + ECO_CREDIT + ') - JOB PAY CLEARS IT' : 'HANGAR ACCOUNT: UP TO $' + ECO_CREDIT + ' ON CREDIT') : 'CASH ONLY - REPAIRS + SERVICE AT THE HOME HANGAR', 18, 126);
+  B.rows.forEach((r, i) => { const Y = 140 + i * 52, [c, t, ok] = ecoCost(F, r), afford = c <= ecoRoom(B.home); x.fillStyle = '#e8dcc0'; x.fillRect(14, Y, W - 28, 46);
+    x.fillStyle = '#222'; x.font = 'bold 15px sans-serif'; x.fillText((i + 1) + '. ' + t, 24, Y + 28);
+    x.fillStyle = !ok ? '#9a9a90' : afford ? '#2a7a2a' : '#a04030'; x.fillRect(W - 112, Y + 6, 92, 34); x.fillStyle = '#fff'; x.textAlign = 'center'; x.font = 'bold 16px sans-serif'; x.fillText(!ok ? 'OK' : '$' + c, W - 66, Y + 29); x.textAlign = 'left'; });
+  if (!B.home) { x.fillStyle = '#555'; x.font = '15px sans-serif'; x.fillText('FUEL: PARK BY THE DRUM, ENGINE OFF, NOZZLE ON A WING CAP (DESKTOP G)', 18, 220); x.fillText('PAID AS IT FLOWS. ' + (F.id === 'DRYFORK' ? 'THE DEPOT: CHEAPEST FUEL IN THE VALLEY.' : 'HOME $' + FUEL_ST[0].price.toFixed(2) + ', DRY FORK $' + FUEL_ST[3].price.toFixed(2)), 18, 242); }
+  x.fillStyle = '#666'; x.font = '14px sans-serif'; x.fillText('POKE A PRICE TO PAY (DESKTOP 1-' + B.rows.length + ') - THE CUB PARKED NEARBY, ENGINE OFF', 18, SVB_H - 16);
+  B.tex.needsUpdate = true;
+}
+function ecoDo(F, i) {   // a row on a service board
+  const B = F.B, r = B.rows[i]; if (!r) return false; const [c, t, ok, q] = ecoCost(F, r), E = ECO;
+  if (!ok) { say(t); sfx('tick'); return true; }
+  if (Math.hypot(ac.pos[0] - F.p.x, ac.pos[2] - F.p.z) > (B.home ? 40 : 25) || !cubParkedFuel()) { say('BRING THE CUB OVER AND SHUT HER DOWN FIRST'); sfx('tick'); return true; }
+  if (c > ecoRoom(B.home) && !(r === 'oil' && B.home && E.oil < 4)) { say('NOT ENOUGH MONEY: ' + ecoMoney(c) + ' NEEDED, YOU HAVE ' + ecoMoney(DLV.cash) + (B.home ? ' (+$' + ECO_CREDIT + ' ACCOUNT)' : '')); sfx('tick'); return true; }   // (oil at home: never left unable to run the engine)
+  DLV.cash -= c; DLV.spent = (DLV.spent || 0) + c;
+  if (r === 'oil') E.oil = Math.min(ECO_OILMAX, E.oil + q);
+  else if (r === 'tyre') { E.tyre = 1; E.brake = 1; }
+  else if (r === 'fix') { E.gear = 0; E.eng = 0; if (E.seized) { E.seized = false; E.oil = ECO_OILMAX; } }
+  else if (r === 'svc') { E.svc = 0; E.oil = ECO_OILMAX; E.eng = Math.max(0, E.eng - 0.1); }
+  sfx('cash'); say({ oil: 'OIL TOPPED UP - ' + E.oil.toFixed(1) + ' QT', tyre: 'NEW TYRES + BRAKE PADS FITTED', fix: 'REPAIRED - GEAR + ENGINE AS NEW', svc: '100-HOUR SERVICE DONE - OIL CHANGED, NEXT DUE AT ' + (E.hrs + 100).toFixed(1) + ' HRS' }[r] + ' (-$' + c + ', ' + ecoMoney(DLV.cash) + ')');
+  for (const G of FUEL_ST) G.B.key = ''; saveSoon(); return true;
+}
+// ---- paying for fuel as it flows (called by the pump) ----
+function ecoFuelAllow(dl) {   // litres wanted this frame -> litres you get (charged)
+  const F = FUELP.st || FUEL_ST[0], c = dl / 3.785 * F.price, home = F.id === 'HOME';
+  if (DLV.cash - c < (home ? -ECO_CREDIT : 0)) { if (!(home && fuel < ECO_SAFE)) { say(home ? 'ACCOUNT LIMIT REACHED - FLY A JOB (' + (fuel / 3.785).toFixed(1) + ' GAL ABOARD)' : 'OUT OF CASH - ' + (fuel / 3.785).toFixed(1) + ' GAL ABOARD (HOME GIVES CREDIT)'); return 0; } ECO.acct = true; }   // the safety net: home never leaves you without enough to reach a job
+  DLV.cash -= c; DLV.spent = (DLV.spent || 0) + c; ECO.fill += c; ECO.fillL += dl; return dl;
+}
+function ecoFuelReceipt() { if (!ECO.fillL) return ''; const s = ' - ' + (ECO.fillL / 3.785).toFixed(1) + ' GAL $' + ECO.fill.toFixed(2) + (ECO.acct ? ' ON ACCOUNT' : '') + ' (' + ecoMoney(DLV.cash) + ')'; DLV.cash = Math.round(DLV.cash * 100) / 100; ECO.fill = ECO.fillL = 0; ECO.acct = false; return s; }
+// ---- wear, touchdowns, damage ----
+function ecoTouch(sink) {   // a wheel just came down: sink in m/s
+  const E = ECO, fpm = Math.round(sink * 196.85); E.ldg++; E.sink = sink; E.tyre = Math.max(0, E.tyre - 0.0012 - Math.max(0, sink - 1) * 0.004);
+  if (sink > 2.0) { const d = Math.min(0.6, (sink - 2) * 0.28); E.gear = Math.min(1, E.gear + d); E.tyre = Math.max(0, E.tyre - 0.02); sfx('crunch', plane.position);
+    say('HARD LANDING ' + fpm + ' FPM - GEAR DAMAGE NOW ' + Math.round(E.gear * 100) + '% (REPAIRS AT THE HOME HANGAR)'); saveSoon(); }
+}
+function ecoCrash(why) {
+  const E = ECO, km = Math.hypot(ac.pos[0], ac.pos[2] + 145) / 1000, c = Math.round(250 + 80 * km), hard = /prop|nose|wing|airframe|lake/i.test(why);
+  E.gear = Math.min(1, Math.max(E.gear, 0.5) + 0.2); E.eng = Math.min(1, E.eng + (hard ? 0.35 : 0.1)); E.tyre = Math.max(0, E.tyre - 0.1);
+  DLV.cash -= c; DLV.spent = (DLV.spent || 0) + c; E.crashC = c; say('CRASH: SALVAGE + FERRY HOME ' + ecoMoney(c) + ' - REPAIRS AT THE HOME HANGAR'); saveSoon();
+}
+const ecoCap = () => { const E = ECO; let c = 1; if (E.eng > 0.02) c -= 0.45 * E.eng; if (E.svc > 110) c -= 0.08; if (E.oil < 2) c -= 0.25; return Math.max(0.3, c); };   // full power you can get
+const ecoBrk = () => { const E = ECO; let k = 1; if (E.brake < 0.2) k = 0.35 + E.brake * 3.25; if (E.tyre < 0.1) k *= 0.8; return k; };
+const ECO_IN = { th: 0, b: 0, r: 0 };
+function ecoIn() {   // before the physics steps: wear / damage on the pilot's inputs (identity on a healthy Cub)
+  const I = ECO_IN; I.th = ctl.throttle; I.b = ctl.brake; I.r = ctl.rud; const c = ecoCap(), k = ecoBrk();
+  if (c < 1) ctl.throttle = Math.min(ctl.throttle, c); if (k < 1) ctl.brake *= k;
+  if (ECO.gear > 0.1 && ac.out.wow > 0) ctl.rud = clamp(ctl.rud + 0.3 * ECO.gear * Math.min(1, acGS() / 8), -1, 1);   // a bent gear leg pulls you off line on the ground
+}
+function ecoOut() { ctl.throttle = ECO_IN.th; ctl.brake = ECO_IN.b; ctl.rud = ECO_IN.r; }
+const ecoOilP = () => ECO.oil >= 4 ? 1 : Math.max(0.15, ECO.oil / 4), ecoOilT = () => (ECO.oil < 3 ? (3 - ECO.oil) * 22 : 0) + ECO.eng * 30;   // the oil gauge
+function ecoWarn() { const E = ECO, w = [];
+  if (E.seized) w.push('ENGINE SEIZED'); else if (E.oil < 2) w.push('OIL PRESSURE LOW ' + E.oil.toFixed(1) + ' QT'); else if (E.oil < 3.5) w.push('OIL LOW ' + E.oil.toFixed(1) + ' QT');
+  if (E.svc > 100) w.push('100-HR OVERDUE'); else if (E.svc > 95) w.push('100-HR DUE');
+  if (E.gear > 0.05) w.push('GEAR DMG ' + Math.round(E.gear * 100) + '%'); if (E.eng > 0.02) w.push('ENG DMG ' + Math.round(E.eng * 100) + '%');
+  if (E.tyre < 0.15) w.push('TYRES WORN'); if (E.brake < 0.2) w.push('BRAKES WORN'); return w.join(' '); }
+function ecoTick(dt) {
+  const t0 = performance.now(), E = ECO;
+  if (ENG.running && !ac.crashed) { const h = dt * ECO_TX / 3600; E.hrs += h; E.svc += h; E.oil = Math.max(0, E.oil - h * (0.08 + (E.svc > 100 ? 0.04 : 0)));   // ~1 qt per 12 hrs
+    if (E.oil < 3) E.eng = Math.min(1, E.eng + h * (E.oil < 1.5 ? 0.4 : 0.03)); if (E.svc > 110) E.eng = Math.min(1, E.eng + h * 0.004);
+    if (E.oil <= 0.3 && !E.seized) { E.seized = true; E.eng = 1; say('ENGINE SEIZED - OUT OF OIL. R = RECOVERY TO THE HOME HANGAR'); saveSoon(); } }
+  if (mode === 'plane' && !ac.crashed) {
+    const wow = ac.out.wow > 0;
+    if (wow) { const gs = acGS(); E.tyre = Math.max(0, E.tyre - gs * dt / 350000); const b = ctl.brake; if (b > 0.05 && gs > 0.5) { E.brake = Math.max(0, E.brake - b * gs * dt / 14000); if (b > 0.7 && gs > 6) E.tyre = Math.max(0, E.tyre - dt * 0.002); } }
+    if (wow && !E.wow && E.air > 0.3) ecoTouch(Math.max(0, -E.vy)); E.wow = wow; E.air = wow ? 0 : E.air + dt; if (!wow) E.vy = ac.vel[1];
+    if ((E.warnT -= dt) <= 0) { E.warnT = 45; const w = ecoWarn(); if (w && msgT <= 0) say(w); } }
+  if (ac.crashed && !E.cr) { E.cr = true; ecoCrash(ac.crashReason || ''); } else if (!ac.crashed) E.cr = false;
+  // the boards: the nearest within 5 m takes keys 1-n / pokes; redrawn when something on them changes
+  playerPos(); let nb = null, nd = 1e9; for (const F of FUEL_ST) { const d = Math.hypot(PP.x - F.b[0], PP.z - F.b[1]); if (d < nd) { nd = d; nb = F; } }
+  E.near = nd < 60 ? nb : null; E.nearD = nd;
+  if ((E.bT = (E.bT || 0) - dt) <= 0) { E.bT = 0.5; for (const F of FUEL_ST) { const near = Math.hypot(PP.x - F.b[0], PP.z - F.b[1]) < 300; F.B.m.visible = near; if (!near) continue;
+      const k = [Math.round(DLV.cash), E.oil.toFixed(1), E.svc.toFixed(1), E.tyre.toFixed(2), E.brake.toFixed(2), E.gear.toFixed(2), E.eng.toFixed(2), E.seized, E.ldg].join(); if (k !== F.B.key) { F.B.key = k; ecoDraw(F); } } }
+  if (mode === 'foot' && nd < 5 && E.hint !== nb) { E.hint = nb; say((nb.B.home ? 'HANGAR SERVICE BOARD' : nb.S.name + ' FUEL $' + nb.price.toFixed(2) + '/GAL') + ' - POKE A PRICE' + (renderer.xr.isPresenting ? '' : ' (DESKTOP 1-' + nb.B.rows.length + ')')); } else if (nd > 10) E.hint = null;
+  E.ms = performance.now() - t0;
+}
+function ecoKey(e) { if (mode !== 'foot' || !ECO.near || ECO.nearD > 5 || DLV.nearD < 5) return false; const m = /^Digit([1-4])$/.exec(e.code); if (!m) return false; return ecoDo(ECO.near, +m[1] - 1); }
+const _ecL = new THREE.Vector3();
+function ecoPoke() {   // VR fingertips on the nearest service board (as the job boards)
+  const F = ECO.near; if (!F || ECO.nearD > 4 || !HANDS.st.length || mode !== 'foot') return; const B = F.B;
+  for (let i = 0; i < 2; i++) { const st = HANDS.st[i]; if (!st.vis) continue; B.m.worldToLocal(_ecL.copy(st.tip)); const u = (_ecL.x / B.PW + 0.5) * SVB_W, v = (0.5 - _ecL.y / B.PH) * SVB_H, inP = u >= 0 && u <= SVB_W && v >= 0 && v <= SVB_H;
+    if (!ECO.poke[i] && (!inP || _ecL.z > 0.04)) ECO.poke[i] = true;
+    if (ECO.poke[i] && inP && _ecL.z < 0.012 && _ecL.z > -0.05) { ECO.poke[i] = false; const r = Math.floor((v - 140) / 52); if (r >= 0 && r < B.rows.length && u > SVB_W - 120) { ecoDo(F, r); if (grips[i]) HX.pulse(grips[i], 0.4, 14, 'ui'); } } }
+}
+function ecoSave() { const E = ECO, r = v => Math.round(v * 1000) / 1000; return { hrs: r(E.hrs), svc: r(E.svc), oil: r(E.oil), tyre: r(E.tyre), brake: r(E.brake), gear: r(E.gear), eng: r(E.eng), seized: E.seized ? 1 : 0, ldg: E.ldg }; }
+function ecoLoad(d) { const E = ECO; if (!d || typeof d !== 'object') return; const n = (v, a, b, def) => isFinite(+v) && v !== null ? clamp(+v, a, b) : def;
+  E.hrs = n(d.hrs, 0, 1e6, E.hrs); E.svc = n(d.svc, 0, 1e4, E.svc); E.oil = n(d.oil, 0, ECO_OILMAX, E.oil); E.tyre = n(d.tyre, 0, 1, E.tyre); E.brake = n(d.brake, 0, 1, E.brake); E.gear = n(d.gear, 0, 1, 0); E.eng = n(d.eng, 0, 1, 0); E.seized = !!d.seized; E.ldg = d.ldg | 0;
+  for (const F of FUEL_ST) F.B.key = ''; }
 // ================= v0.45 save: where the Cub is parked, fuel, time of day, on foot or aboard. New key - older (v0.44 and before) saves are left alone and ignored =================
 const SAVE_KEY = 'bushpilot-vr-blank-v1', NOSAVE = /[?&]nosave\b/.test(location.search);
 const SV = { t: 30, due: -1, last: 0, off: false, air: false, cubT: 0, cub: null, n: 0, why: '' };
@@ -5829,7 +5975,7 @@ function cubParked() { return !ac.crashed && acGS() < 1 && ac.gs.some(g => g.Fn 
 function saveGame(why) {
   if (NOSAVE || SV.off) return false;
   if (cubParked()) SV.cub = { p: ac.pos.map(r3), q: ac.q.map(v => Math.round(v * 1e6) / 1e6) };
-  const d = { v: 54, at: Date.now(), cub: SV.cub, fuel: r3(fuel), h: r3(DAY.h), mode, foot: mode === 'foot' ? [r3(footRig.position.x), r3(footRig.position.z), r3(bodyYaw)] : null, dlv: dlvSave(), hunt: huntSave() };   // v0.53 + rifle / ammo   // v0.50: + wallet, jobs, cargo, straps
+  const d = { v: 55, at: Date.now(), cub: SV.cub, fuel: r3(fuel), h: r3(DAY.h), mode, foot: mode === 'foot' ? [r3(footRig.position.x), r3(footRig.position.z), r3(bodyYaw)] : null, dlv: dlvSave(), hunt: huntSave(), eco: ecoSave() };   // v0.55 + the Cub's log (tach, oil, wear, damage)   // v0.53 + rifle / ammo   // v0.50: + wallet, jobs, cargo, straps
   try { localStorage.setItem(SAVE_KEY, JSON.stringify(d)); } catch (e) { return false; }
   SV.last = Date.now(); SV.n++; SV.why = why || ''; SV.t = 30; SV.due = -1; return true;
 }
@@ -5844,12 +5990,12 @@ function saveTick(dt) {
 }
 function gameLoad() {
   if (NOSAVE) return false; let d = null; try { d = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); } catch (e) { }
-  if (!d || ![45, 50, 51, 52, 53, 54].includes(d.v)) return false;   // v0.50 reads a v0.45 save too (no jobs yet: a fresh wallet and boards)
+  if (!d || ![45, 50, 51, 52, 53, 54, 55].includes(d.v)) return false;   // v0.50 reads a v0.45 save too (no jobs yet: a fresh wallet and boards)
   if (typeof d.fuel === 'number' && isFinite(d.fuel)) fuel = clamp(d.fuel, 0, FUEL_MAX);
   if (typeof d.h === 'number' && isFinite(d.h)) DAY.h = ((d.h % 24) + 24) % 24;
   if (d.cub && d.cub.p?.length === 3 && d.cub.q?.length === 4) { ac.pos = d.cub.p.slice(); ac.q = d.cub.q.slice(); SV.cub = d.cub; }
   if (d.mode === 'foot' && d.foot) { exitPlane(); const [x, z, yaw] = d.foot; footRig.position.set(x, groundY(x, z) + EYE, z); footRig.rotation.set(0, yaw, 0); bodyYaw = yaw; }
-  dlvLoad(d.v >= 50 ? d.dlv : null); huntLoad(d.v >= 53 ? d.hunt : null); dropLoadFix();   // v0.54 a save taken mid-drop: the last bundle down settles the job
+  dlvLoad(d.v >= 50 ? d.dlv : null); huntLoad(d.v >= 53 ? d.hunt : null); dropLoadFix(); ecoLoad(d.v >= 55 ? d.eco : null);   // v0.54 a save taken mid-drop: the last bundle down settles the job
   msgT = 0; SV.last = d.at || 0; return true;
 }
 MYS_SITES.clear();   // the whole world is built now: clear trees and rocks off the strips and sites
@@ -6274,12 +6420,13 @@ renderer.setAnimationLoop(() => {
   if (!ac.crashed) {   // v0.45: no wind - ac.wind stays [0, 0, 0] from resetAircraft
     const n = Math.max(1, Math.ceil(dt / C.MAX_DT - 1e-6));
     const e0 = ctl.elev; ctl.elev = clamp(e0 + TRIM.v * TRIM_K, -1, 1);   // v0.42 trim: a bias on the elevator the stick doesn't show
+    ecoIn();   // v0.55 wear / damage on the inputs (nothing on a healthy Cub)
     for (let i = 0; i < n; i++) stepAircraft(ac, dt / n);
-    ctl.elev = e0;
+    ctl.elev = e0; ecoOut();
   } else if ((crashTimer += dt) > 2.5) resetFlight();
 
   plane.position.fromArray(ac.pos); plane.quaternion.fromArray(ac.q);
-  dlvTick(dt); wbWarn(dt); huntTick(dt, xr || HANDS.force); dropTick(dt);   // v0.53 rifle, deer, binoculars; v0.54 bundles in the air, the signal smoke   // v0.50 delivery: game clock, falling / loose cargo, job boards
+  dlvTick(dt); wbWarn(dt); huntTick(dt, xr || HANDS.force); dropTick(dt); ecoTick(dt);   // v0.53 rifle, deer, binoculars; v0.54 bundles in the air, the signal smoke   // v0.50 delivery: game clock, falling / loose cargo, job boards
   GV.update(dt);   // v0.20 gear legs / tyres / tail wheel
   updateMap(); updateCockpitV19(dt);
   prop.rotation.z += ENG.rpm / 60 * 2 * Math.PI * dt * (ENG.rpm < 400 ? 1 : 0.13);   // aliased-looking slow spin (real speed while cranking)
@@ -6301,7 +6448,7 @@ renderer.setAnimationLoop(() => {
   if (instT > 0.1) { instT = 0; drawWrist(); }
   if ((chunkT += dt) > 0.2) { chunkT = 0; updateChunks(); }
   hxTick(dt);                                // v0.24 haptics (engine / buffet / gear + queued pulses)
-  if (xr || HANDS.force) { updateHands(dt); setpTick(); jbPoke(); }
+  if (xr || HANDS.force) { updateHands(dt); setpTick(); jbPoke(); ecoPoke(); }
   vlTick(); batchTick(); if (GFX.shadows && ((FT.n & 1) || mode !== 'plane' || ac.vel[0] * ac.vel[0] + ac.vel[1] * ac.vel[1] + ac.vel[2] * ac.vel[2] > 0.1)) renderer.shadowMap.needsUpdate = true;   // v0.47 static batches; shadow map at half rate   // v0.23 gloves (after the stick / knobs have their final pose); v0.45 wrist SETTINGS board
   binoRender();   // v0.53 the 7x view (only while raised)
   renderer.render(scene, camera);
