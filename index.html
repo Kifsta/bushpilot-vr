@@ -1644,6 +1644,18 @@ function sfx(kind, pos, delay = 0) {
   else if (kind === 'crunch') { burst(0.05, 1, 0.3, 'highpass', 4200); ping(3200, 0.08, 0.05, 0.02); }   // v0.51 something fragile knocked
   else if (kind === 'cash') { ping(1320, 0.12, 0.12); ping(1760, 0.25, 0.12, 0.09); }   // v0.50 paid
   else if (kind === 'pour') burst(0.12, 1, 0.15, 'bandpass', 300 + Math.random() * 400);
+  else if (kind === 'bang') {        // v0.53 rifle shot (the full-game recipe): sharp crack + blast body + low boom + a very short dark tail - no echo / reverb
+    burst(0.035, 1, 1.0, 'highpass', 2400); burst(0.25, 1, 0.9, 'lowpass', 1500); burst(0.12, 1, 0.5, 'bandpass', 500); burst(0.45, 1, 0.16, 'lowpass', 650, 0.04);
+    const o = A.createOscillator(), g = A.createGain(); o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(38, t + 0.25);
+    g.gain.setValueAtTime(0.95, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.3); o.connect(g).connect(out); o.start(t); o.stop(t + 0.32); }
+  else if (kind === 'levOpen') { burst(0.018, 1, 0.45, 'highpass', 3200); burst(0.05, 1, 0.35, 'bandpass', 1500, 0.01); ping(2350, 0.07, 0.07, 0.005, 'triangle'); }   // v0.53 lever: metallic clack + ring
+  else if (kind === 'levClose') { burst(0.03, 1, 0.55, 'bandpass', 900); burst(0.02, 1, 0.45, 'highpass', 2600, 0.012); ping(1800, 0.09, 0.08, 0.012, 'triangle'); }
+  else if (kind === 'dry') { burst(0.012, 1, 0.5, 'highpass', 3800); burst(0.025, 1, 0.25, 'bandpass', 1900, 0.004); }   // hammer on an empty chamber
+  else if (kind === 'gate') { burst(0.03, 1, 0.35, 'bandpass', 2800); burst(0.05, 1, 0.12, 'bandpass', 5200, 0.03); burst(0.015, 1, 0.3, 'highpass', 3000, 0.1); }   // a round past the gate spring
+  else if (kind === 'ping') { ping(3400 + Math.random() * 600, 0.14, 0.14); ping(5100 + Math.random() * 500, 0.08, 0.07, 0.05); ping(4300, 0.06, 0.05, 0.12); }   // brass on the ground
+  else if (kind === 'thock') { burst(0.07, 1, 0.6, 'bandpass', 520); ping(230, 0.08, 0.25, 0, 'triangle'); }   // a bullet into wood
+  else if (kind === 'flesh') { burst(0.09, 1, 0.6, 'lowpass', 520); ping(110, 0.08, 0.25, 0, 'sine'); }
+  else if (kind === 'hoof') { for (let i = 0; i < 4; i++) burst(0.04, 1, 0.22, 'lowpass', 380, i * 0.09 + Math.random() * 0.03); }   // v0.53 deer bolting
 }
 const _lf = new THREE.Vector3(), _lu = new THREE.Vector3(), _lp = new THREE.Vector3();
 function updateAudio(dt) {
@@ -1688,7 +1700,7 @@ function recenter() {
   xrOffset.quaternion.copy(yq);
   xrOffset.position.copy(camera.position).applyQuaternion(yq).negate();
 }
-function toPlane() { dlvBoard(); rig.add(xrOffset); mode = 'plane'; ctl.brake = 0; lookYaw = lookPitch = 0; needRecenter = renderer.xr.isPresenting ? 2 : 0; FUELP.on = false;
+function toPlane() { dlvBoard(); huntBoard(); rig.add(xrOffset); mode = 'plane'; ctl.brake = 0; lookYaw = lookPitch = 0; needRecenter = renderer.xr.isPresenting ? 2 : 0; FUELP.on = false;
   if (MAP.state === 'world') mapStow('clip'); }   // v0.19: the map rides in the cockpit holder while you fly
 function resetFlight() {
   IN.prevHdg = null;
@@ -1703,7 +1715,7 @@ function exitPlane() {
   footRig.position.set(x, groundY(x, z) + EYE, z); footRig.rotation.set(0, yaw, 0);
   footRig.add(xrOffset); mode = 'foot'; lookYaw = lookPitch = 0; needRecenter = renderer.xr.isPresenting ? 2 : 0;
   ctl.elev = ctl.ail = ctl.rud = 0;
-  bodyYaw = yaw;
+  bodyYaw = yaw; huntExit();   // v0.53 binoculars on your chest
   if (ENG.running) { ENG.running = false; say('ENGINE SHUT DOWN'); } ENG.starterVR = false; CKH.clear(); cardHome(); kbHome();   // v0.19
 }
 function board() {
@@ -1718,12 +1730,13 @@ function handGrab(g) {   // on foot: the map (ground / cockpit holder / other ed
   g.getWorldPosition(_a);
   if (mapGrab(g, _a)) return;
   if (fuelGrab(g, _a)) return;
+  if (huntGrab(g, _a)) return;   // v0.53 rifle (rack / ground / back, lever, forend), the belt pouch, ammo box, binoculars, a carcass
   dlvGrab(g, _a);   // v0.50 cargo / strap anchors
 }
 function handRelease(g) {       // called every frame the grip is up: keep it cheap / idempotent
   const hs = HX.st(g); if (hs.armed) { hs.armed = false; if (MAP.g === g || FUELP.g === g) HX.pulse(g, 0.15, 12, 'release'); }
   dlvRelease(g);   // v0.50 let go of cargo   // v0.24 let-go tap, once per squeeze
-  mapRelease(g); fuelRelease(g);
+  mapRelease(g); fuelRelease(g); huntRelease(g);
 }
 
 // desktop
@@ -1731,6 +1744,7 @@ const keys = {};
 addEventListener('keydown', e => {
   keys[e.code] = true;
   if (e.repeat) return;
+  if (huntKey(e)) return;   // v0.53 T rifle, X lever, Z load / buy ammo, V binoculars, hold E over a carcass
   if (engKey(e)) return;     // v0.19 cockpit keys (U O Y H I P K J, 1-4 windows; Space = starter, held)
   if (dlvDeskKey(e)) return;   // v0.50 on foot: E carry / load, 1-3 at a job board; / straps
   if (e.code === 'KeyR') resetFlight();
@@ -1835,6 +1849,7 @@ function xrInput(dt) {
     if (!squeeze && DLV.held.has(g)) dlvRelease(g);   // v0.50: a piece carried aboard goes in the back when you let go
     _p.copy(g.position).applyQuaternion(xrOffset.quaternion);   // hand position in cockpit axes
     if (mapCockpit(g, squeeze, (right ? vr.stick : vr.thr) || oh)) { if (right) vr.stick = false; else vr.thr = false; if (vr.flapG === g) vr.flapG = null; if (TRIM.g === g) TRIM.g = null; continue; }
+    if (huntPlaneGrab(g, squeeze, sqE && !((right ? vr.stick : vr.thr) || oh))) { if (right) vr.stick = false; else vr.thr = false; continue; }   // v0.53 binoculars from their holder
     const onOH = !(right ? vr.stick : vr.thr) && ohHand(g, squeeze, sqE);   // v0.42 overhead flap handle / trim crank
     let busy = onOH;
     if (onOH) vr.prev['ck' + src.handedness] = squeeze; else busy = ckHand(g, squeeze, 'ck' + src.handedness);   // v0.19: a hand on a switch / window handle / checklist isn't on the stick or throttle
@@ -1878,6 +1893,7 @@ function footXR(dt) {
     const gp = src.gamepad, h = src.handedness, sq = !!gp.buttons[1]?.pressed;
     if (h === 'left') { lx = gp.axes[2] || 0; ly = gp.axes[3] || 0; if (pressedEdge(gp, 5, 'Y')) board(); if (pressedEdge(gp, 4, 'X')) recenter(); if (pressedEdge(gp, 3, 'LS')) vr.sprint = true; }
     else { rx = gp.axes[2] || 0; ry = gp.axes[3] || 0; if (pressedEdge(gp, 5, 'B')) resetFlight(); if (pressedEdge(gp, 4, 'A')) recenter(); }
+    if (pressedEdge(gp, 0, h + 'tr')) rflTrigger(g);   // v0.53 trigger fires the rifle in that hand
     if (pressedEdge(gp, 1, h + 'sq')) { HX.ctx = g; HX.st(g).armed = true; handGrab(g); HX.ctx = null; }
     if (!sq) { HX.ctx = g; handRelease(g); HX.ctx = null; }   // v0.24: let-go clicks buzz this hand
   }
@@ -3090,7 +3106,7 @@ MAP.canvas = document.createElement('canvas'); MAP.canvas.width = MAP_W; MAP.can
   box(0.06, 0.02, 0.012, mat(0x777777), 0, 0.095, -0.004, MAP.clip);                                                                             // the clip
 }
 function mapJobs() {   // v0.51.1: job boards (gold square) + every active job's destination (its colour, ringed, numbered, a dashed line from the origin)
-  const A = dlvActive(), k = A.map(j => j.id + j.to + j.from).join() + '|' + DLV_STRIPS.map(S => S.found ? 1 : 0).join(''); if (k === MAP.key) return; MAP.key = k;
+  const A = dlvActive(), k = A.map(j => j.id + j.to + j.from + (j.hunt ? 'h' + j.hunt.got : '')).join() + '|' + DLV_STRIPS.map(S => S.found ? 1 : 0).join(''); if (k === MAP.key) return; MAP.key = k;
   const x = MAP.cx, X = wx => (wx + MAP_X) * MAP_PX, Z = wz => (wz + MAP_Z) * MAP_PX, F = "'Segoe Print','Bradley Hand','Comic Sans MS','Comic Neue',cursive";
   x.drawImage(MAP.base, 0, 0); x.textBaseline = 'middle'; x.textAlign = 'center';
   for (const S of DLV_STRIPS) { if (!S.site || !S.found) continue; const B = S.B, sa = Math.sin(B.a), ca = Math.cos(B.a), p0x = X(B.x - sa * B.hl), p0y = Z(B.z - ca * B.hl), p1x = X(B.x + sa * B.hl), p1y = Z(B.z + ca * B.hl);   // v0.52
@@ -3101,6 +3117,10 @@ function mapJobs() {   // v0.51.1: job boards (gold square) + every active job's
     x.font = '11px ' + F; x.fillText(B.cust.toLowerCase() + ' - ' + BUSH_T[B.type].toLowerCase() + ' ' + B.len + 'm' + (B.land != null ? ' 1-way' : ''), ox, oy + 6); x.textAlign = 'center'; }
   for (const S of DLV_STRIPS) { if (S.site && !S.found) continue; const px = X(S.pad[0]), py = Z(S.pad[1]); x.fillStyle = '#e0a020'; x.strokeStyle = '#1e1810'; x.lineWidth = 1.5; x.fillRect(px - 5, py - 5, 10, 10); x.strokeRect(px - 5, py - 5, 10, 10);
     x.font = 'bold 12px ' + F; x.fillStyle = '#5a3a10'; x.fillText('JOBS', px, py + 14); }
+  for (const j of A) { if (!j.hunt || j.hunt.got) continue; const H = DEER_HERDS[j.hunt.h], hx = X(H.x0 ?? H.x), hy = Z(H.z0 ?? H.z);   // v0.53 the hunting area
+    x.fillStyle = 'rgba(224,112,16,0.16)'; x.strokeStyle = '#c05a08'; x.lineWidth = 2.5; x.setLineDash([6, 4]); x.beginPath(); x.arc(hx, hy, HUNT_R * MAP_PX, 0, 6.283); x.fill(); x.stroke(); x.setLineDash([]);
+    x.fillStyle = '#8a3a04'; x.font = 'bold 13px ' + F; x.fillText('DEER - ' + H.name.toLowerCase(), hx, hy + HUNT_R * MAP_PX + 11);
+    for (const [ox, oy] of [[-4, 0], [4, 0], [0, -5]]) { x.beginPath(); x.arc(hx + ox, hy + oy, 2.5, 0, 6.283); x.fill(); } x.beginPath(); x.ellipse(hx, hy + 6, 4, 5, 0, 0, 6.283); x.fill(); }   // a hoof print
   A.forEach((j, n) => { const S = dlvS(j.from), T = dlvS(j.to), col = '#' + DLV_COL[j.id % DLV_COL.length].toString(16).padStart(6, '0'), ax = X(S.pad[0]), ay = Z(S.pad[1]), hid = T.site && !T.found, bx = X(hid ? T.B.hx : T.pad[0]), by = Z(hid ? T.B.hz : T.pad[1]);
     if (hid) { x.strokeStyle = col; x.lineWidth = 2; x.setLineDash([4, 5]); x.beginPath(); x.arc(bx, by, 320 * MAP_PX, 0, 6.283); x.stroke(); x.setLineDash([]); x.fillStyle = col; x.font = 'bold 22px ' + F; x.fillText('?', bx, by); }   // v0.52 search area
     x.strokeStyle = col; x.lineWidth = 2.5; x.setLineDash([8, 6]); x.beginPath(); x.moveTo(ax, ay); x.lineTo(bx, by); x.stroke(); x.setLineDash([]);
@@ -3532,11 +3552,13 @@ kbHome();
 function kbLines() {   // the text, one entry per active job
   const A = dlvActive(), L = [], P = ac.pos;
   for (const j of A) { const T = dlvS(j.to), S = dlvS(j.from), its = DLV.items.filter(i => i.job === j.id), n = {}; for (const i of its) n[i.k] = (n[i.k] || 0) + 1;
-    const hid = T.site && !T.found, dx = (hid ? T.B.hx : T.pad[0]) - P[0], dz = (hid ? T.B.hz : T.pad[1]) - P[2], km = Math.hypot(dx, dz) / 1000, hdg = Math.round(((Math.atan2(dx, -dz) * 180 / Math.PI) + 360) % 360 / 5) * 5 % 360;
+    const hu = j.hunt && !j.hunt.got ? DEER_HERDS[j.hunt.h] : null, hid = !hu && T.site && !T.found, dx = (hu ? hu.x0 ?? hu.x : hid ? T.B.hx : T.pad[0]) - P[0], dz = (hu ? hu.z0 ?? hu.z : hid ? T.B.hz : T.pad[1]) - P[2], km = Math.hypot(dx, dz) / 1000, hdg = Math.round(((Math.atan2(dx, -dz) * 180 / Math.PI) + 360) % 360 / 5) * 5 % 360;
     const inC = its.filter(i => i.st === 'cargo'), loose = inC.filter(i => !cgSecured(i)).length, at = its.filter(i => i.st === 'ground' && dlvInPad(T, i.mesh.position.x, i.mesh.position.z)).length;
     const st = inC.length ? (inC.length + '/' + its.length + ' IN THE CUB - ' + (loose ? loose + ' LOOSE' : 'STRAPPED')) : at ? at + '/' + its.length + ' DELIVERED' : its.every(i => i.st === 'ground' && dlvInPad(S, i.mesh.position.x, i.mesh.position.z)) ? 'ON THE ' + S.name + ' PAD' : 'ON THE MOVE';
     const left = dlvLeft(j), due = j.sp ? dlvMeter(j, its).replace(' - ', '') : left === Infinity ? 'NO DEADLINE' : left < 0 ? 'LATE - HALF PAY' : 'DUE IN ' + Math.ceil(left) + ' MIN';
-    L.push({ col: '#' + DLV_COL[j.id % DLV_COL.length].toString(16).padStart(6, '0'), t: j.title, sp: j.sp, rt: S.name + ' > ' + T.name, nav: (hid ? 'SEARCH ' : '') + (km < 10 ? km.toFixed(1) : Math.round(km)) + ' KM  HDG ' + String(hdg).padStart(3, '0') + (T.site && !hid ? '  ' + BUSH_T[T.B.type] + ' ' + T.B.len + 'M' : ''),
+    if (hu) { L.push({ col: '#' + DLV_COL[j.id % DLV_COL.length].toString(16).padStart(6, '0'), t: j.title, sp: null, rt: hu.name + ' > ' + T.name, nav: 'HUNT ' + (km < 10 ? km.toFixed(1) : Math.round(km)) + ' KM  HDG ' + String(hdg).padStart(3, '0'),
+      pcs: '1 DEER, ~100-150 LB (TWO-HAND)', pay: '$' + j.pay, due: left === Infinity ? 'NO DEADLINE' : left < 0 ? 'LATE - HALF PAY' : 'DUE IN ' + Math.ceil(left) + ' MIN', st: 'HUNTING - FIND THE HERD', warn: left < 0 }); continue; }   // v0.53
+    L.push({ col: '#' + DLV_COL[j.id % DLV_COL.length].toString(16).padStart(6, '0'), t: j.title, sp: j.sp, rt: S.name + ' > ' + T.name, nav: (hu ? 'HUNT ' : hid ? 'SEARCH ' : '') + (km < 10 ? km.toFixed(1) : Math.round(km)) + ' KM  HDG ' + String(hdg).padStart(3, '0') + (T.site && !hid ? '  ' + BUSH_T[T.B.type] + ' ' + T.B.len + 'M' : ''),
       pcs: (dlvWc(j) === 'H' ? 'HEAVY ' : 'LIGHT ') + its.reduce((s, i) => s + i.lb, 0) + ' LB - ' + Object.entries(n).map(([k, c]) => c + ' ' + CARGO_K[k].n + (c > 1 ? 'S' : '')).join(', '), pay: '$' + j.pay, due, st, warn: !!loose || left < 0 || (j.sp && dlvSpPay(j) < 0.75) }); }
   return L;
 }
@@ -3954,7 +3976,8 @@ function handTargets(i, g, st) {                 // decide pose + world matrix f
       }
       st.mode = 'ck';
     }
-  } else if (MAP.g === g || MAP.g2 === g || FUELP.g === g) { st.tc[0] = st.tc[1] = st.tc[2] = st.tc[3] = 0.6; st.tth = 0.3; st.ttw = 0.5; st.mode = 'hold'; }
+  } else if (huntHandK(g)) { gripOn(st, huntHandK(g), right ? 1 : -1); st.mode = 'ck'; }   // v0.53 rifle grips
+  else if (MAP.g === g || MAP.g2 === g || FUELP.g === g || huntHold(g)) { st.tc[0] = st.tc[1] = st.tc[2] = st.tc[3] = 0.6; st.tth = 0.3; st.ttw = 0.5; st.mode = 'hold'; }
   return right;
 }
 const _plL = new THREE.Vector3(), _pkD = new THREE.Vector3(), _pkV = new THREE.Vector3(), _pkPrev = new THREE.Vector3();
@@ -4189,12 +4212,26 @@ const CARGO_K = {   // kind: size [w h d] (m), weight range (lb)
   fuel: { n: 'FUEL CAN', sz: [0.17, 0.28, 0.28], lb: [34, 38] },            // 5 gal of avgas + the can
   outboard: { n: 'OUTBOARD MOTOR', sz: [0.42, 0.40, 0.34], lb: [85, 110], two: 1 },   // two-hand lift (desktop: the hand truck)
   generator: { n: 'GENERATOR', sz: [0.44, 0.40, 0.36], lb: [95, 130], two: 1 },
+  deer: { n: 'VENISON CARCASS', sz: [0.46, 0.34, 0.80], lb: [100, 150], two: 1 },   // v0.53 a field-dressed deer in a game bag (hunting jobs only)
 };
 // v0.52 weight classes: LIGHT parcel runs 20-80 lb, HEAVY freight ~150-400 lb (it lengthens the takeoff roll and flattens the climb). [title, [kind, min, max pieces]]
 const DLV_H = [['BUILDING SUPPLIES', [['cement', 3, 4], ['nails', 1, 2]]], ['AVGAS', [['fuel', 5, 7]]], ['OUTBOARD MOTOR', [['outboard', 1, 1], ['fuel', 2, 2]]],
-  ['GENERATOR', [['generator', 1, 1], ['fuel', 2, 3]]], ['FEED', [['feed', 4, 6]]], ['CEMENT', [['cement', 4, 7]]]];
+  ['GENERATOR', [['generator', 1, 1], ['fuel', 2, 3]]], ['FEED', [['feed', 4, 6]]], ['CEMENT', [['cement', 4, 7]]],
+  ['HUNT CAMP SUPPLIES', [['feed', 2, 3], ['fuel', 1, 2], ['nails', 1, 1]]]];   // v0.53 guided-hunt outfitters
+// v0.53 hunting jobs: a customer wants one field-dressed deer, fresh. The herds live in forest clearings and one open meadow (a search of the forest chunks:
+// nothing within ~22 m, woods all round, gentle ground, dry); the job marks the herd's area on the map. Separate random stream: the other jobs come out as before.
+const DEER_HERDS = [{ id: 'HOLLOW', name: 'HOLLOW TIMBER', x: -490, z: 70, n: 3 }, { id: 'PINE', name: 'PINE FLATS', x: 790, z: -490, n: 3 }, { id: 'SPRUCE', name: 'SPRUCE PARK', x: 390, z: -1770, n: 4 },
+  { id: 'CEDAR', name: 'CEDAR GLADE', x: -290, z: -1410, n: 3 }, { id: 'EAST', name: 'EAST WOODS', x: 2390, z: 1470, n: 3 }, { id: 'ELKM', name: 'ELK MEADOW', x: -1870, z: -1830, n: 5 }];
+const HUNT_C = { LODGE: 'VENISON FOR THE LODGE', ELK: 'CAMP MEAT', RANCHS: 'VENISON FOR THE RANCH', DRYFORK: 'VENISON - BUTCHER' }, HUNT_P = 0.14, HUNT_R = 260;
+function huntGen(id, from, r) {   // one venison job: a customer (not this strip), one of the three herds nearest it; pays well, perishable once dressed
+  const fS = dlvS(from), C = Object.keys(HUNT_C).filter(k => k !== from && dlvS(k)), to = C[Math.floor(r() * C.length)], T = dlvS(to);
+  const hs = DEER_HERDS.map((H, i) => [i, Math.hypot(H.x - T.x, H.z - T.z) + 0.5 * Math.hypot(H.x - fS.x, H.z - fS.z)]).sort((a, b) => a[1] - b[1]).slice(0, 3), hi = hs[Math.floor(r() * hs.length)][0], H = DEER_HERDS[hi];
+  const km = (Math.hypot(H.x - fS.x, H.z - fS.z) + Math.hypot(H.x - T.x, H.z - T.z)) / 1000, dl = r() < 0.5 ? Math.ceil(30 + km * 3) : 0, bx = T.site ? 1.2 : 1;
+  return { id, from, to, title: HUNT_C[to], items: [{ k: 'deer', lb: 125 }], pay: Math.round((150 + 0.9 * 125 + 30 * km) * (dl ? 1.25 : 1) * bx), dl, due: 0, st: 'offer',
+    sp: 'perish', life: Math.ceil(25 + 2 * km), fresh: 1, stress: 0, wc: 'H', hunt: { h: hi, got: 0 } };
+}
 const DLV_LMAX = 80, DLV_LMIN = 20, DLV_HP = 0.45;   // light jobs' total weight; the share of plain (not special) jobs that are heavy freight
-const dlvWc = j => j.wc || (j.items.reduce((s, i) => s + i.lb, 0) > 120 ? 'H' : 'L');
+const dlvWc = j => j.wc || (j.items.reduce((s, i) => s + i.lb, 0) > 120 ? 'H' : 'L'), dlvFrt = j => dlvWc(j) === 'H' && !j.hunt;   // v0.53 heavy freight (a hunt isn't)
 function dlvCapL(items) {   // a light job: scale its pieces into 20-80 lb
   const t = items.reduce((s, i) => s + i.lb, 0), k = t > DLV_LMAX ? DLV_LMAX / t : t < DLV_LMIN ? DLV_LMIN / t : 1;
   if (k !== 1) for (const i of items) i.lb = Math.max(4, Math.round(i.lb * k));
@@ -4373,7 +4410,8 @@ const JB_W = 512, JB_H = 352, JB_PW = 1.28, JB_PH = 0.88, JB_Y = 1.45;
 // ---- contracts ----
 function dlvRng(n) { let s = (n * 2654435761) >>> 0 || 1; return () => { s = (s + 0x6D2B79F5) | 0; let t = Math.imul(s ^ (s >>> 15), 1 | s); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
 function dlvGen(from, forceH) {   // one offer from this strip (seeded by the running job number, so a save reloads the same board); forceH: heavy freight
-  const id = DLV.seq++, r = dlvRng(id * 7919 + 13), fS = dlvS(from), others = DLV_STRIPS.filter(S => S.id !== from), bush = others.filter(S => S.site), main = others.filter(S => !S.site);
+  const id = DLV.seq++; { const rh = dlvRng(id * 49979687 + 11); if (!forceH && rh() < HUNT_P) return huntGen(id, from, rh); }   // v0.53
+  const r = dlvRng(id * 7919 + 13), fS = dlvS(from), others = DLV_STRIPS.filter(S => S.id !== from), bush = others.filter(S => S.site), main = others.filter(S => !S.site);
   const pool = bush.length && r() < (fS && fS.site ? 0.25 : 0.5) ? bush : main, to = pool[Math.floor(r() * pool.length)], bx = to.site || (fS && fS.site) ? 1.2 : 1;   // v0.52 bush sites
   const [title, kinds] = DLV_T[Math.floor(r() * DLV_T.length)], items = dlvCapL(kinds.map(k => { const [a, b] = CARGO_K[k].lb; return { k, lb: Math.round(a + r() * (b - a)) }; }));
   const lb = items.reduce((s, i) => s + i.lb, 0), km = dlvKm(dlvS(from), to), dl = r() < 0.45 ? Math.ceil(6 + km * 1.5) : 0;
@@ -4391,7 +4429,7 @@ function dlvGen(from, forceH) {   // one offer from this strip (seeded by the ru
   const pay = Math.round((25 + 0.55 * lb + 22 * km) * (dl ? 1.4 : 1) * bx);
   return { id, from, to: to.id, title, items, pay, dl, due: 0, st: 'offer', wc: 'L' };
 }
-function dlvInit(fresh) { if (fresh) { DLV.cash = DLV_CASH0; DLV.gt = 0; DLV.seq = 1; } for (const S of DLV_STRIPS) { const L = DLV.offers[S.id] || (DLV.offers[S.id] = []); while (L.length < 3) L.push(dlvGen(S.id, L.length === 2 && !L.some(j => dlvWc(j) === 'H'))); } }   // v0.52: a heavy job on every board
+function dlvInit(fresh) { if (fresh) { DLV.cash = DLV_CASH0; DLV.gt = 0; DLV.seq = 1; } for (const S of DLV_STRIPS) { const L = DLV.offers[S.id] || (DLV.offers[S.id] = []); while (L.length < 3) L.push(dlvGen(S.id, L.length === 2 && !L.some(dlvFrt))); } }   // v0.52: a heavy job on every board
 const dlvActive = () => { const a = []; for (const S of DLV_STRIPS) for (const j of DLV.offers[S.id]) if (j.st === 'active') a.push(j); return a; };
 const dlvJob = id => { for (const S of DLV_STRIPS) for (const j of DLV.offers[S.id]) if (j.id === id) return j; return null; };
 const dlvLb = j => j.items.reduce((s, i) => s + i.lb, 0);
@@ -4416,6 +4454,7 @@ function lblDraw(slot, job, lb) {   // destination in big letters, the job colou
   const cx = X + 214, cy = Y + 92;   // icon
   if (job.sp === 'fragile') { x.strokeStyle = '#c42a20'; x.lineWidth = 5; x.beginPath(); x.moveTo(cx - 14, cy - 26); x.quadraticCurveTo(cx - 14, cy, cx, cy); x.quadraticCurveTo(cx + 14, cy, cx + 14, cy - 26); x.closePath(); x.stroke();
     x.beginPath(); x.moveTo(cx, cy); x.lineTo(cx, cy + 20); x.moveTo(cx - 11, cy + 22); x.lineTo(cx + 11, cy + 22); x.stroke(); }
+  else if (job.hunt) { x.fillStyle = '#8a3a04'; for (const [ox, oy] of [[-9, -6], [9, -6], [0, -16]]) { x.beginPath(); x.arc(cx + ox, cy + oy, 6, 0, 6.283); x.fill(); } x.beginPath(); x.ellipse(cx, cy + 10, 10, 13, 0, 0, 6.283); x.fill(); }   // v0.53
   else if (job.sp === 'perish') { x.strokeStyle = '#1a6ad0'; x.lineWidth = 4; for (let a = 0; a < 3; a++) { const dx = Math.cos(a * Math.PI / 3) * 24, dy = Math.sin(a * Math.PI / 3) * 24; x.beginPath(); x.moveTo(cx - dx, cy - dy); x.lineTo(cx + dx, cy + dy); x.stroke(); }
     x.beginPath(); x.arc(cx, cy, 7, 0, 6.283); x.stroke(); }
   else if (job.sp === 'live') { x.fillStyle = '#7a4a1a'; x.beginPath(); x.ellipse(cx, cy + 8, 13, 11, 0, 0, 6.283); x.fill(); for (const [ox, oy] of [[-16, -8], [-6, -18], [6, -18], [16, -8]]) { x.beginPath(); x.arc(cx + ox, cy + oy, 6, 0, 6.283); x.fill(); } }
@@ -4429,7 +4468,7 @@ function lblQuad(slot, w, h, px, py, pz, rx, ry) {   // a label quad in the piec
 }
 const LBL_AT = {   // front label: [y, z offset past d/2, back face?]; top label: y offset past h/2 (null = no top label)
   cement: [0, 0.004, 0, 0.004], feed: [0, 0.004, 0, 0.008], nails: [0.02, 0.003, 0, 0.004], fuel: [0, 0.004, 0, null], outboard: [0, 0.004, 0, 0.004], generator: [-0.05, 0.004, 0, -0.035],
-  parcel: [-0.01, 0.004, 0, 0.004], sack: [-0.03, 0.006, 0, null], crate: [0, 0.004, 0, 0.003], fbox: [-0.035, 0.006, 0, 0.004], cooler: [-0.05, 0.003, 0, 0.012], medkit: [-0.035, 0.003, 0, 0.004], dog: [0.02, 0.003, 1, 0.004], hens: [0.1, 0.003, 0, 0.006],
+  parcel: [-0.01, 0.004, 0, 0.004], sack: [-0.03, 0.006, 0, null], crate: [0, 0.004, 0, 0.003], fbox: [-0.035, 0.006, 0, 0.004], cooler: [-0.05, 0.003, 0, 0.012], medkit: [-0.035, 0.003, 0, 0.004], dog: [0.02, 0.003, 1, 0.004], hens: [0.1, 0.003, 0, 0.006], deer: [0.02, 0.003, 1, 0.012],
 };
 function dlvItemGeo(k, col, slot) {
   const base = dlvGeo(k, col); if (slot < 0) return base;
@@ -4467,6 +4506,9 @@ function dlvGeo(k, col) {
   else if (k === 'generator') { const T = 0x2a2a2a; P.push(['b', w - 0.04, h - 0.08, d - 0.04, 0, -0.02, 0, 0xc8a01a], ['b', 0.16, 0.16, 0.2, -0.1, -0.06, 0.01, 0x6a6e72], ['b', 0.12, 0.08, 0.004, 0.1, 0.02, d / 2 - 0.018, 0x2a2a2a]);
     for (const sx of [-1, 1]) for (const sz of [-1, 1]) P.push(['c', 0.012, h, 6, sx * (w / 2 - 0.012), 0, sz * (d / 2 - 0.012), T]);
     for (const sz of [-1, 1]) P.push(['b', w, 0.024, 0.024, 0, h / 2 - 0.012, sz * (d / 2 - 0.012), T], ['b', w, 0.024, 0.024, 0, -h / 2 + 0.012, sz * (d / 2 - 0.012), T]); }   // tube frame
+  else if (k === 'deer') { const C = 0xd6cba8, Rp = 0x8a7a58, L = 0x5a4028; P.push(['b', w, h, d - 0.12, 0, 0, 0.02, C], ['b', w * 0.7, h * 0.7, 0.12, 0, -h * 0.05, -d / 2 + 0.06, 0xcfc39e]);   // v0.53 game bag, rope ties, the legs bound at the back
+    for (const z of [-d * 0.3, 0, d * 0.3]) P.push(['b', w + 0.008, 0.016, 0.02, 0, 0, z, Rp], ['b', 0.02, h + 0.008, 0.016, 0, 0, z, Rp]);
+    for (const sx of [-1, 1]) P.push(['c', 0.022, 0.2, 6, sx * 0.07, -h * 0.15, d / 2 + 0.04, L, Math.PI / 2 - 0.25], ['b', 0.035, 0.04, 0.04, sx * 0.07, -h * 0.15 - 0.03, d / 2 + 0.14, 0x1a1a1a]); }
   else { P.push(['b', w, h * 0.72, d, 0, -h * 0.14, 0, 0xc9b48a], ['b', w - 0.05, h * 0.3, d - 0.05, 0, h * 0.35, 0, 0xc2ad82], ['b', w + 0.004, 0.035, d + 0.004, 0, -h * 0.12, 0, 0x9a3a2a],
     ['c', 0.025, 0.07, 6, w / 2 - 0.02, h * 0.38, 0, 0xb09a6e, 0, 0, Math.PI / 2]); }
   const top = k === 'sack' ? h / 2 : k === 'hens' ? h / 2 + 0.002 : k === 'cooler' ? h / 2 + 0.009 : k === 'generator' ? h / 2 - 0.037 : k === 'feed' ? h / 2 + 0.006 : k === 'nails' ? h / 2 + 0.006 : h / 2 + 0.003;
@@ -4493,6 +4535,7 @@ function dlvMake(job, k, lb, n) {
 function dlvGroundY(x, z) { const S = dlvPadAt(x, z); return Math.max(groundY(x, z), S ? S.padY : -1e9); }
 function dlvSetGround(it, x, z, ry) { scene.add(it.mesh); it.st = 'ground'; it.cz = null; it.g = null; it.mesh.position.set(x, dlvGroundY(x, z) + it.h / 2, z); it.mesh.rotation.set(0, ry || 0, 0); }
 function dlvSpawn(job) {   // the cargo appears on the origin pad, in a row
+  if (job.hunt) return;   // v0.53 a hunt: the cargo is a deer you have yet to shoot
   const S = dlvS(job.from), c = Math.cos(S.ry), s = Math.sin(S.ry);
   job.items.forEach((d, i) => { const it = dlvMake(job, d.k, d.lb, i), lx = -0.9 + (i % 3) * 0.9, lz = -0.6 + Math.floor(i / 3) * 0.7 + (job.id % 3 - 1) * 0.45;
     dlvSetGround(it, S.pad[0] + lx * c + lz * s, S.pad[1] - lx * s + lz * c, S.ry); });
@@ -4504,10 +4547,12 @@ function jbAccept(S, i) {
   if (j.st === 'offer') {
     if (dlvActive().length >= DLV_MAX) { say('THREE JOBS ON THE GO ALREADY - DELIVER ONE FIRST'); sfx('tick'); return; }
     j.st = 'active'; j.due = j.dl ? DLV.gt + j.dl : 0; dlvSpawn(j); sfx('clack'); saveSoon();
+    if (j.hunt) { const H = DEER_HERDS[j.hunt.h]; say('ACCEPTED: ' + j.title + ' - HUNT 1 DEER AT ' + H.name + ' (ON YOUR MAP), DELIVER TO ' + dlvS(j.to).name + (j.dl ? ' IN ' + j.dl + ' MIN' : '') + (RFL.place === 'cabin' ? ' - RIFLE ON THE CABIN RACK' : '')); MAP.key = ''; S.key = ''; return; }   // v0.53
     say('ACCEPTED: ' + j.title + ' TO ' + dlvS(j.to).name + ' - ' + dlvLb(j) + ' LB ' + (dlvWc(j) === 'H' ? 'HEAVY ' : '') + 'ON THE PAD' + (j.dl ? ' - ' + j.dl + ' MIN' : '') + (dlvLb(j) > dlvRoom() ? ' - OVER PAYLOAD AT THIS FUEL (MAX ' + Math.max(0, dlvRoom()) + ' LB)' : ''));
   } else if (j.st === 'active') {   // cancel: only while every piece still sits on this pad
     const its = DLV.items.filter(it => it.job === j.id);
     if (its.some(it => it.st !== 'ground' || !dlvInPad(S, it.mesh.position.x, it.mesh.position.z))) { say('CANCEL: PUT ALL OF IT BACK ON THIS PAD FIRST'); sfx('tick'); return; }
+    if (j.hunt && j.hunt.got) { say('CANCEL: THE VENISON IS DRESSED - DELIVER IT'); sfx('tick'); return; }   // v0.53
     for (const it of its) dlvRemove(it); j.st = 'offer'; j.due = 0; sfx('click'); say('JOB CANCELLED - ' + j.title); saveSoon();
   }
   S.key = '';
@@ -4526,6 +4571,7 @@ function dlvSpPay(j) {   // v0.51: what the special cargo's condition leaves of 
   return 1;
 }
 function jbStatus(j) {
+  if (j.hunt && !j.hunt.got) { const l = dlvLeft(j); return ['HUNTING AT ' + DEER_HERDS[j.hunt.h].name, l === Infinity ? '' : l < 0 ? ' - LATE: HALF PAY' : ' - DUE IN ' + Math.ceil(l) + ' MIN', true]; }   // v0.53 (cancel allowed till you've dressed one)
   const its = DLV.items.filter(it => it.job === j.id), S = dlvS(j.from), T = dlvS(j.to), left = dlvLeft(j);
   const at = its.filter(it => it.st === 'ground' && dlvInPad(T, it.mesh.position.x, it.mesh.position.z)).length;
   const onPad = its.every(it => it.st === 'ground' && dlvInPad(S, it.mesh.position.x, it.mesh.position.z));
@@ -4542,16 +4588,16 @@ function jbDraw(S) {
     x.fillStyle = '#' + DLV_COL[j.id % DLV_COL.length].toString(16).padStart(6, '0'); x.fillRect(16, Y, 10, 80);
     x.fillStyle = '#222'; x.font = 'bold 19px sans-serif'; x.fillText((i + 1) + '. ' + j.title, 34, Y + 24);
     x.textAlign = 'right'; x.fillStyle = '#1e6a2a'; x.fillText('$' + j.pay, JB_W - 26, Y + 24); x.textAlign = 'left';
-    { const H = dlvWc(j) === 'H', pw = x.measureText('$' + j.pay).width, t = H ? 'HEAVY' : 'LIGHT'; x.font = 'bold 12px sans-serif'; const bw = x.measureText(t).width + 10, b0 = JB_W - 26 - pw - 10 - bw;   // v0.52 weight class
-      x.fillStyle = H ? '#8a2a1a' : '#5a7a5a'; x.fillRect(b0, Y + 9, bw, 19); x.fillStyle = '#fff'; x.fillText(t, b0 + 5, Y + 23); }
+    { const H = dlvWc(j) === 'H', pw = x.measureText('$' + j.pay).width, t = j.hunt ? 'HUNT' : H ? 'HEAVY' : 'LIGHT'; x.font = 'bold 12px sans-serif'; const bw = x.measureText(t).width + 10, b0 = JB_W - 26 - pw - 10 - bw;   // v0.52 weight class
+      x.fillStyle = j.hunt ? '#c06010' : H ? '#8a2a1a' : '#5a7a5a'; x.fillRect(b0, Y + 9, bw, 19); x.fillStyle = '#fff'; x.fillText(t, b0 + 5, Y + 23); }
     const T = dlvS(j.to), n = {}; for (const it of j.items) n[it.k] = (n[it.k] || 0) + 1;
-    x.fillStyle = '#333'; x.font = '15px sans-serif'; x.fillText('TO ' + T.name + (T.site && !T.found ? ' (FIND IT)' : '') + ' ' + dlvKm(S, T).toFixed(1) + ' KM - ' + dlvLb(j) + ' LB (' + Object.entries(n).map(([k, c]) => c + ' ' + CARGO_K[k].n + (c > 1 ? 'S' : '')).join(', ') + ')', 34, Y + 46, JB_W - 56);
+    x.fillStyle = '#333'; x.font = '15px sans-serif'; x.fillText(j.hunt ? 'TO ' + T.name + (T.site && !T.found ? ' (FIND IT)' : '') + ' - 1 DEER (~100-150 LB) - HUNT AREA ON THE MAP: ' + DEER_HERDS[j.hunt.h].name : 'TO ' + T.name + (T.site && !T.found ? ' (FIND IT)' : '') + ' ' + dlvKm(S, T).toFixed(1) + ' KM - ' + dlvLb(j) + ' LB (' + Object.entries(n).map(([k, c]) => c + ' ' + CARGO_K[k].n + (c > 1 ? 'S' : '')).join(', ') + ')', 34, Y + 46, JB_W - 56);
     if (mine) { const [a, t, onPad] = jbStatus(j); x.fillStyle = t.includes('LATE') ? '#b8301e' : '#2a5a22'; x.font = 'bold 14px sans-serif'; x.fillText((j.sp ? '' : 'ACCEPTED - ') + a + t, 34, Y + 68);
       if (onPad) { x.fillStyle = '#8a8a80'; x.fillRect(JB_W - 126, Y + 50, 100, 26); x.fillStyle = '#fff'; x.textAlign = 'center'; x.fillText('CANCEL', JB_W - 76, Y + 68); x.textAlign = 'left'; } }
-    else if (dlvLb(j) > dlvRoom()) { x.fillStyle = '#b8301e'; x.font = 'bold 14px sans-serif'; x.fillText('OVER PAYLOAD AT ' + Math.round(WBS.fuelGal) + ' GAL: MAX ' + Math.max(0, dlvRoom()) + ' LB', 34, Y + 68, JB_W - 170);   // v0.52
+    else if (!j.hunt && dlvLb(j) > dlvRoom()) { x.fillStyle = '#b8301e'; x.font = 'bold 14px sans-serif'; x.fillText('OVER PAYLOAD AT ' + Math.round(WBS.fuelGal) + ' GAL: MAX ' + Math.max(0, dlvRoom()) + ' LB', 34, Y + 68, JB_W - 170);   // v0.52
       x.fillStyle = act >= DLV_MAX ? '#9a9a90' : '#2a7a2a'; x.fillRect(JB_W - 126, Y + 50, 100, 26); x.fillStyle = '#fff'; x.font = 'bold 15px sans-serif'; x.textAlign = 'center'; x.fillText('ACCEPT', JB_W - 76, Y + 68); x.textAlign = 'left'; }
     else { x.fillStyle = j.sp ? '#8a1a6a' : j.dl ? '#9a4a10' : '#555'; x.font = (j.sp ? 'bold ' : '') + '14px sans-serif';
-      x.fillText((T.site ? BUSH_T[T.B.type] + ' ' + T.B.len + ' M - ' : '') + (j.sp === 'fragile' ? 'FRAGILE - KNOCKS + G DOCK PAY (+30%)' : j.sp === 'perish' ? 'PERISHABLE - FRESH ' + j.life + ' MIN (+25%)' : j.sp === 'live' ? 'LIVE ANIMALS - FLY SMOOTH (+35%)' : j.dl ? 'DEADLINE ' + j.dl + ' MIN (+40% PAY)' : 'NO DEADLINE'), 34, Y + 68);
+      x.fillText(j.hunt ? 'HUNTING JOB - ' + (j.dl ? 'DEADLINE ' + j.dl + ' MIN' : 'NO DEADLINE') + ' - KEEPS ' + j.life + ' MIN DRESSED' : (T.site ? BUSH_T[T.B.type] + ' ' + T.B.len + ' M - ' : '') + (j.sp === 'fragile' ? 'FRAGILE - KNOCKS + G DOCK PAY (+30%)' : j.sp === 'perish' ? 'PERISHABLE - FRESH ' + j.life + ' MIN (+25%)' : j.sp === 'live' ? 'LIVE ANIMALS - FLY SMOOTH (+35%)' : j.dl ? 'DEADLINE ' + j.dl + ' MIN (+40% PAY)' : 'NO DEADLINE'), 34, Y + 68);
       x.fillStyle = act >= DLV_MAX ? '#9a9a90' : '#2a7a2a'; x.fillRect(JB_W - 126, Y + 50, 100, 26); x.fillStyle = '#fff'; x.font = 'bold 15px sans-serif'; x.textAlign = 'center'; x.fillText('ACCEPT', JB_W - 76, Y + 68); x.textAlign = 'left'; } }
   const inb = dlvActive().filter(j => j.to === S.id);
   x.fillStyle = '#3a2a1a'; x.font = '14px sans-serif';
@@ -4757,7 +4803,7 @@ function dlvCheck(it) {   // a piece came to rest on the ground: is its whole jo
   const late = j.dl && DLV.gt > j.due, k = dlvSpPay(j), pay = Math.round((late ? j.pay / 2 : j.pay) * k);
   const why = j.sp === 'fragile' ? ' (DAMAGE ' + Math.round(100 * dlvDmg(j, its)) + '%)' : j.sp === 'perish' ? (j.fresh > 0 ? ' (FRESH ' + Math.ceil(100 * j.fresh) + '%)' : ' (SPOILED)') : j.sp === 'live' ? ' (CALM ' + Math.round(100 * (1 - j.stress)) + '%)' : '';
   DLV.cash += pay; DLV.paid += pay; DLV.done++; for (const o of its) dlvRemove(o);
-  const L = DLV.offers[j.from], i = L.indexOf(j); j.st = 'done'; if (i >= 0) L[i] = dlvGen(j.from, !L.some((q, k) => k !== i && dlvWc(q) === 'H'));
+  const L = DLV.offers[j.from], i = L.indexOf(j); j.st = 'done'; if (i >= 0) L[i] = dlvGen(j.from, !L.some((q, k) => k !== i && dlvFrt(q)));
   sfx('cash'); say('DELIVERED: ' + j.title + ' TO ' + T.name + ' +$' + pay + (late ? ' (LATE - HALF PAY)' : '') + why + ' - WALLET $' + DLV.cash); saveGame('delivered');
   for (const S of DLV_STRIPS) S.key = '';
 }
@@ -4801,7 +4847,7 @@ function dlvSpecTick(dt) {
   if (ac.crashed && !DLV.crashSeen) { DLV.crashSeen = true; for (const it of DLV.items) if (it.st === 'cargo') { const j = dlvJob(it.job); if (j?.sp === 'fragile') it.dmg = 1; if (j?.sp === 'live') j.stress = 1; } } else if (!ac.crashed) DLV.crashSeen = false;
   for (const j of dlvActive()) { if (!j.sp) continue;
     const its = DLV.items.filter(it => it.job === j.id), aboard = its.some(it => it.st === 'cargo');
-    if (j.sp === 'perish') { const f0 = j.fresh; j.fresh = Math.max(0, j.fresh - dt / 60 / j.life * (aboard && air && agl > 150 ? 0.5 : 1));   // cool air aloft: it keeps twice as long
+    if (j.sp === 'perish' && !(j.hunt && !j.hunt.got)) { const f0 = j.fresh; j.fresh = Math.max(0, j.fresh - dt / 60 / j.life * (aboard && air && agl > 150 ? 0.5 : 1));   // cool air aloft: it keeps twice as long
       if (f0 > 0.5 && j.fresh <= 0.5) say(j.title + ' HALF FRESH - ' + Math.ceil(j.life * j.fresh * (aboard && air ? 2 : 1)) + ' MIN LEFT'); if (f0 > 0 && j.fresh <= 0) { say(j.title + ' HAS SPOILED - PAY DOCKED'); sfx('tick'); } }
     if (j.sp === 'fragile' && aboard && hit > 0) for (const it of its) if (it.st === 'cargo') dlvKnock(it, hit * dt, 'JOLTED AT ' + DLV.gF.toFixed(1) + ' G');
     if (j.sp === 'live') {
@@ -4836,7 +4882,7 @@ function dlvSave() {
     if (it.st === 'cargo') { o.s = 'c'; o.zn = it.cz; o.p = [r3(it.mesh.position.x), r3(it.mesh.position.y), r3(it.mesh.position.z)]; }
     else { it.mesh.getWorldPosition(_dg); o.s = 'g'; o.p = [r3(_dg.x), r3(_dg.z)]; o.ry = r3(it.st === 'ground' ? it.mesh.rotation.y : 0); }
     items.push(o); }
-  const offers = {}; for (const S of DLV_STRIPS) offers[S.id] = DLV.offers[S.id].map(j => ({ id: j.id, from: j.from, to: j.to, title: j.title, items: j.items, pay: j.pay, dl: j.dl, due: r3(j.due), st: j.st, wc: dlvWc(j), ...(j.sp ? { sp: j.sp, life: j.life, fresh: r3(j.fresh), stress: r3(j.stress) } : {}) }));   // v0.51 special cargo state
+  const offers = {}; for (const S of DLV_STRIPS) offers[S.id] = DLV.offers[S.id].map(j => ({ id: j.id, from: j.from, to: j.to, title: j.title, items: j.items, pay: j.pay, dl: j.dl, due: r3(j.due), st: j.st, wc: dlvWc(j), ...(j.hunt ? { hunt: { h: j.hunt.h, got: j.hunt.got ? 1 : 0 } } : {}), ...(j.sp ? { sp: j.sp, life: j.life, fresh: r3(j.fresh), stress: r3(j.stress) } : {}) }));   // v0.51 special cargo state
   return { cash: DLV.cash, gt: r3(DLV.gt), seq: DLV.seq, paid: DLV.paid, done: DLV.done, offers, items, straps: [DLV.belt, DLV.net], found: DLV_STRIPS.filter(S => S.site && S.found).map(S => S.id) };   // v0.52 + found sites
 }
 function dlvLoad(d) {
@@ -4845,14 +4891,14 @@ function dlvLoad(d) {
   if (d && typeof d === 'object') {
     if (Array.isArray(d.found)) for (const id of d.found) { const S = dlvS(id); if (S) bushFind(S, true); }
     if (isFinite(d.cash)) DLV.cash = Math.round(d.cash); if (isFinite(d.gt)) DLV.gt = d.gt; if (isFinite(d.seq)) DLV.seq = d.seq; DLV.paid = d.paid || 0; DLV.done = d.done || 0;
-    for (const S of DLV_STRIPS) { const L = d.offers?.[S.id]; if (Array.isArray(L)) DLV.offers[S.id] = L.filter(j => j && dlvS(j.to) && Array.isArray(j.items) && j.items.every(i => CARGO_K[i.k])).slice(0, 3).map(j => ({ ...j, from: S.id, ...(j.sp ? { sp: DLV_SPX[j.sp] ? j.sp : undefined, fresh: clamp(+j.fresh || 0, 0, 1), stress: clamp(+j.stress || 0, 0, 1), life: j.sp === 'perish' ? Math.max(1, +j.life || 1) : 0 } : {}) })); }
+    for (const S of DLV_STRIPS) { const L = d.offers?.[S.id]; if (Array.isArray(L)) DLV.offers[S.id] = L.filter(j => j && dlvS(j.to) && Array.isArray(j.items) && j.items.every(i => CARGO_K[i.k])).slice(0, 3).map(j => ({ ...j, from: S.id, ...(j.hunt ? { hunt: { h: clamp(j.hunt.h | 0, 0, DEER_HERDS.length - 1), got: j.hunt.got ? 1 : 0 } } : {}), ...(j.sp ? { sp: DLV_SPX[j.sp] ? j.sp : undefined, fresh: clamp(+j.fresh || 0, 0, 1), stress: clamp(+j.stress || 0, 0, 1), life: j.sp === 'perish' ? Math.max(1, +j.life || 1) : 0 } : {}) })); }
     dlvInit(false);
     if (Array.isArray(d.straps)) { DLV.belt = !!d.straps[0]; DLV.net = !!d.straps[1]; }
     for (const o of d.items || []) { const j = dlvJob(o.j); if (!j || j.st !== 'active' || !CARGO_K[o.k]) continue;
       const it = dlvMake(j, o.k, o.lb, o.n || 0); it.dmg = clamp(+o.dmg || 0, 0, 1);
       if (o.s === 'c' && CZ[o.zn] && o.p?.length === 3) { it.st = 'loading'; if (cgPlace(it, o.zn, o.p[0], o.p[2]) || cgLoadAny(it, true)) it.st = 'cargo'; else dlvSetGround(it, ac.pos[0] + 2, ac.pos[2], 0); }
       else if (o.p?.length >= 2) dlvSetGround(it, o.p[0], o.p[1], o.ry || 0); }
-    for (const j of dlvActive()) if (!DLV.items.some(it => it.job === j.id)) { j.st = 'offer'; j.due = 0; }   // a job whose cargo is gone goes back on the board
+    for (const j of dlvActive()) if (!DLV.items.some(it => it.job === j.id) && !(j.hunt && !j.hunt.got)) { j.st = 'offer'; j.due = 0; if (j.hunt) { j.hunt.got = 0; j.fresh = 1; } }   // (a hunt still on stays on)   // a job whose cargo is gone goes back on the board
   } else dlvInit(true);
   cgStraps(); for (const S of DLV_STRIPS) S.key = '';
 }
@@ -4924,6 +4970,669 @@ function wbCardDraw() {
   WBC_T.needsUpdate = true;
 }
 wbUpdate();
+// ================= v0.53 HUNTING: a Winchester-1892-style lever carbine, deer herds, venison jobs, binoculars =================
+// The rifle mechanics come back from the full-game branch (v0.9 gunplay): a continuous lever stroke (extract / eject at 70 %, the next round up at
+// 95 %, chambered on the close), loading-gate reload one round at a time, ballistic bullets (drag + drop, sights zeroed at 50 m), recoil springs,
+// a no-echo report. Re-fitted to the new low-poly model (assets/lever-rifle.glb, read-only copy of the Synty-style rifle): its own lever / hammer /
+// trigger / gate nodes and the grip, forend and sight points of that mesh. It hangs on a rack on the home cabin wall and on a rack in the Cub.
+const HUNT = { rifleOk: false, deerOk: false, err: [], t0: performance.now(), ms: 0, kills: 0, shots: 0, hits: 0 };
+const GUN = { gripPitch: -40 * D2R, stockEngage: 0.14, stockFull: 0.04, stockTau: 0.15, leverTime: 0.12, leverMax: 0.9, mv: 400, drag: 0.0029, zeroM: 50, disp: 0.0006,
+  gateR: 0.025, magnetR: 0.05, tube: 7, pouch: 60, flick: 1.6 };
+const RECOIL2 = { rise: 4.5, kick: 3.3, yaw: 0.6, wn: 20, zeta: 0.45, kwn: 32, kzeta: 0.65, random: 0.15, stock: 0.4, twoHand: 0.7, desk: 0.6 };
+// points of the mesh (rifle space: metres, muzzle -z, +x = right side, origin just above the trigger)
+const RF = { grip: GV3(0, -0.006, 0.075), fore: GV3(0, 0.006, -0.27), muz: GV3(0, 0.024, -0.658), ej: GV3(0, 0.048, -0.088), gate: GV3(0.0215, -0.005, -0.112),
+  loop: GV3(0, -0.05, 0.15), notch: GV3(0, 0.0517, -0.266), bead: GV3(0, 0.0517, -0.6435), butt: 0.314 };   // sight picture: the bead's top level with the rear blade (clears the receiver; the cocked hammer drops below it)
+const SIGHT_A = Math.atan2(RF.bead.y - RF.notch.y, RF.notch.z - RF.bead.z);   // the sight line vs the bore (level here)
+const EYE_R = GV3(0, RF.notch.y - 0.44 * Math.tan(SIGHT_A), RF.notch.z + 0.44);   // the sighting eye: 44 cm behind the notch, on the sight line
+const SUP_B = Math.atan2(RF.fore.y - RF.grip.y, RF.grip.z - RF.fore.z);            // grip -> forend line vs the bore
+const RFL = { g: null, place: 'cabin', hand: null, sup: null, levHand: null, levA: 0, levS: 0, levReq: false, levFree: false, levGrab0: 0,
+  tube: 6, ch: false, cocked: false, spent: false, lifted: false, spare: 20, stockW: 0, stockF: 0, stockFv: 0, ads: 0, adsOn: false, prev: GV3(0, 0, 0), vel: GV3(0, 0, 0), flickCool: 0,
+  rec: { a: 0, av: 0, y: 0, yv: 0, z: 0, zv: 0 }, flashT: 0, gp: [0, 0, 0], gry: 0, deskT: 0, gateT: 0, trigT: 0, round: new Map(), reload: new Set(), hint: '', bullets: [], cases: [], log: null };
+const _rq = new THREE.Quaternion(), _rq2 = new THREE.Quaternion(), _rq3 = new THREE.Quaternion(), _rp = GV3(0, 0, 0), _rp2 = GV3(0, 0, 0), _rp3 = GV3(0, 0, 0), _rd = GV3(0, 0, 0), _ru = GV3(0, 0, 0),
+  _rM = new THREE.Matrix4(), _rx = GV3(1, 0, 0), _ry = GV3(0, 1, 0), _rz = GV3(0, 0, 1), _rE = GV3(0, 0, 0), _rH = GV3(0, 0, 0);
+const rotX = (a, q = new THREE.Quaternion()) => q.setFromAxisAngle(_rx, a);
+const Q_GRIP = rotX(GUN.gripPitch), Q_SIGHT = rotX(-SIGHT_A), Q_SUP = rotX(-SUP_B);
+function aimQuat(d, up, out) {   // -z along d, +y as close to `up` as it goes
+  _rz.copy(d).negate().normalize(); _rx.crossVectors(up, _rz); if (_rx.lengthSq() < 1e-8) _rx.set(1, 0, 0); _rx.normalize(); _ry.crossVectors(_rz, _rx);
+  _rM.makeBasis(_rx, _ry, _rz); out.setFromRotationMatrix(_rM); _rx.set(1, 0, 0); _ry.set(0, 1, 0); _rz.set(0, 0, 1); return out;
+}
+// ---- the racks (plain Lambert: the static batcher merges them) + the ammo box at home ----
+const RACK = { cabin: { p: GV3(28.95, 0, -14.3), ry: 0 }, cub: { p: GV3(0.297, 0.12 + CK.y, 0.62 + CK.z), ry: Math.PI }, box: GV3(28.55, 0, -12.75) };
+{ const wood = mat(0x5a3a1e), dk = mat(0x2a2520);
+  RACK.cabin.p.y = groundY(RACK.cabin.p.x, RACK.cabin.p.z) + 1.35;
+  const G = new THREE.Group(); G.position.copy(RACK.cabin.p); scene.add(G);
+  box(0.03, 0.26, 1.12, wood, 0.035, -0.02, 0.17, G);                                    // backing board on the wall
+  for (const z of [-0.12, 0.42]) { box(0.07, 0.025, 0.03, dk, 0.0, -0.045, z, G); box(0.02, 0.05, 0.03, dk, -0.03, -0.025, z, G); }   // two hooks under the rifle
+  const B = new THREE.Group(), by = groundY(RACK.box.x, RACK.box.z); B.position.set(RACK.box.x, by, RACK.box.z); scene.add(B);
+  box(0.55, 0.42, 0.42, wood, 0, 0.21, 0, B);                                             // a stump-table
+  box(0.26, 0.11, 0.17, mat(0x2f5a2a), 0, 0.475, 0, B); box(0.262, 0.03, 0.172, mat(0xd8c070), 0, 0.48, 0, B);   // green ammo carton, yellow band
+  RACK.box.y = by + 0.5;
+  const C = new THREE.Group(); C.position.copy(RACK.cub.p); C.rotation.y = RACK.cub.ry; plane.add(C);   // two brackets on the right cabin wall, behind the front seat
+  for (const z of [-0.2, 0.45]) { box(0.02, 0.06, 0.03, dk, -0.022, -0.02, z, C); box(0.03, 0.012, 0.03, dk, -0.005, -0.048, z, C); }
+}
+// ---- model ----
+function rflBuild(root) {
+  const g = root.getObjectByName('LeverRifle') || root; g.removeFromParent(); g.position.set(0, 0, 0); g.quaternion.identity();
+  g.traverse(o => { o.userData.noBatch = true; if (o.isMesh) { o.material = ITEM_VM; o.castShadow = true; o.receiveShadow = false; } });
+  RFL.g = g; RFL.lever = g.getObjectByName('Lever'); RFL.hammer = g.getObjectByName('Hammer'); RFL.trig = g.getObjectByName('Trigger'); RFL.gateM = g.getObjectByName('LoadingGate');
+  RFL.muzzle = g.getObjectByName('Muzzle');
+  { const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'), gr = x.createRadialGradient(32, 32, 0, 32, 32, 32);   // muzzle flash: additive sprite, no light
+    gr.addColorStop(0, 'rgba(255,250,220,1)'); gr.addColorStop(0.25, 'rgba(255,200,90,0.9)'); gr.addColorStop(1, 'rgba(255,120,20,0)'); x.fillStyle = gr; x.fillRect(0, 0, 64, 64);
+    RFL.flash = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, fog: false }));
+    RFL.flash.scale.set(0.26, 0.26, 1); RFL.flash.position.set(0, 0, -0.07); RFL.flash.visible = false; RFL.flash.userData.noBatch = true; RFL.muzzle.add(RFL.flash); }
+  RFL.feed = rndMesh(); RFL.feed.visible = false; g.add(RFL.feed);
+  HUNT.rifleOk = true; HUNT.ms = Math.round(performance.now() - HUNT.t0); rflPut(RFL.place);
+}
+const RND_G = (() => { const gs = [['c', 0.0058, 0.026, 8, 0, 0, 0.004, 0xc9a040, Math.PI / 2], ['c', 0.0062, 0.0015, 8, 0, 0, 0.0175, 0xb08a30, Math.PI / 2], ['c', 0.0052, 0.009, 8, 0, 0, -0.0135, 0x8a8a8e, Math.PI / 2]].map(partGeo);
+  const g = mergeGeometries(gs); for (const x of gs) x.dispose(); return g; })();   // .44-40 cartridge, tip toward -z
+function rndMesh() { const m = new THREE.Mesh(RND_G, ITEM_VM); m.userData.noBatch = true; return m; }
+// where the rifle is: cabin / cub (racks), desk (desktop hands), vr (a controller), back (slung), ground
+function rflPut(pl, x, z, ry) {
+  if (RFL.place !== pl && (RFL.place === 'vr' || RFL.place === 'desk')) { RFL.hand = RFL.sup = RFL.levHand = null; RFL.adsOn = false; RFL.ads = 0; }
+  RFL.place = pl; if (pl === 'ground' && x !== undefined) { RFL.gp = [x, groundY(x, z) + 0.035, z]; RFL.gry = ry || 0; }
+  const g = RFL.g; if (!g) return;
+  g.visible = true;
+  if (pl === 'cub') { plane.add(g); g.position.copy(RACK.cub.p); g.rotation.set(0, RACK.cub.ry, 0); }
+  else { scene.add(g);
+    if (pl === 'cabin') { g.position.copy(RACK.cabin.p); g.rotation.set(0, RACK.cabin.ry, 0); }
+    else if (pl === 'ground') { g.position.fromArray(RFL.gp); g.rotation.set(0, RFL.gry, Math.PI / 2); } }
+  RFL.sig = '';
+}
+const rflHeld = () => RFL.place === 'vr' || RFL.place === 'desk';
+const rflHas = () => rflHeld() || RFL.place === 'back';
+function rflNearRack(p, r = 0.45) {   // world point near a rack -> 'cabin' | 'cub' | null
+  if (p.distanceTo(RACK.cabin.p) < r) return 'cabin';
+  plane.updateMatrixWorld(); _rp3.copy(RACK.cub.p); plane.localToWorld(_rp3); if (p.distanceTo(_rp3) < r) return 'cub';
+  return null;
+}
+function rflRackLabel(pl) { return pl === 'cub' ? 'IN THE CUB\'S RACK' : 'ON THE CABIN RACK'; }
+// ---- the zero: the bullet leaves the bore pitched up just enough to cross the sight line again at GUN.zeroM ----
+function bulletStep(p, v, h) { const sp = v.length(), k = GUN.drag * sp; v.x -= k * v.x * h; v.y -= (9.81 + k * v.y) * h; v.z -= k * v.z * h; p.addScaledVector(v, h); }
+const BH = 1 / 240;
+const ZERO = (() => {   // rifle level, sight line through the notch at SIGHT_A: the launch pitch (vs the bore) that meets it again zeroM down the line
+  const sl = z => RF.notch.y + (RF.notch.z - z) * Math.tan(SIGHT_A), p = new THREE.Vector3(), v = new THREE.Vector3();
+  const miss = th => { p.set(0, RF.muz.y, RF.muz.z); v.set(0, Math.sin(th), -Math.cos(th)).multiplyScalar(GUN.mv); for (let i = 0; i < 2000 && p.z > -GUN.zeroM; i++) bulletStep(p, v, BH); return p.y - sl(p.z); };
+  let lo = -0.01, hi = 0.03; for (let i = 0; i < 40; i++) { const m = (lo + hi) / 2; if (miss(m) < 0) lo = m; else hi = m; } return (lo + hi) / 2; })();
+// ---- the action ----
+const invSmooth = a => 0.5 - Math.sin(Math.asin(clamp(1 - 2 * a, -1, 1)) / 3);
+function rflPulse(g, a, ms, tag) { if (g && g !== 'desk') HX.pulse(g, a, ms, tag || 'rifle'); }
+function cycleLever() { if (!rflHeld()) return; if (RFL.levFree) { RFL.levFree = false; RFL.levS = invSmooth(RFL.levA); } RFL.levReq = true; }
+function rflHandAngle(p) { RFL.g.worldToLocal(_rp3.copy(p)); return Math.atan2(-(_rp3.y - RFL.lever.position.y), _rp3.z - RFL.lever.position.z); }
+function leverTick(dt) {
+  let a = RFL.levA;
+  if (RFL.levHand) { RFL.levHand.getWorldPosition(_rp2); const tg = clamp((rflHandAngle(_rp2) - RFL.levGrab0) / GUN.leverMax, 0, 1); a += clamp(tg - a, -dt / 0.04, dt / 0.04); RFL.levS = invSmooth(a); }
+  else if (!RFL.levFree) { RFL.levS = approach(RFL.levS, RFL.levReq ? 1 : 0, 1 / GUN.leverTime, dt); a = smooth01(RFL.levS); if (RFL.levS >= 1) RFL.levReq = false; }
+  const p = RFL.levA; RFL.levA = a; const ej = () => RFL.g.localToWorld(_rp3.copy(RF.ej));
+  if (p < 0.06 && a >= 0.06) { sfx('levOpen', ej()); rflPulse(RFL.hand, 0.45, 22, 'lever'); rflPulse(RFL.levHand, 0.45, 22, 'lever'); }
+  if (p < 0.7 && a >= 0.7) { if (RFL.ch || RFL.spent) { rflEject(RFL.ch); if (RFL.ch) RFL.spare++; RFL.ch = RFL.spent = false; } RFL.cocked = true; }
+  if (p < 0.95 && a >= 0.95 && RFL.tube > 0 && !RFL.lifted && !RFL.ch) { RFL.tube--; RFL.lifted = true; rflPulse(RFL.hand, 0.2, 12, 'lever'); }
+  if (p > 0.02 && a <= 0.02) { RFL.levA = a = 0; sfx('levClose', ej()); rflPulse(RFL.hand, 0.7, 30, 'lever'); rflPulse(RFL.levHand, 0.5, 25, 'lever'); if (RFL.lifted) { RFL.lifted = false; RFL.ch = true; } }
+  RFL.lever.rotation.x = GUN.leverMax * a;
+  RFL.hammer.rotation.x = RFL.cocked ? 0.55 : Math.max(0, 0.55 * smooth01(clamp((a - 0.1) / 0.6, 0, 1)));   // the bolt rides the hammer back
+  RFL.feed.visible = RFL.lifted || (a > 0.72 && RFL.tube > 0 && !RFL.ch);
+  RFL.feed.position.set(0, 0.012 + 0.02 * smooth01(clamp((a - 0.45) / 0.5, 0, 1)), -0.105);
+  RFL.trig.rotation.x = RFL.trigT > 0 ? -0.25 : 0; RFL.trigT = Math.max(0, RFL.trigT - dt);
+  if (RFL.gateT > 0) { RFL.gateT = Math.max(0, RFL.gateT - dt); RFL.gateM.rotation.y = -0.35 * Math.sin(Math.PI * (1 - RFL.gateT / 0.16)); } else RFL.gateM.rotation.y = 0;
+}
+function rflEject(live) {   // a case (or a live round) flicks out of the top, up and to the right
+  if (RFL.cases.length > 8) { const o = RFL.cases.shift(); o.m.removeFromParent(); }
+  const m = rndMesh(); RFL.g.updateMatrixWorld(); m.position.copy(RFL.g.localToWorld(_rp3.copy(RF.ej))); m.quaternion.copy(RFL.g.getWorldQuaternion(_rq3)); scene.add(m);
+  const v = GV3(0.9 + Math.random() * 0.5, 2.2 + Math.random() * 0.6, 0.3).applyQuaternion(_rq3); RFL.cases.push({ m, v, t: 0, av: GV3(Math.random() * 20 - 10, Math.random() * 20 - 10, 8), live, done: false });
+}
+function rflCases(dt) {
+  for (const c of RFL.cases) { if (c.done) { if ((c.t += dt) > 60) { c.m.removeFromParent(); c.gone = true; } continue; }
+    c.v.y -= 9.81 * dt; c.m.position.addScaledVector(c.v, dt); c.m.rotation.x += c.av.x * dt; c.m.rotation.y += c.av.y * dt;
+    const gy = groundY(c.m.position.x, c.m.position.z) + 0.006; if (c.m.position.y < gy) { c.m.position.y = gy; c.done = true; c.t = 0; c.m.rotation.set(Math.PI / 2, c.m.rotation.y, 0); sfx('ping', c.m.position); } }
+  RFL.cases = RFL.cases.filter(c => !c.gone);
+}
+// ---- trigger ----
+function rflShoot() {
+  const g = RFL.hand; RFL.trigT = 0.08;
+  if (RFL.levA > 0.02 || !RFL.cocked) { rflPulse(g, 0.1, 8); if (!RFL.cocked && RFL.levA <= 0.02) say('HAMMER DOWN - WORK THE LEVER' + (g === 'desk' ? ' (X)' : '')); return false; }   // lever open / hammer down: the trigger is blocked
+  RFL.cocked = false;
+  if (!RFL.ch) { sfx('dry', RFL.g.getWorldPosition(_rp3)); rflPulse(g, 0.35, 14, 'dry'); return false; }
+  RFL.ch = false; RFL.spent = true; HUNT.shots++;
+  RFL.g.updateMatrixWorld(); RFL.g.getWorldQuaternion(_rq); const o = RFL.g.localToWorld(GV3(0, 0, 0).copy(RF.muz));
+  const th = ZERO + (Math.random() - 0.5) * 2 * GUN.disp * 1.7, ya = (Math.random() - 0.5) * 2 * GUN.disp * 1.7;
+  const v = GV3(Math.sin(ya), Math.sin(th), -Math.cos(th)).normalize().applyQuaternion(_rq).multiplyScalar(GUN.mv);
+  RFL.bullets.push({ p: o.clone(), v, t: 0, o: o.clone() });
+  RFL.flashT = 0.045; RFL.flash.visible = true; RFL.flash.material.rotation = Math.random() * 6.3;
+  FX.smoke(o, _rd.set(0, 0, -1).applyQuaternion(_rq));
+  sfx('bang'); deerNoise(o, 320);
+  const mF = RFL.sup ? RECOIL2.twoHand : 1, m = (g === 'desk' ? RECOIL2.desk : mF + (RECOIL2.stock - mF) * RFL.stockW), j = 1 + (Math.random() - 0.5) * 2 * RECOIL2.random;
+  RFL.rec.av += RECOIL2.rise * m * j; RFL.rec.yv += (Math.random() - 0.5) * 2 * RECOIL2.yaw * m; RFL.rec.zv += RECOIL2.kick * m * j;
+  if (g === 'desk') lookPitch = clamp(lookPitch + 0.012, -1.4, 1.4);
+  else { rflPulse(g, 1, 60, 'shot'); if (RFL.sup) rflPulse(RFL.sup, 0.7, 45, 'shot'); }
+  saveSoon(); return true;
+}
+function rflLoadOne(g) {   // a round through the gate into the magazine tube
+  if (RFL.tube >= GUN.tube) { say('MAGAZINE FULL (' + GUN.tube + ')'); return false; }
+  RFL.tube++; RFL.gateT = 0.16; sfx('gate', RFL.g.getWorldPosition(_rp3)); rflPulse(g, 0.5, 20, 'gate'); rflPulse(RFL.hand, 0.35, 15, 'gate'); return true;
+}
+// ---- particles: one instanced mesh of little cubes (dust, wood chips, leaves, blood) + a few soft smoke sprites; both hidden when idle ----
+const FXN = 160, FX_HIDE = new THREE.Matrix4().makeScale(0, 0, 0), fxMesh = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshLambertMaterial({ flatShading: true }), FXN);
+fxMesh.frustumCulled = false; fxMesh.visible = false; fxMesh.userData.noBatch = true; scene.add(fxMesh);
+const FXP = Array.from({ length: FXN }, () => ({ life: 0, t: 0, p: GV3(0, 0, 0), v: GV3(0, 0, 0), s0: 0, s1: 0, drag: 0, grav: 0, spin: 0, ph: 0 }));
+const _fc = new THREE.Color(), _fq = new THREE.Quaternion(), _fe = new THREE.Euler(), _fs = GV3(0, 0, 0), _fm = new THREE.Matrix4(), _fv = GV3(0, 0, 0);
+for (let i = 0; i < FXN; i++) { fxMesh.setMatrixAt(i, FX_HIDE); fxMesh.setColorAt(i, _fc.set(0xffffff)); }
+let fxIdx = 0, fxLive = 0;
+function emit(n, p, col, o) {
+  for (let k = 0; k < n; k++) { const i = fxIdx++ % FXN, q = FXP[i]; q.t = 0; q.life = o.life * (0.7 + Math.random() * 0.6); q.p.copy(p);
+    q.v.set(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).multiplyScalar(2 * o.rnd); if (o.v) q.v.add(o.v);
+    q.s0 = o.s0 * (0.7 + Math.random() * 0.6); q.s1 = o.s1 * (0.7 + Math.random() * 0.6); q.drag = o.drag; q.grav = o.grav; q.spin = (o.spin || 0) * (Math.random() - 0.5); q.ph = Math.random() * 6;
+    fxMesh.setColorAt(i, _fc.set(col).offsetHSL(0, 0, (Math.random() - 0.5) * 0.08)); }
+  fxMesh.instanceColor.needsUpdate = true; fxLive = 4; fxMesh.visible = true;
+}
+function fxTick(dt) {
+  if (fxLive > 0) { let any = false;
+    for (let i = 0; i < FXN; i++) { const q = FXP[i]; if (q.life <= 0) continue;
+      q.t += dt; if (q.t >= q.life) { q.life = 0; fxMesh.setMatrixAt(i, FX_HIDE); continue; } any = true;
+      const k = q.t / q.life; q.v.multiplyScalar(Math.exp(-q.drag * dt)); q.v.y -= q.grav * dt; q.p.addScaledVector(q.v, dt);
+      const gy = groundY(q.p.x, q.p.z) + 0.01; if (q.p.y < gy) { q.p.y = gy; q.v.set(0, 0, 0); }
+      const s = (q.s0 + (q.s1 - q.s0) * Math.sqrt(k)) * (k > 0.75 ? (1 - k) * 4 : 1);
+      _fq.setFromEuler(_fe.set(q.ph + q.spin * q.t, q.ph * 0.7 + q.spin * 0.6 * q.t, 0)); fxMesh.setMatrixAt(i, _fm.compose(q.p, _fq, _fs.set(s, s, s))); }
+    fxMesh.instanceMatrix.needsUpdate = true; if (!any && --fxLive <= 0) fxMesh.visible = false; }
+  smokeTick(dt);
+}
+const SMOKE = { muzzle: { a0: 0.10, life: 1.3, s0: 0.05, s1: 0.22, out: 2.2, up: 0.35, rnd: 0.12, drag: 2.4 }, nearCull: 0.30, nearFade: 0.55 };
+const SMN = 16, smGeo = new THREE.BufferGeometry(), smPos = new Float32Array(SMN * 3), smCol = new Float32Array(SMN * 4), smSize = new Float32Array(SMN);
+smGeo.setAttribute('position', new THREE.BufferAttribute(smPos, 3)); smGeo.setAttribute('color', new THREE.BufferAttribute(smCol, 4)); smGeo.setAttribute('psize', new THREE.BufferAttribute(smSize, 1));
+const smMat = new THREE.PointsMaterial({ size: 1, vertexColors: true, transparent: true, depthWrite: false, sizeAttenuation: true,
+  map: (() => { const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'), gr = x.createRadialGradient(32, 32, 0, 32, 32, 32);
+    gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.5, 'rgba(255,255,255,0.45)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = gr; x.fillRect(0, 0, 64, 64); return new THREE.CanvasTexture(c); })() });
+smMat.onBeforeCompile = sh => { sh.vertexShader = sh.vertexShader.replace('uniform float size;', 'uniform float size;\nattribute float psize;').replace('gl_PointSize = size;', 'gl_PointSize = size * psize;'); };
+const smPts = new THREE.Points(smGeo, smMat); smPts.frustumCulled = false; smPts.renderOrder = 5; smPts.visible = false; smPts.userData.noBatch = true; scene.add(smPts);
+const SMP = Array.from({ length: SMN }, () => ({ t: 0, life: 0, p: GV3(0, 0, 0), v: GV3(0, 0, 0), o: null, k: 1 })); let smIdx = 0, smLive = 0;
+for (let i = 0; i < SMN; i++) smPos[i * 3 + 1] = -1e4;
+const _se = GV3(0, 0, 0);
+function puff(n, p, d, o) {
+  camera.getWorldPosition(_se); if (p.distanceTo(_se) < SMOKE.nearCull * 0.6) return;
+  for (let k = 0; k < n; k++) { const q = SMP[smIdx++ % SMN]; q.t = 0; q.life = o.life * (0.8 + Math.random() * 0.4); q.o = o; q.k = 0.7 + Math.random() * 0.6;
+    q.p.copy(p); if (d) q.p.addScaledVector(d, 0.04 + k * 0.05);
+    q.v.set(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).multiplyScalar(2 * o.rnd); if (d) q.v.addScaledVector(d, o.out * (1 - k * 0.25)); q.v.y += o.up; }
+  smLive = 3; smPts.visible = true;
+}
+function smokeTick(dt) {
+  if (smLive <= 0) return; let any = false; camera.getWorldPosition(_se);
+  for (let i = 0; i < SMN; i++) { const q = SMP[i];
+    if (q.life <= 0 || (q.t += dt) >= q.life) { if (q.life > 0) { q.life = 0; smCol[i * 4 + 3] = 0; smPos[i * 3 + 1] = -1e4; } continue; } any = true;
+    const o = q.o, u = q.t / q.life; q.v.multiplyScalar(Math.exp(-o.drag * dt)); q.v.y += 0.25 * dt; q.p.addScaledVector(q.v, dt);   // rises (still air: no drift)
+    const near = smooth01(clamp((q.p.distanceTo(_se) - SMOKE.nearCull) / (SMOKE.nearFade - SMOKE.nearCull), 0, 1));
+    smPos.set([q.p.x, q.p.y, q.p.z], i * 3); smCol.set([0.82, 0.81, 0.78, o.a0 * q.k * Math.min(1, q.t * 12) * (1 - u) * (1 - u) * near], i * 4); smSize[i] = (o.s0 + (o.s1 - o.s0) * Math.sqrt(u)) * q.k; }
+  smGeo.attributes.position.needsUpdate = smGeo.attributes.color.needsUpdate = smGeo.attributes.psize.needsUpdate = true; if (!any && --smLive <= 0) smPts.visible = false;
+}
+const FX = {
+  dust: (p, d) => { emit(9, p, 0x9c8664, { v: _fv.set(-d.x * 0.6, 1.4, -d.z * 0.6), rnd: 0.9, s0: 0.05, s1: 0.28, life: 1.6, drag: 2.2, grav: 0.4 });
+                    emit(5, p, 0x6e5a40, { v: _fv.set(-d.x, 2.5, -d.z), rnd: 1.5, s0: 0.02, s1: 0.015, life: 0.8, drag: 0.3, grav: 9.8, spin: 20 }); },
+  wood: (p, d) => emit(9, p, 0x8a6538, { v: _fv.set(-d.x * 2, 1.2, -d.z * 2), rnd: 2.2, s0: 0.025, s1: 0.018, life: 1.1, drag: 0.4, grav: 9.8, spin: 30 }),
+  leaves: (p, d) => emit(8, p, 0x355f2e, { v: _fv.set(d.x, 0.2, d.z), rnd: 1.2, s0: 0.03, s1: 0.03, life: 1.8, drag: 2.5, grav: 1.2, spin: 12 }),
+  blood: (p, d) => { emit(10, p, 0x5c0a0a, { v: _fv.set(d.x * 1.6, 0.6, d.z * 1.6), rnd: 1.3, s0: 0.03, s1: 0.02, life: 0.9, drag: 0.6, grav: 9.8, spin: 15 });
+                     emit(4, p, 0x420606, { v: _fv.set(d.x * 0.8, 0.2, d.z * 0.8), rnd: 0.4, s0: 0.05, s1: 0.13, life: 0.5, drag: 4, grav: 0.5 }); },
+  smoke: (p, d) => puff(3, p, d, SMOKE.muzzle),
+};
+// ---- ballistics: fixed 1/240 s steps, each step's segment tested against the ground, the forest, the cabin and the deer ----
+const TRH = { m: null, C: 16 };
+function treeHash() {   // every forest instance once (trunk / crown as a cylinder from its geometry's bounds), on the first shot
+  const M = new Map(), C = TRH.C;
+  for (const k of CHUNKS) { if (!k.tree) continue; const geo = k.im.geometry; if (!geo.boundingBox) geo.computeBoundingBox(); const bb = geo.boundingBox, r0 = Math.max(-bb.min.x, bb.max.x, -bb.min.z, bb.max.z);
+    for (let i = 0; i < k.n; i++) { const e = k.full, o = i * 16; if (!e[o + 15]) continue; const sx = Math.hypot(e[o], e[o + 1], e[o + 2]), sy = e[o + 5], x = e[o + 12], z = e[o + 14];
+      const key = Math.floor(x / C) + ',' + Math.floor(z / C); let L = M.get(key); if (!L) M.set(key, L = []);
+      const r = r0 * sx; L.push([x, e[o + 13] + bb.min.y * sy, z, r > 0.6 ? r * 0.62 : r, (bb.max.y - bb.min.y) * sy, r > 0.6 ? 'leaves' : 'wood']); } }
+  TRH.m = M;
+}
+const _sd = GV3(0, 0, 0), _bp = GV3(0, 0, 0), CABIN_BB = new THREE.Box3(new THREE.Vector3(29, -1, -17.5), new THREE.Vector3(35, 3.2, -12.5)), _bray = new THREE.Ray(), _bhit = GV3(0, 0, 0);
+function hitSegment(p0, p1) {
+  _sd.subVectors(p1, p0); const len = _sd.length(); if (len < 1e-6) return null; _sd.divideScalar(len);
+  let best = null; const take = (d, kind, ex) => { if (d >= 0 && d <= len && (!best || d < best.d)) best = Object.assign({ d, kind }, ex); };
+  const n = Math.ceil(len / 0.5);                                   // terrain: march + bisect
+  for (let i = 1; i <= n; i++) { const s = len * i / n;
+    if (p0.y + _sd.y * s < groundY(p0.x + _sd.x * s, p0.z + _sd.z * s)) { let a = s - len / n, b = s;
+      for (let k = 0; k < 10; k++) { const m = (a + b) / 2; if (p0.y + _sd.y * m < groundY(p0.x + _sd.x * m, p0.z + _sd.z * m)) b = m; else a = m; }
+      take(b, 'ground'); break; } }
+  if (Math.abs(p0.x - 32) < 60 && Math.abs(p0.z + 15) < 60) { _bray.set(p0, _sd); if (_bray.intersectBox(CABIN_BB, _bhit)) take(_bhit.distanceTo(p0), 'wood'); }   // the home cabin
+  if (!TRH.m) treeHash();
+  const ax = _sd.x * _sd.x + _sd.z * _sd.z, C = TRH.C;
+  if (ax > 1e-9) { const x0 = Math.floor((Math.min(p0.x, p1.x) - 5) / C), x1 = Math.floor((Math.max(p0.x, p1.x) + 5) / C), z0 = Math.floor((Math.min(p0.z, p1.z) - 5) / C), z1 = Math.floor((Math.max(p0.z, p1.z) + 5) / C);
+    for (let cx = x0; cx <= x1; cx++) for (let cz = z0; cz <= z1; cz++) { const L = TRH.m.get(cx + ',' + cz); if (!L) continue;
+      for (const [tx, ty, tz, r, h, kind] of L) { const ox = p0.x - tx, oz = p0.z - tz, b = 2 * (ox * _sd.x + oz * _sd.z), c = ox * ox + oz * oz - r * r, disc = b * b - 4 * ax * c; if (disc < 0) continue;
+        const s = c < 0 ? 0 : (-b - Math.sqrt(disc)) / (2 * ax), hy = p0.y + _sd.y * s - ty; if (hy >= 0 && hy <= h) take(s, kind); } } }
+  const dh = deerRayHit(p0, _sd, best ? best.d : len); if (dh) take(dh.d, 'flesh', { a: dh.a, part: dh.part });
+  if (best) { best.p = p0.clone().addScaledVector(_sd, best.d); best.dir = _sd.clone(); }
+  return best;
+}
+function impact(h) {
+  const dl = camera.getWorldPosition(_rp3).distanceTo(h.p) / 343, d = h.dir;
+  if (h.kind === 'flesh') { FX.blood(h.p, d); sfx('flesh', h.p, dl); sfx('tick', null, dl + 0.02); HUNT.hits++; deerHit(h.a, h.part); }
+  else if (h.kind === 'wood') { FX.wood(h.p, d); sfx('thock', h.p, dl); }
+  else if (h.kind === 'leaves') { FX.leaves(h.p, d); sfx('leaf', h.p, dl); }
+  else { h.p.y += 0.02; FX.dust(h.p, d); sfx('thud', h.p, dl); }
+  if (h.kind !== 'flesh') deerNoise(h.p, 30);   // a round smacking in close by spooks them too
+}
+function rflBullets(dt) {
+  for (let i = RFL.bullets.length - 1; i >= 0; i--) { const b = RFL.bullets[i]; let rem = dt, done = false;
+    while (rem > 1e-7 && !done) { const h = Math.min(BH, rem); rem -= h; _bp.copy(b.p); bulletStep(b.p, b.v, h); b.t += h; const hit = hitSegment(_bp, b.p); if (hit) { impact(hit); b.hit = hit; done = true; } }
+    if (done || b.t > 2.5 || b.p.y < -300) { RFL.bullets.splice(i, 1); if (RFL.log) RFL.log.push(b); } }
+}
+// ---- holding it: desktop (hip / aim down the sights), VR (grip hand, forend hand, virtual stock), slung on your back ----
+const CHEEK = GV3(0, 0, 0).subVectors(RF.grip, EYE_R);   // the grip hand from the sighting eye with the butt in the shoulder (rifle space)
+const _yq = new THREE.Quaternion(), _sp = GV3(0, 0, 0), _sq = new THREE.Quaternion();
+function headYaw() { camera.getWorldDirection(_rd); return Math.atan2(-_rd.x, -_rd.z); }
+function rflPose(dt) {
+  const g = RFL.g, R = RFL.rec, h = Math.min(dt, 0.05);
+  R.av += (-RECOIL2.wn * RECOIL2.wn * R.a - 2 * RECOIL2.zeta * RECOIL2.wn * R.av) * h; R.a += R.av * h;   // recoil springs (visual: the bullet left already)
+  R.yv += (-RECOIL2.wn * RECOIL2.wn * R.y - 2 * RECOIL2.zeta * RECOIL2.wn * R.yv) * h; R.y += R.yv * h;
+  R.zv += (-RECOIL2.kwn * RECOIL2.kwn * R.z - 2 * RECOIL2.kzeta * RECOIL2.kwn * R.zv) * h; R.z += R.zv * h;
+  if (RFL.place === 'back') {   // slung across your back, muzzle up over the right shoulder
+    camera.getWorldPosition(_rp2); _yq.setFromAxisAngle(_ry, headYaw()); g.position.set(0.1, -0.34, 0.16).applyQuaternion(_yq).add(_rp2);
+    g.quaternion.copy(_yq).multiply(_rq.setFromEuler(_fe.set(1.25, 0, 0.45, 'ZYX'))); return; }
+  if (RFL.place === 'desk') {
+    camera.updateMatrixWorld(); camera.getWorldQuaternion(_rq2); camera.getWorldPosition(_rp2);
+    RFL.ads = approach(RFL.ads, RFL.adsOn ? 1 : 0, 1 / 0.12, dt); const k = smooth01(RFL.ads);
+    _rp.set(0.15, -0.2, -0.3); _rd.set(0, 0, -GUN.zeroM).sub(_rp).normalize(); aimQuat(_rd, _ru.set(0, 1, 0), _rq).multiply(Q_SIGHT);   // hip: the sight line on the crosshair 50 m out
+    _sq.copy(Q_SIGHT); _sp.copy(EYE_R).applyQuaternion(_sq).negate();                                                                  // ADS: the sighting eye on the camera
+    _rq.slerp(_sq, k); _rp.lerp(_sp, k);
+    _rq.premultiply(_rq2); _rp.applyQuaternion(_rq2).add(_rp2);
+  } else if (RFL.place === 'vr') {
+    const G = RFL.hand; G.updateWorldMatrix(true, false); G.getWorldPosition(_rH); G.getWorldQuaternion(_rq2);
+    const q1 = _rq3.copy(_rq2).multiply(Q_GRIP); _ru.set(0, 1, 0).applyQuaternion(q1);
+    const M = eyeWorld(G.userData.src?.handedness === 'left' ? 0 : 1); _rE.setFromMatrixPosition(M); _rd.set(0, 0, -1).transformDirection(M); _rp3.set(0, 1, 0).transformDirection(M);
+    _rp2.copy(_rE).addScaledVector(_rd, -CHEEK.z).addScaledVector(_rp3, CHEEK.y);                      // where the grip hand sits when shouldered
+    const dS = _rH.distanceTo(_rp2), xS = 1 - clamp((dS - GUN.stockFull) / (GUN.stockEngage - GUN.stockFull), 0, 1), wT = xS * xS * xS * (xS * (xS * 6 - 15) + 10);
+    { const wn = 2 / GUN.stockTau; RFL.stockFv += (wn * wn * (wT - RFL.stockF) - 2 * wn * RFL.stockFv) * h; RFL.stockF = clamp(RFL.stockF + RFL.stockFv * h, 0, 1); }
+    if (RFL.sup) { RFL.sup.getWorldPosition(_rp2); _rd.subVectors(_rp2, _rH).normalize(); aimQuat(_rd, _ru, _rq).multiply(Q_SUP); } else _rq.copy(q1);   // two hands: grip -> forend
+    _rp.copy(RF.grip).applyQuaternion(_rq).negate().add(_rH);
+    if (RFL.stockF > 1e-4 || RFL.stockW > 0) {   // shouldered: the sight line from the eye over the forend, the cheek on the comb
+      _rp2.copy(RF.fore).applyQuaternion(_rq).add(_rp).addScaledVector(_ru, RF.notch.y - RF.fore.y);
+      _rd.subVectors(_rp2, _rE); if (_rd.lengthSq() < 0.01) _rd.set(0, 0, -1).applyQuaternion(_rq); _rd.normalize();
+      aimQuat(_rd, _ru, _sq).multiply(Q_SIGHT); _sp.copy(EYE_R).applyQuaternion(_sq).negate().add(_rE);
+      RFL.stockW += clamp(RFL.stockF - RFL.stockW, -6 * h, 6 * h); if (RFL.stockW < 1e-4 && RFL.stockF < 1e-4) RFL.stockW = 0;
+      _rq.slerp(_sq, RFL.stockW); _rp.lerp(_sp, RFL.stockW); }
+    RFL.vel.subVectors(_rH, RFL.prev).divideScalar(Math.max(dt, 1e-3)); RFL.prev.copy(_rH); RFL.flickCool -= dt;   // lever flick: a quick down-and-forward snap
+    _rd.set(0, 0, -1).applyQuaternion(_rq);
+    if (!RFL.levHand && RFL.flickCool <= 0 && RFL.vel.y < -GUN.flick && (RFL.vel.x * _rd.x + RFL.vel.z * _rd.z) > 0.4) { cycleLever(); RFL.flickCool = 0.45; }
+  } else return;
+  // recoil about the grip: muzzle rise, a little yaw, the kick back
+  _rq2.setFromEuler(_fe.set(R.a, R.y, 0)); _rp2.copy(RF.grip).applyQuaternion(_rq); _rp3.copy(RF.grip).applyQuaternion(_sq.copy(_rq).multiply(_rq2));
+  g.position.copy(_rp).add(_rp2).sub(_rp3).add(_rd.set(0, 0, R.z * 0.5).applyQuaternion(_rq)); g.quaternion.copy(_sq);
+}
+function rflPouch(out) {   // VR: the cartridge pouch on your belt, front right
+  camera.getWorldPosition(out); camera.getWorldDirection(_rd); _rd.y = 0; if (_rd.lengthSq() < 1e-6) _rd.set(0, 0, -1); _rd.normalize();
+  out.y -= 0.62; return out.addScaledVector(_rd, 0.17).add(_ru.set(-_rd.z * 0.1, 0, _rd.x * 0.1));
+}
+const POUCH = new THREE.Mesh(mergeGeometries([['b', 0.09, 0.08, 0.04, 0, 0, 0, 0x6a4a2a], ['b', 0.094, 0.025, 0.045, 0, 0.03, 0.002, 0x4a3218], ['c', 0.006, 0.02, 6, 0.02, 0.05, 0, 0xc9a040], ['c', 0.006, 0.02, 6, -0.005, 0.05, 0, 0xc9a040]].map(partGeo)), ITEM_VM);
+POUCH.userData.noBatch = true; POUCH.visible = false; scene.add(POUCH);
+let rflHintT = 0;
+function rflTick(dt, vrOn) {
+  if (!RFL.g) return;
+  if ((RFL.place === 'vr' && (!vrOn || mode !== 'foot' || !RFL.hand)) || (RFL.place === 'desk' && (vrOn || mode !== 'foot'))) rflPut(mode === 'plane' ? 'cub' : 'back');
+  if (RFL.sup && !RFL.sup.userData.src) RFL.sup = null; if (RFL.levHand && (!rflHeld() || !RFL.levHand.userData.src)) rflLevRelease();
+  if (rflHeld()) leverTick(dt); else if (RFL.levA > 0) { RFL.levA = 0; RFL.lever.rotation.x = 0; }
+  rflPose(dt);
+  if (RFL.flashT > 0 && (RFL.flashT -= dt) <= 0) RFL.flash.visible = false;
+  RFL.deskT -= dt;
+  // VR rounds: the tip into the loading gate (inside 2.5 cm) loads it; keep squeezing and go back to the pouch for the next one
+  const vrFoot = vrOn && mode === 'foot'; POUCH.visible = vrFoot && rflHas(); if (POUCH.visible) { rflPouch(POUCH.position); POUCH.rotation.set(0, headYaw(), 0); }
+  for (const [gh, m] of RFL.round) { if (RFL.place !== 'vr' || RFL.hand === gh) continue;
+    m.updateWorldMatrix(true, false); m.localToWorld(_rp2.set(0, 0, -0.02)); RFL.g.updateMatrixWorld(); RFL.g.localToWorld(_rp3.copy(RF.gate));
+    const d = _rp2.distanceTo(_rp3); if (d < GUN.gateR && RFL.levA < 0.02 && RFL.tube < GUN.tube) { m.removeFromParent(); RFL.round.delete(gh); rflLoadOne(gh); if (gh.userData.src?.gamepad?.buttons[1]?.pressed) RFL.reload.add(gh); }
+    else if (d < GUN.magnetR) rflPulse(gh, 0.05, 6, 'gate'); }
+  for (const gh of RFL.reload) { const sq = gh.userData.src?.gamepad?.buttons[1]?.pressed; if (!sq || RFL.round.has(gh)) { if (!sq) RFL.reload.delete(gh); continue; }
+    if (gh.getWorldPosition(_rp2).distanceTo(rflPouch(_rp3)) < 0.12) rflTakeRound(gh); }
+  rflBullets(dt); rflCases(dt); fxTick(dt);
+  if ((rflHintT -= dt) <= 0 && mode === 'foot') { rflHintT = 0.5; camera.getWorldPosition(_rp2);   // walking up to the rack / the ammo box
+    const nr = _rp2.distanceTo(RACK.cabin.p) < 2.2 ? 'cabin' : null, nb = Math.hypot(_rp2.x - RACK.box.x, _rp2.z - RACK.box.z) < 2;
+    const k = nb ? 'box' : nr && RFL.place === 'cabin' ? 'rack' : ''; if (k && k !== RFL.hint) { const d = !vrOn;
+      say(k === 'box' ? 'AMMO BOX: 20 ROUNDS .44-40 FOR $10 - ' + (d ? 'Z TO BUY' : 'GRAB IT TO BUY') + ' (POUCH ' + RFL.spare + ')' : 'RIFLE RACK - ' + (d ? 'T TAKES THE RIFLE' : 'GRAB THE RIFLE')); }
+    RFL.hint = k; }
+}
+function rflTakeRound(g) {
+  if (RFL.spare <= 0) { say('CARTRIDGE POUCH EMPTY - AMMO BOX BY THE CABIN ($10 / 20)'); return false; }
+  RFL.spare--; const m = rndMesh(); g.add(m); m.position.set(0, -0.012, -0.04); RFL.round.set(g, m); sfx('pick'); tick(g); return true;
+}
+function rflBuyAmmo() {
+  if (RFL.spare >= GUN.pouch) { say('POUCH FULL (' + RFL.spare + ' ROUNDS)'); return; }
+  if (DLV.cash < 10) { say('NOT ENOUGH CASH - AMMO IS $10'); return; }
+  DLV.cash -= 10; RFL.spare = Math.min(GUN.pouch, RFL.spare + 20); sfx('cash'); say('BOUGHT 20 ROUNDS -$10 - POUCH ' + RFL.spare + ', WALLET $' + DLV.cash); saveSoon(); for (const S of DLV_STRIPS) S.key = '';
+}
+// ---- VR on foot: grabs + lets go (called from handGrab / handRelease) and the trigger ----
+function rflDistTo(p) {   // distance from p to the rifle's length (butt -> muzzle)
+  RFL.g.updateMatrixWorld(); RFL.g.worldToLocal(_rp3.copy(p)); const z = clamp(_rp3.z, RF.muz.z, RF.butt); return Math.hypot(_rp3.x, _rp3.y - 0.01, _rp3.z - z);
+}
+function rflGrab(g, p) {
+  if (!RFL.g || mode !== 'foot') return false;
+  if (RFL.hand === g || RFL.sup === g || RFL.levHand === g) return true;
+  if (RFL.place === 'vr') {   // the other hand: the lever loop, else the forend
+    RFL.lever.updateWorldMatrix(true, false); if (RFL.lever.localToWorld(_rp2.copy(RF.loop)).distanceTo(p) < 0.07) { RFL.levHand = g; RFL.levFree = false; RFL.levGrab0 = rflHandAngle(p) - RFL.levA * GUN.leverMax; tick(g); return true; }
+    RFL.g.worldToLocal(_rp3.copy(p)); if (_rp3.z < -0.1 && _rp3.z > -0.45 && Math.hypot(_rp3.x, _rp3.y) < 0.09) { RFL.sup = g; tick(g); return true; }
+  }
+  if (!RFL.round.has(g) && rflHas() && RFL.place !== 'back' && p.distanceTo(rflPouch(_rp2)) < 0.12) return rflTakeRound(g);
+  if (RFL.place !== 'vr' && RFL.place !== 'desk' && (RFL.place === 'back' ? p.distanceTo(RFL.g.localToWorld(_rp2.copy(RF.grip))) < 0.3 : rflDistTo(p) < 0.09)) {   // pick it up (rack, ground, your back)
+    const was = RFL.place; rflPut('vr'); RFL.hand = g; RFL.prev.copy(p); RFL.stockF = RFL.stockW = RFL.stockFv = 0; sfx('pick'); HX.pulse(g, 0.5, 30, 'rifle');
+    if (was !== 'back') say('RIFLE ' + RFL.tube + (RFL.ch ? '+1' : '') + ' - TRIGGER FIRES, FLICK DOWN OR WORK THE LEVER, ROUNDS FROM THE BELT POUCH INTO THE GATE');
+    return true; }
+  if (Math.hypot(p.x - RACK.box.x, p.z - RACK.box.z) < 0.35 && Math.abs(p.y - RACK.box.y) < 0.3) { rflBuyAmmo(); HX.pulse(g, 0.4, 20, 'ammo'); return true; }
+  return false;
+}
+function rflLevRelease() { RFL.levHand = null; if (RFL.levA < 0.06) { RFL.levFree = false; RFL.levS = invSmooth(RFL.levA); RFL.levReq = false; } else RFL.levFree = true; }   // it stays where you leave it
+function rflRelease(g) {
+  const m = RFL.round.get(g); if (m) { m.removeFromParent(); RFL.round.delete(g); RFL.spare++; }
+  if (RFL.levHand === g) rflLevRelease();
+  if (RFL.sup === g) RFL.sup = null;
+  if (RFL.hand !== g || RFL.place !== 'vr') return;
+  if (RFL.levHand) rflLevRelease();
+  if (RFL.sup) { RFL.hand = RFL.sup; RFL.sup = null; tick(RFL.hand); return; }   // the other hand still has it
+  RFL.g.getWorldPosition(_rp2); camera.getWorldPosition(_rp3); const rk = rflNearRack(_rp2);
+  if (rk) { rflPut(rk); sfx('clack'); say('RIFLE ' + rflRackLabel(rk)); }
+  else if (_rp2.y > _rp3.y - 0.45 && Math.hypot(_rp2.x - _rp3.x, _rp2.z - _rp3.z) < 0.32 && RFL.g.localToWorld(_rp.copy(RF.fore)).y > _rp2.y) { rflPut('back'); sfx('pick'); say('RIFLE SLUNG - REACH OVER YOUR RIGHT SHOULDER FOR IT'); }   // let go by your head, muzzle up: slung
+  else { rflPut('ground', _rp2.x, _rp2.z, headYaw()); sfx('thud', _rp2); }
+  HX.pulse(g, 0.15, 12, 'release'); saveSoon();
+}
+function rflTrigger(g) { if (RFL.place === 'vr' && RFL.hand === g) rflShoot(); }
+// ---- desktop: T take / put back / sling, left mouse fires, right mouse aims, X works the lever, Z loads a round (at the ammo box: buys) ----
+function rflDeskT() {
+  if (!RFL.g) { say('RIFLE STILL LOADING'); return; }
+  if (mode !== 'foot') { say('THE RIFLE STAYS IN ITS RACK IN FLIGHT'); return; }
+  camera.getWorldPosition(_rp2); const atCabin = _rp2.distanceTo(RACK.cabin.p) < 2.5, atCub = nearPlane(), atGround = RFL.place === 'ground' && Math.hypot(_rp2.x - RFL.gp[0], _rp2.z - RFL.gp[2]) < 2.5;
+  if (RFL.place === 'desk') { if (atCabin || atCub) { const rk = atCabin ? 'cabin' : 'cub'; rflPut(rk); sfx('clack'); say('RIFLE ' + rflRackLabel(rk)); } else { rflPut('back'); sfx('pick'); say('RIFLE SLUNG (T TO UNSLING)'); } saveSoon(); return; }
+  if (RFL.place === 'back' || (RFL.place === 'cabin' && atCabin) || (RFL.place === 'cub' && atCub) || atGround) {
+    if (DLV.desk) { say('HANDS FULL - SET THE CARGO DOWN FIRST (E)'); return; }
+    rflPut('desk'); RFL.hand = 'desk'; sfx('pick'); say('RIFLE ' + RFL.tube + (RFL.ch ? '+1' : '') + ' (POUCH ' + RFL.spare + ') - LMB FIRE, RMB AIM, X LEVER, Z LOAD, T SLING / RACK'); saveSoon(); return; }
+  say(RFL.place === 'cabin' ? 'THE RIFLE IS ON THE CABIN RACK AT HOME' : RFL.place === 'cub' ? 'THE RIFLE IS IN THE CUB\'S RACK' : 'YOUR RIFLE IS ON THE GROUND WHERE YOU LEFT IT');
+}
+function rflDeskZ() {
+  camera.getWorldPosition(_rp2); if (mode === 'foot' && Math.hypot(_rp2.x - RACK.box.x, _rp2.z - RACK.box.z) < 2.5) { rflBuyAmmo(); return; }
+  if (RFL.place !== 'desk') return; if (RFL.deskT > 0) return;
+  if (RFL.levA > 0.02) { say('CLOSE THE LEVER TO LOAD'); return; }
+  if (RFL.spare <= 0) { say('CARTRIDGE POUCH EMPTY - AMMO BOX BY THE CABIN ($10 / 20)'); return; }
+  if (RFL.tube >= GUN.tube) { say('MAGAZINE FULL (' + GUN.tube + ')'); return; }
+  RFL.spare--; rflLoadOne('desk'); RFL.deskT = 0.35;
+}
+function huntKey(e) {   // desktop keys (before the cargo keys): T rifle, X lever, Z load, V binoculars, E held over a carcass = field dress
+  if (e.code === 'KeyV') { binoDesk(!BINO.desk); return true; }
+  if (e.code === 'KeyT') { rflDeskT(); return true; }
+  if (e.code === 'KeyX' && RFL.place === 'desk') { cycleLever(); return true; }
+  if (e.code === 'KeyZ' && mode === 'foot') { rflDeskZ(); return true; }
+  if (e.code === 'KeyE' && mode === 'foot' && !DLV.desk && deerDeskE()) return true;
+  return false;
+}
+addEventListener('mousedown', e => {
+  if (renderer.xr.isPresenting || document.pointerLockElement !== renderer.domElement || mode !== 'foot' || RFL.place !== 'desk') return;
+  if (e.button === 0) rflShoot(); else if (e.button === 2) RFL.adsOn = true;
+});
+addEventListener('mouseup', e => { if (e.button === 2) RFL.adsOn = false; });
+// ---- deer: Quaternius Deer + Stag (CC0, assets/animals/) in small herds; skinned + animated only near you, one instanced draw per species out to 900 m ----
+const DSP = { deer: { name: 'DEER', file: 'Deer', h: 1.75, hp: 2, walk: 0.35, run: 9, wRef: 1.2, rRef: 8, see: 35, rh: 0.13, rv: 0.19, rb: 0.23, lb: [100, 125] },
+              stag: { name: 'STAG', file: 'Stag', h: 2.15, hp: 3, walk: 0.35, run: 9, wRef: 1.3, rRef: 8.5, see: 35, rh: 0.15, rv: 0.21, rb: 0.25, lb: [125, 150] } };
+const DEER = { src: {}, list: [], inst: [], im: {}, R: 160, MAX: 8, CAP: { deer: 6, stag: 3 }, FAR: 900, t: 0, frame: 0, px: null, pz: 0, live: 0, far: 0, ms: 0, dress: null };
+const AM_KEYS = [['idle', ['Idle']], ['eat', ['Eating']], ['walk', ['Walk']], ['run', ['Gallop']], ['die', ['Death']], ['hit', ['Idle_HitReact1']]];
+const BONE_N = ['Head', 'Torso3', 'Torso2', 'Back'];
+const DEERSPH = [[0, 1.65, -0.85, 0.14, 'head'], [0, 0.98, -0.32, 0.2, 'vitals'], [0, 1.0, 0.15, 0.4, 'body']];   // (before the model loads) nose toward -z
+function deerAt(a, x, z) { Object.assign(a, { x, z, y: groundY(x, z), yaw: Math.random() * 6.283, hp: DSP[a.sp].hp, state: 'graze', t: Math.random() * 5, head: -2, spd: 0, fall: 0, fx: 0, fz: 0,
+  los: true, losT: Math.random(), look: false, walk: false, flinch: 0, hitT: 0, cd: 1e9, inst: a.inst || null }); }
+DEER_HERDS.forEach((H, hi) => { H.x0 = H.x; H.z0 = H.z; H.away = 0; H.d = 1e9;
+  for (let k = 0; k < H.n; k++) { const a = { sp: k === 0 ? 'stag' : 'deer', h: hi, id: DEER.list.length }; deerAt(a, H.x + (Math.random() - 0.5) * 24, H.z + (Math.random() - 0.5) * 24); DEER.list.push(a); } });
+function sphParts(S, at, head) {   // at(name, v) -> a bone's position; head(v) -> skull direction. [x, y, z, r, part]
+  const out = [], v = GV3(0, 0, 0), d = GV3(0, 0, 0);
+  at('Head', v); head(d); out.push([v.x + d.x * S.rh * 0.9, v.y + d.y * S.rh * 0.9, v.z + d.z * S.rh * 0.9, S.rh, 'head']);
+  at('Torso3', v); out.push([v.x, v.y - S.rv * 0.3, v.z, S.rv, 'vitals']);
+  at('Torso2', v); out.push([v.x, v.y, v.z, S.rb, 'body']); at('Back', v); out.push([v.x, v.y, v.z, S.rb, 'body']);
+  return out;
+}
+function deerSrc(sp, gl) {
+  const root = gl.scene; root.updateMatrixWorld(true); const b = new THREE.Box3().setFromObject(root, true), k = DSP[sp].h / (b.max.y - b.min.y);
+  const S = DEER.src[sp] = { scene: root, clips: gl.animations, k, y0: -b.min.y * k, pool: [] };
+  let sk = null; root.traverse(o => { if (o.isSkinnedMesh && !sk) sk = o; });
+  { const src = sk.geometry, n = src.attributes.position.count, pos = new Float32Array(n * 3), v = GV3(0, 0, 0);   // the bind pose skinned once, in game axes (nose -z): the far, instanced deer
+    for (let i = 0; i < n; i++) { sk.getVertexPosition(i, v); v.applyMatrix4(sk.matrixWorld); pos[i * 3] = -v.x * k; pos[i * 3 + 1] = v.y * k + S.y0; pos[i * 3 + 2] = -v.z * k; }
+    let g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); if (src.attributes.color) g.setAttribute('color', src.attributes.color.clone()); if (src.index) g.setIndex(src.index.clone());
+    g = g.toNonIndexed(); g.computeVertexNormals(); S.tris = g.attributes.position.count / 3;
+    const im = new THREE.InstancedMesh(g, ITEM_VM, DEER.list.length); im.count = 0; im.visible = false; im.frustumCulled = false; im.userData.noBatch = true; im.castShadow = false; scene.add(im); DEER.im[sp] = im; }
+  const bn = {}; root.traverse(o => { if (o.isBone) bn[o.name] = o; });
+  if (BONE_N.every(n => bn[n])) { const flip = v => v.set(-v.x * k, v.y * k + S.y0, -v.z * k);
+    const u = sphParts(DSP[sp], (n, v) => flip(v.setFromMatrixPosition(bn[n].matrixWorld)), v => { v.setFromMatrixColumn(bn.Head.matrixWorld, 1).normalize(); return v.set(-v.x, v.y, -v.z); });
+    S.sph = { u, g: u.map(q => q[4] === 'head' ? [0, q[3] * 1.2, q[2] * 0.8, q[3], 'head'] : q) }; }
+  if (DEER.src.deer && DEER.src.stag) { HUNT.deerOk = true; HUNT.deerMs = Math.round(performance.now() - HUNT.t0); }
+}
+function deerMake(sp) {
+  const S = DEER.src[sp], m = HUNT.SU.clone(S.scene), g = new THREE.Group();
+  m.scale.setScalar(S.k); m.rotation.y = Math.PI; m.position.y = S.y0; g.add(m); scene.add(g); g.userData.noBatch = true;
+  m.traverse(o => { o.userData.noBatch = true; if (o.isMesh) { o.material = ITEM_VM; o.castShadow = o.receiveShadow = false; } });
+  const mx = new THREE.AnimationMixer(m), act = {};
+  for (const [key, names] of AM_KEYS) { const c = S.clips.find(c => names.includes(c.name)); if (c) act[key] = mx.clipAction(c); }
+  for (const k of ['die', 'hit']) if (act[k]) { act[k].setLoop(THREE.LoopOnce, 1); act[k].clampWhenFinished = true; }
+  const bn = {}; m.traverse(o => { if (o.isBone && BONE_N.includes(o.name)) bn[o.name] = o; });
+  const I = { sp, g, m, mx, act, bn, cur: null, key: '', a: null, acc: 0, id: DEER.inst.length }; S.pool.push(I); DEER.inst.push(I); return I;
+}
+function deerPlay(I, key, ts) {
+  const n = I.act[key] || I.act.idle; if (I.key === key) { n.setEffectiveTimeScale(ts); return; }
+  n.reset(); n.setEffectiveTimeScale(ts); n.setEffectiveWeight(1); n.play();
+  if (I.cur && I.cur !== n) I.cur.crossFadeTo(n, key === 'die' ? 0.15 : 0.3, false);
+  I.cur = n; I.key = key;
+}
+function deerFree(a) { const I = a.inst; if (!I) return; I.a = null; a.inst = null; I.g.visible = false; if (I.cur) I.cur.stop(); I.cur = null; I.key = ''; }
+function deerAssign() {   // the nearest DEER.MAX within DEER.R get an animated model
+  const C = [];
+  for (const a of DEER.list) { if (a.state === 'gone' || !DEER.src[a.sp]) { if (a.inst) deerFree(a); continue; } if (a.cd < DEER.R) C.push(a); else if (a.inst) deerFree(a); }
+  C.sort((p, q) => p.cd - q.cd); const want = [], left = { ...DEER.CAP };
+  for (const a of C) if (want.length < DEER.MAX && left[a.sp] > 0) { left[a.sp]--; want.push(a); }
+  for (const a of C) if (a.inst && !want.includes(a)) deerFree(a);
+  for (const a of want) { if (a.inst) continue; const S = DEER.src[a.sp]; let I = S.pool.find(q => !q.a); if (!I && S.pool.length < DEER.CAP[a.sp]) I = deerMake(a.sp); if (!I) continue;
+    I.a = a; a.inst = I; I.g.visible = true; I.acc = 0; if (a.state === 'dead') { deerPlay(I, 'die', 1); I.act.die.time = I.act.die.getClip().duration; I.mx.update(0); } }
+}
+function deerAnim(dt) {
+  let n = 0;
+  for (const I of DEER.inst) { const a = I.a; if (!a) continue; n++;
+    I.g.position.set(a.x, a.y, a.z); I.g.rotation.y = a.yaw; const S = DSP[a.sp]; let key = 'idle', ts = 1;
+    if (a.state === 'dead') key = 'die'; else if (a.hitT > 0 && I.act.hit) key = 'hit';
+    else if (a.spd > S.walk * 1.8) { key = 'run'; ts = clamp(a.spd / S.rRef, 0.6, 1.8); } else if (a.spd > 0.05) { key = 'walk'; ts = clamp(a.spd / S.wRef, 0.4, 2); } else if (a.head < -1) key = 'eat';
+    deerPlay(I, key, ts);
+    I.acc += dt; if (a.cd < 60 || (DEER.frame + I.id) % 3 === 0) { I.mx.update(I.acc); I.acc = 0; } }   // further out: a third of the update rate
+  DEER.live = n;
+}
+function deerDraw() {   // the rest (out to DEER.FAR): one instanced draw per species, the bind pose; a dead one lies on its side
+  for (const sp in DEER.im) DEER.im[sp].n = 0;
+  for (const a of DEER.list) { if (a.state === 'gone' || a.inst || a.cd > DEER.FAR) continue; const im = DEER.im[a.sp]; if (!im) continue;
+    const dead = a.state === 'dead'; _fq.setFromEuler(_fe.set(0, a.yaw, dead ? a.fall * 1.45 : 0, 'YXZ')); im.setMatrixAt(im.n++, _fm.compose(_fv.set(a.x, a.y + (dead ? 0.18 * a.fall : 0), a.z), _fq, _fs.set(1, 1, 1))); }
+  let far = 0; for (const sp in DEER.im) { const im = DEER.im[sp]; far += im.n; if (im.count !== im.n || im.n) { im.count = im.n; im.visible = im.n > 0; im.instanceMatrix.needsUpdate = true; } } DEER.far = far;
+}
+// hit spheres: on the animated skeleton near you, the bind-pose set (head down while grazing) further out
+const _bv = GV3(0, 0, 0), _bd = GV3(0, 0, 0);
+function deerSph(a) {
+  const I = a.inst, S0 = DEER.src[a.sp];
+  if (I && I.bn.Head) {
+    if (I.sf === DEER.frame && I.sx === a.x && I.sz === a.z && I.sy === a.yaw) return I.sph;
+    const cy = Math.cos(a.yaw), sy = Math.sin(a.yaw), B = I.bn; I.sf = DEER.frame; I.sx = a.x; I.sz = a.z; I.sy = a.yaw; I.g.updateMatrixWorld(true);
+    return I.sph = sphParts(DSP[a.sp], (n, v) => B[n].getWorldPosition(v), v => v.setFromMatrixColumn(B.Head.matrixWorld, 1).normalize())
+      .map(([x, y, z, r, p]) => { const dx = x - a.x, dz = z - a.z; return [dx * cy - dz * sy, y - a.y, dx * sy + dz * cy, r, p]; }); }
+  if (S0 && S0.sph) return a.head < -1 ? S0.sph.g : S0.sph.u;
+  const s = DSP[a.sp].h / 1.8; return DEERSPH.map(([x, y, z, r, p]) => [x, y * s, z * s, r * s, p]);
+}
+function deerRayHit(p0, d, maxD) {
+  let best = null;
+  for (const a of DEER.list) { if (a.state === 'gone' || a.state === 'dead') continue; const dx = a.x - p0.x, dz = a.z - p0.z; if (dx * dx + dz * dz > (maxD + 4) * (maxD + 4)) continue;
+    const cy = Math.cos(a.yaw), sy = Math.sin(a.yaw);
+    for (const [lx, ly, lz, r, part] of deerSph(a)) { const ox = p0.x - (a.x + lx * cy + lz * sy), oy = p0.y - (a.y + ly), oz = p0.z - (a.z - lx * sy + lz * cy);
+      const b = ox * d.x + oy * d.y + oz * d.z, c = ox * ox + oy * oy + oz * oz - r * r, disc = b * b - c; if (disc < 0) continue;
+      const t = c < 0 ? 0 : -b - Math.sqrt(disc); if (t < 0 || t > maxD + 0.6) continue;   // a little past the segment: a vital just behind the hide
+      const vit = part !== 'body', in1 = best && best.a === a && Math.abs(t - best.d) < 0.6;   // the chest / head inside the body sphere: a vital it reaches through the hide counts
+      if (!best || (in1 ? vit && best.part === 'body' || (vit === (best.part !== 'body') && t < best.d) : t < best.d)) best = { d: in1 ? Math.min(t, best.d) : t, a, part }; } }
+  return best && best.d <= maxD ? best : null;
+}
+// ---- behaviour (full-game v0.28): graze and drift, look up now and then; bolt from you (sight / noise), a low plane or a shot ----
+const yawTo = (x, z, tx, tz) => Math.atan2(-(tx - x), -(tz - z));
+const turnTo = (a, b, k) => { let d = ((b - a + Math.PI) % 6.283185 + 6.283185) % 6.283185 - Math.PI; return a + clamp(d, -k, k); };
+function losClear(ax, ay, az, bx, by, bz) { for (let i = 1; i < 6; i++) { const t = i / 6, x = ax + (bx - ax) * t, z = az + (bz - az) * t; if (groundY(x, z) > ay + (by - ay) * t - 0.3) return false; } return true; }
+function deerScare(a, sx, sz) { if (a.state === 'dead' || a.state === 'gone') return; if (a.state !== 'flee' && a.cd < 250) sfx('hoof', _bv.set(a.x, a.y + 0.5, a.z)); a.state = 'flee'; a.t = 7 + Math.random() * 3; a.fx = sx; a.fz = sz; }
+function deerScareHerd(hi, sx, sz) { for (const a of DEER.list) if (a.h === hi) deerScare(a, sx, sz); }
+function deerNoise(p, r) { const hs = new Set(); for (const a of DEER.list) if (a.state !== 'dead' && a.state !== 'gone' && Math.hypot(a.x - p.x, a.z - p.z) < r) hs.add(a.h); for (const h of hs) deerScareHerd(h, p.x, p.z); }
+function deerHit(a, part) {
+  if (a.state === 'dead' || a.state === 'gone') return; const S = DSP[a.sp], pp = playerPos();
+  a.hp -= (part === 'head' || part === 'vitals') ? 99 : 1; a.flinch = 1; a.hitT = 0.35;
+  if (a.hp <= 0) { a.state = 'dead'; a.fall = 0; a.spd = 0; HUNT.kills++; deerScareHerd(a.h, pp.x, pp.z);
+    say(S.name + ' DOWN (' + (part === 'head' ? 'HEAD SHOT' : part === 'vitals' ? 'HEART / LUNGS' : 'BODY') + ') - ' + (renderer.xr.isPresenting ? 'HOLD GRIP ON IT' : 'HOLD E BY IT') + ' TO FIELD DRESS'); }
+  else { deerScareHerd(a.h, pp.x, pp.z); say(S.name + ' HIT IN THE BODY - IT RAN. AIM FOR THE CHEST JUST BEHIND THE SHOULDER'); }
+}
+function deerTick(dt) {
+  const t0 = performance.now(), pp = playerPos(), foot = mode === 'foot', V = ac.out.V || 0; DEER.frame++;
+  const pSpd = foot && DEER.px !== null ? Math.hypot(pp.x - DEER.px, pp.z - DEER.pz) / Math.max(dt, 1e-3) : 0; DEER.px = pp.x; DEER.pz = pp.z;
+  const seeK = (pSpd > 3.5 ? 2 : pSpd < 0.3 ? 0.75 : 1) * (crouchK() > 0.5 ? 0.5 : 1);   // sprinting is heard further, standing still / crouched gets you closer
+  for (const H of DEER_HERDS) { H.d = Math.hypot(pp.x - H.x0, pp.z - H.z0); H.away = H.d > 600 ? H.away + dt : 0;
+    if (H.d > 300) { const dx = H.x0 - H.x, dz = H.z0 - H.z, L = Math.hypot(dx, dz); if (L > 1) { H.x += dx / L * Math.min(L, 0.5 * dt); H.z += dz / L * Math.min(L, 0.5 * dt); } } }
+  for (const a of DEER.list) {
+    const H = DEER_HERDS[a.h], S = DSP[a.sp];
+    if (H.away > 240 && (a.state === 'dead' || a.state === 'gone' || Math.hypot(a.x - H.x0, a.z - H.z0) > 150)) { deerAt(a, H.x0 + (Math.random() - 0.5) * 24, H.z0 + (Math.random() - 0.5) * 24); H.x = H.x0; H.z = H.z0; }   // a while away: the herd is back
+    a.cd = Math.hypot(pp.x - a.x, pp.z - a.z);
+    if (a.cd > 1500 && a.state !== 'flee') continue;   // nothing to see that far out: they hold still
+    if (a.cd < 160 && a.state !== 'dead' && a.state !== 'gone' && (a.losT -= dt) <= 0) { a.losT = 0.5 + Math.random() * 0.3; a.los = !foot || losClear(a.x, a.y + 0.8 * S.h, a.z, pp.x, pp.y, pp.z); }
+    let spd = 0;
+    if (a.state === 'dead') a.fall = Math.min(1, a.fall + dt * 2.5);
+    else if (a.state !== 'gone') {
+      const planeNear = !foot && Math.hypot(ac.pos[0] - a.x, ac.pos[2] - a.z) < 90 && V > 5 && ac.pos[1] - a.y < 70;
+      if (a.state !== 'flee' && ((foot && a.cd < S.see * seeK && (a.cd < 10 || a.los)) || planeNear)) deerScareHerd(a.h, foot ? pp.x : ac.pos[0], foot ? pp.z : ac.pos[2]);
+      if (a.state === 'flee') {
+        let fy = yawTo(a.x, a.z, 2 * a.x - a.fx, 2 * a.z - a.fz); const hd = Math.hypot(a.x - H.x0, a.z - H.z0);
+        if (hd > 330) fy = turnTo(fy, yawTo(a.x, a.z, H.x0, H.z0), clamp((hd - 330) / 60, 0, 1) * 2.2);   // they keep to their own woods
+        const nx = a.x - Math.sin(a.yaw) * 6, nz = a.z - Math.cos(a.yaw) * 6; if (DEER.frame % 8 === a.id % 8 && waterDist(nx, nz) < 4) a.yaw += 1.2;   // and out of the water
+        a.yaw = turnTo(a.yaw, fy, 4 * dt); spd = S.run; a.head = 0.25;
+        if ((a.t -= dt) <= 0) { a.state = 'graze'; a.t = 3; H.x = a.x; H.z = a.z; }
+      } else {
+        a.t -= dt; if (a.t <= 0) { a.t = 2 + Math.random() * 6; a.look = Math.random() < 0.35; a.yaw += (Math.random() - 0.5) * 2; a.walk = Math.random() < 0.4; }
+        if (Math.hypot(a.x - H.x, a.z - H.z) > 18) a.yaw = turnTo(a.yaw, yawTo(a.x, a.z, H.x, H.z), dt);
+        spd = a.walk ? S.walk : 0; a.head += ((a.look ? 0 : -2.0) - a.head) * Math.min(1, dt * 3);
+      }
+      a.x = clamp(a.x - Math.sin(a.yaw) * spd * dt, -2900, 2900); a.z = clamp(a.z - Math.cos(a.yaw) * spd * dt, -2900, 2900);
+    }
+    a.spd = spd; if (a.hitT > 0) a.hitT -= dt;
+    a.y = groundY(a.x, a.z) + (a.flinch > 0 && a.state !== 'dead' ? 0.18 * Math.sin(a.flinch * Math.PI) : 0); if (a.flinch > 0) a.flinch = Math.max(0, a.flinch - dt * 3);
+  }
+  if (HUNT.deerOk) { if ((DEER.t -= dt) <= 0) { DEER.t = 0.2; deerAssign(); } deerAnim(dt); deerDraw(); }
+  deerDressTick(dt);
+  DEER.ms = DEER.ms * 0.95 + (performance.now() - t0) * 0.05;
+}
+// ---- field dressing: hold on (VR grip / desktop E) for 3 s; the carcass becomes the hunting job's cargo ----
+const DRESS_T = 3;
+function huntJobFor(a) { const A = dlvActive().filter(j => j.hunt && !j.hunt.got); return A.find(j => j.hunt.h === a.h) || A[0] || null; }
+function deerStartDress(a, g) {
+  if (!huntJobFor(a)) { say('NOBODY HAS ORDERED VENISON - TAKE A HUNTING JOB AT A JOB BOARD FIRST'); return true; }
+  DEER.dress = { a, g, t: 0, n: 0 }; say('FIELD DRESSING THE ' + DSP[a.sp].name + ' - KEEP HOLDING'); if (g !== 'desk') HX.pulse(g, 0.4, 30, 'dress'); return true;
+}
+function deerNear(p, r) { let best = null, bd = r; for (const a of DEER.list) { if (a.state !== 'dead') continue; const d = Math.hypot(a.x - p.x, a.z - p.z); if (d < bd && Math.abs(p.y - a.y) < 2.2) { bd = d; best = a; } } return best; }
+function deerGrab(g, p) { const a = deerNear(p, 0.9); if (!a || p.y - a.y > 1.1) return false; return deerStartDress(a, g); }
+function deerRelease(g) { if (DEER.dress && DEER.dress.g === g) { DEER.dress = null; say('STOPPED DRESSING'); } }
+function deerDeskE() { camera.getWorldPosition(_bv); const a = deerNear(_bv, 2.2); if (!a) return false; return deerStartDress(a, 'desk'); }
+function deerDressTick(dt) {
+  const D = DEER.dress; if (!D) return;
+  if (D.a.state !== 'dead' || mode !== 'foot' || (D.g === 'desk' && !keys.KeyE)) { DEER.dress = null; if (D.g === 'desk' && D.a.state === 'dead') say('STOPPED DRESSING'); return; }
+  D.t += dt; if (D.t > (D.n + 1) * 0.5) { D.n++; if (D.g !== 'desk') HX.pulse(D.g, 0.25, 15, 'dress'); sfx('pick', _bv.set(D.a.x, D.a.y + 0.3, D.a.z)); }
+  if (D.t >= DRESS_T) { DEER.dress = null; deerDress(D.a); }
+}
+function deerDress(a) {
+  const j = huntJobFor(a); if (!j) return; const S = DSP[a.sp], lb = Math.round(S.lb[0] + Math.random() * (S.lb[1] - S.lb[0]));
+  j.hunt.got = 1; j.items = [{ k: 'deer', lb }]; j.fresh = 1;
+  const it = dlvMake(j, 'deer', lb, 0); dlvSetGround(it, a.x, a.z, a.yaw + Math.PI / 2);
+  a.state = 'gone'; if (a.inst) deerFree(a); sfx('flesh'); MAP.key = ''; for (const T of DLV_STRIPS) T.key = '';
+  say('FIELD DRESSED: ' + lb + ' LB OF VENISON FOR ' + dlvS(j.to).name + ' - ' + (renderer.xr.isPresenting ? 'TWO-HAND LIFT' : 'E: HAND TRUCK') + ' - FRESH FOR ' + j.life + ' MIN'); saveSoon();
+}
+// ---- binoculars (full-game v0.41): on your chest on foot, in a holder by the right door in the Cub. Raise them to your eyes (VR) or press V (desktop) ----
+// VR: a 7x view in a ring in front of your eyes, rendered from your head at 384 px (every other frame, no shadow update); desktop: the camera zooms.
+const BINO = { place: 'cub', g: null, on: false, desk: false, fov0: 75, t: 0, last: '', n: 0, force: false, rt: new THREE.WebGLRenderTarget(384, 384), cam: new THREE.PerspectiveCamera(70 / 7, 1, 0.5, 9000), cubP: GV3(0.285, -0.16 + CK.y, -0.36 + CK.z) };
+BINO.rt.texture.colorSpace = THREE.SRGBColorSpace;
+BINO.disk = new THREE.Mesh(new THREE.CircleGeometry(0.15, 40), new THREE.MeshBasicMaterial({ map: BINO.rt.texture, depthTest: false, fog: false })); BINO.disk.position.set(0, 0, -0.5); BINO.disk.renderOrder = 998;
+BINO.ring = new THREE.Mesh(new THREE.RingGeometry(0.148, 0.2, 40), new THREE.MeshBasicMaterial({ color: 0x050505, depthTest: false, transparent: true, opacity: 0.92, fog: false })); BINO.ring.renderOrder = 997; BINO.disk.add(BINO.ring);
+BINO.disk.visible = false; BINO.disk.userData.noBatch = BINO.ring.userData.noBatch = true; camera.add(BINO.disk);
+BINO.m = (() => { const D = 0x2a2c2e, R = 0x16171a, P = [];   // eyepieces toward +z (your face), objectives -z
+  for (const sx of [-1, 1]) P.push(['c', 0.021, 0.1, 10, sx * 0.032, 0, -0.005, D, Math.PI / 2], ['c', 0.024, 0.02, 10, sx * 0.032, 0, -0.06, R, Math.PI / 2], ['c', 0.015, 0.024, 8, sx * 0.03, 0.002, 0.056, R, Math.PI / 2],
+    ['c', 0.017, 0.003, 10, sx * 0.032, 0, -0.07, 0x3a5a7a, Math.PI / 2]);
+  P.push(['b', 0.036, 0.016, 0.05, 0, 0.004, 0.0, D], ['c', 0.008, 0.02, 8, 0, 0.016, 0.02, R, 0, 0, Math.PI / 2], ['b', 0.012, 0.004, 0.06, -0.055, -0.01, 0.0, 0x4a3a2a], ['b', 0.012, 0.004, 0.06, 0.055, -0.01, 0.0, 0x4a3a2a]);
+  const gs = P.map(partGeo), g = mergeGeometries(gs); for (const x of gs) x.dispose(); const m = new THREE.Mesh(g, ITEM_VM); m.userData.noBatch = true; m.castShadow = true; return m; })();
+{ const H = new THREE.Group(); H.position.copy(BINO.cubP); plane.add(H); box(0.012, 0.09, 0.14, mat(0x3a2e22), 0.03, -0.02, 0, H); box(0.012, 0.02, 0.14, mat(0x2a2218), -0.01, -0.06, 0, H); }   // a canvas holder by the right door
+function binoPut(pl) {
+  BINO.place = pl; BINO.g = null; const m = BINO.m;
+  if (pl === 'cub') { plane.add(m); m.position.copy(BINO.cubP).add(GV3(0, 0.0, 0)); m.rotation.set(-Math.PI / 2, -Math.PI / 2, 0, 'YXZ'); }
+  else scene.add(m);
+}
+function binoChest(out) { camera.getWorldPosition(out); _yq.setFromAxisAngle(_ry, headYaw()); out.add(_bd.set(0, -0.3, -0.13).applyQuaternion(_yq)); return out; }
+function binoTick(dt, vrOn) {
+  const m = BINO.m;
+  if (BINO.place === 'chest') { binoChest(m.position); m.quaternion.copy(_yq).multiply(_rq3.setFromEuler(_fe.set(-1.25, 0, 0))); m.visible = vrOn; }   // hangs off the harness (desktop: out of the way)
+  else if (BINO.place === 'hand') { const g = BINO.g; if (!g || !g.userData.src) { binoPut(mode === 'plane' ? 'cub' : 'chest'); return binoTick(dt, vrOn); }
+    g.updateWorldMatrix(true, false); g.getWorldQuaternion(m.quaternion); m.position.set(0, 0.02, -0.045).applyQuaternion(m.quaternion).add(g.getWorldPosition(_bv)); m.visible = true; }
+  else m.visible = true;
+  if (BINO.desk && (vrOn || RFL.adsOn)) binoDesk(false);
+  let up = BINO.force; if (BINO.place === 'hand') { m.localToWorld(_bv.set(0, 0, 0.06)); camera.getWorldPosition(_bd); if (_bv.distanceTo(_bd) < 0.17) up = true; }
+  if (up !== BINO.on) { BINO.on = up; BINO.disk.visible = up; BINO.last = ''; if (up) sfx('click'); }
+  if (!(BINO.on || BINO.desk) || (BINO.t -= dt) > 0) return; BINO.t = 0.4;
+  binoSpot();
+}
+function binoDesk(on) {
+  if (on === BINO.desk) return; if (on && renderer.xr.isPresenting) return; BINO.desk = on;
+  if (on) { BINO.fov0 = camera.fov; camera.fov = 10; say('BINOCULARS (V TO LOWER THEM)'); if (RFL.place === 'desk') RFL.adsOn = false; } else camera.fov = BINO.fov0 || 75;
+  camera.updateProjectionMatrix(); sfx('click'); BINO.last = '';
+}
+function binoSpot() {   // what's in the middle of the view: deer (count + range), a job board, a bush site (spotting one inside 1.5 km puts it on the map)
+  camera.getWorldPosition(_bv); camera.getWorldDirection(_bd); let best = null, ba = 0.03;
+  const look = (x, y, z, f) => { const dx = x - _bv.x, dy = y - _bv.y, dz = z - _bv.z, L = Math.hypot(dx, dy, dz); if (L < 40 || L > 4000) return; const a = Math.acos(clamp((dx * _bd.x + dy * _bd.y + dz * _bd.z) / L, -1, 1)); if (a < ba) { ba = a; best = [f, L]; } };
+  for (const a of DEER.list) if (a.state !== 'gone' && a.cd < DEER.FAR) look(a.x, a.y + 0.9, a.z, { deer: a });
+  for (const S of DLV_STRIPS) look(S.x, groundY(S.x, S.z) + 2, S.z, { S });
+  if (!best) { BINO.last = ''; return; }
+  const [f, L] = best, rng = L < 1000 ? Math.round(L / 10) * 10 + ' M' : (L / 1000).toFixed(1) + ' KM';
+  let t, key;
+  if (f.deer) { const H = DEER_HERDS[f.deer.h], n = DEER.list.filter(a => a.h === f.deer.h && a.state !== 'gone' && a.state !== 'dead').length, st = DEER.list.some(a => a.h === f.deer.h && a.sp === 'stag' && a.state !== 'gone' && a.state !== 'dead');
+    key = 'd' + f.deer.h + n; t = 'BINOCULARS: ' + (f.deer.state === 'dead' ? 'YOUR ' + DSP[f.deer.sp].name + ', DOWN' : n + ' DEER' + (st ? ' (A STAG)' : '') + (f.deer.state === 'flee' ? ', RUNNING' : f.deer.head < -1 ? ', GRAZING' : '')) + ' - ' + rng + ' - ' + H.name; }
+  else { const S = f.S; key = 's' + S.id + S.found; if (S.site && !S.found && L < 1500) { bushFind(S); return; }
+    t = 'BINOCULARS: ' + (S.site && !S.found ? 'A CLEARING - SOMETHING BUILT THERE' : S.name + (S.site ? ' (' + S.B.cust + ')' : '')) + ' - ' + rng; }
+  if (key !== BINO.last) { BINO.last = key; say(t); msgT = 4; }
+}
+function binoRender() {
+  if (!BINO.on || (BINO.n++ & 1)) return;   // every other frame
+  camera.getWorldPosition(BINO.cam.position); camera.getWorldQuaternion(BINO.cam.quaternion); BINO.cam.updateMatrixWorld(true);
+  const xr = renderer.xr.enabled, su = renderer.shadowMap.autoUpdate, nu = renderer.shadowMap.needsUpdate; renderer.xr.enabled = false; renderer.shadowMap.autoUpdate = false; renderer.shadowMap.needsUpdate = false; BINO.disk.visible = false;
+  renderer.setRenderTarget(BINO.rt); renderer.render(scene, BINO.cam); renderer.setRenderTarget(null); renderer.xr.enabled = xr; renderer.shadowMap.autoUpdate = su; renderer.shadowMap.needsUpdate = nu; BINO.disk.visible = true;
+}
+function binoGrab(g, p) {
+  if (BINO.g === g) return true; if (BINO.place === 'hand') return false;
+  const at = BINO.place === 'chest' ? binoChest(_bv) : BINO.m.getWorldPosition(_bv); if (at.distanceTo(p) > 0.13) return false;
+  BINO.place = 'hand'; BINO.g = g; scene.add(BINO.m); sfx('pick'); tick(g); say('BINOCULARS - RAISE THEM TO YOUR EYES'); return true;
+}
+function binoRelease(g) { if (BINO.g !== g) return; binoPut(mode === 'plane' ? 'cub' : 'chest'); HX.pulse(g, 0.15, 12, 'release'); }
+// ---- glue: hands, boarding, the frame, save ----
+Object.assign(GDEF, {   // v0.53 procedural grips on the rifle mesh: wrap the wrist of the stock, wrap the forend, pinch the lever loop
+  rgrip: { o: () => RFL.g, sh: 'box', c: GV3(0, 0.0, 0.07), b: GV3(0.0135, 0.026, 0.03), st: 'wrap', wa: 2, wr: 0.0135, tl: 0.012, wz: -0.004 },
+  rfore: { o: () => RFL.g, sh: 'box', c: GV3(0, 0.006, -0.27), b: GV3(0.017, 0.022, 0.1), st: 'wrap', wa: 2, wr: 0.017, tl: 0.08, wz: -0.004 },
+  rlev: { o: () => RFL.lever, sh: 'box', c: GV3(0, -0.05, 0.15), b: GV3(0.005, 0.022, 0.035), st: 'pinch', pc: GV3(0, -0.068, 0.15) },
+});
+function huntHandK(g) { return !RFL.g ? null : RFL.place === 'vr' && RFL.hand === g ? 'rgrip' : RFL.sup === g ? 'rfore' : RFL.levHand === g ? 'rlev' : null; }
+function huntHold(g) { return BINO.g === g || RFL.round.has(g) || (DEER.dress && DEER.dress.g === g); }
+function huntGrab(g, p) { return rflGrab(g, p) || binoGrab(g, p) || deerGrab(g, p); }
+function huntRelease(g) { rflRelease(g); binoRelease(g); deerRelease(g); }
+const _hpg = GV3(0, 0, 0);
+function huntPlaneGrab(g, sq, edge) {   // in the seat (VR): the binoculars from their holder
+  if (BINO.g === g) { if (!sq) binoRelease(g); return true; }
+  if (!edge || BINO.place !== 'cub') return false; g.getWorldPosition(_hpg); return binoGrab(g, _hpg);
+}
+function huntBoard() {   // climbing in: a rifle you carry goes in the Cub's rack, the binoculars in their holder
+  if (rflHas() || (RFL.place === 'ground' && RFL.gp && Math.hypot(RFL.gp[0] - ac.pos[0], RFL.gp[2] - ac.pos[2]) < 4)) { for (const m of RFL.round.values()) { m.removeFromParent(); RFL.spare++; } RFL.round.clear(); rflPut('cub'); }
+  if (BINO.desk) binoDesk(false); binoPut('cub'); DEER.dress = null;
+}
+function huntExit() { binoPut('chest'); }
+function huntTick(dt, vrOn) { rflTick(dt, vrOn); deerTick(dt); binoTick(dt, vrOn); }
+function huntSave() { return { rp: RFL.place === 'desk' || RFL.place === 'vr' ? 'back' : RFL.place, gp: RFL.place === 'ground' ? RFL.gp.map(r3) : undefined, gry: RFL.place === 'ground' ? r3(RFL.gry) : undefined,
+  tube: RFL.tube, ch: RFL.ch ? 1 : 0, ck: RFL.cocked ? 1 : 0, sp: RFL.spare, k: HUNT.kills }; }
+function huntLoad(d) {
+  RFL.tube = 6; RFL.ch = false; RFL.cocked = false; RFL.spare = 20; HUNT.kills = 0; let pl = 'cabin';
+  if (d && typeof d === 'object') { if (['cabin', 'cub', 'back', 'ground'].includes(d.rp)) pl = d.rp; RFL.tube = clamp(d.tube | 0, 0, GUN.tube); RFL.ch = !!d.ch; RFL.cocked = !!d.ck; RFL.spare = clamp(d.sp | 0, 0, GUN.pouch); HUNT.kills = d.k | 0;
+    if (pl === 'ground' && !(d.gp?.length === 3 && d.gp.every(isFinite))) pl = 'cabin'; if (pl === 'ground') { RFL.gp = d.gp.slice(); RFL.gry = +d.gry || 0; } }
+  if (pl === 'back' && mode === 'plane') pl = 'cub';
+  RFL.place = pl; if (RFL.g) rflPut(pl); binoPut(mode === 'plane' ? 'cub' : 'chest');
+}
+binoPut('cub');
+setTimeout(function huntAssets(tries = 3) {   // the rifle + deer models: after start-up (a dynamic import issued mid-evaluation can fail), retried
+  Promise.all([import('three/addons/loaders/GLTFLoader.js'), import('three/addons/utils/SkeletonUtils.js')]).then(([{ GLTFLoader }, SU]) => {
+    HUNT.SU = SU; const L = new GLTFLoader();
+    L.load('assets/lever-rifle.glb', g => { try { rflBuild(g.scene); } catch (e) { HUNT.err.push('rifle: ' + e); console.warn('rifle model', e); } }, undefined, e => HUNT.err.push('rifle: ' + (e?.message || e)));
+    for (const sp of ['deer', 'stag']) L.load('assets/animals/' + DSP[sp].file + '.glb', g => { try { deerSrc(sp, g); } catch (e) { HUNT.err.push(sp + ': ' + e); console.warn(sp + ' model', e); } }, undefined, e => HUNT.err.push(sp + ': ' + (e?.message || e)));
+  }).catch(e => { if (--tries > 0) return setTimeout(() => huntAssets(tries), 1000); HUNT.err.push(String(e)); });
+}, 400);
 // ================= v0.45 save: where the Cub is parked, fuel, time of day, on foot or aboard. New key - older (v0.44 and before) saves are left alone and ignored =================
 const SAVE_KEY = 'bushpilot-vr-blank-v1', NOSAVE = /[?&]nosave\b/.test(location.search);
 const SV = { t: 30, due: -1, last: 0, off: false, air: false, cubT: 0, cub: null, n: 0, why: '' };
@@ -4932,7 +5641,7 @@ function cubParked() { return !ac.crashed && acGS() < 1 && ac.gs.some(g => g.Fn 
 function saveGame(why) {
   if (NOSAVE || SV.off) return false;
   if (cubParked()) SV.cub = { p: ac.pos.map(r3), q: ac.q.map(v => Math.round(v * 1e6) / 1e6) };
-  const d = { v: 52, at: Date.now(), cub: SV.cub, fuel: r3(fuel), h: r3(DAY.h), mode, foot: mode === 'foot' ? [r3(footRig.position.x), r3(footRig.position.z), r3(bodyYaw)] : null, dlv: dlvSave() };   // v0.50: + wallet, jobs, cargo, straps
+  const d = { v: 53, at: Date.now(), cub: SV.cub, fuel: r3(fuel), h: r3(DAY.h), mode, foot: mode === 'foot' ? [r3(footRig.position.x), r3(footRig.position.z), r3(bodyYaw)] : null, dlv: dlvSave(), hunt: huntSave() };   // v0.53 + rifle / ammo   // v0.50: + wallet, jobs, cargo, straps
   try { localStorage.setItem(SAVE_KEY, JSON.stringify(d)); } catch (e) { return false; }
   SV.last = Date.now(); SV.n++; SV.why = why || ''; SV.t = 30; SV.due = -1; return true;
 }
@@ -4947,12 +5656,12 @@ function saveTick(dt) {
 }
 function gameLoad() {
   if (NOSAVE) return false; let d = null; try { d = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); } catch (e) { }
-  if (!d || ![45, 50, 51, 52].includes(d.v)) return false;   // v0.50 reads a v0.45 save too (no jobs yet: a fresh wallet and boards)
+  if (!d || ![45, 50, 51, 52, 53].includes(d.v)) return false;   // v0.50 reads a v0.45 save too (no jobs yet: a fresh wallet and boards)
   if (typeof d.fuel === 'number' && isFinite(d.fuel)) fuel = clamp(d.fuel, 0, FUEL_MAX);
   if (typeof d.h === 'number' && isFinite(d.h)) DAY.h = ((d.h % 24) + 24) % 24;
   if (d.cub && d.cub.p?.length === 3 && d.cub.q?.length === 4) { ac.pos = d.cub.p.slice(); ac.q = d.cub.q.slice(); SV.cub = d.cub; }
   if (d.mode === 'foot' && d.foot) { exitPlane(); const [x, z, yaw] = d.foot; footRig.position.set(x, groundY(x, z) + EYE, z); footRig.rotation.set(0, yaw, 0); bodyYaw = yaw; }
-  dlvLoad(d.v >= 50 ? d.dlv : null);
+  dlvLoad(d.v >= 50 ? d.dlv : null); huntLoad(d.v >= 53 ? d.hunt : null);
   msgT = 0; SV.last = d.at || 0; return true;
 }
 MYS_SITES.clear();   // the whole world is built now: clear trees and rocks off the strips and sites
@@ -5382,7 +6091,7 @@ renderer.setAnimationLoop(() => {
   } else if ((crashTimer += dt) > 2.5) resetFlight();
 
   plane.position.fromArray(ac.pos); plane.quaternion.fromArray(ac.q);
-  dlvTick(dt); wbWarn(dt);   // v0.50 delivery: game clock, falling / loose cargo, job boards
+  dlvTick(dt); wbWarn(dt); huntTick(dt, xr || HANDS.force);   // v0.53 rifle, deer, binoculars   // v0.50 delivery: game clock, falling / loose cargo, job boards
   GV.update(dt);   // v0.20 gear legs / tyres / tail wheel
   updateMap(); updateCockpitV19(dt);
   prop.rotation.z += ENG.rpm / 60 * 2 * Math.PI * dt * (ENG.rpm < 400 ? 1 : 0.13);   // aliased-looking slow spin (real speed while cranking)
@@ -5406,6 +6115,7 @@ renderer.setAnimationLoop(() => {
   hxTick(dt);                                // v0.24 haptics (engine / buffet / gear + queued pulses)
   if (xr || HANDS.force) { updateHands(dt); setpTick(); jbPoke(); }
   vlTick(); batchTick(); if (GFX.shadows && ((FT.n & 1) || mode !== 'plane' || ac.vel[0] * ac.vel[0] + ac.vel[1] * ac.vel[1] + ac.vel[2] * ac.vel[2] > 0.1)) renderer.shadowMap.needsUpdate = true;   // v0.47 static batches; shadow map at half rate   // v0.23 gloves (after the stick / knobs have their final pose); v0.45 wrist SETTINGS board
+  binoRender();   // v0.53 the 7x view (only while raised)
   renderer.render(scene, camera);
   const cpu = performance.now() - t0;            // JS + draw submission (GPU time isn't visible from here)
   dynTick(rawDt);   // v0.48 auto resolution
