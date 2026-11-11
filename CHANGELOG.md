@@ -25,7 +25,18 @@ Neil: "airdrops (open door/window in flight, push bundles out, streamer bundles 
   - When the last bundle is down the job pays its pay × the average share (half if late), and the spoken message gives the average distance and condition.
   - For example, from 30 m AGL at 28 m/s released 55–60 m short, the bundle lands in about 1.5 s, 20–35 m from the X, at about 75 % condition.
 - **Save v54:** a bundle in the air when you save is stored as where it will land (predicted). Older saves load.
-- **Perf** (1280×720 headless, v0.53.1 → v0.54): PERF_TABLE
+- **Perf** (1280×720 headless, v0.53.1 → v0.54):
+
+| View | Draw calls | Triangles | CPU ms |
+|---|---|---|---|
+| Seat at home | 74 → 75 | 275k → 277k | 1.73 → 1.73 |
+| On foot at the cabin | 52 → 53 | 266k → 268k | 1.27 → 1.51 |
+| 60 m from a herd | 51 → 52 | 226k → 228k | 1.77 → 1.70 |
+| Same, binoculars up | 38 → 38 | 214k → 213k | 1.54 → 1.60 |
+| Over Pine Flats at 120 m | 90 → 91 | 254k → 256k | 1.71 → 1.62 |
+| Over Burnt Hill, drop on, smoke up | 85 → 90 | 232k → 234k | 1.58 → 1.76 |
+
+  The site mesh is +1 draw call (+1.8k triangles), and the smoke + streamer adds up to 4–5 near a site. The smoke tick costs 0.008 ms a frame. CPU differences of ±0.2 ms are within run-to-run noise.
 - **Tests:** new **t54** (20 checks: sites, tree clearing, generator and pay, board / accept / kneeboard / map, smoke range, door gating, G drop + W&B, fall + score, cancel block, a lost bundle + finish pay + decor, the scoring curve, water and trees, save mid-fall, VR grab / door shut / hand-speed release, save v54, no errors). **t54clear** has joined the suite. t50, t52, t52h, t53 and reload now leave airdrop jobs out of their generator checks and expect save v54. The full suite passes; md5, W&B and lint (25) are unchanged.
 
 ## v0.53.1 – fixes
