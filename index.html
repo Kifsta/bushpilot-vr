@@ -2018,7 +2018,7 @@ function fuelPumpTick(dt) {
   FUELP.line.geometry.attributes.position.needsUpdate = true; FUELP.line.visible = true;
 }
 // ---- v0.17 low-poly part builder: [kind, a, b, c, x, y, z, col, rx, ry, rz] -> one vertex-coloured, flat-shaded piece (cockpit knobs, switches) ----
-const ITEM_VM = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true });
+const ITEM_VM = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true }), DEER_IVM = ITEM_VM.clone();   // v0.59 instanced users get their own copy (one program each, no switching)
 const _ic = new THREE.Color();
 function partGeo(p) {   // [kind, a, b, c, x, y, z, col, rx, ry, rz]
   const [k, a, b, c, x, y, z, col, rx = 0, ry = 0, rz = 0] = p;
@@ -5530,7 +5530,7 @@ function deerSrc(sp, gl) {
     for (let i = 0; i < n; i++) { sk.getVertexPosition(i, v); v.applyMatrix4(sk.matrixWorld); pos[i * 3] = -v.x * k; pos[i * 3 + 1] = v.y * k + S.y0; pos[i * 3 + 2] = -v.z * k; }
     let g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); if (src.attributes.color) g.setAttribute('color', src.attributes.color.clone()); if (src.index) g.setIndex(src.index.clone());
     g = g.toNonIndexed(); g.computeVertexNormals(); S.tris = g.attributes.position.count / 3;
-    const im = new THREE.InstancedMesh(g, ITEM_VM, DEER.list.length); im.count = 0; im.visible = false; im.frustumCulled = false; im.userData.noBatch = true; im.castShadow = false; scene.add(im); DEER.im[sp] = im; }
+    const im = new THREE.InstancedMesh(g, DEER_IVM, DEER.list.length); im.count = 0; im.visible = false; im.frustumCulled = false; im.userData.noBatch = true; im.castShadow = false; scene.add(im); DEER.im[sp] = im; }
   const bn = {}; root.traverse(o => { if (o.isBone) bn[o.name] = o; });
   if (BONE_N.every(n => bn[n])) { const flip = v => v.set(-v.x * k, v.y * k + S.y0, -v.z * k);
     const u = sphParts(DSP[sp], (n, v) => flip(v.setFromMatrixPosition(bn[n].matrixWorld)), v => { v.setFromMatrixColumn(bn.Head.matrixWorld, 1).normalize(); return v.set(-v.x, v.y, -v.z); });
@@ -6734,7 +6734,7 @@ function batchStatic(root, cell, skip) {
     if (m.vertexColors && !g.attributes.color) return; if (!m.vertexColors && g.attributes.color) return;
     if (g.attributes.color && g.attributes.color.itemSize !== 3) return;
     for (let q = o; q !== root; q = q.parent) if (!q || !q.visible || skip(q)) return;
-    const rel = batchRel(o, root, new THREE.Matrix4()), px = rel.elements[12], pz = rel.elements[14], bm = batchMat(m);
+    const rel = batchRel(o, root, new THREE.Matrix4()), bc = (g.boundingSphere || (g.computeBoundingSphere(), g.boundingSphere)).center, px = rel.elements[0] * bc.x + rel.elements[4] * bc.y + rel.elements[8] * bc.z + rel.elements[12], pz = rel.elements[2] * bc.x + rel.elements[6] * bc.y + rel.elements[10] * bc.z + rel.elements[14], bm = batchMat(m);   // v0.59: the cell of the geometry's centre (baked world geometry sits at 0, 0)
     const key = bm.uuid + '|' + o.renderOrder + '|' + o.frustumCulled + '|' + !!o.userData.noCast + '|' + o.castShadow + o.receiveShadow + (cell ? '|' + Math.floor(px / cell) + ',' + Math.floor(pz / cell) : '');
     let G = groups.get(key); if (!G) groups.set(key, G = { bm, o0: o, mem: [] });
     G.mem.push({ o, rel, par: o.parent, pv: g.attributes.position.version, geo: g, mat: m, mask: o.layers.mask, col: [m.color.r, m.color.g, m.color.b] });
@@ -6761,6 +6761,7 @@ function batchTick() {
   if (BATCH.on < 0) return;
   if (BATCH.on < 2) { BATCH.t0 ||= performance.now(); if (++BATCH.f >= 8 && performance.now() - BATCH.t0 > 600) { BATCH.on = 2;   /* ~half a second in: everything has had its first pose */
     const t = performance.now(), notWorld = q => q === plane || q === rig || q === footRig || q === camera || q === xrOffset;
+    for (const t of TOWN_MESH) t.m.userData.noBatch = true;   // v0.59: the towns / sites are one mesh each, culled by distance - merged into a cell they were drawn from anywhere
     BATCH.n = batchStatic(plane, 0, q => q === rig) + batchStatic(scene, BATCH.CELL, notWorld); BATCH.ms = performance.now() - t; }
     return; }
   BATCH.rr = (BATCH.rr + 1) % 8;
