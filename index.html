@@ -4484,7 +4484,7 @@ function repAdd(k, d) {
 }
 function repSay(r) { if (!r) return ''; return ' - ' + repWho(r.k) + ' ' + (r.d >= 0 ? '+' : '') + r.d + ' REP' + (r.up ? ', NOW ' + r.tier + (r.tier === 'REGULAR' ? ': ' + (REP_NAME[r.k] || repWho(r.k)) + ' WILL ASK FOR ' + PILOT : '') : r.down ? ', DOWN TO ' + r.tier : '') + (r.unl ? ' | ' + REP_UNL_T : ''); }
 function repJob(j, late, k) {   // a delivery: on time / early / late, the cargo's state
-  let d = late ? (UPG.radio ? -4 : -8) : 5;   // v0.57 with the COM radio you called ahead if (!late && j.dl && j.due - DLV.gt > j.dl * 0.4) d += 2;
+  let d = late ? (UPG.radio ? -4 : -8) : 5; if (!late && j.dl && j.due - DLV.gt > j.dl * 0.4) d += 2;   // v0.57 with the COM radio you called ahead: late costs half
   if (j.sp || j.hunt) d += Math.round((k - 0.75) * 16); if (dlvWc(j) === 'H') d += 1; if (j.req) d += 2;
   return repAdd(repKey(j), d);
 }
