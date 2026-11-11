@@ -2,6 +2,21 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.46.1 – Headset fixes: steady hands, a primer that stays put
+
+Fixes from Neil's headset test (shipped on top of v0.47 part 2).
+
+- **Hands shimmered and jumped while the Cub was moving.** The glove mesh lived in world coordinates, so its instance matrices carried the aircraft's world position (kilometres) in float32, and so did the view matrix it was multiplied by. The GPU subtracts the two huge numbers and loses the low bits. That makes the hand wobble against the cockpit by millimetres near the strip and more the further out you fly (about 1.6–2.6 mm at 23 km). The cockpit itself was steady because three.js forms its model-view matrix in double precision on the CPU.
+  - The hand pose maths was already in sync with the plane: physics, then the plane transform, then this frame's controller poses, then hands, then render. A new test measures the hand-to-cockpit and hand-to-stick offset frame to frame while flying fast and turning, and finds about 1e-11 m of change.
+  - Fix: the glove mesh is now carried in your own frame (`xrOffset`, inside the cockpit rig) and its instances are written relative to it, using this frame's plane pose. As drawn, the error is now under 0.0001 mm anywhere on the map.
+  - There is exactly one hand mesh; the test checks this.
+  - The shadow map (when shadows are on) refreshes every frame again while anything moves. v0.47's half-rate refresh made moving shadows step.
+- **The primer flicked between LOCKED and UNLOCKED while pumping.** Root cause: the lock was read from your wrist roll at all times. The unlock reset the twist reference to your twisted wrist, and relocking accepted a 40° twist in *either* direction whenever the plunger was within 4 mm of home. So every time a stroke bottomed out, relaxing or rolling your wrist relocked it. The next roll unlocked it again.
+  - Now locking and pumping are separate. While the plunger is out more than 5 mm, the twist reference follows your hand, so wrist roll means nothing.
+  - Locking needs the plunger fully home (under 1 mm) and a twist back the way it unlocked: past 30°, with 10° of hysteresis, held for 150 ms. Unlocking needs the same deliberate held twist.
+  - Twisting further open just rides the stop.
+- Tests: new `t461` (hand rigidity and float32 draw error at speed in a turn 23 km out; a single hand mesh; primer: brief or small twists, ten pump strokes with ±35° jittery wrist roll, twisting with the plunger out, relock and hysteresis). `t44` now holds its primer twists for 150 ms.
+
 ## v0.47 – Frame-rate pass (Quest 3: steady 72 / 90 Hz)
 
 Neil: "Do whatever you need to bring it back to a good fps".

@@ -1791,6 +1791,7 @@ function ohHand(g, squeeze, sqE) {   // true while this hand is on the flap hand
 }
 function stickAng(g, out) { plane.worldToLocal(g.getWorldPosition(_ohA)); const dy = Math.max(0.15, _ohA.y - STICK_PIVOT.y); return out.set(Math.atan2(_ohA.x - STICK_PIVOT.x, dy), 0, Math.atan2(_ohA.z - STICK_PIVOT.z, dy)); }
 function xrInput(dt) {
+  CKX.dt = dt;   // v0.46.1: the primer's held-twist timer
   let stickHeld = false;
   for (const g of grips) {
     const src = g.userData.src; if (!src || !src.gamepad) continue;
@@ -3136,7 +3137,8 @@ function updateDay(dt) {   // sun / sky / fog colour from the fixed time of day,
 const ENG = { valve: false, master: false, mix: 0, carb: false, mags: 0, starterVR: false, starter: false, cranking: false, wet: 0, temp: 0, running: false, rpm: 0,
   fireT: 0, hintT: 0, starveT: 0, cutT: 0, primeT: 0, startHeld: 0 };
 const MAG_N = ['OFF', 'R', 'L', 'BOTH'];
-const PRIME = { lock: true };                          // v0.44: the primer is locked in; twist to unlock it, stroke it, push in and twist to lock
+const PRIME = { lock: true, dir: 0 };
+const PRIME_TW = 0.52, PRIME_HY = 0.17, PRIME_HOLD = 0.15, PRIME_HOME = 0.001, PRIME_FREE = 0.005;   // v0.46.1: 30 deg twist (10 deg hysteresis) held 150 ms; plunger home < 1 mm; out > 5 mm = pumping                          // v0.44: the primer is locked in; twist to unlock it, stroke it, push in and twist to lock
 const LATCH = { rup: 1, rlo: 1, lf: 1, lr: 1 };       // v0.44: 1 = window / door latched shut (twist the latch handle to free it)
 function engColdDark() { Object.assign(ENG, { valve: false, master: false, mix: 0, carb: false, mags: 0, starterVR: false, starter: false, cranking: false, wet: 0, temp: 0, running: false, rpm: 0, fireT: 0, hintT: 0, starveT: 0, cutT: 0 }); }
 function engRunning() { Object.assign(ENG, { valve: true, master: true, mix: 1, carb: false, mags: 3, wet: 0.5, temp: 1, running: true, rpm: 2000 }); }   // tests / airborne spawns
@@ -3538,7 +3540,7 @@ function starterSync() { ENG.starterVR = CKX.grabStart || CKX.pokeStart[0] || CK
   const im = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshLambertMaterial({ color: 0xffffff, flatShading: true }), HN * 2);
   im.frustumCulled = false; im.visible = false; const c = new THREE.Color();
   for (let i = 0; i < HN * 2; i++) { const k = i % HN; im.setColorAt(i, c.set(k === 0 ? 0x2b231c : k === 1 ? 0x5b4630 : k >= 14 ? 0x544231 : 0x4a3a2a)); im.setMatrixAt(i, new THREE.Matrix4().makeScale(0, 0, 0)); }
-  scene.add(im); HANDS.mesh = im;
+  xrOffset.add(im); HANDS.mesh = im;   // v0.46.1: drawn in your own frame (it rides with the cockpit), so float32 world coordinates far out can't make it shimmer
   const ring = new THREE.Mesh(new THREE.TorusGeometry(1, 0.1, 4, 20), new THREE.MeshBasicMaterial({ color: 0xffd84a, transparent: true, opacity: 0.85, depthWrite: false }));
   ring.visible = false; ring.renderOrder = 3; plane.add(ring); HANDS.ring = ring;
   const ring2 = ring.clone(); plane.add(ring2); HANDS.rings = [ring, ring2];   // v0.24.1: one ring per hand
@@ -3835,8 +3837,10 @@ function tipTick() {
   TIP.mesh.position.copy(_tpA); TIP.mesh.position.y += up; TIP.mesh.position.lerp(_tpC, 0.08);
   camera.getWorldQuaternion(_tpQ); TIP.mesh.quaternion.copy(plane.quaternion).invert().multiply(_tpQ); TIP.mesh.visible = true;
 }
+const _hInv = new THREE.Matrix4();
 function updateHands(dt) {
   const im = HANDS.mesh, tips = []; let any = false; HANDS.t += dt;
+  im.parent.updateWorldMatrix(true, false); _hInv.copy(im.parent.matrixWorld).invert();   // v0.46.1: world hand pose -> the hand mesh's (cockpit-carried) frame, this frame's plane pose
   for (let i = 0; i < 2; i++) {
     const g = grips[i], st = HANDS.st[i], src = g.userData.src; st.vis = false;
     if (src) {
@@ -3853,7 +3857,7 @@ function updateHands(dt) {
       if (mode === 'plane' && (st.mode === 'free' || st.mode === 'tracked')) { ckPoke(i, g, st, dt); tips.push([i, g, st]); if (st.vis) panelStop(st); }
       else { st.hasPrev = false; if (CKX.pokeStart[i]) { CKX.pokeStart[i] = false; starterSync(); } }
     }
-    for (let k = 0; k < HN; k++) { if (st.vis && !(st.hide & (1 << k))) _hm.multiplyMatrices(st.W, st.M[k]); else _hm.makeScale(0, 0, 0); im.setMatrixAt(i * HN + k, _hm); }
+    for (let k = 0; k < HN; k++) { if (st.vis && !(st.hide & (1 << k))) _hm.multiplyMatrices(st.W, st.M[k]).premultiply(_hInv); else _hm.makeScale(0, 0, 0); im.setMatrixAt(i * HN + k, _hm); }
     any = any || st.vis;
   }
   im.instanceMatrix.needsUpdate = true; im.visible = any;
@@ -3867,7 +3871,7 @@ function twistAbout(q0, q1, n) { _tw1.copy(q1).multiply(_tw0.copy(q0).invert());
   if (a > Math.PI) a -= 2 * Math.PI; if (a < -Math.PI) a += 2 * Math.PI; return a; }
 function ckGrabStart(g, h) {
   const k = h.k; g.getWorldPosition(_ch); plane.worldToLocal(_ch); h.p0 = _ch.clone(); h.moved = false;
-  if (k === 'prime') { h.q0 = g.getWorldQuaternion(new THREE.Quaternion()); h.tw0 = 0; h.lk0 = PRIME.lock; }
+  if (k === 'prime') { h.q0 = g.getWorldQuaternion(new THREE.Quaternion()); h.pt = 0; }
   if (k in ROT) { h.q0 = g.getWorldQuaternion(new THREE.Quaternion()); h.i0 = k === 'mags' ? ENG.mags : k === 'plt' ? LIGHTS.pl : ENG.valve ? 1 : 0; h.i = h.i0; }
   if (k in PULL) { h.o0 = k === 'mix' ? (ENG.mix > 0.5 ? 0 : PULL.mix) : k === 'carb' ? (ENG.carb ? PULL.carb : 0) : 0; h.arm = false; }
   if (k === 'master' || k === 'ldg') { k === 'master' ? engSet('master') : toggleLanding(); h.moved = h.fl = true; hap(g, 0.6, 18); }   // v0.24.1: grip flips a toggle at once
@@ -3886,14 +3890,19 @@ function ckGrabMove(g, h) {
     CKX.vis[k] = ang;
   } else if (k in PULL) {
     const L = PULL[k], out = clamp(h.o0 + dp.z, 0, L); CKX.vis[k] = out;
-    if (k === 'prime') {   // v0.44: locked in until you twist it a quarter turn; push it home and twist back to lock
-      const tw = twistAbout(h.q0, g.getWorldQuaternion(_hq), _twn.set(0, 0, 1).applyQuaternion(plane.quaternion)), base = h.lk0 ? 0 : Math.PI / 2;
-      if (PRIME.lock) { CKX.vis[k] = 0; CKX.vis.primeR = clamp(base + (h.lk0 ? Math.abs(tw) : 0), 0, Math.PI / 2);
-        if (h.lk0 && Math.abs(tw) > 0.7) { PRIME.lock = false; h.lk0 = false; h.q0.copy(_hq); h.p0.copy(_ch); h.o0 = 0; h.moved = true; sfx('click'); hap(g, 0.55, 18); say('PRIMER UNLOCKED - PULL AND PUSH TO PRIME'); }
-        else if (!h.lk0 && Math.abs(tw) > 0.7) h.lk0 = true;
+    if (k === 'prime') {   // v0.44 lock / unlock by twisting. v0.46.1: a held twist with hysteresis, and pumping never reads your wrist roll
+      const dt = CKX.dt || 1 / 72, tw = twistAbout(h.q0, g.getWorldQuaternion(_hq), _twn.set(0, 0, 1).applyQuaternion(plane.quaternion));
+      if (PRIME.lock) {   // locked in: the plunger can't come out; twist either way past 30 deg and hold it there
+        CKX.vis[k] = 0; const a = Math.abs(tw); CKX.vis.primeR = clamp(a, 0, Math.PI / 2);
+        h.pt = a > (h.pt > 0 ? PRIME_TW - PRIME_HY : PRIME_TW) ? h.pt + dt : 0;
+        if (h.pt >= PRIME_HOLD) { PRIME.lock = false; PRIME.dir = Math.sign(tw) || 1; h.pt = 0; h.q0.copy(_hq); h.p0.copy(_ch); h.o0 = 0; h.moved = true; sfx('click'); hap(g, 0.55, 18); say('PRIMER UNLOCKED - PULL AND PUSH TO PRIME'); }
         return; }
-      CKX.vis.primeR = clamp(base - (out < 0.004 ? Math.abs(tw) : 0), 0, Math.PI / 2);
-      if (out < 0.004 && Math.abs(tw) > 0.7) { PRIME.lock = true; h.lk0 = true; h.q0.copy(_hq); CKX.vis[k] = 0; h.moved = true; sfx('click'); hap(g, 0.55, 18); say('PRIMER LOCKED'); return; }
+      if (out > PRIME_FREE) { h.q0.copy(_hq); h.pt = 0; }   // pumping: the twist reference rides with your hand, so wrist roll mid-stroke means nothing
+      const home = out < PRIME_HOME, back = home ? (PRIME.dir ? -PRIME.dir * tw : Math.abs(tw)) : 0;   // only fully home, and only back the way it unlocked
+      if (back < 0 && PRIME.dir) { h.q0.copy(_hq); h.pt = 0; }   // twisting further open is against the stop: the reference stays with your hand
+      CKX.vis.primeR = Math.PI / 2 - clamp(back, 0, Math.PI / 2);
+      h.pt = home && back > (h.pt > 0 ? PRIME_TW - PRIME_HY : PRIME_TW) ? h.pt + dt : 0;
+      if (h.pt >= PRIME_HOLD) { PRIME.lock = true; PRIME.dir = 0; h.pt = 0; h.q0.copy(_hq); CKX.vis[k] = 0; CKX.vis.primeR = 0; h.moved = true; sfx('click'); hap(g, 0.55, 18); say('PRIMER LOCKED'); return; }
       if (out > 0.01) h.moved = true;
       if (!h.arm && out > 0.75 * L) { h.arm = true; hap(g, 0.3, 10); }
       if (h.arm && out < 0.25 * L) { h.arm = false; engSet('prime'); hap(g); }
@@ -4378,7 +4387,7 @@ renderer.setAnimationLoop(() => {
   if ((chunkT += dt) > 0.2) { chunkT = 0; updateChunks(); }
   hxTick(dt);                                // v0.24 haptics (engine / buffet / gear + queued pulses)
   if (xr || HANDS.force) { updateHands(dt); setpTick(); }
-  batchTick(); if (GFX.shadows && (FT.n & 1)) renderer.shadowMap.needsUpdate = true;   // v0.47 static batches; shadow map at half rate   // v0.23 gloves (after the stick / knobs have their final pose); v0.45 wrist SETTINGS board
+  batchTick(); if (GFX.shadows && ((FT.n & 1) || mode !== 'plane' || ac.vel[0] * ac.vel[0] + ac.vel[1] * ac.vel[1] + ac.vel[2] * ac.vel[2] > 0.1)) renderer.shadowMap.needsUpdate = true;   // v0.47 static batches; shadow map at half rate   // v0.23 gloves (after the stick / knobs have their final pose); v0.45 wrist SETTINGS board
   renderer.render(scene, camera);
   const cpu = performance.now() - t0;            // JS + draw submission (GPU time isn't visible from here)
   FT.sf += rawDt * 1000; FT.sc += cpu; FT.sm = Math.max(FT.sm, rawDt * 1000); FT.n++;

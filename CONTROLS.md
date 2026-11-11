@@ -24,7 +24,7 @@ A new game starts **on foot beside the Cub** at the cabin strip. Climb in (Y / F
 | Master ON / OFF | Push the half of the red rocker that sticks out with your fingertip | O |
 | Mixture RICH (in) / CUTOFF (out) | Grab the red knob and pull it out / push it in | Y |
 | Carb heat COLD (in) / HOT (out) | Grab the black knob and pull it out / push it in | H |
-| Primer | v0.44: it is locked in. Grab the chrome T-handle and twist it a quarter turn to unlock it, then pull it all the way out and push it back in (one shot per stroke). Push it home and twist it back to lock it | P (one stroke) |
+| Primer | v0.44: it is locked in. Grab the chrome T-handle and twist it a quarter turn to unlock it, then pull it all the way out and push it back in (one shot per stroke). Push it home and twist it back to lock it. v0.46.1: the twist has to be deliberate (past about 30° and held for a moment), and while you're pumping it ignores how your wrist rolls. It only locks again once it's fully home and you twist it back the way it came | P (one stroke) |
 | Mags OFF > R > L > BOTH > START | Grab the key and twist clockwise / back (click + buzz per position). v0.44: keep twisting past BOTH, against the spring, to START, and the engine cranks while you hold it. Let go and it springs back to BOTH | I (Space to crank) |
 | Starter | Press and hold the red START button with your fingertip (or squeeze and hold it, and the glove points its index finger at it), or turn the key to START | Hold Space |
 | Checklist card | Squeeze it (under the right of the panel); let go to put it back | J |
