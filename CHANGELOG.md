@@ -2,6 +2,19 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.67.2 – rifle: clear sights, a real grip, lever on a button, easy loading
+From Neil's headset test, with his reference photo of a hand on a lever rifle. The physics block is untouched (md5 `eee6637e…`). Recoil is unchanged.
+- **Hammer in the sights:** with the hammer down, its top stood 6 mm into the sight line (y 57.8 mm against 51.7 mm). The spur is now cut to 5 mm under the sight line (top 46.7 mm; cocked 34.7 mm), so the rear notch and bead are clear either way. The sights are unchanged, so the zero is too.
+- **Grip, as in the photo:**
+  - The wrist grip shape takes in the lever's top bar, so the middle, ring and little fingers curl inside the lever loop round the wrist and the bar.
+  - The palm sits 13 mm lower on the wrist.
+  - The thumb wraps over the top of the wrist behind the hammer.
+  - The index curls into the guard round the trigger blade (it only feels the blade, and a minimum curl hooks it), and still curls further with the pull.
+- **Lever without letting go:** B (Y if the rifle is in your left hand) on the rifle hand works the lever: down and back up, out goes the case, the hammer cocks and the next round is chambered. While the rifle is held, that button doesn't do its usual job (B: reset, Y: board). The hand rides the loop down and back with the lever. The physical lever (support hand on the loop) and the one-handed flick still work.
+- **Loading is forgiving:** bring a round's tip within **6 cm** of the loading gate, pointing within about **60°** of forward, from any side, lever open or shut. It snaps onto the gate and slides in (60 ms + 100 ms) with a click, the gate sound and a haptic tick. Before, it had to come from behind and outside the gate, inside 2.5 cm, with the lever shut. The belt pouch now gives a round from **17 cm** (was 12 cm).
+- New test t672 (15 checks): hammer under the sight line and the eye-to-bead ray clear, thumb, index and finger placement, the lever button and a full cycle, the hand riding the lever, loading at 5 cm and 46°, no load at 7.6 cm or 72°, loads with the lever open, pouch reach. t67 updated for the new gate rule.
+- Screenshots: /workspace/qa-v0672-sights-hammer-down{-before,}.png, qa-v0672-sights-cocked.png (gloves hidden: the sight picture alone), qa-v0672-grip-{right,left}{-before,}.png, qa-v0672-grip-top.png, qa-v0672-grip-vs-reference.png (Neil's photo beside the new grip), qa-v0672-lever-mid.png, qa-v0672-reload.png (a round at the gate, gloves hidden).
+
 ## v0.67.1 – binoculars: the view comes up before they reach your face
 Neil (on Quest): "Have to put binoculars too close to headset so it clips through the camera." The physics block is untouched (md5 `eee6637e…`).
 - **Before:** the 7x view came up when the eyepieces were within 17 cm of the headset in any direction. It was a small ring in the middle of the view, and the binoculars and your hands stayed drawn round it, right at your eyes and through the near plane.

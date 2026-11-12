@@ -19,7 +19,7 @@
 </script>
 </head>
 <body>
-<div id="info">BUSH PILOT VR v0.67.1 - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
+<div id="info">BUSH PILOT VR v0.67.2 - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
 You start on foot by the Cub at the cabin strip. Walk up to her and climb in (F / Y), then start her up off the checklist card (J).
 Desktop - flying: W/S or arrows pitch, A/D or arrows roll, Q/E rudder, Shift / Ctrl (or + / -) throttle, B brakes, [ ] flaps, PgUp / PgDn trim,
   R reset to the strip (cold and dark), F climb out, M map, L landing light, Home recentre, mouse looks (click to capture).
@@ -1949,8 +1949,8 @@ function footXR(dt) {
   for (const g of grips) {
     const src = g.userData.src; if (!src || !src.gamepad) continue;
     const gp = src.gamepad, h = src.handedness, sq = !!gp.buttons[1]?.pressed;
-    if (h === 'left') { lx = gp.axes[2] || 0; ly = gp.axes[3] || 0; if (pressedEdge(gp, 5, 'Y')) board(); if (pressedEdge(gp, 4, 'X')) recenter(); if (pressedEdge(gp, 3, 'LS')) vr.sprint = true; }
-    else { rx = gp.axes[2] || 0; ry = gp.axes[3] || 0; if (pressedEdge(gp, 5, 'B')) resetFlight(); if (pressedEdge(gp, 4, 'A')) recenter(); }
+    if (h === 'left') { lx = gp.axes[2] || 0; ly = gp.axes[3] || 0; if (pressedEdge(gp, 5, 'Y')) { if (!rflLeverBtn(g)) board(); } if (pressedEdge(gp, 4, 'X')) recenter(); if (pressedEdge(gp, 3, 'LS')) vr.sprint = true; }
+    else { rx = gp.axes[2] || 0; ry = gp.axes[3] || 0; if (pressedEdge(gp, 5, 'B')) { if (!rflLeverBtn(g)) resetFlight(); } if (pressedEdge(gp, 4, 'A')) recenter(); }
     if (pressedEdge(gp, 0, h + 'tr')) rflTrigger(g);   // v0.53 trigger fires the rifle in that hand
     if (pressedEdge(gp, 1, h + 'sq')) { HX.ctx = g; HX.st(g).armed = true; handGrab(g); HX.ctx = null; }
     if (!sq) { HX.ctx = g; handRelease(g); HX.ctx = null; }   // v0.24: let-go clicks buzz this hand
@@ -4018,7 +4018,7 @@ function gSdf(gp, p) {   // signed distance from p (hand space) to the control's
     const dr = Math.sqrt(rx * rx + ry * ry + rz * rz) - gp.r, dt = Math.abs(t) - gp.hl;
     return dr > 0 && dt > 0 ? Math.sqrt(dr * dr + dt * dt) : Math.max(dr, dt); }
   const d = gBox(gp, gp.b);
-  if (gp.u) { _gq.subVectors(p, gp.uC); return Math.min(d, gBox(gp, gp.ub)); }   // v0.67: a second box (the trigger blade for the rifle's index finger)
+  if (gp.u) { _gq.subVectors(p, gp.uC); return gp.uo ? gBox(gp, gp.ub) : Math.min(d, gBox(gp, gp.ub)); }   // v0.67: a second box (the trigger blade for the rifle's index finger)
   return d;
 }
 function gBox(gp, b) {   // signed distance to a box (half extents b, axes gp.X/Y/Z) of the point _gq (relative to its centre)
@@ -4044,7 +4044,7 @@ function gripSolve(st, k, sx) {   // on grab: hand frame in the control's frame 
     let wr = D.wr; if (D.sh === 'box') wr = Math.max(wr, D.b.x * Math.abs(_gx.x) + D.b.y * Math.abs(_gx.y) + D.b.z * Math.abs(_gx.z));   // a flat handle: its depth under the palm
     _ga.set(sx * (0.0155 - wr), -0.045, D.wz); _gb.copy(_ga).applyMatrix4(_gH);         // palm anchor; slide along the grip to where your hand is
     const c = D.wc || D.c; _gA.set(0, 0, 0).setComponent(D.wa, 1); const t = clamp(_gc.subVectors(_gb, c).dot(_gA), -D.tl, D.tl);
-    _gc.copy(c).addScaledVector(_gA, t).sub(_gb.copy(_ga).applyMatrix4(st.Hc)); st.Hc.setPosition(_gc);
+    _gc.copy(c).addScaledVector(_gA, t).sub(_gb.copy(_ga).applyMatrix4(st.Hc)); if (D.wo) _gc.add(D.wo); st.Hc.setPosition(_gc);   // v0.67.2 wo: the palm sits off the axis (down the rifle's wrist)
   } else {
     st.Hc.copy(_gH); _ga.set(sx * G_PIN.x, G_PIN.y, G_PIN.z); _gb.copy(_ga).applyMatrix4(_gH); _gc.subVectors(D.pc, _gb);   // keep your wrist angle, knob between thumb and index
     st.Hc.elements[12] += _gc.x; st.Hc.elements[13] += _gc.y; st.Hc.elements[14] += _gc.z;
@@ -4054,8 +4054,8 @@ function gripSolve(st, k, sx) {   // on grab: hand frame in the control's frame 
   gp.X.set(1, 0, 0).transformDirection(_gI); gp.Y.set(0, 1, 0).transformDirection(_gI); gp.Z.set(0, 0, 1).transformDirection(_gI);
   if (gp.cyl) { gp.A.copy(D.a === 0 ? gp.X : D.a === 1 ? gp.Y : gp.Z); gp.r = D.r; gp.hl = D.hl; } else gp.b.copy(D.b);
   for (let f = 0; f < 4; f++) {                                                               // curl joint by joint until a bone touches
-    gp.u = f === 0 && !!D.idx; if (gp.u) { gp.uC.copy(D.idx.c).applyMatrix4(_gI); gp.ub.copy(D.idx.b); } gp.isp = st.isp = D.idx ? D.idx.sp : 0;   // v0.67 the index finds the trigger (the wrist is still there)
-    const lim = D.st === 'pinch' && f >= 1 ? G_TUCK : G_MAX; _gJ[0] = _gJ[1] = _gJ[2] = 0;
+    gp.u = f === 0 && !!D.idx; if (gp.u) { gp.uC.copy(D.idx.c).applyMatrix4(_gI); gp.ub.copy(D.idx.b); gp.uo = !!D.idx.only; } gp.isp = st.isp = D.idx ? D.idx.sp : 0;   // v0.67 the index finds the trigger (the wrist is still there)
+    const lim = f === 0 && D.idx?.lim ? D.idx.lim : D.st === 'pinch' && f >= 1 ? G_TUCK : G_MAX; _gJ[0] = _gJ[1] = _gJ[2] = 0;
     for (let j = 0; j < 3; j++) {
       let lo = 0, hi = -1;
       if (gFingerHit(gp, sx, f, j)) { _gJ[j] = 0; continue; }
@@ -4064,11 +4064,12 @@ function gripSolve(st, k, sx) {   // on grab: hand frame in the control's frame 
       for (let n = 0; n < 4; n++) { const m = (lo + hi) / 2; _gJ[j] = m; if (gFingerHit(gp, sx, f, j)) hi = m; else lo = m; }
       _gJ[j] = lo;
     }
+    if (f === 0 && D.idx?.min) for (let j = 0; j < 3; j++) _gJ[j] = Math.max(_gJ[j], D.idx.min[j]);   // v0.67.2 the index hooks the blade (it is thin: a little overlap does not show)
     st.ja[f * 3] = _gJ[0]; st.ja[f * 3 + 1] = _gJ[1]; st.ja[f * 3 + 2] = _gJ[2];
   }
   gp.u = false;
   const R = D.st === 'wrap' ? TH_P.wrap : null;                                               // thumb opposes: natural tip target pulled onto the surface
-  if (R) { st.gT.set(sx * R[1][0], R[1][1], R[1][2]); st.gA.set(R[0][0], R[0][1], R[0][2]); } else { st.gT.set(-sx * 0.012, -0.06, -0.052); st.gA.set(-0.55, -0.6, -0.58); }
+  if (R) { st.gT.set(sx * R[1][0], R[1][1], R[1][2]); st.gA.set(R[0][0], R[0][1], R[0][2]); if (D.th) st.gT.set(-sx * D.th.x, D.th.y, D.th.z).applyMatrix4(_gI); }   // v0.67.2 a thumb spot on the control else { st.gT.set(-sx * 0.012, -0.06, -0.052); st.gA.set(-0.55, -0.6, -0.58); }
   for (let n = 0; n < 3; n++) {
     const d = gSdf(gp, st.gT) - 0.0085, e = 1e-4; _gm.copy(st.gT);
     _gm.x += e; const dx = gSdf(gp, _gm); _gm.x -= e; _gm.y += e; const dy = gSdf(gp, _gm); _gm.y -= e; _gm.z += e; const dz = gSdf(gp, _gm);
@@ -4079,7 +4080,9 @@ function gripSolve(st, k, sx) {   // on grab: hand frame in the control's frame 
 }
 function gripOn(st, k, sx) {      // while a control is held: (re)solve on a new grab, then ride the control
   if (st.gk !== k) { st.gk = k; gripSolve(st, k, sx); st.gn++; }
-  st.gt = 1; st.GW.multiplyMatrices(gripFrame(k, _gF), st.Hc);
+  st.gt = 1; gripFrame(k, _gF);
+  if (k === 'rgrip' && RFL.levA > 0) { RFL.lever.updateWorldMatrix(true, false); _gF.copy(RFL.lever.matrixWorld).multiply(_gI.makeTranslation(-RFL.lever.position.x, -RFL.lever.position.y, -RFL.lever.position.z)); }   // v0.67.2 working the lever: the hand rides the loop down and back
+  st.GW.multiplyMatrices(_gF, st.Hc);
 }
 function gripBlend(st, dt) {      // 0 -> 1 over GRIP_T on grab, back on release (smoothstep); W = free hand -> grip frame
   st.gw = st.gt ? Math.min(1, st.gw + dt / GRIP_T) : Math.max(0, st.gw - dt / GRIP_T); const w = st.gw; st.ge = w * w * (3 - 2 * w);
@@ -4088,7 +4091,7 @@ function gripBlend(st, dt) {      // 0 -> 1 over GRIP_T on grab, back on release
   st.W.decompose(_gP0, _gQ0, _gS); st.GW.decompose(_gP1, _gQ1, _gS); _gP0.lerp(_gP1, st.ge); _gQ0.slerp(_gQ1, st.ge); st.W.compose(_gP0, _gQ0, _gS.set(1, 1, 1));
 }
 for (const st of HANDS.st) Object.assign(st, { gk: null, gt: 0, gw: 0, ge: 0, gn: 0, ja: new Float32Array(12), gT: GV3(0, 0, 0), gA: GV3(0, 0, 0), Hc: new THREE.Matrix4(), GW: new THREE.Matrix4(),
-  gp: { cyl: false, C: GV3(0, 0, 0), A: GV3(0, 0, 0), X: GV3(1, 0, 0), Y: GV3(0, 1, 0), Z: GV3(0, 0, 1), b: GV3(0, 0, 0), r: 0, hl: 0, u: false, uC: GV3(0, 0, 0), ub: GV3(0, 0, 0), isp: 0 }, jx: 0 });
+  gp: { cyl: false, C: GV3(0, 0, 0), A: GV3(0, 0, 0), X: GV3(1, 0, 0), Y: GV3(0, 1, 0), Z: GV3(0, 0, 1), b: GV3(0, 0, 0), r: 0, hl: 0, u: false, uo: false, uC: GV3(0, 0, 0), ub: GV3(0, 0, 0), isp: 0 }, jx: 0 });
 const _pinch = new THREE.Vector3();
 function handTargets(i, g, st) {                 // decide pose + world matrix for one controller hand
   const src = g.userData.src, gp = src?.gamepad, b = gp?.buttons || [], right = src?.handedness !== 'left';
@@ -5238,7 +5241,7 @@ wbUpdate();
 // trigger / gate nodes and the grip, forend and sight points of that mesh. It hangs on a rack on the home cabin wall and on a rack in the Cub.
 const HUNT = { rifleOk: false, deerOk: false, err: [], t0: performance.now(), ms: 0, kills: 0, shots: 0, hits: 0 };
 const GUN = { gripPitch: -40 * D2R, stockEngage: 0.14, stockFull: 0.04, stockTau: 0.15, leverTime: 0.12, leverMax: 0.9, mv: 400, drag: 0.0029, zeroM: 50, disp: 0.0006,
-  gateR: 0.025, magnetR: 0.05, tube: 7, pouch: 60, flick: 1.6,
+  gateR: 0.025, magnetR: 0.05, loadR: 0.06, loadCos: 0.5, pouchR: 0.17, tube: 7, pouch: 60, flick: 1.6,
   pickupBlend: 0.12, handoffBlend: 0.08, inertiaWn: 55, stockCapPos: 0.003, stockCapRot: 0.6, gateCone: 40 * D2R };   // v0.67 from the v0.9-v0.44 rifle: pick-up / hand-off blends, one-hand muzzle lag, stock pull rate cap, loading-gate entry cone
 const RECOIL2 = { rise: 4.5, kick: 3.3, yaw: 0.6, wn: 20, zeta: 0.45, kwn: 32, kzeta: 0.65, random: 0.15, stock: 0.4, twoHand: 0.7, desk: 0.6 };
 // points of the mesh (rifle space: metres, muzzle -z, +x = right side, origin just above the trigger)
@@ -5280,6 +5283,8 @@ function rflBuild(root) {
   g.traverse(o => { o.userData.noBatch = true; if (o.isMesh) { o.material = ITEM_VM; o.castShadow = true; o.receiveShadow = false; } });
   RFL.g = g; RFL.lever = g.getObjectByName('Lever'); RFL.hammer = g.getObjectByName('Hammer'); RFL.trig = g.getObjectByName('Trigger'); RFL.gateM = g.getObjectByName('LoadingGate');
   RFL.muzzle = g.getObjectByName('Muzzle');
+  { const P = RFL.hammer.geometry.attributes.position; let top = 0; for (let i = 0; i < P.count; i++) top = Math.max(top, P.getY(i));   // v0.67.2: the hammer stood 6 mm into the sight line (hammer down); its top cut to 5 mm under it
+    const k = Math.min(1, (RF.notch.y - 0.005 - RFL.hammer.position.y) / top); for (let i = 0; i < P.count; i++) if (P.getY(i) > 0) P.setY(i, P.getY(i) * k); P.needsUpdate = true; RFL.hammer.geometry.computeVertexNormals(); RFL.hammer.geometry.computeBoundingSphere(); RFL.hammer.geometry.computeBoundingBox(); }
   { const tg = RFL.trig.geometry.clone().applyMatrix4(new THREE.Matrix4().makeScale(1, 1, -1)), a = tg.attributes, ix = tg.index;   // v0.67: the blade was modelled curving back from its pin (convex face to the finger); mirrored fore-aft about the pin
     if (ix) { for (let i = 0; i < ix.count; i += 3) { const t = ix.getX(i + 1); ix.setX(i + 1, ix.getX(i + 2)); ix.setX(i + 2, t); } }
     else for (const k in a) { const A = a[k], n = A.itemSize; for (let i = 0; i < A.count; i += 3) for (let c = 0; c < n; c++) { const t = A.array[(i + 1) * n + c]; A.array[(i + 1) * n + c] = A.array[(i + 2) * n + c]; A.array[(i + 2) * n + c] = t; } }
@@ -5324,6 +5329,7 @@ const ZERO = (() => {   // rifle level, sight line through the notch at SIGHT_A:
 // ---- the action ----
 const invSmooth = a => 0.5 - Math.sin(Math.asin(clamp(1 - 2 * a, -1, 1)) / 3);
 function rflPulse(g, a, ms, tag) { if (g && g !== 'desk') HX.pulse(g, a, ms, tag || 'rifle'); }
+function rflLeverBtn(g) { if (RFL.place !== 'vr' || RFL.hand !== g || RFL.free) return false; cycleLever(); return true; }   // v0.67.2 B (Y left-handed) on the rifle hand: work the lever without letting go
 function cycleLever() { if (!rflHeld()) return; if (RFL.levFree) { RFL.levFree = false; RFL.levS = invSmooth(RFL.levA); } RFL.levReq = true; }
 function rflHandAngle(p) { RFL.g.worldToLocal(_rp3.copy(p)); return Math.atan2(-(_rp3.y - RFL.lever.position.y), _rp3.z - RFL.lever.position.z); }
 function leverTick(dt) {
@@ -5569,23 +5575,17 @@ function rflTick(dt, vrOn) {
   // VR rounds: the tip into the loading gate (inside 2.5 cm) loads it; keep squeezing and go back to the pouch for the next one
   const vrFoot = vrOn && mode === 'foot'; POUCH.visible = vrFoot && rflHas(); if (POUCH.visible) { rflPouch(POUCH.position); POUCH.rotation.set(0, headYaw(), 0); }
   rflLoadAnim(dt);
-  for (const [gh, m] of RFL.round) { m.position.copy(RND_HOLD); m.quaternion.identity(); if (RFL.place !== 'vr' || RFL.hand === gh) continue;   // v0.67 (from v0.44): the round has to come in from behind / outside the gate, pointing forward
+  for (const [gh, m] of RFL.round) { m.position.copy(RND_HOLD); m.quaternion.identity(); if (RFL.place !== 'vr' || RFL.hand === gh) continue;   // v0.67.2: forgiving - the tip within 6 cm of the gate, pointing roughly forward (60 deg), from any side, lever open or shut
     gh.updateWorldMatrix(true, false); m.updateWorldMatrix(true, false); RFL.g.updateMatrixWorld();
-    const tip = RFL.g.worldToLocal(m.localToWorld(_rp2.copy(RND_TIP))); _rd.subVectors(tip, RF.gate); const d = _rd.length(); if (d > GUN.magnetR) continue;
-    const inCone = d < 0.012 || _rd.dot(GATE_AX) > d * Math.cos(GUN.gateCone); _rq.copy(RFL.g.getWorldQuaternion(_rq2)).invert().multiply(m.getWorldQuaternion(_rq3)); _ru.set(0, 0, -1).applyQuaternion(_rq);
-    if (!inCone || _ru.z > -0.6) continue;
-    if (d < GUN.gateR) {
-      if (RFL.levA >= 0.02) continue;
-      if (RFL.tube >= GUN.tube) { if (RFL.fullT <= 0) { say('MAGAZINE FULL (' + GUN.tube + ')'); rflPulse(gh, 0.15, 10, 'gate'); RFL.fullT = 1.5; } continue; }
-      _rM.copy(RFL.g.matrixWorld).invert().multiply(m.matrixWorld); const p0 = GV3(0, 0, 0), q0 = new THREE.Quaternion(); _rM.decompose(p0, q0, _hbV);
-      RFL.round.delete(gh); RFL.g.add(m); m.position.copy(p0); m.quaternion.copy(q0); RFL.loading.push({ m, t: 0, p0, q0 });
-      rflLoadOne(gh); if (gh.userData.src?.gamepad?.buttons[1]?.pressed) RFL.reload.add(gh); continue; }
-    const w = 0.7 * smooth01(clamp((GUN.magnetR - d) / (GUN.magnetR - GUN.gateR), 0, 1));   // the last few cm: the round in your fingers swings onto the gate axis
-    _rM.copy(gh.matrixWorld).invert().multiply(RFL.g.matrixWorld).multiply(_lvR.makeTranslation(RND_ALIGN.x, RND_ALIGN.y, RND_ALIGN.z)); _rM.decompose(_rp3, _rq, _hbV);
-    m.position.lerp(_rp3, w); m.quaternion.slerp(_rq, w); if (d < GUN.magnetR * 0.8) rflPulse(gh, 0.05, 6, 'gate'); }
+    const tip = RFL.g.worldToLocal(m.localToWorld(_rp2.copy(RND_TIP))); const d = tip.distanceTo(RF.gate); if (d > GUN.loadR) continue;
+    _rq.copy(RFL.g.getWorldQuaternion(_rq2)).invert().multiply(m.getWorldQuaternion(_rq3)); _ru.set(0, 0, -1).applyQuaternion(_rq); if (_ru.z > -GUN.loadCos) continue;
+    if (RFL.tube >= GUN.tube) { if (RFL.fullT <= 0) { say('MAGAZINE FULL (' + GUN.tube + ')'); rflPulse(gh, 0.15, 10, 'gate'); RFL.fullT = 1.5; } continue; }
+    _rM.copy(RFL.g.matrixWorld).invert().multiply(m.matrixWorld); const p0 = GV3(0, 0, 0), q0 = new THREE.Quaternion(); _rM.decompose(p0, q0, _hbV);
+    RFL.round.delete(gh); RFL.g.add(m); m.position.copy(p0); m.quaternion.copy(q0); RFL.loading.push({ m, t: 0, p0, q0 });   // it snaps onto the gate and slides in
+    sfx('click'); rflLoadOne(gh); if (gh.userData.src?.gamepad?.buttons[1]?.pressed) RFL.reload.add(gh); }
   if (RFL.fullT > 0) RFL.fullT -= dt;
   for (const gh of RFL.reload) { const sq = gh.userData.src?.gamepad?.buttons[1]?.pressed; if (!sq || RFL.round.has(gh)) { if (!sq) RFL.reload.delete(gh); continue; }
-    if (gh.getWorldPosition(_rp2).distanceTo(rflPouch(_rp3)) < 0.12) rflTakeRound(gh); }
+    if (gh.getWorldPosition(_rp2).distanceTo(rflPouch(_rp3)) < GUN.pouchR) rflTakeRound(gh); }
   rflBullets(dt); rflCases(dt); fxTick(dt);
   if ((rflHintT -= dt) <= 0 && mode === 'foot') { rflHintT = 0.5; camera.getWorldPosition(_rp2);   // walking up to the rack / the ammo box
     const nr = _rp2.distanceTo(RACK.cabin.p) < 2.2 ? 'cabin' : null, nb = hyp(_rp2.x - RACK.box.x, _rp2.z - RACK.box.z) < 2;
@@ -5593,12 +5593,12 @@ function rflTick(dt, vrOn) {
       say(k === 'box' ? 'AMMO BOX: 20 ROUNDS .44-40 FOR $10 - ' + (d ? 'Z TO BUY' : 'GRAB IT TO BUY') + ' (POUCH ' + RFL.spare + ')' : 'RIFLE RACK - ' + (d ? 'T TAKES THE RIFLE' : 'GRAB THE RIFLE')); }
     RFL.hint = k; }
 }
-const RND_HOLD = GV3(0, -0.012, -0.04), RND_TIP = GV3(0, 0, -0.02), GATE_AX = GV3(0.5, 0, 0.866), RND_ALIGN = GV3(RF.gate.x + 0.004, RF.gate.y, RF.gate.z + 0.022);   // v0.67: held round, its tip, the gate's entry direction (back + out), aligned on the gate
-function rflLoadAnim(dt) {   // a round going in: 40 ms onto the gate axis, then 100 ms pushed in past the gate
+const RND_HOLD = GV3(0, -0.012, -0.04), RND_TIP = GV3(0, 0, -0.02), RND_ALIGN = GV3(RF.gate.x + 0.004, RF.gate.y, RF.gate.z + 0.022);   // v0.67: held round, its tip, aligned on the gate
+function rflLoadAnim(dt) {   // a round going in: 60 ms onto the gate axis, then 100 ms pushed in past the gate
   for (let i = RFL.loading.length - 1; i >= 0; i--) { const L = RFL.loading[i]; L.t += dt;
-    if (L.t < 0.04) { const k = smooth01(L.t / 0.04); L.m.position.lerpVectors(L.p0, RND_ALIGN, k); L.m.quaternion.slerpQuaternions(L.q0, _hbQ.identity(), k); }
-    else { const k = smooth01(Math.min(1, (L.t - 0.04) / 0.1)); L.m.quaternion.identity(); L.m.position.set(RND_ALIGN.x - 0.014 * k, RND_ALIGN.y, RND_ALIGN.z - 0.075 * k); }
-    if (L.t >= 0.14) { L.m.removeFromParent(); RFL.loading.splice(i, 1); } }
+    if (L.t < 0.06) { const k = smooth01(L.t / 0.06); L.m.position.lerpVectors(L.p0, RND_ALIGN, k); L.m.quaternion.slerpQuaternions(L.q0, _hbQ.identity(), k); }
+    else { const k = smooth01(Math.min(1, (L.t - 0.06) / 0.1)); L.m.quaternion.identity(); L.m.position.set(RND_ALIGN.x - 0.014 * k, RND_ALIGN.y, RND_ALIGN.z - 0.075 * k); }
+    if (L.t >= 0.16) { L.m.removeFromParent(); RFL.loading.splice(i, 1); } }
 }
 function rflTakeRound(g) {
   if (RFL.spare <= 0) { say('CARTRIDGE POUCH EMPTY - AMMO BOX BY THE CABIN ($10 / 20)'); return false; }
@@ -5621,7 +5621,7 @@ function rflGrab(g, p) {
     RFL.lever.updateWorldMatrix(true, false); if (RFL.lever.localToWorld(_rp2.copy(RF.loop)).distanceTo(p) < 0.07) { RFL.levHand = g; RFL.levFree = false; RFL.levGrab0 = rflHandAngle(p) - RFL.levA * GUN.leverMax; tick(g); return true; }
     RFL.g.worldToLocal(_rp3.copy(p)); if (_rp3.z < -0.1 && _rp3.z > -0.45 && hyp(_rp3.x, _rp3.y) < 0.09) { RFL.sup = g; tick(g); return true; }
   }
-  if (!RFL.round.has(g) && rflHas() && RFL.place !== 'back' && p.distanceTo(rflPouch(_rp2)) < 0.12) return rflTakeRound(g);
+  if (!RFL.round.has(g) && rflHas() && RFL.place !== 'back' && p.distanceTo(rflPouch(_rp2)) < GUN.pouchR) return rflTakeRound(g);
   if (RFL.place !== 'vr' && RFL.place !== 'desk' && (RFL.place === 'back' ? p.distanceTo(RFL.g.localToWorld(_rp2.copy(RF.grip))) < 0.3 : rflDistTo(p) < 0.09)) {   // pick it up (rack, ground, your back)
     const was = RFL.place; RFL.g.updateWorldMatrix(true, false); RFL.g.matrixWorld.decompose(RFL.baseP, RFL.baseQ, _hbV); RFL.free = false; rflPut('vr'); RFL.hand = g; RFL.prev.copy(p); RFL.stockF = RFL.stockW = RFL.stockFv = 0; sfx('pick'); HX.pulse(g, 0.5, 30, 'rifle');   // v0.67: it flies into the hand from where it was
     if (was !== 'back') say('RIFLE ' + RFL.tube + (RFL.ch ? '+1' : '') + ' - TRIGGER FIRES, FLICK DOWN OR WORK THE LEVER, ROUNDS FROM THE BELT POUCH INTO THE GATE');
@@ -5970,7 +5970,7 @@ function binoGrab(g, p) {
 function binoRelease(g) { if (BINO.g2 === g) { BINO.g2 = null; return; } if (BINO.g !== g) return; if (BINO.g2) { BINO.g = BINO.g2; BINO.g2 = null; return; } binoPut(mode === 'plane' ? 'cub' : 'chest'); HX.pulse(g, 0.15, 12, 'release'); }
 // ---- glue: hands, boarding, the frame, save ----
 Object.assign(GDEF, {   // v0.53 procedural grips on the rifle mesh: wrap the wrist of the stock, wrap the forend, pinch the lever loop
-  rgrip: { o: () => RFL.g, sh: 'box', c: GV3(0, -0.004, 0.072), b: GV3(0.013, 0.032, 0.03), st: 'wrap', wa: 2, wr: 0.013, tl: 0.012, wz: -0.004, idx: { c: GV3(0, -0.042, 0), b: GV3(0.0025, 0.011, 0.005), sp: -0.55 } },   // v0.67: the wrist measured off the mesh; the index on the trigger blade
+  rgrip: { o: () => RFL.g, sh: 'box', c: GV3(0, -0.0095, 0.072), b: GV3(0.013, 0.0375, 0.03), th: GV3(-0.008, 0.026, 0.09), wo: GV3(0, -0.013, 0), st: 'wrap', wa: 2, wr: 0.013, tl: 0.012, wz: -0.004, idx: { c: GV3(0, -0.05, -0.002), b: GV3(0.0025, 0.007, 0.005), sp: -0.5, lim: [1.7, 1.9, 0.9], min: [0, 0.75, 0.6], only: true } },   // v0.67: the wrist measured off the mesh; the index on the trigger blade. v0.67.2 (Neil's photo): the box takes in the lever's top bar, so the three lower fingers wrap inside the loop; the thumb over the top behind the hammer
   rfore: { o: () => RFL.g, sh: 'box', c: GV3(0, 0.006, -0.27), b: GV3(0.017, 0.022, 0.1), st: 'wrap', wa: 2, wr: 0.017, tl: 0.08, wz: -0.004 },
   rlev: { o: () => RFL.lever, sh: 'box', c: GV3(0, -0.05, 0.15), b: GV3(0.005, 0.022, 0.035), st: 'pinch', pc: GV3(0, -0.068, 0.15) },
   bR: { o: () => BINO.m, sh: 'cyl', c: GV3(0.032, 0, -0.005), a: 2, r: 0.021, hl: 0.05, st: 'wrap', wa: 2, wr: 0.021, tl: 0.02, wz: -0.004 },   // v0.65 binocular barrels
