@@ -19,7 +19,7 @@
 </script>
 </head>
 <body>
-<div id="info">BUSH PILOT VR v0.73 - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
+<div id="info">BUSH PILOT VR v0.74 - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
 You start on foot by the Cub at the cabin strip. Walk up to her and climb in (F / Y), then start her up off the checklist card (J).
 Desktop - flying: W/S or arrows pitch, A/D or arrows roll, Q/E rudder, Shift / Ctrl (or + / -) throttle, B brakes, [ ] flaps, PgUp / PgDn trim,
   R reset to the strip (cold and dark), F climb out, M map, L landing light, Home recentre, mouse looks (click to capture).
@@ -4956,10 +4956,10 @@ function jbPoke() {   // after updateHands: either fingertip on the nearest boar
 const FLOOR_PL = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0.25).applyMatrix4(CUB_M), BAG_PL = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0.13).applyMatrix4(CUB_M);
 const plY = (pl, z) => -(pl.normal.z * z + pl.constant) / pl.normal.y;
 const REAR_ZC = 1.0 + CK.z;
-const CZ = {   // load zones in body axes (plane-local); arm(z) = TCDS station of that spot
-  rear: { name: 'REAR SEAT', x: 0.24, z0: 0.775 + CK.z, z1: 1.215 + CK.z, y: () => -0.33 + CK.y, top: 0.6, arm: z => WNB.REAR_ARM + (z - REAR_ZC) / WNB.IN },
-  foot: { name: 'REAR FLOOR', x: 0.22, z0: 0.485 + CK.z, z1: 0.775 + CK.z, y: z => plY(FLOOR_PL, z), top: 0.32, arm: z => WNB.REAR_ARM + (z - REAR_ZC) / WNB.IN },
-  bag: { name: 'BAGGAGE', x: 0.25, z0: D2B(0, 1.07, -0.13).z, z1: D2B(0, 1.43, -0.13).z, y: z => plY(BAG_PL, z), top: 0.46 },
+const CZ = {   // load zones in body axes (plane-local); arm(z) = TCDS station of that spot; top = how high you may stack, ceil = the roof a loose piece hits (v0.74 stack to the roof, overload is your call)
+  rear: { name: 'REAR SEAT', x: 0.24, z0: 0.775 + CK.z, z1: 1.215 + CK.z, y: () => -0.33 + CK.y, top: 0.82, ceil: 0.86, arm: z => WNB.REAR_ARM + (z - REAR_ZC) / WNB.IN },
+  foot: { name: 'REAR FLOOR', x: 0.22, z0: 0.485 + CK.z, z1: 0.775 + CK.z, y: z => plY(FLOOR_PL, z), top: 0.45, ceil: 0.7, arm: z => WNB.REAR_ARM + (z - REAR_ZC) / WNB.IN },
+  bag: { name: 'BAGGAGE', x: 0.25, z0: D2B(0, 1.07, -0.13).z, z1: D2B(0, 1.43, -0.13).z, y: z => plY(BAG_PL, z), top: 0.78, ceil: 0.9 },
 };
 CZ.bag.zc = (CZ.bag.z0 + CZ.bag.z1) / 2; CZ.bag.arm = z => WNB.BAG_ARM + (z - CZ.bag.zc) / WNB.IN;
 const cgIn = () => DLV.items.filter(it => it.st === 'cargo');
@@ -5070,7 +5070,7 @@ function cgMove(it, f, dt) {
   else if (it.cz !== 'rear' && p.z < Z.z0 + hz) { cgHit(it, Math.abs(v.z)); p.z = Z.z0 + hz; v.z = 0; }
   const s2 = cgSupport(it.cz, it, p.x, p.z, p.y + 0.01) + s[1] / 2;
   if (p.y < s2) { cgHit(it, -v.y); p.y = s2; v.y = 0; }
-  const ceil = Z.y(p.z) + Z.top + 0.25 - s[1] / 2; if (p.y > ceil) { cgHit(it, v.y); p.y = ceil; v.y = Math.min(0, v.y); }
+  const ceil = Z.y(p.z) + (Z.ceil || Z.top + 0.25) - s[1] / 2; if (p.y > ceil) { cgHit(it, v.y); p.y = ceil; v.y = Math.min(0, v.y); }
   DLV.moved = true;
 }
 function cargoUpdate(dt) {

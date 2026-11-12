@@ -2,6 +2,15 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.74 – stack it to the roof
+Neil's list: stack cargo higher in the rear seat and the baggage bay, so you CAN overload the Cub if you choose. The physics block is untouched (md5 `eee6637e…`); the W&B maths already flies every piece at its station.
+- **Stack heights** (above the seat / floor): rear seat 0.60 → **0.82 m**, baggage bay 0.46 → **0.78 m**, rear floor 0.32 → **0.45 m**. Each zone also gets a roof (`ceil`: 0.86 / 0.90 / 0.70 m, measured against the cabin and the turtle deck) that a bouncing loose piece hits, instead of the old top + 25 cm.
+  - Parcels: 4 high on the rear seat (was 3). Sacks: 3 high in the bay (was 2). Cement bags: 6 on the rear seat (330 lb).
+- **Overload is your call:** nothing refuses a load for weight. Over max gross, aft CG and over 50 lb in the bay all still show on the loading line ("OVER GROSS", "OUT OF LIMITS", "BAGGAGE OVER 50 LB"), on the W&B card and in the throttle reminder.
+- **Strapped stacks** stay exactly where they are however tall (a strapped piece is never moved). The belt and net are drawn over the top of the stack. A loose stack still slides and hops, never through the roof.
+- Not done: pieces aren't turned 90° to fit two across, so a zone still holds one column of parcels side by side; the extra room is upward.
+- New test t74 (15 checks). Screenshots: /workspace/qa-v074-strapped-stack.png (6 cement bags strapped on the rear seat, seen from the front seat), qa-v074-loose-after.png (the same stack loose after a hard shove).
+
 ## v0.73 – a real fuel hose
 Neil's list: a physics fuel hose at the drums, with a nozzle you carry to the wing cap. The physics block is untouched (md5 `eee6637e…`). The fuel economy (price per gallon, credit and the receipt) is unchanged.
 - **The hose:**
