@@ -19,7 +19,7 @@
 </script>
 </head>
 <body>
-<div id="info">BUSH PILOT VR v0.62 - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
+<div id="info">BUSH PILOT VR v0.63 - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
 You start on foot by the Cub at the cabin strip. Walk up to her and climb in (F / Y), then start her up off the checklist card (J).
 Desktop - flying: W/S or arrows pitch, A/D or arrows roll, Q/E rudder, Shift / Ctrl (or + / -) throttle, B brakes, [ ] flaps, PgUp / PgDn trim,
   R reset to the strip (cold and dark), F climb out, M map, L landing light, Home recentre, mouse looks (click to capture).
@@ -576,6 +576,46 @@ function grainTexture(repeat) {  // 64x64 canvas noise, mipmapped; averages out 
   const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(...repeat);
   t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t;
 }
+// v0.63 ribbons that hug the drawn ground exactly: a convex xz polygon is cut along the ground's triangle edges (x, z and x + z on the 40 m grid; the 120 m outer
+// grid is a subset), so every piece lies on one flat ground triangle and its corners at terrainHeight + off are the surface itself, no float, no dig-in
+function polySplit(p, nx, nz, d) { const A = [], B = [];
+  for (let i = 0; i < p.length; i++) { const q = p[i], r = p[(i + 1) % p.length], sq = q[0] * nx + q[1] * nz - d, sr = r[0] * nx + r[1] * nz - d;
+    if (sq <= 0) A.push(q); if (sq >= 0) B.push(q); if ((sq < 0 && sr > 0) || (sq > 0 && sr < 0)) { const t = sq / (sq - sr), m = [q[0] + (r[0] - q[0]) * t, q[1] + (r[1] - q[1]) * t]; A.push(m); B.push(m); } }
+  return [A, B]; }
+function conformPoly(poly, off, pos, uvs = null, uvOf = null, onTri = null) {
+  let ps = [poly];
+  for (const [nx, nz] of [[1, 0], [0, 1], [1, 1]]) { const nps = [];
+    for (let p of ps) { let lo = 1e9, hi = -1e9; for (const q of p) { const d = q[0] * nx + q[1] * nz; if (d < lo) lo = d; if (d > hi) hi = d; }
+      for (let k = Math.floor(lo / T_C1) + 1; k * T_C1 < hi - 1e-6; k++) { if (k * T_C1 - lo < 1e-6) continue; const [a, b] = polySplit(p, nx, nz, k * T_C1); if (a.length > 2) nps.push(a); p = b; if (p.length < 3) break; }
+      if (p.length > 2) nps.push(p); }
+    ps = nps; }
+  for (const p of ps) for (let i = 1; i < p.length - 1; i++) { let a = p[0], b = p[i], c = p[i + 1]; if ((b[1] - a[1]) * (c[0] - a[0]) - (b[0] - a[0]) * (c[1] - a[1]) < 0) { const t = b; b = c; c = t; }   // wind it to face up
+    for (const q of [a, b, c]) { pos.push(q[0], terrainHeight(q[0], q[1]) + off, q[1]); if (uvs) uvs.push(...uvOf(q[0], q[1])); } if (onTri) onTri(); }
+}
+function conformStrip(S, hl, hw, off, uvs = true) {   // a strip rectangle (centre x, z, heading a: along = (sin a, cos a)) as one conformed geometry, uv u across 0..1, v along 0..1
+  const sa = Math.sin(S.a), ca = Math.cos(S.a), Wp = (l, w) => [S.x + sa * l + ca * w, S.z + ca * l - sa * w], pos = [], uv = [];
+  conformPoly([Wp(-hl, -hw), Wp(-hl, hw), Wp(hl, hw), Wp(hl, -hw)], off, pos, uvs ? uv : null, (x, z) => { const dx = x - S.x, dz = z - S.z; return [((dx * ca - dz * sa) / hw + 1) / 2, ((dx * sa + dz * ca) / hl + 1) / 2]; });
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); if (uvs) g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.computeVertexNormals(); return g;
+}
+// v0.63 runway surface: mowing bands across (flow and height cues on short final), worn tyre tracks (darker in the touchdown zones), rough edges with white edge marks,
+// white threshold bars and aiming blocks. One 128 x 1024 canvas over the whole strip (about 0.3 m a pixel); 'gray' = a tint-free version the vertex colours multiply
+const RWY_TEX = {};
+function runwayTex(kind = 'grass') {
+  if (RWY_TEX[kind]) return RWY_TEX[kind];
+  const W = 128, H = 1024, c = document.createElement('canvas'); c.width = W; c.height = H; const x = c.getContext('2d'), d = x.createImageData(W, H); let sd = 90731;
+  const rn = () => (sd = sd * 16807 % 2147483647) / 2147483647, gray = kind === 'gray', base = gray ? [236, 236, 236] : kind === 'dirt' ? [168, 150, 118] : [122, 168, 76], dirt = gray ? [176, 166, 150] : [138, 116, 78];
+  for (let py = 0; py < H; py++) { const f = py / H, tz = (f > 0.06 && f < 0.3) || (f > 0.7 && f < 0.94) ? 0.8 : 0.45, band = Math.floor(py / 26) % 2 ? 1.05 : 0.95;
+    for (let px = 0; px < W; px++) { const edge = px < 7 || px >= W - 7, n = 0.9 + 0.2 * rn(); let k = edge ? 0.86 : band, mix = 0;
+      for (const tc of [W * 0.43, W * 0.57]) { const e = Math.abs(px - tc); if (e < 3.5) mix = Math.max(mix, tz * (1 - e / 4) * (0.7 + 0.3 * rn())); }
+      const i = (py * W + px) * 4; for (let ch = 0; ch < 3; ch++) d.data[i + ch] = Math.min(255, (base[ch] * (1 - mix) + dirt[ch] * mix) * k * n); d.data[i + 3] = 255; } }
+  x.putImageData(d, 0, 0);
+  if (!gray) { x.fillStyle = kind === 'dirt' ? '#ece6d6' : '#f2f2ea';
+    for (const y0 of [0.012, 0.97]) for (let k = 0; k < 6; k++) x.fillRect(12 + k * 18.5, y0 * H, 10, 0.018 * H);   // threshold bars, both ends
+    for (const y0 of [0.15, 0.82]) for (const x0 of [0.27, 0.62]) x.fillRect(x0 * W, y0 * H, 0.11 * W, 0.03 * H);   // aiming blocks
+    for (let py = 40; py < H - 40; py += 64) { x.fillRect(8, py, 3, 9); x.fillRect(W - 11, py, 3, 9); } }   // edge marks every ~19 m
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping; return RWY_TEX[kind] = t;
+}
+const rwyTint = hex => { const a = new THREE.Color(hex), b = new THREE.Color(0x7aa84c); return new THREE.Color(Math.min(1, a.r / b.r), Math.min(1, a.g / b.g), Math.min(1, a.b / b.b)); };   // keep each strip's own green
 const nearMeadow = (x, z, m = 0) => Math.abs(x - MEADOW.x) < MEADOW.hw + m && Math.abs(z - MEADOW.z) < MEADOW.hl + m;
 let terrainMesh; const TERR_M = [];   // v0.48 the ground meshes (their material swaps with Terrain shading)
 function splitTiles(geo, tile) {   // non-indexed triangle soup -> one geometry per tile (by triangle centroid)
@@ -643,9 +683,10 @@ function splitTiles(geo, tile) {   // non-indexed triangle soup -> one geometry 
 // grass strip, cabin, trees
 const TREES = [];   // home-valley trees [x, y, z, scale] (the ambient birdsong listens for them)
 {
-  const strip = new THREE.Mesh(new THREE.PlaneGeometry(24, 310).rotateX(-Math.PI / 2),
-    new THREE.MeshLambertMaterial({ color: 0x7aa84c, map: grainTexture([4, 52]), polygonOffset: true, polygonOffsetFactor: -2 }));
-  strip.position.set(0, 0.03, -145); scene.add(strip);
+  grainTexture([4, 52]);   // v0.63: still drawn for its rand() calls (the world stays the same)
+  const strip = new THREE.Mesh(conformStrip({ x: 0, z: -145, a: Math.PI }, 155, 12, 0.03),
+    new THREE.MeshLambertMaterial({ map: runwayTex(), polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));   // v0.63 runway texture
+  scene.add(strip);
   const cabin = new THREE.Mesh(new THREE.BoxGeometry(6, 3, 5), mat(0x6b4a2f)); cabin.position.set(32, 1.5, -15); scene.add(cabin);
   const roof = new THREE.Mesh(new THREE.ConeGeometry(4.8, 2, 4), mat(0x3b3b3b));
   roof.position.set(32, 4, -15); roof.rotation.y = Math.PI / 4; roof.scale.set(1, 1, 0.85); scene.add(roof);
@@ -791,9 +832,7 @@ const lines = [];   // merged line segments (fence wires + power lines): one dra
     const nx = -(z1 - z0) / L * 2, nz = (x1 - x0) / L * 2;
     for (let k = 0; k < n; k++) {
       const a = k / n, b = (k + 1) / n, ax = x0 + (x1 - x0) * a, az = z0 + (z1 - z0) * a, bx = x0 + (x1 - x0) * b, bz = z0 + (z1 - z0) * b;
-      const P = (x, z) => [x, groundY(x, z) + 0.12, z];
-      const A = P(ax + nx, az + nz), B = P(ax - nx, az - nz), Cc = P(bx + nx, bz + nz), D = P(bx - nx, bz - nz);
-      rv.push(...A, ...B, ...Cc, ...B, ...D, ...Cc);
+      conformPoly([[ax + nx, az + nz], [bx + nx, bz + nz], [bx - nx, bz - nz], [ax - nx, az - nz]], 0.05, rv);   // v0.63 on the ground (was 8 m quads 0.12 m up, up to 0.33 m off)
     } } };
   const roadX = z => { for (let i = 0; i < ROAD_NS.length - 1; i++) { const [x0, z0] = ROAD_NS[i], [x1, z1] = ROAD_NS[i + 1];
     if (z <= z1) return x0 + (x1 - x0) * (z - z0) / (z1 - z0); } return ROAD_NS[ROAD_NS.length - 1][0]; };
@@ -2045,21 +2084,22 @@ function partGeo(p) {   // [kind, a, b, c, x, y, z, col, rx, ry, rz]
 // ---- world props: the ridge-top strip and the mountain conifers ----
 {
   // v0.7 ridge-top backcountry strip (~300 m, 2.2 km W of the cabin, ~730 m up): tyre markers, windsock, a lean-to
-  const my = MEADOW_H, mx = MEADOW.x, mz = MEADOW.z;
-  const ms = new THREE.Mesh(new THREE.PlaneGeometry(20, 2 * MEADOW.hl).rotateX(-Math.PI / 2),
-    new THREE.MeshLambertMaterial({ color: 0x8aa354, map: grainTexture([4, 50]), polygonOffset: true, polygonOffsetFactor: -2 }));
-  ms.position.set(mx, my + 0.08, mz); scene.add(ms);
+  const mx = MEADOW.x, mz = MEADOW.z;
+  grainTexture([4, 50]);   // v0.63: kept for its rand() calls
+  const ms = new THREE.Mesh(conformStrip({ x: mx, z: mz, a: 0 }, MEADOW.hl, 10, 0.04),   // v0.63 on the ground (it was a flat sheet up to 1.6 m off it)
+    new THREE.MeshLambertMaterial({ color: rwyTint(0x8aa354), map: runwayTex(), polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
+  scene.add(ms);
   const mt = [], mb = [], cue = [];
-  for (let z = -MEADOW.hl + 5; z <= MEADOW.hl - 5; z += 30) for (const x of [-11, 11]) mt.push([mx + x, my + 0.15, mz + z, 0, 1, 1, 1]);
-  for (const z of [-MEADOW.hl, MEADOW.hl]) for (let x = -9; x <= 9.1; x += 3) mb.push([mx + x, my + 0.1, mz + z, 0, 1, 1, 1]);
+  for (let z = -MEADOW.hl + 5; z <= MEADOW.hl - 5; z += 30) for (const x of [-11, 11]) mt.push([mx + x, terrainHeight(mx + x, mz + z) + 0.15, mz + z, 0, 1, 1, 1]);   // v0.63 tyre markers on the ground
+  for (const z of [-MEADOW.hl, MEADOW.hl]) for (let x = -9; x <= 9.1; x += 3) mb.push([mx + x, terrainHeight(mx + x, mz + z) + 0.1, mz + z, 0, 1, 1, 1]);
   for (let i = 0; i < 70; i++) { const side = rand() < 0.5 ? -1 : 1, x = mx + side * (16 + rand() * 30), z = mz + (rand() - 0.5) * 2 * (MEADOW.hl + 30), s = 0.4 + rand() * 0.7;
     cue.push([x, groundY(x, z) + 0.3 * s, z, rand() * 6, s, s * 0.75, s]); }   // scrub along the edges: height-judgement cues
   instanced(new THREE.TorusGeometry(0.4, 0.15, 5, 10).rotateX(Math.PI / 2), mat(0xf2f2f2), mt);
   instanced(new THREE.BoxGeometry(2.2, 0.1, 0.8), mat(0xf2f2f2), mb);
   instanced(new THREE.IcosahedronGeometry(1, 0), mat(0x4d6b32), cue);
-  const mp = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.06, 5, 5).translate(0, 2.5, 0), mat(0x999999)); mp.position.set(mx + 16, my, mz + 100); scene.add(mp);
+  const mp = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.06, 5, 5).translate(0, 2.5, 0), mat(0x999999)); mp.position.set(mx + 16, terrainHeight(mx + 16, mz + 100), mz + 100); scene.add(mp);
   const mk = new THREE.Mesh(new THREE.ConeGeometry(0.35, 2.4, 8, 1, true).rotateZ(Math.PI / 2 + 0.25).translate(1.2, -0.3, 0),
-    new THREE.MeshLambertMaterial({ color: 0xff6a13, side: THREE.DoubleSide })); mk.position.set(mx + 16, my + 4.9, mz + 100); mk.rotation.y = 0.6; scene.add(mk); sockFix(mk);
+    new THREE.MeshLambertMaterial({ color: 0xff6a13, side: THREE.DoubleSide })); mk.position.set(mx + 16, terrainHeight(mx + 16, mz + 100) + 4.9, mz + 100); mk.rotation.y = 0.6; scene.add(mk); sockFix(mk);
   const sx = mx + 24, sz = mz + 120, sy = groundY(sx, sz);
   box(4, 0.15, 3.2, mat(0x5b5b5b), sx, sy + 2.5, sz, scene).rotation.z = 0.18;                  // lean-to roof
   for (const [dx, dz] of [[-1.8, -1.4], [-1.8, 1.4], [1.8, -1.4], [1.8, 1.4]]) box(0.15, 2.4, 0.15, mat(0x5a4632), sx + dx, sy + 1.2, sz + dz, scene);
@@ -2210,15 +2250,8 @@ const LODGE = { x: -380, z: -2440, a: 1.83, hl: 140, hw: 10 };   // backcountry 
 
   // 7. backcountry lodge strip: 280 x 20 m grass, white end markers, windsock, log lodge + fuel shed on the south side
   { const L = LODGE, ax = Math.sin(L.a), az = Math.cos(L.a), px = az, pz = -ax;    // axis + perpendicular (south side = -perp)
-    const pos = [], uv = [], n = 28;
-    for (let i = 0; i < n; i++) for (const [s0, s1] of [[i, i + 1]]) {
-      const v = (s, w) => { const x = L.x + ax * (s / n * 2 - 1) * L.hl + px * w, z = L.z + az * (s / n * 2 - 1) * L.hl + pz * w; return [x, groundY(x, z) + 0.1, z]; };
-      const a0 = v(s0, -L.hw), a1 = v(s0, L.hw), b0 = v(s1, -L.hw), b1 = v(s1, L.hw);
-      pos.push(...a0, ...b0, ...a1, ...a1, ...b0, ...b1); uv.push(0, s0 / n, 0, s1 / n, 1, s0 / n, 1, s0 / n, 0, s1 / n, 1, s1 / n); }
-    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.computeVertexNormals();
-    if (g.attributes.normal.array[1] < 0) { for (let i = 0; i < pos.length; i += 9) for (let k = 0; k < 3; k++) { const t = pos[i + 3 + k]; pos[i + 3 + k] = pos[i + 6 + k]; pos[i + 6 + k] = t; }
-      g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.computeVertexNormals(); }   // make sure it faces up
-    const sm = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ color: 0x86a650, map: grainTexture([4, 50]), polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 })); scene.add(sm);
+    const g = conformStrip({ x: L.x, z: L.z, a: Math.atan2(ax, az) }, L.hl, L.hw, 0.04);   // v0.63 on the ground (28 long quads were up to 0.37 m off)
+    grainTexture([4, 50]); const sm = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ color: rwyTint(0x86a650), map: runwayTex(), polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 })); scene.add(sm);
     const o = { x: L.x, z: L.z, a: L.a + Math.PI / 2, y: 0 };    // local x = across the strip, local z = along it
     for (const e of [-1, 1]) for (let w = -8; w <= 8.1; w += 4) { const [x, z] = W(o, w, e * L.hl); const b = box(2, 0.12, 0.7, M.white, x, groundY(x, z) + 0.12, z, G); b.rotation.y = o.a; }
     { const [x, z] = W(o, -16, -L.hl + 40), y = groundY(x, z);
@@ -2418,9 +2451,8 @@ const TOWN_MESH = [];
   }
   // ---- Dry Fork strip: 300 x 20 m mown ribbon following the ground, corner markers + windsock ----
   { const S = DRYFORK_STRIP, v = [], sa = Math.sin(S.a), ca = Math.cos(S.a), Pt = (l, w) => { const x = S.x + sa * l + ca * w, z = S.z + ca * l - sa * w; return [x, groundY(x, z) + 0.06, z]; };
-    for (let l = -S.hl; l < S.hl; l += 10) for (let w = -S.hw; w < S.hw; w += 10) { const A = Pt(l, w), Bq = Pt(l, w + 10), Cq = Pt(l + 10, w), D = Pt(l + 10, w + 10); v.push(...A, ...Bq, ...Cq, ...Bq, ...D, ...Cq); }
-    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(v, 3)); g.computeVertexNormals();
-    const sm = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ color: 0x86ad55, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -3 })); scene.add(sm);
+    const g = conformStrip(S, S.hl, S.hw, 0.04); v.length = 0;   // v0.63 exact on the ground + the runway texture
+    const sm = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ color: rwyTint(0x86ad55), map: runwayTex(), side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -2 })); scene.add(sm);
     TOWN_MESH.push({ m: sm, x: S.x, z: S.z });
     const G = new THREE.Group(), mk = [];
     for (let l = -S.hl; l <= S.hl; l += 50) for (const w of [-S.hw - 1, S.hw + 1]) { const [x, y, z] = Pt(l, w); mk.push([x, y + 0.2, z, S.a, 1, 1, 1]); }
@@ -2621,9 +2653,8 @@ const MYS_SITES = {}, LAB = { floor: 0, rect: null };
     site('STATION', 'Halvorsen station', o); }
   // the station strip: graded gravel, edge markers, windsock, avgas drums (fuel for the hop over the east pass)
   { const S = HALV, v = [], sa = Math.sin(S.a), ca = Math.cos(S.a), Pt = (l, w) => { const x = S.x + sa * l + ca * w, z = S.z + ca * l - sa * w; return [x, groundY(x, z) + 0.06, z]; };
-    for (let l = -S.hl; l < S.hl; l += 10) for (let w = -S.hw; w < S.hw; w += 9) { const A = Pt(l, w), Bq = Pt(l, w + 9), Cq = Pt(l + 10, w), D = Pt(l + 10, w + 9); v.push(...A, ...Bq, ...Cq, ...Bq, ...D, ...Cq); }
-    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(v, 3)); g.computeVertexNormals();
-    const sm = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ color: 0x9c9482, map: grainTexture([3, 40]), side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -3 })); scene.add(sm);
+    const g = conformStrip(S, S.hl, S.hw, 0.04); v.length = 0;   // v0.63 exact on the ground; graded gravel with the dirt runway texture
+    grainTexture([3, 40]); const sm = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ color: 0xc8c4bc, map: runwayTex('dirt'), side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -2 })); scene.add(sm);
     TOWN_MESH.push({ m: sm, x: S.x, z: S.z, far: 6000 }); MOWN.push(S);
     const mk = []; for (let l = -S.hl; l <= S.hl; l += 40) for (const w of [-S.hw - 1, S.hw + 1]) { const [x, y, z] = Pt(l, w); mk.push([x, y + 0.2, z, S.a, 1, 1, 1]); }
     instanced(new THREE.BoxGeometry(0.9, 0.4, 0.4), mat(0xe8e2d0), mk, { far: 3500 });
@@ -4393,7 +4424,7 @@ for (const B of BUSH) { B.len = Math.round(B.hl * 2 / 10) * 10;   // the landing
       for (let k = 0; k < 9; k++) gp(o, 1.0, 0.45, 0.5, 0xd8c070, -2 + (k % 3) * 1.6, 0.23 + Math.floor(k / 3) * 0.45, -3.5 + (k % 2) * 0.2);
       gp(o, 2.2, 1.1, 1.1, 0xb8b8b0, 5.5, 1.6, -2); for (const a of [-0.8, 0.8]) gp(o, 0.12, 1.1, 0.12, 0x5a5e62, 5.5 + a, 0.55, -2); },   // farm fuel tank on its stand
   };
-  const GS = [], RV = [], RC = [];   // every camp in one merged mesh, every strip surface in another: 2 draw calls for all 8 sites
+  const GS = [], RV = [], RC = [], RU = [];   // every camp in one merged mesh, every strip surface in another: 2 draw calls for all 8 sites
   for (const B of BUSH) {
     const S = { x: B.x, z: B.z, a: B.a, y: 0 }, l0 = B.low ? -B.low * (B.hl - 25) : 0;   // strip frame: local x across, z along (W(S, w, l))
     const score = s => { let e = 0; for (const w of [B.hw + 8, B.hw + 18, B.hw + 30]) for (const l of [l0 - 14, l0, l0 + 14]) { const [x, z] = W(S, s * w, l), [x0, z0] = W(S, s * (B.hw + 2), l); e += Math.abs(groundY(x, z) - groundY(x0, z0)); if (waterDist(x, z) < 10) e += 60; } return e; };
@@ -4406,8 +4437,8 @@ for (const B of BUSH) { B.len = Math.round(B.hl * 2 / 10) * 10;   // the landing
     else for (const l of [-B.hl, B.hl]) for (const w of [-B.hw, B.hw]) mk(l, w, 0.5);   // painted rocks at the corners: someone uses this spot
     // the strip surface: graded / gravel ribbon, or two worn wheel tracks in the grass (meadow / ridge bench)
     const v = RV, col = RC, cA = new THREE.Color({ sandbar: 0xb3a98c, shore: 0xa69c7c, short: 0x86ad55, meadow: 0x7e6c48, ridge: 0x7e6c48 }[B.type]), cc = new THREE.Color();
-    const Pt = (l, w) => { const [x, z] = W(S, w, l); return [x, groundY(x, z) + 0.07, z]; };
-    const quad = (l, w, dl, dw) => { const A = Pt(l, w), Bq = Pt(l, w + dw), Cq = Pt(l + dl, w), D = Pt(l + dl, w + dw); v.push(...A, ...Bq, ...Cq, ...Bq, ...D, ...Cq); cc.copy(cA).offsetHSL(0, 0, (R() - 0.5) * 0.06); for (let k = 0; k < 6; k++) col.push(cc.r, cc.g, cc.b); };
+    const quad = (l, w, dl, dw) => { cc.copy(cA).offsetHSL(0, 0, (R() - 0.5) * 0.06); const tex = B.type === 'short';   // v0.63 conformed to the ground; mown 'short' strips get the runway pattern (others: a plain texel)
+      conformPoly([W(S, w, l), W(S, w + dw, l), W(S, w + dw, l + dl), W(S, w, l + dl)].map(([x, z]) => [x, z]), 0.05, v, RU, (x, z) => { if (!tex) return [0.02, 0.5]; const dx = x - B.x, dz = z - B.z, sa = Math.sin(B.a), ca = Math.cos(B.a); return [((dx * ca - dz * sa) / B.hw + 1) / 2, ((dx * sa + dz * ca) / B.hl + 1) / 2]; }, () => { for (let k = 0; k < 3; k++) col.push(cc.r, cc.g, cc.b); }); };
     for (let l = -B.hl; l < B.hl; l += 10) { if (B.type === 'meadow' || B.type === 'ridge') { for (const w of [-1.8, 1.0]) quad(l, w, 10, 0.8); } else for (let w = -B.hw; w < B.hw; w += B.hw) quad(l, w, 10, B.hw); }
     G.updateMatrixWorld(true); const gs = GS, n0 = gs.length;
     for (const q of G.children) { const h = (q.geometry.index ? q.geometry.toNonIndexed() : q.geometry.clone()).applyMatrix4(q.matrix); for (const k of Object.keys(h.attributes)) if (k !== 'position') h.deleteAttribute(k); h.computeVertexNormals();
@@ -4417,8 +4448,8 @@ for (const B of BUSH) { B.len = Math.round(B.hl * 2 / 10) * 10;   // the landing
   }
   { const S = HALV, sa = Math.sin(S.a), ca = Math.cos(S.a), P = (w, l) => [S.x - ca * w + sa * l, S.z + sa * w + ca * l];   // v0.56 the Halvorsen station board: across the strip from the compound
     const [bx, bz] = P(30, -40), [px, pz] = P(22, -32); DLV_STRIPS.push({ id: 'HALV', name: 'HALVORSEN STN', x: S.x, z: S.z, board: [bx, bz, Math.atan2(ca, -sa)], pad: [px, pz], lock: true }); }
-  { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(RV, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(RC, 3)); g.computeVertexNormals();
-    const rm = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -3 })); rm.userData.noBatch = true; scene.add(rm); BUSH.rib = rm;
+  { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(RV, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(RC, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(RU, 2)); g.computeVertexNormals();
+    const rm = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ vertexColors: true, map: runwayTex('gray'), side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -2 })); rm.userData.noBatch = true; scene.add(rm); BUSH.rib = rm;
     const mm = new THREE.Mesh(mergeGeometries(GS), new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true })); mm.userData.noBatch = true; scene.add(mm); for (const h of GS) h.dispose();
     mm.userData.tris = mm.geometry.attributes.position.count / 3; BUSH.mesh = mm; for (const B of BUSH) B.mesh = mm; }
   const c52 = MYS_SITES.clear, off = (x, z) => BUSH.some(B => { const dx = x - B.x, dz = z - B.z; if (dx * dx + dz * dz > 640000) return false;   // the strip (+40 m), a funnel off each end, the camp

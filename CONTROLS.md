@@ -57,6 +57,13 @@ v0.24 haptics: you feel the engine (rpm, rough running, cranking), stall buffet,
 - Full brakes with the stick forward (or neutral) at speed will tip it onto its nose. Keep the stick back.
 - Use right rudder on the takeoff roll. With no rudder it swings left and can ground-loop, as a real Cub does.
 - Grip: the strip is best. Grass and rough ground roll slower and are bumpier (felt through the seat at taxi speed).
+- **Reading the strip on approach (v0.63):** every strip lies exactly on the ground, so what you see is what the wheels will meet.
+  - The home strip and the Ridge, Dry Fork and Lodge strips are mown, with lighter and darker bands every ~8 m across them.
+    - On short final the bands rush toward you faster the lower you are, and their spacing tells you your height.
+    - Two worn tyre tracks run down the middle, darker in the touchdown zones.
+    - White threshold bars mark each end, with aiming blocks about a sixth of the way in and small white edge marks every ~19 m.
+  - Halvorsen's graded gravel strip has the same markings in a dirt version.
+  - Mown bush strips have the bands and tracks without paint.
 
 ## Windows and door (v0.19)
 | | VR | Desktop |

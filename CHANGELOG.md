@@ -2,6 +2,24 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.63 – strips and roads on the ground, runway texture
+Neil: "Some road strips and runways float above the terrain. Conform them to groundY per vertex / subdivide. Add a low-poly runway texture (grass/dirt, markings, edge markers, tyre tracks) for judging height on approach." The physics block is untouched (md5 `eee6637e…`). The world layout is unchanged: the instanced placement hash and the next rand() value match v0.62.
+- **The cause:** the ground is drawn as flat triangles on a 40 m grid (120 m beyond 3 km). The ribbons sampled the ground only at their own vertices, every 8–10 m, and sat at fixed offsets, so they bridged dips and cut into rises. Measured against the drawn ground (terrainHeight):
+  - Ridge (meadow) strip: a flat sheet, 1.6 m above the ground in places and buried in others.
+  - Lodge strip: −0.37 to +0.39 m. Bush ribbons: −0.22 to +0.26 m. Roads: +0.12 m everywhere, up to 0.33 m. Halvorsen: up to 0.12 m.
+- **The fix: exact conforming.** A new `conformPoly` cuts each ribbon polygon along the ground's triangle edges (the x, z and x + z lines of the 40 m grid; the 120 m grid lines are a subset). Every piece then lies on one flat ground triangle, and its corners at terrainHeight + offset are the surface itself.
+  - Now every strip, runway, bush ribbon and road is within 0.03–0.05 m of the ground at every sample. The new test t63 checks all seven ribbon meshes.
+  - Applies to the home strip, Ridge, Lodge, Dry Fork, Halvorsen, all bush-site ribbons and the roads. The Ridge tyre markers, threshold boards and windsock now stand on the ground too.
+  - Cost: +1.8k triangles for the roads and +0.6k for the bush ribbons, about +0.8k in total once the strips that dropped triangles are counted. Draw calls are unchanged.
+- **Runway texture (`runwayTex`):** one 128×1024 canvas over the whole strip, about 0.3 m a pixel, mipmapped with anisotropy 8. It has:
+  - mown bands every ~8 m, which give flow and height cues on short final;
+  - two worn tyre tracks, darker in the touchdown zones;
+  - rough edges with white edge marks every ~19 m;
+  - white threshold bars at both ends and aiming blocks.
+  - Variants: grass for the home strip, Ridge, Dry Fork and Lodge (each keeps its own green tint); dirt for Halvorsen gravel; and an untinted gray that the bush ribbons' vertex colours multiply. Mown 'short' bush strips get the pattern; tracks, sandbars and shores get a plain texel.
+  - The noise comes from a local generator, and the old grain textures are still drawn for their rand() calls, so nothing else in the world moves.
+- Screenshots: /workspace/qa-v063-meadow-before.png / -after.png (the Ridge strip half-buried, then whole), /workspace/qa-v063-lodge-before.png / -after.png, /workspace/qa-v063-home-final-before.png / -after.png (short final with the markings).
+
 ## v0.62 – wrist MENU button only when you look at your wrist
 Neil: "Wrist menu button: appears only when that wrist is turned toward the face." The physics block is untouched (md5 `eee6637e…`).
 - Before, poking anywhere on the left wrist screen opened SETTINGS. A finger brushing the wrist while flying or loading could open it.
