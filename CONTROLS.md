@@ -345,7 +345,8 @@ A customer stands at every job board. Walk up to them for a hello: their rep tie
 | Render scale | 70–140 % | VR framebuffer scale, applies next time you enter VR |
 | Foveation | OFF / LOW / MEDIUM / HIGH | Quest fixed foveation |
 | Draw distance | NEAR / MEDIUM / NORMAL / FAR | chunks, rocks, trees and haze |
-| Tree density | SPARSE / MEDIUM / FULL | |
+| Trees (v0.78: was "Forest") | OFF / SPARSE / MEDIUM / FULL | the 3D trees |
+| Forest (v0.78) | NORMAL / DENSE | DENSE adds ~43k flat 2D trees past about 270–500 m: spruce over the mountain slopes and woods spreading out from the valley groves. The 3D trees near you are unchanged. Costs up to 4 draw calls and 50–95k triangles. Off (NORMAL) by default, so try it on Quest |
 | Grass | OFF / LOW / HIGH | instanced tufts around you |
 | Clouds | OFF / NORMAL / HIGH | HIGH adds a second drifting layer |
 | Haze | LIGHT / NORMAL / THICK | fog distance |
@@ -373,7 +374,7 @@ A customer stands at every job board. Walk up to them for a hello: their rep tie
   - line 2: the foveation the XR layer reports (`FFR 1.00`, or `UNSUPPORTED`), the layer type and its framebuffer size, the refresh rate (and what the headset offers), MSAA and the render scale;
   - line 3: what Auto resolution is doing, how many scenery instances are drawn, and whether the ground is vertex-lit.
 - **PERFORMANCE**, **BALANCED** and **QUALITY** (v0.68.1: full scale, full terrain, low shadows, grass, far draw distance) buttons are at the bottom of the GRAPHICS tab. BALANCED is the default: 90 % render scale, foveation HIGH, 72 Hz, Terrain shading FAST+GRAIN, everything else NORMAL, Auto resolution ON. PERFORMANCE is the cheapest: 70 %, FAST ground, sparse forest, near draw distance, no clouds. A render scale change takes effect the next time you enter VR.
-- To find what costs the most, change one row at a time and watch line 1. **Terrain shading** (FAST / FAST+GRAIN / FULL), **Forest** (OFF / SPARSE / MEDIUM / FULL), **Clouds**, **Haze**, **Draw distance** and **Anti-aliasing** (needs a reload) are the big ones.
+- To find what costs the most, change one row at a time and watch line 1. **Terrain shading** (FAST / FAST+GRAIN / FULL), **Trees** (OFF / SPARSE / MEDIUM / FULL), **Forest** (NORMAL / DENSE, v0.78), **Clouds**, **Haze**, **Draw distance** and **Anti-aliasing** (needs a reload) are the big ones.
 - **Auto resolution** (default ON): if frames run over budget for more than a second, it steps down. First it shrinks the eye viewport to 85 % and forces foveation to HIGH. Then it goes to 75 % with the forest at 75 %, then to 65 % with the forest at 55 %. After about 10 s on budget it steps back up, and it waits longer if it keeps bouncing. Line 3 shows `(not supported here)` if the headset ignores the viewport request; the forest steps still apply.
 - The landing light (and shadows) make the ground per-pixel lit again, because it needs that to light the ground.
 - `?nobatch` turns off v0.47's static mesh batching and `?tile=N` turns on v0.47's tiled forest (both for comparing). F3 toggles the desktop FPS counter, Esc / F2 opens the MENU board and ` the old settings list; both have the presets.

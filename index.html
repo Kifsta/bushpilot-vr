@@ -19,7 +19,7 @@
 </script>
 </head>
 <body>
-<div id="info">BUSH PILOT VR v0.77.15 - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
+<div id="info">BUSH PILOT VR v0.78 - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
 You start on foot by the Cub at the cabin strip. Walk up to her and climb in (F / Y), then start her up off the checklist card (J).
 Desktop - flying: W/S or arrows pitch, A/D or arrows roll, Q/E rudder, Shift / Ctrl (or + / -) throttle, B brakes, \ parking brake, [ ] flaps, PgUp / PgDn trim,
   R reset to the strip (cold and dark), F climb out, M map, L landing light, Home recentre, mouse looks (click to capture).
@@ -526,7 +526,7 @@ const hyp = (a, b, c = 0) => Math.sqrt(a * a + b * b + c * c);   // v0.59 Math.h
 
 // ======================= RENDERING =======================
 // v0.35 settings (persist in localStorage 'bp_gfx'; ?gfx=shadows:2,grass:1 overrides for testing). Defaults = the v0.34 look and cost.
-const GFX_DEF = { shadows: 0, scale: 0.9, fov: 1, dist: 1, trees: 1, grass: 0, clouds: 1, fog: 1, msaa: 1, hz: 72, vig: 0, turn: 0, fps: 0, tod: 11, stk: 1, tips: 1, terr: 1, dyn: 1, glove: 0, hand: 0, volM: 1, volE: 1, volA: 1, volF: 1, wx: 1 };   // v0.68.1 dominant hand, volumes. v0.48 BALANCED: 90 % scale, 72 Hz, fast terrain shading, auto resolution; v0.49.1 the stick stays where you let go of it
+const GFX_DEF = { shadows: 0, scale: 0.9, fov: 1, dist: 1, trees: 1, grass: 0, clouds: 1, fog: 1, msaa: 1, hz: 72, vig: 0, turn: 0, fps: 0, tod: 11, stk: 1, tips: 1, terr: 1, dyn: 1, glove: 0, hand: 0, volM: 1, volE: 1, volA: 1, volF: 1, wx: 1, forest: 0 };   // v0.68.1 dominant hand, volumes. v0.48 BALANCED: 90 % scale, 72 Hz, fast terrain shading, auto resolution; v0.49.1 the stick stays where you let go of it
 const GFX = Object.assign({}, GFX_DEF);
 try { const o = JSON.parse(localStorage.getItem('bp_gfx') || '{}'); if ((o.v || 0) < 48) { if (o.scale === 1) delete o.scale; if (o.hz === 0) delete o.hz; }   // v0.48: saved copies of the old defaults (100 %, AUTO Hz) move to the new ones once
   if ((o.v || 0) < 49 && o.stk === 0) delete o.stk;   // v0.49.1: a saved CENTRES (the old default) switches to STAYS once; CENTRES chosen after this sticks
@@ -694,6 +694,7 @@ function splitTiles(geo, tile) {   // non-indexed triangle soup -> one geometry 
   build(2 * T_OUT, 2 * T_OUT / T_C2, false);
 }
 // grass strip, cabin, trees
+const FOREST2 = { n: 0 };   // v0.78 the sprite forest (count)
 const TREES = [];   // home-valley trees [x, y, z, scale] (the ambient birdsong listens for them)
 {
   grainTexture([4, 52]);   // v0.63: still drawn for its rand() calls (the world stays the same)
@@ -745,7 +746,7 @@ function instanced1(geo, material, list, opt, tiled) {
   im.computeBoundingSphere();   // from every instance: stays valid while the count is compacted below
   if (list.length) { im.instanceMatrix.setUsage(THREE.DynamicDrawUsage); im.frustumCulled = tiled || !opt;   // v0.48: every type is managed; the old unmanaged ones keep their (whole-set) culling sphere
     if (!im.geometry.boundingSphere) im.geometry.computeBoundingSphere(); const sc = list.map(o => Math.max(o[4], o[5], o[6])).sort((a, b) => a - b)[list.length >> 1];
-    CHUNKS.push({ im, full: im.instanceMatrix.array.slice(), xz: Float32Array.from(list.flatMap(o => [o[0], o[1], o[2]])), far: (opt && opt.far) || Infinity, lod: (opt && opt.lod) || Infinity, n: list.length, tree: !!(opt && opt.tree),
+    CHUNKS.push({ im, full: im.instanceMatrix.array.slice(), xz: Float32Array.from(list.flatMap(o => [o[0], o[1], o[2]])), far: (opt && opt.far) || Infinity, lod: (opt && opt.lod) || Infinity, n: list.length, tree: !!(opt && opt.tree), near: (opt && opt.near) || 0, spr: !!(opt && opt.spr),
       sz: im.geometry.boundingSphere.radius * sc, lm: material }); }
   return im;
 }
@@ -758,9 +759,11 @@ function updateChunks(force) {
   if (!force && hyp(_cp.x - _cpLast.x, _cp.y - _cpLast.y, _cp.z - _cpLast.z) < 40 + 0.2 * Math.min(agl, 1500)) return; _cpLast.copy(_cp);   // v0.48: rarer rebuilds up high
   const t0 = performance.now(), D = GFX.dist, TD = GFX.trees * DYN.tk, A = clamp((agl - 200) / 1000, 0, 1), LA = (1 - 0.45 * A) * DYN.lk;   // v0.35 draw distance / tree density; v0.48 thinner forest with height + auto resolution steps
   let up = 0;
-  for (const k of CHUNKS) { const M = k.im.instanceMatrix, Ar = M.array, f = Math.min(k.far, k.tree ? Infinity : k.sz * CH_SZK) * D, f2 = f * f, l = (k.tree ? k.lod * LA : k.lod) * D, l2 = l * l, l4 = 4 * l2; let c = 0;
+  for (const k of CHUNKS) { if (k.spr && !(GFX.forest > 0)) { k.im.count = 0; k.im.visible = false; continue; }   // v0.78 FOREST: NORMAL = no sprites
+    const M = k.im.instanceMatrix, Ar = M.array, f = Math.min(k.far, k.tree ? Infinity : k.sz * CH_SZK) * D, f2 = f * f, l = (k.tree ? k.lod * LA : k.lod) * D, l2 = l * l, l4 = 4 * l2; let c = 0;
     if (!(k.tree && TD <= 0)) for (let i = 0; i < k.n; i++) { const dx = k.xz[i * 3] - _cp.x, dy = k.xz[i * 3 + 1] - _cp.y, dz = k.xz[i * 3 + 2] - _cp.z, d2 = dx * dx + dy * dy + dz * dz;   // v0.48: 3D distance (height counts)
       if (d2 > f2 || (d2 > l2 && i % 3) || (d2 > l4 && i % 6)) continue;
+      if (k.near) { const h = Math.sin(k.xz[i * 3] * 7.13 + k.xz[i * 3 + 2] * 3.71) * 9631.7, nn = k.near * (0.7 + 0.6 * (h - Math.floor(h))); if (d2 < nn * nn) continue; }   // v0.78 sprites only past ~270-500 m (dithered, no hard ring)
       if (k.tree && TD < 1) { const h = Math.sin(k.xz[i * 3] * 12.9898 + k.xz[i * 3 + 2] * 78.233) * 43758.5453; if (h - Math.floor(h) >= TD) continue; }
       if (c !== i) { const F = k.full, s0 = i * 16, d0 = c * 16; for (let e = 0; e < 16; e++) Ar[d0 + e] = F[s0 + e]; } c++; }   // v0.47: no subarray garbage
     k.im.count = c; k.im.visible = c > 0;
@@ -2469,6 +2472,32 @@ const LODGE = { x: -380, z: -2440, a: 1.83, hl: 140, hw: 10 };   // backcountry 
   { const w = POIS.find(p => p.name === 'WRECK'); for (let k = 0; k < 28; k++) { const a = POI_R() * 6.283, r = 14 + POI_R() * 45, x = w.x + Math.cos(a) * r, z = w.z + Math.sin(a) * r, h = groundY(x, z), s = 1.2 + POI_R() * 1.2;
     con2.push([x, h + 4.5 * s, z, POI_R() * 6, s, s * 1.3, s]); } }   // the wreck came down into a stand of timber
   instanced(new THREE.ConeGeometry(2.2, 9, 5, 1, true), mat(0x2a5030), con2, { lod: 4000, tree: 1 });
+  // v0.78 FOREST: DENSE - 2D tree sprites far out (cross-quads, alpha-tested, one 4-cell atlas, 4 instanced draw calls); the 3D trees stay as they are near the camera. Own RNG: the world's rand() stream is untouched
+  { let sd = 0x78f0e; const r = () => (sd = (sd * 16807) % 2147483647) / 2147483647, cv = document.createElement('canvas'); cv.width = cv.height = 512; const g = cv.getContext('2d');
+    const poly = (c, P) => { g.fillStyle = c; g.beginPath(); P.forEach(([a, b], i) => i ? g.lineTo(a, b) : g.moveTo(a, b)); g.closePath(); g.fill(); };
+    const conifer = (ox, oy, lt, dk, tiers) => { poly('#3a2818', [[ox + 122, oy + 256], [ox + 134, oy + 256], [ox + 132, oy + 200], [ox + 124, oy + 200]]);   // low-poly spruce: stacked two-tone tiers (lit left, shaded right)
+      for (let t = 0; t < tiers; t++) { const y0 = oy + 222 - t * (200 / tiers), y1 = y0 - 250 / tiers - 18, w = 108 - t * (82 / tiers);
+        poly(lt, [[ox + 128 - w, y0], [ox + 128, y0 + 8], [ox + 128, y1]]); poly(dk, [[ox + 128, y0 + 8], [ox + 128 + w, y0], [ox + 128, y1]]); } };
+    const decid = (ox, oy, lt, dk, n) => { poly('#4a3520', [[ox + 120, oy + 256], [ox + 136, oy + 256], [ox + 132, oy + 150], [ox + 124, oy + 150]]);   // faceted crown: a few overlapping polygons
+      for (let k = 0; k < n; k++) { const a = k / n * 6.283, cx = ox + 128 + Math.cos(a) * 46, cy = oy + 108 + Math.sin(a) * 40, rr = 52 + r() * 14, P = [];
+        for (let q = 0; q < 6; q++) P.push([cx + Math.cos(q * 1.047 + a) * rr, cy + Math.sin(q * 1.047 + a) * rr * 0.9]); poly(Math.cos(a) < 0.2 ? lt : dk, P); }
+      const P = []; for (let q = 0; q < 6; q++) P.push([ox + 116 + Math.cos(q * 1.047) * 48, oy + 96 + Math.sin(q * 1.047) * 42]); poly(lt, P); };
+    conifer(0, 0, '#284d2e', '#1b3822', 4); conifer(256, 0, '#2d5532', '#1f3f26', 5); decid(0, 256, '#55803a', '#3f6430', 7); decid(256, 256, '#6f8a34', '#556c28', 6);
+    const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
+    const sm = new THREE.MeshLambertMaterial({ map: tex, alphaTest: 0.45, side: THREE.DoubleSide });
+    const cell = c => { const u0 = (c % 2) * 0.5, v0 = c < 2 ? 0.5 : 0, P = [], U = [], N = [];   // two crossed upright quads, normals up (lit like the ground, no dark edge-on side)
+      for (const a of [0, Math.PI / 2]) { const ca = Math.cos(a) * 0.5, sa = Math.sin(a) * 0.5;
+        P.push(-ca, 0, -sa, ca, 0, sa, ca, 1, sa, -ca, 0, -sa, ca, 1, sa, -ca, 1, -sa); U.push(u0, v0, u0 + 0.5, v0, u0 + 0.5, v0 + 0.5, u0, v0, u0 + 0.5, v0 + 0.5, u0, v0 + 0.5); for (let k = 0; k < 6; k++) N.push(0, 1, 0); }
+      const q = new THREE.BufferGeometry(); q.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); q.setAttribute('uv', new THREE.Float32BufferAttribute(U, 2)); q.setAttribute('normal', new THREE.Float32BufferAttribute(N, 3)); return q; };
+    const L = [[], [], [], []];
+    for (let i = 0; i < 1500000 && L[0].length + L[1].length < 42000; i++) { const x = (r() - 0.5) * 2 * (T_OUT - 100), z = (r() - 0.5) * 2 * (T_OUT - 100), h = groundY(x, z);   // conifers: the mountain forest, denser + a little higher and flatter
+      if (h < 25 || h > 920 + 80 * Math.sin(x * 0.0021 + z * 0.0013) || nearMeadow(x, z, 60)) continue; const ny = terrainNormal(x, z)[1]; if (ny < 0.70 || ny > 0.997) continue;
+      if (h < 90 && r() > (h - 25) / 65) continue; if (h < 160 && (clearOf(x, z, 10) || waterDist(x, z) < 8)) continue;
+      const s = 1.3 + r() * 1.5; L[r() < 0.5 ? 0 : 1].push([x, h - 0.4 * s, z, r() * 3.14, 4.6 * s, 10.5 * s * (1 + r() * 0.3), 4.6 * s]); }
+    for (const G0 of GROVES) for (let k = 0; k < 260; k++) { const a = r() * 6.283, d = 30 + 230 * Math.sqrt(r()), x = G0.x + Math.cos(a) * d, z = G0.z + Math.sin(a) * d, h = groundY(x, z);   // the valley groves spread out into woods
+      if (h > 90 || clearOf(x, z, 12) || waterDist(x, z) < 10) continue; const s = 0.9 + r() * 0.6; L[r() < 0.6 ? 2 : 3].push([x, h - 0.2, z, r() * 3.14, 7.5 * s, 9 * s, 7.5 * s]); }
+    for (let c = 0; c < 4; c++) { const im = instanced(cell(c), sm, L[c], { lod: 2600, tree: 1, near: 380, spr: 1 }); im.userData.noBatch = true; }
+    FOREST2.n = L.reduce((t, l) => t + l.length, 0); }
 }
 const _lcP = new THREE.Vector3();
 // ================= v0.22: small towns - three abandoned crossroads towns on the dirt-road network =================
@@ -5805,7 +5834,7 @@ const FX = {
 const TRH = { m: null, C: 16 };
 function treeHash() {   // every forest instance once (trunk / crown as a cylinder from its geometry's bounds), on the first shot
   const M = new Map(), C = TRH.C;
-  for (const k of CHUNKS) { if (!k.tree) continue; const geo = k.im.geometry; if (!geo.boundingBox) geo.computeBoundingBox(); const bb = geo.boundingBox, r0 = Math.max(-bb.min.x, bb.max.x, -bb.min.z, bb.max.z);
+  for (const k of CHUNKS) { if (!k.tree || k.spr) continue; const geo = k.im.geometry; if (!geo.boundingBox) geo.computeBoundingBox(); const bb = geo.boundingBox, r0 = Math.max(-bb.min.x, bb.max.x, -bb.min.z, bb.max.z);
     for (let i = 0; i < k.n; i++) { const e = k.full, o = i * 16; if (!e[o + 15]) continue; const sx = hyp(e[o], e[o + 1], e[o + 2]), sy = e[o + 5], x = e[o + 12], z = e[o + 14];
       const key = Math.floor(x / C) + ',' + Math.floor(z / C); let L = M.get(key); if (!L) M.set(key, L = []);
       const r = r0 * sx; L.push([x, e[o + 13] + bb.min.y * sy, z, r > 0.6 ? r * 0.62 : r, (bb.max.y - bb.min.y) * sy, r > 0.6 ? 'leaves' : 'wood']); } }
@@ -7447,7 +7476,8 @@ const GFX_OPT = [   // key, label, values, value labels, note (shown small under
   ['scale', 'Render scale', [0.7, 0.8, 0.9, 1, 1.2], ['70%', '80%', '90%', '100%', '120%'], 'VR: next time you enter VR'],
   ['fov', 'Foveation', [0, 0.33, 0.66, 1], ['OFF', 'LOW', 'MEDIUM', 'HIGH'], 'blurrier edges = faster'],
   ['terr', 'Terrain shading', [0, 1, 2], ['FAST', 'FAST+GRAIN', 'FULL'], 'ground: per-vertex light'],
-  ['trees', 'Forest', [0, 0.4, 0.7, 1], ['OFF', 'SPARSE', 'MEDIUM', 'FULL'], 'tree density'],
+  ['trees', 'Trees', [0, 0.4, 0.7, 1], ['OFF', 'SPARSE', 'MEDIUM', 'FULL'], 'tree density'],
+  ['forest', 'Forest', [0, 1], ['NORMAL', 'DENSE'], 'DENSE: +50k 2D trees far out (+4 draws)'],
   ['dist', 'Draw distance', [0.6, 0.8, 1, 1.3], ['NEAR', 'MEDIUM', 'NORMAL', 'FAR'], 'trees, rocks, haze'],
   ['clouds', 'Clouds', [0, 1, 2], ['OFF', 'NORMAL', 'HIGH'], 'sky detail'],
   ['fog', 'Haze', [0, 1, 2], ['LIGHT', 'NORMAL', 'THICK'], 'how far you can see'],
@@ -7501,7 +7531,7 @@ function gfxApply(k) {
   if (all || k === 'scale') { renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5) * GFX.scale); if (!renderer.xr.isPresenting) renderer.xr.setFramebufferScaleFactor(GFX.scale); }
   if (all || k === 'fov') renderer.xr.setFoveation(DYN.lvl ? Math.max(1, GFX.fov) : GFX.fov);
   if (k === 'dyn' && !GFX.dyn) dynSet(0);
-  if (all || k === 'dist' || k === 'trees') updateChunks(true);
+  if (all || k === 'dist' || k === 'trees' || k === 'forest') updateChunks(true);
   if ((all && GFX.shadows) || k === 'shadows') gfxShadows();
   if (all || k === 'clouds') gfxClouds();
   if (all || k === 'hz') gfxRate();
@@ -7750,7 +7780,7 @@ const SETP_ROW = i => ({ X: i < 10 ? 30 : 527, Y: 96 + (i % 10) * 48 });   // v0
 // v0.68.1 the MENU board: tabs along the top (RESUME, SAVE / LOAD, GRAPHICS, COMFORT, CONTROLS, AUDIO), big poke / point targets, CLOSE bottom right.
 // Poke with a fingertip or point either controller at it and pull the trigger. Desktop: the same board in a page overlay (Esc / F2), clicked with the mouse.
 const MENU_TABS = [['resume', 'RESUME'], ['save', 'SAVE / LOAD'], ['gfx', 'GRAPHICS'], ['comfort', 'COMFORT'], ['controls', 'CONTROLS'], ['audio', 'AUDIO']];
-const MENU_ROWS = { gfx: ['scale', 'fov', 'terr', 'trees', 'dist', 'clouds', 'fog', 'wx', 'shadows', 'grass', 'msaa', 'dyn', 'hz', 'fps', 'tod', 'glove'], comfort: ['vig', 'turn', 'stk', 'tips'], controls: ['hand', 'hx'], audio: ['volM', 'volE', 'volA', 'volF'] };
+const MENU_ROWS = { gfx: ['scale', 'fov', 'terr', 'trees', 'forest', 'dist', 'clouds', 'fog', 'wx', 'shadows', 'grass', 'msaa', 'dyn', 'hz', 'fps', 'tod', 'glove'], comfort: ['vig', 'turn', 'stk', 'tips'], controls: ['hand', 'hx'], audio: ['volM', 'volE', 'volA', 'volF'] };
 const MENU_TAB = i => ({ X: 22 + i * 164, W: 158 });
 const MENU_SLOT = n => 76 + (n - 1) * 128;   // a manual slot's box top (right column)
 const MENU_HELP = ['TRIGGER  fire / brake / next page', 'GRIP  grab (stick, throttle, knobs, cargo)', 'A / X  recentre + set height', 'B  reset flight (on the rifle: lever)', 'Y  climb in / out (left rifle: lever)',
