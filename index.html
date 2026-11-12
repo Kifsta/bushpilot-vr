@@ -19,7 +19,7 @@
 </script>
 </head>
 <body>
-<div id="info">BUSH PILOT VR v0.77.5 - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
+<div id="info">BUSH PILOT VR v0.77.6 - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
 You start on foot by the Cub at the cabin strip. Walk up to her and climb in (F / Y), then start her up off the checklist card (J).
 Desktop - flying: W/S or arrows pitch, A/D or arrows roll, Q/E rudder, Shift / Ctrl (or + / -) throttle, B brakes, [ ] flaps, PgUp / PgDn trim,
   R reset to the strip (cold and dark), F climb out, M map, L landing light, Home recentre, mouse looks (click to capture).
@@ -5464,7 +5464,7 @@ const RIFLE_POSES = {
   GRIP_OFFSET: [null, null],   // [right primary, left primary]: { grip, q, fore, qs } - filled by rflLoadPoses
 };
 const GUN = { stockEngage: 0.14, stockFull: 0.04, stockTau: 0.15, leverTime: 0.12, leverMax: 0.9, mv: 400, drag: 0.0029, zeroM: 50, disp: 0.0006,
-  gateR: 0.025, magnetR: 0.05, loadR: 0.1, loadCos: 0.5, pouchR: 0.24, grabR: 0.15, loadBtnR: 0.25, tube: 7, pouch: 60, flick: 1.6,
+  gateR: 0.025, magnetR: 0.05, loadR: 0.1, loadCos: 0.5, pouchR: 0.24, grabR: 0.15, stockR: 0.15, loadBtnR: 0.25, tube: 7, pouch: 60, flick: 1.6,
   pickupBlend: 0.12, handoffBlend: 0.08, inertiaWn: 55, stockCapPos: 0.003, stockCapRot: 0.6, gateCone: 40 * D2R };   // v0.67 from the v0.9-v0.44 rifle: pick-up / hand-off blends, one-hand muzzle lag, stock pull rate cap, loading-gate entry cone
 const RECOIL2 = { rise: 4.5, kick: 3.3, yaw: 0.6, wn: 20, zeta: 0.45, kwn: 32, kzeta: 0.65, random: 0.15, stock: 0.4, twoHand: 0.7, desk: 0.6 };
 // points of the mesh (rifle space: metres, muzzle -z, +x = right side, origin just above the trigger)
@@ -5771,7 +5771,7 @@ function rflLoadPoses(src, solve) {   // v0.77.5 RIFLE_POSES from a pose-lab opt
   RIFLE_POSES.primary.lab = { src: src.rgripR, sx: 1, ...solve.rgripR }; RIFLE_POSES.support.lab = { src: src.rforeL, sx: -1, ...solve.rforeL };
   for (const sx of [1, -1]) { const o = RIFLE_POSES.GRIP_OFFSET[sx > 0 ? 0 : 1] = { grip: GV3(0, 0, 0), q: new THREE.Quaternion(), fore: GV3(0, 0, 0), qs: new THREE.Quaternion() };
     rflLabHc(RIFLE_POSES.primary.lab, sx, _lbM).multiply(_lbH); o.grip.setFromMatrixPosition(_lbM); o.q.setFromRotationMatrix(_lbM).invert();   // controller = hand * HOFF^-1
-    rflLabHc(RIFLE_POSES.support.lab, -sx, _lbM).multiply(_lbH); o.fore.setFromMatrixPosition(_lbM);
+    rflLabHc(RIFLE_POSES.support.lab, -sx, _lbM).multiply(_lbH); o.fore.setFromMatrixPosition(_lbM); o.fq = new THREE.Quaternion().setFromRotationMatrix(_lbM).invert(); o.fp = o.fore.clone().applyQuaternion(o.fq).negate();   // v0.77.6 held by the forend hand alone
     aimQuat(_lbX.subVectors(o.fore, o.grip), _lbY.set(0, 1, 0), o.qs).invert(); }   // two hands: the grip -> forend controller line onto the bore
   RFL.sx = 0; rflSide(1);
 }
@@ -5817,10 +5817,10 @@ function rflPose(dt) {
     _rq.slerp(_sq, k); _rp.lerp(_sp, k);
     _rq.premultiply(_rq2); _rp.applyQuaternion(_rq2).add(_rp2);
   } else if (RFL.place === 'vr') {
-    const G = RFL.hand; rflSide(G.userData.src?.handedness === 'left' ? -1 : 1); G.updateWorldMatrix(true, false); G.getWorldPosition(_rH); G.getWorldQuaternion(_rq2);
+    const G = RFL.hand; rflSide((G.userData.src?.handedness === 'left' ? -1 : 1) * (RFL.free ? -1 : 1)); G.updateWorldMatrix(true, false); G.getWorldPosition(_rH); G.getWorldQuaternion(_rq2);   // v0.77.6 free: RFL.hand is the forend hand, the offsets are the other side's primary
     const q1 = _rq3.copy(_rq2).multiply(Q_GRIP); _ru.set(0, 1, 0).applyQuaternion(q1); RFL.trigV = RFL.free ? 0 : G.userData.src?.gamepad?.buttons[0]?.value || 0;
-    if (RFL.free) {   // v0.67 (from v0.44): let go of the wrist with the forend held - the rifle stays where it was in that hand
-      _rq.copy(_rq2).multiply(RFL.freeQ); _rp.copy(RFL.freeP).applyQuaternion(_rq2).add(_rH); RFL.stockF = RFL.stockFv = RFL.stockW = 0; _rd.set(0, 0, -1).applyQuaternion(_rq);
+    if (RFL.free) {   // v0.77.6 (Neil): let go of the stock with the forend held - that hand keeps its forend grip and the rifle hangs off it at the fixed support offset
+      const o = RIFLE_POSES.GRIP_OFFSET[RFL.sx > 0 ? 0 : 1]; _rq.copy(_rq2).multiply(o.fq); _rp.copy(o.fp).applyQuaternion(_rq2).add(_rH); RFL.stockF = RFL.stockFv = RFL.stockW = 0; _rd.set(0, 0, -1).applyQuaternion(_rq);
       RFL.vel.subVectors(_rH, RFL.prev).divideScalar(Math.max(dt, 1e-3)); RFL.prev.copy(_rH); rflHoldBlend(dt); } else {
     const M = eyeWorld(G.userData.src?.handedness === 'left' ? 0 : 1); _rE.setFromMatrixPosition(M); _rd.set(0, 0, -1).transformDirection(M); _rp3.set(0, 1, 0).transformDirection(M);
     _rp2.copy(_rE).addScaledVector(_rd, -CHEEK.z).addScaledVector(_rp3, CHEEK.y);                      // where the grip hand sits when shouldered
@@ -5926,6 +5926,7 @@ function rflGrab(g, p) {
   if (!RFL.g || mode !== 'foot') return false;
   if (RFL.hand === g || RFL.sup === g || RFL.levHand === g) return true;
   if (!RFL.round.has(g) && RFL.place === 'vr' && p.distanceTo(rflPouch(_rp2)) < GUN.pouchR) return rflTakeRound(g);   // v0.77.1 the pouch first: loading, the rifle is often held low across the belt
+  if (RFL.place === 'vr' && RFL.free) { if (RFL.g.worldToLocal(_rp2.copy(p)).distanceTo(RIFLE_POSES.primary.c) < GUN.stockR) { RFL.sup = RFL.hand; RFL.hand = g; RFL.free = false; RFL.prev.copy(p); tick(g); return true; } return false; }   // v0.77.6 held by the forend alone: a hand that grabs the stock zone takes the stock
   if (RFL.place === 'vr') { if (rflDistTo(p) < GUN.grabR) { RFL.sup = g; RFL.free = false; tick(g); return true; } return false; }   // v0.77.1 the other hand anywhere on it: always the one forend grip (the lever is B / Y or a flick)
   if (RFL.place !== 'vr' && RFL.place !== 'desk' && (RFL.place === 'back' ? rflBackReach(p) : rflDistTo(p) < GUN.grabR)) {   // pick it up (rack, ground, your back; any part): this hand takes the wrist
     const was = RFL.place; RFL.g.updateWorldMatrix(true, false); RFL.g.matrixWorld.decompose(RFL.baseP, RFL.baseQ, _hbV); RFL.free = false; rflPut('vr'); RFL.hand = g; RFL.prev.copy(p); RFL.stockF = RFL.stockW = RFL.stockFv = 0; sfx('pick'); HX.pulse(g, 0.5, 30, 'rifle');   // v0.67: it flies into the hand from where it was
@@ -5942,7 +5943,7 @@ function rflRelease(g) {
   if (RFL.sup === g) RFL.sup = null;
   if (RFL.hand !== g || RFL.place !== 'vr') return;
   if (RFL.levHand) rflLevRelease();
-  if (RFL.sup) { RFL.hand = RFL.sup; RFL.sup = null; RFL.free = false; RFL.stockF = RFL.stockFv = RFL.stockW = 0; RFL.prev.copy(RFL.hand.getWorldPosition(_rp2)); tick(RFL.hand); return; }   // v0.77.1 the forend hand takes over at the wrist (its one grip; the rifle blends across)
+  if (RFL.sup) { RFL.hand = RFL.sup; RFL.sup = null; RFL.free = true; RFL.stockF = RFL.stockFv = RFL.stockW = 0; RFL.prev.copy(RFL.hand.getWorldPosition(_rp2)); return; }   // v0.77.6 (Neil) no promotion: the forend hand stays on the forend (RFL.free) - the stock is only taken by grabbing it
   RFL.g.getWorldPosition(_rp2); const rk = rflNearRack(_rp2); camera.getWorldPosition(_rp3);   // (rflNearRack uses _rp3)
   if (rk) { rflPut(rk); sfx('clack'); say('RIFLE ' + rflRackLabel(rk)); }
   else if (_rp2.y > _rp3.y - 0.45 && hyp(_rp2.x - _rp3.x, _rp2.z - _rp3.z) < 0.32 && RFL.g.localToWorld(_rp.copy(RF.fore)).y > _rp2.y) { rflPut('back'); sfx('pick'); say('RIFLE SLUNG - REACH OVER YOUR RIGHT SHOULDER FOR IT'); }   // let go by your head, muzzle up: slung
@@ -6204,12 +6205,14 @@ function binoPalm(g, out) {   // where this hand's barrel axis runs through its 
   return out.set(sx * (0.0155 - GDEF.bR.wr), -0.045, GDEF.bR.wz).applyMatrix4(_bM);
 }
 function binoSide(g) { return g.userData.src?.handedness === 'left' ? -1 : 1; }
-function binoOne(m, g) { g.getWorldQuaternion(m.quaternion); if (BINO.flip) m.quaternion.multiply(B_FLIP); binoPalm(g, m.position).sub(_bA.set(binoSide(g) * (BINO.flip ? -1 : 1) * B_BAR, 0, B_PZ).applyQuaternion(m.quaternion)); }
-const B_FLIP = new THREE.Quaternion().setFromAxisAngle(GV3(0, 1, 0), Math.PI);   // v0.69 turned end for end about the hand's up: the other barrel in the palm, eyepieces the other way
-function binoFlipFor() { return false; }   // v0.77.1 (Neil): one fixed pose per hand - body along the controller's forward, eyepieces back toward you (v0.69 chose by the approach)
+function binoOne(m, g) {   // v0.77.6 (Neil: still backwards) the eyepieces always face your eyes: the pair looks from your head out through this hand's palm (straight ahead once at the eyes), level with your head - however the controller is turned
+  binoPalm(g, _bP2); camera.updateMatrixWorld(); camera.getWorldPosition(_bC2); camera.getWorldDirection(_bF); _bU.set(0, 1, 0).transformDirection(camera.matrixWorld);
+  _bD.subVectors(_bP2, _bC2); const d = _bD.length(), k = clamp((d - B_HEAD[0]) / (B_HEAD[1] - B_HEAD[0]), 0, 1); _bD.divideScalar(d || 1); _bF.lerp(_bD, k).normalize(); if (Math.abs(_bF.dot(_bU)) > 0.98) _bU.set(0, 0, 1).transformDirection(camera.matrixWorld);
+  aimQuat(_bF, _bU, m.quaternion); m.position.copy(_bP2).sub(_bA.set(binoSide(g) * B_BAR, 0, B_PZ).applyQuaternion(m.quaternion)); }
+const B_HEAD = [0.15, 0.4], _bP2 = GV3(0, 0, 0), _bC2 = GV3(0, 0, 0), _bF = GV3(0, 0, 0), _bU = GV3(0, 0, 0), _bD = GV3(0, 0, 0);   // v0.77.6 within 15 cm of the eyes they look where you look; out past 40 cm, from your head out through the hand
 function binoTwo(m) {   // v0.77.1 two hands: halfway between where each hand alone would hold them (each on its own barrel, fixed pose)
   binoOne(m, BINO.g); _bP.copy(m.position); _bQ.copy(m.quaternion); binoOne(m, BINO.g2); m.position.lerp(_bP, 0.5); m.quaternion.slerp(_bQ, 0.5); }
-function binoHandK(g) { return BINO.place === 'hand' && (BINO.g === g || BINO.g2 === g) ? (binoSide(g) * (BINO.flip && !BINO.g2 ? -1 : 1) > 0 ? 'bR' : 'bL') : null; }
+function binoHandK(g) { return BINO.place === 'hand' && (BINO.g === g || BINO.g2 === g) ? (binoSide(g) > 0 ? 'bR' : 'bL') : null; }
 function binoChest(out) { camera.getWorldPosition(out); _yq.setFromAxisAngle(_ry, headYaw()); out.add(_bd.set(0, -0.3, -0.13).applyQuaternion(_yq)); return out; }
 // v0.67.1 when the 7x view comes up: the eyepieces 12 cm or less in front of the headset along your view (up to 7 cm off to the side), the binoculars looking within ~40 deg of
 // where you look. It stays up out to 15 cm / 9.5 cm / ~57 deg (no flicker).
@@ -6268,9 +6271,9 @@ function binoGrab(g, p) {
   if (BINO.g === g || BINO.g2 === g) return true;
   if (BINO.place === 'hand') { if (BINO.g2 || BINO.m.getWorldPosition(_bv).distanceTo(p) > 0.16) return false; BINO.g2 = g; tick(g); return true; }   // v0.65 the other hand on the other barrel
   const at = BINO.place === 'chest' ? binoChest(_bv) : BINO.m.getWorldPosition(_bv); if (at.distanceTo(p) > 0.16) return false;
-  BINO.place = 'hand'; BINO.g = g; BINO.flip = binoFlipFor(g); scene.add(BINO.m); sfx('pick'); tick(g); say('BINOCULARS - RAISE THEM TO YOUR EYES'); return true;
+  BINO.place = 'hand'; BINO.g = g; scene.add(BINO.m); sfx('pick'); tick(g); say('BINOCULARS - RAISE THEM TO YOUR EYES'); return true;
 }
-function binoRelease(g) { if (BINO.g2 === g) { BINO.g2 = null; return; } if (BINO.g !== g) return; if (BINO.g2) { BINO.g = BINO.g2; BINO.g2 = null; BINO.flip = binoFlipFor(BINO.g); return; } binoPut(mode === 'plane' ? 'cub' : 'chest'); HX.pulse(g, 0.15, 12, 'release'); }
+function binoRelease(g) { if (BINO.g2 === g) { BINO.g2 = null; return; } if (BINO.g !== g) return; if (BINO.g2) { BINO.g = BINO.g2; BINO.g2 = null; return; } binoPut(mode === 'plane' ? 'cub' : 'chest'); HX.pulse(g, 0.15, 12, 'release'); }   // v0.77.6 the other hand just keeps its own barrel (no regrip)
 // ---- glue: hands, boarding, the frame, save ----
 { const S = KB_HOLD_S, pin = (hw, hh, sx) => GV3(sx * (hw - PAPER_IN), -(hh - PAPER_IN), 0);   // v0.77.3 the clipboard and the map: one corner pinch per hand
   const mh = MAP_SHEET_B[0] / 2, mv = MAP_SHEET_B[1] / 2;

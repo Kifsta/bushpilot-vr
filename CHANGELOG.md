@@ -2,6 +2,18 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.77.6 – no regrip on release; binoculars never backwards
+Two bugs Neil found on the Quest after v0.77.4.
+- **Rifle, no role promotion:** if you let go of the stock while your other hand holds the forend, that hand **keeps its forend grip**. Its pose is the same and isn't re-solved. The rifle now hangs off that controller at the fixed support offset (`RIFLE_POSES.GRIP_OFFSET[].fq / .fp`, from the option-B forend frame), blended over 0.08 s. While the forend hand holds it alone, the trigger and the lever are dead.
+- **Taking the stock:** you take the stock only by actively grabbing it: squeeze within 15 cm of the stock wrist (`GUN.stockR`). Then the forend hand stays where it is as the support. A squeeze anywhere else does nothing.
+- **The other way round:** let go of the forend and the stock hand just keeps the stock. Let go of the forend while it's the only hand on the rifle and the rifle is put down, racked or slung like any release.
+- **Binoculars, no promotion either:** when one of two hands lets go, the other keeps its own barrel.
+- **Binoculars backwards, the cause:** v0.77.1 still took the pair's orientation straight from the controller (the objectives along its -z). That is only right when you hold the controller pointing forward. Raise them with your fists upright, or take them off your chest with your hand pointing down, and they came up turned away, or never came up to 7x at all.
+- **Binoculars, the fix:** `binoOne()` now aims them from your head out through the hand's palm. Within 15 cm of your eyes they look where you look, and from 40 cm out they look along the head-to-hand line. They are level with your head. The barrel stays in the palm and the hand keeps its fixed pose on it. The eyepieces face your eyes whatever the controller's rotation.
+- **Every attach path uses it:** the chest harness pickup with either hand, the Cub holder, the second hand joining, handing them from one hand to the other, and re-grabbing after the zoom view. They aren't saved, so there is no restore path. The v0.69 flip (`B_FLIP` / `binoFlipFor`) is gone.
+- **Live copy:** GitHub Pages was checked serving v0.77.5 at 20:07 AEST (cache max-age 10 min).
+- **Tests:** new t776 (20 checks): both rifle rules for both hands, plus 144 random XR-style controller poses over 6 binocular paths (eyepieces always nearer the eyes, facing them) and the Cub holder. The 7x view comes up at the eyes with any controller rotation. t67 / t771 now expect no promotion, and t65 has a looser two-hand span. Screenshots: /workspace/qa-v0776-*.png.
+
 ## v0.77.5 – the rifle pose is option B
 Neil picked option B from the pose lab (`/workspace/pose-lab/lab/final/option-B.json`). It is now the one fixed rifle pose per hand, mirrored when the hands swap, and it replaces the v0.77.2 Sniper Elite numbers.
 - **Primary (stock) hand:** the upright trigger hand, with the cuff along the stock and the thumb on the left side of the wrist. The index sits high in the guard, the middle finger is in the lever loop, and the ring and little fingers rest on the loop's lower back corner.
