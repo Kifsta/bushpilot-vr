@@ -2,6 +2,19 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.70 – ammo for sale at Dry Fork
+Neil's list: a general store or hardware counter in one town selling rifle rounds by the box. The physics block is untouched (md5 `eee6637e…`). The world RNG is unchanged: the counter is plain geometry in the existing hangar, with no extra random draws.
+- **Where:** a HARDWARE counter inside the Dry Fork strip hangar (right-hand wall). It has a sign (".44-40 AMMO - 20 ROUNDS $35 - RING THE BELL"), shelves with display cartons, and a brass bell.
+- **VR:**
+  - Tap or grab the bell to buy a box of 20 for $35 from your wallet. A green carton lands on the counter.
+  - Grab a carton and its 20 rounds go into your belt pouch (60 max). With the pouch full, the box stays put.
+  - Up to 3 boxes can wait on the counter.
+- **Desktop:** Z at the counter takes a waiting box, or buys one if none is waiting.
+- Not enough cash, or a full pouch: you get a message, nothing is charged, and you feel a soft haptic.
+- **Saved:** boxes left on the counter (`hunt.sb`, capped at 3). Old saves load with none.
+- The home ammo box by the cabin ($10 / 20) is unchanged.
+- New test t70 (12 checks). Screenshots: /workspace/qa-v070-counter.png, /workspace/qa-v070-hangar.png.
+
 ## v0.69 – binoculars always come up the right way round
 Neil: the binoculars were picked up backwards. The physics block is untouched (md5 `eee6637e…`).
 - **One hand:** before, the binoculars simply copied the controller, with the eyepieces toward the hand's +z. Grabbing with the hand turned round (from the chest, say) left the objectives facing you.

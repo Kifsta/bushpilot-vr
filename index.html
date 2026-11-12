@@ -19,7 +19,7 @@
 </script>
 </head>
 <body>
-<div id="info">BUSH PILOT VR v0.69 - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
+<div id="info">BUSH PILOT VR v0.70 - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
 You start on foot by the Cub at the cabin strip. Walk up to her and climb in (F / Y), then start her up off the checklist card (J).
 Desktop - flying: W/S or arrows pitch, A/D or arrows roll, Q/E rudder, Shift / Ctrl (or + / -) throttle, B brakes, [ ] flaps, PgUp / PgDn trim,
   R reset to the strip (cold and dark), F climb out, M map, L landing light, Home recentre, mouse looks (click to capture).
@@ -27,7 +27,7 @@ Desktop - engine: U fuel valve, O master, Y mixture, H carb heat, P primer, I ma
   1-4 windows / door, J checklist card, N clipboard (, and . turn its pages: JOBS, W&B, CUB, PERF).
 Desktop - on foot: WASD walk, Shift run, C crouch, Space hop, F climb in, G refuel at the strip pump (near a wing filler cap), M map.
   Jobs: 1-3 at a job board accept / cancel, E pick up / set down cargo (E by the Cub loads or unloads it), / seat belt + cargo net.
-  Hunting: T take / sling / rack the rifle, LMB fire, RMB aim, X lever, Z load a round (by the ammo box: buy 20 for $10), V binoculars, hold E by a downed deer to field dress it.
+  Hunting: T take / sling / rack the rifle, LMB fire, RMB aim, X lever, Z load a round (by the ammo box: buy 20 for $10; at the Dry Fork hangar's HARDWARE counter: $35 a box, Z again takes it), V binoculars, hold E by a downed deer to field dress it.
   Airdrops: in flight open the right door (1 upper window, 2 lower door), G pushes the next bundle out - drop it on the smoke / X.
   Running costs: fuel is paid at the red drums (4 strips, 4 prices); oil, tyres + brakes, repairs and the 100-hour service at the home HANGAR board (1-4 there).
 VR - in the cockpit: grip the stick (right) and throttle (left), left stick = rudder, left trigger = brakes, reach up and pull the flap handle down
@@ -2174,6 +2174,7 @@ function updateWater(dt) {   // river / lake animation, the water sound, and no 
 // Own seeded RNG so the existing world (trees, cans, creatures) keeps its exact layout.
 const POI_R = (() => { let s = 0x5eed15; return () => { s = (s + 0x6D2B79F5) | 0; let t = Math.imul(s ^ (s >>> 15), 1 | s); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; })();
 const POIS = [], GROVES = [];
+const DFSTORE = { o: null };   // v0.70 the Dry Fork hangar's hardware counter (set where the hangar is built)
 const LODGE = { x: -380, z: -2440, a: 1.83, hl: 140, hw: 10 };   // backcountry lodge strip (valley floor, 2.4 km N of home; ~2 m of rise over 280 m)
 {
   const G = new THREE.Group();
@@ -2273,6 +2274,8 @@ const LODGE = { x: -380, z: -2440, a: 1.83, hl: 140, hw: 10 };   // backcountry 
     part(o, 14, 6.4, 0.2, M.metal, 0, 1.9, -6); for (const sx of [-1, 1]) { part(o, 0.2, 6.4, 12, M.metal, sx * 7, 1.9, 0); part(o, 3, 6.4, 0.2, M.metal, sx * 5.6, 1.9, 6.1); }
     roof(o, 12.8, 1.8, 15, M.dark, 0, 5, 0, Math.PI / 2); part(o, 4.2, 0.8, 0.1, M.white, 0, 4.5, 6.22);
     part(o, 3, 0.9, 0.8, M.wood, -4, 0.55, -5.3); for (const y of [0.5, 1.2, 1.9]) part(o, 0.5, 0.06, 3, M.wood, -6.5, y, -1); for (const z of [-2.4, 0.4]) part(o, 0.5, 2, 0.06, M.wood, -6.5, 1.1, z);
+    part(o, 0.7, 1.0, 2.4, M.wood, 5.4, 0.6, 1.2); part(o, 0.8, 0.05, 2.5, M.dark, 5.4, 1.125, 1.2); for (const y of [1.6, 2.2]) part(o, 0.35, 0.05, 2.2, M.wood, 6.7, y, 1.2);   // v0.70 hardware counter + shelves behind it
+    DFSTORE.o = { x: o.x, z: o.z, y: o.y, a: o.a };
     site('HANGAR', 'hangar', o); }
   // 9. v0.31 fuel depot next to the hangar: fenced yard, avgas + mogas storage tanks with taps, drums, guard shack, floodlight - and its guards
   { const o = seat({ x: DRYFORK_STRIP.x + 52, z: DRYFORK_STRIP.z + 70, a: 0 }, 15, 11), L = (lx, lz) => { const [x, z] = W(o, lx, lz); return groundY(x, z) - o.y; };   // L: local ground height
@@ -5279,6 +5282,51 @@ const RACK = { cabin: { p: GV3(28.95, 0, -14.3), ry: 0 }, cub: { p: GV3(0.297, 0
   const C = new THREE.Group(); C.position.copy(RACK.cub.p); C.rotation.y = RACK.cub.ry; plane.add(C);   // two brackets on the right cabin wall, behind the front seat (v0.66: the front one was on the door / window, so it hung in the air when they opened; now aft of the door post)
   for (const z of [-0.2, -0.02]) { box(0.02, 0.06, 0.03, dk, -0.022, -0.02, z, C); box(0.03, 0.012, 0.03, dk, -0.005, -0.048, z, C); }
 }
+// ---- v0.70 Dry Fork hardware counter (in the strip hangar): .44-40 by the box. Poke / grab the bell (desktop: Z) to buy, the box lands on the counter, take it into your pouch ----
+const STORE = { price: 35, rounds: 20, max: 3, n: 0, boxes: [], hint: '' };
+{ const o = DFSTORE.o, c = Math.cos(o.a), sn = Math.sin(o.a), L = (lx, ly, lz) => GV3(o.x + lx * c + lz * sn, o.y + ly, o.z - lx * sn + lz * c);
+  STORE.at = L(5.4, 1.15, 1.2); STORE.bell = L(5.25, 1.17, 0.35); STORE.slot = [0, 1, 2].map(i => L(5.3, 1.205, 1.45 + i * 0.3)); STORE.ry = o.a;
+  const G = new THREE.Group(); G.userData.noBatch = true; scene.add(G); STORE.g = G;
+  const bell = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.045, 0.05, 10), mat(0xc8a040)); bell.position.copy(STORE.bell).add(GV3(0, 0.025, 0)); bell.userData.noBatch = true; G.add(bell);
+  const cv = document.createElement('canvas'); cv.width = 512; cv.height = 256; const x = cv.getContext('2d'); x.fillStyle = '#e8dcb8'; x.fillRect(0, 0, 512, 256); x.strokeStyle = '#5a4630'; x.lineWidth = 10; x.strokeRect(5, 5, 502, 246);
+  x.fillStyle = '#3a2a1a'; x.textAlign = 'center'; x.font = 'bold 64px serif'; x.fillText('HARDWARE', 256, 80); x.font = 'bold 44px serif'; x.fillText('.44-40 AMMO', 256, 140); x.fillText('20 ROUNDS  $' + STORE.price, 256, 192); x.font = '28px serif'; x.fillText('RING THE BELL', 256, 234);
+  const sign = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 0.55), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(cv), color: 0xd8d8d8 })); sign.position.copy(L(6.82, 2.75, 1.2)); sign.rotation.y = o.a - Math.PI / 2; sign.userData.noBatch = true; G.add(sign);
+  const disp = L(6.7, 1.627, 0.6); for (let i = 0; i < 3; i++) { const b = storeBox(); b.position.copy(disp); b.rotation.y = o.a; b.translateZ(i * 0.2); G.add(b); }   // cartons on the shelf (show)
+}
+function storeBox() { const b = new THREE.Group(); b.userData.noBatch = true;
+  for (const [w, h, d, col, y] of [[0.26, 0.11, 0.17, 0x2f5a2a, 0.055], [0.262, 0.03, 0.172, 0xd8c070, 0.06]]) { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat(col)); m.position.y = y; m.userData.noBatch = true; b.add(m); } return b; }
+function storeSync() {   // the bought boxes waiting on the counter
+  while (STORE.boxes.length < STORE.n) { const b = storeBox(); STORE.g.add(b); STORE.boxes.push(b); }
+  while (STORE.boxes.length > STORE.n) STORE.boxes.pop().removeFromParent();
+  STORE.boxes.forEach((b, i) => { b.position.copy(STORE.slot[i]); b.rotation.y = STORE.ry; });
+}
+function storeBuy(g) {
+  if (STORE.n >= STORE.max) { say('THREE BOXES ARE WAITING ON THE COUNTER - TAKE ONE FIRST'); return false; }
+  if (DLV.cash < STORE.price) { say('NOT ENOUGH CASH - A BOX OF 20 IS $' + STORE.price + ' (WALLET $' + DLV.cash + ')'); if (g) HX.pulse(g, 0.2, 10, 'ui'); return false; }
+  DLV.cash -= STORE.price; STORE.n++; storeSync(); sfx('cash'); if (g) HX.pulse(g, 0.5, 25, 'ammo');
+  say('BOUGHT A BOX OF .44-40 -$' + STORE.price + ' (WALLET $' + DLV.cash + ') - ' + (g ? 'GRAB IT OFF THE COUNTER' : 'Z AGAIN TAKES IT')); saveSoon(); for (const S of DLV_STRIPS) S.key = ''; return true;
+}
+function storeTake(i, g) {
+  if (RFL.spare >= GUN.pouch) { say('POUCH FULL (' + RFL.spare + ' ROUNDS) - THE BOX STAYS ON THE COUNTER'); if (g) HX.pulse(g, 0.2, 10, 'ui'); return false; }
+  const got = Math.min(STORE.rounds, GUN.pouch - RFL.spare); RFL.spare += got; STORE.n--; storeSync(); sfx('pick'); if (g) HX.pulse(g, 0.4, 20, 'ammo');
+  say(got + ' ROUNDS INTO YOUR POUCH - POUCH ' + RFL.spare); saveSoon(); return true;
+}
+function storeNear(p, r) { return STORE.at && p.distanceTo(STORE.at) < r; }
+function storeGrab(g, p) {   // VR: the bell buys, a waiting box goes into your pouch
+  if (!storeNear(p, 2)) return false;
+  for (let i = STORE.n - 1; i >= 0; i--) if (p.distanceTo(_rp3.copy(STORE.slot[i]).add(_ru.set(0, 0.06, 0))) < 0.16) { storeTake(i, g); return true; }
+  if (p.distanceTo(STORE.bell) < 0.14) { sfx('click'); storeBuy(g); return true; }
+  return false;
+}
+function storeDesk() {   // desktop Z at the counter: take a waiting box, else buy one
+  camera.getWorldPosition(_rp2); if (mode !== 'foot' || !storeNear(_rp2, 2.6)) return false;
+  if (STORE.n > 0 && RFL.spare < GUN.pouch) storeTake(STORE.n - 1, null); else storeBuy(null); return true;
+}
+function storeHint(p, vrOn) {
+  const k = mode === 'foot' && storeNear(p, 2.6) ? 'in' : ''; STORE.g.visible = !!STORE.at && p.distanceTo(STORE.at) < 400;
+  if (k && k !== STORE.hint) say('HARDWARE: .44-40, 20 ROUNDS $' + STORE.price + ' - ' + (vrOn ? 'TAP THE BELL TO BUY, GRAB A BOX TO TAKE IT' : 'Z BUYS / TAKES A BOX') + ' (POUCH ' + RFL.spare + (STORE.n ? ', ' + STORE.n + ' ON THE COUNTER' : '') + ')');
+  STORE.hint = k;
+}
 // ---- model ----
 function rflBuild(root) {
   const g = root.getObjectByName('LeverRifle') || root; g.removeFromParent(); g.position.set(0, 0, 0); g.quaternion.identity();
@@ -5593,7 +5641,7 @@ function rflTick(dt, vrOn) {
     const nr = _rp2.distanceTo(RACK.cabin.p) < 2.2 ? 'cabin' : null, nb = hyp(_rp2.x - RACK.box.x, _rp2.z - RACK.box.z) < 2;
     const k = nb ? 'box' : nr && RFL.place === 'cabin' ? 'rack' : ''; if (k && k !== RFL.hint) { const d = !vrOn;
       say(k === 'box' ? 'AMMO BOX: 20 ROUNDS .44-40 FOR $10 - ' + (d ? 'Z TO BUY' : 'GRAB IT TO BUY') + ' (POUCH ' + RFL.spare + ')' : 'RIFLE RACK - ' + (d ? 'T TAKES THE RIFLE' : 'GRAB THE RIFLE')); }
-    RFL.hint = k; }
+    RFL.hint = k; storeHint(_rp2, vrOn); }
 }
 const RND_HOLD = GV3(0, -0.012, -0.04), RND_TIP = GV3(0, 0, -0.02), RND_ALIGN = GV3(RF.gate.x + 0.004, RF.gate.y, RF.gate.z + 0.022);   // v0.67: held round, its tip, aligned on the gate
 function rflLoadAnim(dt) {   // a round going in: 60 ms onto the gate axis, then 100 ms pushed in past the gate
@@ -5629,6 +5677,7 @@ function rflGrab(g, p) {
     if (was !== 'back') say('RIFLE ' + RFL.tube + (RFL.ch ? '+1' : '') + ' - TRIGGER FIRES, FLICK DOWN OR WORK THE LEVER, ROUNDS FROM THE BELT POUCH INTO THE GATE');
     return true; }
   if (hyp(p.x - RACK.box.x, p.z - RACK.box.z) < 0.35 && Math.abs(p.y - RACK.box.y) < 0.3) { rflBuyAmmo(); HX.pulse(g, 0.4, 20, 'ammo'); return true; }
+  if (storeGrab(g, p)) return true;   // v0.70 the Dry Fork counter
   return false;
 }
 function rflLevRelease() { RFL.levHand = null; if (RFL.levA < 0.06) { RFL.levFree = false; RFL.levS = invSmooth(RFL.levA); RFL.levReq = false; } else RFL.levFree = true; }   // it stays where you leave it
@@ -5660,6 +5709,7 @@ function rflDeskT() {
 }
 function rflDeskZ() {
   camera.getWorldPosition(_rp2); if (mode === 'foot' && hyp(_rp2.x - RACK.box.x, _rp2.z - RACK.box.z) < 2.5) { rflBuyAmmo(); return; }
+  if (storeDesk()) return;   // v0.70
   if (RFL.place !== 'desk') return; if (RFL.deskT > 0) return;
   if (RFL.levA > 0.02) { say('CLOSE THE LEVER TO LOAD'); return; }
   if (RFL.spare <= 0) { say('CARTRIDGE POUCH EMPTY - AMMO BOX BY THE CABIN ($10 / 20)'); return; }
@@ -5997,9 +6047,9 @@ function huntBoard() {   // climbing in: a rifle you carry goes in the Cub's rac
 function huntExit() { binoPut('chest'); }
 function huntTick(dt, vrOn) { rflTick(dt, vrOn); deerTick(dt); binoTick(dt, vrOn); }
 function huntSave() { return { rp: RFL.place === 'desk' || RFL.place === 'vr' ? 'back' : RFL.place, gp: RFL.place === 'ground' ? RFL.gp.map(r3) : undefined, gry: RFL.place === 'ground' ? r3(RFL.gry) : undefined,
-  tube: RFL.tube, ch: RFL.ch ? 1 : 0, ck: RFL.cocked ? 1 : 0, sp: RFL.spare, k: HUNT.kills }; }
+  tube: RFL.tube, ch: RFL.ch ? 1 : 0, ck: RFL.cocked ? 1 : 0, sp: RFL.spare, k: HUNT.kills, sb: STORE.n }; }   // v0.70 sb: boxes waiting on the Dry Fork counter
 function huntLoad(d) {
-  RFL.tube = 6; RFL.ch = false; RFL.cocked = false; RFL.spare = 20; HUNT.kills = 0; let pl = 'cabin';
+  RFL.tube = 6; RFL.ch = false; RFL.cocked = false; RFL.spare = 20; HUNT.kills = 0; STORE.n = clamp((d && d.sb) | 0, 0, STORE.max); storeSync(); let pl = 'cabin';
   if (d && typeof d === 'object') { if (['cabin', 'cub', 'back', 'ground'].includes(d.rp)) pl = d.rp; RFL.tube = clamp(d.tube | 0, 0, GUN.tube); RFL.ch = !!d.ch; RFL.cocked = !!d.ck; RFL.spare = clamp(d.sp | 0, 0, GUN.pouch); HUNT.kills = d.k | 0;
     if (pl === 'ground' && !(d.gp?.length === 3 && d.gp.every(isFinite))) pl = 'cabin'; if (pl === 'ground') { RFL.gp = d.gp.slice(); RFL.gry = +d.gry || 0; } }
   if (pl === 'back' && mode === 'plane') pl = 'cub';
