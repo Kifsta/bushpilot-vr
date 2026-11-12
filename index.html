@@ -1471,9 +1471,10 @@ let lookYaw = 0, lookPitch = 0, needRecenter = 0, crashTimer = 0;
 let mode = 'plane';                                 // 'plane' | 'foot'
 const footRig = new THREE.Group(); scene.add(footRig);
 const EYE = 1.6, WALK = 2.2;                          // on-foot eye height (m) and walk speed (m/s)
-let msg = '', msgT = 0, msgA = 0;
+let msg = '', msgT = 0, msgA = 0, msgW = -1e9;
 const msgDur = m => Math.max(3, Math.ceil(m.length / 50) * 2.6);   // v0.59.1 long messages stay up long enough to page through on the wrist
-const say = m => { msg = m; msgT = msgDur(m); msgA = 0; };
+const say = m => { msg = m; msgT = msgDur(m); msgA = 0; msgW = performance.now(); };
+const sayAdd = m => { if (msgT > 0 && msgA === 0 && performance.now() - msgW < 4 && /^DELIVERED/.test(msg) && !msg.includes(m)) m = msg + ' | ' + m; say(m); };   // v0.59.1 two jobs delivered in the same frame: both kept (paged on the wrist)   // v0.59.1 two in the same frame (two jobs delivered at once): both kept, paged
 function wrapText(t, w) { const L = []; let l = ''; for (const wd of t.split(' ')) { for (let p = wd; p.length; ) { const c = p.slice(0, w); p = p.slice(w); if (!l) l = c; else if (l.length + 1 + c.length <= w) l += ' ' + c; else { L.push(l); l = c; } } } if (l) L.push(l); return L; }
 function msgPage(w) { const L = wrapText(msg, w), n = Math.ceil(L.length / 2), p = Math.min(n - 1, Math.floor(msgA / Math.max(2.6, (msgA + msgT) / n))); return L.slice(p * 2, p * 2 + 2); }   // two lines at a time, paged over the message's time
 const _a = new THREE.Vector3(), _b = new THREE.Vector3(), _w = new THREE.Vector3(), _d = new THREE.Vector3(), _qa = new THREE.Quaternion();
@@ -4945,7 +4946,7 @@ function dlvCheck(it) {   // a piece came to rest on the ground: is its whole jo
   DLV.cash += pay; DLV.paid += pay; DLV.done++; for (const o of its) dlvRemove(o);
   const L = DLV.offers[j.from], i = L.indexOf(j); j.st = 'done'; if (i >= 0) L[i] = dlvGen(j.from, !L.some((q, k) => k !== i && dlvFrt(q)));
   const rp = repJob(j, late, k);   // v0.56
-  sfx('cash'); say('DELIVERED: ' + j.title + ' TO ' + T.name + ' +$' + pay + (late ? ' (LATE - HALF PAY)' : '') + why + ' - WALLET $' + DLV.cash + repSay(rp)); saveGame('delivered');
+  sfx('cash'); sayAdd('DELIVERED: ' + j.title + ' TO ' + T.name + ' +$' + pay + (late ? ' (LATE - HALF PAY)' : '') + why + ' - WALLET $' + DLV.cash + repSay(rp)); saveGame('delivered');
   for (const S of DLV_STRIPS) S.key = '';
 }
 function dlvDeskE() {   // desktop E on foot: pick up / put down / load / unload
@@ -4975,7 +4976,7 @@ function dlvDeskKey(e) {   // desktop keys on foot: E carry, / straps, 1-3 at a 
 // ---- v0.51 special cargo: fragile damage, perishable freshness, live animals ----
 function dlvKnock(it, d, why) {   // a knock / drop: fragile pieces take damage, animals get upset
   const j = dlvJob(it.job); if (!j || !j.sp || d <= 0) return;
-  if (j.sp === 'fragile') { const b = Math.floor(it.dmg * 4); it.dmg = Math.min(1, it.dmg + d); const st = Math.floor(it.dmg * 4) > b; if ((d > 0.02 || st) && (DLV.crT || 0) < DLV.gt * 60) { DLV.crT = DLV.gt * 60 + 0.3; sfx('crunch', it.mesh.getWorldPosition(_w)); } if (st) say(j.title + ' ' + why + ' - DAMAGE ' + Math.round(100 * dlvDmg(j)) + '% (PAY DOCKED)'); }
+  if (j.sp === 'fragile') { const b = Math.floor(it.dmg * 4); it.dmg = Math.min(1, it.dmg + d); const st = Math.floor(it.dmg * 4) > b; if ((d > 0.02 || st) && (DLV.crT || 0) < DLV.gt * 60) { DLV.crT = DLV.gt * 60 + 0.3; sfx('crunch', it.mesh.getWorldPosition(_w)); } if (st) { const t = j.title + ' ' + why + ' - DAMAGE ' + Math.round(100 * dlvDmg(j)) + '% (PAY DOCKED)'; if (msgT > 0 && DLV.gt * 60 - (DLV.kSay ?? -9) < 2) msg = t; else say(t); DLV.kSay = DLV.gt * 60; } }   // v0.59.1 one hard knock: the line updates in place (was three messages in three frames)
   else if (j.sp === 'live') { j.stress = Math.min(1, j.stress + d * 0.6); dlvNoise(it, j, 1); }
 }
 function dlvNoise(it, j, force) { if (!force && (it.nT || 0) > DLV.gt * 60) return; it.nT = DLV.gt * 60 + 0.9 + Math.random() * 0.8; it.yap = 0.35; sfx(it.k === 'dog' ? 'bark' : 'cluck', it.mesh.getWorldPosition(_w)); DLV.noises = (DLV.noises || 0) + 1; }
@@ -6696,16 +6697,18 @@ function gameLoad() {
   if (!d || ![45, 50, 51, 52, 53, 54, 55].includes(d.v)) return false;   // v0.50 reads a v0.45 save too (no jobs yet: a fresh wallet and boards)
   if (typeof d.fuel === 'number' && isFinite(d.fuel)) fuel = clamp(d.fuel, 0, FUEL_MAX);
   if (typeof d.h === 'number' && isFinite(d.h)) DAY.h = ((d.h % 24) + 24) % 24;
-  if (d.cub && d.cub.p?.length === 3 && d.cub.q?.length === 4) { ac.pos = d.cub.p.slice(); ac.q = d.cub.q.slice(); SV.cub = d.cub; }
-  if (d.mode === 'foot' && d.foot) { exitPlane(); const [x, z, yaw] = d.foot; footRig.position.set(x, groundY(x, z) + EYE, z); footRig.rotation.set(0, yaw, 0); bodyYaw = yaw; }
+  if (d.cub && d.cub.p?.length === 3 && d.cub.q?.length === 4 && d.cub.p.concat(d.cub.q).every(v => typeof v === 'number' && isFinite(v))) { ac.pos = d.cub.p.slice(); ac.q = d.cub.q.slice(); SV.cub = d.cub; }
+  if (d.mode === 'foot' && Array.isArray(d.foot) && d.foot.slice(0, 3).every(isFinite)) { exitPlane(); const [x, z, yaw] = d.foot; footRig.position.set(x, groundY(x, z) + EYE, z); footRig.rotation.set(0, yaw, 0); bodyYaw = yaw; }   // v0.59.1 checked (a damaged foot entry stopped the page loading)
   upgLoad(d.upg || null);   // v0.57 before the cargo (the pod)
   emgLoad(d.emg || null);   // v0.58 before the cargo (a patient aboard finds their job)
   dlvLoad(d.v >= 50 ? d.dlv : null); huntLoad(d.v >= 53 ? d.hunt : null); dropLoadFix(); ecoLoad(d.v >= 55 ? d.eco : null); emgFix();   // v0.54 a save taken mid-drop: the last bundle down settles the job
   msgT = 0; SV.last = d.at || 0; return true;
 }
 MYS_SITES.clear();   // the whole world is built now: clear trees and rocks off the strips and sites
-const SV_HAD = gameLoad();
+let SV_BAD = false;
+const SV_HAD = (() => { try { return gameLoad(); } catch (e) { SV_BAD = true; try { upgLoad(null); emgLoad(null); dlvLoad(null); huntLoad(null); ecoLoad(null); } catch (e2) { } return false; } })();   // v0.59.1 a save that can't be read starts a new game instead of a page that never loads
 if (!SV_HAD && !/[?&]plane\b/.test(location.search)) { exitPlane(); msgT = 0; }   // v0.45: a new game starts on foot beside the Cub at the cabin strip (?plane = in the seat)
+if (SV_BAD) say('THE SAVE COULD NOT BE READ - A NEW GAME');
 addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') saveGame('hidden'); });   // tab closed / headset off: save
 addEventListener('pagehide', () => saveGame('hidden'));
 // ================= v0.47 static batching: fewer draw calls, same scene =================
