@@ -19,7 +19,7 @@
 </script>
 </head>
 <body>
-<div id="info">BUSH PILOT VR v0.60 - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
+<div id="info">BUSH PILOT VR v0.61 - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
 You start on foot by the Cub at the cabin strip. Walk up to her and climb in (F / Y), then start her up off the checklist card (J).
 Desktop - flying: W/S or arrows pitch, A/D or arrows roll, Q/E rudder, Shift / Ctrl (or + / -) throttle, B brakes, [ ] flaps, PgUp / PgDn trim,
   R reset to the strip (cold and dark), F climb out, M map, L landing light, Home recentre, mouse looks (click to capture).
@@ -1565,14 +1565,13 @@ HX.cycle = () => { const L = HX.LEVELS, i = L.findIndex(v => v >= HX.gain - 0.01
 // On foot: low-health heartbeat. All small (<= HX.RUMBLE_MAX) except the one-shot thumps.
 const HXF = { on: [true, true, true], off: [0, 0, 0], d: [0, 0], vs: 0, run: false, stut: 0, beat: 0, wob: 0, rum: [[null, 0, 0, ''], [null, 0, 0, '']] };
 function hxAdd(g, a, tag) { if (!g || a <= 0) return; for (const r of HXF.rum) if (r[0] === g) { r[1] += a; if (a > r[2]) { r[2] = a; r[3] = tag; } return; } }   // sources add up per hand; tag = the biggest
-const hxHand = h => { for (const g of grips) if (g.userData.src?.handedness === h) return g; return null; };
 function hxTick(dt) {
   HX.tick(dt);
   if (!HX.force && !renderer.xr.isPresenting) return;
   const E = ENG, o = ac.out;
   for (let i = 0; i < 2; i++) { const r = HXF.rum[i]; r[0] = grips[i]; r[1] = r[2] = 0; r[3] = ''; }
   if (mode === 'plane' && !ac.crashed) {
-    const sg = vr.stick ? hxHand('right') : null, tg = vr.thr ? hxHand('left') : (vr.flapG || TRIM.g || null);
+    const sg = vr.stickG, tg = vr.thrG || vr.flapG || TRIM.g || null;   // v0.61 whichever hand is on them
     const air = (k, a, ms, tag) => { for (const g of grips) HX.pulse(g, (g === sg || g === tg) ? a : a * 0.5, ms, tag); };   // airframe jolts: off-control hands feel half
     let hum = 0;
     if (E.running) {
@@ -1815,7 +1814,7 @@ const grips = [0, 1].map(i => {
   g.addEventListener('disconnected', () => { g.userData.src = null; });
   xrOffset.add(g); return g;
 });
-const vr = { stick: false, stick0: new THREE.Vector3(), thr: false, thr0: 0, thrZ: 0, thrTick: 0, flapG: null, flapAng: 0, flapOff: 0, stickLim: false, prev: {}, snap: false, sprint: false, dress: new Map() };
+const vr = { stick: false, stickG: null, thrG: null, stick0: new THREE.Vector3(), thr: false, thr0: 0, thrZ: 0, thrTick: 0, flapG: null, flapAng: 0, flapOff: 0, stickLim: false, prev: {}, snap: false, sprint: false, dress: new Map() };
 function setFlapNotch(n, gp) {
   n = clamp(n, 0, 3); if (n === flapNotch) return;
   flapNotch = n; ctl.flap = FLAP_DEG[n]; sfx('clunk'); if (gp) { HX.pulse(gp, 0.7, 30, 'flap'); CKX.haps++; }   // v0.42 detent clunk (desktop keys too)
@@ -1856,56 +1855,58 @@ function ohHand(g, squeeze, sqE) {   // true while this hand is on the flap hand
   return false;
 }
 function stickAng(g, out) { plane.worldToLocal(g.getWorldPosition(_ohA)); const dy = Math.max(0.15, _ohA.y - STICK_PIVOT.y); return out.set(Math.atan2(_ohA.x - STICK_PIVOT.x, dy), 0, Math.atan2(_ohA.z - STICK_PIVOT.z, dy)); }
+const XR_RUD = [0, 0], XR_TRG = [0, 0];
 function xrInput(dt) {
   CKX.dt = dt;   // v0.46.1: the primer's held-twist timer
-  let stickHeld = false;
+  let stickHeld = false; const rudA = XR_RUD, trg = XR_TRG; rudA[0] = rudA[1] = trg[0] = trg[1] = 0;
   for (const g of grips) {
-    const src = g.userData.src; if (!src || !src.gamepad) continue;
+    const src = g.userData.src; if (!src || !src.gamepad) { if (vr.stickG === g) vr.stickG = null; if (vr.thrG === g) vr.thrG = null; continue; }
     const gp = src.gamepad, squeeze = !!gp.buttons[1]?.pressed, sqE = squeeze && !vr.prev['sq' + src.handedness]; vr.prev['sq' + src.handedness] = squeeze;
-    const right = src.handedness === 'right', oh = vr.flapG === g || TRIM.g === g;
+    const right = src.handedness === 'right', oh = vr.flapG === g || TRIM.g === g, onSt = vr.stickG === g, onTh = vr.thrG === g, mine = onSt || onTh;   // v0.61 either hand flies the stick or works the throttle
+    const letGo = () => { if (vr.stickG === g) vr.stickG = null; if (vr.thrG === g) vr.thrG = null; vr.stick = !!vr.stickG; vr.thr = !!vr.thrG; };
     if (!squeeze && DLV.held.has(g)) dlvRelease(g);   // v0.50: a piece carried aboard goes in the back when you let go
     _p.copy(g.position).applyQuaternion(xrOffset.quaternion);   // hand position in cockpit axes
-    if (mapCockpit(g, squeeze, (right ? vr.stick : vr.thr) || oh)) { if (right) vr.stick = false; else vr.thr = false; if (vr.flapG === g) vr.flapG = null; if (TRIM.g === g) TRIM.g = null; continue; }
-    if (huntPlaneGrab(g, squeeze, sqE && !((right ? vr.stick : vr.thr) || oh))) { if (right) vr.stick = false; else vr.thr = false; continue; }   // v0.53 binoculars from their holder
-    if (dropPlaneGrab(g, squeeze, sqE && !((right ? vr.stick : vr.thr) || oh))) { if (right) vr.stick = false; else vr.thr = false; continue; }   // v0.54 an airdrop bundle: reach back, hand it out of the door
-    const onOH = !(right ? vr.stick : vr.thr) && ohHand(g, squeeze, sqE);   // v0.42 overhead flap handle / trim crank
+    if (mapCockpit(g, squeeze, mine || oh)) { letGo(); if (vr.flapG === g) vr.flapG = null; if (TRIM.g === g) TRIM.g = null; continue; }
+    if (huntPlaneGrab(g, squeeze, sqE && !(mine || oh))) { letGo(); continue; }   // v0.53 binoculars from their holder
+    if (dropPlaneGrab(g, squeeze, sqE && !(mine || oh))) { letGo(); continue; }   // v0.54 an airdrop bundle: reach back, hand it out of the door
+    const onOH = !mine && ohHand(g, squeeze, sqE);   // v0.42 overhead flap handle / trim crank
     let busy = onOH;
     if (onOH) vr.prev['ck' + src.handedness] = squeeze; else busy = ckHand(g, squeeze, 'ck' + src.handedness);   // v0.19: a hand on a switch / window handle / checklist isn't on the stick or throttle
-    if (busy) { if (right) vr.stick = false; else vr.thr = false; }
-    if (right) {
-      if (sqE && !vr.stick && !busy && knob.getWorldPosition(_b).distanceTo(g.getWorldPosition(_a)) < STICK_R) {   // v0.8: pick up from the current deflection
-        vr.stick = true; stickAng(g, vr.stick0); vr.stick0.x -= ctl.ail * STICK_MAX; vr.stick0.z -= ctl.elev * STICK_MAX; vr.stickLim = false; }
-      if (!squeeze) vr.stick = false;
-      if (vr.stick) {                                              // v0.42: the stick pivots under your hand; round-cornered travel limits
-        stickHeld = true; stickAng(g, _ohB);
-        let ai = (_ohB.x - vr.stick0.x) / STICK_MAX, el = (_ohB.z - vr.stick0.z) / STICK_MAX;   // pull towards you = nose up
-        const m = Math.pow(Math.pow(Math.abs(ai), 4) + Math.pow(Math.abs(el), 4), 0.25); if (m > 1) { ai /= m; el /= m; }
-        if (m > 1.04 && !vr.stickLim) hap(g, 0.25, 12); vr.stickLim = m > 1.04;
-        ctl.ail = clamp(ai, -1, 1); ctl.elev = clamp(el, -1, 1);
-      }
-      if (pressedEdge(gp, 4, 'A')) recenter();
-      if (pressedEdge(gp, 5, 'B')) resetFlight();
-    } else if (src.handedness === 'left') {
-      if (sqE && !vr.thr && !busy && g.getWorldPosition(_a).distanceTo(throttleKnob.getWorldPosition(_b)) < THR_R) { vr.thr = true; vr.thr0 = ctl.throttle; vr.thrZ = _p.z; vr.thrTick = Math.round(ctl.throttle * 10); }   // v0.23: grab the throttle knob only with the hand on it
-      if (!squeeze) vr.thr = false;
-      if (vr.thr) {                                                // push forward = more power; v0.42: a light tick every 10 %, a firm stop at idle / full
-        const raw = vr.thr0 - (_p.z - vr.thrZ) / THROTTLE_TRAVEL, th = clamp(raw, 0, 1), tk = Math.round(th * 10);
-        if (tk !== vr.thrTick) { vr.thrTick = tk; hap(g, tk === 0 || tk === 10 ? 0.4 : 0.1, tk === 0 || tk === 10 ? 16 : 6); if (tk === 0 || tk === 10) sfx('tick'); }
-        ctl.throttle = th;
-      }
-      const x = gp.axes[2] || 0;
-      ctl.rud = Math.abs(x) > 0.08 ? Math.sign(x) * (Math.abs(x) - 0.08) / 0.92 : 0;
-      ctl.brake = gp.buttons[0]?.value || 0;
-      if (pressedEdge(gp, 4, 'X')) recenter();
-      if (pressedEdge(gp, 5, 'Y')) exitPlane();
+    if (busy || !squeeze) letGo();
+    if (sqE && !busy && !mine) {   // grab the stick or the throttle knob, whichever this hand is on (the ring says which); the other hand may hold the other one
+      g.getWorldPosition(_a); const rk = HANDS.hovH[grips.indexOf(g)];
+      const ds = vr.stickG ? 9 : knob.getWorldPosition(_b).distanceTo(_a), dth = vr.thrG ? 9 : throttleKnob.getWorldPosition(_b).distanceTo(_a);
+      const wS = ds < STICK_R && (rk === 'stick' || (rk !== 'thr' && ds - 0.02 <= dth)), wT = !wS && dth < THR_R;
+      if (wS) { vr.stickG = g; stickAng(g, vr.stick0); vr.stick0.x -= ctl.ail * STICK_MAX; vr.stick0.z -= ctl.elev * STICK_MAX; vr.stickLim = false; }   // v0.8: pick up from the current deflection
+      else if (wT) { vr.thrG = g; vr.thr0 = ctl.throttle; vr.thrZ = _p.z; vr.thrTick = Math.round(ctl.throttle * 10); }   // v0.23: grab the throttle knob only with the hand on it
+      vr.stick = !!vr.stickG; vr.thr = !!vr.thrG;
     }
+    if (vr.stickG === g) {                                         // v0.42: the stick pivots under your hand; round-cornered travel limits
+      stickHeld = true; stickAng(g, _ohB);
+      let ai = (_ohB.x - vr.stick0.x) / STICK_MAX, el = (_ohB.z - vr.stick0.z) / STICK_MAX;   // pull towards you = nose up
+      const m = Math.pow(Math.pow(Math.abs(ai), 4) + Math.pow(Math.abs(el), 4), 0.25); if (m > 1) { ai /= m; el /= m; }
+      if (m > 1.04 && !vr.stickLim) hap(g, 0.25, 12); vr.stickLim = m > 1.04;
+      ctl.ail = clamp(ai, -1, 1); ctl.elev = clamp(el, -1, 1);
+    }
+    if (vr.thrG === g) {                                           // push forward = more power; v0.42: a light tick every 10 %, a firm stop at idle / full
+      const raw = vr.thr0 - (_p.z - vr.thrZ) / THROTTLE_TRAVEL, th = clamp(raw, 0, 1), tk = Math.round(th * 10);
+      if (tk !== vr.thrTick) { vr.thrTick = tk; hap(g, tk === 0 || tk === 10 ? 0.4 : 0.1, tk === 0 || tk === 10 ? 16 : 6); if (tk === 0 || tk === 10) sfx('tick'); }
+      ctl.throttle = th;
+    }
+    rudA[right ? 1 : 0] = gp.axes[2] || 0; trg[right ? 1 : 0] = gp.buttons[0]?.value || 0;
+    if (right) { if (pressedEdge(gp, 4, 'A')) recenter(); if (pressedEdge(gp, 5, 'B')) resetFlight(); }
+    else { if (pressedEdge(gp, 4, 'X')) recenter(); if (pressedEdge(gp, 5, 'Y')) exitPlane(); }
   }
+  const rudX = Math.abs(rudA[1]) > Math.abs(rudA[0]) ? rudA[1] : rudA[0];   // rudder: the left thumbstick, or the right one if it is pushed further (stick in the left hand)
+  ctl.rud = Math.abs(rudX) > 0.08 ? Math.sign(rudX) * (Math.abs(rudX) - 0.08) / 0.92 : 0;
+  ctl.brake = vr.stickG && vr.stickG.userData.src?.handedness === 'left' ? trg[1] : trg[0];   // brakes: the trigger of the hand that is not on the stick (left, as before, unless the left hand flies)
+  vr.stick = !!vr.stickG; vr.thr = !!vr.thrG;
   if (!stickHeld && !GFX.stk) { ctl.elev = approach(ctl.elev, 0, 2.5, dt); ctl.ail = approach(ctl.ail, 0, 2.5, dt); }   // v0.42 centring, only with Settings: STICK ON RELEASE = CENTRES (v0.49.1 default STAYS: the deflection and the inputs hold)
   vr.stickPrevHeld = stickHeld;
 }
 function footXR(dt) {
   let lx = 0, ly = 0, rx = 0, ry = 0;
-  vr.stick = vr.thr = false;
+  vr.stick = vr.thr = false; vr.stickG = vr.thrG = null;
   for (const g of grips) {
     const src = g.userData.src; if (!src || !src.gamepad) continue;
     const gp = src.gamepad, h = src.handedness, sq = !!gp.buttons[1]?.pressed;
@@ -3997,7 +3998,7 @@ function handTargets(i, g, st) {                 // decide pose + world matrix f
   st.tc[0] = trigT ? 0.35 + 0.6 * trig : grip > 0.5 ? 0.03 : 0.28; st.tc[1] = 0.3 + 0.7 * grip; st.tc[2] = 0.34 + 0.66 * grip; st.tc[3] = 0.38 + 0.62 * grip;   // v0.24.1 relaxed
   st.tth = thumbT ? 0 : 1; st.ttw = grip > 0.5 && trig > 0.5 ? 0.7 : 0; st.ttp = 0;
   if (mode === 'plane') {
-    const h = CKH.get(g), gk = vr.flapG === g ? 'flap' : TRIM.g === g ? 'trim' : right && vr.stick ? 'stick' : !right && vr.thr ? 'thr' : h && h.k in GDEF ? h.k : null;
+    const h = CKH.get(g), gk = vr.flapG === g ? 'flap' : TRIM.g === g ? 'trim' : vr.stickG === g ? 'stick' : vr.thrG === g ? 'thr' : h && h.k in GDEF ? h.k : null;
     if (gk) { gripOn(st, gk, right ? 1 : -1); st.mode = gk === 'flap' || gk === 'trim' || gk === 'stick' || gk === 'thr' ? gk : 'ck'; }   // v0.46 procedural grip
     else if (h) {
       const pt = h.k === 'start' ? plane.localToWorld(_hv.copy(SW.start.p).setZ(SWP.z + 0.016)) : null;
@@ -4053,9 +4054,8 @@ function hoverRing(tips) {                       // v0.24.1: one ring per free h
     { _hx.copy(LDG_SW).setZ(LDG_SW.z + 0.014); const d = near(_hx); if (d < 0.045) cand('ldg', _hx, 0.015, d); }
     for (const [k, o, r] of [['rup', rupH, WIN_R], ['rlo', rloH, WIN_R], ['lf', LWF.hp, WIN_R], ['lr', LWR.hp, WIN_R], ['card', CARD.mesh, 0.07], ['kb', KB.m, 0.1]]) {
       o.getWorldPosition(_hx); plane.worldToLocal(_hx); const d = _hx.distanceTo(_rG); if (d < r) cand(k, _hx, 0.03, d + 0.02); }
-    if (st.right) { knob.getWorldPosition(_hx); plane.worldToLocal(_hx); const d = _hx.distanceTo(_rG);
-      if (d < 0.06) force = 'stick'; if (d < 0.09) cand('stick', _hx, 0.03, d + 0.03); }   // hand actually on the stick: it wins
-    else { throttleKnob.getWorldPosition(_hx); plane.worldToLocal(_hx); const d = _hx.distanceTo(_rG); if (d < 0.05) force = 'thr'; if (d < 0.09) cand('thr', _hx, 0.03, d + 0.03); }
+    { let fd = 1e9; for (const [k, o, fr] of [['stick', knob, 0.06], ['thr', throttleKnob, 0.05]]) { const hg = k === 'stick' ? vr.stickG : vr.thrG; if (hg && hg !== g) continue;   // v0.61 either hand: stick and throttle, unless the other hand has it
+      o.getWorldPosition(_hx); plane.worldToLocal(_hx); const d = _hx.distanceTo(_rG); if (d < fr && d < fd) { fd = d; force = k; } if (d < 0.09) cand(k, _hx, 0.03, d + 0.03); } }   // hand actually on the stick / throttle: it wins
     for (const [k, fn, r, rr] of [['flap', flapW, FLAP_REACH, 0.045], ['trim', trimW, 0.07, 0.02]]) { fn(_hx); plane.worldToLocal(_hx); const d = Math.min(_hx.distanceTo(_rG), _hx.distanceTo(_rP));   // v0.42 overhead: either hand
       if (d < r) cand(k, _hx, rr, d + 0.02); }
     if (force && best !== force) { best = force; (force === 'stick' ? knob : throttleKnob).getWorldPosition(_hd); plane.worldToLocal(_hd); br = 0.03; }
@@ -4111,8 +4111,8 @@ function tipAnchor(k, out) {
 const _tpA = new THREE.Vector3(), _tpQ = new THREE.Quaternion(), _tpC = new THREE.Vector3();
 function tipTick() {
   let k = null;
-  if (GFX.tips && mode === 'plane') for (let i = 0; i < 2 && !k; i++) { const g = grips[i], src = g.userData.src; if (!src) continue; const right = src.handedness !== 'left';
-    k = vr.flapG === g ? 'flap' : TRIM.g === g ? 'trim' : CKH.get(g)?.k || (right && vr.stick ? 'stick' : !right && vr.thr ? 'thr' : null); }
+  if (GFX.tips && mode === 'plane') for (let i = 0; i < 2 && !k; i++) { const g = grips[i], src = g.userData.src; if (!src) continue;
+    k = vr.flapG === g ? 'flap' : TRIM.g === g ? 'trim' : CKH.get(g)?.k || (vr.stickG === g ? 'stick' : vr.thrG === g ? 'thr' : null); }
   if (GFX.tips && mode === 'plane' && !k) k = HANDS.hovH[0] ?? HANDS.hovH[1];
   if (!k || k === 'card' || !tipAnchor(k, _tpA)) { TIP.mesh.visible = false; TIP.k = null; return; }
   const st = tipState(k), txt = TIP_NAME[k] + (st ? '  ' + st : '');

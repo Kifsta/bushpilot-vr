@@ -9,12 +9,12 @@ v0.50 turns it into a **bush delivery** game: take a job off a strip's job board
 ## Flying
 | | VR (Quest) | Desktop |
 |---|---|---|
-| Stick (pitch / roll) | Put your right hand on the stick and squeeze (the glove locks on it), move your hand: the stick pivots under it, to round-cornered stops (a bump at the stop). Let go and it stays where you left it (v0.49.1; Settings: STICK ON RELEASE = CENTRES makes it spring back to centre) | W / S pitch, A / D roll (click to mouse-look) |
-| Rudder | Left stick left / right | Q / E |
-| Throttle | Left hand on the throttle knob (left wall, on the quadrant bar aft of the map holder), squeeze, push / pull (light tick every 10 %, firm stop at idle and full) | Shift / Ctrl (or = / -) |
+| Stick (pitch / roll) | Put either hand on the stick and squeeze (v0.61: left or right; the other hand can't take it while one holds it) (the glove locks on it), move your hand: the stick pivots under it, to round-cornered stops (a bump at the stop). Let go and it stays where you left it (v0.49.1; Settings: STICK ON RELEASE = CENTRES makes it spring back to centre) | W / S pitch, A / D roll (click to mouse-look) |
+| Rudder | Left stick left / right (v0.61: or the right stick, if you push it further, for flying with the stick in your left hand) | Q / E |
+| Throttle | Either hand on the throttle knob (left wall, on the quadrant bar aft of the map holder), squeeze, push / pull (light tick every 10 %, firm stop at idle and full) | Shift / Ctrl (or = / -) |
 | Flaps (0-15-30-50) | v0.42: the handle is on the cabin ROOF, above your head to the left. Reach up, grab the black T-grip (either hand) and pull it DOWN through the notches; push it up to retract (clunk + buzz per notch) | [ and ] |
 | Elevator trim | v0.42: the crank on the roof console, right of the flap handle. Grab its knob and wind it: anticlockwise (as you look at it) = nose up, clockwise = nose down, 3 turns end to end, 8 clicks a turn. The white pointer beside it shows where it is | PageDown nose up, PageUp nose down (hold) |
-| Brakes | Left trigger | B |
+| Brakes | Left trigger (v0.61: the right trigger when your left hand is on the stick) | B |
 | Get out (stopped, idle) | Y | F |
 | Landing light | Flick the toggle under the panel up / down with your fingertip (or squeeze it) | L |
 | Reset / recentre | B = reset to the home strip, cold and dark (tops the tanks up to at least 25 %, it is not a free fill-up), A / X = recentre | R reset, Home recentre |

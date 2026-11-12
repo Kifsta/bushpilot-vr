@@ -2,6 +2,26 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.61 – either hand works every cockpit control
+Neil: "Both hands can use everything in the cockpit. The left hand can't grab the stick now." The physics block is untouched (md5 `eee6637e…`).
+- **Stick and throttle, either hand.** The stick used to answer only the right hand, and the throttle only the left. Now:
+  - Whichever hand squeezes on a control holds it.
+  - Both can be held at once, in either combination.
+  - The other hand can't snatch a control that is already held.
+  - The yellow ring, the tip label, the procedural glove grip (wrap on the stick or throttle) and the haptics follow the holding hand.
+- **Rudder:** the left thumbstick, or the right one when it is pushed further, so you can fly with the stick in your left hand.
+- **Brakes:** the trigger of the hand that isn't on the stick. That is the left trigger, as before, unless the left hand flies.
+- Switches, knobs, the flap T-grip, the trim crank, the windows, the map, the kneeboard and the card already worked with both hands; a new test covers every one.
+- Tests: new t61 (20 checks). It covers:
+  - Left-hand stick: aileron and elevator sense, and the grip pose.
+  - Right-hand throttle together with the left-hand stick.
+  - No stealing a held control.
+  - Brake and rudder mapping, and the default hands unchanged.
+  - Every switch ringing for both hands.
+  - Master and panel light with either hand, and the windows.
+  - t42 and t491 are unchanged and pass.
+- Screenshot: /workspace/qa-v061-left-stick-right-throttle.png.
+
 ## v0.60 – no more z-fighting on cargo labels and signs
 Neil: "Z-fighting on delivery boxes (labels) and shop signs - fix (offset/polygonOffset)." The physics block is untouched (md5 `eee6637e…`).
 - **Cargo labels:** every label quad now sits at least 4.5 mm clear of whatever is under it; 6 mm off the face, more where tape or a tag is underneath. Before, the parcel and medkit top labels and the fragile-box front label were 1.5–2 mm from tape or stickers, and the carcass front label was 3 mm inside the body.
