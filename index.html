@@ -19,7 +19,7 @@
 </script>
 </head>
 <body>
-<div id="info">BUSH PILOT VR v0.77 - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
+<div id="info">BUSH PILOT VR v0.77.2 - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
 You start on foot by the Cub at the cabin strip. Walk up to her and climb in (F / Y), then start her up off the checklist card (J).
 Desktop - flying: W/S or arrows pitch, A/D or arrows roll, Q/E rudder, Shift / Ctrl (or + / -) throttle, B brakes, [ ] flaps, PgUp / PgDn trim,
   R reset to the strip (cold and dark), F climb out, M map, L landing light, Home recentre, mouse looks (click to capture).
@@ -1965,8 +1965,8 @@ function footXR(dt) {
   for (const g of grips) {
     const src = g.userData.src; if (!src || !src.gamepad) continue;
     const gp = src.gamepad, h = src.handedness, sq = !!gp.buttons[1]?.pressed;
-    if (h === 'left') { lx = gp.axes[2] || 0; ly = gp.axes[3] || 0; if (pressedEdge(gp, 5, 'Y')) { if (!rflLeverBtn(g)) board(); } if (pressedEdge(gp, 4, 'X')) recenter(); if (pressedEdge(gp, 3, 'LS')) vr.sprint = true; }
-    else { rx = gp.axes[2] || 0; ry = gp.axes[3] || 0; if (pressedEdge(gp, 5, 'B')) { if (!rflLeverBtn(g)) resetFlight(); } if (pressedEdge(gp, 4, 'A')) recenter(); }
+    if (h === 'left') { lx = gp.axes[2] || 0; ly = gp.axes[3] || 0; if (pressedEdge(gp, 5, 'Y')) { if (!rflLeverBtn(g)) board(); } if (pressedEdge(gp, 4, 'X')) { if (!rflLoadBtn(g)) recenter(); } if (pressedEdge(gp, 3, 'LS')) vr.sprint = true; }
+    else { rx = gp.axes[2] || 0; ry = gp.axes[3] || 0; if (pressedEdge(gp, 5, 'B')) { if (!rflLeverBtn(g)) resetFlight(); } if (pressedEdge(gp, 4, 'A')) { if (!rflLoadBtn(g)) recenter(); } }
     if (pressedEdge(gp, 0, h + 'tr')) rflTrigger(g);   // v0.53 trigger fires the rifle in that hand
     if (pressedEdge(gp, 1, h + 'sq')) { HX.ctx = g; HX.st(g).armed = true; handGrab(g); HX.ctx = null; }
     if (!sq) { HX.ctx = g; handRelease(g); HX.ctx = null; }   // v0.24: let-go clicks buzz this hand
@@ -4137,14 +4137,14 @@ function gFingerHit(gp, sx, f, j0) {   // does any bone from joint j0 on (angles
   return false;
 }
 function gripSolve(st, k, sx) {   // on grab: hand frame in the control's frame (st.Hc) + finger angles (st.ja) + thumb target (st.gT, st.gA)
-  const D = GDEF[k], gp = st.gp; gripFrame(k, _gF); _gI.copy(_gF).invert(); _gH.multiplyMatrices(_gI, st.W); _gH.extractBasis(_gx, _gy, _gz);
+  const D = GDEF[k], gp = st.gp; gripFrame(k, _gF); _gI.copy(_gF).invert(); _gH.multiplyMatrices(_gI, st.W); if (D.fix) gripFixed(D.fix, sx, _gH); _gH.extractBasis(_gx, _gy, _gz);   // v0.77.1 fix: one authored pose per hand, whatever way the hand came in
   if (D.st === 'wrap') {
     if (D.wd) _gA.copy(D.wd); else _gA.set(0, 0, 0).setComponent(D.wa, 1); if (_gz.dot(_gA) < 0) _gA.negate();          // finger-width axis along the grip, the way your hand already faces
     _gy.addScaledVector(_gA, -_gy.dot(_gA)); if (_gy.lengthSq() < 1e-6) _gy.copy(_gx).cross(_gA); _gy.normalize(); _gx.crossVectors(_gy, _gA);
     st.Hc.makeBasis(_gx, _gy, _gA);
     let wr = D.wr; if (D.sh === 'box') wr = Math.max(wr, D.b.x * Math.abs(_gx.x) + D.b.y * Math.abs(_gx.y) + D.b.z * Math.abs(_gx.z));   // a flat handle: its depth under the palm
     _ga.set(sx * (0.0155 - wr), -0.045, D.wz); _gb.copy(_ga).applyMatrix4(_gH);         // palm anchor; slide along the grip to where your hand is
-    const c = D.wc || D.c; if (D.wd) _gA.copy(D.wd); else _gA.set(0, 0, 0).setComponent(D.wa, 1); const t = clamp(_gc.subVectors(_gb, c).dot(_gA), -D.tl, D.tl);
+    const c = D.wc || D.c; if (D.wd) _gA.copy(D.wd); else _gA.set(0, 0, 0).setComponent(D.wa, 1); const t = D.fix ? 0 : clamp(_gc.subVectors(_gb, c).dot(_gA), -D.tl, D.tl);
     _gc.copy(c).addScaledVector(_gA, t).sub(_gb.copy(_ga).applyMatrix4(st.Hc)); if (D.wo) _gc.add(D.wo); st.Hc.setPosition(_gc);   // v0.67.2 wo: the palm sits off the axis (down the rifle's wrist)
   } else {
     st.Hc.copy(_gH); _ga.set(sx * G_PIN.x, G_PIN.y, G_PIN.z); _gb.copy(_ga).applyMatrix4(_gH); _gc.subVectors(D.pc, _gb);   // keep your wrist angle, knob between thumb and index
@@ -4170,7 +4170,7 @@ function gripSolve(st, k, sx) {   // on grab: hand frame in the control's frame 
   }
   gp.u = false;
   const R = D.st === 'wrap' ? TH_P.wrap : null;                                               // thumb opposes: natural tip target pulled onto the surface
-  if (R) { st.gT.set(sx * R[1][0], R[1][1], R[1][2]); st.gA.set(R[0][0], R[0][1], R[0][2]); if (D.th) st.gT.set(-sx * D.th.x, D.th.y, D.th.z).applyMatrix4(_gI); }   // v0.67.2 a thumb spot on the control else { st.gT.set(-sx * 0.012, -0.06, -0.052); st.gA.set(-0.55, -0.6, -0.58); }
+  if (R) { st.gT.set(sx * R[1][0], R[1][1], R[1][2]); st.gA.set(R[0][0], R[0][1], R[0][2]); if (D.th) st.gT.set(sx * D.th.x, D.th.y, D.th.z).applyMatrix4(_gI); } else { st.gT.set(-sx * 0.012, -0.06, -0.052); st.gA.set(-0.55, -0.6, -0.58); }   // v0.67.2 a thumb spot on the control (v0.77.1: the else was inside this comment; v0.77.2: th is for a right hand, x mirrors - it had the sign the wrong way round)
   for (let n = 0; n < 3; n++) {
     const d = gSdf(gp, st.gT) - 0.0085, e = 1e-4; _gm.copy(st.gT);
     _gm.x += e; const dx = gSdf(gp, _gm); _gm.x -= e; _gm.y += e; const dy = gSdf(gp, _gm); _gm.y -= e; _gm.z += e; const dz = gSdf(gp, _gm);
@@ -4179,6 +4179,15 @@ function gripSolve(st, k, sx) {   // on grab: hand frame in the control's frame 
   _gd.set(sx * TH_B.x, TH_B.y, TH_B.z); _gd.subVectors(st.gT, _gd).normalize(); _gd.x *= sx;   // swing the thumb's metacarpal toward its contact so it reaches
   st.gT.x *= sx; st.gA.normalize().lerp(_gd, 0.6).normalize();   // buildHand mixes the thumb in right-hand space
 }
+const _gfV = GV3(0, 0, 0);
+function gripFixed(kind, sx, out) {   // v0.77.1 the authored hand frames (hand space in the control's frame) for the rifle + binoculars: no approach-dependent choice
+  if (kind === 'paper') return out.makeBasis(_gfV.set(1, sx, 0).normalize(), _gy.set(sx, -1, 0).normalize(), _gz.set(0, 0, -1));   // v0.77.2 key pinch on the corner: thumb on the front, fingers behind, pointing in along the diagonal
+  if (kind === 'grip') return out.makeRotationFromQuaternion(_gfQ.copy(Q_GRIP).invert()).setPosition(RF.grip).multiply(HOFF);   // the rifle comes off the controller by Q_GRIP at RF.grip, so this is where the hand is
+  if (kind === 'fore') { const P = RIFLE_POSES.support; _gy.copy(P.fingers).multiplyScalar(sx); _gfV.copy(P.palm).multiplyScalar(-sx); return out.makeBasis(_gfV, _gy, _gz.crossVectors(_gfV, _gy)).setPosition(P.at); }   // palm normal (-sx * hand x) = P.palm; the fingers (hand -y) run along P.fingers for a left support hand, mirrored for a right one
+  _gfV.set(sx * (0.0155 - GDEF.bR.wr), -0.045, GDEF.bR.wz).applyMatrix4(HOFF);   // 'bino': this hand's barrel in its palm, eyepieces back toward the wrist (+z), objectives along the controller's forward
+  return out.makeTranslation(sx * B_BAR - _gfV.x, -_gfV.y, B_PZ - _gfV.z).multiply(HOFF);
+}
+const _gfQ = new THREE.Quaternion();
 function gripOn(st, k, sx) {      // while a control is held: (re)solve on a new grab, then ride the control
   if (st.gk !== k) { st.gk = k; gripSolve(st, k, sx); st.gn++; }
   st.gt = 1; gripFrame(k, _gF);
@@ -5429,12 +5438,24 @@ wbUpdate();
 // a no-echo report. Re-fitted to the new low-poly model (assets/lever-rifle.glb, read-only copy of the Synty-style rifle): its own lever / hammer /
 // trigger / gate nodes and the grip, forend and sight points of that mesh. It hangs on a rack on the home cabin wall and on a rack in the Cub.
 const HUNT = { rifleOk: false, deerOk: false, err: [], t0: performance.now(), ms: 0, kills: 0, shots: 0, hits: 0 };
-const GUN = { gripPitch: -40 * D2R, stockEngage: 0.14, stockFull: 0.04, stockTau: 0.15, leverTime: 0.12, leverMax: 0.9, mv: 400, drag: 0.0029, zeroM: 50, disp: 0.0006,
-  gateR: 0.025, magnetR: 0.05, loadR: 0.06, loadCos: 0.5, pouchR: 0.17, tube: 7, pouch: 60, flick: 1.6,
+// v0.77.1 / v0.77.2 THE TWO RIFLE GRIPS - all the authored pose data in one place (rifle space: x right, y up, -z the muzzle; metres). Spec: Neil's Sniper Elite VR reference.
+// GRIP_OFFSET: the rifle comes straight off the primary controller - RF.grip sits at the controller, turned by 'pitch' about x - whatever way the hand came in.
+// primary: the stock wrist directly behind the guard - forearm back along the stock's slope, back of the hand out to the side, thumb over the top onto the far upper side,
+//   index forward into the guard on the trigger, middle / ring / little curled under and up the near side inside the lever loop.
+// support: palm-up cradle under the forend about halfway along (ahead of the receiver), thumb up the near side pointing a little forward, four fingers under and onto the far side.
+// th: the thumb tip, given for a right hand (x mirrors for the left). Left-handed / hands swapped: the same poses mirrored (sx = -1). The hand frames themselves are built in gripFixed() from these numbers.
+const RIFLE_POSES = {
+  GRIP_OFFSET: { pos: GV3(0, -0.006, 0.075), pitch: -40 * D2R },
+  primary: { c: GV3(0, -0.03, 0.056), ax: GV3(0, -0.961, 0.276), r: 0.015, hl: 0.045, th: GV3(-0.008, 0.026, 0.09), wd: GV3(0, -0.961, 0.276), wr: 0.015, tl: 0.004, wz: -0.004,
+    idx: { c: GV3(0, -0.05, -0.002), b: GV3(0.0025, 0.007, 0.005), sp: 0.35, lim: [1.7, 1.9, 0.9], min: [0, 0.75, 0.6], only: true } },
+  support: { at: GV3(0, 0.006, -0.27), c: GV3(0, 0.006, -0.27), b: GV3(0.017, 0.022, 0.1), wr: 0.017, tl: 0.08, wz: -0.004, th: GV3(0.024, 0.012, -0.3), palm: GV3(0, 1, 0), fingers: GV3(1, 0, 0) },   // palm normal; finger direction for the left (support) hand, mirrored for the right
+};
+const GUN = { gripPitch: RIFLE_POSES.GRIP_OFFSET.pitch, stockEngage: 0.14, stockFull: 0.04, stockTau: 0.15, leverTime: 0.12, leverMax: 0.9, mv: 400, drag: 0.0029, zeroM: 50, disp: 0.0006,
+  gateR: 0.025, magnetR: 0.05, loadR: 0.1, loadCos: 0.5, pouchR: 0.24, grabR: 0.15, loadBtnR: 0.25, tube: 7, pouch: 60, flick: 1.6,
   pickupBlend: 0.12, handoffBlend: 0.08, inertiaWn: 55, stockCapPos: 0.003, stockCapRot: 0.6, gateCone: 40 * D2R };   // v0.67 from the v0.9-v0.44 rifle: pick-up / hand-off blends, one-hand muzzle lag, stock pull rate cap, loading-gate entry cone
 const RECOIL2 = { rise: 4.5, kick: 3.3, yaw: 0.6, wn: 20, zeta: 0.45, kwn: 32, kzeta: 0.65, random: 0.15, stock: 0.4, twoHand: 0.7, desk: 0.6 };
 // points of the mesh (rifle space: metres, muzzle -z, +x = right side, origin just above the trigger)
-const RF = { grip: GV3(0, -0.006, 0.075), fore: GV3(0, 0.006, -0.27), muz: GV3(0, 0.024, -0.658), ej: GV3(0, 0.048, -0.088), gate: GV3(0.0215, -0.005, -0.112),
+const RF = { grip: RIFLE_POSES.GRIP_OFFSET.pos, fore: RIFLE_POSES.support.at, muz: GV3(0, 0.024, -0.658), ej: GV3(0, 0.048, -0.088), gate: GV3(0.0215, -0.005, -0.112),
   loop: GV3(0, -0.05, 0.15), notch: GV3(0, 0.0517, -0.266), bead: GV3(0, 0.0517, -0.6435), butt: 0.314 };   // sight picture: the bead's top level with the rear blade (clears the receiver; the cocked hammer drops below it)
 const SIGHT_A = Math.atan2(RF.bead.y - RF.notch.y, RF.notch.z - RF.bead.z);   // the sight line vs the bore (level here)
 const EYE_R = GV3(0, RF.notch.y - 0.44 * Math.tan(SIGHT_A), RF.notch.z + 0.44);   // the sighting eye: 44 cm behind the notch, on the sight line
@@ -5769,7 +5790,10 @@ function rflPose(dt) {
     _rp2.copy(_rE).addScaledVector(_rd, -CHEEK.z).addScaledVector(_rp3, CHEEK.y);                      // where the grip hand sits when shouldered
     const dS = _rH.distanceTo(_rp2), xS = 1 - clamp((dS - GUN.stockFull) / (GUN.stockEngage - GUN.stockFull), 0, 1), wT = xS * xS * xS * (xS * (xS * 6 - 15) + 10);
     { const wn = 2 / GUN.stockTau; for (let n = Math.ceil(h / 0.008), k = 0; k < n; k++) { const s = h / n; RFL.stockFv += (wn * wn * (wT - RFL.stockF) - 2 * wn * RFL.stockFv) * s; RFL.stockF = clamp(RFL.stockF + RFL.stockFv * s, 0, 1); } }
-    if (RFL.sup) { RFL.sup.getWorldPosition(_rp2); _rd.subVectors(_rp2, _rH).normalize(); aimQuat(_rd, _ru, _rq).multiply(Q_SUP); } else _rq.copy(q1);   // two hands: grip -> forend
+    if (RFL.sup) {   // two hands: grip -> forend (v0.77.1 eased back to the one-hand aim when the forend hand is too close or behind, so a grab anywhere never flips it)
+      RFL.sup.getWorldPosition(_rp2); _rd.subVectors(_rp2, _rH); const dl = _rd.length(); _rd.divideScalar(dl || 1); _rp3.set(0, 0, -1).applyQuaternion(q1);
+      const w = clamp((dl - 0.08) / 0.1, 0, 1) * clamp(_rd.dot(_rp3) * 2, 0, 1); aimQuat(_rd, _ru, _rq).multiply(Q_SUP); if (w < 1) _rq.slerp(q1, 1 - w);
+    } else _rq.copy(q1);
     _rp.copy(RF.grip).applyQuaternion(_rq).negate().add(_rH);
     if (RFL.stockF > 1e-4 || RFL.stockW > 0) {   // shouldered: the sight line from the eye over the forend, the cheek on the comb
       _rp2.copy(RF.fore).applyQuaternion(_rq).add(_rp).addScaledVector(_ru, RF.notch.y - RF.fore.y);
@@ -5789,10 +5813,8 @@ function rflPose(dt) {
   _rq2.setFromEuler(_fe.set(R.a, R.y, 0)); _rp2.copy(RF.grip).applyQuaternion(_rq); _rp3.copy(RF.grip).applyQuaternion(_sq.copy(_rq).multiply(_rq2));
   g.position.copy(_rp).add(_rp2).sub(_rp3).add(_rd.set(0, 0, R.z * 0.5).applyQuaternion(_rq)); g.quaternion.copy(_sq);
 }
-function rflPouch(out) {   // VR: the cartridge pouch on your belt, front right
-  camera.getWorldPosition(out); camera.getWorldDirection(_rd); _rd.y = 0; if (_rd.lengthSq() < 1e-6) _rd.set(0, 0, -1); _rd.normalize();
-  out.y -= 0.62; return out.addScaledVector(_rd, 0.17).add(_ru.set(-_rd.z * 0.1, 0, _rd.x * 0.1));
-}
+const POUCH_OFF = GV3(0.12, -0.62, -0.15);   // v0.77.1 belt, front right: 12 cm right, 62 cm below the eyes, 15 cm forward (head-yaw frame, so looking down at it does not move it)
+function rflPouch(out) { const y = headYaw(); camera.getWorldPosition(out); return out.add(_rd.copy(POUCH_OFF).applyAxisAngle(_ry, y)); }
 const POUCH = new THREE.Mesh(mergeGeometries([['b', 0.09, 0.08, 0.04, 0, 0, 0, 0x6a4a2a], ['b', 0.094, 0.025, 0.045, 0, 0.03, 0.002, 0x4a3218], ['c', 0.006, 0.02, 6, 0.02, 0.05, 0, 0xc9a040], ['c', 0.006, 0.02, 6, -0.005, 0.05, 0, 0xc9a040]].map(partGeo)), ITEM_VM);
 POUCH.userData.noBatch = true; POUCH.visible = false; scene.add(POUCH);
 let rflHintT = 0;
@@ -5811,12 +5833,12 @@ function rflTick(dt, vrOn) {
   rflLoadAnim(dt);
   for (const [gh, m] of RFL.round) { m.position.copy(RND_HOLD); m.quaternion.identity(); if (RFL.place !== 'vr' || RFL.hand === gh) continue;   // v0.67.2: forgiving - the tip within 6 cm of the gate, pointing roughly forward (60 deg), from any side, lever open or shut
     gh.updateWorldMatrix(true, false); m.updateWorldMatrix(true, false); RFL.g.updateMatrixWorld();
-    const tip = RFL.g.worldToLocal(m.localToWorld(_rp2.copy(RND_TIP))); const d = tip.distanceTo(RF.gate); if (d > GUN.loadR) continue;
-    _rq.copy(RFL.g.getWorldQuaternion(_rq2)).invert().multiply(m.getWorldQuaternion(_rq3)); _ru.set(0, 0, -1).applyQuaternion(_rq); if (_ru.z > -GUN.loadCos) continue;
+    const tip = RFL.g.worldToLocal(m.localToWorld(_rp2.copy(RND_TIP))), d = tip.distanceTo(RF.gate); if (d > GUN.loadR && !(RFL.loadBtn === gh && d < GUN.loadBtnR)) continue;   // v0.77.1 inside 10 cm of the gate, any way round (or A / X within 25 cm)
     if (RFL.tube >= GUN.tube) { if (RFL.fullT <= 0) { say('MAGAZINE FULL (' + GUN.tube + ')'); rflPulse(gh, 0.15, 10, 'gate'); RFL.fullT = 1.5; } continue; }
     _rM.copy(RFL.g.matrixWorld).invert().multiply(m.matrixWorld); const p0 = GV3(0, 0, 0), q0 = new THREE.Quaternion(); _rM.decompose(p0, q0, _hbV);
     RFL.round.delete(gh); RFL.g.add(m); m.position.copy(p0); m.quaternion.copy(q0); RFL.loading.push({ m, t: 0, p0, q0 });   // it snaps onto the gate and slides in
-    sfx('click'); rflLoadOne(gh); if (gh.userData.src?.gamepad?.buttons[1]?.pressed) RFL.reload.add(gh); }
+    sfx('click'); rflLoadOne(gh); rflPulse(gh, 0.6, 25, 'gate'); if (gh.userData.src?.gamepad?.buttons[1]?.pressed) RFL.reload.add(gh); }
+  RFL.loadBtn = null; rflRoundHint();
   if (RFL.fullT > 0) RFL.fullT -= dt;
   for (const gh of RFL.reload) { const sq = gh.userData.src?.gamepad?.buttons[1]?.pressed; if (!sq || RFL.round.has(gh)) { if (!sq) RFL.reload.delete(gh); continue; }
     if (gh.getWorldPosition(_rp2).distanceTo(rflPouch(_rp3)) < GUN.pouchR) rflTakeRound(gh); }
@@ -5835,9 +5857,14 @@ function rflLoadAnim(dt) {   // a round going in: 60 ms onto the gate axis, then
     else { const k = smooth01(Math.min(1, (L.t - 0.06) / 0.1)); L.m.quaternion.identity(); L.m.position.set(RND_ALIGN.x - 0.014 * k, RND_ALIGN.y, RND_ALIGN.z - 0.075 * k); }
     if (L.t >= 0.16) { L.m.removeFromParent(); RFL.loading.splice(i, 1); } }
 }
+function rflRoundHint() {   // v0.77.1 a round in the hand near the held rifle: one short line on the wrist
+  let near = null; if (RFL.place === 'vr') for (const [gh, m] of RFL.round) if (gh !== RFL.hand && RFL.g.worldToLocal(m.getWorldPosition(_rp2)).distanceTo(RF.gate) < 0.35) near = gh;
+  if (near && !RFL.rHint) say('ROUND: TOUCH IT TO THE GATE (RIGHT SIDE, IN FRONT OF THE TRIGGER) OR PRESS ' + (near.userData.src?.handedness === 'left' ? 'X' : 'A') + ' - ' + RFL.tube + '/' + GUN.tube);
+  RFL.rHint = !!near; }
+function rflLoadBtn(g) { if (RFL.place !== 'vr' || !RFL.round.has(g) || RFL.hand === g) return false; RFL.loadBtn = g; return true; }   // v0.77.1 A / X on the hand with the round: loads it if the gate is within 25 cm (next rflTick)
 function rflTakeRound(g) {
   if (RFL.spare <= 0) { say('CARTRIDGE POUCH EMPTY - AMMO BOX BY THE CABIN ($10 / 20)'); return false; }
-  RFL.spare--; const m = rndMesh(); g.add(m); m.position.copy(RND_HOLD); RFL.round.set(g, m); sfx('pick'); tick(g); return true;
+  RFL.spare--; const m = rndMesh(); g.add(m); m.position.copy(RND_HOLD); RFL.round.set(g, m); sfx('pick'); HX.pulse(g, 0.35, 18, 'ammo'); return true;
 }
 function rflBuyAmmo() {
   if (RFL.spare >= GUN.pouch) { say('POUCH FULL (' + RFL.spare + ' ROUNDS)'); return; }
@@ -5862,13 +5889,9 @@ function rflBackHint(vrOn) {   // a tick in the hand when it reaches the slung r
 function rflGrab(g, p) {
   if (!RFL.g || mode !== 'foot') return false;
   if (RFL.hand === g || RFL.sup === g || RFL.levHand === g) return true;
-  if (RFL.place === 'vr') {   // the other hand: the lever loop, else the forend
-    if (RFL.free) { if (rflDistTo(p) < 0.09 && RFL.g.worldToLocal(_rp3.copy(p)).z > -0.05) { RFL.sup = RFL.hand; RFL.hand = g; RFL.free = false; RFL.prev.copy(p); tick(g); return true; } return false; }   // v0.67 back on the wrist
-    RFL.lever.updateWorldMatrix(true, false); if (RFL.lever.localToWorld(_rp2.copy(RF.loop)).distanceTo(p) < 0.07) { RFL.levHand = g; RFL.levFree = false; RFL.levGrab0 = rflHandAngle(p) - RFL.levA * GUN.leverMax; tick(g); return true; }
-    RFL.g.worldToLocal(_rp3.copy(p)); if (_rp3.z < -0.1 && _rp3.z > -0.45 && hyp(_rp3.x, _rp3.y) < 0.09) { RFL.sup = g; tick(g); return true; }
-  }
-  if (!RFL.round.has(g) && rflHas() && RFL.place !== 'back' && p.distanceTo(rflPouch(_rp2)) < GUN.pouchR) return rflTakeRound(g);
-  if (RFL.place !== 'vr' && RFL.place !== 'desk' && (RFL.place === 'back' ? rflBackReach(p) : rflDistTo(p) < 0.09)) {   // pick it up (rack, ground, your back)
+  if (!RFL.round.has(g) && RFL.place === 'vr' && p.distanceTo(rflPouch(_rp2)) < GUN.pouchR) return rflTakeRound(g);   // v0.77.1 the pouch first: loading, the rifle is often held low across the belt
+  if (RFL.place === 'vr') { if (rflDistTo(p) < GUN.grabR) { RFL.sup = g; RFL.free = false; tick(g); return true; } return false; }   // v0.77.1 the other hand anywhere on it: always the one forend grip (the lever is B / Y or a flick)
+  if (RFL.place !== 'vr' && RFL.place !== 'desk' && (RFL.place === 'back' ? rflBackReach(p) : rflDistTo(p) < GUN.grabR)) {   // pick it up (rack, ground, your back; any part): this hand takes the wrist
     const was = RFL.place; RFL.g.updateWorldMatrix(true, false); RFL.g.matrixWorld.decompose(RFL.baseP, RFL.baseQ, _hbV); RFL.free = false; rflPut('vr'); RFL.hand = g; RFL.prev.copy(p); RFL.stockF = RFL.stockW = RFL.stockFv = 0; sfx('pick'); HX.pulse(g, 0.5, 30, 'rifle');   // v0.67: it flies into the hand from where it was
     if (was !== 'back') say('RIFLE ' + RFL.tube + (RFL.ch ? '+1' : '') + ' - TRIGGER FIRES, FLICK DOWN OR WORK THE LEVER, ROUNDS FROM THE BELT POUCH INTO THE GATE');
     return true; }
@@ -5883,8 +5906,7 @@ function rflRelease(g) {
   if (RFL.sup === g) RFL.sup = null;
   if (RFL.hand !== g || RFL.place !== 'vr') return;
   if (RFL.levHand) rflLevRelease();
-  if (RFL.sup) { const S = RFL.sup; S.updateWorldMatrix(true, false); S.getWorldPosition(_rp2); S.getWorldQuaternion(_rq2).invert();   // v0.67 (from v0.44): the forend hand keeps it where it is
-    RFL.freeQ.copy(_rq2).multiply(RFL.baseQ); RFL.freeP.subVectors(RFL.baseP, _rp2).applyQuaternion(_rq2); RFL.hand = S; RFL.sup = null; RFL.free = true; RFL.stockF = RFL.stockFv = RFL.stockW = 0; tick(RFL.hand); return; }
+  if (RFL.sup) { RFL.hand = RFL.sup; RFL.sup = null; RFL.free = false; RFL.stockF = RFL.stockFv = RFL.stockW = 0; RFL.prev.copy(RFL.hand.getWorldPosition(_rp2)); tick(RFL.hand); return; }   // v0.77.1 the forend hand takes over at the wrist (its one grip; the rifle blends across)
   RFL.g.getWorldPosition(_rp2); const rk = rflNearRack(_rp2); camera.getWorldPosition(_rp3);   // (rflNearRack uses _rp3)
   if (rk) { rflPut(rk); sfx('clack'); say('RIFLE ' + rflRackLabel(rk)); }
   else if (_rp2.y > _rp3.y - 0.45 && hyp(_rp2.x - _rp3.x, _rp2.z - _rp3.z) < 0.32 && RFL.g.localToWorld(_rp.copy(RF.fore)).y > _rp2.y) { rflPut('back'); sfx('pick'); say('RIFLE SLUNG - REACH OVER YOUR RIGHT SHOULDER FOR IT'); }   // let go by your head, muzzle up: slung
@@ -6140,7 +6162,7 @@ function binoPut(pl) {
 }
 // v0.65 binoculars held in one or both hands, each wrapped round its barrel (GDEF bR / bL). One hand: that barrel sits in the palm. Two: the pair spans both palms,
 // looking along both controllers' -z.
-const B_BAR = 0.032, B_PZ = -0.005, _bA = GV3(0, 0, 0), _bB = GV3(0, 0, 0), _bX = GV3(0, 0, 0), _bY = GV3(0, 0, 0), _bZ = GV3(0, 0, 0), _bM = new THREE.Matrix4(), _bQ = new THREE.Quaternion();
+const B_BAR = 0.032, B_PZ = -0.005, _bA = GV3(0, 0, 0), _bP = GV3(0, 0, 0), _bM = new THREE.Matrix4(), _bQ = new THREE.Quaternion();
 function binoPalm(g, out) {   // where this hand's barrel axis runs through its palm (world): the wrap grip's palm anchor in the hand frame
   const sx = g.userData.src?.handedness === 'left' ? -1 : 1; g.updateWorldMatrix(true, false); _bM.multiplyMatrices(g.matrixWorld, HOFF);
   return out.set(sx * (0.0155 - GDEF.bR.wr), -0.045, GDEF.bR.wz).applyMatrix4(_bM);
@@ -6148,15 +6170,9 @@ function binoPalm(g, out) {   // where this hand's barrel axis runs through its 
 function binoSide(g) { return g.userData.src?.handedness === 'left' ? -1 : 1; }
 function binoOne(m, g) { g.getWorldQuaternion(m.quaternion); if (BINO.flip) m.quaternion.multiply(B_FLIP); binoPalm(g, m.position).sub(_bA.set(binoSide(g) * (BINO.flip ? -1 : 1) * B_BAR, 0, B_PZ).applyQuaternion(m.quaternion)); }
 const B_FLIP = new THREE.Quaternion().setFromAxisAngle(GV3(0, 1, 0), Math.PI);   // v0.69 turned end for end about the hand's up: the other barrel in the palm, eyepieces the other way
-function binoFlipFor(g) {   // v0.69 grabbed so the eyepieces (the hand's +z) would face away from you: hold them the other way round
-  g.updateWorldMatrix(true, false); g.getWorldPosition(_bA); camera.getWorldPosition(_bB).sub(_bA); _bZ.set(0, 0, 1).transformDirection(g.matrixWorld); return _bZ.dot(_bB) < 0; }
-function binoTwo(m) {
-  const gR = binoSide(BINO.g) > 0 ? BINO.g : BINO.g2, gL = gR === BINO.g ? BINO.g2 : BINO.g; binoPalm(gR, _bA); binoPalm(gL, _bB);
-  _bX.subVectors(_bA, _bB); if (_bX.lengthSq() < 1e-6) return binoOne(m, BINO.g); _bX.normalize();
-  _bZ.set(0, 0, 1).applyQuaternion(gR.getWorldQuaternion(_bQ)); _bY.set(0, 0, 1).applyQuaternion(gL.getWorldQuaternion(_bQ)); _bZ.add(_bY);
-  _bZ.addScaledVector(_bX, -_bZ.dot(_bX)); if (_bZ.lengthSq() < 1e-6) return binoOne(m, BINO.g); _bZ.normalize(); camera.getWorldPosition(_bY).sub(_bA); if (_bZ.dot(_bY) < 0) _bZ.negate(); _bY.crossVectors(_bZ, _bX);   // v0.69 eyepieces toward you
-  _bM.makeBasis(_bX, _bY, _bZ); m.quaternion.setFromRotationMatrix(_bM); m.position.addVectors(_bA, _bB).multiplyScalar(0.5).sub(_bY.set(0, 0, B_PZ).applyQuaternion(m.quaternion));
-}
+function binoFlipFor() { return false; }   // v0.77.1 (Neil): one fixed pose per hand - body along the controller's forward, eyepieces back toward you (v0.69 chose by the approach)
+function binoTwo(m) {   // v0.77.1 two hands: halfway between where each hand alone would hold them (each on its own barrel, fixed pose)
+  binoOne(m, BINO.g); _bP.copy(m.position); _bQ.copy(m.quaternion); binoOne(m, BINO.g2); m.position.lerp(_bP, 0.5); m.quaternion.slerp(_bQ, 0.5); }
 function binoHandK(g) { return BINO.place === 'hand' && (BINO.g === g || BINO.g2 === g) ? (binoSide(g) * (BINO.flip && !BINO.g2 ? -1 : 1) > 0 ? 'bR' : 'bL') : null; }
 function binoChest(out) { camera.getWorldPosition(out); _yq.setFromAxisAngle(_ry, headYaw()); out.add(_bd.set(0, -0.3, -0.13).applyQuaternion(_yq)); return out; }
 // v0.67.1 when the 7x view comes up: the eyepieces 12 cm or less in front of the headset along your view (up to 7 cm off to the side), the binoculars looking within ~40 deg of
@@ -6214,18 +6230,18 @@ function binoRender() {
 }
 function binoGrab(g, p) {
   if (BINO.g === g || BINO.g2 === g) return true;
-  if (BINO.place === 'hand') { if (BINO.g2 || BINO.m.getWorldPosition(_bv).distanceTo(p) > 0.13) return false; BINO.g2 = g; tick(g); return true; }   // v0.65 the other hand on the other barrel
-  const at = BINO.place === 'chest' ? binoChest(_bv) : BINO.m.getWorldPosition(_bv); if (at.distanceTo(p) > 0.13) return false;
+  if (BINO.place === 'hand') { if (BINO.g2 || BINO.m.getWorldPosition(_bv).distanceTo(p) > 0.16) return false; BINO.g2 = g; tick(g); return true; }   // v0.65 the other hand on the other barrel
+  const at = BINO.place === 'chest' ? binoChest(_bv) : BINO.m.getWorldPosition(_bv); if (at.distanceTo(p) > 0.16) return false;
   BINO.place = 'hand'; BINO.g = g; BINO.flip = binoFlipFor(g); scene.add(BINO.m); sfx('pick'); tick(g); say('BINOCULARS - RAISE THEM TO YOUR EYES'); return true;
 }
 function binoRelease(g) { if (BINO.g2 === g) { BINO.g2 = null; return; } if (BINO.g !== g) return; if (BINO.g2) { BINO.g = BINO.g2; BINO.g2 = null; BINO.flip = binoFlipFor(BINO.g); return; } binoPut(mode === 'plane' ? 'cub' : 'chest'); HX.pulse(g, 0.15, 12, 'release'); }
 // ---- glue: hands, boarding, the frame, save ----
 Object.assign(GDEF, {   // v0.53 procedural grips on the rifle mesh: wrap the wrist of the stock, wrap the forend, pinch the lever loop
-  rgrip: { o: () => RFL.g, sh: 'cyl', c: GV3(0, -0.03, 0.056), ax: GV3(0, -0.961, 0.276), r: 0.015, hl: 0.045, th: GV3(-0.008, 0.026, 0.09), st: 'wrap', wa: 2, wd: GV3(0, -0.961, 0.276), wr: 0.015, tl: 0.004, wz: -0.004, idx: { c: GV3(0, -0.05, -0.002), b: GV3(0.0025, 0.007, 0.005), sp: 0.35, lim: [1.7, 1.9, 0.9], min: [0, 0.75, 0.6], only: true } },   // v0.67: the wrist measured off the mesh; the index on the trigger blade. v0.67.2 (Neil's photo): the box takes in the lever's top bar, so the three lower fingers wrap inside the loop; the thumb over the top behind the hammer
-  rfore: { o: () => RFL.g, sh: 'box', c: GV3(0, 0.006, -0.27), b: GV3(0.017, 0.022, 0.1), st: 'wrap', wa: 2, wr: 0.017, tl: 0.08, wz: -0.004 },
+  rgrip: { fix: 'grip', o: () => RFL.g, sh: 'cyl', st: 'wrap', wa: 2, ...RIFLE_POSES.primary },   // v0.77.1 the one wrist grip (pose data: RIFLE_POSES)
+  rfore: { fix: 'fore', o: () => RFL.g, sh: 'box', st: 'wrap', wa: 2, ...RIFLE_POSES.support },   // v0.77.1 the one forend grip (pose data: RIFLE_POSES)
   rlev: { o: () => RFL.lever, sh: 'box', c: GV3(0, -0.05, 0.15), b: GV3(0.005, 0.022, 0.035), st: 'pinch', pc: GV3(0, -0.068, 0.15) },
-  bR: { o: () => BINO.m, sh: 'cyl', c: GV3(0.032, 0, -0.005), a: 2, r: 0.021, hl: 0.05, st: 'wrap', wa: 2, wr: 0.021, tl: 0.02, wz: -0.004 },   // v0.65 binocular barrels
-  bL: { o: () => BINO.m, sh: 'cyl', c: GV3(-0.032, 0, -0.005), a: 2, r: 0.021, hl: 0.05, st: 'wrap', wa: 2, wr: 0.021, tl: 0.02, wz: -0.004 },
+  bR: { fix: 'bino', o: () => BINO.m, sh: 'cyl', c: GV3(0.032, 0, -0.005), a: 2, r: 0.021, hl: 0.05, st: 'wrap', wa: 2, wr: 0.021, tl: 0.02, wz: -0.004 },   // v0.65 binocular barrels
+  bL: { fix: 'bino', o: () => BINO.m, sh: 'cyl', c: GV3(-0.032, 0, -0.005), a: 2, r: 0.021, hl: 0.05, st: 'wrap', wa: 2, wr: 0.021, tl: 0.02, wz: -0.004 },
 });
 function huntHandK(g) { return !RFL.g ? null : RFL.place === 'vr' && RFL.hand === g ? (RFL.free ? 'rfore' : 'rgrip') : RFL.sup === g ? 'rfore' : RFL.levHand === g ? 'rlev' : null; }
 function huntHold(g) { return DROP.held.has(g) || BINO.g === g || BINO.g2 === g || RFL.round.has(g) || (DEER.dress && DEER.dress.g === g); }
