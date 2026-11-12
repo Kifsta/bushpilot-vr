@@ -2,6 +2,17 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.77.5 – the rifle pose is option B
+Neil picked option B from the pose lab (`/workspace/pose-lab/lab/final/option-B.json`). It is now the one fixed rifle pose per hand, mirrored when the hands swap, and it replaces the v0.77.2 Sniper Elite numbers.
+- **Primary (stock) hand:** the upright trigger hand, with the cuff along the stock and the thumb on the left side of the wrist. The index sits high in the guard, the middle finger is in the lever loop, and the ring and little fingers rest on the loop's lower back corner.
+- **Support hand:** a palm-up cradle under the forend.
+- **RIFLE_POSES loads from the JSON:** `RIFLE_POSE_SRC` is option-B.json verbatim. `rflLoadPoses(src, solve)` builds both hand frames from its mcp / c, Z, arm and dev, exactly as the lab's labpage.js does. `RIFLE_POSE_SOLVE` holds the finger joint angles and the thumb target the lab fitted against the real mesh. The headset doesn't solve anything: `rflLabSolve()` just sets them.
+- **Controller-to-rifle offset matches B:** RF.grip / Q_GRIP and RF.fore / Q_SUP come from the B hand frames (controller = hand x HOFF^-1), one set per side (`rflSide()`). The glove on the stock is exactly where your controller is, and two hands aim exactly like one. Right hand: the controller sits 9.6 cm behind and 4.8 cm below the trigger, and the muzzle points 22 deg down and 12 deg right of the controller's forward (v0.77.1 was 40 deg down, 0 right).
+- **Trigger 3 cm back:** the trigger blade moves 3 cm back in its guard (`TRIG_BACK`), so the index finger fits in front of it, as in the lab.
+- **Cuff wrist bend:** buildHand bends the glove's cuff bone sideways by the pose's dev (`st.dev`, capped at 35 deg, eased in and out with the grip): 0.25 rad on the stock, 0.6 rad on the forend.
+- **Sights:** with the rifle shouldered, the eye > notch > bead line clears both gloves. The test requires 4 mm; the right-handed hold clears it by 2.2 cm.
+- **Tests:** new t775 (28 checks: 24 random approaches per grip and side give the one B frame; the offset; the glove on the controller; the finger tips; the thumb side; the cuff bend; the trigger; two-hand aim; sight-line clearance; left-handed mirrored). t672's thumb / index checks are now B's. t774 (the v0.77.2 spec) is retired. Screenshots: /workspace/qa-rifle-poseB-*.png.
+
 ## v0.77.4 – the watch is on the inside of the wrist
 Neil: the wrist menu came up at the wrong times. Now the watch face (the wrist screen and its MENU button) is on the **inside** of the off-hand wrist, on the palm side of the forearm, like a watch worn face-in.
 - It shows only when that face points at your eyes (its normal dotted with the direction to the headset > 0.7, about 45 deg) and it is within 60 cm. It hides below 0.55 or beyond 65 cm (hysteresis). The back of the wrist toward you, the stick, the throttle and hands at rest never show it. The whole watch hides, not just the button.

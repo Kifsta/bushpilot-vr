@@ -19,7 +19,7 @@
 </script>
 </head>
 <body>
-<div id="info">BUSH PILOT VR v0.77.4 - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
+<div id="info">BUSH PILOT VR v0.77.5 - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
 You start on foot by the Cub at the cabin strip. Walk up to her and climb in (F / Y), then start her up off the checklist card (J).
 Desktop - flying: W/S or arrows pitch, A/D or arrows roll, Q/E rudder, Shift / Ctrl (or + / -) throttle, B brakes, [ ] flaps, PgUp / PgDn trim,
   R reset to the strip (cold and dark), F climb out, M map, L landing light, Home recentre, mouse looks (click to capture).
@@ -4045,9 +4045,10 @@ function gloveSkin(i, st, inv) {   // this frame's skin matrices: (xrOffset^-1 *
   if (!st.vis) return; _hm.multiplyMatrices(inv, st.W);
   for (let k = 0; k < HN; k++) U[k].multiplyMatrices(_hm, st.R[k]).multiply(GLOVE.B[h][k]);
 }
+const CUFF_DEV = 35 * D2R;   // v0.77.5 the most the glove's cuff bends sideways at the wrist
 function buildHand(st, sx) {                      // posed glove in hand space from st.c (finger curls 0..1) and st.th (0 thumb resting .. 1 lifted)
   const zL = sx > 0 ? _hzZ : _hzZn;   // v0.49.1: the left hand's bone frames mirror the right's (and match WebXR joints for tracked hands)
-  hBone(st, 0, _hs.set(sx * 0.031, 0.16, 0), _hd.set(0, -1, 0), 0.055, 0.05, 0.068, zL);   // cuff
+  { const dv = clamp((st.dev || 0) * (st.ge || 0), -CUFF_DEV, CUFF_DEV), cs = Math.cos(dv), sn = Math.sin(dv); hBone(st, 0, _hs.set(sx * 0.031, 0.075 + 0.085 * cs, 0.085 * sn), _hd.set(0, -cs, -sn), 0.055, 0.05, 0.068, zL); }   // cuff (v0.77.5 bends sideways at the wrist by st.dev, up to CUFF_DEV, as the pose lab's)
   hBone(st, 1, _hs.set(sx * 0.033, 0.05, -0.002), _hd.set(0, -1, 0), 0.083, 0.027, 0.088, zL);   // palm
   for (let f = 0; f < 4; f++) {
     const [kz, L, w, spl] = HF[f], c = st.c[f], e = st.ge, cs = c + (1 - G_SPL - c) * e; let a = 0.05; _hs.set(sx * 0.033, -0.03, kz);
@@ -4147,7 +4148,7 @@ function gFingerHit(gp, sx, f, j0) {   // does any bone from joint j0 on (angles
   return false;
 }
 function gripSolve(st, k, sx) {   // on grab: hand frame in the control's frame (st.Hc) + finger angles (st.ja) + thumb target (st.gT, st.gA)
-  const D = GDEF[k], gp = st.gp; gripFrame(k, _gF); _gI.copy(_gF).invert(); _gH.multiplyMatrices(_gI, st.W); if (D.fix) gripFixed(D.fix, sx, _gH); _gH.extractBasis(_gx, _gy, _gz);   // v0.77.1 fix: one authored pose per hand, whatever way the hand came in
+  const D = GDEF[k], gp = st.gp; st.dev = 0; if (D.labK) return rflLabSolve(st, RIFLE_POSES[D.labK].lab, sx); gripFrame(k, _gF); _gI.copy(_gF).invert(); _gH.multiplyMatrices(_gI, st.W); if (D.fix) gripFixed(D.fix, sx, _gH); _gH.extractBasis(_gx, _gy, _gz);   // v0.77.1 fix: one authored pose per hand, whatever way the hand came in
   if (D.st === 'wrap') {
     if (D.wd) _gA.copy(D.wd); else _gA.set(0, 0, 0).setComponent(D.wa, 1); if (_gz.dot(_gA) < 0) _gA.negate();          // finger-width axis along the grip, the way your hand already faces
     _gy.addScaledVector(_gA, -_gy.dot(_gA)); if (_gy.lengthSq() < 1e-6) _gy.copy(_gx).cross(_gA); _gy.normalize(); _gx.crossVectors(_gy, _gA);
@@ -4190,10 +4191,8 @@ function gripSolve(st, k, sx) {   // on grab: hand frame in the control's frame 
   st.gT.x *= sx; st.gA.normalize().lerp(_gd, 0.6).normalize();   // buildHand mixes the thumb in right-hand space
 }
 const _gfV = GV3(0, 0, 0);
-function gripFixed(kind, sx, out) {   // v0.77.1 the authored hand frames (hand space in the control's frame) for the rifle + binoculars: no approach-dependent choice
+function gripFixed(kind, sx, out) {   // v0.77.1 the authored hand frames (hand space in the control's frame) for the binoculars and paper (v0.77.5 the rifle's come from its lab pose: rflLabSolve)
   if (kind === 'paper') return out.makeBasis(_gfV.set(1, sx, 0).normalize(), _gy.set(sx, -1, 0).normalize(), _gz.set(0, 0, -1));   // v0.77.2 key pinch on the corner: thumb on the front, fingers behind, pointing in along the diagonal
-  if (kind === 'grip') return out.makeRotationFromQuaternion(_gfQ.copy(Q_GRIP).invert()).setPosition(RF.grip).multiply(HOFF);   // the rifle comes off the controller by Q_GRIP at RF.grip, so this is where the hand is
-  if (kind === 'fore') { const P = RIFLE_POSES.support; _gy.copy(P.fingers).multiplyScalar(sx); _gfV.copy(P.palm).multiplyScalar(-sx); return out.makeBasis(_gfV, _gy, _gz.crossVectors(_gfV, _gy)).setPosition(P.at); }   // palm normal (-sx * hand x) = P.palm; the fingers (hand -y) run along P.fingers for a left support hand, mirrored for a right one
   _gfV.set(sx * (0.0155 - GDEF.bR.wr), -0.045, GDEF.bR.wz).applyMatrix4(HOFF);   // 'bino': this hand's barrel in its palm, eyepieces back toward the wrist (+z), objectives along the controller's forward
   return out.makeTranslation(sx * B_BAR - _gfV.x, -_gfV.y, B_PZ - _gfV.z).multiply(HOFF);
 }
@@ -5449,29 +5448,32 @@ wbUpdate();
 // a no-echo report. Re-fitted to the new low-poly model (assets/lever-rifle.glb, read-only copy of the Synty-style rifle): its own lever / hammer /
 // trigger / gate nodes and the grip, forend and sight points of that mesh. It hangs on a rack on the home cabin wall and on a rack in the Cub.
 const HUNT = { rifleOk: false, deerOk: false, err: [], t0: performance.now(), ms: 0, kills: 0, shots: 0, hits: 0 };
-// v0.77.1 / v0.77.2 THE TWO RIFLE GRIPS - all the authored pose data in one place (rifle space: x right, y up, -z the muzzle; metres). Spec: Neil's Sniper Elite VR reference.
-// GRIP_OFFSET: the rifle comes straight off the primary controller - RF.grip sits at the controller, turned by 'pitch' about x - whatever way the hand came in.
-// primary: the stock wrist directly behind the guard - forearm back along the stock's slope, back of the hand out to the side, thumb over the top onto the far upper side,
-//   index forward into the guard on the trigger, middle / ring / little curled under and up the near side inside the lever loop.
-// support: palm-up cradle under the forend about halfway along (ahead of the receiver), thumb up the near side pointing a little forward, four fingers under and onto the far side.
-// th: the thumb tip, given for a right hand (x mirrors for the left). Left-handed / hands swapped: the same poses mirrored (sx = -1). The hand frames themselves are built in gripFixed() from these numbers.
+// v0.77.1 / v0.77.5 THE TWO RIFLE GRIPS - all the authored pose data in one place (rifle space: x right, y up, -z the muzzle; metres).
+// v0.77.5 Neil's pick: pose-lab option B (/workspace/pose-lab/lab/final/option-B.json, pasted verbatim into RIFLE_POSE_SRC) - one fixed pose per hand, mirrored when the hands swap.
+// primary (rgripR, authored for a right hand): the upright trigger hand, cuff along the stock, thumb on the left side of the wrist, index high in the guard,
+//   middle finger in the lever loop, ring + little on the loop's lower back corner. support (rforeL, authored for a left hand): palm-up cradle under the forend.
+// Each pose: mcp (index knuckle) or c (palm), Z (finger-width axis), arm (forearm direction), dev (sideways wrist bend at the cuff, rad), th (thumb tip), isp (index spread), tips (finger targets).
+// RIFLE_POSE_SOLVE: what the lab's solver fitted against the real rifle mesh for those numbers (finger joint angles ja; thumb target gT / axis gA in right-hand space).
+// rflLoadPoses(src, solve) builds the hand frames and the controller-to-rifle offsets (RF.grip / Q_GRIP, RF.fore / Q_SUP) from them: the rifle comes off your controller exactly where B puts the hand.
+const RIFLE_POSE_SRC = {"rgripR": {"mcp": [0.026, -0.058, 0.058], "Z": [0, -0.85, 0.53], "arm": [0.25, 0.45, 0.86], "dev": 0.25, "th": [-0.019, -0.008, 0.055], "isp": -0.4, "tips": [[-0.008, -0.045, 0.012], [-0.014, -0.04, 0.058], [-0.014, -0.06, 0.07], [-0.01, -0.095, 0.08]], "wt": 1500}, "rforeL": {"c": [0.0, 0.004, -0.265], "Z": [0, 0.0, 1], "arm": [-0.95, -0.3, 0], "dev": 0.6, "th": [-0.021, 0.02, -0.3], "tips": [[0.02, 0.03, -0.3], [0.02, 0.03, -0.28], [0.02, 0.028, -0.26], [0.019, 0.024, -0.242]]}};
+const RIFLE_POSE_SOLVE = { rgripR: { ja: [0.1, 0.88, 1.28, 0.26, 1.84, 1.12, 0.1, 1.68, 1.2, 0.26, 1.28, 1.28], gT: [-0.01943, -0.01869, -0.05592], gA: [-0.5584, -0.7263, -0.4008] },
+  rforeL: { ja: [0.1, 1.2, 0.64, 0.1, 1.2, 0.8, 0.02, 1.2, 0.72, 0.02, 1.2, 0.16], gT: [-0.02229, -0.02626, -0.03903], gA: [-0.5737, -0.7739, -0.2682] } };
 const RIFLE_POSES = {
-  GRIP_OFFSET: { pos: GV3(0, -0.006, 0.075), pitch: -40 * D2R },
-  primary: { c: GV3(0, -0.03, 0.056), ax: GV3(0, -0.961, 0.276), r: 0.015, hl: 0.045, th: GV3(-0.008, 0.026, 0.09), wd: GV3(0, -0.961, 0.276), wr: 0.015, tl: 0.004, wz: -0.004,
-    idx: { c: GV3(0, -0.05, -0.002), b: GV3(0.0025, 0.007, 0.005), sp: 0.35, lim: [1.7, 1.9, 0.9], min: [0, 0.75, 0.6], only: true } },
-  support: { at: GV3(0, 0.006, -0.27), c: GV3(0, 0.006, -0.27), b: GV3(0.017, 0.022, 0.1), wr: 0.017, tl: 0.08, wz: -0.004, th: GV3(0.024, 0.012, -0.3), palm: GV3(0, 1, 0), fingers: GV3(1, 0, 0) },   // palm normal; finger direction for the left (support) hand, mirrored for the right
+  primary: { c: GV3(0, -0.03, 0.056), ax: GV3(0, -0.961, 0.276), r: 0.015, hl: 0.045, wd: GV3(0, -0.961, 0.276), wr: 0.015, tl: 0.004, wz: -0.004, lab: null },   // shape: the stock wrist (reach / hover)
+  support: { c: GV3(0, 0.006, -0.27), b: GV3(0.017, 0.022, 0.1), wr: 0.017, tl: 0.08, wz: -0.004, lab: null },   // shape: the forend
+  GRIP_OFFSET: [null, null],   // [right primary, left primary]: { grip, q, fore, qs } - filled by rflLoadPoses
 };
-const GUN = { gripPitch: RIFLE_POSES.GRIP_OFFSET.pitch, stockEngage: 0.14, stockFull: 0.04, stockTau: 0.15, leverTime: 0.12, leverMax: 0.9, mv: 400, drag: 0.0029, zeroM: 50, disp: 0.0006,
+const GUN = { stockEngage: 0.14, stockFull: 0.04, stockTau: 0.15, leverTime: 0.12, leverMax: 0.9, mv: 400, drag: 0.0029, zeroM: 50, disp: 0.0006,
   gateR: 0.025, magnetR: 0.05, loadR: 0.1, loadCos: 0.5, pouchR: 0.24, grabR: 0.15, loadBtnR: 0.25, tube: 7, pouch: 60, flick: 1.6,
   pickupBlend: 0.12, handoffBlend: 0.08, inertiaWn: 55, stockCapPos: 0.003, stockCapRot: 0.6, gateCone: 40 * D2R };   // v0.67 from the v0.9-v0.44 rifle: pick-up / hand-off blends, one-hand muzzle lag, stock pull rate cap, loading-gate entry cone
 const RECOIL2 = { rise: 4.5, kick: 3.3, yaw: 0.6, wn: 20, zeta: 0.45, kwn: 32, kzeta: 0.65, random: 0.15, stock: 0.4, twoHand: 0.7, desk: 0.6 };
 // points of the mesh (rifle space: metres, muzzle -z, +x = right side, origin just above the trigger)
-const RF = { grip: RIFLE_POSES.GRIP_OFFSET.pos, fore: RIFLE_POSES.support.at, muz: GV3(0, 0.024, -0.658), ej: GV3(0, 0.048, -0.088), gate: GV3(0.0215, -0.005, -0.112),
+const RF = { grip: GV3(0, -0.006, 0.075), fore: GV3(0, 0.006, -0.27), muz: GV3(0, 0.024, -0.658), ej: GV3(0, 0.048, -0.088), gate: GV3(0.0215, -0.005, -0.112),
   loop: GV3(0, -0.05, 0.15), notch: GV3(0, 0.0517, -0.266), bead: GV3(0, 0.0517, -0.6435), butt: 0.314 };   // sight picture: the bead's top level with the rear blade (clears the receiver; the cocked hammer drops below it)
 const SIGHT_A = Math.atan2(RF.bead.y - RF.notch.y, RF.notch.z - RF.bead.z);   // the sight line vs the bore (level here)
 const EYE_R = GV3(0, RF.notch.y - 0.44 * Math.tan(SIGHT_A), RF.notch.z + 0.44);   // the sighting eye: 44 cm behind the notch, on the sight line
-const SUP_B = Math.atan2(RF.fore.y - RF.grip.y, RF.grip.z - RF.fore.z);            // grip -> forend line vs the bore
-const RFL = { g: null, place: 'cabin', hand: null, sup: null, levHand: null, levA: 0, levS: 0, levReq: false, levFree: false, levGrab0: 0,
+const TRIG_BACK = 0.03;
+const RFL = { g: null, sx: 0, place: 'cabin', hand: null, sup: null, levHand: null, levA: 0, levS: 0, levReq: false, levFree: false, levGrab0: 0,
   tube: 6, ch: false, cocked: false, spent: false, lifted: false, spare: 20, stockW: 0, stockF: 0, stockFv: 0, ads: 0, adsOn: false, prev: GV3(0, 0, 0), vel: GV3(0, 0, 0), flickCool: 0,
   rec: { a: 0, av: 0, y: 0, yv: 0, z: 0, zv: 0 }, flashT: 0, gp: [0, 0, 0], gry: 0, deskT: 0, gateT: 0, trigT: 0, round: new Map(), reload: new Set(), hint: '', bullets: [], cases: [], log: null,
   sig: '', blendT: 9, blendDur: 0.08, baseP: GV3(0, 0, 0), baseQ: new THREE.Quaternion(), offP: GV3(0, 0, 0), offQ: new THREE.Quaternion(), free: false, freeP: GV3(0, 0, 0), freeQ: new THREE.Quaternion(),
@@ -5479,7 +5481,7 @@ const RFL = { g: null, place: 'cabin', hand: null, sup: null, levHand: null, lev
 const _rq = new THREE.Quaternion(), _rq2 = new THREE.Quaternion(), _rq3 = new THREE.Quaternion(), _rp = GV3(0, 0, 0), _rp2 = GV3(0, 0, 0), _rp3 = GV3(0, 0, 0), _rd = GV3(0, 0, 0), _ru = GV3(0, 0, 0),
   _rM = new THREE.Matrix4(), _rx = GV3(1, 0, 0), _ry = GV3(0, 1, 0), _rz = GV3(0, 0, 1), _rE = GV3(0, 0, 0), _rH = GV3(0, 0, 0);
 const rotX = (a, q = new THREE.Quaternion()) => q.setFromAxisAngle(_rx, a);
-const Q_GRIP = rotX(GUN.gripPitch), Q_SIGHT = rotX(-SIGHT_A), Q_SUP = rotX(-SUP_B);
+const Q_GRIP = new THREE.Quaternion(), Q_SIGHT = rotX(-SIGHT_A), Q_SUP = new THREE.Quaternion();   // v0.77.5 Q_GRIP / Q_SUP / RF.grip / RF.fore: this side's, from rflSide()
 function aimQuat(d, up, out) {   // -z along d, +y as close to `up` as it goes
   _rz.copy(d).negate().normalize(); _rx.crossVectors(up, _rz); if (_rx.lengthSq() < 1e-8) _rx.set(1, 0, 0); _rx.normalize(); _ry.crossVectors(_rz, _rx);
   _rM.makeBasis(_rx, _ry, _rz); out.setFromRotationMatrix(_rM); _rx.set(1, 0, 0); _ry.set(0, 1, 0); _rz.set(0, 0, 1); return out;
@@ -5555,6 +5557,7 @@ function rflBuild(root) {
     if (ix) { for (let i = 0; i < ix.count; i += 3) { const t = ix.getX(i + 1); ix.setX(i + 1, ix.getX(i + 2)); ix.setX(i + 2, t); } }
     else for (const k in a) { const A = a[k], n = A.itemSize; for (let i = 0; i < A.count; i += 3) for (let c = 0; c < n; c++) { const t = A.array[(i + 1) * n + c]; A.array[(i + 1) * n + c] = A.array[(i + 2) * n + c]; A.array[(i + 2) * n + c] = t; } }
     tg.computeVertexNormals(); RFL.trig.geometry = tg; }
+  RFL.trig.position.z += TRIG_BACK;   // v0.77.5 the blade 3 cm back in its guard, so the index finger fits in front of it (as in the pose lab)
   { const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'), gr = x.createRadialGradient(32, 32, 0, 32, 32, 32);   // muzzle flash: additive sprite, no light
     gr.addColorStop(0, 'rgba(255,250,220,1)'); gr.addColorStop(0.25, 'rgba(255,200,90,0.9)'); gr.addColorStop(1, 'rgba(255,120,20,0)'); x.fillStyle = gr; x.fillRect(0, 0, 64, 64);
     RFL.flash = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, fog: false }));
@@ -5755,6 +5758,28 @@ function rflBullets(dt) {
 }
 // ---- holding it: desktop (hip / aim down the sights), VR (grip hand, forend hand, virtual stock), slung on your back ----
 const CHEEK = GV3(0, 0, 0).subVectors(RF.grip, EYE_R);   // the grip hand from the sighting eye with the butt in the shoulder (rifle space)
+const _lbX = GV3(0, 0, 0), _lbY = GV3(0, 0, 0), _lbZ = GV3(0, 0, 0), _lbM = new THREE.Matrix4(), _lbS = new THREE.Matrix4().makeScale(-1, 1, 1), _lbH = new THREE.Matrix4().copy(HOFF).invert();
+function rflLabHc(L, sx, out) {   // v0.77.5 a lab pose's hand frame in rifle space (as pose-lab labpage.js builds it), mirrored if this hand is the other side from the one it was authored for
+  const P = L.src, a = L.sx; _lbZ.fromArray(P.Z).normalize(); _lbY.fromArray(P.arm); _lbY.addScaledVector(_lbZ, -_lbY.dot(_lbZ)).normalize(); _lbX.crossVectors(_lbY, _lbZ);
+  out.makeBasis(_lbX, _lbY, _lbZ); const h0 = (P.mcp ? _lbX.set(a * 0.033, -0.03, -0.012) : _lbX.set(a * 0.0005, -0.045, -0.004)).applyMatrix4(out); out.setPosition(_lbY.fromArray(P.mcp || P.c).sub(h0));
+  if (sx !== a) out.premultiply(_lbS).multiply(_lbS); return out;
+}
+function rflLabSolve(st, L, sx) {   // v0.77.5 the fixed lab pose: frame, finger angles, thumb, cuff bend - no solving in the headset
+  rflLabHc(L, sx, st.Hc); st.ja.set(L.ja); st.gT.fromArray(L.gT); st.gA.fromArray(L.gA).normalize(); st.isp = st.gp.isp = L.src.isp || 0; st.gp.u = false; st.dev = L.src.dev || 0;
+}
+function rflLoadPoses(src, solve) {   // v0.77.5 RIFLE_POSES from a pose-lab option file (+ its solved fingers); the controller-to-rifle offsets follow from the hand frames
+  RIFLE_POSES.primary.lab = { src: src.rgripR, sx: 1, ...solve.rgripR }; RIFLE_POSES.support.lab = { src: src.rforeL, sx: -1, ...solve.rforeL };
+  for (const sx of [1, -1]) { const o = RIFLE_POSES.GRIP_OFFSET[sx > 0 ? 0 : 1] = { grip: GV3(0, 0, 0), q: new THREE.Quaternion(), fore: GV3(0, 0, 0), qs: new THREE.Quaternion() };
+    rflLabHc(RIFLE_POSES.primary.lab, sx, _lbM).multiply(_lbH); o.grip.setFromMatrixPosition(_lbM); o.q.setFromRotationMatrix(_lbM).invert();   // controller = hand * HOFF^-1
+    rflLabHc(RIFLE_POSES.support.lab, -sx, _lbM).multiply(_lbH); o.fore.setFromMatrixPosition(_lbM);
+    aimQuat(_lbX.subVectors(o.fore, o.grip), _lbY.set(0, 1, 0), o.qs).invert(); }   // two hands: the grip -> forend controller line onto the bore
+  RFL.sx = 0; rflSide(1);
+}
+function rflSide(sx) {   // v0.77.5 right- or left-hand primary: that side's offsets
+  if (RFL.sx === sx) return; RFL.sx = sx; const o = RIFLE_POSES.GRIP_OFFSET[sx > 0 ? 0 : 1];
+  RF.grip.copy(o.grip); RF.fore.copy(o.fore); Q_GRIP.copy(o.q); Q_SUP.copy(o.qs); CHEEK.subVectors(RF.grip, EYE_R);
+}
+rflLoadPoses(RIFLE_POSE_SRC, RIFLE_POSE_SOLVE);
 const _yq = new THREE.Quaternion(), _sp = GV3(0, 0, 0), _sq = new THREE.Quaternion();
 function headYaw() { camera.getWorldDirection(_rd); return Math.atan2(-_rd.x, -_rd.z); }
 // v0.67 (ported from the v0.9-v0.44 rifle): a change of hold (pick-up, forend on / off, hand-off) starts from where the rifle was drawn and melts the offset away;
@@ -5792,7 +5817,7 @@ function rflPose(dt) {
     _rq.slerp(_sq, k); _rp.lerp(_sp, k);
     _rq.premultiply(_rq2); _rp.applyQuaternion(_rq2).add(_rp2);
   } else if (RFL.place === 'vr') {
-    const G = RFL.hand; G.updateWorldMatrix(true, false); G.getWorldPosition(_rH); G.getWorldQuaternion(_rq2);
+    const G = RFL.hand; rflSide(G.userData.src?.handedness === 'left' ? -1 : 1); G.updateWorldMatrix(true, false); G.getWorldPosition(_rH); G.getWorldQuaternion(_rq2);
     const q1 = _rq3.copy(_rq2).multiply(Q_GRIP); _ru.set(0, 1, 0).applyQuaternion(q1); RFL.trigV = RFL.free ? 0 : G.userData.src?.gamepad?.buttons[0]?.value || 0;
     if (RFL.free) {   // v0.67 (from v0.44): let go of the wrist with the forend held - the rifle stays where it was in that hand
       _rq.copy(_rq2).multiply(RFL.freeQ); _rp.copy(RFL.freeP).applyQuaternion(_rq2).add(_rH); RFL.stockF = RFL.stockFv = RFL.stockW = 0; _rd.set(0, 0, -1).applyQuaternion(_rq);
@@ -6254,8 +6279,8 @@ function binoRelease(g) { if (BINO.g2 === g) { BINO.g2 = null; return; } if (BIN
     mpL: { fix: 'paper', o: () => MAP.sheet, sh: 'box', c: GV3(0, 0, 0), b: GV3(mh, mv, 0.001), st: 'pinch', pc: pin(mh, mv, -1) },
     mpR: { fix: 'paper', o: () => MAP.sheet, sh: 'box', c: GV3(0, 0, 0), b: GV3(mh, mv, 0.001), st: 'pinch', pc: pin(mh, mv, 1) } }); }
 Object.assign(GDEF, {   // v0.53 procedural grips on the rifle mesh: wrap the wrist of the stock, wrap the forend, pinch the lever loop
-  rgrip: { fix: 'grip', o: () => RFL.g, sh: 'cyl', st: 'wrap', wa: 2, ...RIFLE_POSES.primary },   // v0.77.1 the one wrist grip (pose data: RIFLE_POSES)
-  rfore: { fix: 'fore', o: () => RFL.g, sh: 'box', st: 'wrap', wa: 2, ...RIFLE_POSES.support },   // v0.77.1 the one forend grip (pose data: RIFLE_POSES)
+  rgrip: { labK: 'primary', o: () => RFL.g, sh: 'cyl', st: 'wrap', wa: 2, ...RIFLE_POSES.primary },   // v0.77.1 the one wrist grip (pose data: RIFLE_POSES; v0.77.5 its lab pose)
+  rfore: { labK: 'support', o: () => RFL.g, sh: 'box', st: 'wrap', wa: 2, ...RIFLE_POSES.support },   // v0.77.1 the one forend grip (pose data: RIFLE_POSES; v0.77.5 its lab pose)
   rlev: { o: () => RFL.lever, sh: 'box', c: GV3(0, -0.05, 0.15), b: GV3(0.005, 0.022, 0.035), st: 'pinch', pc: GV3(0, -0.068, 0.15) },
   bR: { fix: 'bino', o: () => BINO.m, sh: 'cyl', c: GV3(0.032, 0, -0.005), a: 2, r: 0.021, hl: 0.05, st: 'wrap', wa: 2, wr: 0.021, tl: 0.02, wz: -0.004 },   // v0.65 binocular barrels
   bL: { fix: 'bino', o: () => BINO.m, sh: 'cyl', c: GV3(-0.032, 0, -0.005), a: 2, r: 0.021, hl: 0.05, st: 'wrap', wa: 2, wr: 0.021, tl: 0.02, wz: -0.004 },
