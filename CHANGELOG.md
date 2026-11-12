@@ -2,6 +2,12 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.79.1 – t67 pickup-blend check made deterministic (no game change)
+- **Finding:** the full suite flagged t67's "pickup blends from the rack pose" check with d = 1.05 m. It isn't a pop in the game. The rifle's pickup blend (`rflHoldBlend`, `GUN.pickupBlend` 0.12 s) starts exactly at the pose it lay in. On the first frame it's 4 cm from the cabin rack, and 1–2 cm from the Cub's floor holder for a 60 cm lift toward the door. The test grabbed in one `evaluate` and measured in the next one, so whenever the live render loop ran more than 0.12 s in between (often under SwiftShader load), the blend had already finished. It failed in 1 of 2 serial runs.
+- **Test:** the grab, the hand move and the first `rflPose` now run in one `evaluate`. The check also covers the v0.77.12 floor holder in the Cub, as well as the cabin rack. The first frame has to be within 25 cm of where the rifle lay, and 20 frames later it's in the hand. t67 passes 19/19 (3 runs). t53, t65, t69, t671, t672, t773, t775, t776 and t7712 pass.
+- **Suite:** t78, t781 and t79 are added to suite.sh. The test harness gets `BP_HTML` (lib.js) and `mkx.sh` to run the tests on another build without touching `_t.html`.
+- The help line reads v0.79.1. Nothing else in index.html changed.
+
 ## v0.79 – rain fronts drifting across the map (no wind)
 Neil's batch, item 12.
 - **Fronts (`FR`):** there are two squall lines of 6–8 rain shafts each, 260–460 m in radius and about 3 km long, set across their direction of travel. Their own seeded RNG leaves the world `rand()` stream untouched. They drift along the clouds' direction (`FR.D`, the same as `CLOUDS`' 2.2 / −1.1) at 5–9 m/s each. When one leaves the map on the downwind side (`FR.WRAP` 8.2 km), it comes back in upwind at a new lateral offset. At load they start upwind and off the map, so the first reaches the home valley after about 12 minutes. That also keeps short sessions and tests dry.
