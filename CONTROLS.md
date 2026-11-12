@@ -274,7 +274,10 @@ A customer stands at every job board. Walk up to them for a hello: their rep tie
 - Time of day is fixed, so there is no clock and no dusk to beat. Pick it in Settings → **Time of day** (EARLY / MORNING / AFTERNOON / LATE / SUNSET / NIGHT). A saved game keeps its time.
 
 ## Settings
-- **VR:** poke the screen on your left wrist with your right index finger. A SETTINGS board opens half a metre in front of you. Poke a row to step it to the next value, and poke CLOSE (or the wrist again) to close it.
+- **VR:** turn your left wrist to your face, as if checking a watch. A gold **MENU** button appears under the wrist screen (v0.62); poke it with your right index finger. A SETTINGS board opens half a metre in front of you. Poke a row to step it to the next value, and poke CLOSE (or MENU again) to close it.
+  - The button shows when the screen faces you within about 52° and the wrist is within 0.6 m of the headset.
+  - It stays until you turn more than about 68° away or move past 0.75 m, so it doesn't flicker at the edge.
+  - Poking the message screen itself does nothing, and a finger already on the spot when the button appears doesn't press it.
 - **Desktop:** ` (backquote) or **F2** opens the settings panel, **F3** toggles the FPS counter, Esc closes.
 - Saved in this browser (`bp_gfx`). URL override for testing: `?gfx=shadows:2,grass:1`.
 
@@ -306,7 +309,7 @@ A customer stands at every job board. Walk up to them for a hello: their rep tie
 - `?nosave` plays without saving. `?plane` starts a new game in the seat instead of beside the Cub.
 
 ## Frame rate (v0.48)
-- Poke the screen on your left wrist to open **Settings**. A live **PERF** strip sits above it, updated twice a second:
+- Poke the wrist MENU button (turn the wrist to your face) to open **Settings**. A live **PERF** strip sits above it, updated twice a second:
   - line 1: fps, frame ms (and the worst frame), CPU ms, draw calls and triangles; green means on budget, red means over;
   - line 2: the foveation the XR layer reports (`FFR 1.00`, or `UNSUPPORTED`), the layer type and its framebuffer size, the refresh rate (and what the headset offers), MSAA and the render scale;
   - line 3: what Auto resolution is doing, how many scenery instances are drawn, and whether the ground is vertex-lit.

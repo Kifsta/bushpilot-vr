@@ -19,7 +19,7 @@
 </script>
 </head>
 <body>
-<div id="info">BUSH PILOT VR v0.61 - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
+<div id="info">BUSH PILOT VR v0.62 - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
 You start on foot by the Cub at the cabin strip. Walk up to her and climb in (F / Y), then start her up off the checklist card (J).
 Desktop - flying: W/S or arrows pitch, A/D or arrows roll, Q/E rudder, Shift / Ctrl (or + / -) throttle, B brakes, [ ] flaps, PgUp / PgDn trim,
   R reset to the strip (cold and dark), F climb out, M map, L landing light, Home recentre, mouse looks (click to capture).
@@ -32,7 +32,7 @@ Desktop - on foot: WASD walk, Shift run, C crouch, Space hop, F climb in, G refu
   Running costs: fuel is paid at the red drums (4 strips, 4 prices); oil, tyres + brakes, repairs and the 100-hour service at the home HANGAR board (1-4 there).
 VR - in the cockpit: grip the stick (right) and throttle (left), left stick = rudder, left trigger = brakes, reach up and pull the flap handle down
   a notch at a time, wind the trim crank, turn knobs / the mag key / the primer / the fuel valve with your hand, poke the rocker and toggles.
-  A / X recentre, B reset, Y climb out. Poke the screen on your left wrist with your right finger for SETTINGS.
+  A / X recentre, B reset, Y climb out. Turn your left wrist to your face and poke its MENU button with your right finger for SETTINGS.
 VR - on foot: left stick walks (click = run), right stick turns (snap / smooth in Settings), right stick down = crouch, up = hop,
   Y climb in, grab a wing filler cap at the home strip to refuel from the pump, grab the map off its cockpit holder.
   Jobs: poke ACCEPT on a strip's job board, grip cargo to carry it, let go over the rear seat / baggage bay, grab the belt buckle / net to strap.
@@ -1964,7 +1964,7 @@ function drawWrist() {   // v0.10: only re-uploads when something on it changed
   const SL = st.split('\n'), ex = SL.slice(3).filter(l => l !== msg), W = SL.slice(0, 3).concat(msgT > 0 ? msgPage(26) : [], ex).slice(0, 5);   // v0.59.1 five lines above the button; the message (paged, two lines) before the warnings
   W.forEach((l, i) => { wctx.fillStyle = i < 3 ? (i ? '#9f9' : '#ffd84a') : msgT > 0 && i < 3 + Math.min(2, wrapText(msg, 26).length) ? '#fff' : '#fc8'; wctx.font = i ? '15px monospace' : 'bold 14px monospace'; wctx.fillText(l.slice(0, i ? 27 : 30), 4, 16 + i * 18); });   // v0.50: line 1 = wallet + jobs (gold)
   wctx.fillStyle = SETP.open ? '#ffd84a' : '#3a3a3a'; wctx.fillRect(8, 100, 240, 22); wctx.fillStyle = SETP.open ? '#111' : '#ddd'; wctx.font = 'bold 15px monospace'; wctx.textAlign = 'center';
-  wctx.fillText(SETP.open ? 'POKE: CLOSE SETTINGS' : 'POKE: SETTINGS', 128, 116); wctx.textAlign = 'left';
+  wctx.fillText(SETP.open ? 'MENU BELOW: CLOSE SETTINGS' : 'MENU BELOW: SETTINGS', 128, 116); wctx.textAlign = 'left';
   wtex.needsUpdate = true; hud.textContent = st;
 }
 
@@ -7031,7 +7031,21 @@ function setpPerf(dt) {   // twice a second while the board is open
   x.fillStyle = '#2e2418'; x.font = 'bold 22px Georgia, serif'; x.fillText('PERF', 22, 36); x.font = '14px Georgia, serif'; x.fillStyle = '#6a5638'; x.fillText('live - try one row at a time', 90, 36);
   perfLines().forEach(([t, c], i) => { x.fillStyle = c; x.font = (i ? '20px' : 'bold 24px') + ' monospace'; x.fillText(t, 22, 76 + i * 38, 980); }); SETP.pt.needsUpdate = true;
 }
-const _spL = new THREE.Vector3();
+const _spL = new THREE.Vector3(), _wfN = new THREE.Vector3(), _wfP = new THREE.Vector3(), _wfE = new THREE.Vector3(), _wfQ = new THREE.Quaternion();
+// v0.62 the MENU button under the wrist screen: only there while you turn that wrist to your face (inner wrist toward the headset, close enough to read), with hysteresis
+const WBTN = (() => { const c = document.createElement('canvas'); c.width = 128; c.height = 48; const x = c.getContext('2d');
+  x.fillStyle = '#2e2418'; x.fillRect(0, 0, 128, 48); x.strokeStyle = '#f2d878'; x.lineWidth = 4; x.strokeRect(2, 2, 124, 44); x.fillStyle = '#f2d878'; x.font = 'bold 26px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('MENU', 64, 25);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.generateMipmaps = false; t.minFilter = THREE.LinearFilter;
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(0.046, 0.017), new THREE.MeshBasicMaterial({ map: t })); m.position.set(0, -0.0395, 0.0005); m.visible = false; wrist.add(m);
+  return { m, on: false, dot: 0, d: 9, IN: [0.62, 0.6], OUT: [0.38, 0.75], W: 0.026, H: 0.0115 }; })();
+function wristFace() {   // the wrist screen's face toward the eye: cosine of the angle and the distance; the button shows / hides with hysteresis
+  if (!wrist.parent) { WBTN.on = WBTN.m.visible = false; return false; }
+  wrist.updateWorldMatrix(true, false); wrist.getWorldPosition(_wfP); _wfN.set(0, 0, 1).applyQuaternion(wrist.getWorldQuaternion(_wfQ));
+  camera.getWorldPosition(_wfE); _wfE.sub(_wfP); const d = _wfE.length(), dot = d > 1e-4 ? _wfN.dot(_wfE) / d : 0; WBTN.dot = dot; WBTN.d = d;
+  const on = WBTN.on ? dot > WBTN.OUT[0] && d < WBTN.OUT[1] : dot > WBTN.IN[0] && d < WBTN.IN[1];
+  if (on !== WBTN.on) { WBTN.on = on; WBTN.m.visible = on; if (!on) SETP.wArm = false; }
+  return on;
+}
 const SETP_ROW = i => ({ X: i < 10 ? 30 : 527, Y: 96 + (i % 10) * 48 });   // v0.48: 10 rows a column
 function setpDraw() {
   const x = SETP.x; x.fillStyle = '#e9dcb8'; x.fillRect(0, 0, 1024, 640); x.strokeStyle = '#5a4630'; x.lineWidth = 6; x.strokeRect(3, 3, 1018, 634);
@@ -7066,13 +7080,13 @@ function setpPoke(r) {
   SETP.lit = r; gfxCycle(GFX_OPT[r][0]); setpDraw();
 }
 function setpTick() {   // after updateHands (fingertips are this frame's)
-  setpPerf(1 / 72);
+  setpPerf(1 / 72); wristFace();
   if (!HANDS.st.length) return;
   for (let i = 0; i < 2; i++) { const st = HANDS.st[i]; if (!st.vis) continue;
     if (!st.right && !wrist.parent) continue;
-    if (st.right && wrist.parent) {   // the wrist screen rides the left grip; the right finger pokes it
+    if (st.right && wrist.parent && WBTN.on) {   // the wrist screen rides the left grip; the right finger pokes its MENU button (v0.62: only while the wrist faces you)
       wrist.worldToLocal(_spL.copy(st.tip));
-      const inR = Math.abs(_spL.x) < 0.058 && Math.abs(_spL.y) < 0.032;
+      const inR = Math.abs(_spL.x - WBTN.m.position.x) < WBTN.W && Math.abs(_spL.y - WBTN.m.position.y) < WBTN.H;
       if (!SETP.wArm && (!inR || _spL.z > 0.03)) SETP.wArm = true;
       if (SETP.wArm && inR && _spL.z < 0.01 && _spL.z > -0.03) { SETP.wArm = false; setpOpen(); if (grips[i]) HX.pulse(grips[i], 0.5, 18, 'ui'); continue; } }
     if (!SETP.open) continue;

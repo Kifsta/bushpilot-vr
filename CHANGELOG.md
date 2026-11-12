@@ -2,6 +2,19 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.62 – wrist MENU button only when you look at your wrist
+Neil: "Wrist menu button: appears only when that wrist is turned toward the face." The physics block is untouched (md5 `eee6637e…`).
+- Before, poking anywhere on the left wrist screen opened SETTINGS. A finger brushing the wrist while flying or loading could open it.
+- **The MENU button:** a separate gold button now sits under the wrist screen. It shows only while the screen faces the headset.
+  - Facing means the screen normal is within ~52° of the line to the eye (cos > 0.62) and the wrist is within 0.6 m.
+  - It hides past ~68° (cos < 0.38) or beyond 0.75 m. The gap between the show and hide limits stops it flickering at the edge.
+- Only the button opens or closes SETTINGS; the message screen ignores pokes. A fingertip already on the button's spot when it appears has to lift off first.
+- The wrist footer reads "MENU BELOW: SETTINGS". The help overlay and CONTROLS describe the new gesture.
+- Tests:
+  - New t62 (13 checks): hidden turned away, shown facing, 60° stays, 70° hides, coming back from 60° stays off, 0.8 m hides, 0.5 m shows, 0.7 m stays, hidden or screen pokes do nothing, no press when it appears under the finger, the button opens SETTINGS.
+  - t45's wrist test now faces the wrist and pokes the button.
+- Screenshots: /workspace/qa-v062-wrist-facing.png (button shown) and /workspace/qa-v062-wrist-away.png (turned away, hidden).
+
 ## v0.61 – either hand works every cockpit control
 Neil: "Both hands can use everything in the cockpit. The left hand can't grab the stick now." The physics block is untouched (md5 `eee6637e…`).
 - **Stick and throttle, either hand.** The stick used to answer only the right hand, and the throttle only the left. Now:
