@@ -2,6 +2,24 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.73 – a real fuel hose
+Neil's list: a physics fuel hose at the drums, with a nozzle you carry to the wing cap. The physics block is untouched (md5 `eee6637e…`). The fuel economy (price per gallon, credit and the receipt) is unchanged.
+- **The hose:**
+  - A 9 m verlet rope: 24 segments, 2 substeps and 14 constraint passes a frame, drawn as 24 instanced tube pieces (1 draw call). It runs from the pump outlet on the nearest red drum (any of the 4 strips, within 30 m).
+  - It sags under gravity, lies on the ground with a little friction, and never goes through it.
+  - The nozzle (spout, handle, red lever) hangs on the drum.
+- **VR:**
+  1. Grip the nozzle to take it, then carry it to a wing cap. Within 15 cm it snaps in: "NOZZLE IN - SQUEEZE THE TRIGGER TO PUMP".
+  2. Fuel runs only while the trigger is held, at the usual 3 L/s, paid as it flows, with the same small haptic.
+  3. Let go of the grip and the nozzle stays in the cap. Take it again to carry on.
+  4. Pull it out (30 cm) and the session ends with the receipt.
+  - Past 9 m from the drum it slips out of your hand ("TAXI THE CUB CLOSER"). It then falls and lies on the ground; pick it up again from there.
+  - Let go within 45 cm of the drum and it goes back on its hook.
+- The old "grip at the cap = nozzle in" is gone. Gripping a cap without the nozzle tells you to bring it.
+- **Desktop:** G at a cap works exactly as before, and the hose now runs to that cap (the old thin line is no longer drawn).
+- New test t73 (15 checks). Screenshot: /workspace/qa-v073-hose-to-cap.png.
+- t45 (VR cap fill) and t72 (cap from the tyre) now carry the drum nozzle to the cap instead of gripping the cap.
+
 ## v0.72 – climb on to the Cub to reach the wing caps
 Neil's list: the wing filler caps are 2.16 m up. Step up on the main tyre to reach them, easily and without jank. The physics block is untouched (md5 `eee6637e…`): this is on-foot code only, and the flight model is unchanged.
 - **Standable surfaces on each side** (body frame, so they follow the parked Cub's attitude):

@@ -19,7 +19,7 @@
 </script>
 </head>
 <body>
-<div id="info">BUSH PILOT VR v0.72 - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
+<div id="info">BUSH PILOT VR v0.73 - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
 You start on foot by the Cub at the cabin strip. Walk up to her and climb in (F / Y), then start her up off the checklist card (J).
 Desktop - flying: W/S or arrows pitch, A/D or arrows roll, Q/E rudder, Shift / Ctrl (or + / -) throttle, B brakes, [ ] flaps, PgUp / PgDn trim,
   R reset to the strip (cold and dark), F climb out, M map, L landing light, Home recentre, mouse looks (click to capture).
@@ -34,11 +34,11 @@ VR - in the cockpit: grip the stick (right) and throttle (left), left stick = ru
   a notch at a time, wind the trim crank, turn knobs / the mag key / the primer / the fuel valve with your hand, poke the rocker and toggles.
   Grip the clipboard on your thigh to lift it, its hand's trigger turns the page. A / X recentre, B reset, Y climb out. Turn your left wrist to your face and poke its MENU button with your right finger for SETTINGS.
 VR - on foot: left stick walks (click = run), right stick turns (snap / smooth in Settings), right stick down = crouch, up = hop,
-  Y climb in, grab a wing filler cap at the home strip to refuel from the pump, grab the map off its cockpit holder.
+  Y climb in, take the nozzle off a red drum, put it in a wing filler cap and hold the trigger to refuel from the pump, grab the map off its cockpit holder.
   Jobs: poke ACCEPT on a strip's job board, grip cargo to carry it, let go over the rear seat / baggage bay, grab the belt buckle / net to strap.
   Hunting: grip the rifle's wrist (cabin / Cub rack), other hand on the forend, trigger fires, pinch the lever loop and swing it (or flick), rounds from the belt pouch into the gate; binoculars on your chest (one hand or both, a hand on each barrel), raise them to your eyes; grip and hold a downed deer to dress it.
   Airdrops: unlatch + open both halves of the right door, reach back and grip a bundle, put your hand out through the door and let go.
-  Running costs: grab a wing cap by any strip's red drum to buy fuel; poke a price on the hangar / fuel boards for oil, tyres, repairs, the 100-hour.
+  Running costs: carry the drum's nozzle to a wing cap (trigger pumps) to buy fuel; poke a price on the hangar / fuel boards for oil, tyres, repairs, the 100-hour.
 MENU (Esc / F2 on desktop, the wrist MENU button in VR; poke, point + trigger, or click): resume, save / load (3 slots), graphics + presets, comfort, controls (dominant hand), audio volumes. ` = old settings list.
 </div>
 <div id="hud"></div><div id="cross"></div>
@@ -2057,32 +2057,93 @@ const capW = (i, out) => plane.localToWorld(out.copy(CAPS[i]));
 function pumpNear() { const F = fuelSt(); if (!F) return false; if (FUELP.st !== F) { FUELP.st = F; FUELP.p.copy(F.p); } return cubParkedFuel(); }   // v0.55 any of the 4 drums
 const cubParkedFuel = () => !ac.crashed && acGS() < 0.5 && !ENG.running;
 function nearestCap(p, r) { let best = -1, bd = r; for (let i = 0; i < 2; i++) { const d = capW(i, _fpA).distanceTo(p); if (d < bd) { bd = d; best = i; } } return best; }
-function fuelGrab(g, p) {   // VR: grip at a filler cap = the nozzle goes in
-  if (mode !== 'foot' || FUELP.g) return false;
-  const c = nearestCap(p, FUELP.CAP_R); if (c < 0) return false;
-  if (!pumpNear()) { say(ENG.running ? 'SHUT THE ENGINE DOWN TO REFUEL' : 'NO FUEL HERE - RED DRUMS AT HOME, RIDGE, LODGE + DRY FORK'); return true; }
-  FUELP.g = g; FUELP.cap = c; FUELP.on = true; FUELP.fullSaid = false; tick(g); sfx('click'); say('REFUELLING - $' + FUELP.st.price.toFixed(2) + '/GAL'); return true;
+function fuelGrab(g, p) {   // VR (v0.73): take the nozzle off the drum (or the ground, or a cap) and carry it on its hose to a wing cap
+  if (mode !== 'foot') return false;
+  if (hoseGrab(g, p)) return true;
+  if (HOSE.st && nearestCap(p, FUELP.CAP_R) >= 0) say('BRING THE NOZZLE - IT HANGS ON THE RED DRUM');
+  return false;
 }
-function fuelRelease(g) { if (FUELP.g !== g) return; FUELP.g = null; fuelStop(); }
-function fuelStop() { if (!FUELP.on) return; FUELP.on = false; FUELP.cap = -1; FUELP.line.visible = false; say('FUEL ' + (fuel / 3.785).toFixed(1) + ' GAL' + (UPG.tank ? ' + AUX ' + (UPG.aux / 3.785).toFixed(1) : '') + ecoFuelReceipt()); }
+function fuelRelease(g) { if (HOSE.held === g) hoseRelease(); }
+function fuelStop() { if (!FUELP.on) return; FUELP.on = false; FUELP.vr = false; FUELP.cap = -1; FUELP.line.visible = false; say('FUEL ' + (fuel / 3.785).toFixed(1) + ' GAL' + (UPG.tank ? ' + AUX ' + (UPG.aux / 3.785).toFixed(1) : '') + ecoFuelReceipt()); }
 function fuelDesk() {   // desktop G: start / stop the pump when you stand by a filler cap
   if (FUELP.on) { fuelStop(); return; }
   camera.getWorldPosition(_fpB); let c = -1, bd = FUELP.DESK_R;
   for (let i = 0; i < 2; i++) { capW(i, _fpA); const d = hyp(_fpA.x - _fpB.x, _fpA.z - _fpB.z); if (d < bd) { bd = d; c = i; } }
   if (c < 0) { say('STAND BY A WING FILLER CAP TO REFUEL'); return; }
   if (!pumpNear()) { say(ENG.running ? 'SHUT THE ENGINE DOWN TO REFUEL' : 'NO FUEL HERE - RED DRUMS AT HOME, RIDGE, LODGE + DRY FORK'); return; }
-  FUELP.cap = c; FUELP.on = true; FUELP.fullSaid = false; sfx('click'); say('REFUELLING - $' + FUELP.st.price.toFixed(2) + '/GAL (G TO STOP)');
+  FUELP.cap = c; FUELP.on = true; FUELP.vr = false; FUELP.fullSaid = false; sfx('click'); say('REFUELLING - $' + FUELP.st.price.toFixed(2) + '/GAL (G TO STOP)');
 }
 function fuelPumpTick(dt) {
   if (!FUELP.on) return;
   if (mode !== 'foot' || !pumpNear()) { FUELP.g = null; fuelStop(); return; }
-  if (!FUELP.g) { camera.getWorldPosition(_fpB); capW(FUELP.cap, _fpA); if (hyp(_fpA.x - _fpB.x, _fpA.z - _fpB.z) > FUELP.DESK_R + 1) { fuelStop(); return; } }
-  if (FUELP.g && nearestCap(FUELP.g.getWorldPosition(_fpB), FUELP.CAP_R + 0.1) < 0) { fuelStop(); return; }   // pulled the nozzle out
+  if (!FUELP.g && !FUELP.vr) { camera.getWorldPosition(_fpB); capW(FUELP.cap, _fpA); if (hyp(_fpA.x - _fpB.x, _fpA.z - _fpB.z) > FUELP.DESK_R + 1) { fuelStop(); return; } }   // walked away
+  if (FUELP.vr && !hoseFlow()) return;   // v0.73 VR: the nozzle is in, fuel runs while you hold the trigger (pulling it out is the hose's job)
   if (fuel < FUEL_MAX || upgAuxRoom() > 0) { const dl = ecoFuelAllow(Math.min(FUELP.RATE * dt, FUEL_MAX - fuel + upgAuxRoom())); if (dl <= 0) { FUELP.g = null; fuelStop(); return; } const dm = Math.min(dl, FUEL_MAX - fuel); fuel = Math.min(FUEL_MAX, fuel + dm); if (dl > dm) UPG.aux = Math.min(AUX_L, UPG.aux + dl - dm);   // v0.57 then the aux
     if ((FUELP.sndT -= dt) <= 0) { sfx('pour', capW(FUELP.cap, _fpA)); FUELP.sndT = 0.13; } if (FUELP.g && Math.random() < dt * 6) HX.pulse(FUELP.g, 0.08, 10, 'fuel'); }
   else if (!FUELP.fullSaid) { FUELP.fullSaid = true; say('TANKS FULL - 36 GAL' + (UPG.tank ? ' + 16 AUX' : '')); if (FUELP.g) HX.pulse(FUELP.g, 0.4, 30, 'fuel'); }
   _fpA.copy(FUELP.p).y += 1.42; capW(FUELP.cap, _fpB); FUELP.line.geometry.attributes.position.setXYZ(0, _fpA.x, _fpA.y, _fpA.z); FUELP.line.geometry.attributes.position.setXYZ(1, _fpB.x, _fpB.y, _fpB.z);
-  FUELP.line.geometry.attributes.position.needsUpdate = true; FUELP.line.visible = true;
+  FUELP.line.geometry.attributes.position.needsUpdate = true;   // v0.73 the hose is drawn instead of this line
+}
+// ---- v0.73 the fuel hose: a 9 m verlet rope from the drum's pump to a nozzle you carry; it sags, lies on the ground, and the nozzle slips out of your hand at full stretch ----
+const HOSE = { N: 24, L: 9, P: [], Q: [], held: null, rest: 'hook', inCap: -1, st: null, E: new THREE.Vector3(), tip: new THREE.Vector3(), dir: new THREE.Vector3(0, -1, 0), slipT: 0 };
+for (let i = 0; i <= HOSE.N; i++) { HOSE.P.push(new THREE.Vector3()); HOSE.Q.push(new THREE.Vector3()); }
+{ HOSE.inst = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.012, 0.012, 1, 6), mat(0x1c1c1c), HOSE.N); HOSE.inst.frustumCulled = false; HOSE.inst.userData.noBatch = true; HOSE.inst.visible = false; scene.add(HOSE.inst);
+  const nz = new THREE.Group(), dk = mat(0x2a2a2a); nz.userData.noBatch = true;
+  const sp = new THREE.Mesh(new THREE.CylinderGeometry(0.009, 0.011, 0.13, 8).rotateX(Math.PI / 2).translate(0, 0, 0.075), mat(0x9a9a9a)); sp.userData.noBatch = true; nz.add(sp);   // spout along +z (lookAt the tip)
+  const hd = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.05, 0.08), dk); hd.position.set(0, -0.01, -0.02); hd.userData.noBatch = true; nz.add(hd);
+  const lv = new THREE.Mesh(new THREE.BoxGeometry(0.01, 0.012, 0.06), mat(0xb02a1c)); lv.position.set(0, -0.04, 0.0); lv.userData.noBatch = true; nz.add(lv);
+  nz.visible = false; scene.add(nz); HOSE.noz = nz; }
+const _hsA = new THREE.Vector3(), _hsB = new THREE.Vector3(), _hsC = new THREE.Vector3(), _hsM = new THREE.Matrix4(), _hsQ = new THREE.Quaternion(), _hsU = new THREE.Vector3(0, 1, 0), _hsS = new THREE.Vector3();
+const hoseOut = (F, o) => o.copy(F.p).add(_hsC.set(0.16, 0.9, 0));     // the pump's outlet on the drum lid
+const hoseHook = (F, o) => o.copy(F.p).add(_hsC.set(0.32, 0.74, 0));   // where the nozzle hangs on the drum
+function hoseStation() { camera.getWorldPosition(_hsA); let b = null, bd = 30; for (const F of FUEL_ST) { if (!F.p) continue; const d = hyp(F.p.x - _hsA.x, F.p.z - _hsA.z); if (d < bd) { bd = d; b = F; } } return b; }
+function hoseFlow() { const g = HOSE.held; if (!g || HOSE.inCap < 0 || HOSE.inCap !== FUELP.cap) return false; const b = g.userData.src?.gamepad?.buttons[0]; return (b?.value ?? (b?.pressed ? 1 : 0)) > 0.5; }
+function hoseGrab(g, p) {
+  if (!HOSE.st || HOSE.held || p.distanceTo(HOSE.E) > 0.2) return false;
+  HOSE.held = g; if (HOSE.rest === 'cap' && FUELP.on) FUELP.g = g; const was = HOSE.rest; HOSE.rest = 'hand'; tick(g); sfx('pick');
+  if (was === 'hook') say('FUEL NOZZLE (' + HOSE.L + ' M HOSE) - INTO A WING CAP, SQUEEZE THE TRIGGER TO PUMP'); return true;
+}
+function hoseRelease() {
+  const g = HOSE.held; HOSE.held = null; FUELP.g = null; if (g) { HX.pulse(g, 0.15, 12, 'release'); g.updateWorldMatrix(true, false); if (HOSE.inCap < 0) g.getWorldPosition(HOSE.E); }
+  if (HOSE.inCap >= 0 && FUELP.on) { HOSE.rest = 'cap'; return; }   // left in the cap: no flow, take it again to carry on
+  HOSE.inCap = -1; HOSE.rest = HOSE.st && HOSE.E.distanceTo(hoseHook(HOSE.st, _hsA)) < 0.45 ? 'hook' : 'free';
+}
+function hoseIn(c) {   // the nozzle reaches a cap
+  if (!pumpNear() || FUELP.st !== HOSE.st) { say(ENG.running ? 'SHUT THE ENGINE DOWN TO REFUEL' : 'PARK THE CUB BY THIS DRUM TO REFUEL'); return; }
+  if (FUELP.on && FUELP.cap === c) { FUELP.g = HOSE.held; return; }
+  if (FUELP.on) fuelStop();
+  FUELP.on = true; FUELP.vr = true; FUELP.cap = c; FUELP.g = HOSE.held; FUELP.fullSaid = false; sfx('click'); if (HOSE.held) HX.pulse(HOSE.held, 0.35, 20, 'fuel');
+  say('NOZZLE IN - SQUEEZE THE TRIGGER TO PUMP - $' + FUELP.st.price.toFixed(2) + '/GAL');
+}
+function hoseReset(F) { HOSE.held = null; HOSE.inCap = -1; HOSE.rest = 'hook'; if (!F) return; hoseOut(F, _hsA); hoseHook(F, _hsB);
+  for (let i = 0; i <= HOSE.N; i++) { const t = i / HOSE.N; HOSE.P[i].lerpVectors(_hsA, _hsB, t); HOSE.P[i].y -= Math.sin(t * Math.PI) * 0.35; HOSE.Q[i].copy(HOSE.P[i]); } HOSE.E.copy(_hsB); }
+function hoseTick(dt) {
+  const F = mode === 'foot' ? hoseStation() : null;
+  if (F !== HOSE.st) { if (HOSE.held) hoseRelease(); if (FUELP.on && FUELP.vr) fuelStop(); HOSE.st = F; hoseReset(F); }
+  HOSE.inst.visible = HOSE.noz.visible = !!F; if (!F) return;
+  const N = HOSE.N, P = HOSE.P, Q = HOSE.Q, seg = HOSE.L / N; hoseOut(F, _hsA); let pin = true;
+  if (HOSE.held) { const g = HOSE.held; g.updateWorldMatrix(true, false); g.getWorldPosition(HOSE.E); HOSE.dir.set(0, -0.45, -1).normalize().transformDirection(g.matrixWorld); HOSE.tip.copy(HOSE.E).addScaledVector(HOSE.dir, 0.15);
+    if (HOSE.E.distanceTo(_hsA) > HOSE.L) { say('THE HOSE WON\'T STRETCH FURTHER - TAXI THE CUB CLOSER TO THE DRUM'); HX.pulse(g, 0.6, 40, 'fuel'); HOSE.inCap = -1; if (FUELP.on) fuelStop(); hoseRelease(); HOSE.rest = 'free'; }
+    else { let c = nearestCap(HOSE.tip, 0.15); if (c < 0) c = nearestCap(HOSE.E, 0.2);
+      if (c >= 0) { if (HOSE.inCap !== c) { HOSE.inCap = c; hoseIn(c); } capW(c, HOSE.tip); HOSE.E.copy(HOSE.tip).addScaledVector(HOSE.dir, -0.15); }   // snapped into the cap
+      else if (HOSE.inCap >= 0 && capW(HOSE.inCap, _hsB).distanceTo(HOSE.tip) > 0.3) { HOSE.inCap = -1; if (FUELP.on) fuelStop(); sfx('click'); } } }   // pulled it out
+  if (!HOSE.held) {
+    if (FUELP.on && !FUELP.vr && FUELP.cap >= 0) { capW(FUELP.cap, HOSE.tip); HOSE.dir.set(0, -1, 0); HOSE.E.copy(HOSE.tip).y += 0.15; }   // desktop G: the nozzle sits in the cap
+    else if (HOSE.rest === 'cap' && FUELP.on && HOSE.inCap >= 0) { capW(HOSE.inCap, HOSE.tip); HOSE.dir.set(0, -1, 0); HOSE.E.copy(HOSE.tip).y += 0.15; }
+    else if (HOSE.rest === 'hook') { hoseHook(F, HOSE.E); HOSE.dir.set(0, -1, 0); HOSE.tip.copy(HOSE.E).y -= 0.15; }
+    else { HOSE.rest = 'free'; HOSE.inCap = -1; pin = false; } }
+  const h = Math.min(dt, 1 / 30) / 2, g2 = 9.81 * h * h;
+  for (let sub = 0; sub < 2; sub++) {
+    for (let i = 1; i <= N; i++) { if (i === N && pin) continue; const p = P[i], q = Q[i]; _hsB.subVectors(p, q).multiplyScalar(0.985); q.copy(p); p.add(_hsB); p.y -= g2; }
+    for (let it = 0; it < 14; it++) {
+      P[0].copy(_hsA); if (pin) P[N].copy(HOSE.E);
+      for (let i = 0; i < N; i++) { const a = P[i], b = P[i + 1]; _hsB.subVectors(b, a); const d = _hsB.length(); if (d <= seg || d < 1e-6) continue; const k = (d - seg) / d;
+        const wa = i === 0 ? 0 : 1, wb = i + 1 === N && pin ? 0 : 1, w = wa + wb; if (!w) continue; a.addScaledVector(_hsB, k * wa / w); b.addScaledVector(_hsB, -k * wb / w); }
+      for (let i = 1; i <= N; i++) { const p = P[i], gy = groundY(p.x, p.z) + 0.012; if (p.y < gy) { p.y = gy; Q[i].x += (p.x - Q[i].x) * 0.5; Q[i].z += (p.z - Q[i].z) * 0.5; Q[i].y = p.y; } }   // lies on the ground (with a little friction)
+    } }
+  if (!pin) { HOSE.E.copy(P[N]); HOSE.dir.subVectors(P[N], P[N - 1]).normalize(); HOSE.tip.copy(HOSE.E).addScaledVector(HOSE.dir, 0.15); }
+  for (let i = 0; i < N; i++) { const a = P[i], b = P[i + 1]; _hsB.subVectors(b, a); const d = Math.max(_hsB.length(), 1e-4); _hsQ.setFromUnitVectors(_hsU, _hsB.divideScalar(d)); _hsS.set(1, d, 1); _hsC.addVectors(a, b).multiplyScalar(0.5); _hsM.compose(_hsC, _hsQ, _hsS); HOSE.inst.setMatrixAt(i, _hsM); }
+  HOSE.inst.instanceMatrix.needsUpdate = true; HOSE.noz.position.copy(HOSE.E); HOSE.noz.lookAt(HOSE.tip);
 }
 // ---- v0.17 low-poly part builder: [kind, a, b, c, x, y, z, col, rx, ry, rz] -> one vertex-coloured, flat-shaded piece (cockpit knobs, switches) ----
 const ITEM_VM = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true }), DEER_IVM = ITEM_VM.clone();   // v0.59 instanced users get their own copy (one program each, no switching)
@@ -7548,7 +7609,7 @@ renderer.setAnimationLoop(() => {
   fpsFrames++; fpsT += dt; instT += dt;
   if (fpsT >= 1) { fps = Math.round(fpsFrames / fpsT); fpsFrames = 0; fpsT = 0; }
   if (msgT > 0) { msgT -= dt; msgA += dt; }
-  fuelTick(dt); fuelPumpTick(dt); saveTick(dt); CLOUDS.tick(dt); updateDay(dt); gfxTick(dt); updateWater(dt); townTick(dt); updateFalling(dt); updateAudio(dt);
+  fuelTick(dt); hoseTick(dt); fuelPumpTick(dt); saveTick(dt); CLOUDS.tick(dt); updateDay(dt); gfxTick(dt); updateWater(dt); townTick(dt); updateFalling(dt); updateAudio(dt);
   panelUpdate(ac, dt); cmpWet(dt);
   if (instT > 0.1) { instT = 0; drawWrist(); }
   if ((chunkT += dt) > 0.2) { chunkT = 0; updateChunks(); }
