@@ -19,7 +19,7 @@
 </script>
 </head>
 <body>
-<div id="info">BUSH PILOT VR v0.77.14 - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
+<div id="info">BUSH PILOT VR v0.77.15 - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
 You start on foot by the Cub at the cabin strip. Walk up to her and climb in (F / Y), then start her up off the checklist card (J).
 Desktop - flying: W/S or arrows pitch, A/D or arrows roll, Q/E rudder, Shift / Ctrl (or + / -) throttle, B brakes, \ parking brake, [ ] flaps, PgUp / PgDn trim,
   R reset to the strip (cold and dark), F climb out, M map, L landing light, Home recentre, mouse looks (click to capture).
@@ -1881,9 +1881,10 @@ const wctx = wc.getContext('2d'), wtex = new THREE.CanvasTexture(wc); wtex.color
 const wrist = new THREE.Mesh(new THREE.PlaneGeometry(0.11, 0.055), new THREE.MeshBasicMaterial({ map: wtex }));
 wrist.visible = false;   // v0.77.4 the watch face is on the INSIDE of the wrist (palm side of the forearm) and only shows while that faces your eyes - see wristPose / wristFace
 const WRIST_POSE = { p: [0, 0.125, 0], lift: 0.006 };   // hand space (x toward the back of the hand, -y the fingers): centred on the inner cuff, 6 mm proud of it
-function wristPose(sx) {   // text along the forearm (reads left to right with that hand's fingers away from the other hand), up toward the thumb, face out of the palm side
+const WRIST_TURN = [new THREE.Matrix4().makeRotationZ(-Math.PI / 2), new THREE.Matrix4().makeRotationZ(Math.PI / 2)];   // v0.77.15 about the face normal: left wrist 90 deg clockwise seen from the front, the right wrist its mirror image
+function wristPose(sx) {   // face out of the palm side; v0.77.15 turned 90 deg (was: text along the forearm, up toward the thumb), so it reads across the wrist with its top toward the fingers on either hand
   const M = new THREE.Matrix4().makeBasis(GV3(0, sx, 0), GV3(0, 0, -1), GV3(-sx, 0, 0)).setPosition(sx * (WRIST_POSE.p[0] - WRIST_POSE.lift), WRIST_POSE.p[1], WRIST_POSE.p[2]);
-  M.premultiply(HOFF); M.decompose(wrist.position, wrist.quaternion, wrist.scale); }
+  M.multiply(WRIST_TURN[sx < 0 ? 0 : 1]); M.premultiply(HOFF); M.decompose(wrist.position, wrist.quaternion, wrist.scale); }
 const grips = [0, 1].map(i => {
   const g = renderer.xr.getControllerGrip(i);
   g.addEventListener('connected', e => { g.userData.src = e.data; wristAttach(); });   // v0.68.1 the watch on your off hand (Dominant hand)

@@ -2,6 +2,12 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.77.15 – the wrist menu bar is turned 90° clockwise
+Neil's batch, item 9.
+- **Pose:** `wristPose` now multiplies its basis by `WRIST_TURN`, a turn about the face normal. On the left wrist (the default watch) that's −90°, clockwise as you look at it. The face normal, the spot 6 mm proud of the inner cuff, and the show/hide test (`wristFace`) are unchanged. The text that used to run along the forearm now runs across the wrist, and its top points toward the fingers. The MENU button and its poke box are children of the screen, so they turn with it and stay just below it, toward the elbow.
+- **Right wrist (left-handed setting):** both hands' bases are right-handed, but the old layout was mirrored between hands (it read with the fingers away from the other hand). A clockwise turn there too would have pointed the top at the elbow, so it would read upside down in the same raised-forearm pose. The right wrist gets the mirror-image turn (+90°) instead, and the top points toward the fingers on either hand. Flip `WRIST_TURN[1]` if you want literal clockwise on both.
+- **Tests:** new t7715 (8 checks). Each hand keeps the same face normal and position and a proper rotation. The left wrist is exactly 90° clockwise from the front (its old reading direction is now up and its old down is now right). The right wrist is the mirror image. On both, the top points toward the fingers. The turned screen still shows when the wrist faces you. Clean console. t62, t45, t68, t772 and t773 (the wrist MENU and hand tests) pass. Screenshots: /workspace/qa-v07715-wrist-bar-{before,after,after-right-hand}.png. Before and after use the same left-hand pose.
+
 ## v0.77.14 – the propeller is a see-through disc when it's running
 Neil's batch, item 8.
 - **Disc:** the running prop is drawn as a mostly transparent disc (`PROP_TEX`, a 128 px canvas texture made once at load). It has a faint grey sweep, a little denser near the hub, two soft blade streaks that turn with the prop's aliased spin, and a faint yellow band where the painted tips run. Average alpha over the disc is about 7 % and nowhere above 30 %. Before, it was a flat 20 % grey disc.

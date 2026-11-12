@@ -333,6 +333,7 @@ A customer stands at every job board. Walk up to them for a hello: their rep tie
 ## Settings
 - **VR:** turn the inside of your left wrist to your face, as if checking a watch worn face-in. A gold **MENU** button appears under the wrist screen (v0.62); poke it with your right index finger. The MENU board (v0.68.1, tabs above) opens half a metre in front of you. Poke a row to step it to the next value, and poke CLOSE (or MENU again) to close it.
   - v0.77.4: the watch is on the **inside** of your wrist (palm side). Turn your palm up toward your face to see it: it shows when it faces you within about 45° and is within 0.6 m of the headset, and hides past about 57° or 65 cm. The back of the wrist, the stick and the throttle never bring it up.
+  - v0.77.15: the wrist screen is turned 90°. On the left wrist it's turned clockwise as you look at it, and on the right wrist (left-handed setting) it's the mirror image. It now reads across the wrist with its top toward your fingers, so raise your forearm (fingers up, palm toward you) to read it upright. The MENU button is still just below it, toward your elbow.
   - It stays until you turn more than about 68° away or move past 0.75 m, so it doesn't flicker at the edge.
   - Poking the message screen itself does nothing, and a finger already on the spot when the button appears doesn't press it.
 - **Desktop:** **Esc** or **F2** opens the MENU board (v0.68.1), ` (backquote) opens the old settings list, **F3** toggles the FPS counter.
