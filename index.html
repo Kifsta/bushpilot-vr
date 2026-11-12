@@ -19,7 +19,7 @@
 </script>
 </head>
 <body>
-<div id="info">BUSH PILOT VR v0.77.3 - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
+<div id="info">BUSH PILOT VR v0.77.4 - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
 You start on foot by the Cub at the cabin strip. Walk up to her and climb in (F / Y), then start her up off the checklist card (J).
 Desktop - flying: W/S or arrows pitch, A/D or arrows roll, Q/E rudder, Shift / Ctrl (or + / -) throttle, B brakes, [ ] flaps, PgUp / PgDn trim,
   R reset to the strip (cold and dark), F climb out, M map, L landing light, Home recentre, mouse looks (click to capture).
@@ -1862,7 +1862,11 @@ const STICK_RANGE = 0.12, THROTTLE_TRAVEL = 0.15, STICK_R = 0.16, THR_R = 0.14; 
 const wc = document.createElement('canvas'); wc.width = 256; wc.height = 128;
 const wctx = wc.getContext('2d'), wtex = new THREE.CanvasTexture(wc); wtex.colorSpace = THREE.SRGBColorSpace; wtex.generateMipmaps = false; wtex.minFilter = THREE.LinearFilter;
 const wrist = new THREE.Mesh(new THREE.PlaneGeometry(0.11, 0.055), new THREE.MeshBasicMaterial({ map: wtex }));
-wrist.position.set(0, 0.035, 0.07); wrist.rotation.x = -1.0;
+wrist.visible = false;   // v0.77.4 the watch face is on the INSIDE of the wrist (palm side of the forearm) and only shows while that faces your eyes - see wristPose / wristFace
+const WRIST_POSE = { p: [0, 0.125, 0], lift: 0.006 };   // hand space (x toward the back of the hand, -y the fingers): centred on the inner cuff, 6 mm proud of it
+function wristPose(sx) {   // text along the forearm (reads left to right with that hand's fingers away from the other hand), up toward the thumb, face out of the palm side
+  const M = new THREE.Matrix4().makeBasis(GV3(0, sx, 0), GV3(0, 0, -1), GV3(-sx, 0, 0)).setPosition(sx * (WRIST_POSE.p[0] - WRIST_POSE.lift), WRIST_POSE.p[1], WRIST_POSE.p[2]);
+  M.premultiply(HOFF); M.decompose(wrist.position, wrist.quaternion, wrist.scale); }
 const grips = [0, 1].map(i => {
   const g = renderer.xr.getControllerGrip(i);
   g.addEventListener('connected', e => { g.userData.src = e.data; wristAttach(); });   // v0.68.1 the watch on your off hand (Dominant hand)
@@ -7596,13 +7600,14 @@ const WBTN = (() => { const c = document.createElement('canvas'); c.width = 128;
   x.fillStyle = '#2e2418'; x.fillRect(0, 0, 128, 48); x.strokeStyle = '#f2d878'; x.lineWidth = 4; x.strokeRect(2, 2, 124, 44); x.fillStyle = '#f2d878'; x.font = 'bold 26px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('MENU', 64, 25);
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.generateMipmaps = false; t.minFilter = THREE.LinearFilter;
   const m = new THREE.Mesh(new THREE.PlaneGeometry(0.046, 0.017), new THREE.MeshBasicMaterial({ map: t })); m.position.set(0, -0.0395, 0.0005); m.visible = false; wrist.add(m);
-  return { m, on: false, dot: 0, d: 9, IN: [0.62, 0.6], OUT: [0.38, 0.75], W: 0.026, H: 0.0115 }; })();
+  return { m, on: false, dot: 0, d: 9, IN: [0.7, 0.6], OUT: [0.55, 0.65], W: 0.026, H: 0.0115 }; })();   // v0.77.4 show: face . to-eye > 0.7 within 60 cm; hide < 0.55 or past 65 cm
 function wristFace() {   // the wrist screen's face toward the eye: cosine of the angle and the distance; the button shows / hides with hysteresis
-  if (!wrist.parent) { WBTN.on = WBTN.m.visible = false; return false; }
+  if (!wrist.parent) { WBTN.on = WBTN.m.visible = wrist.visible = false; return false; }
   wrist.updateWorldMatrix(true, false); wrist.getWorldPosition(_wfP); _wfN.set(0, 0, 1).applyQuaternion(wrist.getWorldQuaternion(_wfQ));
   camera.getWorldPosition(_wfE); _wfE.sub(_wfP); const d = _wfE.length(), dot = d > 1e-4 ? _wfN.dot(_wfE) / d : 0; WBTN.dot = dot; WBTN.d = d;
   const on = WBTN.on ? dot > WBTN.OUT[0] && d < WBTN.OUT[1] : dot > WBTN.IN[0] && d < WBTN.IN[1];
   if (on !== WBTN.on) { WBTN.on = on; WBTN.m.visible = on; if (!on) SETP.wArm = false; wristKey = ''; }
+  wrist.visible = on;   // v0.77.4 the whole watch, not just its MENU button
   return on;
 }
 const SETP_ROW = i => ({ X: i < 10 ? 30 : 527, Y: 96 + (i % 10) * 48 });   // v0.48: 10 rows a column
@@ -7725,7 +7730,7 @@ function setpTick() {   // after updateHands (fingertips are this frame's)
     if (SETP.arm[i] && on && _spL.z < 0.008 && _spL.z > -0.04) { SETP.arm[i] = false; setpPokeUV(u, v, i); }
   }
 }
-function wristAttach() { const want = GFX.hand ? 'right' : 'left'; for (const g of grips) if (g.userData.src?.handedness === want && wrist.parent !== g) g.add(wrist); }   // v0.68.1 the watch on your off hand
+function wristAttach() { const want = GFX.hand ? 'right' : 'left'; for (const g of grips) if (g.userData.src?.handedness === want && wrist.parent !== g) { g.add(wrist); wristPose(want === 'left' ? -1 : 1); } }   // v0.68.1 the watch on your off hand
 // desktop: the same board as a page overlay (Esc / F2), mouse clicks
 SETP.deskShow = on => { if (!on) { if (SETP.desk) SETP.desk.remove(); SETP.desk = null; return; } if (SETP.desk) return;
   if (document.pointerLockElement) { GQ.selfUnlock = true; document.exitPointerLock(); }

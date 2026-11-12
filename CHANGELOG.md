@@ -2,6 +2,12 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.77.4 – the watch is on the inside of the wrist
+Neil: the wrist menu came up at the wrong times. Now the watch face (the wrist screen and its MENU button) is on the **inside** of the off-hand wrist, on the palm side of the forearm, like a watch worn face-in.
+- It shows only when that face points at your eyes (its normal dotted with the direction to the headset > 0.7, about 45 deg) and it is within 60 cm. It hides below 0.55 or beyond 65 cm (hysteresis). The back of the wrist toward you, the stick, the throttle and hands at rest never show it. The whole watch hides, not just the button.
+- The left-dominant setting mirrors it onto the right wrist.
+- **Tests:** new t773 (13 checks: 600 random wrist orientations against the rule, plus stick, throttle, rest, back-of-wrist and inner-wrist poses, both hands). t62 / t68 updated. Screenshots: /workspace/qa-wrist-*.png.
+
 ## v0.77.3 – clipboard and paper map held by the corner
 Neil: the hand holding the clipboard or the map covers what's on it. Now there is one fixed hold per hand: the left hand pinches the extreme **lower-left** corner and the right hand the **lower-right**. The thumb is on the front in the corner margin, the fingers are behind, and the board sits off the hand so the page is clear of it.
 - **Kneeboard** (`kbL` / `kbR`): held up at 1.2x, pinched at its corner, 9 mm in from both edges (`PAPER_IN`). The content was already inside that margin.
