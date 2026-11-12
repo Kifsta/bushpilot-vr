@@ -2,6 +2,14 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.66 – nothing floating at the right door
+Neil: "Floating handle on the right cockpit door again." The physics block is untouched (md5 `eee6637e…`).
+- **The cause:** not the v0.49.1 batching bug, which is still fixed (every door and window part leaves the static batch when it moves). The floating "handle" was the **front bracket of the Cub's rifle rack** (v0.53). It is fixed to the cabin, but it sat on the right wall 15 cm aft of the handles, which is over the door and window panes. With the door shut it looked like part of the door. With the door or window open it hung in the air in the opening.
+- **The fix:** that bracket now sits 2 cm behind the door post, on the fixed wall. The racked rifle doesn't move; it rests on the two brackets 18 cm apart.
+- **The latch levers on the right door and window** also stood 2.5–4.8 cm off their panes, beside the handle blocks, with nothing joining them. Their pivots now sit on the door skin and the window glass. The left-side latches are unchanged.
+- New test t66 (5 checks): no fixed cockpit part over the right door or window panes (on v0.65 it finds the bracket), and both right latch pivots on their panes, shut and open.
+- Screenshots (seated): /workspace/qa-v066-door-{closed,lower-open,upper-open,both-open}-{before,after}.png. Also qa-v066-door-ghost-before/after.png: the door and window hidden, so anything left in the opening is a floater; before shows the bracket, after shows nothing. Plus qa-v066-door-open-wide-*.png and qa-v066-door-rack-*.png.
+
 ## v0.65 – binoculars: procedural grip, one hand or two
 Neil: "Binoculars: procedural two-hand grip, fingers curl to the body." The physics block is untouched (md5 `eee6637e…`).
 - Before, the binoculars hung off the controller with the hand in a generic half-closed 'hold' pose, and only one hand could hold them.

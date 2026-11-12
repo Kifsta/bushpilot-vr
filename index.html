@@ -19,7 +19,7 @@
 </script>
 </head>
 <body>
-<div id="info">BUSH PILOT VR v0.65 - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
+<div id="info">BUSH PILOT VR v0.66 - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
 You start on foot by the Cub at the cabin strip. Walk up to her and climb in (F / Y), then start her up off the checklist card (J).
 Desktop - flying: W/S or arrows pitch, A/D or arrows roll, Q/E rudder, Shift / Ctrl (or + / -) throttle, B brakes, [ ] flaps, PgUp / PgDn trim,
   R reset to the strip (cold and dark), F climb out, M map, L landing light, Home recentre, mouse looks (click to capture).
@@ -3538,15 +3538,15 @@ const rupH = new THREE.Object3D(); rupH.position.set(-0.03, -0.51, -0.2); win.ad
 const rloH = new THREE.Object3D(); rloH.position.set(-0.035, 0.525, -0.2); door.add(rloH);
 box(0.034, 0.025, 0.08, dark, -0.035, 0.525, -0.2, door);
 function winSet(k, v) { WIN[k] = clamp(v, 0, 1); }
-// v0.44 latch handles: one instanced lever beside each window / door handle (1 draw call), turned by wrist roll
-const LATCHV = { a: { rup: 0, rlo: 0, lf: 0, lr: 0 }, o: { rup: [rupH, -1], rlo: [rloH, -1], lf: [LWF.hp, 1], lr: [LWR.hp, 1] } };
+// v0.44 latch handles: one instanced lever beside each window / door handle (1 draw call), turned by wrist roll. v0.66: x (handle frame) puts the right-side pivots on their panes
+const LATCHV = { x: { rup: 0.025, rlo: 0.009 }, a: { rup: 0, rlo: 0, lf: 0, lr: 0 }, o: { rup: [rupH, -1], rlo: [rloH, -1], lf: [LWF.hp, 1], lr: [LWR.hp, 1] } };
 LATCHV.mesh = new THREE.InstancedMesh(ckGeo([['b', 0.008, 0.009, 0.05, 0, 0, -0.02, 0x8d9094], ['c', 0.009, 0.012, 8, 0, 0, 0, 0x55585c, 0, 0, Math.PI / 2], ['b', 0.012, 0.013, 0.014, 0, 0, -0.045, 0x161616]]), CKVM.clone(), 4);   // v0.47: own copy - sharing CKVM with plain meshes flipped its shader program every frame
 LATCHV.mesh.frustumCulled = false; plane.add(LATCHV.mesh);
 const _lvM = new THREE.Matrix4(), _lvR = new THREE.Matrix4(), _lvI = new THREE.Matrix4();
 function latchDraw() {
   plane.updateWorldMatrix(true, false); _lvI.copy(plane.matrixWorld).invert(); let i = 0;
   for (const k of ['rup', 'rlo', 'lf', 'lr']) { const [o, sx] = LATCHV.o[k]; o.updateWorldMatrix(true, false);
-    _lvM.multiplyMatrices(_lvI, o.matrixWorld).multiply(_lvR.makeTranslation(sx * 0.016, k === 'rlo' ? -0.03 : 0.03, 0.05)).multiply(_lvR.makeRotationX(-LATCHV.a[k]));
+    _lvM.multiplyMatrices(_lvI, o.matrixWorld).multiply(_lvR.makeTranslation(LATCHV.x[k] ?? sx * 0.016, k === 'rlo' ? -0.03 : 0.03, 0.05)).multiply(_lvR.makeRotationX(-LATCHV.a[k]));
     LATCHV.mesh.setMatrixAt(i++, _lvM); }
   LATCHV.mesh.instanceMatrix.needsUpdate = true;
 }
@@ -5261,8 +5261,8 @@ const RACK = { cabin: { p: GV3(28.95, 0, -14.3), ry: 0 }, cub: { p: GV3(0.297, 0
   box(0.55, 0.42, 0.42, wood, 0, 0.21, 0, B);                                             // a stump-table
   box(0.26, 0.11, 0.17, mat(0x2f5a2a), 0, 0.475, 0, B); box(0.262, 0.03, 0.172, mat(0xd8c070), 0, 0.48, 0, B);   // green ammo carton, yellow band
   RACK.box.y = by + 0.5;
-  const C = new THREE.Group(); C.position.copy(RACK.cub.p); C.rotation.y = RACK.cub.ry; plane.add(C);   // two brackets on the right cabin wall, behind the front seat
-  for (const z of [-0.2, 0.45]) { box(0.02, 0.06, 0.03, dk, -0.022, -0.02, z, C); box(0.03, 0.012, 0.03, dk, -0.005, -0.048, z, C); }
+  const C = new THREE.Group(); C.position.copy(RACK.cub.p); C.rotation.y = RACK.cub.ry; plane.add(C);   // two brackets on the right cabin wall, behind the front seat (v0.66: the front one was on the door / window, so it hung in the air when they opened; now aft of the door post)
+  for (const z of [-0.2, -0.02]) { box(0.02, 0.06, 0.03, dk, -0.022, -0.02, z, C); box(0.03, 0.012, 0.03, dk, -0.005, -0.048, z, C); }
 }
 // ---- model ----
 function rflBuild(root) {
