@@ -19,7 +19,7 @@
 </script>
 </head>
 <body>
-<div id="info">BUSH PILOT VR v0.78 - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
+<div id="info">BUSH PILOT VR v0.78.1 - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
 You start on foot by the Cub at the cabin strip. Walk up to her and climb in (F / Y), then start her up off the checklist card (J).
 Desktop - flying: W/S or arrows pitch, A/D or arrows roll, Q/E rudder, Shift / Ctrl (or + / -) throttle, B brakes, \ parking brake, [ ] flaps, PgUp / PgDn trim,
   R reset to the strip (cold and dark), F climb out, M map, L landing light, Home recentre, mouse looks (click to capture).
@@ -599,7 +599,7 @@ function conformStrip(S, hl, hw, off, uvs = true) {   // a strip rectangle (cent
 }
 // v0.63 runway surface: mowing bands across (flow and height cues on short final), worn tyre tracks (darker in the touchdown zones), rough edges with white edge marks,
 // white threshold bars and aiming blocks. One 128 x 1024 canvas over the whole strip (about 0.3 m a pixel); 'gray' = a tint-free version the vertex colours multiply
-const RWY_TEX = {};
+const RWY_TEX = {}, RWY_TONE = { sat: 0.25, lit: 0.95 };   // v0.78.1 strip texture tone: share of grey mixed in, brightness
 function runwayTex(kind = 'grass') {   // v0.76 'bush' / 'dirtb' / 'grayb' = the rugged bush look of grass / dirt / gray (patches, ragged edges, deeper ruts, no paint)
   if (RWY_TEX[kind]) return RWY_TEX[kind];
   const rug = kind === 'bush' || kind === 'dirtb' || kind === 'grayb', K0 = kind; kind = { bush: 'grass', dirtb: 'dirt', grayb: 'gray' }[kind] || kind;
@@ -612,7 +612,10 @@ function runwayTex(kind = 'grass') {   // v0.76 'bush' / 'dirtb' / 'grayb' = the
       for (const tc of [W * 0.43 + wob, W * 0.57 + wob]) { const e = Math.abs(px - tc), wd = rug ? 4.2 : 3.5; if (e < wd) mix = Math.max(mix, Math.min(0.95, (rug ? tz + 0.15 : tz) * (1 - e / (wd + 0.5)) * (0.7 + 0.3 * rn()))); if (rug && e < 1.2) k *= 0.9; }
       if (rug) { const p = RG.n2(px / W * 8, f * 64), q = RG.n2(px / W * 20 + 50, f * 150); k *= 0.84 + 0.3 * p; if (q > 0.7 && !edge) mix = Math.max(mix, Math.min(0.65, (q - 0.7) * 2.6));   // patchy colour, bare spots
         if (edge) { mx2 = 0.45 + 0.3 * q; k *= 0.92; } }
-      const i = (py * W + px) * 4; for (let ch = 0; ch < 3; ch++) d.data[i + ch] = Math.min(255, ((base[ch] * (1 - mix) + dirt[ch] * mix) * (1 - mx2) + dry[ch] * mx2) * k * n); d.data[i + 3] = 255; } }
+      const i = (py * W + px) * 4; for (let ch = 0; ch < 3; ch++) d.data[i + ch] = Math.min(255, ((base[ch] * (1 - mix) + dirt[ch] * mix) * (1 - mx2) + dry[ch] * mx2) * k * n);
+      if (!gray) { const r0 = d.data[i], g0 = d.data[i + 1], b0 = d.data[i + 2], lu = 0.3 * r0 + 0.59 * g0 + 0.11 * b0; for (let ch = 0; ch < 3; ch++) d.data[i + ch] = (d.data[i + ch] * (1 - RWY_TONE.sat) + lu * RWY_TONE.sat) * RWY_TONE.lit; }   // v0.78.1 toned down: less saturated, a little darker
+      const fe = Math.min(px + 0.5, W - 0.5 - px) - (rug ? 2 + 5 * RG.n1(py / H * 40 + 17) : 1), fz = Math.min(py + 0.5, H - 0.5 - py) - 1;   // v0.78.1 feathered edges: alpha ramps in over ~6 px across (ragged on the bush strips) and ~10 px at the ends
+      d.data[i + 3] = 255 * Math.min(1, Math.max(0, fe / 6), Math.max(0, fz / 10)) ** 0.8; } }
   x.putImageData(d, 0, 0);
   if (!gray && !rug) { x.fillStyle = kind === 'dirt' ? '#ece6d6' : '#f2f2ea';
     for (const y0 of [0.012, 0.97]) for (let k = 0; k < 6; k++) x.fillRect(12 + k * 18.5, y0 * H, 10, 0.018 * H);   // threshold bars, both ends
@@ -699,7 +702,7 @@ const TREES = [];   // home-valley trees [x, y, z, scale] (the ambient birdsong 
 {
   grainTexture([4, 52]);   // v0.63: still drawn for its rand() calls (the world stays the same)
   const strip = new THREE.Mesh(conformStrip({ x: 0, z: -145, a: Math.PI }, 155, 12, 0.03),
-    new THREE.MeshLambertMaterial({ map: runwayTex(), polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));   // v0.63 runway texture
+    new THREE.MeshLambertMaterial({ map: runwayTex(), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));   // v0.63 runway texture
   scene.add(strip);
   const cabin = new THREE.Mesh(new THREE.BoxGeometry(6, 3, 5), mat(0x6b4a2f)); cabin.position.set(32, 1.5, -15); scene.add(cabin);
   const roof = new THREE.Mesh(new THREE.ConeGeometry(4.8, 2, 4), mat(0x3b3b3b));
@@ -2232,7 +2235,7 @@ function partGeo(p) {   // [kind, a, b, c, x, y, z, col, rx, ry, rz]
   const mx = MEADOW.x, mz = MEADOW.z;
   grainTexture([4, 50]);   // v0.63: kept for its rand() calls
   const ms = new THREE.Mesh(conformStrip({ x: mx, z: mz, a: 0 }, MEADOW.hl, 10, 0.04),   // v0.63 on the ground (it was a flat sheet up to 1.6 m off it)
-    new THREE.MeshLambertMaterial({ color: rwyTint(0x8aa354), map: runwayTex('bush'), polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
+    new THREE.MeshLambertMaterial({ color: rwyTint(0x8aa354), map: runwayTex('bush'), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
   scene.add(ms);
   const mt = [], mb = [], cue = [];
   for (let z = -MEADOW.hl + 5; z <= MEADOW.hl - 5; z += 30) for (const x of [-11, 11]) mt.push([mx + x, terrainHeight(mx + x, mz + z) + 0.15, mz + z, 0, 1, 1, 1]);   // v0.63 tyre markers on the ground
@@ -2397,7 +2400,7 @@ const LODGE = { x: -380, z: -2440, a: 1.83, hl: 140, hw: 10 };   // backcountry 
   // 7. backcountry lodge strip: 280 x 20 m grass, white end markers, windsock, log lodge + fuel shed on the south side
   { const L = LODGE, ax = Math.sin(L.a), az = Math.cos(L.a), px = az, pz = -ax;    // axis + perpendicular (south side = -perp)
     const g = conformStrip({ x: L.x, z: L.z, a: Math.atan2(ax, az) }, L.hl, L.hw, 0.04);   // v0.63 on the ground (28 long quads were up to 0.37 m off)
-    grainTexture([4, 50]); const sm = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ color: rwyTint(0x86a650), map: runwayTex('bush'), polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 })); scene.add(sm);
+    grainTexture([4, 50]); const sm = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ color: rwyTint(0x86a650), map: runwayTex('bush'), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 })); scene.add(sm);
     const o = { x: L.x, z: L.z, a: L.a + Math.PI / 2, y: 0 };    // local x = across the strip, local z = along it
     for (const e of [-1, 1]) for (let w = -8; w <= 8.1; w += 4) { const [x, z] = W(o, w, e * L.hl); const b = box(2, 0.12, 0.7, M.white, x, groundY(x, z) + 0.12, z, G); b.rotation.y = o.a; }
     { const [x, z] = W(o, -16, -L.hl + 40), y = groundY(x, z);
@@ -2626,7 +2629,7 @@ const TOWN_MESH = [];
   // ---- Dry Fork strip: 300 x 20 m mown ribbon following the ground, corner markers + windsock ----
   { const S = DRYFORK_STRIP, v = [], sa = Math.sin(S.a), ca = Math.cos(S.a), Pt = (l, w) => { const x = S.x + sa * l + ca * w, z = S.z + ca * l - sa * w; return [x, groundY(x, z) + 0.06, z]; };
     const g = conformStrip(S, S.hl, S.hw, 0.04); v.length = 0;   // v0.63 exact on the ground + the runway texture
-    const sm = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ color: rwyTint(0x86ad55), map: runwayTex('bush'), side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -2 })); scene.add(sm);
+    const sm = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ color: rwyTint(0x86ad55), map: runwayTex('bush'), side: THREE.DoubleSide, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -2 })); scene.add(sm);
     TOWN_MESH.push({ m: sm, x: S.x, z: S.z });
     const G = new THREE.Group(), mk = [];
     for (let l = -S.hl; l <= S.hl; l += 50) for (const w of [-S.hw - 1, S.hw + 1]) { const [x, y, z] = Pt(l, w); mk.push([x, y + 0.2, z, S.a, 1, 1, 1]); }
@@ -2828,7 +2831,7 @@ const MYS_SITES = {}, LAB = { floor: 0, rect: null };
   // the station strip: graded gravel, edge markers, windsock, avgas drums (fuel for the hop over the east pass)
   { const S = HALV, v = [], sa = Math.sin(S.a), ca = Math.cos(S.a), Pt = (l, w) => { const x = S.x + sa * l + ca * w, z = S.z + ca * l - sa * w; return [x, groundY(x, z) + 0.06, z]; };
     const g = conformStrip(S, S.hl, S.hw, 0.04); v.length = 0;   // v0.63 exact on the ground; graded gravel with the dirt runway texture
-    grainTexture([3, 40]); const sm = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ color: 0xc8c4bc, map: runwayTex('dirtb'), side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -2 })); scene.add(sm);
+    grainTexture([3, 40]); const sm = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ color: 0xc8c4bc, map: runwayTex('dirtb'), side: THREE.DoubleSide, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -2 })); scene.add(sm);
     TOWN_MESH.push({ m: sm, x: S.x, z: S.z, far: 6000 }); MOWN.push(S);
     const mk = []; for (let l = -S.hl; l <= S.hl; l += 40) for (const w of [-S.hw - 1, S.hw + 1]) { const [x, y, z] = Pt(l, w); mk.push([x, y + 0.2, z, S.a, 1, 1, 1]); }
     instanced(new THREE.BoxGeometry(0.9, 0.4, 0.4), mat(0xe8e2d0), mk, { far: 3500 });
@@ -4732,7 +4735,7 @@ for (const B of BUSH) { if (B.leg) { const g = B.leg, ex = B.x + Math.sin(B.a) *
     'SURVEY CAMP': o => { tent(o, -2.2, -2.5); tent(o, 1.6, -2.6, 0.2, 2.2, 2.8); for (const t of [0, 2.1, 4.2]) gp(o, 0.04, 1.5, 0.04, 0xc8a050, 4 + Math.sin(t) * 0.35, 0.72, 1 + Math.cos(t) * 0.35, 0, Math.cos(t) * 0.2, Math.sin(t) * 0.2);   // theodolite tripod
       gp(o, 0.2, 0.18, 0.28, 0xd8c040, 4, 1.5, 1); gp(o, 0.4, 0.4, 0.4, 0xe8e8e0, -4.5, 0.2, 1.5); gp(o, 0.06, 2.2, 0.06, 0xd03020, -4.5, 1.3, 1.5); },   // a painted survey cairn + pole
   };
-  const GS = [], RV = [], RC = [], RU = [], LATE = [];   // every camp in one merged mesh, every strip surface in another: 2 draw calls for all 8 sites
+  const GS = [], RV = [], RC = [], RU = [], LATE = [], RIB_FW = 2.5, RIB_FE = 10;   // v0.78.1 RIB_FW / RIB_FE: feather across the plain ribbons' sides / along their ends (m)   // every camp in one merged mesh, every strip surface in another: 2 draw calls for all 8 sites
   for (const B of BUSH) {
     const S = { x: B.x, z: B.z, a: B.a, y: 0 }, l0 = B.low ? -B.low * (B.hl - 25) : 0;   // strip frame: local x across, z along (W(S, w, l))
     const score = s => { let e = 0; for (const w of [B.hw + 8, B.hw + 18, B.hw + 30]) for (const l of [l0 - 14, l0, l0 + 14]) { const [x, z] = W(S, s * w, l), [x0, z0] = W(S, s * (B.hw + 2), l); e += Math.abs(groundY(x, z) - groundY(x0, z0)); if (waterDist(x, z) < 10) e += 60; } return e; };
@@ -4745,12 +4748,16 @@ for (const B of BUSH) { if (B.leg) { const g = B.leg, ex = B.x + Math.sin(B.a) *
     if (mown) { for (let l = -B.hl; l <= B.hl + 0.1; l += 40) for (const w of [-B.hw - 1, B.hw + 1]) mk(l, w); const [wx, wz] = W(S, s * (B.hw + 14), -l0 - B.hl + 30); sockAt(wx, wz); MOWN.push({ x: B.x, z: B.z, a: B.a, hl: B.hl, hw: B.hw }); if (B.leg) MOWN.push({ x: B.leg.x, z: B.leg.z, a: B.leg.a, hl: B.leg.hl, hw: B.hw }); }
     else for (const l of [-B.hl, B.hl]) for (const w of [-B.hw, B.hw]) mk(l, w, 0.5);   // painted rocks at the corners: someone uses this spot
     // the strip surface: graded / gravel ribbon, or two worn wheel tracks in the grass (meadow / ridge bench)
-    const v = RV, col = RC, cA = new THREE.Color({ sandbar: 0xb3a98c, shore: 0xa69c7c, short: 0x86ad55, meadow: 0x7e6c48, ridge: 0x7e6c48, shoulder: 0x7e6c48, saddle: 0x7a6a4a, alpine: 0x847250, clearing: 0x86ad55, dogleg: 0x86ad55 }[B.type]), cc = new THREE.Color();
-    const quad = (l, w, dl, dw, S = S0, Bq = B) => { cc.copy(cA).offsetHSL(0, 0, (R() - 0.5) * 0.06); const tex = mown;   // v0.63 conformed to the ground; mown 'short' strips get the runway pattern (others: a plain texel)
-      conformPoly([W(S, w, l), W(S, w + dw, l), W(S, w + dw, l + dl), W(S, w, l + dl)].map(([x, z]) => [x, z]), 0.05, v, RU, (x, z) => { if (!tex) return [0.02, 0.5]; const dx = x - Bq.x, dz = z - Bq.z, sa = Math.sin(Bq.a), ca = Math.cos(Bq.a); return [((dx * ca - dz * sa) / B.hw + 1) / 2, ((dx * sa + dz * ca) / Bq.hl + 1) / 2]; }, () => { for (let k = 0; k < 3; k++) col.push(cc.r, cc.g, cc.b); }); };
+    const v = RV, col = RC, cA = new THREE.Color({ sandbar: 0xb3a98c, shore: 0xa69c7c, short: 0x86ad55, meadow: 0x7e6c48, ridge: 0x7e6c48, shoulder: 0x7e6c48, saddle: 0x7a6a4a, alpine: 0x847250, clearing: 0x86ad55, dogleg: 0x86ad55 }[B.type]).offsetHSL(0, -0.08, -0.02), cc = new THREE.Color();   // v0.78.1 toned down a little
+    const quad = (l, w, dl, dw, S = S0, Bq = B, fw = 0) => { cc.copy(cA).offsetHSL(0, 0, (R() - 0.5) * 0.06); const tex = mown, sa = Math.sin(Bq.a), ca = Math.cos(Bq.a);   // v0.63 conformed to the ground; mown 'short' strips get the runway pattern (others: a plain texel)
+      const loc = (x, z) => { const dx = x - Bq.x, dz = z - Bq.z; return [dx * ca - dz * sa, dx * sa + dz * ca]; }, w0 = w, w1 = w + dw;   // v0.78.1 strip-local (across, along)
+      const alpha = (x, z) => { if (tex) return 1; const [a, b] = loc(x, z), e = fw ? Math.min(a - w0, w1 - a) / fw : ((Bq.hw ?? B.hw) - Math.abs(a)) / RIB_FW; return Math.max(0, Math.min(1, e, (Bq.hl - Math.abs(b)) / RIB_FE)); };   // feathered sides (tracks: both edges) + ends
+      const cuts = tex ? [w0, w1] : fw ? [w0, w0 + fw, w1 - fw, w1] : [w0, ...[-(Bq.hw ?? B.hw) + RIB_FW, (Bq.hw ?? B.hw) - RIB_FW].filter(c => c > w0 + 1e-3 && c < w1 - 1e-3), w1];   // extra vertices where the feather ends
+      for (let j = 0; j < cuts.length - 1; j++) { const a0 = cuts[j], a1 = cuts[j + 1];
+        conformPoly([W(S, a0, l), W(S, a1, l), W(S, a1, l + dl), W(S, a0, l + dl)].map(([x, z]) => [x, z]), 0.05, v, RU, (x, z) => { if (!tex) return [0.5, 0.5]; const [a, b] = loc(x, z); return [(a / B.hw + 1) / 2, (b / Bq.hl + 1) / 2]; }, () => { for (let k = 0; k < 3; k++) { const n = v.length - 9 + 3 * k; col.push(cc.r, cc.g, cc.b, alpha(v[n], v[n + 2])); } }); } };
     const S0 = S, tracks = B.type === 'meadow' || B.type === 'ridge' || B.type === 'shoulder' || B.type === 'saddle' || B.type === 'alpine';
     for (const Q of B.leg ? [B, B.leg] : [B]) { const Sq = { x: Q.x, z: Q.z, a: Q.a, y: 0 };
-      for (let l = -Q.hl; l < Q.hl; l += 10) { if (tracks) { for (const w of [-1.8, 1.0]) quad(l, w, 10, 0.8, Sq, Q); } else for (let w = -B.hw; w < B.hw; w += B.hw) quad(l, w, 10, B.hw, Sq, Q); } }
+      for (let l = -Q.hl; l < Q.hl; l += 10) { if (tracks) { for (const w of [-1.8, 1.0]) quad(l, w, 10, 0.8, Sq, Q, 0.25); } else for (let w = -B.hw; w < B.hw; w += B.hw) quad(l, w, 10, B.hw, Sq, Q); } }
     if (B.tall) { B.trees = []; const Tc = new THREE.ConeGeometry(1, 1, 7).translate(0, 0.5, 0), Tt = new THREE.CylinderGeometry(0.25, 0.35, 1, 5).translate(0, 0.5, 0), W0 = { x: 0, z: 0, a: 0, y: 0 };   // v0.77 a wall of 20-27 m spruce round the clearing
       for (const sg of [-1, 1]) for (let k = 0; k < 34; k++) { const l = sg * (B.hl + 90 + R() * 60), w = (R() * 2 - 1) * (B.hw + 45), [x, z] = W(S, w, l), y = groundY(x, z), h = 20 + R() * 7;   // across both ends
         B.trees.push([x, y, z, h]); geo(Tt, 0x4a3422, W0, x, y, z).scale.set(1, h * 0.3, 1); const c = geo(Tc, R() < 0.5 ? 0x1e3a24 : 0x274a2c, W0, x, y + h * 0.22, z); c.scale.set(2.2 + R(), h * 0.8, 2.2 + R()); }
@@ -4765,8 +4772,8 @@ for (const B of BUSH) { if (B.leg) { const g = B.leg, ex = B.x + Math.sin(B.a) *
   { const S = HALV, sa = Math.sin(S.a), ca = Math.cos(S.a), P = (w, l) => [S.x - ca * w + sa * l, S.z + sa * w + ca * l];   // v0.56 the Halvorsen station board: across the strip from the compound
     const [bx, bz] = P(30, -40), [px, pz] = P(22, -32); DLV_STRIPS.push({ id: 'HALV', name: 'HALVORSEN STN', x: S.x, z: S.z, board: [bx, bz, Math.atan2(ca, -sa)], pad: [px, pz], lock: true }); }
   DLV_STRIPS.push(...LATE);
-  { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(RV, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(RC, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(RU, 2)); g.computeVertexNormals();
-    const rm = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ vertexColors: true, map: runwayTex('grayb'), side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -2 })); rm.userData.noBatch = true; scene.add(rm); BUSH.rib = rm;
+  { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(RV, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(RC, 4)); g.setAttribute('uv', new THREE.Float32BufferAttribute(RU, 2)); g.computeVertexNormals();   // v0.78.1 RGBA: the alpha feathers the edges
+    const rm = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ vertexColors: true, map: runwayTex('grayb'), side: THREE.DoubleSide, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -2 })); rm.userData.noBatch = true; scene.add(rm); BUSH.rib = rm;
     const mm = new THREE.Mesh(mergeGeometries(GS), new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true })); mm.userData.noBatch = true; scene.add(mm); for (const h of GS) h.dispose();
     mm.userData.tris = mm.geometry.attributes.position.count / 3; BUSH.mesh = mm; for (const B of BUSH) B.mesh = mm; }
   const offQ = (x, z, Q, hw, fn) => { const dx = x - Q.x, dz = z - Q.z, sa = Math.sin(Q.a), ca = Math.cos(Q.a), l = Math.abs(dx * sa + dz * ca), w = Math.abs(dx * ca - dz * sa);
