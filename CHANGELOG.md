@@ -2,6 +2,16 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.65 – binoculars: procedural grip, one hand or two
+Neil: "Binoculars: procedural two-hand grip, fingers curl to the body." The physics block is untouched (md5 `eee6637e…`).
+- Before, the binoculars hung off the controller with the hand in a generic half-closed 'hold' pose, and only one hand could hold them.
+- **Procedural grip:** two new grip shapes on the barrels (GDEF `bR` / `bL`, cylinders r 21 mm). The right hand wraps the right barrel and the left hand the left, using the same solver as the cockpit knobs and the rifle: each finger curls joint by joint until it touches, and the thumb opposes.
+- **One hand:** the barrel sits on the palm's grip line, so the hand stays where the controller is.
+- **Two hands:** grab the other barrel with your free hand (on foot, or in the seat). The pair then spans both palms: its across axis runs palm to palm, and it looks along the average of both controllers' forward. Let go with one hand and the other keeps them; let go with both and they go back on the chest (in the Cub, their holder).
+- Moving between one and two hands re-solves both grips on the new pose.
+- New test t65 (14 checks): palm on the barrel axis, curled fingers, two-hand span and centring, hand-over on release.
+- Screenshots: /workspace/qa-v065-bino-one-hand.png, /workspace/qa-v065-bino-two-hands.png, /workspace/qa-v065-bino-two-hands-top.png.
+
 ## v0.64 – clipboard pages
 Neil: "Clipboard pages flipped by the trigger: Manifest, W&B (with graph), damage/maintenance, extras (fuel/endurance/V-speeds), keyboard alternative on desktop." The physics block is untouched (md5 `eee6637e…`).
 - The kneeboard has a tab bar and four pages:

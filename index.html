@@ -19,7 +19,7 @@
 </script>
 </head>
 <body>
-<div id="info">BUSH PILOT VR v0.64 - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
+<div id="info">BUSH PILOT VR v0.65 - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
 You start on foot by the Cub at the cabin strip. Walk up to her and climb in (F / Y), then start her up off the checklist card (J).
 Desktop - flying: W/S or arrows pitch, A/D or arrows roll, Q/E rudder, Shift / Ctrl (or + / -) throttle, B brakes, [ ] flaps, PgUp / PgDn trim,
   R reset to the strip (cold and dark), F climb out, M map, L landing light, Home recentre, mouse looks (click to capture).
@@ -36,7 +36,7 @@ VR - in the cockpit: grip the stick (right) and throttle (left), left stick = ru
 VR - on foot: left stick walks (click = run), right stick turns (snap / smooth in Settings), right stick down = crouch, up = hop,
   Y climb in, grab a wing filler cap at the home strip to refuel from the pump, grab the map off its cockpit holder.
   Jobs: poke ACCEPT on a strip's job board, grip cargo to carry it, let go over the rear seat / baggage bay, grab the belt buckle / net to strap.
-  Hunting: grip the rifle's wrist (cabin / Cub rack), other hand on the forend, trigger fires, pinch the lever loop and swing it (or flick), rounds from the belt pouch into the gate; binoculars on your chest, raise them to your eyes; grip and hold a downed deer to dress it.
+  Hunting: grip the rifle's wrist (cabin / Cub rack), other hand on the forend, trigger fires, pinch the lever loop and swing it (or flick), rounds from the belt pouch into the gate; binoculars on your chest (one hand or both, a hand on each barrel), raise them to your eyes; grip and hold a downed deer to dress it.
   Airdrops: unlatch + open both halves of the right door, reach back and grip a bundle, put your hand out through the door and let go.
   Running costs: grab a wing cap by any strip's red drum to buy fuel; poke a price on the hangar / fuel boards for oil, tyres, repairs, the 100-hour.
 Settings (` or F2 on desktop, the wrist board in VR): graphics, comfort, FPS counter, stick on release, control labels, haptics, time of day.
@@ -4092,7 +4092,7 @@ function handTargets(i, g, st) {                 // decide pose + world matrix f
   st.tc[0] = trigT ? 0.35 + 0.6 * trig : grip > 0.5 ? 0.03 : 0.28; st.tc[1] = 0.3 + 0.7 * grip; st.tc[2] = 0.34 + 0.66 * grip; st.tc[3] = 0.38 + 0.62 * grip;   // v0.24.1 relaxed
   st.tth = thumbT ? 0 : 1; st.ttw = grip > 0.5 && trig > 0.5 ? 0.7 : 0; st.ttp = 0;
   if (mode === 'plane') {
-    const h = CKH.get(g), gk = vr.flapG === g ? 'flap' : TRIM.g === g ? 'trim' : vr.stickG === g ? 'stick' : vr.thrG === g ? 'thr' : h && h.k in GDEF ? h.k : null;
+    const h = CKH.get(g), gk = binoHandK(g) || (vr.flapG === g ? 'flap' : TRIM.g === g ? 'trim' : vr.stickG === g ? 'stick' : vr.thrG === g ? 'thr' : h && h.k in GDEF ? h.k : null);
     if (gk) { gripOn(st, gk, right ? 1 : -1); st.mode = gk === 'flap' || gk === 'trim' || gk === 'stick' || gk === 'thr' ? gk : 'ck'; }   // v0.46 procedural grip
     else if (h) {
       const pt = h.k === 'start' ? plane.localToWorld(_hv.copy(SW.start.p).setZ(SWP.z + 0.016)) : null;
@@ -4103,7 +4103,7 @@ function handTargets(i, g, st) {                 // decide pose + world matrix f
       }
       st.mode = 'ck';
     }
-  } else if (huntHandK(g)) { gripOn(st, huntHandK(g), right ? 1 : -1); st.mode = 'ck'; }   // v0.53 rifle grips
+  } else if (huntHandK(g) || binoHandK(g)) { gripOn(st, huntHandK(g) || binoHandK(g), right ? 1 : -1); st.mode = 'ck'; }   // v0.53 rifle grips, v0.65 binoculars
   else if (MAP.g === g || MAP.g2 === g || FUELP.g === g || huntHold(g)) { st.tc[0] = st.tc[1] = st.tc[2] = st.tc[3] = 0.6; st.tth = 0.3; st.ttw = 0.5; st.mode = 'hold'; }
   return right;
 }
@@ -5808,7 +5808,7 @@ function deerDress(a) {
 }
 // ---- binoculars (full-game v0.41): on your chest on foot, in a holder by the right door in the Cub. Raise them to your eyes (VR) or press V (desktop) ----
 // VR: a 7x view in a ring in front of your eyes, rendered from your head at 384 px (every other frame, no shadow update); desktop: the camera zooms.
-const BINO = { place: 'cub', g: null, on: false, desk: false, fov0: 75, t: 0, last: '', n: 0, force: false, rt: new THREE.WebGLRenderTarget(384, 384), cam: new THREE.PerspectiveCamera(70 / 7, 1, 0.5, 9000), cubP: GV3(0.285, -0.16 + CK.y, -0.36 + CK.z) };
+const BINO = { place: 'cub', g: null, g2: null, two: false, on: false, desk: false, fov0: 75, t: 0, last: '', n: 0, force: false, rt: new THREE.WebGLRenderTarget(384, 384), cam: new THREE.PerspectiveCamera(70 / 7, 1, 0.5, 9000), cubP: GV3(0.285, -0.16 + CK.y, -0.36 + CK.z) };
 BINO.rt.texture.colorSpace = THREE.SRGBColorSpace;
 BINO.disk = new THREE.Mesh(new THREE.CircleGeometry(0.15, 40), new THREE.MeshBasicMaterial({ map: BINO.rt.texture, depthTest: false, fog: false })); BINO.disk.position.set(0, 0, -0.5); BINO.disk.renderOrder = 998;
 BINO.ring = new THREE.Mesh(new THREE.RingGeometry(0.148, 0.2, 40), new THREE.MeshBasicMaterial({ color: 0x050505, depthTest: false, transparent: true, opacity: 0.92, fog: false })); BINO.ring.renderOrder = 997; BINO.disk.add(BINO.ring);
@@ -5820,16 +5820,35 @@ BINO.m = (() => { const D = 0x2a2c2e, R = 0x16171a, P = [];   // eyepieces towar
   const gs = P.map(partGeo), g = mergeGeometries(gs); for (const x of gs) x.dispose(); const m = new THREE.Mesh(g, ITEM_VM); m.userData.noBatch = true; m.castShadow = true; return m; })();
 { const H = new THREE.Group(); H.position.copy(BINO.cubP); plane.add(H); box(0.012, 0.09, 0.14, mat(0x3a2e22), 0.03, -0.02, 0, H); box(0.012, 0.02, 0.14, mat(0x2a2218), -0.01, -0.06, 0, H); }   // a canvas holder by the right door
 function binoPut(pl) {
-  BINO.place = pl; BINO.g = null; const m = BINO.m;
+  BINO.place = pl; BINO.g = BINO.g2 = null; const m = BINO.m;
   if (pl === 'cub') { plane.add(m); m.position.copy(BINO.cubP).add(GV3(0, 0.0, 0)); m.rotation.set(-Math.PI / 2, -Math.PI / 2, 0, 'YXZ'); }
   else scene.add(m);
 }
+// v0.65 binoculars held in one or both hands, each wrapped round its barrel (GDEF bR / bL). One hand: that barrel sits in the palm. Two: the pair spans both palms,
+// looking along both controllers' -z.
+const B_BAR = 0.032, B_PZ = -0.005, _bA = GV3(0, 0, 0), _bB = GV3(0, 0, 0), _bX = GV3(0, 0, 0), _bY = GV3(0, 0, 0), _bZ = GV3(0, 0, 0), _bM = new THREE.Matrix4(), _bQ = new THREE.Quaternion();
+function binoPalm(g, out) {   // where this hand's barrel axis runs through its palm (world): the wrap grip's palm anchor in the hand frame
+  const sx = g.userData.src?.handedness === 'left' ? -1 : 1; g.updateWorldMatrix(true, false); _bM.multiplyMatrices(g.matrixWorld, HOFF);
+  return out.set(sx * (0.0155 - GDEF.bR.wr), -0.045, GDEF.bR.wz).applyMatrix4(_bM);
+}
+function binoSide(g) { return g.userData.src?.handedness === 'left' ? -1 : 1; }
+function binoOne(m, g) { g.getWorldQuaternion(m.quaternion); binoPalm(g, m.position).sub(_bA.set(binoSide(g) * B_BAR, 0, B_PZ).applyQuaternion(m.quaternion)); }
+function binoTwo(m) {
+  const gR = binoSide(BINO.g) > 0 ? BINO.g : BINO.g2, gL = gR === BINO.g ? BINO.g2 : BINO.g; binoPalm(gR, _bA); binoPalm(gL, _bB);
+  _bX.subVectors(_bA, _bB); if (_bX.lengthSq() < 1e-6) return binoOne(m, BINO.g); _bX.normalize();
+  _bZ.set(0, 0, 1).applyQuaternion(gR.getWorldQuaternion(_bQ)); _bY.set(0, 0, 1).applyQuaternion(gL.getWorldQuaternion(_bQ)); _bZ.add(_bY);
+  _bZ.addScaledVector(_bX, -_bZ.dot(_bX)); if (_bZ.lengthSq() < 1e-6) return binoOne(m, BINO.g); _bZ.normalize(); _bY.crossVectors(_bZ, _bX);
+  _bM.makeBasis(_bX, _bY, _bZ); m.quaternion.setFromRotationMatrix(_bM); m.position.addVectors(_bA, _bB).multiplyScalar(0.5).sub(_bY.set(0, 0, B_PZ).applyQuaternion(m.quaternion));
+}
+function binoHandK(g) { return BINO.place === 'hand' && (BINO.g === g || BINO.g2 === g) ? (binoSide(g) > 0 ? 'bR' : 'bL') : null; }
 function binoChest(out) { camera.getWorldPosition(out); _yq.setFromAxisAngle(_ry, headYaw()); out.add(_bd.set(0, -0.3, -0.13).applyQuaternion(_yq)); return out; }
 function binoTick(dt, vrOn) {
   const m = BINO.m;
   if (BINO.place === 'chest') { binoChest(m.position); m.quaternion.copy(_yq).multiply(_rq3.setFromEuler(_fe.set(-1.25, 0, 0))); m.visible = vrOn; }   // hangs off the harness (desktop: out of the way)
   else if (BINO.place === 'hand') { const g = BINO.g; if (!g || !g.userData.src) { binoPut(mode === 'plane' ? 'cub' : 'chest'); return binoTick(dt, vrOn); }
-    g.updateWorldMatrix(true, false); g.getWorldQuaternion(m.quaternion); m.position.set(0, 0.02, -0.045).applyQuaternion(m.quaternion).add(g.getWorldPosition(_bv)); m.visible = true; }
+    if (BINO.g2 && !BINO.g2.userData.src) BINO.g2 = null;
+    const two = !!BINO.g2; if (two !== BINO.two) { BINO.two = two; for (const st of HANDS.st) st.gk = null; }   // one hand <-> two: the grips solve again on the new pose
+    if (two) binoTwo(m); else binoOne(m, g); m.visible = true; }
   else m.visible = true;
   if (BINO.desk && (vrOn || RFL.adsOn)) binoDesk(false);
   let up = BINO.force; if (BINO.place === 'hand') { m.localToWorld(_bv.set(0, 0, 0.06)); camera.getWorldPosition(_bd); if (_bv.distanceTo(_bd) < 0.17) up = true; }
@@ -5865,25 +5884,28 @@ function binoRender() {
   renderer.setRenderTarget(BINO.rt); renderer.render(scene, BINO.cam); renderer.setRenderTarget(null); renderer.xr.enabled = xr; renderer.shadowMap.autoUpdate = su; renderer.shadowMap.needsUpdate = nu; BINO.disk.visible = true;
 }
 function binoGrab(g, p) {
-  if (BINO.g === g) return true; if (BINO.place === 'hand') return false;
+  if (BINO.g === g || BINO.g2 === g) return true;
+  if (BINO.place === 'hand') { if (BINO.g2 || BINO.m.getWorldPosition(_bv).distanceTo(p) > 0.13) return false; BINO.g2 = g; tick(g); return true; }   // v0.65 the other hand on the other barrel
   const at = BINO.place === 'chest' ? binoChest(_bv) : BINO.m.getWorldPosition(_bv); if (at.distanceTo(p) > 0.13) return false;
   BINO.place = 'hand'; BINO.g = g; scene.add(BINO.m); sfx('pick'); tick(g); say('BINOCULARS - RAISE THEM TO YOUR EYES'); return true;
 }
-function binoRelease(g) { if (BINO.g !== g) return; binoPut(mode === 'plane' ? 'cub' : 'chest'); HX.pulse(g, 0.15, 12, 'release'); }
+function binoRelease(g) { if (BINO.g2 === g) { BINO.g2 = null; return; } if (BINO.g !== g) return; if (BINO.g2) { BINO.g = BINO.g2; BINO.g2 = null; return; } binoPut(mode === 'plane' ? 'cub' : 'chest'); HX.pulse(g, 0.15, 12, 'release'); }
 // ---- glue: hands, boarding, the frame, save ----
 Object.assign(GDEF, {   // v0.53 procedural grips on the rifle mesh: wrap the wrist of the stock, wrap the forend, pinch the lever loop
   rgrip: { o: () => RFL.g, sh: 'box', c: GV3(0, 0.0, 0.07), b: GV3(0.0135, 0.026, 0.03), st: 'wrap', wa: 2, wr: 0.0135, tl: 0.012, wz: -0.004 },
   rfore: { o: () => RFL.g, sh: 'box', c: GV3(0, 0.006, -0.27), b: GV3(0.017, 0.022, 0.1), st: 'wrap', wa: 2, wr: 0.017, tl: 0.08, wz: -0.004 },
   rlev: { o: () => RFL.lever, sh: 'box', c: GV3(0, -0.05, 0.15), b: GV3(0.005, 0.022, 0.035), st: 'pinch', pc: GV3(0, -0.068, 0.15) },
+  bR: { o: () => BINO.m, sh: 'cyl', c: GV3(0.032, 0, -0.005), a: 2, r: 0.021, hl: 0.05, st: 'wrap', wa: 2, wr: 0.021, tl: 0.02, wz: -0.004 },   // v0.65 binocular barrels
+  bL: { o: () => BINO.m, sh: 'cyl', c: GV3(-0.032, 0, -0.005), a: 2, r: 0.021, hl: 0.05, st: 'wrap', wa: 2, wr: 0.021, tl: 0.02, wz: -0.004 },
 });
 function huntHandK(g) { return !RFL.g ? null : RFL.place === 'vr' && RFL.hand === g ? 'rgrip' : RFL.sup === g ? 'rfore' : RFL.levHand === g ? 'rlev' : null; }
-function huntHold(g) { return DROP.held.has(g) || BINO.g === g || RFL.round.has(g) || (DEER.dress && DEER.dress.g === g); }
+function huntHold(g) { return DROP.held.has(g) || BINO.g === g || BINO.g2 === g || RFL.round.has(g) || (DEER.dress && DEER.dress.g === g); }
 function huntGrab(g, p) { return rflGrab(g, p) || binoGrab(g, p) || deerGrab(g, p); }
 function huntRelease(g) { rflRelease(g); binoRelease(g); deerRelease(g); }
 const _hpg = GV3(0, 0, 0);
 function huntPlaneGrab(g, sq, edge) {   // in the seat (VR): the binoculars from their holder
-  if (BINO.g === g) { if (!sq) binoRelease(g); return true; }
-  if (!edge || BINO.place !== 'cub') return false; g.getWorldPosition(_hpg); return binoGrab(g, _hpg);
+  if (BINO.g === g || BINO.g2 === g) { if (!sq) binoRelease(g); return true; }
+  if (!edge || (BINO.place !== 'cub' && BINO.place !== 'hand')) return false; g.getWorldPosition(_hpg); return binoGrab(g, _hpg);
 }
 function huntBoard() {   // climbing in: a rifle you carry goes in the Cub's rack, the binoculars in their holder
   if (rflHas() || (RFL.place === 'ground' && RFL.gp && hyp(RFL.gp[0] - ac.pos[0], RFL.gp[2] - ac.pos[2]) < 4)) { for (const m of RFL.round.values()) { m.removeFromParent(); RFL.spare++; } RFL.round.clear(); rflPut('cub'); }
