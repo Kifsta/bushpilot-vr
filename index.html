@@ -19,7 +19,7 @@
 </script>
 </head>
 <body>
-<div id="info">BUSH PILOT VR v0.68.1 - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
+<div id="info">BUSH PILOT VR v0.68.2 - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
 You start on foot by the Cub at the cabin strip. Walk up to her and climb in (F / Y), then start her up off the checklist card (J).
 Desktop - flying: W/S or arrows pitch, A/D or arrows roll, Q/E rudder, Shift / Ctrl (or + / -) throttle, B brakes, [ ] flaps, PgUp / PgDn trim,
   R reset to the strip (cold and dark), F climb out, M map, L landing light, Home recentre, mouse looks (click to capture).
@@ -4040,12 +4040,12 @@ function gFingerHit(gp, sx, f, j0) {   // does any bone from joint j0 on (angles
 function gripSolve(st, k, sx) {   // on grab: hand frame in the control's frame (st.Hc) + finger angles (st.ja) + thumb target (st.gT, st.gA)
   const D = GDEF[k], gp = st.gp; gripFrame(k, _gF); _gI.copy(_gF).invert(); _gH.multiplyMatrices(_gI, st.W); _gH.extractBasis(_gx, _gy, _gz);
   if (D.st === 'wrap') {
-    _gA.set(0, 0, 0).setComponent(D.wa, 1); if (_gz.dot(_gA) < 0) _gA.negate();          // finger-width axis along the grip, the way your hand already faces
+    if (D.wd) _gA.copy(D.wd); else _gA.set(0, 0, 0).setComponent(D.wa, 1); if (_gz.dot(_gA) < 0) _gA.negate();          // finger-width axis along the grip, the way your hand already faces
     _gy.addScaledVector(_gA, -_gy.dot(_gA)); if (_gy.lengthSq() < 1e-6) _gy.copy(_gx).cross(_gA); _gy.normalize(); _gx.crossVectors(_gy, _gA);
     st.Hc.makeBasis(_gx, _gy, _gA);
     let wr = D.wr; if (D.sh === 'box') wr = Math.max(wr, D.b.x * Math.abs(_gx.x) + D.b.y * Math.abs(_gx.y) + D.b.z * Math.abs(_gx.z));   // a flat handle: its depth under the palm
     _ga.set(sx * (0.0155 - wr), -0.045, D.wz); _gb.copy(_ga).applyMatrix4(_gH);         // palm anchor; slide along the grip to where your hand is
-    const c = D.wc || D.c; _gA.set(0, 0, 0).setComponent(D.wa, 1); const t = clamp(_gc.subVectors(_gb, c).dot(_gA), -D.tl, D.tl);
+    const c = D.wc || D.c; if (D.wd) _gA.copy(D.wd); else _gA.set(0, 0, 0).setComponent(D.wa, 1); const t = clamp(_gc.subVectors(_gb, c).dot(_gA), -D.tl, D.tl);
     _gc.copy(c).addScaledVector(_gA, t).sub(_gb.copy(_ga).applyMatrix4(st.Hc)); if (D.wo) _gc.add(D.wo); st.Hc.setPosition(_gc);   // v0.67.2 wo: the palm sits off the axis (down the rifle's wrist)
   } else {
     st.Hc.copy(_gH); _ga.set(sx * G_PIN.x, G_PIN.y, G_PIN.z); _gb.copy(_ga).applyMatrix4(_gH); _gc.subVectors(D.pc, _gb);   // keep your wrist angle, knob between thumb and index
@@ -4054,7 +4054,7 @@ function gripSolve(st, k, sx) {   // on grab: hand frame in the control's frame 
   _gI.copy(st.Hc).invert();                                                                   // shape into hand space
   gp.cyl = D.sh === 'cyl'; gp.C.copy(D.c).applyMatrix4(_gI);
   gp.X.set(1, 0, 0).transformDirection(_gI); gp.Y.set(0, 1, 0).transformDirection(_gI); gp.Z.set(0, 0, 1).transformDirection(_gI);
-  if (gp.cyl) { gp.A.copy(D.a === 0 ? gp.X : D.a === 1 ? gp.Y : gp.Z); gp.r = D.r; gp.hl = D.hl; } else gp.b.copy(D.b);
+  if (gp.cyl) { if (D.ax) gp.A.copy(D.ax).transformDirection(_gI); else gp.A.copy(D.a === 0 ? gp.X : D.a === 1 ? gp.Y : gp.Z); gp.r = D.r; gp.hl = D.hl; } else gp.b.copy(D.b);
   for (let f = 0; f < 4; f++) {                                                               // curl joint by joint until a bone touches
     gp.u = f === 0 && !!D.idx; if (gp.u) { gp.uC.copy(D.idx.c).applyMatrix4(_gI); gp.ub.copy(D.idx.b); gp.uo = !!D.idx.only; } gp.isp = st.isp = D.idx ? D.idx.sp : 0;   // v0.67 the index finds the trigger (the wrist is still there)
     const lim = f === 0 && D.idx?.lim ? D.idx.lim : D.st === 'pinch' && f >= 1 ? G_TUCK : G_MAX; _gJ[0] = _gJ[1] = _gJ[2] = 0;
@@ -5972,7 +5972,7 @@ function binoGrab(g, p) {
 function binoRelease(g) { if (BINO.g2 === g) { BINO.g2 = null; return; } if (BINO.g !== g) return; if (BINO.g2) { BINO.g = BINO.g2; BINO.g2 = null; return; } binoPut(mode === 'plane' ? 'cub' : 'chest'); HX.pulse(g, 0.15, 12, 'release'); }
 // ---- glue: hands, boarding, the frame, save ----
 Object.assign(GDEF, {   // v0.53 procedural grips on the rifle mesh: wrap the wrist of the stock, wrap the forend, pinch the lever loop
-  rgrip: { o: () => RFL.g, sh: 'box', c: GV3(0, -0.0095, 0.072), b: GV3(0.013, 0.0375, 0.03), th: GV3(-0.008, 0.026, 0.09), wo: GV3(0, -0.013, 0), st: 'wrap', wa: 2, wr: 0.013, tl: 0.012, wz: -0.004, idx: { c: GV3(0, -0.05, -0.002), b: GV3(0.0025, 0.007, 0.005), sp: -0.5, lim: [1.7, 1.9, 0.9], min: [0, 0.75, 0.6], only: true } },   // v0.67: the wrist measured off the mesh; the index on the trigger blade. v0.67.2 (Neil's photo): the box takes in the lever's top bar, so the three lower fingers wrap inside the loop; the thumb over the top behind the hammer
+  rgrip: { o: () => RFL.g, sh: 'cyl', c: GV3(0, -0.03, 0.056), ax: GV3(0, -0.961, 0.276), r: 0.015, hl: 0.045, th: GV3(-0.008, 0.026, 0.09), st: 'wrap', wa: 2, wd: GV3(0, -0.961, 0.276), wr: 0.015, tl: 0.004, wz: -0.004, idx: { c: GV3(0, -0.05, -0.002), b: GV3(0.0025, 0.007, 0.005), sp: 0.35, lim: [1.7, 1.9, 0.9], min: [0, 0.75, 0.6], only: true } },   // v0.67: the wrist measured off the mesh; the index on the trigger blade. v0.67.2 (Neil's photo): the box takes in the lever's top bar, so the three lower fingers wrap inside the loop; the thumb over the top behind the hammer
   rfore: { o: () => RFL.g, sh: 'box', c: GV3(0, 0.006, -0.27), b: GV3(0.017, 0.022, 0.1), st: 'wrap', wa: 2, wr: 0.017, tl: 0.08, wz: -0.004 },
   rlev: { o: () => RFL.lever, sh: 'box', c: GV3(0, -0.05, 0.15), b: GV3(0.005, 0.022, 0.035), st: 'pinch', pc: GV3(0, -0.068, 0.15) },
   bR: { o: () => BINO.m, sh: 'cyl', c: GV3(0.032, 0, -0.005), a: 2, r: 0.021, hl: 0.05, st: 'wrap', wa: 2, wr: 0.021, tl: 0.02, wz: -0.004 },   // v0.65 binocular barrels

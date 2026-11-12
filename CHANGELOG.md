@@ -2,6 +2,22 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.68.2 – rifle: the trigger hand comes from behind, along the stock
+Neil, in the headset: "The wrist should be pointing straight up on the trigger hand. It would come from along the stock." The physics block is untouched (md5 `eee6637e…`). The controller-to-rifle angle (grip pitch −40°) and the recoil are unchanged.
+- **Why it was wrong:** the wrist grip wrapped round the bore axis. That made the hand stand on top of the wrist with the palm down and the cuff pointing up, even though the controller hold put it behind.
+- **New grip shape:**
+  - The hand now wraps a post through the stock's wrist and the lever loop, tilted 16° back from vertical (the same tilt a natural pistol-style controller hold gives). Nothing is forced off your real hand's angle.
+  - The forearm and cuff run back along the stock (cuff 16 cm behind the grip, level with it).
+  - The back of the hand faces out and the palm lies against the stock. The knuckles stack up the wrist: index on top, little finger 6 cm lower.
+  - The thumb lies over the top of the wrist. The index angles down into the guard onto the blade.
+  - The middle, ring and little fingers go down through the lever loop and wrap it.
+- Left-handed is the exact mirror image (same basis, back of the hand to the left).
+- The solver gained a free axis for wrap grips and cylinder shapes (`wd`, `ax`). The other grips are unchanged.
+- **Tests:**
+  - New test t682 (7 checks): forearm direction, back of the hand, knuckle stack, and the wrist behind the grip, for the right and left hands.
+  - t672's thumb check was eased (19 mm up, 66 mm back).
+- **Screenshots:** /workspace/qa-v0682-{side-right,side-left,lefthand-side,shooter,behind,lever-mid}.png. Comparisons: qa-v0682-vs-reference.png (Neil's photo), qa-v0682-before-after-right.png, qa-v0682-shooter-vs-reference.png. Reference photos: /workspace/ref-rifle-pexels1.jpg, ref-rifle-pexels2.jpg.
+
 ## v0.68.1 – a proper menu: save / load, graphics, comfort, controls, audio
 Neil: "...have menus for load/save, graphics and any other options you might think it needs." The physics block is untouched (md5 `eee6637e…`). The world RNG is unchanged.
 - The wrist MENU board is now a tabbed menu: RESUME, SAVE / LOAD, GRAPHICS, COMFORT, CONTROLS, AUDIO. The buttons are big (64 px rows on a 0.8 × 0.5 m board). It opens on the tab you last used.
