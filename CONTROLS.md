@@ -140,12 +140,12 @@ Some jobs on the boards are **hunting jobs**: a lodge, the elk camp, the ranch o
 
 | | VR (Quest) | Desktop |
 |---|---|---|
-| Take the rifle | It hangs on the **cabin wall rack** (outside the cabin, by the door) and, once you've flown with it, in the **Cub's rack** on the right cabin wall. Squeeze grip on the stock's wrist | **T** by a rack (T again: back on the rack, or slung on your back away from one) |
-| Support hand | Squeeze on the forend with the other hand. Bring the stock to your cheek: it settles into a virtual shoulder | (automatic) |
+| Take the rifle | It hangs on the **cabin wall rack** (outside the cabin, by the door) and, once you've flown with it, in the **Cub's rack** on the right cabin wall. Squeeze grip on the stock's wrist. It flies into your hand from where it was (0.12 s), and your fingers wrap the wrist with the index on the trigger (v0.67) | **T** by a rack (T again: back on the rack, or slung on your back away from one) |
+| Support hand | Squeeze on the forend with the other hand. Bring the stock to your cheek: it settles into a virtual shoulder (the stock's own pull is rate-limited so it never jumps). Let go of the wrist and the forend hand keeps the rifle as it was; grab the wrist again to carry on. Held in one hand, the muzzle lags a little behind fast swings (v0.67) | (automatic) |
 | Aim | Look down the rear notch over the bead | Hold **RMB** (aim down the sights) |
-| Fire | Trigger, rifle hand only | **LMB** |
+| Fire | Trigger, rifle hand only. The rifle's trigger follows your finger (v0.67) | **LMB** |
 | Work the lever | Pinch the lever loop with your support hand and swing it down and back up (or flick the rifle down and up one-handed): it ejects the case, cocks the hammer and chambers the next round | **X** |
-| Load | Squeeze on the **cartridge pouch** at your belt (front right) for a round and push its tip into the loading gate on the receiver's right side. Keep squeezing at the gate and the next one comes from the pouch | **Z** (one round per press) |
+| Load | Squeeze on the **cartridge pouch** at your belt (front right) for a round and push its tip into the loading gate on the receiver's right side, from behind and outside, pointing forward, with the lever shut. In the last few cm the round swings onto the gate and slides in (v0.67). A full tube says MAGAZINE FULL and you keep the round. Keep squeezing at the gate and the next one comes from the pouch | **Z** (one round per press) |
 | Buy ammo | The ammo box on the stump by the cabin: $10 for 20 rounds | **Z** by the box |
 | Sling / put down | Let go over your shoulder, muzzle up, to sling it. Let go at a rack to rack it. Let go anywhere else and it lies on the ground | T |
 | Binoculars | They hang on your **chest**, and in the Cub they sit in a holder by your right knee. Grab them and raise them to your eyes for a 7× view | **V** (toggle) |

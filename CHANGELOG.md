@@ -2,6 +2,21 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.67 – rifle: old aim and reload feel, procedural grip, trigger the right way round
+Neil: "Rifle: use the old aim/reload code (v0.10–v0.44) on the current model, keep the current recoil, procedural grips, and the trigger is backwards." The physics block is untouched (md5 `eee6637e…`). Recoil is unchanged.
+- **Trigger:** the blade curved backwards. It is now mirrored about its pin so it curves forward, and it rotates with your trigger finger (the analog value), not only on a shot.
+- **Procedural grip:** the stock's wrist grip shape now matches the measured wrist (and the lever loop below it). The fingers curl joint by joint round the wrist. The index reaches forward onto the trigger and curls a little more as you pull.
+- **Ported from v0.9–v0.44:**
+  - Pickup blend: the rifle moves from the rack (or the ground, or your back) into your hand over 0.12 s. A change of hold, such as the forend hand going on or off, blends over 0.08 s.
+  - Shouldering: the stock's own pull is capped at 3 mm and 0.6° per 90 Hz frame. Hand motion passes straight through.
+  - One-hand inertia: the muzzle lags a fast start or stop about the wrist (critically damped, and a steady swing has no lag).
+  - Free hold: let go of the wrist while the forend is held and the rifle stays where it was in the forend hand (it can't fire). Grab the wrist again to carry on.
+  - Ejected cases carry the rifle's velocity.
+  - Loading gate: the round only goes in from behind and outside the gate, pointing forward, with the lever shut. In the last 5 cm it swings onto the gate axis, then slides in over 0.14 s. A full tube says MAGAZINE FULL (at most every 1.5 s) and you keep the round.
+- Not ported: the old right-stick grip-angle adjust. The stick is snap turn and crouch now.
+- New test t67 (20 checks): trigger direction and travel, index on the trigger, fingers curled, pickup blend, inertia and settle, free hold and regrip, gate cone (wrong angle and backwards rounds don't load), slide-in, MAGAZINE FULL.
+- Screenshots: /workspace/qa-v067-rifle-{grip-right,grip-left,fore-left,grip-right-trigger}-{before,after}.png.
+
 ## v0.66 – nothing floating at the right door
 Neil: "Floating handle on the right cockpit door again." The physics block is untouched (md5 `eee6637e…`).
 - **The cause:** not the v0.49.1 batching bug, which is still fixed (every door and window part leaves the static batch when it moves). The floating "handle" was the **front bracket of the Cub's rifle rack** (v0.53). It is fixed to the cabin, but it sat on the right wall 15 cm aft of the handles, which is over the door and window panes. With the door shut it looked like part of the door. With the door or window open it hung in the air in the opening.
