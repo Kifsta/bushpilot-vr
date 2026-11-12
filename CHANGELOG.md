@@ -2,6 +2,13 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.77.3 – clipboard and paper map held by the corner
+Neil: the hand holding the clipboard or the map covers what's on it. Now there is one fixed hold per hand: the left hand pinches the extreme **lower-left** corner and the right hand the **lower-right**. The thumb is on the front in the corner margin, the fingers are behind, and the board sits off the hand so the page is clear of it.
+- **Kneeboard** (`kbL` / `kbR`): held up at 1.2x, pinched at its corner, 9 mm in from both edges (`PAPER_IN`). The content was already inside that margin.
+- **Paper map** (`mpL` / `mpR`): the sheet got a 1.5 cm cream border (`MAP_SHEET_B` 0.43 x 0.33 m) and the map stays inside it. One hand pinches its lower corner. With both hands, each hand holds its own lower corner and the sheet spans between them.
+- The hand frame is fixed (`fix: 'paper'`), and the pinch grips ignore the holder's scale (`ns`).
+- **Tests:** new t772 (10 checks: random approaches for each corner and hand, pinch point at the corner, hand clear of the content). Screenshots: /workspace/qa-board-hold-*.png.
+
 ## v0.77.1 / v0.77.2 – one fixed grip per hand, fixed binocular pose, pouch loading that works
 Neil's headset report: the binoculars could still be picked up the wrong way, the rifle couldn't be loaded from the pouch, and "there should be just one grip for the right hand and one for the left". v0.77.1 and v0.77.2 (the Sniper Elite VR pose spec, put into the new RIFLE_POSES table) share this commit because the table is the mechanism.
 - **Rifle, two fixed grips:** the hand that takes the stock first is the primary hand and gets ONE pose on the stock wrist. The other hand always gets ONE pose on the forend. The rifle hangs off the primary controller by one fixed offset (`RIFLE_POSES.GRIP_OFFSET`) however the hand came in. The procedural wrap solver no longer picks the hand frame (`GDEF fix: 'grip' / 'fore'`, `gripFixed()`). The other-hand lever-loop grab, the v0.68 free-forend mode and the wrist-angle variants are gone. Left-handed is the exact mirror image.

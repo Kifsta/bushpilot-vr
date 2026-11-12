@@ -19,7 +19,7 @@
 </script>
 </head>
 <body>
-<div id="info">BUSH PILOT VR v0.77.2 - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
+<div id="info">BUSH PILOT VR v0.77.3 - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
 You start on foot by the Cub at the cabin strip. Walk up to her and climb in (F / Y), then start her up off the checklist card (J).
 Desktop - flying: W/S or arrows pitch, A/D or arrows roll, Q/E rudder, Shift / Ctrl (or + / -) throttle, B brakes, [ ] flaps, PgUp / PgDn trim,
   R reset to the strip (cold and dark), F climb out, M map, L landing light, Home recentre, mouse looks (click to capture).
@@ -3136,7 +3136,7 @@ function updateGear(dt) {   // hand velocities (a thrown map keeps the hand's sp
 }
 // ================= v0.8: rough paper map (drawn once at load from the terrain); v0.45: it lives in the cockpit holder =================
 const MAP_W = 1024, MAP_H = 768, MAP_X = 5000, MAP_Z = 3750, MAP_PX = MAP_W / (2 * MAP_X);   // ~9.8 m per pixel, north (-z) up
-const MAP_SHEET = [0.4, 0.3], MAP_POCKET_R = 0.13, MAP_CLIP = { p: D2B(-0.318, -0.69, 0.24).toArray(), ry: Math.PI / 2, s: 0.6 };   // v0.18.2: flat on the left wall below the windscreen-side sill, ahead of the throttle (clip 2 mm off the skin)
+const MAP_SHEET = [0.4, 0.3], MAP_SHEET_B = [0.43, 0.33], MAP_POCKET_R = 0.13, MAP_CLIP = { p: D2B(-0.318, -0.69, 0.24).toArray(), ry: Math.PI / 2, s: 0.6 };   // v0.18.2: flat on the left wall below the windscreen-side sill, ahead of the throttle (clip 2 mm off the skin)
 function drawMap() {
   const c = document.createElement('canvas'); c.width = MAP_W; c.height = MAP_H; const x = c.getContext('2d');
   let sd = 4242; const r = () => ((sd = (sd * 16807) % 2147483647) / 2147483647), j = k => (r() - 0.5) * 2 * k;   // own seed: world rand() untouched
@@ -3248,7 +3248,8 @@ MAP.canvas = document.createElement('canvas'); MAP.canvas.width = MAP_W; MAP.can
   const paper = new THREE.MeshLambertMaterial({ color: 0xcdbb8e });
   MAP.sheet = new THREE.Group();
   MAP.sheet.add(new THREE.Mesh(new THREE.PlaneGeometry(...MAP_SHEET), new THREE.MeshBasicMaterial({ map: t, color: 0xf0f0f0 })));
-  MAP.sheet.add(new THREE.Mesh(new THREE.PlaneGeometry(...MAP_SHEET).rotateY(Math.PI), paper));
+  MAP.sheet.add(new THREE.Mesh(new THREE.PlaneGeometry(...MAP_SHEET_B).rotateY(Math.PI), paper));
+  MAP.sheet.add(new THREE.Mesh(new THREE.PlaneGeometry(...MAP_SHEET_B).translate(0, 0, -0.0008), new THREE.MeshBasicMaterial({ color: 0xd8cfb4 })));   // v0.77.3 a blank paper margin round the printed map: the holding hand pinches that, not the map
   MAP.sheet.visible = false; scene.add(MAP.sheet);
   MAP.fold = new THREE.Group(); box(0.1, 0.012, 0.15, paper, 0, 0, 0, MAP.fold); box(0.06, 0.013, 0.004, mat(0x7a5a3a), 0, 0, 0.03, MAP.fold);   // folded, pencil-mark on the cover
   MAP.item = { mesh: MAP.fold, h: 0.012, vel: V3() };
@@ -3323,10 +3324,10 @@ function updateMap() {   // after the plane pose is set (grips ride the cockpit)
   if (MAP.desk && !renderer.xr.isPresenting) { camera.add(MAP.sheet); MAP.sheet.visible = true; MAP.sheet.scale.setScalar(1); MAP.sheet.position.set(0, -0.02, -0.43); MAP.sheet.rotation.set(0, 0, 0); return; }
   if (MAP.state !== 'held') return;
   const E = eyeWorld(0); _eye.setFromMatrixPosition(E); _hf.set(0, 0, -1).transformDirection(E); _hf.y = 0; _hf.normalize();
-  const right = _mx.set(-_hf.z, 0, _hf.x), c = MAP.g.getWorldPosition(_kp);
-  if (MAP.g2) { const p2 = MAP.g2.getWorldPosition(_kg); _my.subVectors(p2, c); if (_my.dot(right) < 0) _my.negate(); right.copy(_my.normalize()); c.add(p2).multiplyScalar(0.5); c.y += 0.03; }
-  else { const left = MAP.g.userData.src?.handedness !== 'right'; c.addScaledVector(right, left ? 0.17 : -0.17); c.y += 0.07; }   // hand holds the near edge
+  const right = _mx.set(-_hf.z, 0, _hf.x), c = paperPin(MAP.g, _kp), hw = MAP_SHEET_B[0] / 2 - PAPER_IN, hh = MAP_SHEET_B[1] / 2 - PAPER_IN, s1 = paperSx(MAP.g);   // v0.77.3 each hand pinches its own lower corner
+  if (MAP.g2) { const p2 = paperPin(MAP.g2, _kg); _my.subVectors(p2, c).multiplyScalar(-s1); _my.y = 0; if (_my.lengthSq() > 1e-4 && _my.dot(right) > 0) right.copy(_my.normalize()); c.add(p2).multiplyScalar(0.5); }   // two hands: left pinch -> right pinch, kept level
   _mz.subVectors(_eye, c); _mz.addScaledVector(right, -_mz.dot(right)).normalize(); _my.crossVectors(_mz, right);
+  if (!MAP.g2) c.addScaledVector(right, -s1 * hw); c.addScaledVector(_my, hh);   // the corner (or the middle of the bottom edge) at the pinch, the page up and in from the hand
   _mm.makeBasis(right, _my, _mz); MAP.sheet.position.copy(c); MAP.sheet.quaternion.setFromRotationMatrix(_mm);
 }
 mapStow('clip');
@@ -3704,6 +3705,10 @@ const KB_W = 512, KB_H = 704, KB = { home: new THREE.Vector3(-0.165, -0.055, -0.
   KB.m = new THREE.Group(); const paper = new THREE.Mesh(new THREE.PlaneGeometry(0.15, 0.206), new THREE.MeshBasicMaterial({ map: KB.t, color: 0xdedede })); paper.position.set(0, -0.006, 0.002); paper.userData.noBatch = true; KB.m.add(paper);
   const back = new THREE.Mesh(mergeGeometries([['b', 0.17, 0.235, 0.006, 0, 0, -0.002, 0x7a5232], ['b', 0.07, 0.022, 0.012, 0, 0.106, 0.004, 0xb0b4b8], ['b', 0.02, 0.012, 0.016, 0, 0.1, 0.008, 0x8a8e92]].map(partGeo)), ITEM_VM);
   back.userData.noBatch = true; KB.m.add(back); KB.m.userData.noBatch = true; }
+const KB_HW = 0.085, KB_HH = 0.1175, KB_HOLD_S = 1.2, PAPER_IN = 0.009, _ppM = new THREE.Matrix4();   // v0.77.3 board half-size, held scale, the pinch inset from the corner
+function paperSx(g) { return g.userData.src?.handedness === 'left' ? -1 : 1; }
+function paperPin(g, out) { g.updateWorldMatrix(true, false); _ppM.multiplyMatrices(g.matrixWorld, HOFF); return out.set(paperSx(g) * G_PIN.x, G_PIN.y, G_PIN.z).applyMatrix4(_ppM); }   // where this hand's thumb meets its index
+function paperHandK(g) { const L = paperSx(g) < 0; return KB.g === g ? (L ? 'kbL' : 'kbR') : MAP.state === 'held' && (MAP.g === g || MAP.g2 === g) ? (L ? 'mpL' : 'mpR') : null; }
 function kbHome() { KB.g = null; KB.desk = false; plane.add(KB.m); KB.m.position.copy(KB.home); KB.m.rotation.set(KB.rx, KB.ry, 0, 'YXZ'); KB.m.scale.setScalar(1); }
 kbHome();
 function kbLines() {   // the text, one entry per active job
@@ -3807,9 +3812,10 @@ function updateKb() {
   if (KB.desk) kbHome();
   if (!KB.g) return;
   { const gp = KB.g.userData.src?.gamepad; if (gp && pressedEdge(gp, 0, 'kbT')) { kbPage(1); hap(KB.g, 0.25, 10); } }   // v0.64 trigger of the hand holding it = next page
-  const E = eyeWorld(0); _eye.setFromMatrixPosition(E); KB.g.getWorldPosition(_cq); _cq.y += 0.06;
-  scene.add(KB.m); KB.m.position.copy(_cq); KB.m.scale.setScalar(1.2);
+  const E = eyeWorld(0); _eye.setFromMatrixPosition(E); paperPin(KB.g, _cq); const sx = paperSx(KB.g);   // v0.77.3 pinched at its lower-left (left hand) / lower-right (right hand) corner, the page clear of the hand
+  scene.add(KB.m); KB.m.scale.setScalar(KB_HOLD_S);
   _cz.subVectors(_eye, _cq).normalize(); _cr.crossVectors(_up, _cz).normalize(); _cy.crossVectors(_cz, _cr); _cm.makeBasis(_cr, _cy, _cz); KB.m.quaternion.setFromRotationMatrix(_cm);
+  KB.m.position.copy(_cq).addScaledVector(_cr, -sx * (KB_HW * KB_HOLD_S - PAPER_IN)).addScaledVector(_cy, KB_HH * KB_HOLD_S - PAPER_IN);
 }
 
 // ---- VR hand grabs on cockpit controls (they win over the stick / throttle grab while the hand is on them) ----
@@ -4111,7 +4117,7 @@ const _gF = new THREE.Matrix4(), _gI = new THREE.Matrix4(), _gH = new THREE.Matr
   _gP0 = GV3(0, 0, 0), _gP1 = GV3(0, 0, 0), _gS = GV3(1, 1, 1), _gQ0 = new THREE.Quaternion(), _gQ1 = new THREE.Quaternion(), _gJ = [0, 0, 0];
 function gripFrame(k, out) {   // the control's frame (world). The trim knob spins on its pin: plane-oriented frame at the knob
   if (k === 'trim') { trimKnob.getWorldPosition(_gc); plane.updateWorldMatrix(true, false); return out.copy(plane.matrixWorld).setPosition(_gc); }
-  const o = GDEF[k].o(); o.updateWorldMatrix(true, false); return out.copy(o.matrixWorld);
+  const o = GDEF[k].o(); o.updateWorldMatrix(true, false); out.copy(o.matrixWorld); if (GDEF[k].ns) { out.decompose(_gc, _gfQ, _gq); out.compose(_gc, _gfQ, _gq.set(1, 1, 1)); } return out;   // v0.77.3 ns: a scaled holder (the clipboard) - the hand stays its own size
 }
 function gSdf(gp, p) {   // signed distance from p (hand space) to the control's shape
   _gq.subVectors(p, gp.C);
@@ -4212,7 +4218,7 @@ function handTargets(i, g, st) {                 // decide pose + world matrix f
   st.tc[0] = trigT ? 0.35 + 0.6 * trig : grip > 0.5 ? 0.03 : 0.28; st.tc[1] = 0.3 + 0.7 * grip; st.tc[2] = 0.34 + 0.66 * grip; st.tc[3] = 0.38 + 0.62 * grip;   // v0.24.1 relaxed
   st.tth = thumbT ? 0 : 1; st.ttw = grip > 0.5 && trig > 0.5 ? 0.7 : 0; st.ttp = 0;
   if (mode === 'plane') {
-    const h = CKH.get(g), gk = binoHandK(g) || (vr.flapG === g ? 'flap' : TRIM.g === g ? 'trim' : vr.stickG === g ? 'stick' : vr.thrG === g ? 'thr' : h && h.k in GDEF ? h.k : null);
+    const h = CKH.get(g), gk = paperHandK(g) || binoHandK(g) || (vr.flapG === g ? 'flap' : TRIM.g === g ? 'trim' : vr.stickG === g ? 'stick' : vr.thrG === g ? 'thr' : h && h.k in GDEF ? h.k : null);
     if (gk) { gripOn(st, gk, right ? 1 : -1); st.mode = gk === 'flap' || gk === 'trim' || gk === 'stick' || gk === 'thr' ? gk : 'ck'; }   // v0.46 procedural grip
     else if (h) {
       const pt = h.k === 'start' ? plane.localToWorld(_hv.copy(SW.start.p).setZ(SWP.z + 0.016)) : null;
@@ -4223,8 +4229,9 @@ function handTargets(i, g, st) {                 // decide pose + world matrix f
       }
       st.mode = 'ck';
     }
-  } else if (huntHandK(g) || binoHandK(g)) { const hk = huntHandK(g) || binoHandK(g); gripOn(st, hk, right ? 1 : -1); st.mode = 'ck'; st.jx = hk === 'rgrip' ? 0.3 * trig : 0; }   // v0.67 the trigger finger squeezes   // v0.53 rifle grips, v0.65 binoculars
-  else if (MAP.g === g || MAP.g2 === g || FUELP.g === g || huntHold(g)) { st.tc[0] = st.tc[1] = st.tc[2] = st.tc[3] = 0.6; st.tth = 0.3; st.ttw = 0.5; st.mode = 'hold'; }
+  } else if (paperHandK(g)) { gripOn(st, paperHandK(g), right ? 1 : -1); st.mode = 'ck'; }   // v0.77.3 the map held on foot: its corner pinch
+  else if (huntHandK(g) || binoHandK(g)) { const hk = huntHandK(g) || binoHandK(g); gripOn(st, hk, right ? 1 : -1); st.mode = 'ck'; st.jx = hk === 'rgrip' ? 0.3 * trig : 0; }   // v0.67 the trigger finger squeezes   // v0.53 rifle grips, v0.65 binoculars
+  else if (FUELP.g === g || huntHold(g)) { st.tc[0] = st.tc[1] = st.tc[2] = st.tc[3] = 0.6; st.tth = 0.3; st.ttw = 0.5; st.mode = 'hold'; }
   return right;
 }
 const _plL = new THREE.Vector3(), _pkD = new THREE.Vector3(), _pkV = new THREE.Vector3(), _pkPrev = new THREE.Vector3();
@@ -6236,6 +6243,12 @@ function binoGrab(g, p) {
 }
 function binoRelease(g) { if (BINO.g2 === g) { BINO.g2 = null; return; } if (BINO.g !== g) return; if (BINO.g2) { BINO.g = BINO.g2; BINO.g2 = null; BINO.flip = binoFlipFor(BINO.g); return; } binoPut(mode === 'plane' ? 'cub' : 'chest'); HX.pulse(g, 0.15, 12, 'release'); }
 // ---- glue: hands, boarding, the frame, save ----
+{ const S = KB_HOLD_S, pin = (hw, hh, sx) => GV3(sx * (hw - PAPER_IN), -(hh - PAPER_IN), 0);   // v0.77.3 the clipboard and the map: one corner pinch per hand
+  const mh = MAP_SHEET_B[0] / 2, mv = MAP_SHEET_B[1] / 2;
+  Object.assign(GDEF, { kbL: { fix: 'paper', ns: 1, o: () => KB.m, sh: 'box', c: GV3(0, 0, -0.002 * S), b: GV3(KB_HW * S, KB_HH * S, 0.004), st: 'pinch', pc: pin(KB_HW * S, KB_HH * S, -1) },
+    kbR: { fix: 'paper', ns: 1, o: () => KB.m, sh: 'box', c: GV3(0, 0, -0.002 * S), b: GV3(KB_HW * S, KB_HH * S, 0.004), st: 'pinch', pc: pin(KB_HW * S, KB_HH * S, 1) },
+    mpL: { fix: 'paper', o: () => MAP.sheet, sh: 'box', c: GV3(0, 0, 0), b: GV3(mh, mv, 0.001), st: 'pinch', pc: pin(mh, mv, -1) },
+    mpR: { fix: 'paper', o: () => MAP.sheet, sh: 'box', c: GV3(0, 0, 0), b: GV3(mh, mv, 0.001), st: 'pinch', pc: pin(mh, mv, 1) } }); }
 Object.assign(GDEF, {   // v0.53 procedural grips on the rifle mesh: wrap the wrist of the stock, wrap the forend, pinch the lever loop
   rgrip: { fix: 'grip', o: () => RFL.g, sh: 'cyl', st: 'wrap', wa: 2, ...RIFLE_POSES.primary },   // v0.77.1 the one wrist grip (pose data: RIFLE_POSES)
   rfore: { fix: 'fore', o: () => RFL.g, sh: 'box', st: 'wrap', wa: 2, ...RIFLE_POSES.support },   // v0.77.1 the one forend grip (pose data: RIFLE_POSES)
