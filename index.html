@@ -19,7 +19,7 @@
 </script>
 </head>
 <body>
-<div id="info">BUSH PILOT VR v0.77.8 - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
+<div id="info">BUSH PILOT VR v0.77.9 - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
 You start on foot by the Cub at the cabin strip. Walk up to her and climb in (F / Y), then start her up off the checklist card (J).
 Desktop - flying: W/S or arrows pitch, A/D or arrows roll, Q/E rudder, Shift / Ctrl (or + / -) throttle, B brakes, [ ] flaps, PgUp / PgDn trim,
   R reset to the strip (cold and dark), F climb out, M map, L landing light, Home recentre, mouse looks (click to capture).
@@ -5125,9 +5125,19 @@ function cgSupport(zn, it, x, z, below = Infinity) {   // floor / seat under (x,
     if (Math.abs(op.x - x) < (s[0] + os[0]) / 2 - 0.01 && Math.abs(op.z - z) < (s[2] + os[2]) / 2 - 0.01 && op.y < below) y = Math.max(y, op.y + o.h / 2); }
   return y;
 }
+function cgUnder(zn, it, x, z) {   // v0.77.9 the cargo piece whose top would carry `it` at (x, z) (the highest one under its footprint), or null
+  const s = it.sz; let best = null, by = -1e9;
+  for (const o of DLV.items) if (o !== it && o.st === 'cargo' && o.cz === zn) { const os = o.sz, op = o.mesh.position;
+    if (Math.abs(op.x - x) < (s[0] + os[0]) / 2 - 0.01 && Math.abs(op.z - z) < (s[2] + os[2]) / 2 - 0.01 && op.y + o.h / 2 > by) { by = op.y + o.h / 2; best = o; } }
+  return best;
+}
 function cgPlace(it, zn, x, z) {
   const Z = CZ[zn], s = it.sz, [hx, hz] = cgHalf(it, Z);
   x = clamp(x, -Z.x + hx, Z.x - hx); z = clamp(z, Z.z0 + hz, Z.z1 - hz);
+  { const o = cgUnder(zn, it, x, z); if (o) { const op = o.mesh.position, fx = (s[0] + o.sz[0]) / 2 - Math.abs(op.x - x), fz = (s[2] + o.sz[2]) / 2 - Math.abs(op.z - z);   // v0.77.9 top-surface snap: on the piece under it
+      if (fx * fz < 0.3 * Math.min(s[0] * s[2], o.sz[0] * o.sz[2])) { const ax = x + Math.sign(x - op.x || 1) * (fx + 0.004), az = z + Math.sign(z - op.z || 1) * (fz + 0.004), tx = fx <= fz ? ax : x, tz = fx <= fz ? z : az;   // only an edge on it: slide off beside it if that's in the zone
+        if (Math.abs(tx) <= Z.x - hx + 1e-6 && tz >= Z.z0 + hz - 1e-6 && tz <= Z.z1 - hz + 1e-6 && cgSupport(zn, it, tx, tz) < op.y + o.h / 2 - 0.01) { x = tx; z = tz; } }
+      else { if (Math.abs(op.x - x) < 0.08) x = clamp(op.x, -Z.x + hx, Z.x - hx); if (Math.abs(op.z - z) < 0.08) z = clamp(op.z, Z.z0 + hz, Z.z1 - hz); } } }   // mostly on it: squared up on top
   const y = cgSupport(zn, it, x, z);
   if (y + s[1] > Z.y(z) + Z.top + 0.02) return false;
   plane.add(it.mesh); it.cz = zn; it.mesh.position.set(x, y + s[1] / 2, z); it.mesh.rotation.set(0, 0, 0); return true;
@@ -5163,7 +5173,8 @@ function loadCargoSay(it) { const B = WBS.plan; sfx('thud', it.mesh.getWorldPosi
 function cgZoneAt(p) {   // p in body axes -> the zone a released piece lands in
   for (const zn of UPG.pod ? ['bag', 'rear', 'foot', 'pod'] : ['bag', 'rear', 'foot']) { const Z = CZ[zn], y0 = Z.y(clamp(p.z, Z.z0, Z.z1));
     if (Math.abs(p.x) < Z.x + 0.12 && p.z > Z.z0 - 0.08 && p.z < Z.z1 + 0.08 && p.y > y0 - 0.12 && p.y < y0 + Z.top + 0.3) return zn; }
-  return null;
+  if (Math.abs(p.x) > 0.42 || p.z < CZ.foot.z0 - 0.1 || p.z > CZ.bag.z1 + 0.1 || p.y < CZ.foot.y(CZ.foot.z0) - 0.15 || p.y > CZ.rear.y() + CZ.rear.ceil + 0.1) return null;   // v0.77.9 let go anywhere inside the cabin: the nearest zone along the cabin
+  return p.z >= CZ.bag.z0 - 0.04 ? 'bag' : p.z >= CZ.rear.z0 ? 'rear' : 'foot';
 }
 // ---- rear seat lap belt + baggage net: buckled = that zone's cargo can't move. Grab the buckle / net anchor (it's the strap anchor) ----
 const CG_WEB = mat(0x55553a);
@@ -5222,10 +5233,18 @@ function cgMove(it, f, dt) {
   if (p.z > Z.z1 - hz) { cgHit(it, Math.abs(v.z)); p.z = Z.z1 - hz; v.z = 0; }
   if (it.cz === 'rear' && p.z < Z.z0) { it.cz = 'foot'; Z = CZ.foot; if (DLV.sayT <= 0) { DLV.sayT = 5; say(CARGO_K[it.k].n + ' SLID OFF THE REAR SEAT ONTO THE FLOOR'); } }
   else if (it.cz !== 'rear' && p.z < Z.z0 + hz) { cgHit(it, Math.abs(v.z)); p.z = Z.z0 + hz; v.z = 0; }
+  cgPush(it, v);   // v0.77.9 loose pieces bump into each other instead of passing through
   const s2 = cgSupport(it.cz, it, p.x, p.z, p.y + 0.01) + s[1] / 2;
   if (p.y < s2) { cgHit(it, -v.y); p.y = s2; v.y = 0; }
   const ceil = Z.y(p.z) + (Z.ceil || Z.top + 0.25) - s[1] / 2; if (p.y > ceil) { cgHit(it, v.y); p.y = ceil; v.y = Math.min(0, v.y); }
   DLV.moved = true;
+}
+function cgPush(it, v) {   // v0.77.9 out of any piece beside it in the same zone (they overlap in height): back along the shallower axis, and that way's speed stops
+  const p = it.mesh.position, s = it.sz;
+  for (const o of DLV.items) { if (o === it || o.st !== 'cargo' || o.cz !== it.cz) continue; const op = o.mesh.position, os = o.sz;
+    if (Math.abs(op.y - p.y) > (s[1] + os[1]) / 2 - 0.01) continue; const dx = (s[0] + os[0]) / 2 - Math.abs(op.x - p.x), dz = (s[2] + os[2]) / 2 - Math.abs(op.z - p.z); if (dx <= 0 || dz <= 0) continue;
+    if (dx < dz) { p.x += Math.sign(p.x - op.x || -v.x || 1) * dx; cgHit(it, Math.abs(v.x)); v.x = 0; } else { p.z += Math.sign(p.z - op.z || -v.z || 1) * dz; cgHit(it, Math.abs(v.z)); v.z = 0; } }
+  const Z = CZ[it.cz], [hx, hz] = cgHalf(it, Z); p.x = clamp(p.x, -Z.x + hx, Z.x - hx); p.z = Math.min(p.z, Z.z1 - hz);   // still inside the zone's walls
 }
 function cargoUpdate(dt) {
   DLV.thudT -= dt; DLV.sayT -= dt;
@@ -5265,7 +5284,7 @@ function dlvGrab(g, a) {   // VR on foot: strap anchor first, then the nearest p
 function dlvDrop(it, w, quiet) {   // let go at world point w: into the Cub if it's over a load zone, else it falls to the ground
   plane.updateMatrixWorld(); const pb = plane.worldToLocal(_dp.copy(w)), zn = cgZoneAt(pb);
   if (zn && loadCargo(it, zn, pb.x, pb.z, quiet)) return 'cargo';
-  if (mode === 'plane') { if (cgLoadAny(it, quiet)) return 'cargo'; }
+  if (mode === 'plane' || zn) { if (cgLoadAny(it, quiet)) return 'cargo'; }   // v0.77.9 in the cabin but that spot is full: the next zone with room, never through the floor
   dlvUnhold(it); const e = new THREE.Euler().setFromQuaternion(it.mesh.getWorldQuaternion(_cgq), 'YXZ');
   scene.attach(it.mesh); it.mesh.position.copy(w); it.mesh.rotation.set(0, e.y, 0); it.st = 'fall'; it.vy = 0; return 'fall';
 }

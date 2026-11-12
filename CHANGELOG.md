@@ -2,6 +2,16 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.77.9 – parcels stack reliably by hand
+Neil's batch, item 3.
+- **Top-surface snap:** `cgPlace()` finds the piece that would carry the new one (`cgUnder()`, the highest one under its footprint). If more than 30% of the footprint is on it, the new piece squares up on its top when within 8 cm in x or z, so hand-built stacks are straight columns. If only an edge is over it, the piece slides off beside it when that spot is inside the zone and lower.
+- **Let go anywhere in the cabin:** `cgZoneAt()` used to drop a piece through to the ground when it was let go just outside a zone's box, e.g. high over a stack or between zones. Now anything let go inside the cabin (the floor up to the roof, front floor to the back of the baggage bay) goes to the nearest zone along the cabin.
+- **A full spot:** on foot, a full zone now tries the other zones (`cgLoadAny()`, as in the seat) instead of falling through the floor.
+- **Collision between loose pieces:** `cgPush()` stops a sliding piece at any piece beside it in the same zone that overlaps it in height. It moves back along the shallower axis, and that component of its speed stops (a knock). Before, pieces slid through each other and then popped up on top.
+- **Stacks stay put:** unstrapped stacks hold through taxi bumps and turns (up to 0.25 g). Hard landings still shift them, as in v0.74.
+- **Saves:** the format and positions are unchanged. Physics md5 is unchanged.
+- **Tests:** new t779 (9 checks): 4 parcels let go by hand a few cm off stack squarely, in the rear seat and the baggage bay; the stacks stay put through taxiing; an edge-only drop slides off beside the piece; a full rear floor sends the next piece to another zone; side-by-side loose pieces thrown both ways at 0.7 g bump and never interpenetrate or pop on top; clean console. t50 / t51 / t511 / t52 / t52h / t54 / t57 / t74 still pass. Screenshots: /workspace/qa-v0779-stack-{rear,bag}.png.
+
 ## v0.77.8 – the map and clipboard turn with your hand
 Neil's batch, item 2.
 - **1:1 with the hand:** held in one hand, the clipboard and the paper map are now rigidly attached to the controller at the lower-corner pinch. `paperHeld()` places the sheet at the inverse of that hand's fixed corner pinch (`gripFixed('paper')` plus `GDEF.kbL/kbR/mpL/mpR.pc`). They follow every rotation of your hand exactly. They aren't billboarded toward your eyes (v0.77.3) and aren't locked to the Cub.
