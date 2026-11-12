@@ -19,7 +19,7 @@
 </script>
 </head>
 <body>
-<div id="info">BUSH PILOT VR v0.79.1 - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
+<div id="info">BUSH PILOT VR v0.79.2 - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
 You start on foot by the Cub at the cabin strip. Walk up to her and climb in (F / Y), then start her up off the checklist card (J).
 Desktop - flying: W/S or arrows pitch, A/D or arrows roll, Q/E rudder, Shift / Ctrl (or + / -) throttle, B brakes, \ parking brake, [ ] flaps, PgUp / PgDn trim,
   R reset to the strip (cold and dark), F climb out, M map, L landing light, Home recentre, mouse looks (click to capture).
@@ -27,7 +27,7 @@ Desktop - engine: U fuel valve, O master, Y mixture, H carb heat, P primer, I ma
   1-4 windows / door, 5 cargo door, J checklist card, N clipboard (, and . turn its pages: JOBS, W&B, CUB, PERF).
 Desktop - on foot: WASD walk, Shift run, C crouch, Space hop, F climb in, G refuel at the strip pump (near a wing filler cap), M map.
   Jobs: 1-3 at a job board accept / cancel, E pick up / set down cargo (E by the Cub loads or unloads it), / seat belt + cargo net.
-  Hunting: T take / sling / rack the rifle, LMB fire, RMB aim, X lever, Z load a round (by the ammo box: buy 20 for $10; at the Dry Fork hangar's HARDWARE counter: $35 a box, Z again takes it), V binoculars, hold E by a downed deer to field dress it.
+  Hunting: T take / sling / rack the rifle, LMB fire, RMB aim, X lever, Z load a round (ammo is sold only at the Dry Fork hangar's HARDWARE counter: $35 a box of 20, Z again takes it; you start with 20 in the pouch), V binoculars, hold E by a downed deer to field dress it.
   Airdrops: in flight open the right door (1 upper window, 2 lower door), G pushes the next bundle out - drop it on the smoke / X.
   Running costs: fuel is paid at the red drums (4 strips, 4 prices); oil, tyres + brakes, repairs and the 100-hour service at the home HANGAR board (1-4 there).
 VR - in the cockpit: grip the stick (right) and throttle (left), left stick = rudder, left trigger = brakes, reach up and pull the flap handle down
@@ -1791,8 +1791,15 @@ function toPlane() { dlvBoard(); huntBoard(); rig.add(xrOffset); mode = 'plane';
 function resetFlight() {
   IN.prevHdg = null;
   if (mode === 'foot') toPlane();
-  resetAircraft(ac); crashTimer = 0; flapNotch = 0; TRIM.v = 0; TRIM.g = null; vr.flapG = null; fuel = Math.max(fuel, FUEL_MAX * 0.25);   // a reset is not a free fill-up (the pump is)
+  resetAircraft(ac); crashTimer = 0; flapNotch = 0; TRIM.v = 0; TRIM.g = null; vr.flapG = null; resetFuel();   // v0.79.2 a reset keeps your fuel and cash: no free fill-up
   engColdDark(); cardHome(); kbHome(); CKH.clear(); CKX.keyStart = false; PRIME.lock = true; Object.assign(LATCH, { rup: 1, rlo: 1, lf: 1, lr: 1, rcg: 1 }); WIN.rup = WIN.rlo = WIN.lf = WIN.lr = WIN.rcg = 0; WIN.tgt = {};   // v0.19: back to cold and dark
+}
+const RESET_FLOOR = 5 * 3.785;   // v0.79.2 litres: a reset with less than 5 gal aboard is topped up to 5 gal at the home drum, paid (on the hangar account if you are broke)
+function resetFuel() {
+  const have = fuel + (UPG.aux || 0); if (have >= RESET_FLOOR) return 0;
+  const dl = Math.min(FUEL_MAX - fuel, RESET_FLOOR - have), c = Math.ceil(dl / 3.785 * FUEL_ST[0].price); fuel += dl;
+  DLV.cash -= c; DLV.spent = (DLV.spent || 0) + c; WBS.key = ''; saveSoon();
+  say('RESET - TOPPED UP TO 5 GAL AT THE HOME DRUM -$' + c + (DLV.cash < 0 ? ' ON ACCOUNT' : '') + ' (' + ecoMoney(DLV.cash) + ')'); return c;
 }
 function exitPlane() {
   if (!(acGS() < 1 && ctl.throttle < 0.05 && !ac.crashed)) { say('STOP + IDLE TO EXIT'); return; }
@@ -6006,7 +6013,7 @@ function rflTick(dt, vrOn) {
   if ((rflHintT -= dt) <= 0 && mode === 'foot') { rflHintT = 0.5; camera.getWorldPosition(_rp2);   // walking up to the rack / the ammo box
     const nr = _rp2.distanceTo(RACK.cabin.p) < 2.2 ? 'cabin' : null, nb = hyp(_rp2.x - RACK.box.x, _rp2.z - RACK.box.z) < 2;
     const k = nb ? 'box' : nr && RFL.place === 'cabin' ? 'rack' : ''; if (k && k !== RFL.hint) { const d = !vrOn;
-      say(k === 'box' ? 'AMMO BOX: 20 ROUNDS .44-40 FOR $10 - ' + (d ? 'Z TO BUY' : 'GRAB IT TO BUY') + ' (POUCH ' + RFL.spare + ')' : 'RIFLE RACK - ' + (d ? 'T TAKES THE RIFLE' : 'GRAB THE RIFLE')); }
+      say(k === 'box' ? AMMO_HOME + ' (POUCH ' + RFL.spare + ')' : 'RIFLE RACK - ' + (d ? 'T TAKES THE RIFLE' : 'GRAB THE RIFLE')); }
     RFL.hint = k; storeHint(_rp2, vrOn); }
   rflBackHint(vrOn);
 }
@@ -6023,14 +6030,11 @@ function rflRoundHint() {   // v0.77.1 a round in the hand near the held rifle: 
   RFL.rHint = !!near; }
 function rflLoadBtn(g) { if (RFL.place !== 'vr' || !RFL.round.has(g) || RFL.hand === g) return false; RFL.loadBtn = g; return true; }   // v0.77.1 A / X on the hand with the round: loads it if the gate is within 25 cm (next rflTick)
 function rflTakeRound(g) {
-  if (RFL.spare <= 0) { say('CARTRIDGE POUCH EMPTY - AMMO BOX BY THE CABIN ($10 / 20)'); return false; }
+  if (RFL.spare <= 0) { say('CARTRIDGE POUCH EMPTY - BUY .44-40 AT THE DRY FORK HARDWARE ($35 / 20)'); return false; }
   RFL.spare--; const m = rndMesh(); g.add(m); m.position.copy(RND_HOLD); RFL.round.set(g, m); sfx('pick'); HX.pulse(g, 0.35, 18, 'ammo'); return true;
 }
-function rflBuyAmmo() {
-  if (RFL.spare >= GUN.pouch) { say('POUCH FULL (' + RFL.spare + ' ROUNDS)'); return; }
-  if (DLV.cash < 10) { say('NOT ENOUGH CASH - AMMO IS $10'); return; }
-  DLV.cash -= 10; RFL.spare = Math.min(GUN.pouch, RFL.spare + 20); sfx('cash'); say('BOUGHT 20 ROUNDS -$10 - POUCH ' + RFL.spare + ', WALLET $' + DLV.cash); saveSoon(); for (const S of DLV_STRIPS) S.key = '';
-}
+const AMMO_HOME = 'AMMO BOX EMPTY - BUY .44-40 AT THE DRY FORK HANGAR HARDWARE ($35 / 20)';   // v0.79.2 no ammo sold at home: the 20-round starter pouch is all you get here
+function rflBuyAmmo() { say(AMMO_HOME + ' - POUCH ' + RFL.spare); }   // v0.79.2 the home carton is empty now: no purchase, no restock
 // ---- VR on foot: grabs + lets go (called from handGrab / handRelease) and the trigger ----
 function rflDistTo(p) {   // distance from p to the rifle's length (butt -> muzzle)
   RFL.g.updateMatrixWorld(); RFL.g.worldToLocal(_rp3.copy(p)); const z = clamp(_rp3.z, RF.muz.z, RF.butt); return hyp(_rp3.x, _rp3.y - 0.01, _rp3.z - z);
@@ -6087,11 +6091,11 @@ function rflDeskT() {
   say(RFL.place === 'cabin' ? 'THE RIFLE IS ON THE CABIN RACK AT HOME' : RFL.place === 'cub' ? 'THE RIFLE IS IN THE CUB\'S FLOOR HOLDER' : 'YOUR RIFLE IS ON THE GROUND WHERE YOU LEFT IT');
 }
 function rflDeskZ() {
-  camera.getWorldPosition(_rp2); if (mode === 'foot' && hyp(_rp2.x - RACK.box.x, _rp2.z - RACK.box.z) < 2.5) { rflBuyAmmo(); return; }
+  camera.getWorldPosition(_rp2); if (mode === 'foot' && RFL.place !== 'desk' && hyp(_rp2.x - RACK.box.x, _rp2.z - RACK.box.z) < 2.5) { rflBuyAmmo(); return; }   // v0.79.2 with the rifle in hand Z loads it, even by the box
   if (storeDesk()) return;   // v0.70
   if (RFL.place !== 'desk') return; if (RFL.deskT > 0) return;
   if (RFL.levA > 0.02) { say('CLOSE THE LEVER TO LOAD'); return; }
-  if (RFL.spare <= 0) { say('CARTRIDGE POUCH EMPTY - AMMO BOX BY THE CABIN ($10 / 20)'); return; }
+  if (RFL.spare <= 0) { say('CARTRIDGE POUCH EMPTY - BUY .44-40 AT THE DRY FORK HARDWARE ($35 / 20)'); return; }
   if (RFL.tube >= GUN.tube) { say('MAGAZINE FULL (' + GUN.tube + ')'); return; }
   RFL.spare--; rflLoadOne('desk'); RFL.deskT = 0.35;
 }

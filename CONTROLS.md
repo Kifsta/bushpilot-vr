@@ -27,7 +27,7 @@ v0.50 turns it into a **bush delivery** game: take a job off a strip's job board
 | Brakes | Left trigger (v0.61: the right trigger when your left hand is on the stick) | B |
 | Get out (stopped, idle) | Y | F |
 | Landing light | Flick the toggle under the panel up / down with your fingertip (or squeeze it) | L |
-| Reset / recentre | B = reset to the home strip, cold and dark (tops the tanks up to at least 25 %, it is not a free fill-up), A / X = recentre | R reset, Home recentre |
+| Reset / recentre | B = reset to the home strip, cold and dark (keeps your fuel and cash; below 5 gal it tops up to 5 gal, paid at the home drum price), A / X = recentre | R reset, Home recentre |
 
 ## Engine start / shutdown (v0.19: the plane starts cold and dark)
 | | VR (Quest) | Desktop |
@@ -167,7 +167,7 @@ Some jobs on the boards are **hunting jobs**: a lodge, the elk camp, the ranch o
 | Fire | Trigger, rifle hand only. The rifle's trigger follows your finger (v0.67) | **LMB** |
 | Work the lever | Flick the rifle down and up one-handed, or press **B** on the rifle hand (**Y** if it's your left) without letting go: it ejects the case, cocks the hammer and chambers the next round | **X** |
 | Load | Squeeze on the **cartridge pouch** at your belt (front right) for a round and bring its tip within about 6 cm of the loading gate on the receiver's right side, pointing roughly forward (within ~60°): it snaps onto the gate and slides in (v0.67.2). A full tube says MAGAZINE FULL and you keep the round. Keep squeezing at the gate and the next one comes from the pouch | **Z** (one round per press) |
-| Buy ammo | The ammo box on the stump by the cabin: $10 for 20 rounds | **Z** by the box |
+| Ammo at home (v0.79.2) | None for sale: the carton on the stump by the cabin is empty. You start a new game with 20 rounds in the pouch (plus a full tube); after that, buy at Dry Fork | – |
 | Buy ammo in Dry Fork (v0.70) | The **HARDWARE** counter in the Dry Fork strip hangar: a box of 20 .44-40 for $35 from your wallet. Tap the brass bell on the counter to buy: the box lands on the counter. Grab it and the 20 rounds go into your belt pouch (60 max). Up to 3 bought boxes wait on the counter, and they are saved | **Z** at the counter: takes a waiting box, else buys one |
 | Sling / put down | Let go over your shoulder, muzzle up, to sling it. Let go at a rack to rack it. Let go anywhere else and it lies on the ground | T |
 | Take it off your back (v0.71) | Reach behind or over either shoulder with either hand and squeeze grip. The zone runs from 30 cm above your eyes to 45 cm below, up to 42 cm to either side and 55 cm back; anywhere within 16 cm of the slung rifle works too. A short tick in the controller tells you you're in reach | T |
@@ -225,7 +225,7 @@ Every customer remembers you: the town or crew at each strip, each bush camp's c
   - VR (v0.77.7): the nozzle is a pistol grip (body, spout, red trigger lever, guard). Your hand holds it by the grip, fixed in your fist, with the spout pointing where your fingers point and a little down. The lever squeezes with the trigger. The hose drapes over the wing's leading edge and top and never passes through the wing.
   - Can't reach the cap? (v0.72) Climb the Cub: walk into the dark **step plate** on the main-gear leg (44 cm up), then on to the **tyre top** (80 cm up). You step up on your own, eased over a moment. From the tyre, the cap is at chest height. Walk off and you drop back down. A hop (right stick up / Space) is a little higher next to the Cub (55 cm instead of 40).
   - Desktop: stand by a filler cap and press G. G again (or walking away) stops it.
-- A reset (R / B) tops the tanks up to 25 % only.
+- A reset (R / B) keeps the fuel you have (and your cash). With under 5 gal aboard (main + aux) it tops up to 5 gal at the home drum price ($6.40/gal, at most $32), on the hangar account if you're broke (v0.79.2).
 - When you stop, you get a receipt: gallons and cost. Away from home it is **cash only**, so the pump stops when you run out of money. The **home drum always gives you 12 gal on account**, even when you are broke past the hangar's credit limit. That is enough to reach any job and back, so you can never be stuck.
 
 ## Running costs (v0.55): oil, tach hours, wear, damage, the home hangar
