@@ -19,7 +19,7 @@
 </script>
 </head>
 <body>
-<div id="info">BUSH PILOT VR v0.68.2 - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
+<div id="info">BUSH PILOT VR v0.69 - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
 You start on foot by the Cub at the cabin strip. Walk up to her and climb in (F / Y), then start her up off the checklist card (J).
 Desktop - flying: W/S or arrows pitch, A/D or arrows roll, Q/E rudder, Shift / Ctrl (or + / -) throttle, B brakes, [ ] flaps, PgUp / PgDn trim,
   R reset to the strip (cold and dark), F climb out, M map, L landing light, Home recentre, mouse looks (click to capture).
@@ -5900,15 +5900,18 @@ function binoPalm(g, out) {   // where this hand's barrel axis runs through its 
   return out.set(sx * (0.0155 - GDEF.bR.wr), -0.045, GDEF.bR.wz).applyMatrix4(_bM);
 }
 function binoSide(g) { return g.userData.src?.handedness === 'left' ? -1 : 1; }
-function binoOne(m, g) { g.getWorldQuaternion(m.quaternion); binoPalm(g, m.position).sub(_bA.set(binoSide(g) * B_BAR, 0, B_PZ).applyQuaternion(m.quaternion)); }
+function binoOne(m, g) { g.getWorldQuaternion(m.quaternion); if (BINO.flip) m.quaternion.multiply(B_FLIP); binoPalm(g, m.position).sub(_bA.set(binoSide(g) * (BINO.flip ? -1 : 1) * B_BAR, 0, B_PZ).applyQuaternion(m.quaternion)); }
+const B_FLIP = new THREE.Quaternion().setFromAxisAngle(GV3(0, 1, 0), Math.PI);   // v0.69 turned end for end about the hand's up: the other barrel in the palm, eyepieces the other way
+function binoFlipFor(g) {   // v0.69 grabbed so the eyepieces (the hand's +z) would face away from you: hold them the other way round
+  g.updateWorldMatrix(true, false); g.getWorldPosition(_bA); camera.getWorldPosition(_bB).sub(_bA); _bZ.set(0, 0, 1).transformDirection(g.matrixWorld); return _bZ.dot(_bB) < 0; }
 function binoTwo(m) {
   const gR = binoSide(BINO.g) > 0 ? BINO.g : BINO.g2, gL = gR === BINO.g ? BINO.g2 : BINO.g; binoPalm(gR, _bA); binoPalm(gL, _bB);
   _bX.subVectors(_bA, _bB); if (_bX.lengthSq() < 1e-6) return binoOne(m, BINO.g); _bX.normalize();
   _bZ.set(0, 0, 1).applyQuaternion(gR.getWorldQuaternion(_bQ)); _bY.set(0, 0, 1).applyQuaternion(gL.getWorldQuaternion(_bQ)); _bZ.add(_bY);
-  _bZ.addScaledVector(_bX, -_bZ.dot(_bX)); if (_bZ.lengthSq() < 1e-6) return binoOne(m, BINO.g); _bZ.normalize(); _bY.crossVectors(_bZ, _bX);
+  _bZ.addScaledVector(_bX, -_bZ.dot(_bX)); if (_bZ.lengthSq() < 1e-6) return binoOne(m, BINO.g); _bZ.normalize(); camera.getWorldPosition(_bY).sub(_bA); if (_bZ.dot(_bY) < 0) _bZ.negate(); _bY.crossVectors(_bZ, _bX);   // v0.69 eyepieces toward you
   _bM.makeBasis(_bX, _bY, _bZ); m.quaternion.setFromRotationMatrix(_bM); m.position.addVectors(_bA, _bB).multiplyScalar(0.5).sub(_bY.set(0, 0, B_PZ).applyQuaternion(m.quaternion));
 }
-function binoHandK(g) { return BINO.place === 'hand' && (BINO.g === g || BINO.g2 === g) ? (binoSide(g) > 0 ? 'bR' : 'bL') : null; }
+function binoHandK(g) { return BINO.place === 'hand' && (BINO.g === g || BINO.g2 === g) ? (binoSide(g) * (BINO.flip && !BINO.g2 ? -1 : 1) > 0 ? 'bR' : 'bL') : null; }
 function binoChest(out) { camera.getWorldPosition(out); _yq.setFromAxisAngle(_ry, headYaw()); out.add(_bd.set(0, -0.3, -0.13).applyQuaternion(_yq)); return out; }
 // v0.67.1 when the 7x view comes up: the eyepieces 12 cm or less in front of the headset along your view (up to 7 cm off to the side), the binoculars looking within ~40 deg of
 // where you look. It stays up out to 15 cm / 9.5 cm / ~57 deg (no flicker).
@@ -5967,9 +5970,9 @@ function binoGrab(g, p) {
   if (BINO.g === g || BINO.g2 === g) return true;
   if (BINO.place === 'hand') { if (BINO.g2 || BINO.m.getWorldPosition(_bv).distanceTo(p) > 0.13) return false; BINO.g2 = g; tick(g); return true; }   // v0.65 the other hand on the other barrel
   const at = BINO.place === 'chest' ? binoChest(_bv) : BINO.m.getWorldPosition(_bv); if (at.distanceTo(p) > 0.13) return false;
-  BINO.place = 'hand'; BINO.g = g; scene.add(BINO.m); sfx('pick'); tick(g); say('BINOCULARS - RAISE THEM TO YOUR EYES'); return true;
+  BINO.place = 'hand'; BINO.g = g; BINO.flip = binoFlipFor(g); scene.add(BINO.m); sfx('pick'); tick(g); say('BINOCULARS - RAISE THEM TO YOUR EYES'); return true;
 }
-function binoRelease(g) { if (BINO.g2 === g) { BINO.g2 = null; return; } if (BINO.g !== g) return; if (BINO.g2) { BINO.g = BINO.g2; BINO.g2 = null; return; } binoPut(mode === 'plane' ? 'cub' : 'chest'); HX.pulse(g, 0.15, 12, 'release'); }
+function binoRelease(g) { if (BINO.g2 === g) { BINO.g2 = null; return; } if (BINO.g !== g) return; if (BINO.g2) { BINO.g = BINO.g2; BINO.g2 = null; BINO.flip = binoFlipFor(BINO.g); return; } binoPut(mode === 'plane' ? 'cub' : 'chest'); HX.pulse(g, 0.15, 12, 'release'); }
 // ---- glue: hands, boarding, the frame, save ----
 Object.assign(GDEF, {   // v0.53 procedural grips on the rifle mesh: wrap the wrist of the stock, wrap the forend, pinch the lever loop
   rgrip: { o: () => RFL.g, sh: 'cyl', c: GV3(0, -0.03, 0.056), ax: GV3(0, -0.961, 0.276), r: 0.015, hl: 0.045, th: GV3(-0.008, 0.026, 0.09), st: 'wrap', wa: 2, wd: GV3(0, -0.961, 0.276), wr: 0.015, tl: 0.004, wz: -0.004, idx: { c: GV3(0, -0.05, -0.002), b: GV3(0.0025, 0.007, 0.005), sp: 0.35, lim: [1.7, 1.9, 0.9], min: [0, 0.75, 0.6], only: true } },   // v0.67: the wrist measured off the mesh; the index on the trigger blade. v0.67.2 (Neil's photo): the box takes in the lever's top bar, so the three lower fingers wrap inside the loop; the thumb over the top behind the hammer

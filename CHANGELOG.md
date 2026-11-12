@@ -2,6 +2,16 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.69 – binoculars always come up the right way round
+Neil: the binoculars were picked up backwards. The physics block is untouched (md5 `eee6637e…`).
+- **One hand:** before, the binoculars simply copied the controller, with the eyepieces toward the hand's +z. Grabbing with the hand turned round (from the chest, say) left the objectives facing you.
+  - Now the grab checks which way the eyepieces would face. If that's away from your headset, the binoculars are turned end for end about the hand's up.
+  - The hand then wraps the other barrel (bL for a right hand), so the pair still sits inboard.
+  - The check is made again when the other hand lets go.
+- **Two hands:** the right palm stays on the right barrel, and the view axis is always the one toward your headset.
+- New test t69 (9 checks): ahead, turned round, and turned 120°; two hands; letting go of one. HEAD (v0.68.2) fails 4 of them. t53 now grabs the binoculars with the hand turned the way you hold them up (it used to grab with the hand sideways, then turn it 90°).
+- Screenshots: /workspace/qa-v069-reversed-grab-before-after.png (also -before / plain).
+
 ## v0.68.2 – rifle: the trigger hand comes from behind, along the stock
 Neil, in the headset: "The wrist should be pointing straight up on the trigger hand. It would come from along the stock." The physics block is untouched (md5 `eee6637e…`). The controller-to-rifle angle (grip pitch −40°) and the recoil are unchanged.
 - **Why it was wrong:** the wrist grip wrapped round the bore axis. That made the hand stand on top of the wrist with the palm down and the cuff pointing up, even though the controller hold put it behind.
