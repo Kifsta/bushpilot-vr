@@ -5020,6 +5020,7 @@ function dlvTick(dt) {
   playerPos(); let nb = null, nd = 1e9; for (const S of DLV_STRIPS) { const d = hyp(PP.x - S.board[0], PP.z - S.board[1]); if (d < nd) { nd = d; nb = S; } }
   DLV.nearS = nd < 60 ? nb : null; DLV.nearD = nd;
   if ((DLV.jbT -= dt) <= 0) { DLV.jbT = 0.5; bushTick(); mapJobs(); if (mode === 'plane' || KB.desk) kbDraw();   // v0.51.1 job marks on the paper map, the kneeboard
+    for (const it of DLV.items) if (it.mesh) it.mesh.visible = it.st !== 'ground' || hyp(PP.x - it.mesh.position.x, PP.z - it.mesh.position.z) < (BINO.on ? 2500 : 350);   // v0.59 cargo left on a pad: not drawn from past 350 m (binoculars: further)
     let jd = 0; for (const S of DLV_STRIPS) { const near = hyp(PP.x - S.board[0], PP.z - S.board[1]) < 400; S.m.visible = near; if (!near || jd) continue; const k = jbKey(S) + '|' + Math.ceil(DLV.gt); if (k !== S.key) { S.key = k; jbDraw(S); jd = 1; } }   // v0.59 one board repaint per half second (no stacked canvas uploads)
     for (const j of dlvActive()) if (j.dl && DLV.gt > j.due && !DLV.lateSaid[j.id]) { DLV.lateSaid[j.id] = 1; say(j.title + ' TO ' + dlvS(j.to).name + ' IS LATE - HALF PAY NOW'); } }
   if (mode === 'foot' && nd < 6 && DLV.hintS !== nb) { DLV.hintS = nb; say(nb.name + ' JOB BOARD - POKE ACCEPT' + (renderer.xr.isPresenting ? '' : ' (DESKTOP 1-3)')); } else if (nd > 12) DLV.hintS = null;
@@ -5420,12 +5421,14 @@ function rflPouch(out) {   // VR: the cartridge pouch on your belt, front right
 const POUCH = new THREE.Mesh(mergeGeometries([['b', 0.09, 0.08, 0.04, 0, 0, 0, 0x6a4a2a], ['b', 0.094, 0.025, 0.045, 0, 0.03, 0.002, 0x4a3218], ['c', 0.006, 0.02, 6, 0.02, 0.05, 0, 0xc9a040], ['c', 0.006, 0.02, 6, -0.005, 0.05, 0, 0xc9a040]].map(partGeo)), ITEM_VM);
 POUCH.userData.noBatch = true; POUCH.visible = false; scene.add(POUCH);
 let rflHintT = 0;
+const _rflC = new THREE.Vector3(), _rflC2 = new THREE.Vector3();
 function rflTick(dt, vrOn) {
   if (!RFL.g) return;
   if ((RFL.place === 'vr' && (!vrOn || mode !== 'foot' || !RFL.hand)) || (RFL.place === 'desk' && (vrOn || mode !== 'foot'))) rflPut(mode === 'plane' ? 'cub' : 'back');
   if (RFL.sup && !RFL.sup.userData.src) RFL.sup = null; if (RFL.levHand && (!rflHeld() || !RFL.levHand.userData.src)) rflLevRelease();
   if (rflHeld()) leverTick(dt); else if (RFL.levA > 0) { RFL.levA = 0; RFL.lever.rotation.x = 0; }
   rflPose(dt);
+  if (RFL.place === 'cabin' || RFL.place === 'ground') { if ((RFL.cullT = (RFL.cullT || 0) - dt) <= 0) { RFL.cullT = 0.5; RFL.g.getWorldPosition(_rflC); camera.getWorldPosition(_rflC2); RFL.g.visible = _rflC.distanceTo(_rflC2) < (BINO.on ? 2500 : 250); } } else RFL.g.visible = true;   // v0.59 the rifle on its rack / dropped: not drawn from km away (5 draws)
   if (RFL.flashT > 0 && (RFL.flashT -= dt) <= 0) RFL.flash.visible = false;
   RFL.deskT -= dt;
   // VR rounds: the tip into the loading gate (inside 2.5 cm) loads it; keep squeezing and go back to the pouch for the next one
