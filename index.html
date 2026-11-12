@@ -19,7 +19,7 @@
 </script>
 </head>
 <body>
-<div id="info">BUSH PILOT VR v0.78.1 - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
+<div id="info">BUSH PILOT VR v0.79 - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
 You start on foot by the Cub at the cabin strip. Walk up to her and climb in (F / Y), then start her up off the checklist card (J).
 Desktop - flying: W/S or arrows pitch, A/D or arrows roll, Q/E rudder, Shift / Ctrl (or + / -) throttle, B brakes, \ parking brake, [ ] flaps, PgUp / PgDn trim,
   R reset to the strip (cold and dark), F climb out, M map, L landing light, Home recentre, mouse looks (click to capture).
@@ -7352,8 +7352,38 @@ function wxPick(from) {   // the next state: a neighbour of this one, weighted t
 }
 function wxSet(s, now) { if (!WX_S[s]) return; WX.s = s; WX.nx = wxPick(s); WX.t = (s === 'clear' ? 900 : 480) + Math.random() * 600; if (now) for (const k of WX_K) WX.P[k] = WX_S[s][k]; WX.key = ''; }
 { const q = new URLSearchParams(location.search).get('wx'); if (q && WX_S[q]) wxSet(q, true); else wxSet('clear', true); WX.forced = !!(q && WX_S[q]); }
-function wxSave() { return { s: WX.s, t: Math.round(WX.t), P: WX_K.map(k => Math.round(WX.P[k] * 1000) / 1000) }; }
-function wxLoad(d) { if (WX.forced || !d || !WX_S[d.s]) return; wxSet(d.s); if (isFinite(d.t)) WX.t = clamp(d.t, 30, 1500); if (Array.isArray(d.P)) WX_K.forEach((k, i) => { if (isFinite(d.P[i])) WX.P[k] = clamp(d.P[i], 0, k === 'low' ? 400 : 1); }); }
+const FR = { D: [2.2 / Math.hypot(2.2, 1.1), -1.1 / Math.hypot(2.2, 1.1)], L: [], f: 0, force: false, im: null, cl: null, H: 760, WRAP: 8200 };   // v0.79 rain fronts: lines of rain shafts drifting across the map with the clouds (D: drift direction; no wind - only the rain moves)
+{ let sd = 0x79f1; const r = () => (sd = (sd * 16807) % 2147483647) / 2147483647;   // own seed: the world rand() stream is untouched
+  for (let i = 0; i < 2; i++) { const F = { a: -6800 - i * 8200, b: (r() - 0.5) * 6000, v: 6 + r() * 2.5, sh: [] }, n = 6 + Math.floor(r() * 3);   // start upwind, off the map: the first reaches the home valley ~12 min in
+    for (let k = 0; k < n; k++) F.sh.push({ o: (k - (n - 1) / 2) * (420 + r() * 120) + (r() - 0.5) * 160, d: (r() - 0.5) * 500, r: 260 + r() * 200, k: 0.65 + 0.35 * r() });
+    FR.L.push(F); } FR.r = r; }
+{ const q = new URLSearchParams(location.search).get('front'); if (q) { const [x, z] = q.split(',').map(Number); if (isFinite(x) && isFinite(z)) { frPlace(0, x, z); FR.force = true; } } }   // v0.79 ?front=x,z puts a rain shaft there (shows even with ?wx=)
+function frPos(F, sh, out) { const D = FR.D; out[0] = D[0] * (F.a + sh.d) - D[1] * (F.b + sh.o); out[1] = D[1] * (F.a + sh.d) + D[0] * (F.b + sh.o); return out; }   // shaft centre (x, z): a along the drift, b across it
+function frAt(x, z, y = 0) {   // v0.79 rain from the fronts at a point: 0 (dry) .. 1 (under the core of a shaft)
+  if (y > FR.H) return 0; let f = 0; const P = [0, 0];
+  for (const F of FR.L) for (const sh of F.sh) { frPos(F, sh, P); const d = Math.hypot(x - P[0], z - P[1]); if (d < sh.r * 1.05) f = Math.max(f, sh.k * (1 - smooth01(clamp((d - sh.r * 0.5) / (sh.r * 0.55), 0, 1)))); }
+  return f; }
+function frPlace(i, x, z) { const F = FR.L[i], D = FR.D, sh = F.sh[Math.floor(F.sh.length / 2)]; F.a = D[0] * x + D[1] * z - sh.d; F.b = -D[1] * x + D[0] * z - sh.o; }   // tests: put front i's middle shaft over (x, z)
+function frBuild() {   // two draw calls for every front: the see-through shafts (soft edges, fade near you and into the fog) and the dark cloud base over them
+  const n = FR.L.reduce((t, F) => t + F.sh.length, 0), g = new THREE.CylinderGeometry(1, 1, 1, 18, 1, true).translate(0, 0.5, 0);
+  const m = new THREE.ShaderMaterial({ transparent: true, depthWrite: false, side: THREE.DoubleSide, fog: true, uniforms: THREE.UniformsUtils.merge([THREE.UniformsLib.fog, { uO: { value: 1 }, uC: { value: new THREE.Color(0x7c858e) } }]),
+    vertexShader: 'varying float vY; varying float vE; varying float vD; varying float vU;\nvoid main() { vec4 w = modelMatrix * instanceMatrix * vec4(position, 1.0); vec3 n = normalize(mat3(modelMatrix * instanceMatrix) * normal); vec3 e = cameraPosition - w.xyz;\n vD = length(e); vE = pow(abs(dot(n, e / vD)), 1.3); vY = uv.y; vU = uv.x; gl_Position = projectionMatrix * viewMatrix * w; }',
+    fragmentShader: 'uniform float uO; uniform vec3 uC; uniform vec3 fogColor; uniform float fogNear; uniform float fogFar; varying float vY; varying float vE; varying float vD; varying float vU;\nvoid main() { float ff = smoothstep(fogNear, fogFar, vD);\n float a = uO * 0.4 * vE * smoothstep(0.0, 0.15, vY) * (0.5 + 0.5 * vY) * smoothstep(150.0, 650.0, vD) * (0.78 + 0.22 * sin(vU * 113.0 + vY * 7.0)) * (1.0 - 0.6 * ff);\n gl_FragColor = vec4(mix(uC, fogColor, ff), a); }' });
+  FR.im = new THREE.InstancedMesh(g, m, n); FR.im.frustumCulled = false; FR.im.renderOrder = 2; FR.im.userData.noBatch = true; FR.im.userData.noCast = true; scene.add(FR.im);
+  FR.cl = new THREE.InstancedMesh(CLOUDS.im.geometry, new THREE.MeshLambertMaterial({ color: 0x8c939a, emissive: 0x2c3238, flatShading: true }), n * 2); FR.cl.frustumCulled = false; FR.cl.userData.noBatch = true; FR.cl.userData.noCast = true; scene.add(FR.cl); }
+function frTick(dt, on) {   // v0.79 move the fronts, draw them, and rain on you when you're under one (on top of the map-wide weather)
+  for (const F of FR.L) { F.a += F.v * dt; if (F.a > FR.WRAP) { F.a -= 2 * FR.WRAP; F.b = (FR.r() - 0.5) * 6000; } }
+  if (!on) { if (FR.im) FR.im.visible = FR.cl.visible = false; FR.f = 0; return; }
+  if (!FR.im) frBuild(); FR.im.visible = FR.cl.visible = true; const P = [0, 0]; let i = 0;
+  for (const F of FR.L) for (const sh of F.sh) { frPos(F, sh, P); _m4.compose(_v.set(P[0], -60, P[1]), _q.identity(), _s.set(sh.r, FR.H + 60, sh.r)); FR.im.setMatrixAt(i, _m4);
+    for (let c = 0; c < 2; c++) { _m4.compose(_v.set(P[0] + (c - 0.5) * sh.r * 0.8, FR.H + 30 + c * 25, P[1] + (c - 0.5) * sh.r * 0.3), _q.setFromAxisAngle(_up, sh.o + c), _s.set(sh.r * 1.5, sh.r * 0.32, sh.r * 1.1)); FR.cl.setMatrixAt(i * 2 + c, _m4); } i++; }
+  FR.im.instanceMatrix.needsUpdate = true; FR.cl.instanceMatrix.needsUpdate = true;
+  FR.cl.material.emissive.setRGB(0.17, 0.2, 0.22).multiplyScalar(0.15 + 0.85 * TOD.day); FR.cl.material.color.setRGB(0.55, 0.58, 0.6).multiplyScalar(0.3 + 0.7 * TOD.day); FR.im.material.uniforms.uC.value.setRGB(0.49, 0.52, 0.56).multiplyScalar(0.25 + 0.75 * TOD.day);
+  camera.getWorldPosition(_v); const f = FR.f = frAt(_v.x, _v.z, _v.y), E = WX.E; if (f <= 0) return;   // under a shaft: rain, greyer, darker, shorter visibility (no wind)
+  E.rain = Math.max(E.rain, f); E.mist = Math.max(E.mist, 0.3 * f); E.grey = Math.max(E.grey, 0.62 * f); E.dim = Math.max(E.dim, 0.3 * f); E.vis = Math.min(E.vis, 1 - 0.62 * f); }
+function frNear(x, z) { let d = 1e9; const P = [0, 0]; for (const F of FR.L) for (const sh of F.sh) { frPos(F, sh, P); d = Math.min(d, Math.hypot(x - P[0], z - P[1]) - sh.r); } return d; }   // distance to the nearest shaft's edge (m)
+function wxSave() { return { s: WX.s, t: Math.round(WX.t), P: WX_K.map(k => Math.round(WX.P[k] * 1000) / 1000), F: FR.L.map(F => [Math.round(F.a), Math.round(F.b)]) }; }   // v0.79 + where the fronts are
+function wxLoad(d) { if (WX.forced || !d || !WX_S[d.s]) return; wxSet(d.s); if (Array.isArray(d.F)) d.F.forEach((q, i) => { if (FR.L[i] && Array.isArray(q) && isFinite(q[0]) && isFinite(q[1])) { FR.L[i].a = clamp(q[0], -FR.WRAP, FR.WRAP); FR.L[i].b = clamp(q[1], -4000, 4000); } }); if (isFinite(d.t)) WX.t = clamp(d.t, 30, 1500); if (Array.isArray(d.P)) WX_K.forEach((k, i) => { if (isFinite(d.P[i])) WX.P[k] = clamp(d.P[i], 0, k === 'low' ? 400 : 1); }); }   // v0.79 F: where the fronts were (older saves: they start upwind)
 const SV = { t: 30, due: -1, last: 0, off: false, air: false, cubT: 0, cub: null, n: 0, why: '' };
 const r3 = v => Math.round(v * 1000) / 1000;
 function cubParked() { return !ac.crashed && acGS() < 1 && ac.gs.some(g => g.Fn > 0); }
@@ -7722,7 +7752,7 @@ function wxTick(dt) {   // after updateDay (it sets the clear-sky colours and li
   if (!WX.forced && (WX.t -= dt) <= 0) wxSet(WX.nx);
   const T = WX_S[WX.s], a = 1 - Math.exp(-dt / WX_TAU); for (const k of WX_K) WX.P[k] += (T[k] - WX.P[k]) * a;
   const on = GFX.wx > 0; for (const k of WX_K) WX.E[k] = on ? WX.P[k] : (k === 'vis' ? 1 : 0);
-  const E = WX.E; WX.vis = E.vis;
+  const E = WX.E; frTick(dt, on && (!WX.forced || FR.force)); WX.vis = E.vis;   // v0.79 the rain fronts add their rain where they are
   if (E.grey > 0.002) { _wxc.copy(WX_GREY).multiplyScalar(0.2 + 0.8 * Math.max(TOD.day, 0.3 * (1 - TOD.night))); scene.background.lerp(_wxc, E.grey); scene.fog.color.copy(scene.background); }
   if (E.dim > 0.002) { hemi.intensity *= 1 - E.dim * 0.7; sun.intensity *= 1 - E.dim; CLOUDS.im.material.color.multiplyScalar(1 - 0.35 * E.grey); CLOUDS.im.material.emissive.multiplyScalar(1 - 0.3 * E.grey); }
   CLOUDS.st.dy = E.low; wxMist(E.mist);
@@ -7733,7 +7763,8 @@ function wxTick(dt) {   // after updateDay (it sets the clear-sky colours and li
 function wxVisKm() { return 10 * Math.pow(WX.E.vis, 1.3); }   // reported visibility (km): 10+ clear, ~5 haze, ~3 rain, ~2 fog banks
 function wxMetar() {   // the clipboard's METAR-ish line: no wind (00000KT) - weather here is only what you see
   const T = WX_S[WX.s], v = wxVisKm(), vs = v >= 9.99 ? '9999' : String(Math.round(v * 10) * 100).padStart(4, '0');
-  return 'HOME AUTO 00000KT ' + vs + (T.wx ? ' ' + T.wx : '') + ' ' + T.cl;
+  const fh = FR.L.length && GFX.wx > 0 && !WX.forced ? frNear(0, -145) : 1e9, sh = fh < 0 ? ' -SHRA' : fh < 9000 ? ' VCSH' : '';   // v0.79 a rain front over / near home
+  return 'HOME AUTO 00000KT ' + vs + (T.wx ? ' ' + T.wx : '') + sh + ' ' + T.cl;
 }
 function wxTrend() { return WX.s === WX.nx ? 'NOSIG' : (WX_S[WX.nx].rain ? 'TEMPO ' : 'BECMG ') + WX_S[WX.nx].n + ' IN ~' + Math.max(1, Math.round(WX.t / 60)) + ' MIN'; }
 function gfxTick(dt) { gfxShadowFollow(dt); clouds2Tick(dt); grassTick(dt); vigTick(dt); fpsTick(dt);
