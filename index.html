@@ -19,7 +19,7 @@
 </script>
 </head>
 <body>
-<div id="info">BUSH PILOT VR v0.67 - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
+<div id="info">BUSH PILOT VR v0.67.1 - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
 You start on foot by the Cub at the cabin strip. Walk up to her and climb in (F / Y), then start her up off the checklist card (J).
 Desktop - flying: W/S or arrows pitch, A/D or arrows roll, Q/E rudder, Shift / Ctrl (or + / -) throttle, B brakes, [ ] flaps, PgUp / PgDn trim,
   R reset to the strip (cold and dark), F climb out, M map, L landing light, Home recentre, mouse looks (click to capture).
@@ -5868,11 +5868,17 @@ function deerDress(a) {
 }
 // ---- binoculars (full-game v0.41): on your chest on foot, in a holder by the right door in the Cub. Raise them to your eyes (VR) or press V (desktop) ----
 // VR: a 7x view in a ring in front of your eyes, rendered from your head at 384 px (every other frame, no shadow update); desktop: the camera zooms.
-const BINO = { place: 'cub', g: null, g2: null, two: false, on: false, desk: false, fov0: 75, t: 0, last: '', n: 0, force: false, rt: new THREE.WebGLRenderTarget(384, 384), cam: new THREE.PerspectiveCamera(70 / 7, 1, 0.5, 9000), cubP: GV3(0.285, -0.16 + CK.y, -0.36 + CK.z) };
+const BINO = { place: 'cub', g: null, g2: null, two: false, on: false, desk: false, fov0: 75, t: 0, last: '', n: 0, force: false, near: 9, f: 9, lat: 0, al: 0, rt: new THREE.WebGLRenderTarget(448, 448), cam: new THREE.PerspectiveCamera(2 * Math.atan(Math.tan(5 * D2R) * 0.22 / 0.15) / D2R, 1, 0.5, 9000), cubP: GV3(0.285, -0.16 + CK.y, -0.36 + CK.z) };
 BINO.rt.texture.colorSpace = THREE.SRGBColorSpace;
-BINO.disk = new THREE.Mesh(new THREE.CircleGeometry(0.15, 40), new THREE.MeshBasicMaterial({ map: BINO.rt.texture, depthTest: false, fog: false })); BINO.disk.position.set(0, 0, -0.5); BINO.disk.renderOrder = 998;
-BINO.ring = new THREE.Mesh(new THREE.RingGeometry(0.148, 0.2, 40), new THREE.MeshBasicMaterial({ color: 0x050505, depthTest: false, transparent: true, opacity: 0.92, fog: false })); BINO.ring.renderOrder = 997; BINO.disk.add(BINO.ring);
-BINO.disk.visible = false; BINO.disk.userData.noBatch = BINO.ring.userData.noBatch = true; camera.add(BINO.disk);
+// v0.67.1: the view is a head-locked black mask over the whole field of view with two overlapping round holes (the 7x picture), so nothing near your face shows round it
+const BV = { r: 0.15, ox: 0.07, span: 0.22, z: -0.5 };
+{ const G = new THREE.PlaneGeometry(2.4, 2.4), P = G.attributes.position, U = G.attributes.uv; for (let i = 0; i < P.count; i++) U.setXY(i, P.getX(i) / (2 * BV.span) + 0.5, P.getY(i) / (2 * BV.span) + 0.5);
+  const M = new THREE.MeshBasicMaterial({ map: BINO.rt.texture, depthTest: false, depthWrite: false, transparent: true, fog: false });   // transparent: drawn after the scene's see-through parts
+  M.onBeforeCompile = sh => { sh.fragmentShader = sh.fragmentShader.replace('#include <map_fragment>', `#include <map_fragment>
+    { vec2 p = (vMapUv - 0.5) * ${(2 * BV.span).toFixed(3)}; float d = min(length(p - vec2(-${BV.ox.toFixed(3)}, 0.0)), length(p - vec2(${BV.ox.toFixed(3)}, 0.0)));
+      diffuseColor.rgb *= 1.0 - smoothstep(${(BV.r - 0.014).toFixed(3)}, ${BV.r.toFixed(3)}, d); }`); };
+  BINO.disk = new THREE.Mesh(G, M); BINO.disk.position.set(0, 0, BV.z); BINO.disk.renderOrder = 998; BINO.disk.frustumCulled = false; }
+BINO.disk.visible = false; BINO.disk.userData.noBatch = true; camera.add(BINO.disk);
 BINO.m = (() => { const D = 0x2a2c2e, R = 0x16171a, P = [];   // eyepieces toward +z (your face), objectives -z
   for (const sx of [-1, 1]) P.push(['c', 0.021, 0.1, 10, sx * 0.032, 0, -0.005, D, Math.PI / 2], ['c', 0.024, 0.02, 10, sx * 0.032, 0, -0.06, R, Math.PI / 2], ['c', 0.015, 0.024, 8, sx * 0.03, 0.002, 0.056, R, Math.PI / 2],
     ['c', 0.017, 0.003, 10, sx * 0.032, 0, -0.07, 0x3a5a7a, Math.PI / 2]);
@@ -5902,6 +5908,17 @@ function binoTwo(m) {
 }
 function binoHandK(g) { return BINO.place === 'hand' && (BINO.g === g || BINO.g2 === g) ? (binoSide(g) > 0 ? 'bR' : 'bL') : null; }
 function binoChest(out) { camera.getWorldPosition(out); _yq.setFromAxisAngle(_ry, headYaw()); out.add(_bd.set(0, -0.3, -0.13).applyQuaternion(_yq)); return out; }
+// v0.67.1 when the 7x view comes up: the eyepieces 12 cm or less in front of the headset along your view (up to 7 cm off to the side), the binoculars looking within ~40 deg of
+// where you look. It stays up out to 15 cm / 9.5 cm / ~57 deg (no flicker).
+const BZ = { on: 0.12, off: 0.15, back: -0.03, backOff: -0.05, lat: 0.07, latOff: 0.095, dot: 0.75, dotOff: 0.55, near: 0.06 }, _bE = GV3(0, 0, 0), _bO = GV3(0, 0, 0), _bC = GV3(0, 0, 0), _bW = GV3(0, 0, 0);
+const B_PTS = [GV3(0, 0.002, 0.068), GV3(-0.03, 0.002, 0.068), GV3(0.03, 0.002, 0.068), GV3(-0.032, 0, -0.072), GV3(0.032, 0, -0.072), GV3(0, 0, 0)];
+function binoUp(m) {
+  m.updateMatrixWorld(); camera.updateMatrixWorld(); camera.getWorldPosition(_bC); camera.getWorldDirection(_bW);
+  let near = 9; for (const q of B_PTS) near = Math.min(near, m.localToWorld(_bE.copy(q)).distanceTo(_bC)); BINO.near = near;
+  m.localToWorld(_bE.copy(B_PTS[0])).sub(_bC); const f = _bE.dot(_bW), lat = _bE.addScaledVector(_bW, -f).length(), al = _bO.set(0, 0, -1).transformDirection(m.matrixWorld).dot(_bW);
+  BINO.f = f; BINO.lat = lat; BINO.al = al;
+  return BINO.on ? f < BZ.off && f > BZ.backOff && lat < BZ.latOff && al > BZ.dotOff : f < BZ.on && f > BZ.back && lat < BZ.lat && al > BZ.dot;
+}
 function binoTick(dt, vrOn) {
   const m = BINO.m;
   if (BINO.place === 'chest') { binoChest(m.position); m.quaternion.copy(_yq).multiply(_rq3.setFromEuler(_fe.set(-1.25, 0, 0))); m.visible = vrOn; }   // hangs off the harness (desktop: out of the way)
@@ -5911,8 +5928,9 @@ function binoTick(dt, vrOn) {
     if (two) binoTwo(m); else binoOne(m, g); m.visible = true; }
   else m.visible = true;
   if (BINO.desk && (vrOn || RFL.adsOn)) binoDesk(false);
-  let up = BINO.force; if (BINO.place === 'hand') { m.localToWorld(_bv.set(0, 0, 0.06)); camera.getWorldPosition(_bd); if (_bv.distanceTo(_bd) < 0.17) up = true; }
+  let up = BINO.force; if (BINO.place === 'hand') up = binoUp(m) || up;
   if (up !== BINO.on) { BINO.on = up; BINO.disk.visible = up; BINO.last = ''; if (up) sfx('click'); }
+  if (BINO.place === 'hand' && (BINO.on || BINO.near < BZ.near)) m.visible = false;   // v0.67.1 zoomed (the mask shows the view), or inside 6 cm of the eyes: never drawn through the near plane
   if (!(BINO.on || BINO.desk) || (BINO.t -= dt) > 0) return; BINO.t = 0.4;
   binoSpot();
 }

@@ -2,6 +2,15 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.67.1 – binoculars: the view comes up before they reach your face
+Neil (on Quest): "Have to put binoculars too close to headset so it clips through the camera." The physics block is untouched (md5 `eee6637e…`).
+- **Before:** the 7x view came up when the eyepieces were within 17 cm of the headset in any direction. It was a small ring in the middle of the view, and the binoculars and your hands stayed drawn round it, right at your eyes and through the near plane.
+- **When it comes up now:** with the eyepieces **12 cm or less** in front of the headset, measured along your view. They can be up to **7 cm off to the side** and must look within about 40° of where you look. It stays up out to **15 cm**, 9.5 cm to the side and about 57° (hysteresis, no flicker). Eyepieces more than 3 cm behind your eyes don't count.
+- **While zoomed:** the binoculars aren't drawn. A head-locked black mask covers the whole view with **two overlapping round holes** (soft edges) showing the 7x picture, so nothing near your face shows round it. The magnification is the same as before.
+- **Not zoomed:** the binoculars aren't drawn while any part of them is within **6 cm** of your eyes.
+- New test t671 (14 checks): the on and off distances with hysteresis, lateral slop, aim, hidden while zoomed, hidden inside 6 cm.
+- Screenshots: /workspace/qa-v0671-bino-{zoomed,zoomed-close,close-sideways}-{before,after}.png.
+
 ## v0.67 – rifle: old aim and reload feel, procedural grip, trigger the right way round
 Neil: "Rifle: use the old aim/reload code (v0.10–v0.44) on the current model, keep the current recoil, procedural grips, and the trigger is backwards." The physics block is untouched (md5 `eee6637e…`). Recoil is unchanged.
 - **Trigger:** the blade curved backwards. It is now mirrored about its pin so it curves forward, and it rotates with your trigger finger (the analog value), not only on a shot.

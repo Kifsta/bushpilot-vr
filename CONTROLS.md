@@ -148,7 +148,7 @@ Some jobs on the boards are **hunting jobs**: a lodge, the elk camp, the ranch o
 | Load | Squeeze on the **cartridge pouch** at your belt (front right) for a round and push its tip into the loading gate on the receiver's right side, from behind and outside, pointing forward, with the lever shut. In the last few cm the round swings onto the gate and slides in (v0.67). A full tube says MAGAZINE FULL and you keep the round. Keep squeezing at the gate and the next one comes from the pouch | **Z** (one round per press) |
 | Buy ammo | The ammo box on the stump by the cabin: $10 for 20 rounds | **Z** by the box |
 | Sling / put down | Let go over your shoulder, muzzle up, to sling it. Let go at a rack to rack it. Let go anywhere else and it lies on the ground | T |
-| Binoculars | They hang on your **chest**, and in the Cub they sit in a holder by your right knee. Grab them and raise them to your eyes for a 7× view | **V** (toggle) |
+| Binoculars | They hang on your **chest**, and in the Cub they sit in a holder by your right knee. Grab them (one hand or two) and raise them to your eyes: the 7× view comes up with the eyepieces about 12 cm in front of your eyes and stays up out to 15 cm | **V** (toggle) |
 | Field dress | Squeeze grip on a downed deer and hold for 3 s | Hold **E** by it for 3 s |
 
 - **The rifle** is a Winchester 1892-style carbine (the full game's mechanics on the new model): 7 in the tube plus one chambered, 20 rounds in the pouch at the start. Hammer down means no shot until you work the lever. An empty chamber just clicks. The bullet flies at 400 m/s with drag and gravity, zeroed at 50 m (a little high inside that, dropping more and more past 100 m). It hits the ground, trees, the cabin, or a deer.
