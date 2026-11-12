@@ -2,6 +2,14 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.77.10 – a binocular holster on the left hip; a steady 7x view
+Neil's batch, item 4.
+- **Holster:** on foot in VR the binoculars sit in a leather case on your left hip (`BINO.hol`, `B_HIP`: 20 cm left of and 68 cm below your eyes, in the head-yaw frame, so looking down at it doesn't move it). They sit objectives down with the eyepieces just out of the top. Either hand takes them out (squeeze within 16 cm of the case top). Let go anywhere and they go back in. It replaces the chest harness (`BINO.place` 'chest' > 'hip'). The case shows only in VR on foot. In the Cub they're still in the holder by the right door. One extra draw call while on foot.
+- **The 7x view jitter, causes:** (1) `binoRender()` took the camera's pose, which in XR is only updated inside `renderer.render()`, so the zoomed picture was always a frame behind the head-locked ring. (2) It rendered every other frame, so the picture judders against the ring at 36 Hz.
+- **The fix:** `binoHead()` reads this frame's eye poses (three.js sets the XR eye cameras' matrices before our frame runs). The view is placed at the midpoint of the eyes, in the rig's frame. The view renders every frame, at 384 px (was 448, which keeps the cost about the same as before).
+- **Hand influence is slow:** `binoHandNudge()` lets a hand turn since you raised them nudge the view: a quarter of the turn, capped at 3 deg, eased in over 0.45 s. Hand shake never shows, and the head moves the view at once.
+- **Tests:** new t7710 (11 checks): holster placement; it stays put when you look down; either hand takes them out and let go puts them back; it shows only in VR on foot; the XR eye-pose head (against faked eye cameras); 2 s of ±2 deg hand shake moves the view under 0.05 deg a frame; a steady 10 deg hand turn eases to 2.5 deg, and 40 deg caps at 3; a head turn follows the same frame; renders every frame; clean console. t53 / t65 / t69 / t771 / t776 now take them from the hip. t671's two v0.67 checks, which v0.77.6 made impossible, are updated: they now find the hand position by search, the controller is turned 57 deg, and the controller is sideways at the face. Screenshots: /workspace/qa-v07710-holster-{side,look-down}.png.
+
 ## v0.77.9 – parcels stack reliably by hand
 Neil's batch, item 3.
 - **Top-surface snap:** `cgPlace()` finds the piece that would carry the new one (`cgUnder()`, the highest one under its footprint). If more than 30% of the footprint is on it, the new piece squares up on its top when within 8 cm in x or z, so hand-built stacks are straight columns. If only an edge is over it, the piece slides off beside it when that spot is inside the zone and lower.
