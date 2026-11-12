@@ -2,6 +2,15 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.77.11 – Cub parking brake
+Neil's batch, item 5.
+- **The handle:** a T-handle with a red band, in a bezel under the left of the panel and below the switch strip (`PB.P`). It slides 3.5 cm out when set. VR: grab it with either hand to toggle (a 'pbrk' cockpit target, 5 cm). Desktop: **\\** in the seat.
+- **Indicator:** a red lamp beside the handle, and PARK BRAKE (red) on the status line in place of BRAKES.
+- **Effect:** `pbApply()` sets the brake input to full only while the wheels carry weight (`ECO.wow`), before `ecoIn()`. That goes through the normal brake input, so wear, lock and skid behave as usual. In the air there is no brake input. The physics block is untouched (md5 unchanged).
+- **Default and saves:** off by default and not saved (saves unchanged).
+- **Known:** the toe brakes are differential by rudder (physics), so full rudder pedal still frees one wheel partly with the parking brake set.
+- **Tests:** new t7711 (9 checks): off by default; from 4 m/s on the ground it stops in under 60% of the free roll and stays stopped; ground braking only; left and right hand set and release it; desktop \\ sets and releases it; the handle travel and the lamp; clean console. Screenshots: /workspace/qa-v07711-parking-brake-{set,off}.png.
+
 ## v0.77.10 – a binocular holster on the left hip; a steady 7x view
 Neil's batch, item 4.
 - **Holster:** on foot in VR the binoculars sit in a leather case on your left hip (`BINO.hol`, `B_HIP`: 20 cm left of and 68 cm below your eyes, in the head-yaw frame, so looking down at it doesn't move it). They sit objectives down with the eyepieces just out of the top. Either hand takes them out (squeeze within 16 cm of the case top). Let go anywhere and they go back in. It replaces the chest harness (`BINO.place` 'chest' > 'hip'). The case shows only in VR on foot. In the Cub they're still in the holder by the right door. One extra draw call while on foot.

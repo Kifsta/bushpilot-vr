@@ -19,9 +19,9 @@
 </script>
 </head>
 <body>
-<div id="info">BUSH PILOT VR v0.77.10 - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
+<div id="info">BUSH PILOT VR v0.77.11 - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
 You start on foot by the Cub at the cabin strip. Walk up to her and climb in (F / Y), then start her up off the checklist card (J).
-Desktop - flying: W/S or arrows pitch, A/D or arrows roll, Q/E rudder, Shift / Ctrl (or + / -) throttle, B brakes, [ ] flaps, PgUp / PgDn trim,
+Desktop - flying: W/S or arrows pitch, A/D or arrows roll, Q/E rudder, Shift / Ctrl (or + / -) throttle, B brakes, \ parking brake, [ ] flaps, PgUp / PgDn trim,
   R reset to the strip (cold and dark), F climb out, M map, L landing light, Home recentre, mouse looks (click to capture).
 Desktop - engine: U fuel valve, O master, Y mixture, H carb heat, P primer, I mags (OFF > R > L > BOTH), hold Space = starter, K panel lights,
   1-4 windows / door, J checklist card, N clipboard (, and . turn its pages: JOBS, W&B, CUB, PERF).
@@ -1434,13 +1434,14 @@ function panelTint() {   // v0.43: faces + needles are lit by daylight, or by th
   const key = (r * 200 | 0) + ',' + (g * 200 | 0) + ',' + (b * 200 | 0); if (key === PTINT.key) return; PTINT.key = key;
   for (const m of PTINT.m) m.color.setRGB(r, g, b);
 }
+const PB = { on: false, P: null, G: null, H: null, L: null };   // v0.77.11 the Cub's parking brake (off by default, not saved): ground braking only, through the brake input (the physics is untouched)
 const FT = { frm: 0, cpu: 0, max: 0, n: 0, sf: 0, sc: 0, sm: 0, t: 0 };   // frame time readout (ms, averaged over ~0.5 s)
 function drawInfo(a) {
   const o = a.out, fr = Math.min(1, fuel / FUEL_MAX), warn = [];
   if (a.crashed) warn.push(['CRASH', '#f44']); if (o.stall > 0.3) warn.push(['STALL', '#f44']);
   if (ac.engineOut && fuel <= 0) warn.push(['NO FUEL', '#f44']); else if (fr < 0.15) warn.push(['LOW FUEL', '#fa3']);
   if (!ENG.running && !a.crashed) warn.push([ENG.cranking ? 'CRANKING' : 'ENGINE OFF', '#fa3']);
-  if (a.ctl.brake > 0.05) warn.push(['BRAKES', '#fa3']);
+  if (PB.on) warn.push(['PARK BRAKE', '#f44']); else if (a.ctl.brake > 0.05) warn.push(['BRAKES', '#fa3']);
   const lines = a.crashed ? [a.crashReason.slice(0, 22), a.crashReason.slice(22, 44)] : (msgT > 0 && mode === 'plane' ? msgPage(22) : []);
   lines.push(`THR ${(a.ctl.throttle * 100).toFixed(0)}%  FPS ${fps}`);
   { const key = warn.join() + lines.join() + flapNotch + fr.toFixed(2); if (key === drawInfo.k) return; drawInfo.k = key; }   // v0.47: no re-upload when nothing changed
@@ -1821,6 +1822,7 @@ addEventListener('keydown', e => {
   if (e.code === 'KeyR') resetFlight();
   if (e.code === 'KeyM') mapDesk();
   if (e.code === 'KeyL' && mode === 'plane') toggleLanding();
+  if (e.code === 'Backslash' && mode === 'plane') pbSet();   // v0.77.11 parking brake
   if (e.code === 'KeyG' && mode === 'foot') fuelDesk();
   if (e.code === 'Home') recenter();
   if (mode === 'foot' && e.code === 'Space') jump();
@@ -3381,6 +3383,14 @@ const SL = new THREE.SpotLight(0xfff2da, 0, 70, 0.42, 0.45, 1.3); scene.add(SL, 
 const LDG_SW = new THREE.Vector3(0.10, -0.135 + CK.y, PANEL_Z + 0.012);
 const ldgSw = new THREE.Group(); ldgSw.position.copy(LDG_SW); plane.add(ldgSw);
 box(0.03, 0.02, 0.006, mat(0x222222), 0, 0, -0.004, ldgSw); const ldgTog = box(0.006, 0.006, 0.022, mat(0xd8d8d8), 0, 0, 0.008, ldgSw);
+PB.P = new THREE.Vector3(-0.17, -0.305 + CK.y, PANEL_Z + 0.03);   // v0.77.11 under the panel, left of the stick: the T-handle you pull out to set it
+{ const G = new THREE.Group(); G.position.copy(PB.P); plane.add(G); PB.G = G; const blk = mat(0x1a1a1a);
+  box(0.05, 0.03, 0.012, mat(0x3a3a3a), 0, 0, -0.03, G); PB.H = new THREE.Group(); G.add(PB.H);   // bezel in the panel's lower lip; the handle slides out of it
+  box(0.007, 0.007, 0.034, mat(0x9a9a9a), 0, 0, -0.012, PB.H); box(0.044, 0.012, 0.01, blk, 0, 0, 0.006, PB.H); box(0.03, 0.004, 0.002, mat(0xc02020), 0, 0.007, 0.006, PB.H);   // shaft, T-bar, red band
+  PB.L = new THREE.Mesh(new THREE.CircleGeometry(0.005, 10), new THREE.MeshBasicMaterial({ color: 0x401010 })); PB.L.position.set(0.035, 0.008, -0.023); G.add(PB.L); }   // indicator lamp: red when set
+function pbSet(on, g) { PB.on = on ?? !PB.on; sfx('click'); if (g) hap(g, 0.6, 20); say(PB.on ? 'PARKING BRAKE SET' : 'PARKING BRAKE OFF'); }
+function pbTick(dt) { PB.H.position.z = snapTo('pbrk', PB.on ? 0.035 : 0, dt); PB.L.material.color.setHex(PB.on ? 0xff2a1a : 0x401010); }
+function pbApply() { if (PB.on && ECO.wow) ctl.brake = 1; }   // both wheels, only with weight on them
 function toggleLanding() { LIGHTS.landing = !LIGHTS.landing; sfx('click'); say(LIGHTS.landing ? 'LANDING LIGHT ON' : 'LANDING LIGHT OFF'); }
 ldgTog.rotation.x = 0.5;
 function updateDay(dt) {   // sun / sky / fog colour from the fixed time of day, plus the two dynamic lights
@@ -3632,7 +3642,7 @@ function snapTo(k, t, dt) {   // v0.44: toggles and the key snap over-centre wit
 function updateSwitches(dt) {
   const E = ENG, S = SW; dt = clamp(dt || 0, 0, 0.05);
   S.master.mesh.rotation.x = snapTo('master', E.master ? -0.35 : 0.35, dt);
-  ldgTog.rotation.x = snapTo('ldg', LIGHTS.landing ? -0.5 : 0.5, dt);
+  ldgTog.rotation.x = snapTo('ldg', LIGHTS.landing ? -0.5 : 0.5, dt); pbTick(dt);
   S.mags.mesh.rotation.z = snapTo('mags', ROT.mags[E.mags], dt);
   S.start.mesh.position.z = SWP.z - (E.starter ? 0.006 : 0);
   S.prime.mesh.position.z = SWP.z + 0.04 * Math.sin(Math.PI * (1 - E.primeT / 0.5)) * (E.primeT > 0 ? 1 : 0);
@@ -3857,7 +3867,7 @@ const CK_R = 0.035, WIN_R = 0.075;
 function ckTargets() {   // [id, worldPos, radius]
   const out = [];
   for (const id in SW) out.push([id, plane.localToWorld(_cw.copy(SW[id].p)).clone(), CK_R]);
-  out.push(['ldg', plane.localToWorld(_cw.copy(LDG_SW)).clone(), CK_R]);
+  out.push(['ldg', plane.localToWorld(_cw.copy(LDG_SW)).clone(), CK_R], ['pbrk', PB.H.getWorldPosition(new THREE.Vector3()), 0.05]);
   out.push(['card', CARD.mesh.getWorldPosition(_cw).clone(), 0.07], ['kb', KB.m.getWorldPosition(_cw).clone(), 0.1]);
   out.push(['rup', rupH.getWorldPosition(_cw).clone(), WIN_R], ['rlo', rloH.getWorldPosition(_cw).clone(), WIN_R],
     ['lf', LWF.hp.getWorldPosition(_cw).clone(), WIN_R], ['lr', LWR.hp.getWorldPosition(_cw).clone(), WIN_R]);
@@ -3885,6 +3895,7 @@ function ckHand(g, squeeze, id) {   // returns true while this hand is busy with
     if (!best) return false;
     h = { k: best }; CKH.set(g, h); tick(g); delete WIN.tgt[best];
     if (best === 'start') { CKX.grabStart = true; ENG.starterVR = true; } else if (best in SW || best === 'ldg') ckGrabStart(g, h);
+    if (best === 'pbrk') pbSet(undefined, g);   // v0.77.11 grab the T-handle: pull it out to set, push it in to release (either hand)
     if (best === 'card') { CARD.g = g; sfx('pick'); say('CHECKLIST'); }
     if (best === 'kb') { KB.g = g; sfx('pick'); }
     if (best === 'rup' || best === 'rlo') { cubD.worldToLocal(_ch); h.a0 = hingeAng(best, _ch); h.v0 = WIN[best]; }
@@ -7891,7 +7902,7 @@ renderer.setAnimationLoop(() => {
   if (!ac.crashed) {   // v0.45: no wind - ac.wind stays [0, 0, 0] from resetAircraft
     const n = Math.max(1, Math.ceil(dt / C.MAX_DT - 1e-6));
     const e0 = ctl.elev; ctl.elev = clamp(e0 + TRIM.v * TRIM_K, -1, 1);   // v0.42 trim: a bias on the elevator the stick doesn't show
-    ecoIn();   // v0.55 wear / damage on the inputs (nothing on a healthy Cub)
+    pbApply(); ecoIn();   // v0.55 wear / damage on the inputs (nothing on a healthy Cub); v0.77.11 the parking brake
     for (let i = 0; i < n; i++) stepAircraft(ac, dt / n);
     ctl.elev = e0; ecoOut();
   } else if ((crashTimer += dt) > 2.5) resetFlight();

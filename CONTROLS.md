@@ -375,3 +375,8 @@ A customer stands at every job board. Walk up to them for a hello: their rep tie
 - **Auto resolution** (default ON): if frames run over budget for more than a second, it steps down. First it shrinks the eye viewport to 85 % and forces foveation to HIGH. Then it goes to 75 % with the forest at 75 %, then to 65 % with the forest at 55 %. After about 10 s on budget it steps back up, and it waits longer if it keeps bouncing. Line 3 shows `(not supported here)` if the headset ignores the viewport request; the forest steps still apply.
 - The landing light (and shadows) make the ground per-pixel lit again, because it needs that to light the ground.
 - `?nobatch` turns off v0.47's static mesh batching and `?tile=N` turns on v0.47's tiled forest (both for comparing). F3 toggles the desktop FPS counter, Esc / F2 opens the MENU board and ` the old settings list; both have the presets.
+
+## Parking brake (v0.77.11)
+- A black T-handle under the left of the panel. VR: grab it with either hand to pull it out (set); grab it again to push it in (off). Desktop: **\\** toggles it in the seat.
+- A red lamp beside it and PARK BRAKE on the status line show it's set. It's off by default and isn't saved.
+- It holds both main wheels only with weight on them. In the air it does nothing. A full rudder pedal still frees that side a little (the toe brakes are differential).
