@@ -2,6 +2,19 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.76 – rugged bush strips
+Neil's list: make the airstrips look like real bush strips. Visual only: groundY / surfaceAt at every strip are unchanged (checked against v0.75), so the gear rolls on exactly what you see; the physics block is untouched (md5 `eee6637e…`).
+- **Rugged runway textures** (`runwayTex('bush' / 'dirtb' / 'grayb')`): patchy colour from smooth value noise, bare dirt spots, ragged edges in drier rough grass, wider and darker wheel ruts that wander a little, and no painted bars. The v0.63 height cues stay: mowing bands, tyre tracks, grain. Used by Ridge, Lodge and Dry Fork, the Halvorsen gravel strip, and the 8 bush sites' surfaces. **Home keeps the tidy v0.63 texture**, with threshold bars and aiming blocks.
+- **Dressing beside every strip** (13), one merged vertex-coloured mesh per strip (own seed, so world rand() is unchanged), distance-culled at 2.6 km:
+  - Tall grass tussocks (7 thin blades) along both edges, 1-3.6 m out.
+  - On the side away from the buildings: rocks (some half-buried boulders) and stumps. Driftwood logs on the river bars and lake shores instead of grass.
+  - White half-buried tyres every 60 m down the edges, orange cones at the four corners, two oil drums at one end. Limp windsocks (no wind) at the bush sites that had none.
+  - Nothing is on the surface or within 120 m of either end. Pieces skip spots too steep to sit on.
+  - **Home stays tidier:** short sparse grass, 6 small rocks, 4 cones.
+- Slopes and undulation: none added. The strips already follow the real ground, and any visual-only bump would disagree with groundY.
+- **Cost:** +1 draw call per dressed strip within 2.6 km (2 at home: home + Ranger), 1-4k triangles each (home ~1.4k).
+- t63 updated (the rugged dirt / gray kinds replace the plain ones). New test t76 (12 checks with the before build). Screenshots: /workspace/qa-v076-{ridge,lodge}-rollout.png and qa-v076-before-ridge-rollout.png (from the threshold, before/after), qa-v076-{ridge,elk,dryfork}-ground.png (the dressed edge), qa-v076-{ridge,lodge,elk,creek,home}.png (short final), qa-v076-home-ground.png, qa-v076-before-ridge{,-ground}.png.
+
 ## v0.75 – weather, no wind
 Neil's list: subtle weather that can cut visibility. Only the look and sound change; the physics block is untouched (md5 `eee6637e…`) and there is no wind.
 - **States:** clear, haze, light overcast, low cloud + valley mist, light rain, and fog banks at dawn only (EARLY). Each picks a neighbour when it ends, weighted to fair weather (clear + haze are ~2/3 of the time, rain under 10 %). States last 8-25 min (clear 15-25); a change blends over ~4-6 min (2 min time constant).

@@ -11,6 +11,10 @@ v0.50 turns it into a **bush delivery** game: take a job off a strip's job board
 - It only changes what you see and hear: how far you see (strips are harder to pick out, but you always see 2 km+), the sky and light, a lower cloud deck, mist patches lying in valleys (never on a strip), rain streaks round you and a rain hiss. **No wind, and the flight model is untouched.**
 - The weather is saved with the game. Turn the effects off in Settings > GRAPHICS > **Weather**.
 
+## The strips (v0.76)
+- The bush strips look like bush strips: patchy mown grass or dirt, worn wandering wheel ruts and bare spots, ragged edges with tall grass, rocks and stumps on the rough side (driftwood on the river bars and shores), white half-buried tyres down the edges, orange cones at the corners, a pair of oil drums at one end, and a limp windsock where a site had none. The home strip stays tidier: short grass, a few rocks, cones.
+- It is all decoration beside the strip, never on it or on the approach, and you can't hit it: the ground you roll on is exactly what it was. The mowing bands and tyre tracks that help you judge height on short final are still there.
+
 ## Flying
 | | VR (Quest) | Desktop |
 |---|---|---|
