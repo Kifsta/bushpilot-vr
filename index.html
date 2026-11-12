@@ -19,7 +19,7 @@
 </script>
 </head>
 <body>
-<div id="info">BUSH PILOT VR v0.77.13 - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
+<div id="info">BUSH PILOT VR v0.77.14 - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
 You start on foot by the Cub at the cabin strip. Walk up to her and climb in (F / Y), then start her up off the checklist card (J).
 Desktop - flying: W/S or arrows pitch, A/D or arrows roll, Q/E rudder, Shift / Ctrl (or + / -) throttle, B brakes, \ parking brake, [ ] flaps, PgUp / PgDn trim,
   R reset to the strip (cold and dark), F climb out, M map, L landing light, Home recentre, mouse looks (click to capture).
@@ -1155,9 +1155,20 @@ let doorT = 0;
 // fades in with rpm. Before: the blade was a flat 10 cm box parented to an always-on 18 % grey disc, so a stopped prop sat
 // inside a smoky grey circle. Now the disc is invisible below ~300 rpm and the blades coast down to a random rest angle.
 const prop = new THREE.Group(); prop.position.set(0, 0.24, -1.93); prop.rotation.z = Math.random() * Math.PI; cubD.add(prop);
+const PROP_TEX = (() => {   // v0.77.14 the running prop: a mostly see-through disc drawn once (faint grey sweep, two soft blade streaks, the painted tips as a faint yellow arc band)
+  const N = 128, cv = document.createElement('canvas'); cv.width = cv.height = N; const cx = cv.getContext('2d'), im = cx.createImageData(N, N), d = im.data;
+  for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) { const x = (i + 0.5) / N * 2 - 1, y = 1 - (j + 0.5) / N * 2, r = Math.hypot(x, y) * 0.94, th = Math.atan2(y, x), o = (j * N + i) * 4;
+    const sw = 0.55 + 0.45 * Math.cos(th) ** 8, tip = clamp((r - 0.77) / 0.03, 0, 1) * clamp((0.935 - r) / 0.02, 0, 1), body = clamp((0.92 - r) / 0.05, 0, 1) * clamp((r - 0.1) / 0.03, 0, 1);
+    const ab = body * (0.07 + 0.05 * clamp((0.45 - r) / 0.35, 0, 1)) * sw, at = tip * 0.2 * (0.5 + 0.5 * sw), a = Math.min(1, ab + at), w = a > 0 ? at / a : 0;
+    d[o] = 40 + w * 190; d[o + 1] = 40 + w * 140; d[o + 2] = 42 - w * 20; d[o + 3] = a * 255; }
+  cx.putImageData(im, 0, 0); const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; return t; })();
 const PROP_BLUR = new THREE.Mesh(new THREE.RingGeometry(0.1, 0.94, 24, 1),
-  new THREE.MeshBasicMaterial({ color: 0x2a2a2a, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false, forceSinglePass: true }));   // v0.47: a flat disc needs one pass (two re-picked its shader every frame)
+  new THREE.MeshBasicMaterial({ map: PROP_TEX, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false, forceSinglePass: true }));   // v0.47: a flat disc needs one pass (two re-picked its shader every frame)
 PROP_BLUR.position.z = -0.012; PROP_BLUR.visible = false; prop.add(PROP_BLUR);
+function propTick(dt, rpm) {   // v0.77.14 the see-through disc fades in from 300 rpm; solid blades only below PROP_SOLID
+  prop.rotation.z += rpm / 60 * 2 * Math.PI * dt * (rpm < 400 ? 1 : 0.13);   // aliased-looking slow spin (real speed while cranking)
+  const b = clamp((rpm - 300) / 500, 0, 1); PROP_BLUR.visible = b > 0.01; PROP_BLUR.material.opacity = b; blade.visible = rpm < PROP_SOLID; }
+const PROP_SOLID = 650;   // v0.77.14 rpm above which only the disc is drawn (the blades are a blur by then)
 const blade = (() => {
   const R = [0.07, 0.16, 0.34, 0.55, 0.76, 0.88, 0.94], CH = [0.05, 0.12, 0.13, 0.12, 0.10, 0.08, 0.035], TW = [0.75, 0.55, 0.38, 0.28, 0.22, 0.2, 0.2],
     TH = [0.03, 0.022, 0.016, 0.012, 0.009, 0.007, 0.004], pos = [], col = [], metal = [0.62, 0.64, 0.66], back = [0.12, 0.12, 0.13], tipC = [0.92, 0.72, 0.1];
@@ -7926,8 +7937,7 @@ renderer.setAnimationLoop(() => {
   dlvTick(dt); wbWarn(dt); huntTick(dt, xr || HANDS.force); dropTick(dt); ecoTick(dt); upgTick(dt); emgTick(dt);   // v0.53 rifle, deer, binoculars; v0.54 bundles in the air, the signal smoke   // v0.50 delivery: game clock, falling / loose cargo, job boards
   GV.update(dt);   // v0.20 gear legs / tyres / tail wheel
   updateMap(); updateCockpitV19(dt);
-  prop.rotation.z += ENG.rpm / 60 * 2 * Math.PI * dt * (ENG.rpm < 400 ? 1 : 0.13);   // aliased-looking slow spin (real speed while cranking)
-  { const b = clamp((ENG.rpm - 300) / 700, 0, 1); PROP_BLUR.visible = b > 0.01; PROP_BLUR.material.opacity = 0.2 * b; }   // v0.35 blur disc only while it's turning fast
+  propTick(dt, ENG.rpm);
   stick.rotation.set(ctl.elev * STICK_MAX, 0, -ctl.ail * STICK_MAX);
   throttleKnob.position.z = THR_Z0 + CK.z - ctl.throttle * THR_ZT;
   flapVis += ((vr.flapG ? vr.flapAng : flapNotch * FLAP_STEP) - flapVis) * Math.min(1, dt * (vr.flapG ? 40 : 14)); flapLever.rotation.x = FLAP_A0 + flapVis;   // v0.42 overhead handle

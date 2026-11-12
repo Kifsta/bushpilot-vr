@@ -2,6 +2,14 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.77.14 – the propeller is a see-through disc when it's running
+Neil's batch, item 8.
+- **Disc:** the running prop is drawn as a mostly transparent disc (`PROP_TEX`, a 128 px canvas texture made once at load). It has a faint grey sweep, a little denser near the hub, two soft blade streaks that turn with the prop's aliased spin, and a faint yellow band where the painted tips run. Average alpha over the disc is about 7 % and nowhere above 30 %. Before, it was a flat 20 % grey disc.
+- **Blades:** the solid blades are drawn only below `PROP_SOLID` (650 rpm), so stopped, cranking and coasting down you see real blades. The disc fades in from 300 to 800 rpm. Above 650 rpm only the disc is drawn. The prop code is now one function, `propTick(dt, rpm)`.
+- **Quest cost:** it's the same mesh as before (a 24-segment ring, 48 triangles, one pass, no depth write) plus one 64 KB texture. When running, the blade mesh (120 triangles) isn't drawn, so it's slightly cheaper than v0.77.13.
+- **Lint:** 24 problems (was 25). `blade` was an unused variable and is used now. No new warnings.
+- **Tests:** new t7714 (9 checks): mostly see-through (mean alpha < 12 %, max < 35 %); the tip arcs are at least twice as strong as mid-blade and are yellow; cheap (128 px, ≤ 48 triangles, single pass, no depth write); stopped and 150 rpm show blades with no disc; 500 rpm shows both; 800 and 2300 rpm show only the disc; clean console. Screenshots: /workspace/qa-v07714-prop-{stopped,running-2300,running-from-seat}.png.
+
 ## v0.77.13 – a right cargo door
 Neil's batch, item 7.
 - **Door:** a second hinged panel on the right side, aft of the door post and under the rear window (`CARGO_LO`, 0.63 m long × 0.57 m tall). It's cut out of the right skin and hinges along its bottom edge on the same line as the lower door (`cdoor`), so it folds down and out. It has the yellow skin, a piece of the black stripe, seams at its front and back edges, and a handle inside near its top edge (`rcgH`).

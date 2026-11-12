@@ -377,6 +377,9 @@ A customer stands at every job board. Walk up to them for a hello: their rep tie
 - The landing light (and shadows) make the ground per-pixel lit again, because it needs that to light the ground.
 - `?nobatch` turns off v0.47's static mesh batching and `?tile=N` turns on v0.47's tiled forest (both for comparing). F3 toggles the desktop FPS counter, Esc / F2 opens the MENU board and ` the old settings list; both have the presets.
 
+## Propeller (v0.77.14)
+- Stopped or cranking you see the two solid blades. From about 300 rpm a see-through disc fades in. Above 650 rpm only the disc is drawn: a faint grey sweep with two soft streaks, and a faint yellow arc where the painted tips run. You can see through it in VR and on desktop.
+
 ## Parking brake (v0.77.11)
 - A black T-handle under the left of the panel. VR: grab it with either hand to pull it out (set); grab it again to push it in (off). Desktop: **\\** toggles it in the seat.
 - A red lamp beside it and PARK BRAKE on the status line show it's set. It's off by default and isn't saved.
