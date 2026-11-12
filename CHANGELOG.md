@@ -2,6 +2,106 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.59.1 – quality pass
+Neil: "Can you do a performance and quality pass." This is the quality half. A headless play-through covered every board type, loading and strapping, deliveries, special cargo, a hunt, an airdrop, fuel, rep up to the Halvorsen unlock, fitting an upgrade, and medevac/SAR call-outs. A text checker drew every canvas (boards, kneeboard, wrist, signs, service and parts boards) and flagged text that ran off the edge, was squeezed more than 1.25× or overlapped other text. Every save was reloaded from awkward moments, including damaged saves. The physics block is untouched (md5 `eee6637e…`).
+- **Job boards:** the item line and the third line no longer squeeze long text down to about 70 % width. They try shorter versions first, then 2 px smaller, and only then squeeze.
+  - Deliveries list "N PIECES" in place of the item list.
+  - Hunts read "HUNT AREA: <herd>".
+  - Airdrops read "AIRDROP: <who> AT <place> - KM - N BUNDLES".
+  - Special cargo shows the bonus without the long explanation.
+- **Kneeboard:**
+  - Three jobs plus an emergency call is four entries. The fourth used to fall off the bottom; now a compact layout fits all four.
+  - The emergency call is listed first.
+  - The REQUEST and rep stars moved from the nav line, where they overlapped the distance and heading, onto the short due line.
+  - The title, route, nav and cargo lines fit their width; the cargo line was cut at 40 characters.
+- **Wrist:**
+  - The current message used to show only its first 26 characters, and in VR the wrist is the only place you can read it on foot. It now word-wraps and shows two lines at a time, paging every ~2.6 s.
+  - Long messages stay up long enough to page through (3 s minimum, 2.6 s per 50 characters).
+  - The wrist shows five lines above the button (it was four, and the fifth drew under the button). The message comes before the maintenance or rep lines.
+  - The cockpit info screen pages long messages the same way.
+  - Code that set a fixed message time after `say` (radio calls, call-outs, notes, binoculars) now only lengthens it.
+- **Messages:**
+  - One hard knock on fragile cargo used to post three "JOLTED … DAMAGE n %" messages in three frames. Now one line updates in place.
+  - Two deliveries in the same frame are both shown (joined, then paged); the first one used to be lost.
+- **Emergency sign:**
+  - Medevac calls have the name and the injury on their own lines; they ran together and were squeezed.
+  - Shorter pickup line: "PICK UP AT X > DRY FORK CLINIC".
+  - Shorter SAR line: "FIND THEM, DROP SUPPLIES OR FLY ONE OUT".
+- **Save / load:**
+  - A save with a damaged `foot` entry (not a list) threw at startup and the page never finished loading. It is now checked, and so are the Cub position and quaternion (finite numbers only).
+  - The whole load is wrapped. A save that still can't be read starts a new game with "THE SAVE COULD NOT BE READ - A NEW GAME", not a blank page.
+  - Checked and fine: 195 single-field corruptions of every sub-object, plus saves taken mid-airdrop (the bundle in the air counts as dropped), mid-upgrade fit (the part goes back on the floor), with a cargo piece in your hands (back on the ground), and during field dressing.
+- **Zombie-era leftovers removed:**
+  - Gone from the v0.40 town dressing and the v0.39/v0.38 sites: the spray paint ("BITTEN INSIDE", "NO SURVIVORS", "K-12?? HALVORSEN LIED"…), the bodies in the street, the body bags, the blood stains, and the plywood QUARANTINE board.
+  - The checkpoint signs now read ROAD CHECK / FIRE SEASON / PERMITS PAST HERE and STOP / ALL VEHICLES / SHOW YOUR PERMIT. The ranger station's EVACUATE board now reads NO CAMPFIRES OUTSIDE PITS.
+  - The removed helpers still take their random numbers, so every other object in the world is in exactly the same place (checked by hashing the world). This removes 15 meshes, 2.3k vertices, 15 canvas textures and ~2 KB of file.
+- The help overlay says v0.59.
+- Tests: t52, t53 and t54 accept the shorter board wording (`AIRDROP: …`, `HUNT AREA: …`).
+
+## v0.59 – performance pass
+The target is the Quest 3 browser at 72 Hz BALANCED (13.8 ms). Tools in `bpt/p59`:
+- per-view draw / triangle / CPU / allocation / GC / texture-upload / shader-link counts, with source-line tags on every draw;
+- a scripted 2-minute flight timeline;
+- far-draw, program-switch and allocation (CDP heap sampling) probes.
+
+The physics block is untouched.
+- **The biggest cost: the towns were drawn everywhere.**
+  - The v0.47 static batcher merged the town and site meshes (one mesh each, already distance-culled by `townTick`) into the 250 m cell of their *origin*. That made one 42.6k-triangle batch, always drawn.
+  - These meshes now stay out of the batches, keep their own distance culling, and draw only within their range.
+  - This takes 33–42k triangles off every view (static batches: 56.8k → 14.2k triangles).
+- **Deer:**
+  - The instanced far deer have their own material copy. They shared one with the item meshes, which made three.js rebuild the program parameters on every switch.
+  - A far LOD past 260 m is a vertex-clustered copy built at load: deer 2098 → 296 triangles, stag 3670 → 430. This saves ~13k triangles over a herd from the air.
+  - The terrain height is looked up only when a deer has moved.
+  - The skinned-deer shader is compiled at load for all four light combinations. Before, it was a ~200 ms link the first time a herd came within 160 m; it was the only first-sight shader compile in the timeline.
+- **Garbage:** `Math.hypot` allocates on every call in V8 (~5 KB a frame in the deer loop alone). All 107 calls outside the physics block now use a plain `hyp()`; the 11 inside it are untouched. Also:
+  - the active-job list in the per-frame special-cargo, smoke and drop-hint loops reuses one array;
+  - the latch loop no longer spreads a copy of the cockpit hands every frame;
+  - per-frame allocation in flight went from ~134 KB to ~43 KB.
+- **Distance culling:**
+  - Cargo left on a pad: 350 m (2.5 km through binoculars).
+  - The racked or dropped rifle: 250 m. Its 5 draws were drawn from 3.7 km away.
+  - Boards were already off past 400 m; townsfolk past 200 m.
+- **Canvas uploads:** at most one job-board repaint per half second, so arriving at a strip no longer stacks board redraws and uploads in one frame (a 14.6 ms spike in the timeline).
+- Lights are unchanged (two dynamic lights, always in the scene, all combinations precompiled).
+- Not done: putting the parked Cub's physics to sleep on foot. It is ~50 KB a frame of allocation, but it is the physics block.
+
+Per view, before → after (SwiftShader headless, fixed 1/72 s, BALANCED). CPU is the JS time including the render submit. CPU is within the box's noise (a same-session re-run of the old build gave 1.98 / 1.55 ms for seatHome / climbForest, against 2.16 / 1.65 now):
+
+| View | Draw calls | Triangles | CPU ms | Alloc KB / frame | GC / 120 frames | CPU spikes |
+|---|---|---|---|---|---|---|
+| seatHome | 80 → 85 | 278.0k → 244.9k | 1.72 → 2.16 | 134.9 → 121.3 | 4 → 5 | 1 → 5 |
+| climbForest | 69 → 72 | 256.2k → 212.6k | 1.42 → 1.65 | 133.9 → 42.3 | 11 → 7 | 0 → 0 |
+| seatOverDryFork | 87 → 87 | 211.6k → 188.2k | 1.45 → 1.57 | 122.2 → 44.3 | 12 → 8 | 0 → 0 |
+| overPine | 48 → 49 | 199.5k → 165.6k | 1.26 → 1.44 | 83.1 → 82 | 12 → 13 | 1 → 0 |
+| footHome | 33 → 34 | 165.1k → 129.1k | 1.05 → 1.26 | 64.9 → 65 | 11 → 9 | 0 → 0 |
+| footRidge | 33 → 34 | 164.5k → 128.5k | 1.04 → 1.22 | 67.8 → 69.1 | 11 → 12 | 0 → 0 |
+| footDryFork | 30 → 30 | 162.7k → 123.4k | 0.98 → 1.35 | 63.2 → 60.9 | 10 → 11 | 0 → 1 |
+| herd60 | 49 → 50 | 203.2k → 168.3k | 1.18 → 1.4 | 67.7 → 66.5 | 12 → 12 | 0 → 0 |
+| herdBino | 31 → 31 | 168.9k → 129.6k | 1.15 → 1.44 | 69.3 → 69.7 | 10 → 12 | 0 → 1 |
+| footUpg | 49 → 51 | 173.2k → 141.5k | 1.15 → 1.37 | 65.5 → 65.8 | 11 → 8 | 0 → 0 |
+| footHalv | 32 → 32 | 169.3k → 129.9k | 0.87 → 1.26 | 63.3 → 61.8 | 10 → 10 | 0 → 0 |
+| overBurnt | 46 → 47 | 194.1k → 159.2k | 1.16 → 1.38 | 66.5 → 61.1 | 10 → 10 | 0 → 0 |
+| footSar | 81 → 75 | 220.6k → 193.4k | 1.51 → 1.63 | 73.5 → 65.6 | 12 → 11 | 0 → 0 |
+| sarBinoAir | 46 → 47 | 205.3k → 168.8k | 1.25 → 1.42 | 69.9 → 61.8 | 11 → 10 | 0 → 0 |
+
+2-minute scripted flight (8640 frames: Home take-off, climb over the forest, Pine Flats, a herd, Lodge, Ranger, Ridge, back), before → after:
+
+| | Before | After |
+|---|---|---|
+| CPU median ms | 1.6 | 1.5 |
+| CPU p95 ms | 2.9 | 2.4 |
+| CPU p99 ms | 4.9 | 4.6 |
+| Spike frames (> 2× median) | 225 | 153 |
+| Frames with shader links after load | 2 | 1 |
+| GC events | 672 | 383 |
+| Alloc KB / frame | 118.8 | 34.5 |
+| Texture upload MB (2 min) | 24.1 | 24.3 |
+| Draw calls median / max | 71 / 98 | 75 / 94 |
+| Triangles max | 302335 | 255301 |
+
+The remaining shader links are all at frame 0 (load). A few ~100 ms outliers in the after run line up with load from another process on the box. In isolation, a board, kneeboard and map repaint at those points costs 2–8 ms.
+
 ## v0.58 – townsfolk, medevac and search-and-rescue
 Neil: "recurring townsfolk (named, simple low-poly figures at their strips/camps, short notes/radio lines that build small stories across jobs, tied to rep/requests), medevac jobs (stretcher/injured passenger loaded into the rear seat, W&B, time-critical, smooth flying matters), and search-and-rescue (find an overdue hiker/canoe party from the air using binoculars, mark/airdrop supplies or land nearby to pick up)." The physics block is untouched (md5 `eee6637e…`). Emergencies run on their own list, outside the job boards, so every board offer and every pay stays the same as in v0.57 (t54 and t56 pay checks pass unchanged).
 - **Townsfolk:** 14 low-poly figures, each one merged body plus a waving arm.

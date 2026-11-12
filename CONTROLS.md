@@ -254,6 +254,10 @@ A customer stands at every job board. Walk up to them for a hello: their rep tie
 - **Medevac:** the patient boards only with the Cub stopped, the engine off and the rear seat clear. Their weight is on the W&B card. Their condition drops with time, faster with rough flying or no belt. Shut down within 90 m of the Dry Fork pad and Nurse Okafor takes over. Pay follows their condition.
 - **Search-and-rescue:** the map and kneeboard show a 450 m search circle. Fly within 150 m below 260 m AGL, or use the binoculars, to spot the party (a red X on the map). Then drop a supply bundle within 60 m of them (not in the water) for 60 % of the pay. Or land nearby and walk up: one climbs aboard, and you fly them to the clinic for the full pay.
 
+## Messages, wrist and kneeboard (v0.59.1)
+- **Wrist (VR):** a long message wraps and pages, two lines at a time, every ~2.6 s. It stays up long enough to read to the end. The message comes before the maintenance and rep lines.
+- **Kneeboard:** with three jobs plus an emergency call, all four fit. The emergency is listed first. REQUEST and the customer's stars are on each job's due line.
+
 ## Paper map
 - It lives in the holder on the left cockpit wall. In VR, squeeze grip on it to take it, and grab the far edge with your other hand to open it out. Let go in the cockpit and it clips back into the holder.
 - On foot you can carry it. Let go near the holder to clip it back, or anywhere else to drop it (pick it up off the ground with grip).
