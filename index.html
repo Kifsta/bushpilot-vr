@@ -19,7 +19,7 @@
 </script>
 </head>
 <body>
-<div id="info">BUSH PILOT VR v0.70 - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
+<div id="info">BUSH PILOT VR v0.71 - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
 You start on foot by the Cub at the cabin strip. Walk up to her and climb in (F / Y), then start her up off the checklist card (J).
 Desktop - flying: W/S or arrows pitch, A/D or arrows roll, Q/E rudder, Shift / Ctrl (or + / -) throttle, B brakes, [ ] flaps, PgUp / PgDn trim,
   R reset to the strip (cold and dark), F climb out, M map, L landing light, Home recentre, mouse looks (click to capture).
@@ -5642,6 +5642,7 @@ function rflTick(dt, vrOn) {
     const k = nb ? 'box' : nr && RFL.place === 'cabin' ? 'rack' : ''; if (k && k !== RFL.hint) { const d = !vrOn;
       say(k === 'box' ? 'AMMO BOX: 20 ROUNDS .44-40 FOR $10 - ' + (d ? 'Z TO BUY' : 'GRAB IT TO BUY') + ' (POUCH ' + RFL.spare + ')' : 'RIFLE RACK - ' + (d ? 'T TAKES THE RIFLE' : 'GRAB THE RIFLE')); }
     RFL.hint = k; storeHint(_rp2, vrOn); }
+  rflBackHint(vrOn);
 }
 const RND_HOLD = GV3(0, -0.012, -0.04), RND_TIP = GV3(0, 0, -0.02), RND_ALIGN = GV3(RF.gate.x + 0.004, RF.gate.y, RF.gate.z + 0.022);   // v0.67: held round, its tip, aligned on the gate
 function rflLoadAnim(dt) {   // a round going in: 60 ms onto the gate axis, then 100 ms pushed in past the gate
@@ -5663,6 +5664,17 @@ function rflBuyAmmo() {
 function rflDistTo(p) {   // distance from p to the rifle's length (butt -> muzzle)
   RFL.g.updateMatrixWorld(); RFL.g.worldToLocal(_rp3.copy(p)); const z = clamp(_rp3.z, RF.muz.z, RF.butt); return hyp(_rp3.x, _rp3.y - 0.01, _rp3.z - z);
 }
+const BACK_R = { rifle: 0.16, behind: -0.06, lo: -0.45, hi: 0.3, side: 0.42, reach: 0.55 }, _bkV = GV3(0, 0, 0);
+function rflBackReach(p) {   // v0.71 the slung rifle: within 16 cm of any of it, or a hand anywhere behind / over either shoulder
+  if (RFL.place !== 'back' || !RFL.g) return false; if (rflDistTo(p) < BACK_R.rifle) return true;
+  camera.getWorldPosition(_bkV); _bkV.subVectors(p, _bkV).applyAxisAngle(_ry, -headYaw());   // head-yaw frame: +z behind you, +y up
+  return _bkV.z > BACK_R.behind && _bkV.y > BACK_R.lo && _bkV.y < BACK_R.hi && Math.abs(_bkV.x) < BACK_R.side && Math.hypot(_bkV.x, _bkV.z) < BACK_R.reach;
+}
+function rflBackHint(vrOn) {   // a tick in the hand when it reaches the slung rifle (once per reach)
+  for (const g of grips) { const was = !!g.userData.backIn; let on = false;
+    if ((vrOn || HANDS.force) && g.userData.src && mode === 'foot' && RFL.place === 'back' && !huntHold(g) && RFL.hand !== g) { g.updateWorldMatrix(true, false); on = rflBackReach(g.getWorldPosition(_rp2)); }
+    if (on && !was) HX.pulse(g, 0.3, 18, 'ui'); g.userData.backIn = on; }
+}
 function rflGrab(g, p) {
   if (!RFL.g || mode !== 'foot') return false;
   if (RFL.hand === g || RFL.sup === g || RFL.levHand === g) return true;
@@ -5672,7 +5684,7 @@ function rflGrab(g, p) {
     RFL.g.worldToLocal(_rp3.copy(p)); if (_rp3.z < -0.1 && _rp3.z > -0.45 && hyp(_rp3.x, _rp3.y) < 0.09) { RFL.sup = g; tick(g); return true; }
   }
   if (!RFL.round.has(g) && rflHas() && RFL.place !== 'back' && p.distanceTo(rflPouch(_rp2)) < GUN.pouchR) return rflTakeRound(g);
-  if (RFL.place !== 'vr' && RFL.place !== 'desk' && (RFL.place === 'back' ? p.distanceTo(RFL.g.localToWorld(_rp2.copy(RF.grip))) < 0.3 : rflDistTo(p) < 0.09)) {   // pick it up (rack, ground, your back)
+  if (RFL.place !== 'vr' && RFL.place !== 'desk' && (RFL.place === 'back' ? rflBackReach(p) : rflDistTo(p) < 0.09)) {   // pick it up (rack, ground, your back)
     const was = RFL.place; RFL.g.updateWorldMatrix(true, false); RFL.g.matrixWorld.decompose(RFL.baseP, RFL.baseQ, _hbV); RFL.free = false; rflPut('vr'); RFL.hand = g; RFL.prev.copy(p); RFL.stockF = RFL.stockW = RFL.stockFv = 0; sfx('pick'); HX.pulse(g, 0.5, 30, 'rifle');   // v0.67: it flies into the hand from where it was
     if (was !== 'back') say('RIFLE ' + RFL.tube + (RFL.ch ? '+1' : '') + ' - TRIGGER FIRES, FLICK DOWN OR WORK THE LEVER, ROUNDS FROM THE BELT POUCH INTO THE GATE');
     return true; }

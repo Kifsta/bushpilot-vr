@@ -149,6 +149,7 @@ Some jobs on the boards are **hunting jobs**: a lodge, the elk camp, the ranch o
 | Buy ammo | The ammo box on the stump by the cabin: $10 for 20 rounds | **Z** by the box |
 | Buy ammo in Dry Fork (v0.70) | The **HARDWARE** counter in the Dry Fork strip hangar: a box of 20 .44-40 for $35 from your wallet. Tap the brass bell on the counter to buy: the box lands on the counter. Grab it and the 20 rounds go into your belt pouch (60 max). Up to 3 bought boxes wait on the counter, and they are saved | **Z** at the counter: takes a waiting box, else buys one |
 | Sling / put down | Let go over your shoulder, muzzle up, to sling it. Let go at a rack to rack it. Let go anywhere else and it lies on the ground | T |
+| Take it off your back (v0.71) | Reach behind or over either shoulder with either hand and squeeze grip. The zone runs from 30 cm above your eyes to 45 cm below, up to 42 cm to either side and 55 cm back; anywhere within 16 cm of the slung rifle works too. A short tick in the controller tells you you're in reach | T |
 | Binoculars | They hang on your **chest**, and in the Cub they sit in a holder by your right knee. Grab them (one hand or two) and raise them to your eyes: the 7× view comes up with the eyepieces about 12 cm in front of your eyes and stays up out to 15 cm | **V** (toggle) |
 | Field dress | Squeeze grip on a downed deer and hold for 3 s | Hold **E** by it for 3 s |
 

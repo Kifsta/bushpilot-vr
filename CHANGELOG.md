@@ -2,6 +2,19 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.71 – the slung rifle is easy to reach
+Neil's list: the rifle on your back should be easier to grab. The physics block is untouched (md5 `eee6637e…`).
+- **Before:** the grab only counted within 30 cm of the stock's wrist, a point you can't see.
+- **Now** (`rflBackReach`) either hand takes the rifle anywhere in a zone behind and over the shoulders. The zone is measured in your head-yaw frame, so it turns with you:
+  - from 6 cm in front of your eyes backwards;
+  - from 45 cm below your eyes to 30 cm above;
+  - up to 42 cm to either side and 55 cm out.
+  - Anywhere within 16 cm of the slung rifle's length also counts.
+  - Reaching across with the left hand over the right shoulder works.
+  - Hands out in front, down at the hip or far out to the side don't count.
+- **Haptic hint:** a free hand gets one short tick when it enters the zone, then again after it has left and come back. It doesn't buzz every frame.
+- New test t71 (11 checks). Screenshot: /workspace/qa-v071-back-grab-zone.png (the zone drawn in green on a stand-in body).
+
 ## v0.70 – ammo for sale at Dry Fork
 Neil's list: a general store or hardware counter in one town selling rifle rounds by the box. The physics block is untouched (md5 `eee6637e…`). The world RNG is unchanged: the counter is plain geometry in the existing hangar, with no extra random draws.
 - **Where:** a HARDWARE counter inside the Dry Fork strip hangar (right-hand wall). It has a sign (".44-40 AMMO - 20 ROUNDS $35 - RING THE BELL"), shelves with display cartons, and a brass bell.
