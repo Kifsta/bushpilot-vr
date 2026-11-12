@@ -19,7 +19,7 @@
 </script>
 </head>
 <body>
-<div id="info">BUSH PILOT VR v0.77.6 - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
+<div id="info">BUSH PILOT VR v0.77.7 - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
 You start on foot by the Cub at the cabin strip. Walk up to her and climb in (F / Y), then start her up off the checklist card (J).
 Desktop - flying: W/S or arrows pitch, A/D or arrows roll, Q/E rudder, Shift / Ctrl (or + / -) throttle, B brakes, [ ] flaps, PgUp / PgDn trim,
   R reset to the strip (cold and dark), F climb out, M map, L landing light, Home recentre, mouse looks (click to capture).
@@ -2103,13 +2103,20 @@ function fuelPumpTick(dt) {
   FUELP.line.geometry.attributes.position.needsUpdate = true;   // v0.73 the hose is drawn instead of this line
 }
 // ---- v0.73 the fuel hose: a 9 m verlet rope from the drum's pump to a nozzle you carry; it sags, lies on the ground, and the nozzle slips out of your hand at full stretch ----
+const NOZ = { H: new THREE.Vector3(0, -0.062, -0.04), INLET: new THREE.Vector3(0, -0.11, -0.071), SPOUT: new THREE.Vector3(0, -0.041, 0.2), spoutA: 0.28, rake: 0.53, r: 0.016, hl: 0.05 };   // v0.77.7 nozzle points (its frame: +z spout, +y up): grip centre, hose inlet, spout end; the grip raked back 30 deg
+NOZ.ax = new THREE.Vector3(0, Math.cos(NOZ.rake), Math.sin(NOZ.rake));   // up the grip
 const HOSE = { N: 24, L: 9, P: [], Q: [], held: null, rest: 'hook', inCap: -1, st: null, E: new THREE.Vector3(), tip: new THREE.Vector3(), dir: new THREE.Vector3(0, -1, 0), slipT: 0 };
 for (let i = 0; i <= HOSE.N; i++) { HOSE.P.push(new THREE.Vector3()); HOSE.Q.push(new THREE.Vector3()); }
 { HOSE.inst = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.012, 0.012, 1, 6), mat(0x1c1c1c), HOSE.N); HOSE.inst.frustumCulled = false; HOSE.inst.userData.noBatch = true; HOSE.inst.visible = false; scene.add(HOSE.inst);
-  const nz = new THREE.Group(), dk = mat(0x2a2a2a); nz.userData.noBatch = true;
-  const sp = new THREE.Mesh(new THREE.CylinderGeometry(0.009, 0.011, 0.13, 8).rotateX(Math.PI / 2).translate(0, 0, 0.075), mat(0x9a9a9a)); sp.userData.noBatch = true; nz.add(sp);   // spout along +z (lookAt the tip)
-  const hd = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.05, 0.08), dk); hd.position.set(0, -0.01, -0.02); hd.userData.noBatch = true; nz.add(hd);
-  const lv = new THREE.Mesh(new THREE.BoxGeometry(0.01, 0.012, 0.06), mat(0xb02a1c)); lv.position.set(0, -0.04, 0.0); lv.userData.noBatch = true; nz.add(lv);
+  const nz = new THREE.Group(), dk = mat(0x2a2a2a), al = mat(0x9a9a9a), rd = mat(0xb02a1c); nz.userData.noBatch = true;   // v0.77.7 a pistol-grip fuel nozzle: body along +z, spout bent down at the front, grip below the back, trigger lever under the body inside its guard
+  const pc = (geo, m, x, y, z) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); o.userData.noBatch = true; nz.add(o); return o; };
+  pc(new THREE.CylinderGeometry(0.017, 0.019, 0.13, 10).rotateX(Math.PI / 2), al, 0, 0, 0.005);   // body
+  pc(new THREE.CylinderGeometry(0.008, 0.01, 0.135, 8).rotateX(Math.PI / 2 + NOZ.spoutA), al, 0, -0.022, 0.135);   // spout
+  pc(new THREE.CylinderGeometry(0.0095, 0.0095, 0.012, 8).rotateX(Math.PI / 2 + NOZ.spoutA), dk, 0, -0.041, 0.2);   // spout ring
+  pc(new THREE.CylinderGeometry(NOZ.r, NOZ.r * 1.08, 2 * NOZ.hl, 10).rotateX(NOZ.rake), dk, NOZ.H.x, NOZ.H.y, NOZ.H.z);   // the grip
+  pc(new THREE.CylinderGeometry(0.012, 0.014, 0.02, 8).rotateX(NOZ.rake), al, NOZ.INLET.x, NOZ.INLET.y + 0.006, NOZ.INLET.z + 0.004);   // hose swivel
+  HOSE.lever = pc(new THREE.BoxGeometry(0.008, 0.045, 0.012).translate(0, -0.022, 0), rd, 0, -0.012, 0.02);   // trigger lever, hinged at the body
+  pc(new THREE.BoxGeometry(0.006, 0.005, 0.075), dk, 0, -0.072, 0.0); pc(new THREE.BoxGeometry(0.006, 0.06, 0.005), dk, 0, -0.045, 0.037);   // guard: bottom bar + front post
   nz.visible = false; scene.add(nz); HOSE.noz = nz; }
 const _hsA = new THREE.Vector3(), _hsB = new THREE.Vector3(), _hsC = new THREE.Vector3(), _hsM = new THREE.Matrix4(), _hsQ = new THREE.Quaternion(), _hsU = new THREE.Vector3(0, 1, 0), _hsS = new THREE.Vector3();
 const hoseOut = (F, o) => o.copy(F.p).add(_hsC.set(0.16, 0.9, 0));     // the pump's outlet on the drum lid
@@ -2140,17 +2147,18 @@ function hoseTick(dt) {
   if (F !== HOSE.st) { if (HOSE.held) hoseRelease(); if (FUELP.on && FUELP.vr) fuelStop(); HOSE.st = F; hoseReset(F); }
   HOSE.inst.visible = HOSE.noz.visible = !!F; if (!F) return;
   const N = HOSE.N, P = HOSE.P, Q = HOSE.Q, seg = HOSE.L / N; hoseOut(F, _hsA); let pin = true;
-  if (HOSE.held) { const g = HOSE.held; g.updateWorldMatrix(true, false); g.getWorldPosition(HOSE.E); HOSE.dir.set(0, -0.45, -1).normalize().transformDirection(g.matrixWorld); HOSE.tip.copy(HOSE.E).addScaledVector(HOSE.dir, 0.15);
+  if (HOSE.held) { const g = HOSE.held; g.updateWorldMatrix(true, false); _hsM.multiplyMatrices(g.matrixWorld, HOFF).multiply(nozInHand(g.userData.src?.handedness === 'left' ? -1 : 1, _hsN)); _hsM.decompose(HOSE.noz.position, HOSE.noz.quaternion, _hsS);   // v0.77.7 fixed in the hand: grip in the palm
+    HOSE.E.copy(NOZ.INLET).applyMatrix4(_hsM); HOSE.tip.copy(NOZ.SPOUT).applyMatrix4(_hsM); HOSE.dir.set(0, -Math.sin(NOZ.spoutA), Math.cos(NOZ.spoutA)).transformDirection(_hsM);
     if (HOSE.E.distanceTo(_hsA) > HOSE.L) { say('THE HOSE WON\'T STRETCH FURTHER - TAXI THE CUB CLOSER TO THE DRUM'); HX.pulse(g, 0.6, 40, 'fuel'); HOSE.inCap = -1; if (FUELP.on) fuelStop(); hoseRelease(); HOSE.rest = 'free'; }
     else { let c = nearestCap(HOSE.tip, 0.15); if (c < 0) c = nearestCap(HOSE.E, 0.2);
-      if (c >= 0) { if (HOSE.inCap !== c) { HOSE.inCap = c; hoseIn(c); } capW(c, HOSE.tip); HOSE.E.copy(HOSE.tip).addScaledVector(HOSE.dir, -0.15); }   // snapped into the cap
+      if (c >= 0) { if (HOSE.inCap !== c) { HOSE.inCap = c; hoseIn(c); } }   // in the cap (v0.77.7 the nozzle stays in your hand)
       else if (HOSE.inCap >= 0 && capW(HOSE.inCap, _hsB).distanceTo(HOSE.tip) > 0.3) { HOSE.inCap = -1; if (FUELP.on) fuelStop(); sfx('click'); } } }   // pulled it out
   if (!HOSE.held) {
-    if (FUELP.on && !FUELP.vr && FUELP.cap >= 0) { capW(FUELP.cap, HOSE.tip); HOSE.dir.set(0, -1, 0); HOSE.E.copy(HOSE.tip).y += 0.15; }   // desktop G: the nozzle sits in the cap
-    else if (HOSE.rest === 'cap' && FUELP.on && HOSE.inCap >= 0) { capW(HOSE.inCap, HOSE.tip); HOSE.dir.set(0, -1, 0); HOSE.E.copy(HOSE.tip).y += 0.15; }
+    if (FUELP.on && !FUELP.vr && FUELP.cap >= 0) { capW(FUELP.cap, HOSE.tip); HOSE.dir.set(0, -1, 0); HOSE.E.copy(HOSE.tip).y += 0.2; }   // desktop G: the nozzle sits in the cap
+    else if (HOSE.rest === 'cap' && FUELP.on && HOSE.inCap >= 0) { capW(HOSE.inCap, HOSE.tip); HOSE.dir.set(0, -1, 0); HOSE.E.copy(HOSE.tip).y += 0.2; }
     else if (HOSE.rest === 'hook') { hoseHook(F, HOSE.E); HOSE.dir.set(0, -1, 0); HOSE.tip.copy(HOSE.E).y -= 0.15; }
     else { HOSE.rest = 'free'; HOSE.inCap = -1; pin = false; } }
-  const h = Math.min(dt, 1 / 30) / 2, g2 = 9.81 * h * h;
+  const h = Math.min(dt, 1 / 30) / 2, g2 = 9.81 * h * h; plane.updateMatrixWorld(); _hsWi.copy(plane.matrixWorld).invert(); _hsB.copy(HOSE.E).applyMatrix4(_hsWi); const wingNear = Math.abs(_hsB.x) < TIP_X + HOSE.L && Math.abs(_hsB.z) < HOSE.L + 2;
   for (let sub = 0; sub < 2; sub++) {
     for (let i = 1; i <= N; i++) { if (i === N && pin) continue; const p = P[i], q = Q[i]; _hsB.subVectors(p, q).multiplyScalar(0.985); q.copy(p); p.add(_hsB); p.y -= g2; }
     for (let it = 0; it < 14; it++) {
@@ -2158,10 +2166,26 @@ function hoseTick(dt) {
       for (let i = 0; i < N; i++) { const a = P[i], b = P[i + 1]; _hsB.subVectors(b, a); const d = _hsB.length(); if (d <= seg || d < 1e-6) continue; const k = (d - seg) / d;
         const wa = i === 0 ? 0 : 1, wb = i + 1 === N && pin ? 0 : 1, w = wa + wb; if (!w) continue; a.addScaledVector(_hsB, k * wa / w); b.addScaledVector(_hsB, -k * wb / w); }
       for (let i = 1; i <= N; i++) { const p = P[i], gy = groundY(p.x, p.z) + 0.012; if (p.y < gy) { p.y = gy; Q[i].x += (p.x - Q[i].x) * 0.5; Q[i].z += (p.z - Q[i].z) * 0.5; Q[i].y = p.y; } }   // lies on the ground (with a little friction)
+      if (wingNear) for (let i = 1; i <= N; i++) if (!(i === N && pin)) hoseWing(P[i], Q[i]);   // v0.77.7 drapes over the wing, never through it
     } }
   if (!pin) { HOSE.E.copy(P[N]); HOSE.dir.subVectors(P[N], P[N - 1]).normalize(); HOSE.tip.copy(HOSE.E).addScaledVector(HOSE.dir, 0.15); }
   for (let i = 0; i < N; i++) { const a = P[i], b = P[i + 1]; _hsB.subVectors(b, a); const d = Math.max(_hsB.length(), 1e-4); _hsQ.setFromUnitVectors(_hsU, _hsB.divideScalar(d)); _hsS.set(1, d, 1); _hsC.addVectors(a, b).multiplyScalar(0.5); _hsM.compose(_hsC, _hsQ, _hsS); HOSE.inst.setMatrixAt(i, _hsM); }
-  HOSE.inst.instanceMatrix.needsUpdate = true; HOSE.noz.position.copy(HOSE.E); HOSE.noz.lookAt(HOSE.tip);
+  HOSE.inst.instanceMatrix.needsUpdate = true;
+  if (!HOSE.held) { HOSE.noz.position.copy(HOSE.E); HOSE.noz.lookAt(_hsB.copy(HOSE.E).add(HOSE.dir)); HOSE.noz.updateMatrix(); HOSE.noz.position.sub(_hsC.copy(HOSE.rest === 'cap' || FUELP.on ? NOZ.SPOUT : NOZ.INLET).applyQuaternion(HOSE.noz.quaternion)); if (HOSE.rest === 'cap' || FUELP.on) HOSE.noz.position.add(HOSE.tip).sub(HOSE.E); }   // v0.77.7 resting: the inlet on the hose end (hook / ground) or the spout in the cap
+  if (HOSE.lever) HOSE.lever.rotation.x = hoseFlow() || (HOSE.held && (HOSE.held.userData.src?.gamepad?.buttons[0]?.value || 0) > 0.5) ? -0.35 : 0;   // the lever squeezes up toward the body
+}
+const _hsWi = new THREE.Matrix4(), _hsL = new THREE.Vector3(), _hsN = new THREE.Matrix4(), _hsR = new THREE.Matrix4().makeBasis(new THREE.Vector3(-1, 0, 0), new THREE.Vector3(0, Math.sin(NOZ.rake), -Math.cos(NOZ.rake)), new THREE.Vector3(0, -Math.cos(NOZ.rake), -Math.sin(NOZ.rake)));   // nozzle axes in hand space: down the grip = the hand's +z (index at the top), the body 25 deg below the controller's forward
+function nozInHand(sx, out) {   // v0.77.7 the nozzle in hand space: its grip along the hand's finger-width axis (index at the top), the spout the way your straight fingers point, the grip in the palm
+  _hsL.set(sx * (0.0155 - NOZ.r), -0.045, 0).sub(_hsC.copy(NOZ.H).applyMatrix4(_hsR)); return out.copy(_hsR).setPosition(_hsL);
+}
+function wingTopT(f) {   // the wing section's upper surface over the flat bottom (fraction of chord -> m), from AFT
+  for (let k = 1; k < 7; k++) if (f <= AFT[k][0]) { const [f0, t0] = AFT[k - 1], [f1, t1] = AFT[k]; return t0 + (t1 - t0) * (f - f0) / (f1 - f0); } return AFT[6][1];
+}
+function hoseWing(p, q) {   // v0.77.7 push a hose particle out of the wing (plane space): over the top, or under the flat bottom, whichever side it came from; a little friction on top
+  _hsL.copy(p).applyMatrix4(_hsWi); const ax = Math.abs(_hsL.x); if (ax > TIP_X + 0.2) return; const f = (_hsL.z - LE_Z) / CHORD; if (f < -0.01 || f > 1.01) return;
+  const r = 0.016, yb = wy(Math.max(ax, ROOT_X), _hsL.z), yt = yb + wingTopT(clamp(f, 0, 1)); if (_hsL.y <= yb - r || _hsL.y >= yt + r) return;
+  _hsC.copy(q).applyMatrix4(_hsWi); const top = _hsC.y >= (yb + yt) / 2; _hsL.y = top ? yt + r : yb - r; p.copy(_hsL).applyMatrix4(plane.matrixWorld);
+  if (top) { q.x += (p.x - q.x) * 0.4; q.z += (p.z - q.z) * 0.4; }
 }
 // ---- v0.17 low-poly part builder: [kind, a, b, c, x, y, z, col, rx, ry, rz] -> one vertex-coloured, flat-shaded piece (cockpit knobs, switches) ----
 const ITEM_VM = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true }), DEER_IVM = ITEM_VM.clone();   // v0.59 instanced users get their own copy (one program each, no switching)
@@ -4192,6 +4216,7 @@ function gripSolve(st, k, sx) {   // on grab: hand frame in the control's frame 
 }
 const _gfV = GV3(0, 0, 0);
 function gripFixed(kind, sx, out) {   // v0.77.1 the authored hand frames (hand space in the control's frame) for the binoculars and paper (v0.77.5 the rifle's come from its lab pose: rflLabSolve)
+  if (kind === 'noz') return out.copy(nozInHand(sx, out)).invert();   // v0.77.7 the hand in the nozzle's frame (the nozzle hangs off the controller by nozInHand)
   if (kind === 'paper') return out.makeBasis(_gfV.set(1, sx, 0).normalize(), _gy.set(sx, -1, 0).normalize(), _gz.set(0, 0, -1));   // v0.77.2 key pinch on the corner: thumb on the front, fingers behind, pointing in along the diagonal
   _gfV.set(sx * (0.0155 - GDEF.bR.wr), -0.045, GDEF.bR.wz).applyMatrix4(HOFF);   // 'bino': this hand's barrel in its palm, eyepieces back toward the wrist (+z), objectives along the controller's forward
   return out.makeTranslation(sx * B_BAR - _gfV.x, -_gfV.y, B_PZ - _gfV.z).multiply(HOFF);
@@ -4232,7 +4257,8 @@ function handTargets(i, g, st) {                 // decide pose + world matrix f
       }
       st.mode = 'ck';
     }
-  } else if (paperHandK(g)) { gripOn(st, paperHandK(g), right ? 1 : -1); st.mode = 'ck'; }   // v0.77.3 the map held on foot: its corner pinch
+  } else if (paperHandK(g)) { gripOn(st, paperHandK(g), right ? 1 : -1); st.mode = 'ck'; }
+  else if (HOSE.held === g && HOSE.noz.visible) { gripOn(st, 'noz', right ? 1 : -1); st.mode = 'ck'; st.jx = 0.35 * trig; }   // v0.77.7 the nozzle's pistol grip, the index on the lever   // v0.77.3 the map held on foot: its corner pinch
   else if (huntHandK(g) || binoHandK(g)) { const hk = huntHandK(g) || binoHandK(g); gripOn(st, hk, right ? 1 : -1); st.mode = 'ck'; st.jx = hk === 'rgrip' ? 0.3 * trig : 0; }   // v0.67 the trigger finger squeezes   // v0.53 rifle grips, v0.65 binoculars
   else if (FUELP.g === g || huntHold(g)) { st.tc[0] = st.tc[1] = st.tc[2] = st.tc[3] = 0.6; st.tth = 0.3; st.ttw = 0.5; st.mode = 'hold'; }
   return right;
@@ -6277,6 +6303,7 @@ function binoRelease(g) { if (BINO.g2 === g) { BINO.g2 = null; return; } if (BIN
 // ---- glue: hands, boarding, the frame, save ----
 { const S = KB_HOLD_S, pin = (hw, hh, sx) => GV3(sx * (hw - PAPER_IN), -(hh - PAPER_IN), 0);   // v0.77.3 the clipboard and the map: one corner pinch per hand
   const mh = MAP_SHEET_B[0] / 2, mv = MAP_SHEET_B[1] / 2;
+  GDEF.noz = { fix: 'noz', o: () => HOSE.noz, sh: 'cyl', c: NOZ.H, ax: NOZ.ax, wd: NOZ.ax, r: NOZ.r, hl: NOZ.hl, st: 'wrap', wr: NOZ.r, tl: 0, wz: 0 };   // v0.77.7 the fuel nozzle's pistol grip: one fixed hold, glove on the controller
   Object.assign(GDEF, { kbL: { fix: 'paper', ns: 1, o: () => KB.m, sh: 'box', c: GV3(0, 0, -0.002 * S), b: GV3(KB_HW * S, KB_HH * S, 0.004), st: 'pinch', pc: pin(KB_HW * S, KB_HH * S, -1) },
     kbR: { fix: 'paper', ns: 1, o: () => KB.m, sh: 'box', c: GV3(0, 0, -0.002 * S), b: GV3(KB_HW * S, KB_HH * S, 0.004), st: 'pinch', pc: pin(KB_HW * S, KB_HH * S, 1) },
     mpL: { fix: 'paper', o: () => MAP.sheet, sh: 'box', c: GV3(0, 0, 0), b: GV3(mh, mv, 0.001), st: 'pinch', pc: pin(mh, mv, -1) },

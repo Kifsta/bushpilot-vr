@@ -2,6 +2,14 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.77.7 – fuel hose over the wing, a real nozzle in your hand
+Neil's batch, item 1.
+- **Pistol-grip nozzle:** a new model with a body, a spout angled 16 deg down with a ring, a raked grip with the hose swivel at its base, a red trigger lever under the body (it squeezes up while you hold the trigger or fuel flows), and a guard (`NOZ` holds the dimensions).
+- **Held fixed in your hand:** the nozzle is now attached to the controller (`nozInHand()`, the grip along the knuckle line, in the palm) instead of following the hose end. The glove uses a wrap grip on it (`GDEF.noz`, fixed frame through gripFixed), so the glove stays exactly on your controller. The spout points about 25 deg below the controller's forward. Putting it in a cap no longer snaps the nozzle out of your hand: the spout tip just has to be in the cap.
+- **Hose drapes over the wing:** each hose particle near the Cub is pushed out of the wing volume (span, chord, flat bottom `wy()` and the upper-surface thickness from `AFT`). It goes over the top or under the bottom, whichever side it came from, with a little friction on top, so it lies over the leading edge and along the top. It's only checked when the hose is within reach of the Cub.
+- **Resting:** on the hook or the ground the inlet sits on the hose end. In a cap (let go, or desktop G) the spout sits in the cap.
+- **Tests:** new t777 (8 checks): the nozzle-to-controller transform is the same at 12 random controller orientations; the glove grip is 'noz' and on the controller; the hose is carried across the wing and drapes on top, with no particle inside the wing, before and after it settles; the console is clean. t73 still passes (pumping, receipt, length, hook, desktop G). Screenshots: /workspace/qa-v0777-{hose-over-wing,nozzle-in-hand,nozzle-on-ground}.png.
+
 ## v0.77.6 – no regrip on release; binoculars never backwards
 Two bugs Neil found on the Quest after v0.77.4.
 - **Rifle, no role promotion:** if you let go of the stock while your other hand holds the forend, that hand **keeps its forend grip**. Its pose is the same and isn't re-solved. The rifle now hangs off that controller at the fixed support offset (`RIFLE_POSES.GRIP_OFFSET[].fq / .fp`, from the option-B forend frame), blended over 0.08 s. While the forend hand holds it alone, the trigger and the lever are dead.
