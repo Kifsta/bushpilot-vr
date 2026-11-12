@@ -274,6 +274,12 @@ A customer stands at every job board. Walk up to them for a hello: their rep tie
 ## Kneeboard (v0.51.1)
 - A clipboard on your left thigh lists your active jobs. For each one it shows the colour tag, the title and pay, FROM > TO, the distance and heading from the Cub to the destination pad, the pieces and weight, and the deadline or the special-cargo meter. It also shows where the cargo is: on the pad, in the Cub (STRAPPED or n LOOSE in red), or n/m delivered. It updates as you go.
 - VR: squeeze grip on it to lift it up to your eyes; let go and it goes back on your thigh. Desktop (in the plane): N holds it up, and N again puts it back.
+- **Pages (v0.64):** a tab bar along the top shows four pages: **1 JOBS** (the manifest above), **2 W&B**, **3 CUB** and **4 PERF**.
+  - VR: pull the trigger of the hand holding the clipboard for the next page (it wraps round). That trigger doesn't work the brakes while you hold the clipboard; the other hand's trigger still does.
+  - Desktop: with the clipboard held up (N), **.** goes to the next page and **,** to the previous one.
+  - **W&B:** each station's weight and arm, the total against the 1750 lb gross, the CG and its limits, payload left, and the envelope graph with your current point, plus WITHIN LIMITS / OVER GROSS / CG FWD / CG AFT.
+  - **CUB:** tach hours, landings, hours to the 100-hour, then bars for oil, tyres, brakes, gear damage and engine damage, the engine power cap and braking left.
+  - **PERF:** weight, fuel on board, endurance in minutes of flying at 65% and full power (and at the current power with the engine running), and the V-speeds for this weight: stall flaps up and flaps 50, Vx, Vy, approach (1.3 Vs0), short field (1.25 Vs0) and Va. They are the book PA-18-150 speeds scaled by the square root of weight / 1750.
 
 ## Lights and time of day
 - Landing light: flick the toggle under the panel (VR fingertip) or press L.

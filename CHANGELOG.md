@@ -2,6 +2,19 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.64 – clipboard pages
+Neil: "Clipboard pages flipped by the trigger: Manifest, W&B (with graph), damage/maintenance, extras (fuel/endurance/V-speeds), keyboard alternative on desktop." The physics block is untouched (md5 `eee6637e…`).
+- The kneeboard has a tab bar and four pages:
+  - **1 JOBS**: the existing manifest.
+  - **2 W&B**: the station table (the same rows as the loading card), the total against the gross, CG limits, payload left, and the envelope graph with the current point.
+  - **3 CUB**: tach, landings, the 100-hour with a bar, oil / tyres / brakes / gear / engine bars, power cap, braking and the last touchdown rate.
+  - **4 PERF**: weight, fuel, endurance at 65% and full power (and the current power when running), and the V-speeds scaled to this weight (book PA-18-150 figures × √(weight / 1750)).
+- **VR:** the trigger of the hand holding the clipboard steps to the next page, once per pull. While you hold it, that trigger is not read as brake; the other hand's trigger still brakes.
+- **Desktop:** with the clipboard held up (N), **.** / **,** turn the pages forward and back.
+- The canvas still redraws only when its content key changes. Each page has its own key, so a flip or a change in the shown values redraws it.
+- New test t64 (13 checks): desktop and VR flips, wrap-around, no brake from the holding hand, the endurance against the burn rate, the stall speeds below gross.
+- Screenshots: /workspace/qa-v064-page-jobs.png, -wb.png, -cub.png, -perf.png.
+
 ## v0.63 – strips and roads on the ground, runway texture
 Neil: "Some road strips and runways float above the terrain. Conform them to groundY per vertex / subdivide. Add a low-poly runway texture (grass/dirt, markings, edge markers, tyre tracks) for judging height on approach." The physics block is untouched (md5 `eee6637e…`). The world layout is unchanged: the instanced placement hash and the next rand() value match v0.62.
 - **The cause:** the ground is drawn as flat triangles on a 40 m grid (120 m beyond 3 km). The ribbons sampled the ground only at their own vertices, every 8–10 m, and sat at fixed offsets, so they bridged dips and cut into rises. Measured against the drawn ground (terrainHeight):
