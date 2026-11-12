@@ -2,6 +2,21 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.60 – no more z-fighting on cargo labels and signs
+Neil: "Z-fighting on delivery boxes (labels) and shop signs - fix (offset/polygonOffset)." The physics block is untouched (md5 `eee6637e…`).
+- **Cargo labels:** every label quad now sits at least 4.5 mm clear of whatever is under it; 6 mm off the face, more where tape or a tag is underneath. Before, the parcel and medkit top labels and the fragile-box front label were 1.5–2 mm from tape or stickers, and the carcass front label was 3 mm inside the body.
+  - The cargo shader also pulls each label 0.15 % of its distance toward the eye, along the view ray. On screen it lands on exactly the same pixels; in the depth buffer it wins against the box face at any range, including through the binoculars.
+  - Tape, stickers, tags and trim get the same pull, smaller: 0.03 % plus a little more for each later part, so a sticker's icon beats the sticker. This fixed the fragile tape that striped red and brown at 70 m.
+  - Still one material, one draw call per piece. Measured gaps: parcel 5.0 mm, fragile 4.5 mm, medkit 5.5 mm, carcass 6.0 mm (it was buried by 3 mm).
+- **Signs and boards:** depth-biased toward the eye with polygonOffset, so they stay clean at any range.
+  - Painted site and town signs had their backboard face at exactly the same depth; a ray test found gap 0.000 m.
+  - Job boards, the service and parts boards, the hangar sign and the emergency signs sat 2 mm off their backing.
+  - None of these are batched, so draw calls are unchanged.
+- Screenshots:
+  - /workspace/qa-v060-labels70m-before.png / -after.png: cargo at 70 m through a 1.2° lens. Before, the fragile tape is striped.
+  - /workspace/qa-v060-labels-before.png / -after.png: 14 m.
+  - /workspace/qa-v060-sign-before.png / -after.png.
+
 ## v0.59.1 – quality pass
 Neil: "Can you do a performance and quality pass." This is the quality half. A headless play-through covered every board type, loading and strapping, deliveries, special cargo, a hunt, an airdrop, fuel, rep up to the Halvorsen unlock, fitting an upgrade, and medevac/SAR call-outs. A text checker drew every canvas (boards, kneeboard, wrist, signs, service and parts boards) and flagged text that ran off the edge, was squeezed more than 1.25× or overlapped other text. Every save was reloaded from awkward moments, including damaged saves. The physics block is untouched (md5 `eee6637e…`).
 - **Job boards:** the item line and the third line no longer squeeze long text down to about 70 % width. They try shorter versions first, then 2 px smaller, and only then squeeze.

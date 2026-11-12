@@ -19,7 +19,7 @@
 </script>
 </head>
 <body>
-<div id="info">BUSH PILOT VR v0.59 - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
+<div id="info">BUSH PILOT VR v0.60 - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
 You start on foot by the Cub at the cabin strip. Walk up to her and climb in (F / Y), then start her up off the checklist card (J).
 Desktop - flying: W/S or arrows pitch, A/D or arrows roll, Q/E rudder, Shift / Ctrl (or + / -) throttle, B brakes, [ ] flaps, PgUp / PgDn trim,
   R reset to the strip (cold and dark), F climb out, M map, L landing light, Home recentre, mouse looks (click to capture).
@@ -2474,7 +2474,7 @@ const MYS_SITES = {}, LAB = { floor: 0, rect: null };
     lines.forEach((l, i) => { const bold = l.startsWith('*'), t = bold ? l.slice(1) : l; let fs = lh * 0.78; x.font = (bold ? 'bold ' : '') + fs + 'px sans-serif'; while (x.measureText(t).width > cw * 0.92 && fs > 8) { fs -= 1; x.font = (bold ? 'bold ' : '') + fs + 'px sans-serif'; } x.fillText(t, cw / 2, ch * (stripe ? 0.19 : 0.07) + lh * (i + 0.72)); });
     for (let k = 0; k < 40; k++) { x.fillStyle = 'rgba(90,70,40,' + (0.04 + R() * 0.08) + ')'; x.fillRect(R() * cw, R() * ch, 2 + R() * 14, 1 + R() * 3); }   // weathering
     const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
-    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshLambertMaterial({ map: t })); const [px, pz] = W(o, lx, lz); m.position.set(px, o.y + ly, pz); m.rotation.y = o.a + ry; scene.add(m);
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshLambertMaterial({ map: t, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -4 })); const [px, pz] = W(o, lx, lz); m.position.set(px, o.y + ly, pz); m.rotation.y = o.a + ry; scene.add(m);
     TOWN_MESH.push({ m, x: px, z: pz, far: 600 }); SIGNS.push(m); return m; };
   const site = (name, label, o) => { const s = { name, poi: label, x: o.x, z: o.z }; PLACES.push(s); POIS.push(s); return s; };
 
@@ -2679,7 +2679,7 @@ const V40 = { poles: 0, wires: null };   // v0.40 street & roadside dressing (bu
     lines.forEach((l, i) => { const bold = l.startsWith('*'), t = bold ? l.slice(1) : l; let fs = lh * 0.78; x.font = (bold ? 'bold ' : '') + fs + 'px sans-serif'; while (x.measureText(t).width > cw * 0.92 && fs > 8) { fs -= 1; x.font = (bold ? 'bold ' : '') + fs + 'px sans-serif'; } x.fillText(t, cw / 2, ch * (stripe ? 0.19 : 0.07) + lh * (i + 0.72)); });
     for (let k = 0; k < 40; k++) { x.fillStyle = 'rgba(90,70,40,' + (0.04 + R() * 0.08) + ')'; x.fillRect(R() * cw, R() * ch, 2 + R() * 14, 1 + R() * 3); }   // weathering
     const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
-    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshLambertMaterial({ map: t })); const [px, pz] = W(o, lx, lz); m.position.set(px, o.y + ly, pz); m.rotation.y = o.a + ry; scene.add(m);
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshLambertMaterial({ map: t, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -4 })); const [px, pz] = W(o, lx, lz); m.position.set(px, o.y + ly, pz); m.rotation.y = o.a + ry; scene.add(m);
     TOWN_MESH.push({ m, x: px, z: pz, far: 600 }); SIGNS.push(m); return m; };
   const site = (name, label, o) => { const s = { name, poi: label, x: o.x, z: o.z }; PLACES.push(s); POIS.push(s); return s; };
   const CYL = new THREE.CylinderGeometry(1, 1, 1, 8), CONE = new THREE.ConeGeometry(1, 1, 10);
@@ -4559,7 +4559,10 @@ const LBL = { W: 1024, H: 528, free: [...Array(16).keys()] };
 { const c = document.createElement('canvas'); c.width = LBL.W; c.height = LBL.H; LBL.x = c.getContext('2d'); LBL.x.fillStyle = '#fff'; LBL.x.fillRect(0, 0, LBL.W, LBL.H);
   LBL.t = new THREE.CanvasTexture(c); LBL.t.colorSpace = THREE.SRGBColorSpace; LBL.t.generateMipmaps = false; LBL.t.minFilter = THREE.LinearFilter; LBL.t.anisotropy = 4; }
 const CARGO_M = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true, map: LBL.t });
+CARGO_M.onBeforeCompile = sh => { sh.vertexShader = sh.vertexShader.replace('#include <project_vertex>', '#include <project_vertex>\n float lbK = uv.y < 0.9705 ? 0.9985 : uv.y < 0.983 ? 0.9997 - 0.00005 * floor(uv.x * 64.0) : 1.0; if (lbK < 1.0) { mvPosition.xyz *= lbK; gl_Position = projectionMatrix * mvPosition; }'); };   // v0.60 labels (0.15 %) and tape / tags (0.03-0.11 %, later parts more) slide along the view ray: no z-fight at range, same pixels
+CARGO_M.customProgramCacheKey = () => 'cargoLbl';
 const LBL_WU = [2 / LBL.W, 1 - 6 / LBL.H];   // uv of the white strip
+const LBL_WD = 1 - 12 / LBL.H;   // v0.60 the same strip, one row lower: marks a piece's tape / tag / trim parts
 function lblDraw(slot, job, lb) {   // destination in big letters, the job colour, the weight, the special-cargo icon
   const x = LBL.x, X = (slot % 4) * 256, Y = 16 + Math.floor(slot / 4) * 128, T = dlvS(job.to), col = '#' + DLV_COL[job.id % DLV_COL.length].toString(16).padStart(6, '0');
   x.save(); x.beginPath(); x.rect(X, Y, 256, 128); x.clip();
@@ -4583,8 +4586,8 @@ function lblQuad(slot, w, h, px, py, pz, rx, ry) {   // a label quad in the piec
   g.setAttribute('color', new THREE.Float32BufferAttribute(new Array(uv.count * 3).fill(1), 3)); return g;
 }
 const LBL_AT = {   // front label: [y, z offset past d/2, back face?]; top label: y offset past h/2 (null = no top label)
-  cement: [0, 0.004, 0, 0.004], feed: [0, 0.004, 0, 0.008], nails: [0.02, 0.003, 0, 0.004], fuel: [0, 0.004, 0, null], outboard: [0, 0.004, 0, 0.004], generator: [-0.05, 0.004, 0, -0.035],
-  parcel: [-0.01, 0.004, 0, 0.004], sack: [-0.03, 0.006, 0, null], crate: [0, 0.004, 0, 0.003], fbox: [-0.035, 0.006, 0, 0.004], cooler: [-0.05, 0.003, 0, 0.012], medkit: [-0.035, 0.003, 0, 0.004], dog: [0.02, 0.003, 1, 0.004], hens: [0.1, 0.003, 0, 0.006], deer: [0.02, 0.003, 1, 0.012], bundle: [0, 0.004, 0, 0.012],
+  cement: [0, 0.006, 0, 0.006], feed: [0, 0.006, 0, 0.008], nails: [0.02, 0.006, 0, 0.006], fuel: [0, 0.006, 0, null], outboard: [0, 0.006, 0, 0.006], generator: [-0.05, 0.006, 0, -0.033],   // v0.60 6 mm+ clear of the face and any tape / tag (2-3 mm z-fought)
+  parcel: [-0.01, 0.006, 0, 0.0075], sack: [-0.03, 0.008, 0, null], crate: [0, 0.006, 0, 0.006], fbox: [-0.035, 0.009, 0, 0.006], cooler: [-0.05, 0.006, 0, 0.014], medkit: [-0.035, 0.006, 0, 0.0075], dog: [0.02, 0.006, 1, 0.006], hens: [0.1, 0.006, 0, 0.008], deer: [0.02, 0.012, 1, 0.014], bundle: [0, 0.006, 0, 0.014],
 };
 function dlvItemGeo(k, col, slot) {
   const base = dlvGeo(k, col); if (slot < 0) return base;
@@ -4638,8 +4641,8 @@ function dlvGeo(k, col) {
     ['c', 0.025, 0.07, 6, w / 2 - 0.02, h * 0.38, 0, 0xb09a6e, 0, 0, Math.PI / 2]); }
   const top = k === 'sack' ? h / 2 : k === 'hens' ? h / 2 + 0.002 : k === 'cooler' ? h / 2 + 0.009 : k === 'generator' ? h / 2 - 0.037 : k === 'feed' ? h / 2 + 0.006 : k === 'nails' ? h / 2 + 0.006 : h / 2 + 0.003;
   P.push(['b', 0.07, 0.005, 0.05, -w / 4, top, d / 4, col], ['b', 0.05, 0.006, 0.016, -w / 4, top, d / 4 - 0.012, 0xf4f4f0]);   // the job tag (colour = the job on the board)
-  const gs = P.map(partGeo); g = mergeGeometries(gs); for (const x of gs) x.dispose();
-  { const n = g.attributes.position.count, uv = new Float32Array(n * 2); for (let i = 0; i < n; i++) { uv[i * 2] = LBL_WU[0]; uv[i * 2 + 1] = LBL_WU[1]; } g.setAttribute('uv', new THREE.BufferAttribute(uv, 2)); }   // v0.51.1: the white texel of the label atlas
+  const gs = P.map(partGeo), pi = []; gs.forEach((x, j) => { for (let i = 0; i < x.attributes.position.count; i++) pi.push(j); }); g = mergeGeometries(gs); for (const x of gs) x.dispose();
+  { const n = g.attributes.position.count, uv = new Float32Array(n * 2); for (let i = 0; i < n; i++) { uv[i * 2] = pi[i] ? (Math.min(pi[i], 16) + 0.5) / 64 : LBL_WU[0]; uv[i * 2 + 1] = pi[i] ? LBL_WD : LBL_WU[1]; } g.setAttribute('uv', new THREE.BufferAttribute(uv, 2)); }   // v0.51.1: the white texel of the label atlas (v0.60 tape / tags / trim: another white row, u = part order, so the shader lifts each a little more than the one under it)
   DLV_GEO.set(key, g); return g;
 }
 function dlvPetGeo(k) {   // v0.51: the dog (brown, facing the wire door) / two hens, built on the crate floor (y = 0)
@@ -5954,7 +5957,7 @@ const HANGAR = { x: -25.5, z: -9, ry: Math.PI / 2 };
   const gs = P.map(partGeo); HANGAR.geo = mergeGeometries(gs); for (const g of gs) g.dispose();
   const m = new THREE.Mesh(HANGAR.geo, ITEM_VM); m.castShadow = m.receiveShadow = true; scene.add(m); HANGAR.mesh = m; HANGAR.y = y0;
   { const cv = document.createElement('canvas'); cv.width = 256; cv.height = 64; const x = cv.getContext('2d'); x.fillStyle = '#e8e4d0'; x.fillRect(0, 0, 256, 64); x.fillStyle = '#6a2a20'; x.font = 'bold 34px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('HANGAR', 128, 34);
-    const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; const s = new THREE.Mesh(new THREE.PlaneGeometry(1.7, 0.38), new THREE.MeshBasicMaterial({ map: t })); s.position.set(X0 + 4.74, y0 + 4.38, Z0); s.rotation.y = Math.PI / 2; s.userData.noBatch = true; scene.add(s); }
+    const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; const s = new THREE.Mesh(new THREE.PlaneGeometry(1.7, 0.38), new THREE.MeshBasicMaterial({ map: t, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -4 })); s.position.set(X0 + 4.74, y0 + 4.38, Z0); s.rotation.y = Math.PI / 2; s.userData.noBatch = true; scene.add(s); }
   SOLID_SEGS.push([X0 - 4.6, Z0 - 6, X0 - 4.6, Z0 + 6], [X0 - 4.6, Z0 - 6, X0 + 4.6, Z0 - 6], [X0 - 4.6, Z0 + 6, X0 + 4.6, Z0 + 6]);
   }
 // ---- the fuel drums: home's is the v0.45 pump; one each by the job boards at the other three main strips ----
@@ -7109,6 +7112,8 @@ function sockFix(m, dx = 0) {
   g.setAttribute('color', new THREE.BufferAttribute(c, 3)); g.computeVertexNormals();
   m.geometry = g; m.material = sockFix.mat ||= new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide }); m.position.x -= dx; m.rotation.order = 'YXZ'; m.rotation.z = -1.41; m.scale.set(1, 0.75, 0.75);
   return m; }
+scene.traverse(o => { const M = o.material; if (!o.isMesh || !M || !M.map || M.transparent || !M.depthTest || o.geometry.type !== 'PlaneGeometry') return;   // v0.60 painted boards / signs / papers on their backing: pulled forward in depth (no z-fight at range)
+  const P = o.geometry.parameters; if (P.width < 0.3 || P.width > 8) return; for (let q = o.parent; q; q = q.parent) if (q === plane) return; Object.assign(M, { polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -4 }); });
 gfxApply();
 { PL.visible = SL.visible = true; renderer.compile(scene, camera); PL.visible = SL.visible = false; }
 { vlTick(); for (const f of [true, false]) for (let c = 0; c < 4; c++) { vlApply(f); PL.visible = !!(c & 1); SL.visible = !!(c & 2); renderer.compile(scene, camera); } PL.visible = SL.visible = false; VL.key = ''; vlApply(); }   // v0.48: both terrain looks x each panel-glow / landing-light combination compiled at load (no hitch when one comes on)   // v0.47 LIGHTS_WARM: precompile the lit-cockpit / landing-light variants
