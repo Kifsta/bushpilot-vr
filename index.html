@@ -19,7 +19,7 @@
 </script>
 </head>
 <body>
-<div id="info">BUSH PILOT VR v0.67.2 - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
+<div id="info">BUSH PILOT VR v0.68 - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
 You start on foot by the Cub at the cabin strip. Walk up to her and climb in (F / Y), then start her up off the checklist card (J).
 Desktop - flying: W/S or arrows pitch, A/D or arrows roll, Q/E rudder, Shift / Ctrl (or + / -) throttle, B brakes, [ ] flaps, PgUp / PgDn trim,
   R reset to the strip (cold and dark), F climb out, M map, L landing light, Home recentre, mouse looks (click to capture).
@@ -1997,13 +1997,13 @@ function statusText() {
 }
 let wristKey = '';
 function drawWrist() {   // v0.10: only re-uploads when something on it changed
-  const st = statusText(), key = st + '|' + SETP.open + '|' + (msgT > 0 ? msgPage(26).join() : '');
+  const st = statusText(), mb = WBTN.on || SETP.open, key = st + '|' + SETP.open + '|' + mb + '|' + (msgT > 0 ? msgPage(26).join() : '');
   if (key === wristKey) return; wristKey = key;
   wctx.fillStyle = '#111'; wctx.fillRect(0, 0, 256, 128); wctx.font = '16px monospace';
   const SL = st.split('\n'), ex = SL.slice(3).filter(l => l !== msg), W = SL.slice(0, 3).concat(msgT > 0 ? msgPage(26) : [], ex).slice(0, 5);   // v0.59.1 five lines above the button; the message (paged, two lines) before the warnings
   W.forEach((l, i) => { wctx.fillStyle = i < 3 ? (i ? '#9f9' : '#ffd84a') : msgT > 0 && i < 3 + Math.min(2, wrapText(msg, 26).length) ? '#fff' : '#fc8'; wctx.font = i ? '15px monospace' : 'bold 14px monospace'; wctx.fillText(l.slice(0, i ? 27 : 30), 4, 16 + i * 18); });   // v0.50: line 1 = wallet + jobs (gold)
-  wctx.fillStyle = SETP.open ? '#ffd84a' : '#3a3a3a'; wctx.fillRect(8, 100, 240, 22); wctx.fillStyle = SETP.open ? '#111' : '#ddd'; wctx.font = 'bold 15px monospace'; wctx.textAlign = 'center';
-  wctx.fillText(SETP.open ? 'MENU BELOW: CLOSE SETTINGS' : 'MENU BELOW: SETTINGS', 128, 116); wctx.textAlign = 'left';
+  if (mb) { wctx.fillStyle = SETP.open ? '#ffd84a' : '#3a3a3a'; wctx.fillRect(8, 100, 240, 22); wctx.fillStyle = SETP.open ? '#111' : '#ddd'; wctx.font = 'bold 15px monospace'; wctx.textAlign = 'center';   // v0.68 the menu hint only while the wrist is turned to you (or the menu is open)
+    wctx.fillText(SETP.open ? 'MENU BELOW: CLOSE MENU' : 'MENU BELOW: OPEN MENU', 128, 116); wctx.textAlign = 'left'; }
   wtex.needsUpdate = true; hud.textContent = st;
 }
 
@@ -7244,7 +7244,7 @@ function wristFace() {   // the wrist screen's face toward the eye: cosine of th
   wrist.updateWorldMatrix(true, false); wrist.getWorldPosition(_wfP); _wfN.set(0, 0, 1).applyQuaternion(wrist.getWorldQuaternion(_wfQ));
   camera.getWorldPosition(_wfE); _wfE.sub(_wfP); const d = _wfE.length(), dot = d > 1e-4 ? _wfN.dot(_wfE) / d : 0; WBTN.dot = dot; WBTN.d = d;
   const on = WBTN.on ? dot > WBTN.OUT[0] && d < WBTN.OUT[1] : dot > WBTN.IN[0] && d < WBTN.IN[1];
-  if (on !== WBTN.on) { WBTN.on = on; WBTN.m.visible = on; if (!on) SETP.wArm = false; }
+  if (on !== WBTN.on) { WBTN.on = on; WBTN.m.visible = on; if (!on) SETP.wArm = false; wristKey = ''; }
   return on;
 }
 const SETP_ROW = i => ({ X: i < 10 ? 30 : 527, Y: 96 + (i % 10) * 48 });   // v0.48: 10 rows a column

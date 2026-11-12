@@ -2,6 +2,13 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.68 – the wrist shows the menu only when you turn it to you
+Neil: "Only have the menu context icon show up when the player turns their wrist." The physics block is untouched (md5 `eee6637e…`).
+- v0.62 hid only the MENU button. The watch face itself still always drew the grey "MENU BELOW: SETTINGS" bar.
+- Now that bar shows only while the wrist faces the headset (the same angle and distance hysteresis as the button), or while the menu is open. The wallet, job, fuel and status lines stay on the watch face all the time.
+- New test t68 (5 checks): watch pixels with the wrist turned away and to you, status text kept, button hidden and shown.
+- Screenshots: /workspace/qa-v068-watch-away.png, /workspace/qa-v068-watch-facing.png.
+
 ## v0.67.2 – rifle: clear sights, a real grip, lever on a button, easy loading
 From Neil's headset test, with his reference photo of a hand on a lever rifle. The physics block is untouched (md5 `eee6637e…`). Recoil is unchanged.
 - **Hammer in the sights:** with the hammer down, its top stood 6 mm into the sight line (y 57.8 mm against 51.7 mm). The spur is now cut to 5 mm under the sight line (top 46.7 mm; cocked 34.7 mm), so the rear notch and bead are clear either way. The sights are unchanged, so the zero is too.

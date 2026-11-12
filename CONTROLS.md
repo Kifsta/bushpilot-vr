@@ -323,7 +323,7 @@ A customer stands at every job board. Walk up to them for a hello: their rep tie
 - `?nosave` plays without saving. `?plane` starts a new game in the seat instead of beside the Cub.
 
 ## Frame rate (v0.48)
-- Poke the wrist MENU button (turn the wrist to your face) to open **Settings**. A live **PERF** strip sits above it, updated twice a second:
+- Poke the wrist MENU button to open **Settings**. The button and the "MENU BELOW" hint on the watch only show while you turn the wrist to your face (v0.68); the status lines are always there. A live **PERF** strip sits above it, updated twice a second:
   - line 1: fps, frame ms (and the worst frame), CPU ms, draw calls and triangles; green means on budget, red means over;
   - line 2: the foveation the XR layer reports (`FFR 1.00`, or `UNSUPPORTED`), the layer type and its framebuffer size, the refresh rate (and what the headset offers), MSAA and the render scale;
   - line 3: what Auto resolution is doing, how many scenery instances are drawn, and whether the ground is vertex-lit.
