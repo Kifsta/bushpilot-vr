@@ -19,7 +19,7 @@
 </script>
 </head>
 <body>
-<div id="info">BUSH PILOT VR v0.71 - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
+<div id="info">BUSH PILOT VR v0.72 - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
 You start on foot by the Cub at the cabin strip. Walk up to her and climb in (F / Y), then start her up off the checklist card (J).
 Desktop - flying: W/S or arrows pitch, A/D or arrows roll, Q/E rudder, Shift / Ctrl (or + / -) throttle, B brakes, [ ] flaps, PgUp / PgDn trim,
   R reset to the strip (cold and dark), F climb out, M map, L landing light, Home recentre, mouse looks (click to capture).
@@ -1979,15 +1979,34 @@ function footXR(dt) {
 const CROUCH_DROP = 0.5, CROUCH_TIME = 0.15, JUMP_H = 0.4, CROUCH_WALK = 0.5;
 const crouchK = () => smooth01(FOOT.crouchT);
 const crouchWalk = () => (1 - (1 - CROUCH_WALK) * crouchK()) * dlvWalkK();   // v0.52: x0.5 with a heavy piece
-function jump() { if (mode !== 'foot' || FOOT.jy > 0 || FOOT.jv !== 0) return; FOOT.jv = Math.sqrt(2 * 9.81 * JUMP_H); }   // grounded only: no double jump
+function jump() { if (mode !== 'foot' || FOOT.air || FOOT.jv !== 0) return; FOOT.air = true; FOOT.jv = Math.sqrt(2 * 9.81 * (cubNear() ? STAND.jumpH : JUMP_H)); }   // grounded only: no double jump (v0.72: a bit higher by the Cub)
+// v0.72 standing on the Cub to reach the wing caps: a step on each main-gear leg, then the tyre top. Walk into them and you step up (45 cm at most, eased); walk off and you drop.
+const STAND = { up: 0.45, rate: 2.6, jumpH: 0.55, near: 3.2, S: [] }, _stV = new THREE.Vector3(0, 0, 0), _stW = new THREE.Vector3(0, 0, 0);
+for (const sx of [-1, 1]) { const G = C.GEAR.find(g => g.main && Math.sign(g.p[0]) === sx), ax = new THREE.Vector3(G.p[0], G.p[1] + G.r, G.p[2]), fit = D2B(sx * 0.35, 0.17, -0.33);
+  STAND.S.push({ k: 'step', c: fit.clone().lerp(ax, 0.72).add(new THREE.Vector3(-sx * 0.08, 0, 0)), r: 0.2 }, { k: 'tyre', c: ax.clone().add(new THREE.Vector3(0, G.r, 0)), r: 0.2 }); }
+{ const mt = mat(0x3a3a3a); for (const S of STAND.S) if (S.k === 'step') { const m = box(0.16, 0.02, 0.13, mt, S.c.x, S.c.y - 0.01, S.c.z, plane); m.userData.noBatch = true; } }   // the step plates
+function cubNear() { return mode === 'foot' && !ac.crashed && hyp(ac.pos[0] - _w.x, ac.pos[2] - _w.z) < STAND.near; }
+function footSupport(x, z, fy) {   // the highest thing you can stand on here: the ground, or a Cub step / tyre no more than STAND.up above your feet
+  let sup = groundY(x, z), on = '';
+  if (cubNear()) { plane.updateMatrixWorld(); for (const S of STAND.S) { plane.worldToLocal(_stV.set(x, fy, z)); if (hyp(_stV.x - S.c.x, _stV.z - S.c.z) > S.r) continue;
+    const top = plane.localToWorld(_stW.set(_stV.x, S.c.y, _stV.z)).y; if (top > sup && top <= fy + STAND.up) { sup = top; on = S.k; } } }
+  FOOT.on = on; return sup;
+}
 const _twp = { x: 0, z: 0 };
 function updateFoot(dt) {
   camera.getWorldPosition(_w);
   _twp.x = _w.x; _twp.z = _w.z; if (townPush(_twp, 0.3)) { footRig.position.x += _twp.x - _w.x; footRig.position.z += _twp.z - _w.z; _w.x = _twp.x; _w.z = _twp.z; }   // v0.22 town walls
   _twp.x = _w.x; _twp.z = _w.z; if (solidPush(_twp, 0.3)) { footRig.position.x += _twp.x - _w.x; footRig.position.z += _twp.z - _w.z; _w.x = _twp.x; _w.z = _twp.z; }   // v0.34 fences / walls
   FOOT.crouchT = clamp(FOOT.crouchT + (FOOT.crouchIn ? 1 : -1) * dt / CROUCH_TIME, 0, 1);
-  if (FOOT.jv !== 0 || FOOT.jy > 0) { FOOT.jv -= 9.81 * dt; FOOT.jy += FOOT.jv * dt; if (FOOT.jy <= 0) { HX.both(Math.min(0.6, 0.15 - 0.07 * FOOT.jv), 45, 'land'); FOOT.jy = 0; FOOT.jv = 0; sfx('leaf'); } }   // lands on the terrain under you
-  footRig.position.y = groundY(_w.x, _w.z) + EYE - CROUCH_DROP * crouchK() + FOOT.jy;
+  const gY = groundY(_w.x, _w.z), cr = CROUCH_DROP * crouchK();
+  if (FOOT.fy === undefined || Math.abs(footRig.position.y - (FOOT.fy + EYE - FOOT.cr)) > 0.3) { FOOT.fy = gY; FOOT.air = false; FOOT.jv = 0; }   // moved from outside (exit the Cub, a reset, a load): back on the ground
+  const sup = footSupport(_w.x, _w.z, FOOT.fy);
+  if (FOOT.air) { FOOT.jv -= 9.81 * dt; FOOT.fy += FOOT.jv * dt; if (FOOT.fy <= sup && FOOT.jv <= 0) { HX.both(Math.min(0.6, 0.15 - 0.07 * FOOT.jv), 45, 'land'); FOOT.fy = sup; FOOT.jv = 0; FOOT.air = false; sfx(FOOT.on ? 'clack' : 'leaf'); } }   // lands on what's under you
+  else if (sup > FOOT.fy + 1e-4) FOOT.fy = FOOT.on ? Math.min(sup, FOOT.fy + STAND.rate * dt) : sup;   // v0.72 eased up onto a step / the tyre; the ground as before
+  else if (sup < FOOT.fy - 0.12) { FOOT.air = true; FOOT.jv = 0; }   // walked off the tyre: drop
+  else FOOT.fy = sup;
+  FOOT.jy = FOOT.fy - gY; FOOT.cr = cr;
+  footRig.position.y = FOOT.fy + EYE - cr;
   ctl.elev = ctl.ail = ctl.rud = 0; ctl.brake = 1;               // parking brake while you're out
 }
 const _eye = new THREE.Vector3(), _hf = new THREE.Vector3();
@@ -2011,7 +2030,7 @@ function drawWrist() {   // v0.10: only re-uploads when something on it changed
 
 // ================= v0.45 fuel: two wing tanks (36 gal), burn with power, a hand pump on a drum at the home strip =================
 const PLACES = [], SOLID_SEGS = [];   // v0.45: named places for the paper map (was the loot-spot list); walls / fences you can't walk through ([x0, z0, x1, z1])
-const FOOT = { crouchIn: false, crouchT: 0, jy: 0, jv: 0 };   // on-foot crouch / hop state
+const FOOT = { crouchIn: false, crouchT: 0, jy: 0, jv: 0, fy: undefined, air: false, cr: 0, on: '' };   // on-foot crouch / hop state
 const FUEL_MAX = 136, BURN_FULL = FUEL_MAX / (25 * 60);       // litres (36 gal); full power empties it in 25 min
 let fuel = FUEL_MAX, sputT = 0, sput = false;
 const CAPS = [-1, 1].map(sx => D2B(sx * 0.62, -0.20, wy(0.62, -0.20) + 0.18));   // wing-root tank filler caps

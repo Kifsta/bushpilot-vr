@@ -2,6 +2,22 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.72 – climb on to the Cub to reach the wing caps
+Neil's list: the wing filler caps are 2.16 m up. Step up on the main tyre to reach them, easily and without jank. The physics block is untouched (md5 `eee6637e…`): this is on-foot code only, and the flight model is unchanged.
+- **Standable surfaces on each side** (body frame, so they follow the parked Cub's attitude):
+  - a step plate on the main-gear leg, 44 cm up (new small dark plate);
+  - the tyre top, 80 cm up.
+- **Feet:**
+  - Your feet now track their own height (`FOOT.fy`). The highest surface within your footprint that is no more than 45 cm above your feet supports you.
+  - Stepping up on to the Cub is eased at 2.6 m/s, so it's a short lift, not a cut.
+  - Terrain and building floors snap as before.
+  - Walking off the tyre starts a fall, and you land with the usual thump (a clack on metal).
+  - Ground → step → tyre works; ground → tyre in one go doesn't (too high).
+- **Hop:** 0.55 m within 3.2 m of the Cub, 0.4 m elsewhere.
+- Moved from outside (getting out, a reset, a load, a test teleport): your feet go straight to the ground, as before.
+- On the tyre the cap is about 0.7–0.9 m from your eyes, at chest height. The VR cap grab and the pump are unchanged.
+- New test t72 (12 checks). Screenshots: /workspace/qa-v072-on-step.png, qa-v072-on-tyre.png (a stand-in body), qa-v072-cap-view.png (from the tyre top).
+
 ## v0.71 – the slung rifle is easy to reach
 Neil's list: the rifle on your back should be easier to grab. The physics block is untouched (md5 `eee6637e…`).
 - **Before:** the grab only counted within 30 cm of the stock's wrist, a point you can't see.
