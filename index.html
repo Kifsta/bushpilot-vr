@@ -19,7 +19,7 @@
 </script>
 </head>
 <body>
-<div id="info">BUSH PILOT VR v0.77.11 - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
+<div id="info">BUSH PILOT VR v0.77.12 - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
 You start on foot by the Cub at the cabin strip. Walk up to her and climb in (F / Y), then start her up off the checklist card (J).
 Desktop - flying: W/S or arrows pitch, A/D or arrows roll, Q/E rudder, Shift / Ctrl (or + / -) throttle, B brakes, \ parking brake, [ ] flaps, PgUp / PgDn trim,
   R reset to the strip (cold and dark), F climb out, M map, L landing light, Home recentre, mouse looks (click to capture).
@@ -5548,7 +5548,7 @@ function aimQuat(d, up, out) {   // -z along d, +y as close to `up` as it goes
   _rM.makeBasis(_rx, _ry, _rz); out.setFromRotationMatrix(_rM); _rx.set(1, 0, 0); _ry.set(0, 1, 0); _rz.set(0, 0, 1); return out;
 }
 // ---- the racks (plain Lambert: the static batcher merges them) + the ammo box at home ----
-const RACK = { cabin: { p: GV3(28.95, 0, -14.3), ry: 0 }, cub: { p: GV3(0.297, 0.12 + CK.y, 0.62 + CK.z), ry: Math.PI }, box: GV3(28.55, 0, -12.75) };
+const RACK = { cabin: { p: GV3(28.95, 0, -14.3), ry: 0 }, cub: { p: GV3(0.235, 0, 0.03 + CK.z), ry: 0, rz: Math.PI / 2, rx: 0 }, box: GV3(28.55, 0, -12.75) };
 { const wood = mat(0x5a3a1e), dk = mat(0x2a2520);
   RACK.cabin.p.y = groundY(RACK.cabin.p.x, RACK.cabin.p.z) + 1.35;
   const G = new THREE.Group(); G.position.copy(RACK.cabin.p); scene.add(G);
@@ -5558,8 +5558,10 @@ const RACK = { cabin: { p: GV3(28.95, 0, -14.3), ry: 0 }, cub: { p: GV3(0.297, 0
   box(0.55, 0.42, 0.42, wood, 0, 0.21, 0, B);                                             // a stump-table
   box(0.26, 0.11, 0.17, mat(0x2f5a2a), 0, 0.475, 0, B); box(0.262, 0.03, 0.172, mat(0xd8c070), 0, 0.48, 0, B);   // green ammo carton, yellow band
   RACK.box.y = by + 0.5;
-  const C = new THREE.Group(); C.position.copy(RACK.cub.p); C.rotation.y = RACK.cub.ry; plane.add(C);   // two brackets on the right cabin wall, behind the front seat (v0.66: the front one was on the door / window, so it hung in the air when they opened; now aft of the door post)
-  for (const z of [-0.2, -0.02]) { box(0.02, 0.06, 0.03, dk, -0.022, -0.02, z, C); box(0.03, 0.012, 0.03, dk, -0.005, -0.048, z, C); }
+  RACK.cub.p.y = plY(FLOOR_PL, RACK.cub.p.z) + 0.04; RACK.cub.rx = Math.atan2(plY(FLOOR_PL, RACK.cub.p.z - 0.6) - plY(FLOOR_PL, RACK.cub.p.z), 0.6);   // v0.77.12 a floor holder: the rifle lies lengthwise on its side on the cabin floor right of your seat, muzzle forward, the wrist by your right hip
+  const C = new THREE.Group(); C.position.copy(RACK.cub.p); C.rotation.x = RACK.cub.rx; plane.add(C); RACK.cubG = C;   // pitched with the floor
+  for (const z of [-0.5, 0.06]) { box(0.13, 0.016, 0.05, dk, 0.02, -0.032, z, C); box(0.012, 0.05, 0.05, dk, -0.045, -0.012, z, C); box(0.012, 0.05, 0.05, dk, 0.085, -0.012, z, C); }   // two cradles screwed to the floor
+  RACK.latch = new THREE.Group(); RACK.latch.position.set(0.085, 0.014, -0.5); C.add(RACK.latch); box(0.13, 0.01, 0.03, mat(0x6a5a40), -0.065, 0, 0, RACK.latch); box(0.02, 0.02, 0.034, mat(0xb03020), -0.13, 0, 0, RACK.latch);   // the latch strap over the barrel (red tab), hinged on the wall side
 }
 // ---- v0.70 Dry Fork hardware counter (in the strip hangar): .44-40 by the box. Poke / grab the bell (desktop: Z) to buy, the box lands on the counter, take it into your pouch ----
 const STORE = { price: 35, rounds: 20, max: 3, n: 0, boxes: [], hint: '' };
@@ -5635,10 +5637,11 @@ function rflPut(pl, x, z, ry) {
   RFL.place = pl; if (pl === 'ground' && x !== undefined) { RFL.gp = [x, groundY(x, z) + 0.035, z]; RFL.gry = ry || 0; }
   const g = RFL.g; if (!g) return;
   g.visible = true;
-  if (pl === 'cub') { plane.add(g); g.position.copy(RACK.cub.p); g.rotation.set(0, RACK.cub.ry, 0); }
+  if (pl === 'cub') { plane.add(g); g.position.copy(RACK.cub.p); g.rotation.set(RACK.cub.rx, RACK.cub.ry, RACK.cub.rz); }
   else { scene.add(g);
     if (pl === 'cabin') { g.position.copy(RACK.cabin.p); g.rotation.set(0, RACK.cabin.ry, 0); }
     else if (pl === 'ground') { g.position.fromArray(RFL.gp); g.rotation.set(0, RFL.gry, Math.PI / 2); } }
+  if (RACK.latch) RACK.latch.rotation.z = pl === 'cub' ? 0 : -1.9;   // v0.77.12 latched over the rifle in the floor holder; flipped open when it's out
   RFL.sig = '';
 }
 const rflHeld = () => RFL.place === 'vr' || RFL.place === 'desk';
@@ -5648,7 +5651,7 @@ function rflNearRack(p, r = 0.45) {   // world point near a rack -> 'cabin' | 'c
   plane.updateMatrixWorld(); _rp3.copy(RACK.cub.p); plane.localToWorld(_rp3); if (p.distanceTo(_rp3) < r) return 'cub';
   return null;
 }
-function rflRackLabel(pl) { return pl === 'cub' ? 'IN THE CUB\'S RACK' : 'ON THE CABIN RACK'; }
+function rflRackLabel(pl) { return pl === 'cub' ? 'IN THE CUB\'S FLOOR HOLDER' : 'ON THE CABIN RACK'; }
 // ---- the zero: the bullet leaves the bore pitched up just enough to cross the sight line again at GUN.zeroM ----
 function bulletStep(p, v, h) { const sp = v.length(), k = GUN.drag * sp; v.x -= k * v.x * h; v.y -= (9.81 + k * v.y) * h; v.z -= k * v.z * h; p.addScaledVector(v, h); }
 const BH = 1 / 240;
@@ -6021,7 +6024,7 @@ function rflDeskT() {
   if (RFL.place === 'back' || (RFL.place === 'cabin' && atCabin) || (RFL.place === 'cub' && atCub) || atGround) {
     if (DLV.desk) { say('HANDS FULL - SET THE CARGO DOWN FIRST (E)'); return; }
     rflPut('desk'); RFL.hand = 'desk'; sfx('pick'); say('RIFLE ' + RFL.tube + (RFL.ch ? '+1' : '') + ' (POUCH ' + RFL.spare + ') - LMB FIRE, RMB AIM, X LEVER, Z LOAD, T SLING / RACK'); saveSoon(); return; }
-  say(RFL.place === 'cabin' ? 'THE RIFLE IS ON THE CABIN RACK AT HOME' : RFL.place === 'cub' ? 'THE RIFLE IS IN THE CUB\'S RACK' : 'YOUR RIFLE IS ON THE GROUND WHERE YOU LEFT IT');
+  say(RFL.place === 'cabin' ? 'THE RIFLE IS ON THE CABIN RACK AT HOME' : RFL.place === 'cub' ? 'THE RIFLE IS IN THE CUB\'S FLOOR HOLDER' : 'YOUR RIFLE IS ON THE GROUND WHERE YOU LEFT IT');
 }
 function rflDeskZ() {
   camera.getWorldPosition(_rp2); if (mode === 'foot' && hyp(_rp2.x - RACK.box.x, _rp2.z - RACK.box.z) < 2.5) { rflBuyAmmo(); return; }

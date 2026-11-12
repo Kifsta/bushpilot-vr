@@ -2,6 +2,14 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.77.12 – the Cub's rifle holder is on the cabin floor
+Neil's batch, item 6.
+- **Holder:** the two wall brackets behind the front seat are replaced by a floor holder (`RACK.cub`). The rifle lies lengthwise on its side on the cabin floor right of the front seat, muzzle forward and lever loop toward the wall. It's pitched to follow the floor (`RACK.cub.rx`), so nothing goes through it. It sits in two cradles.
+- **Latched:** a leather strap with a red tab lies over the barrel while the rifle is in (`RACK.latch`). It flips open when the rifle comes out and closes again when it goes back.
+- **Easy to grab:** grab any part of the rifle (as before, `GUN.grabR`) from the door. Let go within 45 cm of the holder and it goes back in, latched. Climbing in with the rifle puts it there. Messages say FLOOR HOLDER.
+- **Known:** the butt runs under the front seat's right edge. The receiver and lever are clear of it.
+- **Tests:** new t7712 (9 checks): lengthwise on its side, muzzle forward, along the floor; at least 4 mm of clearance at every vertex and inside the right wall; latched; each hand takes it 6 cm off the wrist (the latch opens) and puts it back (latched); climbing in stows it; clean console. Screenshots: /workspace/qa-v07712-rifle-holder-{seat-view,from-door}.png.
+
 ## v0.77.11 – Cub parking brake
 Neil's batch, item 5.
 - **The handle:** a T-handle with a red band, in a bezel under the left of the panel and below the switch strip (`PB.P`). It slides 3.5 cm out when set. VR: grab it with either hand to toggle (a 'pbrk' cockpit target, 5 cm). Desktop: **\\** in the seat.
