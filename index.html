@@ -19,7 +19,7 @@
 </script>
 </head>
 <body>
-<div id="info">BUSH PILOT VR v0.68 - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
+<div id="info">BUSH PILOT VR v0.68.1 - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
 You start on foot by the Cub at the cabin strip. Walk up to her and climb in (F / Y), then start her up off the checklist card (J).
 Desktop - flying: W/S or arrows pitch, A/D or arrows roll, Q/E rudder, Shift / Ctrl (or + / -) throttle, B brakes, [ ] flaps, PgUp / PgDn trim,
   R reset to the strip (cold and dark), F climb out, M map, L landing light, Home recentre, mouse looks (click to capture).
@@ -39,7 +39,7 @@ VR - on foot: left stick walks (click = run), right stick turns (snap / smooth i
   Hunting: grip the rifle's wrist (cabin / Cub rack), other hand on the forend, trigger fires, pinch the lever loop and swing it (or flick), rounds from the belt pouch into the gate; binoculars on your chest (one hand or both, a hand on each barrel), raise them to your eyes; grip and hold a downed deer to dress it.
   Airdrops: unlatch + open both halves of the right door, reach back and grip a bundle, put your hand out through the door and let go.
   Running costs: grab a wing cap by any strip's red drum to buy fuel; poke a price on the hangar / fuel boards for oil, tyres, repairs, the 100-hour.
-Settings (` or F2 on desktop, the wrist board in VR): graphics, comfort, FPS counter, stick on release, control labels, haptics, time of day.
+MENU (Esc / F2 on desktop, the wrist MENU button in VR; poke, point + trigger, or click): resume, save / load (3 slots), graphics + presets, comfort, controls (dominant hand), audio volumes. ` = old settings list.
 </div>
 <div id="hud"></div><div id="cross"></div>
 <script type="module">
@@ -526,7 +526,7 @@ const hyp = (a, b, c = 0) => Math.sqrt(a * a + b * b + c * c);   // v0.59 Math.h
 
 // ======================= RENDERING =======================
 // v0.35 settings (persist in localStorage 'bp_gfx'; ?gfx=shadows:2,grass:1 overrides for testing). Defaults = the v0.34 look and cost.
-const GFX_DEF = { shadows: 0, scale: 0.9, fov: 1, dist: 1, trees: 1, grass: 0, clouds: 1, fog: 1, msaa: 1, hz: 72, vig: 0, turn: 0, fps: 0, tod: 11, stk: 1, tips: 1, terr: 1, dyn: 1, glove: 0 };   // v0.48 BALANCED: 90 % scale, 72 Hz, fast terrain shading, auto resolution; v0.49.1 the stick stays where you let go of it
+const GFX_DEF = { shadows: 0, scale: 0.9, fov: 1, dist: 1, trees: 1, grass: 0, clouds: 1, fog: 1, msaa: 1, hz: 72, vig: 0, turn: 0, fps: 0, tod: 11, stk: 1, tips: 1, terr: 1, dyn: 1, glove: 0, hand: 0, volM: 1, volE: 1, volA: 1, volF: 1 };   // v0.68.1 dominant hand, volumes. v0.48 BALANCED: 90 % scale, 72 Hz, fast terrain shading, auto resolution; v0.49.1 the stick stays where you let go of it
 const GFX = Object.assign({}, GFX_DEF);
 try { const o = JSON.parse(localStorage.getItem('bp_gfx') || '{}'); if ((o.v || 0) < 48) { if (o.scale === 1) delete o.scale; if (o.hz === 0) delete o.hz; }   // v0.48: saved copies of the old defaults (100 %, AUTO Hz) move to the new ones once
   if ((o.v || 0) < 49 && o.stk === 0) delete o.stk;   // v0.49.1: a saved CENTRES (the old default) switches to STAYS once; CENTRES chosen after this sticks
@@ -1538,7 +1538,8 @@ function audioGraph() {
   const filt = (type, f, q) => { const b = A.createBiquadFilter(); b.type = type; b.frequency.value = f; b.Q.value = q; return b; };
   const gain = v => { const g = A.createGain(); g.gain.value = v; return g; };
   // engine: 4-cyl firing note (saw + sub square) through a low-pass, AM'd by low noise for roughness; positional at the cowl
-  SND.engPan = mkPanner(4, 1); SND.engPan.connect(SND.master);
+  SND.eng = A.createGain(); SND.eng.connect(SND.master); SND.fx = A.createGain(); SND.fx.connect(SND.master);   // v0.68.1 volume buses: engine + flight, effects (ambient = SND.amb)
+  SND.engPan = mkPanner(4, 1); SND.engPan.connect(SND.eng);
   SND.engGain = gain(0); SND.engGain.connect(SND.engPan);
   SND.engLP = filt('lowpass', 400, 0.8); SND.engLP.connect(SND.engGain);
   SND.o1 = A.createOscillator(); SND.o1.type = 'sawtooth'; SND.o2 = A.createOscillator(); SND.o2.type = 'square';
@@ -1546,14 +1547,14 @@ function audioGraph() {
   loopNoise().connect(filt('lowpass', 25, 0.7)).connect(gain(0.6)).connect(g1.gain);         // roughness
   loopNoise().connect(filt('bandpass', 1100, 0.7)).connect(gain(0.05)).connect(SND.engGain);  // mechanical hiss
   // wind / prop wash (in the cockpit), tyre rumble, stall horn
-  SND.windBP = filt('bandpass', 500, 0.6); SND.windG = gain(0); loopNoise().connect(SND.windBP).connect(SND.windG).connect(SND.master);
-  SND.rumbG = gain(0); loopNoise().connect(filt('lowpass', 90, 1)).connect(SND.rumbG).connect(SND.master);
+  SND.windBP = filt('bandpass', 500, 0.6); SND.windG = gain(0); loopNoise().connect(SND.windBP).connect(SND.windG).connect(SND.eng);
+  SND.rumbG = gain(0); loopNoise().connect(filt('lowpass', 90, 1)).connect(SND.rumbG).connect(SND.eng);
   const ho = A.createOscillator(); ho.type = 'sawtooth'; ho.frequency.value = 470; ho.start();
   SND.stO = A.createOscillator(); SND.stO.type = 'sawtooth'; SND.stO.frequency.value = 70; SND.stO.start(); SND.stG = gain(0);   // v0.19 starter motor
   SND.stO.connect(filt('bandpass', 650, 1.4)).connect(SND.stG).connect(SND.engPan);
-  SND.hornG = gain(0); ho.connect(filt('bandpass', 950, 3)).connect(SND.hornG).connect(SND.master);
+  SND.hornG = gain(0); ho.connect(filt('bandpass', 950, 3)).connect(SND.hornG).connect(SND.fx);
   // v0.12: ambient beds (very quiet): wind (rises with height above the valley, ducked under the engine), crickets (dusk/night), water (rivers)
-  SND.amb = gain(0.55); SND.amb.connect(SND.master);
+  SND.amb = gain(0.55); SND.amb.connect(SND.master); sndVol();
   SND.ambWLP = filt('lowpass', 380, 0.5); SND.ambW = gain(0); loopNoise().connect(SND.ambWLP).connect(SND.ambW).connect(SND.amb);
   const wl = A.createOscillator(); wl.frequency.value = 0.07; const wlg = gain(120); wl.connect(wlg).connect(SND.ambWLP.frequency); wl.start();   // slow gusts
   const cr = A.createOscillator(); cr.frequency.value = 4300; const crAM = gain(0), crL = A.createOscillator(); crL.type = 'square'; crL.frequency.value = 26;
@@ -1562,6 +1563,7 @@ function audioGraph() {
   SND.waterG = gain(0); const wf = filt('bandpass', 700, 0.9); loopNoise().connect(wf).connect(SND.waterG).connect(SND.amb);
   const wfl = A.createOscillator(); wfl.frequency.value = 0.9; const wflg = gain(260); wfl.connect(wflg).connect(wf.frequency); wfl.start();   // burble
 }
+function sndVol() { if (!SND.ok || !SND.amb) return; SND.master.gain.value = 0.8 * GFX.volM; SND.eng.gain.value = GFX.volE; SND.fx.gain.value = GFX.volF; SND.amb.gain.value = 0.55 * GFX.volA; }   // v0.68.1
 function mkPanner(ref, roll) {
   const p = actx.createPanner(); p.panningModel = 'equalpower'; p.distanceModel = 'inverse'; p.refDistance = ref; p.rolloffFactor = roll; p.maxDistance = 2000; return p;
 }
@@ -1657,7 +1659,7 @@ function sfx(kind, pos, delay = 0) {
   if (HX.ctx && !pos && (kind === 'pick' || kind === 'clack' || kind === 'leaf')) HX.confirm();   // v0.24
   if (!SND.ok) return;
   const A = actx, t = A.currentTime + delay;
-  let out = SND.master; if (pos) { out = mkPanner(3, 1); setPos(out, pos); out.connect(SND.master); }
+  let out = SND.fx; if (pos) { out = mkPanner(3, 1); setPos(out, pos); out.connect(SND.fx); }
   const burst = (len, decay, vol, type, f, at = 0) => {
     const s = A.createBufferSource(); s.buffer = SND.noise; const g = A.createGain(), b = A.createBiquadFilter(); b.type = type; b.frequency.value = f;
     g.gain.setValueAtTime(vol, t + at); g.gain.exponentialRampToValueAtTime(0.001, t + at + len);
@@ -1849,7 +1851,7 @@ const wrist = new THREE.Mesh(new THREE.PlaneGeometry(0.11, 0.055), new THREE.Mes
 wrist.position.set(0, 0.035, 0.07); wrist.rotation.x = -1.0;
 const grips = [0, 1].map(i => {
   const g = renderer.xr.getControllerGrip(i);
-  g.addEventListener('connected', e => { g.userData.src = e.data; if (e.data.handedness === 'left') g.add(wrist); });
+  g.addEventListener('connected', e => { g.userData.src = e.data; wristAttach(); });   // v0.68.1 the watch on your off hand (Dominant hand)
   g.addEventListener('disconnected', () => { g.userData.src = null; });
   xrOffset.add(g); return g;
 });
@@ -5644,7 +5646,7 @@ function rflRelease(g) {
   else { rflPut('ground', _rp2.x, _rp2.z, headYaw()); sfx('thud', _rp2); }
   HX.pulse(g, 0.15, 12, 'release'); saveSoon();
 }
-function rflTrigger(g) { if (RFL.place === 'vr' && RFL.hand === g && !RFL.free) rflShoot(); }
+function rflTrigger(g) { if (RFL.place === 'vr' && RFL.hand === g && !RFL.free && !SETP.open) rflShoot(); }   // (v0.68.1 not while the menu is up: the trigger points at it)
 // ---- desktop: T take / put back / sling, left mouse fires, right mouse aims, X works the lever, Z loads a round (at the ammo box: buys) ----
 function rflDeskT() {
   if (!RFL.g) { say('RIFLE STILL LOADING'); return; }
@@ -6883,7 +6885,7 @@ function cubParked() { return !ac.crashed && acGS() < 1 && ac.gs.some(g => g.Fn 
 function saveGame(why) {
   if (NOSAVE || SV.off) return false;
   if (cubParked()) SV.cub = { p: ac.pos.map(r3), q: ac.q.map(v => Math.round(v * 1e6) / 1e6) };
-  const d = { v: 55, at: Date.now(), cub: SV.cub, fuel: r3(fuel), h: r3(DAY.h), mode, foot: mode === 'foot' ? [r3(footRig.position.x), r3(footRig.position.z), r3(bodyYaw)] : null, dlv: dlvSave(), hunt: huntSave(), eco: ecoSave(), upg: upgSave(), emg: emgSave() };   // v0.55 + the Cub's log (tach, oil, wear, damage)   // v0.53 + rifle / ammo   // v0.50: + wallet, jobs, cargo, straps
+  const d = { v: 55, at: Date.now(), cub: SV.cub, fuel: r3(fuel), h: r3(DAY.h), mode, foot: mode === 'foot' ? [r3(footRig.position.x), r3(footRig.position.z), r3(bodyYaw)] : null, dlv: dlvSave(), hunt: huntSave(), eco: ecoSave(), upg: upgSave(), emg: emgSave(), meta: { cash: DLV.cash, loc: svPlace() } };   // v0.68.1 meta: the menu's slot label. v0.55 + the Cub's log (tach, oil, wear, damage)   // v0.53 + rifle / ammo   // v0.50: + wallet, jobs, cargo, straps
   try { localStorage.setItem(SAVE_KEY, JSON.stringify(d)); } catch (e) { return false; }
   SV.last = Date.now(); SV.n++; SV.why = why || ''; SV.t = 30; SV.due = -1; return true;
 }
@@ -7023,6 +7025,11 @@ const GFX_OPT = [   // key, label, values, value labels, note (shown small under
   ['stk', 'Stick on release', [0, 1], ['CENTRES', 'STAYS'], 'VR: let go of the stick'],
   ['tips', 'Control labels', [0, 1], ['OFF', 'ON'], 'VR: name + state by your hand'],
   ['glove', 'Gloves', [0, 1, 2], ['SAGE', 'BLACK', 'TAN'], 'flying gloves'],
+  ['hand', 'Dominant hand', [0, 1], ['RIGHT', 'LEFT'], 'the watch goes on the other wrist'],   // v0.68.1
+  ['volM', 'Master volume', [0, 0.25, 0.5, 0.75, 1], ['OFF', '25%', '50%', '75%', '100%'], 'everything'],
+  ['volE', 'Engine + flight', [0, 0.25, 0.5, 0.75, 1], ['OFF', '25%', '50%', '75%', '100%'], 'engine, starter, prop wash, tyres'],
+  ['volA', 'Ambient', [0, 0.25, 0.5, 0.75, 1], ['OFF', '25%', '50%', '75%', '100%'], 'wind, crickets, water'],
+  ['volF', 'Effects', [0, 0.25, 0.5, 0.75, 1], ['OFF', '25%', '50%', '75%', '100%'], 'clicks, rifle, cargo, stall horn'],
 ];
 const GQ = { sig: '', xrRates: null, fogK: -1, fpsT: 0, menu: null, shadowT: 0 };
 function gfxLabel(k) { if (k === 'hx') return HX.gain ? Math.round(HX.gain * 100) + '%' : 'OFF'; const o = GFX_OPT.find(r => r[0] === k), i = o[2].findIndex(v => Math.abs(v - GFX[k]) < 1e-6); return i >= 0 ? o[3][i] : String(GFX[k]); }
@@ -7035,7 +7042,8 @@ function gfxSet(k, v, quiet) {
 }
 const GFX_PRESET = {   // v0.48: one-poke presets (render scale takes effect next time you enter VR)
   PERFORMANCE: { scale: 0.7, fov: 1, terr: 0, trees: 0.4, dist: 0.6, clouds: 0, fog: 1, shadows: 0, grass: 0, hz: 72, dyn: 1 },
-  BALANCED: { scale: GFX_DEF.scale, fov: 1, terr: 1, trees: 1, dist: 1, clouds: 1, fog: 1, shadows: 0, grass: 0, hz: 72, dyn: 1 } };
+  BALANCED: { scale: GFX_DEF.scale, fov: 1, terr: 1, trees: 1, dist: 1, clouds: 1, fog: 1, shadows: 0, grass: 0, hz: 72, dyn: 1 },
+  QUALITY: { scale: 1, fov: 0.66, terr: 2, trees: 1, dist: 1.3, clouds: 2, fog: 1, shadows: 1, grass: 1, hz: 72, dyn: 1 } };   // v0.68.1 (Quest 3: expect drops in busy places; auto resolution steps down)
 function gfxPreset(n) { for (const [k, v] of Object.entries(GFX_PRESET[n])) if (GFX[k] !== v) gfxSet(k, v, true); say(n + (renderer.xr.isPresenting && GFX.scale !== GQ.xrScale ? ' - RENDER SCALE AT NEXT VR START' : '')); sfx('click'); if (GQ.menu) gfxMenuSync(); }
 function gfxCycle(k, d = 1) { if (k === 'hx') { HX.cycle(); if (GQ.menu) gfxMenuSync(); return; } const o = GFX_OPT.find(r => r[0] === k), i = o[2].findIndex(v => Math.abs(v - GFX[k]) < 1e-6); gfxSet(k, o[2][((i < 0 ? 0 : i) + d + o[2].length) % o[2].length]); }
 function vlWant() { return GFX.terr < 2 && !GFX.shadows && !LIGHTS.landing; }   // per-pixel lights (landing light) and shadow maps need the Lambert look
@@ -7060,6 +7068,8 @@ function gfxApply(k) {
   if (all || k === 'grass') { GRASS.cx = 1e9; if (GRASS.im) GRASS.im.visible = false; }
   if (all || k === 'fps') FPSM.visible = !!GFX.fps;
   if (all || k === 'glove') gloveColours();
+  if (all || k === 'hand') wristAttach();
+  if (all || (k && k.startsWith('vol'))) sndVol();
   if (k === 'tod') DAY.h = GFX.tod;   // v0.45 fixed time of day (a saved game keeps its own until you change it)
 }
 // ---- shadows: one directional shadow map that follows you (a tight "cascade": 28 m box LOW / 1024 px, 64 m HIGH / 2048 px) ----
@@ -7205,13 +7215,14 @@ function dynTick(dt) {
 function gfxTick(dt) { gfxShadowFollow(dt); clouds2Tick(dt); grassTick(dt); vigTick(dt); fpsTick(dt);
   const K = GFX.dist * [1.6, 1, 0.6][GFX.fog]; if (K !== GQ.fogK) { GQ.fogK = K; scene.fog.near = 1200 * K; scene.fog.far = 8500 * K; camera.far = Math.max(7300, scene.fog.far * 1.03); /* v0.47: was 14 km; past the fog end it is all sky colour */ camera.updateProjectionMatrix(); } }
 // ---- v0.45 VR SETTINGS board: poke the screen on your left wrist with the other hand's finger; poke a row = next value ----
+const MENU_IDS = ['resume', 'save', 'gfx', 'comfort', 'controls', 'audio'];
 const SETP = (() => { const c = document.createElement('canvas'); c.width = 1024; c.height = 640; const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.generateMipmaps = false; t.minFilter = THREE.LinearFilter; t.anisotropy = 4;
-  const m = new THREE.Mesh(new THREE.PlaneGeometry(0.6, 0.375), new THREE.MeshBasicMaterial({ map: t }));
-  const back = new THREE.Mesh(new THREE.PlaneGeometry(0.62, 0.395).rotateY(Math.PI).translate(0, 0, -0.004), mat(0x3a2e20)); m.add(back);
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 0.5), new THREE.MeshBasicMaterial({ map: t }));   // v0.68.1 bigger (was 0.6 x 0.375 m)
+  const back = new THREE.Mesh(new THREE.PlaneGeometry(0.82, 0.52).rotateY(Math.PI).translate(0, 0, -0.004), mat(0x3a2e20)); m.add(back);
   m.visible = false; xrOffset.add(m);
   const pc = document.createElement('canvas'); pc.width = 1024; pc.height = 176; const pt = new THREE.CanvasTexture(pc); pt.colorSpace = THREE.SRGBColorSpace; pt.generateMipmaps = false; pt.minFilter = THREE.LinearFilter;
-  const pm = new THREE.Mesh(new THREE.PlaneGeometry(0.6, 0.103), new THREE.MeshBasicMaterial({ map: pt })); pm.position.set(0, 0.375 / 2 + 0.06, 0); m.add(pm);   // v0.48 live PERF strip above the board
-  return { open: false, m, c, x: c.getContext('2d'), t, W: 0.6, H: 0.375, wArm: true, arm: [true, true], lit: -1, pc, px: pc.getContext('2d'), pt, pT: 0 }; })();
+  const pm = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 0.1375), new THREE.MeshBasicMaterial({ map: pt })); pm.position.set(0, 0.5 / 2 + 0.08, 0); m.add(pm);   // v0.48 live PERF strip above the board
+  return { open: false, m, c, x: c.getContext('2d'), t, W: 0.8, H: 0.5, wArm: true, arm: [true, true], trg: [false, false], lit: -1, pc, px: pc.getContext('2d'), pt, pT: 0, pm, tab: (() => { try { const t = localStorage.getItem('bp_menutab'); return MENU_IDS.includes(t) ? t : 'gfx'; } catch (e) { return 'gfx'; } })(), conf: null, desk: null, dcv: null }; })();
 function xrLayerInfo() {   // v0.48: what the XR layer actually reports (foveation, framebuffer, refresh)
   const ses = renderer.xr.isPresenting ? renderer.xr.getSession() : null, L = ses && renderer.xr.getBaseLayer ? renderer.xr.getBaseLayer() : null;
   if (!L) return { ffr: 'not in VR', fb: '-', hz: '-', kind: '-' };
@@ -7227,7 +7238,7 @@ function perfLines() {
       '   inst ' + CHS.up + '   ground ' + (VL.key.startsWith('true') ? 'vertex-lit' : 'per-pixel'), '#5a4630']];
 }
 function setpPerf(dt) {   // twice a second while the board is open
-  if (!SETP.open || (SETP.pT -= dt) > 0) return; SETP.pT = 0.5;
+  SETP.pm.visible = SETP.tab === 'gfx'; if (!SETP.open || SETP.tab !== 'gfx' || (SETP.pT -= dt) > 0) return; SETP.pT = 0.5;
   const x = SETP.px; x.fillStyle = '#e9dcb8'; x.fillRect(0, 0, 1024, 176); x.strokeStyle = '#5a4630'; x.lineWidth = 6; x.strokeRect(3, 3, 1018, 170);
   x.fillStyle = '#2e2418'; x.font = 'bold 22px Georgia, serif'; x.fillText('PERF', 22, 36); x.font = '14px Georgia, serif'; x.fillStyle = '#6a5638'; x.fillText('live - try one row at a time', 90, 36);
   perfLines().forEach(([t, c], i) => { x.fillStyle = c; x.font = (i ? '20px' : 'bold 24px') + ' monospace'; x.fillText(t, 22, 76 + i * 38, 980); }); SETP.pt.needsUpdate = true;
@@ -7248,55 +7259,135 @@ function wristFace() {   // the wrist screen's face toward the eye: cosine of th
   return on;
 }
 const SETP_ROW = i => ({ X: i < 10 ? 30 : 527, Y: 96 + (i % 10) * 48 });   // v0.48: 10 rows a column
+// v0.68.1 the MENU board: tabs along the top (RESUME, SAVE / LOAD, GRAPHICS, COMFORT, CONTROLS, AUDIO), big poke / point targets, CLOSE bottom right.
+// Poke with a fingertip or point either controller at it and pull the trigger. Desktop: the same board in a page overlay (Esc / F2), clicked with the mouse.
+const MENU_TABS = [['resume', 'RESUME'], ['save', 'SAVE / LOAD'], ['gfx', 'GRAPHICS'], ['comfort', 'COMFORT'], ['controls', 'CONTROLS'], ['audio', 'AUDIO']];
+const MENU_ROWS = { gfx: ['scale', 'fov', 'terr', 'trees', 'dist', 'clouds', 'fog', 'shadows', 'grass', 'msaa', 'dyn', 'hz', 'fps', 'tod', 'glove'], comfort: ['vig', 'turn', 'stk', 'tips'], controls: ['hand', 'hx'], audio: ['volM', 'volE', 'volA', 'volF'] };
+const MENU_TAB = i => ({ X: 22 + i * 164, W: 158 });
+const MENU_SLOT = n => 76 + (n - 1) * 128;   // a manual slot's box top (right column)
+const MENU_HELP = ['TRIGGER  fire / brake / next page', 'GRIP  grab (stick, throttle, knobs, cargo)', 'A / X  recentre + set height', 'B  reset flight (on the rifle: lever)', 'Y  climb in / out (left rifle: lever)',
+  'LEFT STICK  walk (click: run)', 'RIGHT STICK  turn / crouch', 'WRIST TO FACE  MENU button', 'DESKTOP  Esc or F2 menu, ` old list', 'Full list: CONTROLS.md / the GUIDE book'];
+let SV_RELOAD = () => location.reload();   // (tests swap this out)
+function setpRows() { return (MENU_ROWS[SETP.tab] || []).map(k => GFX_OPT.findIndex(o => o[0] === k)); }
+function svSlotKey(n) { return SAVE_KEY + '-slot' + n; }
+function svInfo(key) { let d = null; try { d = JSON.parse(localStorage.getItem(key) || 'null'); } catch (e) { } if (!d || !d.at) return null;
+  const t = new Date(d.at), p = n => String(n).padStart(2, '0'); return { d, txt: t.toLocaleDateString('en-AU', { day: 'numeric', month: 'short' }) + ' ' + p(t.getHours()) + ':' + p(t.getMinutes()) + (d.meta ? '  ' + d.meta.loc + '  $' + (d.meta.cash | 0).toLocaleString('en-US') : '') }; }
+function svPlace() {   // where you are, for a save's label: the nearest strip
+  const x = mode === 'foot' ? footRig.position.x : ac.pos[0], z = mode === 'foot' ? footRig.position.z : ac.pos[2]; let best = null, bd = 1e18;
+  for (const S of DLV_STRIPS) { const d = (S.x - x) ** 2 + (S.z - z) ** 2; if (d < bd) { bd = d; best = S; } }
+  return best ? (bd > 400 * 400 ? 'NEAR ' : '') + best.name : '?'; }
+function setpBtn(x, X, Y, W, H, t, lit, col) { x.fillStyle = lit ? '#f2d878' : col || '#7a6040'; x.fillRect(X, Y, W, H); x.strokeStyle = '#3a2e20'; x.lineWidth = 2; x.strokeRect(X, Y, W, H);
+  x.fillStyle = lit ? '#2e2418' : '#f2ead2'; x.font = 'bold 22px Georgia, serif'; x.textAlign = 'center'; x.fillText(t, X + W / 2, Y + H / 2 + 8); x.textAlign = 'left'; }
 function setpDraw() {
   const x = SETP.x; x.fillStyle = '#e9dcb8'; x.fillRect(0, 0, 1024, 640); x.strokeStyle = '#5a4630'; x.lineWidth = 6; x.strokeRect(3, 3, 1018, 634);
-  x.fillStyle = '#2e2418'; x.font = 'bold 34px Georgia, serif'; x.fillText('SETTINGS', 30, 56); x.font = '17px Georgia, serif'; x.fillStyle = '#6a5638'; x.fillText('Poke a row to change it. Saved in this browser.', 230, 54);
-  GFX_OPT.forEach(([k, lab, , , note], i) => { const { X, Y } = SETP_ROW(i);
+  MENU_TABS.forEach(([id, t], i) => { const { X, W } = MENU_TAB(i), on = SETP.tab === id; x.fillStyle = on ? '#e9dcb8' : '#7a6040'; x.fillRect(X, 10, W, 52); x.strokeStyle = '#5a4630'; x.lineWidth = 2; x.strokeRect(X, 10, W, 52);
+    x.fillStyle = on ? '#2e2418' : '#f2ead2'; x.font = 'bold 20px Georgia, serif'; x.textAlign = 'center'; x.fillText(t, X + W / 2, 44); x.textAlign = 'left'; });
+  x.fillStyle = '#5a4630'; x.fillRect(10, 62, 1004, 3);
+  setpRows().forEach((gi, i) => { const [k, lab, , , note] = GFX_OPT[gi], { X, Y } = SETP_ROW(i);
     x.fillStyle = '#2e2418'; x.font = 'bold 21px Georgia, serif'; x.fillText(lab, X, Y); x.font = '14px Georgia, serif'; x.fillStyle = '#6a5638'; x.fillText(note, X, Y + 20);
     const ch = k !== 'hx' && GFX[k] !== GFX_DEF[k];
-    x.fillStyle = SETP.lit === i ? '#f2d878' : ch ? '#d9c48e' : '#e2d4ae'; x.fillRect(X + 262, Y - 26, 196, 40); x.strokeStyle = '#5a4630'; x.lineWidth = 2; x.strokeRect(X + 262, Y - 26, 196, 40);
+    x.fillStyle = SETP.lit === gi ? '#f2d878' : ch ? '#d9c48e' : '#e2d4ae'; x.fillRect(X + 262, Y - 26, 196, 40); x.strokeStyle = '#5a4630'; x.lineWidth = 2; x.strokeRect(X + 262, Y - 26, 196, 40);
     x.fillStyle = '#2e2418'; x.font = 'bold 20px Georgia, serif'; x.textAlign = 'center'; x.fillText(gfxLabel(k), X + 360, Y + 1); x.textAlign = 'left'; });
-  x.fillStyle = '#5a4630'; x.fillRect(822, 580, 172, 44); x.fillStyle = '#f2ead2'; x.font = 'bold 22px Georgia, serif'; x.textAlign = 'center'; x.fillText('CLOSE', 908, 610); x.textAlign = 'left';
-  for (const [n, X0] of [['PERFORMANCE', 30], ['BALANCED', 262]]) { x.fillStyle = SETP.lit === n ? '#f2d878' : '#7a6040'; x.fillRect(X0, 580, 214, 44); x.fillStyle = '#f2ead2'; x.font = 'bold 20px Georgia, serif'; x.textAlign = 'center'; x.fillText(n, X0 + 107, 609); x.textAlign = 'left'; }
-  x.font = '14px Georgia, serif'; x.fillStyle = '#6a5638'; x.fillText('presets', 492, 598); x.fillText('(scale: next VR)', 492, 614);
-  SETP.t.needsUpdate = true;
+  const T = SETP.tab;
+  if (T === 'gfx') { for (const [n, X0] of [['PERFORMANCE', 30], ['BALANCED', 262], ['QUALITY', 494]]) setpBtn(x, X0, 580, 214, 44, n, SETP.lit === n); }
+  else if (T === 'save') {
+    const A = svInfo(SAVE_KEY), cf = SETP.conf && SETP.conf.t > performance.now();
+    setpBtn(x, 30, 84, 440, 64, 'SAVE NOW', SETP.lit === 'save:now'); setpBtn(x, 30, 168, 440, 64, 'LOAD LAST SAVE', SETP.lit === 'save:load');
+    x.fillStyle = '#2e2418'; x.font = 'bold 18px Georgia, serif'; x.fillText('AUTOSAVE', 30, 262); x.font = '17px Georgia, serif'; x.fillStyle = '#5a4630'; x.fillText(A ? A.txt : 'none yet', 30, 286, 440);
+    x.font = '15px Georgia, serif'; x.fillStyle = '#6a5638'; ['Saves itself every 30 s, after each job step,', 'on landing and when you take the headset off.', 'Loading restarts the page: press ENTER VR again.'].forEach((l, i) => x.fillText(l, 30, 318 + i * 22));
+    setpBtn(x, 30, 470, 440, 64, cf && SETP.conf.k === 'new' ? 'POKE AGAIN: START OVER' : 'NEW GAME', SETP.lit === 'new', cf && SETP.conf.k === 'new' ? '#9a2a1a' : '#5a4630');
+    for (let n = 1; n <= 3; n++) { const Y0 = MENU_SLOT(n), I = svInfo(svSlotKey(n)), cl = cf && SETP.conf.k === 'load:' + n;
+      x.fillStyle = '#e2d4ae'; x.fillRect(520, Y0, 474, 118); x.strokeStyle = '#5a4630'; x.lineWidth = 2; x.strokeRect(520, Y0, 474, 118);
+      x.fillStyle = '#2e2418'; x.font = 'bold 20px Georgia, serif'; x.fillText('SLOT ' + n, 534, Y0 + 28); x.font = '16px Georgia, serif'; x.fillStyle = '#5a4630'; x.fillText(I ? I.txt : 'EMPTY', 620, Y0 + 28, 360);
+      setpBtn(x, 534, Y0 + 50, 210, 56, 'SAVE HERE', SETP.lit === 'slot:' + n); if (I) setpBtn(x, 770, Y0 + 50, 210, 56, cl ? 'AGAIN: LOAD' : 'LOAD', SETP.lit === 'load:' + n, cl ? '#9a2a1a' : null); }
+    if (NOSAVE) { x.fillStyle = '#9a2a1a'; x.font = 'bold 17px Georgia, serif'; x.fillText('SAVING IS OFF IN THIS SESSION (?nosave)', 30, 600); } }
+  else if (T === 'comfort') { setpBtn(x, 30, 300, 440, 64, 'RECENTRE + SET HEIGHT', SETP.lit === 'recentre');
+    x.font = '15px Georgia, serif'; x.fillStyle = '#6a5638'; ['Stand or sit the way you will play, look ahead, then poke:', 'your view and eye height reset to the seat / your feet. (A or X too.)'].forEach((l, i) => x.fillText(l, 30, 392 + i * 22)); }
+  else if (T === 'controls') { x.fillStyle = '#2e2418'; x.font = 'bold 20px Georgia, serif'; x.fillText('QUEST CONTROLLERS', 527, 96); x.font = '16px monospace'; x.fillStyle = '#3a2e20'; MENU_HELP.forEach((l, i) => x.fillText(l, 527, 128 + i * 30, 470));
+    x.font = '15px Georgia, serif'; x.fillStyle = '#6a5638'; ['Dominant hand: the watch and its MENU button go on', 'the other wrist; your dominant finger pokes them.'].forEach((l, i) => x.fillText(l, 30, 220 + i * 22)); }
+  else if (T === 'audio') { x.font = '15px Georgia, serif'; x.fillStyle = '#6a5638'; x.fillText('Master scales the other three.', 30, 300); }
+  else if (T === 'resume') { setpBtn(x, 262, 200, 500, 120, 'RESUME', SETP.lit === 'close'); x.font = '17px Georgia, serif'; x.fillStyle = '#6a5638'; x.textAlign = 'center'; x.fillText('Back to the game. The tabs above hold saves and settings (all kept in this browser).', 512, 380); x.textAlign = 'left'; }
+  setpBtn(x, 822, 580, 172, 44, 'CLOSE', false, '#5a4630');
+  if (SETP.desk) SETP.deskDraw(); SETP.t.needsUpdate = true;
 }
-function setpHit(u, v) {   // canvas px -> row index, 'close' or null
+function setpHit(u, v) {   // canvas px -> a GFX_OPT row index, a button id, 'tab:<id>', 'close' or null
   if (u > 822 && u < 994 && v > 580 && v < 624) return 'close';
-  if (v > 580 && v < 624) { if (u > 30 && u < 244) return 'PERFORMANCE'; if (u > 262 && u < 476) return 'BALANCED'; }
-  for (let i = 0; i < GFX_OPT.length; i++) { const { X, Y } = SETP_ROW(i); if (u > X - 6 && u < X + 462 && v > Y - 30 && v < Y + 18) return i; }
+  if (v > 10 && v < 62) { for (let i = 0; i < MENU_TABS.length; i++) { const { X, W } = MENU_TAB(i); if (u > X && u < X + W) return 'tab:' + MENU_TABS[i][0]; } return null; }
+  const T = SETP.tab, inB = (X, Y, W, H) => u > X && u < X + W && v > Y && v < Y + H;
+  if (T === 'gfx' && v > 580 && v < 624) { if (u > 30 && u < 244) return 'PERFORMANCE'; if (u > 262 && u < 476) return 'BALANCED'; if (u > 494 && u < 708) return 'QUALITY'; }
+  if (T === 'save') { if (inB(30, 84, 440, 64)) return 'save:now'; if (inB(30, 168, 440, 64)) return 'save:load'; if (inB(30, 470, 440, 64)) return 'new';
+    for (let n = 1; n <= 3; n++) { const Y0 = MENU_SLOT(n); if (inB(534, Y0 + 50, 210, 56)) return 'slot:' + n; if (inB(770, Y0 + 50, 210, 56)) return 'load:' + n; } return null; }
+  if (T === 'comfort' && inB(30, 300, 440, 64)) return 'recentre';
+  if (T === 'resume') return inB(262, 200, 500, 120) ? 'close' : null;
+  const R = setpRows(); for (let i = 0; i < R.length; i++) { const { X, Y } = SETP_ROW(i); if (u > X - 6 && u < X + 462 && v > Y - 30 && v < Y + 18) return R[i]; }
   return null;
 }
-function setpOpen(on = !SETP.open) {
-  SETP.open = on; SETP.m.visible = on; SETP.arm[0] = SETP.arm[1] = false; SETP.lit = -1;
-  if (on) {   // half a metre in front of your face, a little low, square to you (it stays put in the rig - cockpit or on foot)
+function setpOpen(on = !SETP.open, desk = !renderer.xr.isPresenting && !HANDS.force) {
+  SETP.open = on; SETP.m.visible = on && !desk; SETP.arm[0] = SETP.arm[1] = false; SETP.lit = -1; SETP.conf = null; SETP.deskShow(on && desk);
+  if (on && !desk) {   // half a metre in front of your face, a little low, square to you (it stays put in the rig - cockpit or on foot)
     camera.updateMatrix(); _spL.set(0, 0, -1).applyQuaternion(camera.quaternion); _spL.y = 0; if (_spL.lengthSq() < 1e-4) _spL.set(0, 0, -1); _spL.normalize();
-    SETP.m.position.copy(camera.position).addScaledVector(_spL, 0.5); SETP.m.position.y -= 0.12; SETP.m.rotation.set(-0.25, Math.atan2(-_spL.x, -_spL.z), 0, 'YXZ'); SETP.m.updateMatrixWorld(true);
-    setpDraw(); }
+    SETP.m.position.copy(camera.position).addScaledVector(_spL, 0.55); SETP.m.position.y -= 0.12; SETP.m.rotation.set(-0.25, Math.atan2(-_spL.x, -_spL.z), 0, 'YXZ'); SETP.m.updateMatrixWorld(true); }
+  if (on) setpDraw();
   sfx('click'); wristKey = '';
 }
+function setpConfirm(k) { const now = performance.now(); if (SETP.conf && SETP.conf.k === k && SETP.conf.t > now) { SETP.conf = null; return true; } SETP.conf = { k, t: now + 4000 }; say('POKE AGAIN TO CONFIRM'); return false; }
 function setpPoke(r) {
   if (r === 'close') { setpOpen(false); return; }
+  if (typeof r === 'string' && r.startsWith('tab:')) { const t = r.slice(4); if (t === 'resume' && SETP.tab === 'resume') { setpOpen(false); return; } SETP.tab = t; SETP.lit = -1; SETP.conf = null; try { localStorage.setItem('bp_menutab', t); } catch (e) { } sfx('click'); setpDraw(); return; }
   if (r in GFX_PRESET) { SETP.lit = r; gfxPreset(r); setpDraw(); return; }
+  if (r === 'recentre') { SETP.lit = r; recenter(); say('RECENTRED - VIEW AND HEIGHT SET'); sfx('click'); setpDraw(); return; }
+  if (r === 'save:now') { SETP.lit = r; say(saveGame('manual') ? 'GAME SAVED - ' + svPlace() : NOSAVE ? 'SAVING IS OFF (?nosave)' : 'COULD NOT SAVE'); sfx('click'); setpDraw(); return; }
+  if (r === 'save:load') { if (!svInfo(SAVE_KEY)) { say('NO SAVE YET'); return; } SV.off = true; say('LOADING THE LAST SAVE'); SV_RELOAD(); return; }
+  if (r === 'new') { if (!setpConfirm('new')) { setpDraw(); return; } try { localStorage.removeItem(SAVE_KEY); } catch (e) { } SV.off = true; say('A NEW GAME'); SV_RELOAD(); return; }
+  if (typeof r === 'string' && r.startsWith('slot:')) { const n = +r.slice(5); SETP.lit = r; if (svInfo(svSlotKey(n)) && !setpConfirm(r)) { setpDraw(); return; }
+    if (!saveGame('manual')) say(NOSAVE ? 'SAVING IS OFF (?nosave)' : 'COULD NOT SAVE'); else { try { localStorage.setItem(svSlotKey(n), localStorage.getItem(SAVE_KEY)); say('SAVED TO SLOT ' + n + ' - ' + svPlace()); } catch (e) { say('COULD NOT SAVE'); } }
+    sfx('click'); setpDraw(); return; }
+  if (typeof r === 'string' && r.startsWith('load:')) { const n = +r.slice(5), I = svInfo(svSlotKey(n)); if (!I) return; if (!setpConfirm(r)) { setpDraw(); return; }
+    try { localStorage.setItem(SAVE_KEY, localStorage.getItem(svSlotKey(n))); } catch (e) { say('COULD NOT LOAD'); return; } SV.off = true; say('LOADING SLOT ' + n); SV_RELOAD(); return; }
+  if (typeof r !== 'number') return;
   SETP.lit = r; gfxCycle(GFX_OPT[r][0]); setpDraw();
+}
+function setpPokeUV(u, v, i) { const r = setpHit(u, v); if (r !== null) { setpPoke(r); if (grips[i]) HX.pulse(grips[i], 0.4, 14, 'ui'); } }
+const XRC = [0, 1].map(i => { const c = renderer.xr.getController(i); xrOffset.add(c); return c; });   // v0.68.1 the controllers' pointing rays (for the menu)
+const MRAY = [0, 1].map(() => { const d = new THREE.Mesh(new THREE.CircleGeometry(0.008, 12), new THREE.MeshBasicMaterial({ color: 0xff7a1a, depthTest: false })); d.renderOrder = 999; d.visible = false; d.userData.noBatch = true; SETP.m.add(d); return d; });
+const _mrO = new THREE.Vector3(), _mrD = new THREE.Vector3(), _mrQ = new THREE.Quaternion();
+function setpRay(i) {   // point a controller at the board: a dot where it lands; trigger = poke there
+  const g = grips[i], gp = g?.userData.src?.gamepad, c = XRC[i]; MRAY[i].visible = false; if (!SETP.open || !SETP.m.visible || !gp) { SETP.trg[i] = !!gp?.buttons[0]?.pressed; return; }
+  const src = window.__ray && window.__ray[i] ? window.__ray[i] : null; if (src) { _mrO.copy(src.o); _mrD.copy(src.d); } else { c.updateWorldMatrix(true, false); c.getWorldPosition(_mrO); _mrD.set(0, 0, -1).applyQuaternion(c.getWorldQuaternion(_mrQ)); }
+  SETP.m.worldToLocal(_mrO); _mrD.applyQuaternion(_mrQ.copy(SETP.m.getWorldQuaternion(_mrQ)).invert());
+  const pr = !!gp.buttons[0]?.pressed, edge = pr && !SETP.trg[i]; SETP.trg[i] = pr;
+  if (_mrD.z >= -1e-4 || _mrO.z <= 0) return; const t = -_mrO.z / _mrD.z; if (t > 3) return; const hx = _mrO.x + _mrD.x * t, hy = _mrO.y + _mrD.y * t;
+  const u = (hx / SETP.W + 0.5) * 1024, v = (0.5 - hy / SETP.H) * 640; if (u < 0 || u > 1024 || v < 0 || v > 640) return;
+  MRAY[i].position.set(hx, hy, 0.004); MRAY[i].visible = true; if (edge) setpPokeUV(u, v, i);
 }
 function setpTick() {   // after updateHands (fingertips are this frame's)
   setpPerf(1 / 72); wristFace();
   if (!HANDS.st.length) return;
-  for (let i = 0; i < 2; i++) { const st = HANDS.st[i]; if (!st.vis) continue;
-    if (!st.right && !wrist.parent) continue;
-    if (st.right && wrist.parent && WBTN.on) {   // the wrist screen rides the left grip; the right finger pokes its MENU button (v0.62: only while the wrist faces you)
+  for (let i = 0; i < 2; i++) { const st = HANDS.st[i]; setpRay(i); if (!st.vis) continue;
+    const poker = st.right === !GFX.hand;   // v0.68.1 the dominant hand pokes, the watch rides the other wrist
+    if (!poker && !wrist.parent) continue;
+    if (poker && wrist.parent && WBTN.on) {   // the wrist screen rides the other grip; the finger pokes its MENU button (v0.62: only while the wrist faces you)
       wrist.worldToLocal(_spL.copy(st.tip));
       const inR = Math.abs(_spL.x - WBTN.m.position.x) < WBTN.W && Math.abs(_spL.y - WBTN.m.position.y) < WBTN.H;
       if (!SETP.wArm && (!inR || _spL.z > 0.03)) SETP.wArm = true;
-      if (SETP.wArm && inR && _spL.z < 0.01 && _spL.z > -0.03) { SETP.wArm = false; setpOpen(); if (grips[i]) HX.pulse(grips[i], 0.5, 18, 'ui'); continue; } }
-    if (!SETP.open) continue;
+      if (SETP.wArm && inR && _spL.z < 0.01 && _spL.z > -0.03) { SETP.wArm = false; setpOpen(!SETP.open, false); if (grips[i]) HX.pulse(grips[i], 0.5, 18, 'ui'); continue; } }
+    if (!SETP.open || !SETP.m.visible) continue;
     SETP.m.worldToLocal(_spL.copy(st.tip));
     const u = (_spL.x / SETP.W + 0.5) * 1024, v = (0.5 - _spL.y / SETP.H) * 640, on = u > 0 && u < 1024 && v > 0 && v < 640;
     if (!SETP.arm[i] && (!on || _spL.z > 0.03)) SETP.arm[i] = true;
-    if (SETP.arm[i] && on && _spL.z < 0.008 && _spL.z > -0.04) { SETP.arm[i] = false; const r = setpHit(u, v); if (r !== null) { setpPoke(r); if (grips[i]) HX.pulse(grips[i], 0.4, 14, 'ui'); } }
+    if (SETP.arm[i] && on && _spL.z < 0.008 && _spL.z > -0.04) { SETP.arm[i] = false; setpPokeUV(u, v, i); }
   }
 }
+function wristAttach() { const want = GFX.hand ? 'right' : 'left'; for (const g of grips) if (g.userData.src?.handedness === want && wrist.parent !== g) g.add(wrist); }   // v0.68.1 the watch on your off hand
+// desktop: the same board as a page overlay (Esc / F2), mouse clicks
+SETP.deskShow = on => { if (!on) { if (SETP.desk) SETP.desk.remove(); SETP.desk = null; return; } if (SETP.desk) return;
+  if (document.pointerLockElement) { GQ.selfUnlock = true; document.exitPointerLock(); }
+  const d = document.createElement('div'); d.id = 'bpMenu'; d.style.cssText = 'position:fixed;inset:0;z-index:10001;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center';
+  const cv = document.createElement('canvas'); cv.width = 1024; cv.height = 640; cv.style.cssText = 'width:min(1024px,94vw);aspect-ratio:1024/640;box-shadow:0 8px 30px rgba(0,0,0,.6);cursor:pointer'; d.appendChild(cv); document.body.appendChild(d);
+  cv.addEventListener('click', e => { const R = cv.getBoundingClientRect(); setpPokeUV((e.clientX - R.left) / R.width * 1024, (e.clientY - R.top) / R.height * 640, -1); e.stopPropagation(); });
+  d.addEventListener('click', e => { if (e.target === d) setpOpen(false); }); SETP.desk = d; SETP.dcv = cv; };
+SETP.deskDraw = () => { if (SETP.dcv) SETP.dcv.getContext('2d').drawImage(SETP.c, 0, 0); };
+document.addEventListener('pointerlockchange', () => { if (document.pointerLockElement) return; GQ.unlockT = performance.now(); if (GQ.selfUnlock) { GQ.selfUnlock = false; return; } if (!renderer.xr.isPresenting && !SETP.open && !GQ.menu) setpOpen(true, true); });   // Esc out of mouse-look = the menu
 // ---- desktop panel: ` (backquote) or F2 ----
 function gfxMenu(open = !GQ.menu) {
   if (!open) { if (GQ.menu) GQ.menu.remove(); GQ.menu = null; return; }
@@ -7316,7 +7407,8 @@ function gfxMenu(open = !GQ.menu) {
 }
 function gfxMenuSync() { if (!GQ.menu) return; for (const sel of GQ.menu.querySelectorAll('select')) { const k = sel.dataset.k, v = k === 'hx' ? HX.gain : GFX[k]; let best = 0, bd = 1e9; [...sel.options].forEach((o, i) => { const dd = Math.abs(+o.value - v); if (dd < bd) { bd = dd; best = i; } }); sel.selectedIndex = best; } }
 addEventListener('keydown', e => { if (e.repeat) return;
-  if (e.code === 'Backquote' || e.code === 'F2') { e.preventDefault(); gfxMenu(); }
+  if (e.code === 'Backquote') { e.preventDefault(); gfxMenu(); }
+  else if (e.code === 'F2' || (e.code === 'Escape' && !GQ.menu && performance.now() - (GQ.unlockT || -1e9) > 400)) { e.preventDefault(); if (!renderer.xr.isPresenting) setpOpen(!SETP.open, true); }   // v0.68.1 the MENU board
   else if (e.code === 'F3') { e.preventDefault(); gfxSet('fps', GFX.fps ? 0 : 1); }
   else if (e.code === 'Escape' && GQ.menu) gfxMenu(false); });
 // ---- windsocks: striped, hanging limp on their poles (v0.45: there is no wind) ----

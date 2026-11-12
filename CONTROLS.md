@@ -287,12 +287,25 @@ A customer stands at every job board. Walk up to them for a hello: their rep tie
 - Panel lights: the PANEL LT knob on the switch strip, far right (twist it, or press K). It needs the MASTER on.
 - Time of day is fixed, so there is no clock and no dusk to beat. Pick it in Settings → **Time of day** (EARLY / MORNING / AFTERNOON / LATE / SUNSET / NIGHT). A saved game keeps its time.
 
+## Menu (v0.68.1)
+- **Open it:** in VR, turn your watch wrist to your face and poke the gold MENU button. On desktop, press **Esc** (or **F2**); letting go of mouse-look with Esc opens it too. Close it with CLOSE, RESUME, MENU again, or Esc.
+- **Pointing:** poke the board with your dominant index finger, or point a controller at it (an orange dot shows where) and pull the trigger. The rifle doesn't fire while the menu is open. On desktop, click.
+- Tabs along the top (the board remembers the last one, `bp_menutab`):
+  - **RESUME:** one big button back to the game.
+  - **SAVE / LOAD:** SAVE NOW (the autosave), LOAD LAST SAVE, and 3 slots. Each slot shows its date and time, the nearest strip and your cash, with SAVE HERE and LOAD. The autosave line shows the same. NEW GAME wipes the autosave and starts again. NEW GAME, LOAD, and SAVE HERE over a used slot all ask you to poke again within 4 s to confirm. Loading restarts the page, so in VR press ENTER VR again.
+  - **GRAPHICS:** every graphics row, plus the PERFORMANCE / BALANCED / QUALITY presets and the PERF strip.
+  - **COMFORT:** comfort vignette, turning (snap 30° / 45° / smooth), stick on release, control labels, and RECENTRE + SET HEIGHT.
+  - **CONTROLS:** dominant hand (RIGHT / LEFT: the watch and its MENU go on the other wrist, and your dominant finger pokes), haptics, and a quick button reference.
+  - **AUDIO:** master, engine + flight (engine, wind, rumble), ambient, and effects (clicks, shots, horn) volumes.
+- Settings are saved in this browser (`bp_gfx`). The slots are `bushpilot-save-slot1..3`.
+- ` (backquote) still opens the old desktop settings list.
+
 ## Settings
-- **VR:** turn your left wrist to your face, as if checking a watch. A gold **MENU** button appears under the wrist screen (v0.62); poke it with your right index finger. A SETTINGS board opens half a metre in front of you. Poke a row to step it to the next value, and poke CLOSE (or MENU again) to close it.
+- **VR:** turn your left wrist to your face, as if checking a watch. A gold **MENU** button appears under the wrist screen (v0.62); poke it with your right index finger. The MENU board (v0.68.1, tabs above) opens half a metre in front of you. Poke a row to step it to the next value, and poke CLOSE (or MENU again) to close it.
   - The button shows when the screen faces you within about 52° and the wrist is within 0.6 m of the headset.
   - It stays until you turn more than about 68° away or move past 0.75 m, so it doesn't flicker at the edge.
   - Poking the message screen itself does nothing, and a finger already on the spot when the button appears doesn't press it.
-- **Desktop:** ` (backquote) or **F2** opens the settings panel, **F3** toggles the FPS counter, Esc closes.
+- **Desktop:** **Esc** or **F2** opens the MENU board (v0.68.1), ` (backquote) opens the old settings list, **F3** toggles the FPS counter.
 - Saved in this browser (`bp_gfx`). URL override for testing: `?gfx=shadows:2,grass:1`.
 
 | Setting | Options | Notes |
@@ -327,8 +340,8 @@ A customer stands at every job board. Walk up to them for a hello: their rep tie
   - line 1: fps, frame ms (and the worst frame), CPU ms, draw calls and triangles; green means on budget, red means over;
   - line 2: the foveation the XR layer reports (`FFR 1.00`, or `UNSUPPORTED`), the layer type and its framebuffer size, the refresh rate (and what the headset offers), MSAA and the render scale;
   - line 3: what Auto resolution is doing, how many scenery instances are drawn, and whether the ground is vertex-lit.
-- **PERFORMANCE** and **BALANCED** buttons are at the bottom of the board. BALANCED is the default: 90 % render scale, foveation HIGH, 72 Hz, Terrain shading FAST+GRAIN, everything else NORMAL, Auto resolution ON. PERFORMANCE is the cheapest: 70 %, FAST ground, sparse forest, near draw distance, no clouds. A render scale change takes effect the next time you enter VR.
+- **PERFORMANCE**, **BALANCED** and **QUALITY** (v0.68.1: full scale, full terrain, low shadows, grass, far draw distance) buttons are at the bottom of the GRAPHICS tab. BALANCED is the default: 90 % render scale, foveation HIGH, 72 Hz, Terrain shading FAST+GRAIN, everything else NORMAL, Auto resolution ON. PERFORMANCE is the cheapest: 70 %, FAST ground, sparse forest, near draw distance, no clouds. A render scale change takes effect the next time you enter VR.
 - To find what costs the most, change one row at a time and watch line 1. **Terrain shading** (FAST / FAST+GRAIN / FULL), **Forest** (OFF / SPARSE / MEDIUM / FULL), **Clouds**, **Haze**, **Draw distance** and **Anti-aliasing** (needs a reload) are the big ones.
 - **Auto resolution** (default ON): if frames run over budget for more than a second, it steps down. First it shrinks the eye viewport to 85 % and forces foveation to HIGH. Then it goes to 75 % with the forest at 75 %, then to 65 % with the forest at 55 %. After about 10 s on budget it steps back up, and it waits longer if it keeps bouncing. Line 3 shows `(not supported here)` if the headset ignores the viewport request; the forest steps still apply.
 - The landing light (and shadows) make the ground per-pixel lit again, because it needs that to light the ground.
-- `?nobatch` turns off v0.47's static mesh batching and `?tile=N` turns on v0.47's tiled forest (both for comparing). F3 toggles the desktop FPS counter, and ` or F2 opens the desktop Settings panel, which has the presets too.
+- `?nobatch` turns off v0.47's static mesh batching and `?tile=N` turns on v0.47's tiled forest (both for comparing). F3 toggles the desktop FPS counter, Esc / F2 opens the MENU board and ` the old settings list; both have the presets.

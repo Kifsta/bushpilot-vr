@@ -2,6 +2,30 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.68.1 – a proper menu: save / load, graphics, comfort, controls, audio
+Neil: "...have menus for load/save, graphics and any other options you might think it needs." The physics block is untouched (md5 `eee6637e…`). The world RNG is unchanged.
+- The wrist MENU board is now a tabbed menu: RESUME, SAVE / LOAD, GRAPHICS, COMFORT, CONTROLS, AUDIO. The buttons are big (64 px rows on a 0.8 × 0.5 m board). It opens on the tab you last used.
+- **Save / load:**
+  - SAVE NOW and LOAD LAST SAVE.
+  - 3 slots, each with its date and time, the nearest strip and your cash, and SAVE HERE / LOAD buttons. The autosave shows the same info.
+  - NEW GAME.
+  - New game, load, and overwriting a used slot all need a second poke within 4 s. Load and new game restart the page; saving is held off until the restart.
+  - Saves now carry `meta: { cash, loc }`. Old saves still load.
+- **Graphics:** every row as before, plus a new QUALITY preset next to PERFORMANCE / BALANCED. The PERF strip shows only on this tab.
+- **Comfort:** vignette, turning, stick on release, control labels, and a RECENTRE + SET HEIGHT button.
+- **Controls:**
+  - Dominant hand: LEFT moves the watch and its MENU to the right wrist and pokes with the left finger.
+  - Haptics.
+  - A button reference.
+- **Audio:** master, engine + flight, ambient, and effects volumes. The engine, wind and rumble go through one bus, and clicks, shots and the horn through another.
+- **Pointing:** besides the finger poke, point a controller at the board (an orange dot) and pull the trigger. The rifle can't fire while the menu is open.
+- **Desktop:**
+  - Esc or F2 opens the same board as a page overlay (click it). Leaving mouse-look with Esc opens it too.
+  - ` still opens the old settings list.
+- Everything is saved in localStorage (`bp_gfx`, `bp_menutab`, `bushpilot-save-slotN`).
+- New test t681 (22 checks). t45 and t48 were updated for rows per tab.
+- Screenshots: /workspace/qa-v068-menu-{desktop,vr-board,tab-resume,tab-save,tab-save-filled,tab-gfx,tab-comfort,tab-controls,tab-audio}.png.
+
 ## v0.68 – the wrist shows the menu only when you turn it to you
 Neil: "Only have the menu context icon show up when the player turns their wrist." The physics block is untouched (md5 `eee6637e…`).
 - v0.62 hid only the MENU button. The watch face itself still always drew the grey "MENU BELOW: SETTINGS" bar.
