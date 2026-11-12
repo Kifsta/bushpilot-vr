@@ -80,6 +80,7 @@ v0.24 haptics: you feel the engine (rpm, rough running, cranking), stall buffet,
 | Right upper window (latches under the wing) | Grab its handle, roll your wrist to turn the latch, then swing it out and up | 1 |
 | Right lower door half (folds down) | Grab its handle, roll your wrist to turn the latch, then push it out | 2 |
 | Left front / rear window (slide aft) | Grab the handle, roll your wrist to turn the latch, then drag | 3 / 4 |
+| Right cargo door (v0.77.13: aft of the door, under the rear window; folds down) | In the seat: reach back to its handle, roll your wrist to turn the latch, then push it out (past halfway it drops onto its stop). On foot: squeeze at its handle from outside to open or shut it | 5 (in the seat) |
 
 v0.44 latches: every window and the door are latched while shut. Squeeze the handle and roll your wrist about 35° until the latch clacks free, then move it. Shut it and let go, and the latch drops back in. The desktop keys work the latch for you.
 

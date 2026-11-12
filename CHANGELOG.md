@@ -2,6 +2,12 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.77.13 – a right cargo door
+Neil's batch, item 7.
+- **Door:** a second hinged panel on the right side, aft of the door post and under the rear window (`CARGO_LO`, 0.63 m long × 0.57 m tall). It's cut out of the right skin and hinges along its bottom edge on the same line as the lower door (`cdoor`), so it folds down and out. It has the yellow skin, a piece of the black stripe, seams at its front and back edges, and a handle inside near its top edge (`rcgH`).
+- **Works like the lower door (`rcg` key everywhere: `WIN`, `WIN_MAX` 1.35 rad, `LATCH`, the latch lever instance, hover ring, grip pose, labels):** it's shut and latched by default. VR in the seat: grab the handle, roll your wrist about 35° to free the latch, then push it out. Let go past halfway and it drops onto its stop. Pull it shut and let go, and it latches. Desktop: **5** in the seat (the latch is worked for you). On foot: squeeze within 16 cm of the handle from outside to open or shut it (`cargoGrab`). It adds to the cabin draught (`WIN.open`) like the other openings.
+- **Tests:** new t7713 (8 checks): shut and latched by default; the cut-out sits inside the cabin outline and clear of the main door and the rear window; VR hover ring and grab; a latched door won't swing, the twist frees it and then it swings; let go past halfway and it opens fully; desktop 5 opens it and 5 again shuts and latches it; on foot it opens and shuts at the handle, and a hand 60 cm away does nothing; clean console. t44 now expects 5 latch instances. Screenshots: /workspace/qa-v07713-cargo-door-{closed,open}.png.
+
 ## v0.77.12 – the Cub's rifle holder is on the cabin floor
 Neil's batch, item 6.
 - **Holder:** the two wall brackets behind the front seat are replaced by a floor holder (`RACK.cub`). The rifle lies lengthwise on its side on the cabin floor right of the front seat, muzzle forward and lever loop toward the wall. It's pitched to follow the floor (`RACK.cub.rx`), so nothing goes through it. It sits in two cradles.

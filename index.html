@@ -19,12 +19,12 @@
 </script>
 </head>
 <body>
-<div id="info">BUSH PILOT VR v0.77.12 - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
+<div id="info">BUSH PILOT VR v0.77.13 - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
 You start on foot by the Cub at the cabin strip. Walk up to her and climb in (F / Y), then start her up off the checklist card (J).
 Desktop - flying: W/S or arrows pitch, A/D or arrows roll, Q/E rudder, Shift / Ctrl (or + / -) throttle, B brakes, \ parking brake, [ ] flaps, PgUp / PgDn trim,
   R reset to the strip (cold and dark), F climb out, M map, L landing light, Home recentre, mouse looks (click to capture).
 Desktop - engine: U fuel valve, O master, Y mixture, H carb heat, P primer, I mags (OFF > R > L > BOTH), hold Space = starter, K panel lights,
-  1-4 windows / door, J checklist card, N clipboard (, and . turn its pages: JOBS, W&B, CUB, PERF).
+  1-4 windows / door, 5 cargo door, J checklist card, N clipboard (, and . turn its pages: JOBS, W&B, CUB, PERF).
 Desktop - on foot: WASD walk, Shift run, C crouch, Space hop, F climb in, G refuel at the strip pump (near a wing filler cap), M map.
   Jobs: 1-3 at a job board accept / cancel, E pick up / set down cargo (E by the Cub loads or unloads it), / seat belt + cargo net.
   Hunting: T take / sling / rack the rifle, LMB fire, RMB aim, X lever, Z load a round (by the ammo box: buy 20 for $10; at the Dry Fork hangar's HARDWARE counter: $35 a box, Z again takes it), V binoculars, hold E by a downed deer to field dress it.
@@ -991,8 +991,9 @@ const W_FRT = [[-0.67, 0.38], [0.28, 0.38], [0.28, 0.92], [-0.36, 0.92]];       
 const W_RR = [[0.48, 0.40], [0.98, 0.40], [1.05, 0.87], [0.48, 0.885]];                 // rear side window
 const DOOR_LO = [[-0.67, -0.20], [0.28, -0.22], [0.28, 0.375], [-0.67, 0.375]];        // right lower door (hinges down)
 const DOOR_HOLE = [[-0.67, -0.20], [0.28, -0.22], [0.28, 0.92], [-0.36, 0.92], [-0.67, 0.38]];
+const CARGO_LO = [[0.40, -0.20], [1.03, -0.20], [1.03, 0.37], [0.40, 0.37]];   // v0.77.13 right cargo door below the rear window, aft of the door post (hinges down like the main door)
 for (const sx of [-1, 1]) {
-  sideSkin(CAB, sx < 0 ? [W_SCR, W_FRT, W_RR] : [W_SCR, DOOR_HOLE, W_RR], sx, yellow, PD);
+  sideSkin(CAB, sx < 0 ? [W_SCR, W_FRT, W_RR] : [W_SCR, DOOR_HOLE, W_RR, CARGO_LO], sx, yellow, PD);
   for (const w of sx < 0 ? [W_SCR, W_FRT, W_RR] : [W_SCR, W_RR]) { if (sx > 0 || w === W_SCR) sidePane(w, sx, glass, PD); sideFrame(w, sx, PD); }   // v0.19: left side windows are sliding panes (see v0.19 block)
 }
 polyMesh([[[[-0.35, -0.28, -1.11], [0.35, -0.28, -1.11], [0.35, -0.35, 0.17], [-0.35, -0.35, 0.17]], [0, -1, 0]],
@@ -1145,6 +1146,8 @@ const rudGrp = new THREE.Group(); rudGrp.position.set(0, 0, 4.39); cubD.add(rudG
 // right side: lower door hinges down, upper window hinges up under the wing
 const door = new THREE.Group(); door.position.set(0.35, -0.21, 0); cubD.add(door);
 sideSkin(DOOR_LO, [], 1, yellow, door).geometry.translate(-0.35, 0.21, 0); box(0.004, 0.065, 0.95, boltMat, 0.002, 0.21 + 0.155, -0.195, door);   // door + its stripe piece
+const cdoor = new THREE.Group(); cdoor.position.set(0.35, -0.21, 0); cubD.add(cdoor);   // v0.77.13 the cargo door, same bottom hinge line as the main door
+sideSkin(CARGO_LO, [], 1, yellow, cdoor).geometry.translate(-0.35, 0.21, 0); box(0.004, 0.065, 0.63, boltMat, 0.002, 0.21 + 0.155, 0.715, cdoor); box(0.006, 0.57, 0.012, dark, 0.003, 0.21 + 0.085, 0.405, cdoor); box(0.006, 0.57, 0.012, dark, 0.003, 0.21 + 0.085, 1.025, cdoor);   // skin, stripe, the edge seams
 const win = new THREE.Group(); win.position.set(0.35, 0.92, 0); cubD.add(win);
 sidePane(W_FRT, 1, glass, win).geometry.translate(-0.35, -0.92, 0); sideFrame(W_FRT, 1, win).geometry.translate(-0.35, -0.92, 0);
 let doorT = 0;
@@ -1772,7 +1775,7 @@ function resetFlight() {
   IN.prevHdg = null;
   if (mode === 'foot') toPlane();
   resetAircraft(ac); crashTimer = 0; flapNotch = 0; TRIM.v = 0; TRIM.g = null; vr.flapG = null; fuel = Math.max(fuel, FUEL_MAX * 0.25);   // a reset is not a free fill-up (the pump is)
-  engColdDark(); cardHome(); kbHome(); CKH.clear(); CKX.keyStart = false; PRIME.lock = true; Object.assign(LATCH, { rup: 1, rlo: 1, lf: 1, lr: 1 }); WIN.rup = WIN.rlo = WIN.lf = WIN.lr = 0; WIN.tgt = {};   // v0.19: back to cold and dark
+  engColdDark(); cardHome(); kbHome(); CKH.clear(); CKX.keyStart = false; PRIME.lock = true; Object.assign(LATCH, { rup: 1, rlo: 1, lf: 1, lr: 1, rcg: 1 }); WIN.rup = WIN.rlo = WIN.lf = WIN.lr = WIN.rcg = 0; WIN.tgt = {};   // v0.19: back to cold and dark
 }
 function exitPlane() {
   if (!(acGS() < 1 && ctl.throttle < 0.05 && !ac.crashed)) { say('STOP + IDLE TO EXIT'); return; }
@@ -1797,6 +1800,7 @@ function handGrab(g) {   // on foot: the map (ground / cockpit holder / other ed
   if (mapGrab(g, _a)) return;
   if (fuelGrab(g, _a)) return;
   if (huntGrab(g, _a)) return;   // v0.53 rifle (rack / ground / back, lever, forend), the belt pouch, ammo box, binoculars, a carcass
+  if (cargoGrab(_a)) return;   // v0.77.13 the cargo door from outside
   if (upgGrab(g, _a)) return;   // v0.57 a part off the hangar floor, or a bolt head to twist
   dlvGrab(g, _a);   // v0.50 cargo / strap anchors
 }
@@ -1814,7 +1818,7 @@ addEventListener('keydown', e => {
   if (e.repeat) return;
   if (dropKey(e)) return;   // v0.54 G: push a bundle out of the open door
   if (huntKey(e)) return;   // v0.53 T rifle, X lever, Z load / buy ammo, V binoculars, hold E over a carcass
-  if (engKey(e)) return;     // v0.19 cockpit keys (U O Y H I P K J, 1-4 windows; Space = starter, held)
+  if (engKey(e)) return;     // v0.19 cockpit keys (U O Y H I P K J, 1-5 windows / doors; Space = starter, held)
   if (emgKey(e)) return;   // v0.58 C takes a call-out by COM radio; 4 at a red EMERGENCY sign
   if (upgKey(e)) return;   // v0.57 1-7 at the parts board; E carries / fits / bolts a part
   if (ecoKey(e)) return;   // v0.55 1-4 at a service board
@@ -3424,7 +3428,7 @@ const ENG = { valve: false, master: false, mix: 0, carb: false, mags: 0, starter
 const MAG_N = ['OFF', 'R', 'L', 'BOTH'];
 const PRIME = { lock: true, dir: 0 };
 const PRIME_TW = 0.52, PRIME_HY = 0.17, PRIME_HOLD = 0.15, PRIME_HOME = 0.001, PRIME_FREE = 0.005;   // v0.46.1: 30 deg twist (10 deg hysteresis) held 150 ms; plunger home < 1 mm; out > 5 mm = pumping                          // v0.44: the primer is locked in; twist to unlock it, stroke it, push in and twist to lock
-const LATCH = { rup: 1, rlo: 1, lf: 1, lr: 1 };       // v0.44: 1 = window / door latched shut (twist the latch handle to free it)
+const LATCH = { rup: 1, rlo: 1, lf: 1, lr: 1, rcg: 1 };       // v0.44: 1 = window / door latched shut (twist the latch handle to free it)
 function engColdDark() { Object.assign(ENG, { valve: false, master: false, mix: 0, carb: false, mags: 0, starterVR: false, starter: false, cranking: false, wet: 0, temp: 0, running: false, rpm: 0, fireT: 0, hintT: 0, starveT: 0, cutT: 0 }); }
 function engRunning() { Object.assign(ENG, { valve: true, master: true, mix: 1, carb: false, mags: 3, wet: 0.5, temp: 1, running: true, rpm: 2000 }); }   // tests / airborne spawns
 const engNeed = () => 2.0 - 1.5 * ENG.temp;            // prime "wetness" needed to fire: cold ~2 strokes, warm ~0.5
@@ -3657,8 +3661,8 @@ function updateSwitches(dt) {
 }
 
 // ---- windows: right upper hinges up under the wing (latches), right lower door folds down, left front / rear slide on outer tracks ----
-const WIN = { rup: 0, rlo: 0, lf: 0, lr: 0, tgt: {}, open: 0 };
-const WIN_MAX = { rup: 1.45, rlo: 1.35 };                          // radians (same as the exit animation)
+const WIN = { rup: 0, rlo: 0, lf: 0, lr: 0, rcg: 0, tgt: {}, open: 0 };
+const WIN_MAX = { rup: 1.45, rlo: 1.35, rcg: 1.35 };                          // radians (same as the exit animation)
 const LW_TRAVEL = { lf: 0.45, lr: 0.28 };                          // m (front slides aft over the wall, rear slides aft)
 function slidePane(pts, x0, handleZ) {
   const g = new THREE.Group(), tmp = new THREE.Group(); cubD.add(g);
@@ -3677,32 +3681,38 @@ const rupH = new THREE.Object3D(); rupH.position.set(-0.03, -0.51, -0.2); win.ad
   const a = fr.geometry.index ? fr.geometry.toNonIndexed() : fr.geometry; a.clearGroups(); fr.geometry = mergeGeometries([a, hb.toNonIndexed()]); }
 const rloH = new THREE.Object3D(); rloH.position.set(-0.035, 0.525, -0.2); door.add(rloH);
 box(0.034, 0.025, 0.08, dark, -0.035, 0.525, -0.2, door);
+const rcgH = new THREE.Object3D(); rcgH.position.set(-0.035, 0.515, 0.72); cdoor.add(rcgH); box(0.034, 0.025, 0.08, dark, -0.035, 0.515, 0.72, cdoor);   // v0.77.13 cargo door handle (inside, near its top edge)
 function winSet(k, v) { WIN[k] = clamp(v, 0, 1); }
 // v0.44 latch handles: one instanced lever beside each window / door handle (1 draw call), turned by wrist roll. v0.66: x (handle frame) puts the right-side pivots on their panes
-const LATCHV = { x: { rup: 0.025, rlo: 0.009 }, a: { rup: 0, rlo: 0, lf: 0, lr: 0 }, o: { rup: [rupH, -1], rlo: [rloH, -1], lf: [LWF.hp, 1], lr: [LWR.hp, 1] } };
-LATCHV.mesh = new THREE.InstancedMesh(ckGeo([['b', 0.008, 0.009, 0.05, 0, 0, -0.02, 0x8d9094], ['c', 0.009, 0.012, 8, 0, 0, 0, 0x55585c, 0, 0, Math.PI / 2], ['b', 0.012, 0.013, 0.014, 0, 0, -0.045, 0x161616]]), CKVM.clone(), 4);   // v0.47: own copy - sharing CKVM with plain meshes flipped its shader program every frame
+const LATCHV = { x: { rup: 0.025, rlo: 0.009, rcg: 0.009 }, a: { rup: 0, rlo: 0, lf: 0, lr: 0, rcg: 0 }, o: { rup: [rupH, -1], rlo: [rloH, -1], lf: [LWF.hp, 1], lr: [LWR.hp, 1], rcg: [rcgH, -1] } };
+LATCHV.mesh = new THREE.InstancedMesh(ckGeo([['b', 0.008, 0.009, 0.05, 0, 0, -0.02, 0x8d9094], ['c', 0.009, 0.012, 8, 0, 0, 0, 0x55585c, 0, 0, Math.PI / 2], ['b', 0.012, 0.013, 0.014, 0, 0, -0.045, 0x161616]]), CKVM.clone(), 5);   // v0.47: own copy - sharing CKVM with plain meshes flipped its shader program every frame
 LATCHV.mesh.frustumCulled = false; plane.add(LATCHV.mesh);
 const _lvM = new THREE.Matrix4(), _lvR = new THREE.Matrix4(), _lvI = new THREE.Matrix4();
 function latchDraw() {
   plane.updateWorldMatrix(true, false); _lvI.copy(plane.matrixWorld).invert(); let i = 0;
-  for (const k of ['rup', 'rlo', 'lf', 'lr']) { const [o, sx] = LATCHV.o[k]; o.updateWorldMatrix(true, false);
-    _lvM.multiplyMatrices(_lvI, o.matrixWorld).multiply(_lvR.makeTranslation(LATCHV.x[k] ?? sx * 0.016, k === 'rlo' ? -0.03 : 0.03, 0.05)).multiply(_lvR.makeRotationX(-LATCHV.a[k]));
+  for (const k of ['rup', 'rlo', 'lf', 'lr', 'rcg']) { const [o, sx] = LATCHV.o[k]; o.updateWorldMatrix(true, false);
+    _lvM.multiplyMatrices(_lvI, o.matrixWorld).multiply(_lvR.makeTranslation(LATCHV.x[k] ?? sx * 0.016, k === 'rlo' || k === 'rcg' ? -0.03 : 0.03, 0.05)).multiply(_lvR.makeRotationX(-LATCHV.a[k]));
     LATCHV.mesh.setMatrixAt(i++, _lvM); }
   LATCHV.mesh.instanceMatrix.needsUpdate = true;
 }
+const _cgo = new THREE.Vector3();
+function cargoGrab(p) {   // v0.77.13 on foot: a squeeze at the outside handle (or anywhere on its top edge) swings the cargo door
+  cdoor.localToWorld(_cgo.set(0.03, 0.515, 0.72));   // outside face, opposite the inside handle
+  const d = p.distanceTo(_cgo); if (d > 0.16) return false;
+  winToggle('rcg'); return true; }
 function winToggle(k) { WIN.tgt[k] = WIN[k] > 0.5 ? 0 : 1; sfx('clack');
-  say({ rup: 'RIGHT WINDOW', rlo: 'DOOR (LOWER)', lf: 'LEFT FRONT WINDOW', lr: 'LEFT REAR WINDOW' }[k] + (WIN.tgt[k] ? ' OPEN' : ' CLOSED')); }
+  say({ rup: 'RIGHT WINDOW', rlo: 'DOOR (LOWER)', lf: 'LEFT FRONT WINDOW', lr: 'LEFT REAR WINDOW', rcg: 'CARGO DOOR' }[k] + (WIN.tgt[k] ? ' OPEN' : ' CLOSED')); }
 function ckhHas(k) { for (const h of CKH.values()) if (h.k === k) return true; return false; }   // v0.59 (was a spread copy per latch per frame)
 function updateWindows(dt) {
   for (const k in LATCH) { if (WIN.tgt[k] > 0 || WIN[k] > 0.03) LATCH[k] = 0;   // v0.44: keys 1-4 / the exit work the latch for you
     else if (!LATCH[k] && WIN[k] === 0 && WIN.tgt[k] === undefined && !ckhHas(k)) { LATCH[k] = 1; if (mode === 'plane') sfx('clack'); }
     LATCHV.a[k] = CKX.vis['L' + k] ?? (LATCH[k] ? 0 : 1.0); }
-  for (const k of ['rup', 'rlo', 'lf', 'lr']) if (WIN.tgt[k] !== undefined) { WIN[k] = approach(WIN[k], WIN.tgt[k], 1.2, dt); if (WIN[k] === WIN.tgt[k]) delete WIN.tgt[k]; }
+  for (const k of ['rup', 'rlo', 'lf', 'lr', 'rcg']) if (WIN.tgt[k] !== undefined) { WIN[k] = approach(WIN[k], WIN.tgt[k], 1.2, dt); if (WIN[k] === WIN.tgt[k]) delete WIN.tgt[k]; }
   doorT = approach(doorT, mode === 'foot' ? 1 : 0, 1.5, dt);
-  door.rotation.z = -WIN_MAX.rlo * Math.max(doorT, WIN.rlo); win.rotation.z = WIN_MAX.rup * Math.max(doorT, WIN.rup);
+  door.rotation.z = -WIN_MAX.rlo * Math.max(doorT, WIN.rlo); win.rotation.z = WIN_MAX.rup * Math.max(doorT, WIN.rup); cdoor.rotation.z = -WIN_MAX.rcg * WIN.rcg;
   LWF.g.position.z = LW_TRAVEL.lf * WIN.lf; LWR.g.position.z = LW_TRAVEL.lr * WIN.lr;
   latchDraw();   // v0.49.1: after the panes have moved this frame
-  WIN.open = mode === 'plane' ? clamp(0.5 * Math.max(doorT, WIN.rup) + 0.35 * Math.max(doorT, WIN.rlo) + 0.3 * WIN.lf + 0.2 * WIN.lr, 0, 1) : 0;
+  WIN.open = mode === 'plane' ? clamp(0.5 * Math.max(doorT, WIN.rup) + 0.35 * Math.max(doorT, WIN.rlo) + 0.3 * WIN.lf + 0.2 * WIN.lr + 0.25 * WIN.rcg, 0, 1) : 0;
 }
 
 // ---- checklist card (laminated) in a holder under the right half of the panel ----
@@ -3869,7 +3879,7 @@ function ckTargets() {   // [id, worldPos, radius]
   for (const id in SW) out.push([id, plane.localToWorld(_cw.copy(SW[id].p)).clone(), CK_R]);
   out.push(['ldg', plane.localToWorld(_cw.copy(LDG_SW)).clone(), CK_R], ['pbrk', PB.H.getWorldPosition(new THREE.Vector3()), 0.05]);
   out.push(['card', CARD.mesh.getWorldPosition(_cw).clone(), 0.07], ['kb', KB.m.getWorldPosition(_cw).clone(), 0.1]);
-  out.push(['rup', rupH.getWorldPosition(_cw).clone(), WIN_R], ['rlo', rloH.getWorldPosition(_cw).clone(), WIN_R],
+  out.push(['rup', rupH.getWorldPosition(_cw).clone(), WIN_R], ['rlo', rloH.getWorldPosition(_cw).clone(), WIN_R], ['rcg', rcgH.getWorldPosition(_cw).clone(), WIN_R],
     ['lf', LWF.hp.getWorldPosition(_cw).clone(), WIN_R], ['lr', LWR.hp.getWorldPosition(_cw).clone(), WIN_R]);
   return out;
 }
@@ -3884,6 +3894,7 @@ function ckHand(g, squeeze, id) {   // returns true while this hand is busy with
     if (h.k === 'kb') kbHome();
     if (h.k === 'rup' && WIN.rup > 0.7) { WIN.tgt.rup = 1; say('WINDOW LATCHED UNDER THE WING'); }
     if (h.k === 'rlo' && WIN.rlo > 0.5) WIN.tgt.rlo = 1;
+    if (h.k === 'rcg' && WIN.rcg > 0.5) WIN.tgt.rcg = 1;   // v0.77.13 past halfway it drops open on its stop
     if (h.k in LATCH) { delete CKX.vis['L' + h.k]; if (WIN[h.k] < 0.03 && !LATCH[h.k]) { WIN[h.k] = 0; LATCH[h.k] = 1; sfx('clack'); hap(g, 0.5, 16); } }   // v0.44: shut it and the latch drops in
     CKH.delete(g); return false;
   }
@@ -3898,7 +3909,7 @@ function ckHand(g, squeeze, id) {   // returns true while this hand is busy with
     if (best === 'pbrk') pbSet(undefined, g);   // v0.77.11 grab the T-handle: pull it out to set, push it in to release (either hand)
     if (best === 'card') { CARD.g = g; sfx('pick'); say('CHECKLIST'); }
     if (best === 'kb') { KB.g = g; sfx('pick'); }
-    if (best === 'rup' || best === 'rlo') { cubD.worldToLocal(_ch); h.a0 = hingeAng(best, _ch); h.v0 = WIN[best]; }
+    if (best === 'rup' || best === 'rlo' || best === 'rcg') { cubD.worldToLocal(_ch); h.a0 = hingeAng(best, _ch); h.v0 = WIN[best]; }
     if (best === 'lf' || best === 'lr') { cubD.worldToLocal(_ch); h.z0 = _ch.z; h.v0 = WIN[best]; }
     if (best in LATCH && LATCH[best] && WIN[best] < 0.03) { h.lat = true; h.q0 = g.getWorldQuaternion(new THREE.Quaternion()); h.ax = new THREE.Vector3(0, 0, -1).applyQuaternion(h.q0); }   // v0.44: twist the latch first
     return true;
@@ -3909,13 +3920,13 @@ function ckHand(g, squeeze, id) {   // returns true while this hand is busy with
   if (h.lat) {   // v0.44: roll your wrist to turn the latch handle; past ~35 deg it lets go and the window / door moves with your hand
     const tw = Math.abs(twistAbout(h.q0, g.getWorldQuaternion(_hq), h.ax)); CKX.vis['L' + h.k] = clamp(tw, 0, 1.1);
     if (tw > 0.6) { h.lat = false; LATCH[h.k] = 0; sfx('clack'); hap(g, 0.6, 22); cubD.worldToLocal(g.getWorldPosition(_ch)); h.v0 = WIN[h.k];
-      if (h.k === 'rup' || h.k === 'rlo') h.a0 = hingeAng(h.k, _ch); else h.z0 = _ch.z; }
+      if (h.k === 'rup' || h.k === 'rlo' || h.k === 'rcg') h.a0 = hingeAng(h.k, _ch); else h.z0 = _ch.z; }
     return true;
   }
-  if (h.k === 'rup' || h.k === 'rlo' || h.k === 'lf' || h.k === 'lr') {
+  if (h.k === 'rup' || h.k === 'rlo' || h.k === 'rcg' || h.k === 'lf' || h.k === 'lr') {
     cubD.worldToLocal(g.getWorldPosition(_ch));
     if (h.k === 'rup') winSet('rup', h.v0 + (hingeAng('rup', _ch) - h.a0) / WIN_MAX.rup);
-    else if (h.k === 'rlo') winSet('rlo', h.v0 + (hingeAng('rlo', _ch) - h.a0) / WIN_MAX.rlo);
+    else if (h.k === 'rlo' || h.k === 'rcg') winSet(h.k, h.v0 + (hingeAng('rlo', _ch) - h.a0) / WIN_MAX[h.k]);   // v0.77.13 the cargo door shares the lower door's hinge line
     else winSet(h.k, h.v0 + (_ch.z - h.z0) / LW_TRAVEL[h.k]);
   }
   return true;
@@ -3927,7 +3938,7 @@ function engKey(e) {   // desktop keys in the plane
   if (e.code === 'KeyJ') { if (CARD.desk) cardHome(); else { CARD.desk = true; say('CHECKLIST (J to put away)'); } return true; }
   if (e.code === 'KeyN') { if (KB.desk) kbHome(); else { KB.desk = true; kbDraw(); say('KNEEBOARD (N to put it back, , and . turn the pages)'); } return true; }   // v0.51.1
   if (KB.desk && (e.code === 'Comma' || e.code === 'Period')) { kbPage(e.code === 'Period' ? 1 : -1); return true; }   // v0.64 clipboard pages
-  if (/^Digit[1-4]$/.test(e.code)) { winToggle(['rup', 'rlo', 'lf', 'lr'][+e.code[5] - 1]); return true; }
+  if (/^Digit[1-5]$/.test(e.code)) { winToggle(['rup', 'rlo', 'lf', 'lr', 'rcg'][+e.code[5] - 1]); return true; }
   return false;
 }
 // ======================= v0.23 HANDS: low-poly gloves + VTOL-VR-style cockpit interaction =======================
@@ -4156,6 +4167,7 @@ const GDEF = {
   lr: { o: () => LWR.hp, sh: 'box', c: GV3(0, 0, 0), b: GV3(0.009, 0.017, 0.015), st: 'wrap', wa: 1, wr: 0.012, tl: 0, wz: -0.022 },
   rup: { o: () => rupH, sh: 'box', c: GV3(0.005, 0, 0), b: GV3(0.025, 0.01, 0.035), st: 'wrap', wa: 2, wr: 0.011, tl: 0.012, wz: -0.012 },
   rlo: { o: () => rloH, sh: 'box', c: GV3(0, 0, 0), b: GV3(0.017, 0.0125, 0.04), st: 'wrap', wa: 2, wr: 0.013, tl: 0.015, wz: -0.012 },
+  rcg: { o: () => rcgH, sh: 'box', c: GV3(0, 0, 0), b: GV3(0.017, 0.0125, 0.04), st: 'wrap', wa: 2, wr: 0.013, tl: 0.015, wz: -0.012 },   // v0.77.13 cargo door handle
 };
 const _gF = new THREE.Matrix4(), _gI = new THREE.Matrix4(), _gH = new THREE.Matrix4(), _gx = GV3(0, 0, 0), _gy = GV3(0, 0, 0), _gz = GV3(0, 0, 0), _gA = GV3(0, 0, 0),
   _ga = GV3(0, 0, 0), _gb = GV3(0, 0, 0), _gc = GV3(0, 0, 0), _gs = GV3(0, 0, 0), _gd = GV3(0, 0, 0), _gm = GV3(0, 0, 0), _gq = GV3(0, 0, 0),
@@ -4318,7 +4330,7 @@ function hoverRing(tips) {                       // v0.24.1: one ring per free h
     const near = p => Math.min(p.distanceTo(_rT), p.distanceTo(_rP), p.distanceTo(_rG) < CK_R ? p.distanceTo(_rG) - 0.02 : 1);   // fingertip, pinch point, or (as before) right in the palm
     for (const id in SW) { _hx.copy(SW[id].p).setZ(SWP.z + 0.012 + knobOut(id)); const d = near(_hx); if (d < 0.045) cand(id, _hx, id === 'master' ? 0.021 : 0.017, d); }
     { _hx.copy(LDG_SW).setZ(LDG_SW.z + 0.014); const d = near(_hx); if (d < 0.045) cand('ldg', _hx, 0.015, d); }
-    for (const [k, o, r] of [['rup', rupH, WIN_R], ['rlo', rloH, WIN_R], ['lf', LWF.hp, WIN_R], ['lr', LWR.hp, WIN_R], ['card', CARD.mesh, 0.07], ['kb', KB.m, 0.1]]) {
+    for (const [k, o, r] of [['rup', rupH, WIN_R], ['rlo', rloH, WIN_R], ['rcg', rcgH, WIN_R], ['lf', LWF.hp, WIN_R], ['lr', LWR.hp, WIN_R], ['card', CARD.mesh, 0.07], ['kb', KB.m, 0.1]]) {
       o.getWorldPosition(_hx); plane.worldToLocal(_hx); const d = _hx.distanceTo(_rG); if (d < r) cand(k, _hx, 0.03, d + 0.02); }
     { let fd = 1e9; for (const [k, o, fr] of [['stick', knob, 0.06], ['thr', throttleKnob, 0.05]]) { const hg = k === 'stick' ? vr.stickG : vr.thrG; if (hg && hg !== g) continue;   // v0.61 either hand: stick and throttle, unless the other hand has it
       o.getWorldPosition(_hx); plane.worldToLocal(_hx); const d = _hx.distanceTo(_rG); if (d < fr && d < fd) { fd = d; force = k; } if (d < 0.09) cand(k, _hx, 0.03, d + 0.03); } }   // hand actually on the stick / throttle: it wins
@@ -4355,14 +4367,14 @@ const TIP = { txt: '', k: null, mesh: null, x: null, t: null };
   TIP.mesh = new THREE.Mesh(new THREE.PlaneGeometry(0.096, 0.015), new THREE.MeshBasicMaterial({ map: TIP.t, transparent: true, depthTest: false, depthWrite: false }));
   TIP.mesh.renderOrder = 4; TIP.mesh.visible = false; plane.add(TIP.mesh); }
 const TIP_NAME = { plt: 'PANEL LIGHTS', master: 'MASTER', mags: 'MAGNETOS', start: 'STARTER', prime: 'PRIMER', valve: 'FUEL VALVE', mix: 'MIXTURE', carb: 'CARB HEAT', ldg: 'LANDING LIGHT', card: 'CHECKLIST',
-  rup: 'RIGHT WINDOW', rlo: 'DOOR', lf: 'LEFT FRONT WINDOW', lr: 'LEFT REAR WINDOW', stick: 'STICK', thr: 'THROTTLE', flap: 'FLAPS', trim: 'ELEVATOR TRIM' };
+  rup: 'RIGHT WINDOW', rlo: 'DOOR', rcg: 'CARGO DOOR', lf: 'LEFT FRONT WINDOW', lr: 'LEFT REAR WINDOW', stick: 'STICK', thr: 'THROTTLE', flap: 'FLAPS', trim: 'ELEVATOR TRIM' };
 function tipState(k) {
   const E = ENG;
   switch (k) {
     case 'master': return E.master ? 'ON' : 'OFF'; case 'mags': return CKX.keyStart ? 'START' : MAG_N[E.mags]; case 'start': return E.starter ? 'CRANKING' : 'PUSH + HOLD'; case 'prime': return PRIME.lock ? 'LOCKED - TWIST' : 'PULL + PUSH';
     case 'plt': return ['OFF', 'DIM', 'BRIGHT'][LIGHTS.pl];
     case 'valve': return E.valve ? 'ON' : 'OFF'; case 'mix': return E.mix > 0.5 ? 'RICH' : 'CUTOFF'; case 'carb': return E.carb ? 'HOT' : 'COLD'; case 'ldg': return LIGHTS.landing ? 'ON' : 'OFF';
-    case 'rup': case 'rlo': case 'lf': case 'lr': return WIN[k] < 0.03 && LATCH[k] ? 'LATCHED - TWIST' : WIN[k] > 0.5 ? 'OPEN' : 'SHUT';
+    case 'rup': case 'rlo': case 'rcg': case 'lf': case 'lr': return WIN[k] < 0.03 && LATCH[k] ? 'LATCHED - TWIST' : WIN[k] > 0.5 ? 'OPEN' : 'SHUT';
     case 'thr': return Math.round(ctl.throttle * 20) * 5 + '%'; case 'flap': return FLAP_DEG[flapNotch] + '\u00b0';
     case 'trim': { const v = Math.round(TRIM.v * 10); return v === 0 ? 'NEUTRAL' : (v > 0 ? 'NOSE UP ' : 'NOSE DN ') + Math.abs(v); }
     case 'stick': return ''; default: return '';
@@ -4371,7 +4383,7 @@ function tipState(k) {
 function tipAnchor(k, out) {
   if (k in SW) return out.copy(SW[k].p).setZ(SWP.z + 0.02);
   if (k === 'ldg') return out.copy(LDG_SW).setZ(LDG_SW.z + 0.02);
-  const o = { card: CARD.mesh, kb: KB.m, rup: rupH, rlo: rloH, lf: LWF.hp, lr: LWR.hp, stick: knob, thr: throttleKnob, flap: flapKnob, trim: trimKnob }[k];
+  const o = { card: CARD.mesh, kb: KB.m, rup: rupH, rlo: rloH, rcg: rcgH, lf: LWF.hp, lr: LWR.hp, stick: knob, thr: throttleKnob, flap: flapKnob, trim: trimKnob }[k];
   return o ? plane.worldToLocal(o.getWorldPosition(out)) : null;
 }
 const _tpA = new THREE.Vector3(), _tpQ = new THREE.Quaternion(), _tpC = new THREE.Vector3();
