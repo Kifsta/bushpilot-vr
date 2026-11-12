@@ -2,6 +2,21 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.75 – weather, no wind
+Neil's list: subtle weather that can cut visibility. Only the look and sound change; the physics block is untouched (md5 `eee6637e…`) and there is no wind.
+- **States:** clear, haze, light overcast, low cloud + valley mist, light rain, and fog banks at dawn only (EARLY). Each picks a neighbour when it ends, weighted to fair weather (clear + haze are ~2/3 of the time, rain under 10 %). States last 8-25 min (clear 15-25); a change blends over ~4-6 min (2 min time constant).
+- **What it does:**
+  - Fog distance x0.3-0.6 in poor weather, never closer than a 2.3 km fog end (no whiteout, even on THICK haze + NEAR draw), and the sky / fog greyed.
+  - Sun and sky light dimmed up to 30 %, clouds greyer, the valley cloud deck lowered up to 260 m.
+  - Mist: 26 flat see-through patches on valley floors (never within 450 m of a strip), grown and faded with the weather.
+  - Rain: 1400 streaks in a box round the camera, moved in the vertex shader (no per-frame CPU work), none within 1.6 m so the cabin stays dry; a filtered-noise rain hiss on the ambient bus.
+- **Cost:** +2 draw calls in rain (streaks + mist), +10k triangles; clear weather costs nothing extra (both hidden).
+- **Saved** in the save (`wx`: state, time left, blend), still save v55, so older saves load and start clear.
+- **Settings > GRAPHICS > Weather OFF / ON** (OFF = the v0.74 clear-sky look).
+- **Clipboard PERF page:** a METAR-style line (`HOME AUTO 00000KT 3000 -RA BKN012 OVC020`) and the trend.
+- Test hook `?wx=drizzle` (or clear / haze / over / mist / fog) holds a state.
+- New test t75 (21 checks). Screenshots: /workspace/qa-v075-ground-{clear,haze,over,mist,drizzle,fog}.png (the same view, 170 m up, 1.6 km out), qa-v075-states-grid.png (all six), qa-v075-valley-{clear,mist}.png, qa-v075-clipboard-perf.png (the METAR line). t45 updated: the WX name and a no-wind Weather row are allowed now (ac.wind still checked zero).
+
 ## v0.74 – stack it to the roof
 Neil's list: stack cargo higher in the rear seat and the baggage bay, so you CAN overload the Cub if you choose. The physics block is untouched (md5 `eee6637e…`); the W&B maths already flies every piece at its station.
 - **Stack heights** (above the seat / floor): rear seat 0.60 → **0.82 m**, baggage bay 0.46 → **0.78 m**, rear floor 0.32 → **0.45 m**. Each zone also gets a roof (`ceil`: 0.86 / 0.90 / 0.70 m, measured against the cabin and the turtle deck) that a bouncing loose piece hits, instead of the old top + 25 cm.

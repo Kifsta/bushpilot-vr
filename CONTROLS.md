@@ -6,6 +6,11 @@ A new game starts **on foot beside the Cub** at the cabin strip. Climb in (Y / F
 
 v0.50 turns it into a **bush delivery** game: take a job off a strip's job board, carry the cargo to the Cub, strap it down, fly it out and set it down on the destination's yellow pad to get paid. See **Delivery jobs** below.
 
+## Weather (v0.75)
+- The weather changes slowly by itself: **clear** (most of the time), **haze**, **light overcast**, **low cloud + mist** in the valleys, **light rain**, and at dawn (EARLY time of day) the odd **fog bank**. A change takes 4-6 minutes and a state lasts 8-25 minutes.
+- It only changes what you see and hear: how far you see (strips are harder to pick out, but you always see 2 km+), the sky and light, a lower cloud deck, mist patches lying in valleys (never on a strip), rain streaks round you and a rain hiss. **No wind, and the flight model is untouched.**
+- The weather is saved with the game. Turn the effects off in Settings > GRAPHICS > **Weather**.
+
 ## Flying
 | | VR (Quest) | Desktop |
 |---|---|---|
@@ -286,6 +291,7 @@ A customer stands at every job board. Walk up to them for a hello: their rep tie
   - **W&B:** each station's weight and arm, the total against the 1750 lb gross, the CG and its limits, payload left, and the envelope graph with your current point, plus WITHIN LIMITS / OVER GROSS / CG FWD / CG AFT.
   - **CUB:** tach hours, landings, hours to the 100-hour, then bars for oil, tyres, brakes, gear damage and engine damage, the engine power cap and braking left.
   - **PERF:** weight, fuel on board, endurance in minutes of flying at 65% and full power (and at the current power with the engine running), and the V-speeds for this weight: stall flaps up and flaps 50, Vx, Vy, approach (1.3 Vs0), short field (1.25 Vs0) and Va. They are the book PA-18-150 speeds scaled by the square root of weight / 1750.
+  - The bottom of PERF (v0.75) shows a METAR-style weather line, e.g. `HOME AUTO 00000KT 3000 -RA BKN012 OVC020`, and the trend (`BECMG LIGHT OVERCAST IN ~12 MIN`). There is never any wind (00000KT).
 
 ## Lights and time of day
 - Landing light: flick the toggle under the panel (VR fingertip) or press L.
@@ -323,6 +329,7 @@ A customer stands at every job board. Walk up to them for a hello: their rep tie
 | Grass | OFF / LOW / HIGH | instanced tufts around you |
 | Clouds | OFF / NORMAL / HIGH | HIGH adds a second drifting layer |
 | Haze | LIGHT / NORMAL / THICK | fog distance |
+| Weather (v0.75) | OFF / ON | haze, cloud deck, valley mist, light rain + its sound. OFF = always the clear-sky look |
 | Anti-aliasing | OFF / MSAA | applies after a reload |
 | Refresh rate | AUTO / 72 / 90 / 120 | Quest 3 |
 | Haptics | OFF … 100 % | controller buzz |
