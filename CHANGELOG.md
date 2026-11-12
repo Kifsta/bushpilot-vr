@@ -2,6 +2,14 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.77.8 – the map and clipboard turn with your hand
+Neil's batch, item 2.
+- **1:1 with the hand:** held in one hand, the clipboard and the paper map are now rigidly attached to the controller at the lower-corner pinch. `paperHeld()` places the sheet at the inverse of that hand's fixed corner pinch (`gripFixed('paper')` plus `GDEF.kbL/kbR/mpL/mpR.pc`). They follow every rotation of your hand exactly. They aren't billboarded toward your eyes (v0.77.3) and aren't locked to the Cub.
+- **Glove on the controller:** because the sheet hangs off the pinch, the glove sits exactly on your controller.
+- **The map in two hands** still spans between the two pinches, level and facing you (unchanged).
+- **Desktop** (M / N held up in front of the camera) is unchanged.
+- **Tests:** new t778 (10 checks): the clipboard and the map, each hand, keep the same pose relative to the controller at 16 random rotations; the glove pinch is on the controller; the two-hand map still faces you; the console is clean. t772 still passes (corner pinch, thumb in front, nothing over the content). Screenshots: /workspace/qa-v0778-{clipboard,map}-{left,right}-{reading,tilted}.png.
+
 ## v0.77.7 – fuel hose over the wing, a real nozzle in your hand
 Neil's batch, item 1.
 - **Pistol-grip nozzle:** a new model with a body, a spout angled 16 deg down with a ring, a raked grip with the hose swivel at its base, a red trigger lever under the body (it squeezes up while you hold the trigger or fuel flows), and a guard (`NOZ` holds the dimensions).

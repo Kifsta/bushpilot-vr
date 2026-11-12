@@ -294,11 +294,13 @@ A customer stands at every job board. Walk up to them for a hello: their rep tie
 - On foot you can carry it. Let go near the holder to clip it back, or anywhere else to drop it (pick it up off the ground with grip).
 - Desktop: M holds it up in front of you, anywhere. M again puts it away.
 - **Hold (v0.77.3):** your left hand always pinches the map's lower-left corner and your right hand its lower-right, with the thumb on the front in the cream border. With both hands it spans between them, so your hands never cover the map.
+- **Turning it (v0.77.8):** held in one hand, the map turns exactly with your hand, like real paper pinched at the corner. Tilt or twist your wrist to angle it. It no longer turns itself to face you. In two hands it stays level between them, facing you.
 - v0.51.1: the strips with a job board are gold squares marked JOBS. Each job you have taken draws a dashed line in its tag colour to its destination, which is ringed and labelled with the job's number and title.
 
 ## Kneeboard (v0.51.1)
 - A clipboard on your left thigh lists your active jobs. For each one it shows the colour tag, the title and pay, FROM > TO, the distance and heading from the Cub to the destination pad, the pieces and weight, and the deadline or the special-cargo meter. It also shows where the cargo is: on the pad, in the Cub (STRAPPED or n LOOSE in red), or n/m delivered. It updates as you go.
 - VR: squeeze grip on it to lift it up to your eyes; let go and it goes back on your thigh. v0.77.3: you hold it pinched by its lower-left corner (left hand) or lower-right corner (right hand), thumb on the front margin, so the page is clear of your hand. Desktop (in the plane): N holds it up, and N again puts it back.
+  - v0.77.8: the clipboard turns exactly with the hand that holds it (pinched at the corner), so twist your wrist to angle it toward you. It doesn't turn by itself any more.
 - **Pages (v0.64):** a tab bar along the top shows four pages: **1 JOBS** (the manifest above), **2 W&B**, **3 CUB** and **4 PERF**.
   - VR: pull the trigger of the hand holding the clipboard for the next page (it wraps round). That trigger doesn't work the brakes while you hold the clipboard; the other hand's trigger still does.
   - Desktop: with the clipboard held up (N), **.** goes to the next page and **,** to the previous one.

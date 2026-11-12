@@ -19,7 +19,7 @@
 </script>
 </head>
 <body>
-<div id="info">BUSH PILOT VR v0.77.7 - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
+<div id="info">BUSH PILOT VR v0.77.8 - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
 You start on foot by the Cub at the cabin strip. Walk up to her and climb in (F / Y), then start her up off the checklist card (J).
 Desktop - flying: W/S or arrows pitch, A/D or arrows roll, Q/E rudder, Shift / Ctrl (or + / -) throttle, B brakes, [ ] flaps, PgUp / PgDn trim,
   R reset to the strip (cold and dark), F climb out, M map, L landing light, Home recentre, mouse looks (click to capture).
@@ -3352,10 +3352,11 @@ function updateMap() {   // after the plane pose is set (grips ride the cockpit)
   if (MAP.desk && !renderer.xr.isPresenting) { camera.add(MAP.sheet); MAP.sheet.visible = true; MAP.sheet.scale.setScalar(1); MAP.sheet.position.set(0, -0.02, -0.43); MAP.sheet.rotation.set(0, 0, 0); return; }
   if (MAP.state !== 'held') return;
   const E = eyeWorld(0); _eye.setFromMatrixPosition(E); _hf.set(0, 0, -1).transformDirection(E); _hf.y = 0; _hf.normalize();
-  const right = _mx.set(-_hf.z, 0, _hf.x), c = paperPin(MAP.g, _kp), hw = MAP_SHEET_B[0] / 2 - PAPER_IN, hh = MAP_SHEET_B[1] / 2 - PAPER_IN, s1 = paperSx(MAP.g);   // v0.77.3 each hand pinches its own lower corner
+  const right = _mx.set(-_hf.z, 0, _hf.x), c = paperPin(MAP.g, _kp), hh = MAP_SHEET_B[1] / 2 - PAPER_IN, s1 = paperSx(MAP.g);   // v0.77.3 each hand pinches its own lower corner
   if (MAP.g2) { const p2 = paperPin(MAP.g2, _kg); _my.subVectors(p2, c).multiplyScalar(-s1); _my.y = 0; if (_my.lengthSq() > 1e-4 && _my.dot(right) > 0) right.copy(_my.normalize()); c.add(p2).multiplyScalar(0.5); }   // two hands: left pinch -> right pinch, kept level
+  if (!MAP.g2) { paperHeld(MAP.g, s1 < 0 ? 'mpL' : 'mpR', _mm).decompose(MAP.sheet.position, MAP.sheet.quaternion, _ppS); return; }   // v0.77.8 one hand: the map turns 1:1 with your hand, pinched at its lower corner
   _mz.subVectors(_eye, c); _mz.addScaledVector(right, -_mz.dot(right)).normalize(); _my.crossVectors(_mz, right);
-  if (!MAP.g2) c.addScaledVector(right, -s1 * hw); c.addScaledVector(_my, hh);   // the corner (or the middle of the bottom edge) at the pinch, the page up and in from the hand
+  c.addScaledVector(_my, hh);   // two hands: the middle of the bottom edge between the pinches, the page up from the hands, facing you
   _mm.makeBasis(right, _my, _mz); MAP.sheet.position.copy(c); MAP.sheet.quaternion.setFromRotationMatrix(_mm);
 }
 mapStow('clip');
@@ -3736,6 +3737,11 @@ const KB_W = 512, KB_H = 704, KB = { home: new THREE.Vector3(-0.165, -0.055, -0.
 const KB_HW = 0.085, KB_HH = 0.1175, KB_HOLD_S = 1.2, PAPER_IN = 0.009, _ppM = new THREE.Matrix4();   // v0.77.3 board half-size, held scale, the pinch inset from the corner
 function paperSx(g) { return g.userData.src?.handedness === 'left' ? -1 : 1; }
 function paperPin(g, out) { g.updateWorldMatrix(true, false); _ppM.multiplyMatrices(g.matrixWorld, HOFF); return out.set(paperSx(g) * G_PIN.x, G_PIN.y, G_PIN.z).applyMatrix4(_ppM); }   // where this hand's thumb meets its index
+const _ppH = new THREE.Matrix4(), _ppA = new THREE.Vector3(), _ppS = new THREE.Vector3();
+function paperHeld(g, k, out) {   // v0.77.8 the held paper's world frame (unscaled) from this hand's controller: the inverse of its fixed corner pinch, so it turns 1:1 with the hand
+  const sx = paperSx(g), D = GDEF[k]; gripFixed('paper', sx, _ppH); _ppA.set(sx * G_PIN.x, G_PIN.y, G_PIN.z).applyMatrix4(_ppH); _ppH.setPosition(_ppA.subVectors(D.pc, _ppA));
+  g.updateWorldMatrix(true, false); return out.multiplyMatrices(g.matrixWorld, HOFF).multiply(_ppH.invert());
+}
 function paperHandK(g) { const L = paperSx(g) < 0; return KB.g === g ? (L ? 'kbL' : 'kbR') : MAP.state === 'held' && (MAP.g === g || MAP.g2 === g) ? (L ? 'mpL' : 'mpR') : null; }
 function kbHome() { KB.g = null; KB.desk = false; plane.add(KB.m); KB.m.position.copy(KB.home); KB.m.rotation.set(KB.rx, KB.ry, 0, 'YXZ'); KB.m.scale.setScalar(1); }
 kbHome();
@@ -3840,10 +3846,9 @@ function updateKb() {
   if (KB.desk) kbHome();
   if (!KB.g) return;
   { const gp = KB.g.userData.src?.gamepad; if (gp && pressedEdge(gp, 0, 'kbT')) { kbPage(1); hap(KB.g, 0.25, 10); } }   // v0.64 trigger of the hand holding it = next page
-  const E = eyeWorld(0); _eye.setFromMatrixPosition(E); paperPin(KB.g, _cq); const sx = paperSx(KB.g);   // v0.77.3 pinched at its lower-left (left hand) / lower-right (right hand) corner, the page clear of the hand
+  const sx = paperSx(KB.g);   // v0.77.3 pinched at its lower-left (left hand) / lower-right (right hand) corner, the page clear of the hand
   scene.add(KB.m); KB.m.scale.setScalar(KB_HOLD_S);
-  _cz.subVectors(_eye, _cq).normalize(); _cr.crossVectors(_up, _cz).normalize(); _cy.crossVectors(_cz, _cr); _cm.makeBasis(_cr, _cy, _cz); KB.m.quaternion.setFromRotationMatrix(_cm);
-  KB.m.position.copy(_cq).addScaledVector(_cr, -sx * (KB_HW * KB_HOLD_S - PAPER_IN)).addScaledVector(_cy, KB_HH * KB_HOLD_S - PAPER_IN);
+  paperHeld(KB.g, sx < 0 ? 'kbL' : 'kbR', _cm).decompose(KB.m.position, KB.m.quaternion, _ppS); KB.m.scale.setScalar(KB_HOLD_S);   // v0.77.8 the clipboard turns 1:1 with your hand (no billboard)
 }
 
 // ---- VR hand grabs on cockpit controls (they win over the stick / throttle grab while the hand is on them) ----
@@ -4257,8 +4262,8 @@ function handTargets(i, g, st) {                 // decide pose + world matrix f
       }
       st.mode = 'ck';
     }
-  } else if (paperHandK(g)) { gripOn(st, paperHandK(g), right ? 1 : -1); st.mode = 'ck'; }
-  else if (HOSE.held === g && HOSE.noz.visible) { gripOn(st, 'noz', right ? 1 : -1); st.mode = 'ck'; st.jx = 0.35 * trig; }   // v0.77.7 the nozzle's pistol grip, the index on the lever   // v0.77.3 the map held on foot: its corner pinch
+  } else if (paperHandK(g)) { gripOn(st, paperHandK(g), right ? 1 : -1); st.mode = 'ck'; }   // v0.77.3 the map held on foot: its corner pinch
+  else if (HOSE.held === g && HOSE.noz.visible) { gripOn(st, 'noz', right ? 1 : -1); st.mode = 'ck'; st.jx = 0.35 * trig; }   // v0.77.7 the nozzle's pistol grip, the index on the lever
   else if (huntHandK(g) || binoHandK(g)) { const hk = huntHandK(g) || binoHandK(g); gripOn(st, hk, right ? 1 : -1); st.mode = 'ck'; st.jx = hk === 'rgrip' ? 0.3 * trig : 0; }   // v0.67 the trigger finger squeezes   // v0.53 rifle grips, v0.65 binoculars
   else if (FUELP.g === g || huntHold(g)) { st.tc[0] = st.tc[1] = st.tc[2] = st.tc[3] = 0.6; st.tth = 0.3; st.ttw = 0.5; st.mode = 'hold'; }
   return right;
