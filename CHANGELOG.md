@@ -2,6 +2,19 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.77 – six tricky destinations
+Neil's list: more destinations, several genuinely tricky. These are six new v0.52-style bush sites (14 in all). Each has a customer camp, a job board with 3 offers, a pad, and a one-line briefing in the FOUND message. They follow the unprepared-site rules: found by flying or walking past, then drawn on the map, with FIND IT / SEARCH jobs before that. The sites are on real ground found by a terrain search. Nothing is flattened, and the physics block is untouched.
+- **EAGLE SHOULDER:** a mountain shoulder, 740 m up, 200 m long. One-way at 10 % uphill.
+- **OXBOW BAR:** a gravel bar in a river bend, 180 m long, with water 6 m off the edge.
+- **KNIFE SADDLE:** a crest strip only 12 m wide, 170 m long. One-way at 5.5 %, cross slope up to 18 %, and the ground drops away both sides.
+- **TALL TIMBER:** a 250 m mown clearing in the south-east lowlands. About 120 spruce 18-27 m tall stand 90-150 m off both ends and along the sides. Clearing them needs about 17 deg from the threshold, so you come in steep. **They are solid.** `tallTick()` makes a wing or prop strike on one a crash ("Flew into the trees at TALL TIMBER"). Elsewhere the forest is still decoration.
+- **DOGLEG FLAT:** two mown legs (120 m + 110 m) with a 26 deg kink. The second leg is surface, tree clearing, dressing and a map line too.
+- **HIGH COL:** the highest strip at 1057 m, 140 m long, one-way, rough and in the snow. Air density is constant in this flight model, so it is hard for its shortness, slope and roughness, not for density altitude.
+- **Pay:** jobs to or from a bush site pay x(1.2 + 0.2 x difficulty): BAR x1.4, CLEARING / DOGLEG x1.6, SHOULDER / SADDLE / COL x1.8. The other sites are unchanged at x1.2.
+- **New camps:** climbers hut, raft guides, radio relay mast, timber cruisers, homestead, survey camp. All are in the one merged camp mesh (still 1 draw call, now ~10k tris).
+- **Boards:** the new sites' boards come after Halvorsen, so the older boards keep their index and job seeds. Two airdrop X's moved so that every drop is still 900 m+ from any strip: BALDY RIDGE (-2700,900) to (-2200,1400), which the new high col was 400 m from. (Lower River stays.)
+- **Tests:** t50 / t51 / t52 / t52h / t56 / t76 updated for 14 sites (the diff-3 mountain sites allow bumps < 1.7 m and cross slope < 25 %, and the Cub runs in t52 prove they are usable). New test t77 (14 checks). Screenshots: /workspace/qa-v077-<site>-{approach,ground}.png and qa-v077-map.png.
+
 ## v0.76 – rugged bush strips
 Neil's list: make the airstrips look like real bush strips. Visual only: groundY / surfaceAt at every strip are unchanged (checked against v0.75), so the gear rolls on exactly what you see; the physics block is untouched (md5 `eee6637e…`).
 - **Rugged runway textures** (`runwayTex('bush' / 'dirtb' / 'grayb')`): patchy colour from smooth value noise, bare dirt spots, ragged edges in drier rough grass, wider and darker wheel ruts that wander a little, and no painted bars. The v0.63 height cues stay: mowing bands, tyre tracks, grain. Used by Ridge, Lodge and Dry Fork, the Halvorsen gravel strip, and the 8 bush sites' surfaces. **Home keeps the tidy v0.63 texture**, with threshold bars and aiming blocks.

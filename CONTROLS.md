@@ -127,7 +127,7 @@ Four strips have a **job board** (a wooden notice board on two posts) and a **ye
   - **Payload warning:** if a job is heavier than what you can still load at your current fuel, the board shows `OVER PAYLOAD AT n GAL: MAX x LB` in red. Fly with less fuel or split the trip. The W&B card shows `PAYLOAD LEFT x LB`, or `OVER MAX GROSS 1750 BY x LB` in red.
 
 ## Bush sites (v0.52)
-Eight **unprepared landing spots** off the airfields, each with a customer camp, a small job board and a yellow pad. Nothing is graded except the two short strips. Land on what's there.
+Fourteen **unprepared landing spots** off the airfields (eight since v0.52, six tricky ones added in v0.77), each with a customer camp, a small job board and a yellow pad. Nothing is graded except the two short strips. Land on what's there.
 
 | Site | Type | Customer | Length | Notes |
 |---|---|---|---|---|
@@ -139,9 +139,17 @@ Eight **unprepared landing spots** off the airfields, each with a customer camp,
 | ELK MEADOW | meadow | elk camp | 220 m | **one-way**, wheel tracks in the grass |
 | RANGER STRIP | short strip | ranger station | 160 m | graded, windsock |
 | RANCH STRIP | short strip | ranch | 180 m | graded, windsock |
+| EAGLE SHOULDER (v0.77) | mountain shoulder, 740 m up | climbers hut | 200 m | **one-way**, 10 % uphill, no go-around once committed. Pays x1.8 |
+| OXBOW BAR (v0.77) | river-bend gravel bar | raft guides | 180 m | water close alongside. Pays x1.4 |
+| KNIFE SADDLE (v0.77) | narrow saddle on a crest | radio relay | 170 m | **one-way**, only 12 m wide, the ground falls away both sides. Pays x1.8 |
+| TALL TIMBER (v0.77) | forest clearing | timber cruisers | 250 m | mown, but a wall of 18-27 m spruce stands 90-150 m off both ends: come in steep (about 15 deg over the tops), no dragging in low. **The spruce are solid**: hit one and you crash. Pays x1.6 |
+| DOGLEG FLAT (v0.77) | dogleg strip | homestead | 120 + 110 m | mown, two legs with a 26 deg kink. Steer round at the knee; heavy you need both legs. Pays x1.6 |
+| HIGH COL (v0.77) | alpine strip, 1057 m (the highest) | survey camp | 140 m | **one-way**, rough and sloped, up in the snow. Pays x1.8 |
 
 - **Finding them.** A site isn't on your map until you've found it. Fly over within about 400 m (and below 250 m above it), or walk up to it. You'll get `FOUND <site> - <type> ~<length> M - <customer> - ON YOUR MAP NOW`. Found sites stay found in your save.
-- **Jobs to sites.** About half the jobs from the airfields go to bush sites, and sites send some of their jobs to other sites. Bush jobs pay 20 % more. If you haven't found the place yet, the board says `(FIND IT)` and the map draws a dashed **?** search circle (320 m radius) with the site somewhere inside it, and the kneeboard says `SEARCH ...` with the distance and heading to that circle. Once found, the board and kneeboard show the type and length (`LAKE SHORE 200M`).
+- **Jobs to sites.** About half the jobs from the airfields go to bush sites, and sites send some of their jobs to other sites. Bush jobs pay 20 % more, and the tricky v0.77 sites pay 40-80 % more (x1.2 + 0.2 per difficulty step). If you haven't found the place yet, the board says `(FIND IT)` and the map draws a dashed **?** search circle (320 m radius) with the site somewhere inside it, and the kneeboard says `SEARCH ...` with the distance and heading to that circle. Once found, the board and kneeboard show the type and length (`LAKE SHORE 200M`).
+- **Briefing (v0.77).** The tricky sites add a one-line briefing to the FOUND message, such as `TWO LEGS WITH A 26 DEG KINK`.
+- **Air density** is constant in this flight model, so the high col is hard because it's short, rough and sloped, not because of density altitude.
 - **On the map:** found sites are drawn and labelled with the customer, the type and the length, plus `1-way` on the bench and the meadow. For those two, the FOUND message also gives the uphill landing heading (`ONE-WAY: LAND UPHILL HDG nnn`).
 - They're short: an empty Cub lifts off in 55–110 m, and at max gross in 130–195 m. Landing rolls run 50–130 m. Watch your weight going into the bench and the meadow, and use the slope.
 

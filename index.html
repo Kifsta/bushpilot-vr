@@ -19,7 +19,7 @@
 </script>
 </head>
 <body>
-<div id="info">BUSH PILOT VR v0.76 - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
+<div id="info">BUSH PILOT VR v0.77 - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
 You start on foot by the Cub at the cabin strip. Walk up to her and climb in (F / Y), then start her up off the checklist card (J).
 Desktop - flying: W/S or arrows pitch, A/D or arrows roll, Q/E rudder, Shift / Ctrl (or + / -) throttle, B brakes, [ ] flaps, PgUp / PgDn trim,
   R reset to the strip (cold and dark), F climb out, M map, L landing light, Home recentre, mouse looks (click to capture).
@@ -3260,7 +3260,7 @@ function mapJobs() {   // v0.51.1: job boards (gold square) + every active job's
   const x = MAP.cx, X = wx => (wx + MAP_X) * MAP_PX, Z = wz => (wz + MAP_Z) * MAP_PX, F = "'Segoe Print','Bradley Hand','Comic Sans MS','Comic Neue',cursive";
   x.drawImage(MAP.base, 0, 0); x.textBaseline = 'middle'; x.textAlign = 'center';
   for (const S of DLV_STRIPS) { if (!S.site || !S.found) continue; const B = S.B, sa = Math.sin(B.a), ca = Math.cos(B.a), p0x = X(B.x - sa * B.hl), p0y = Z(B.z - ca * B.hl), p1x = X(B.x + sa * B.hl), p1y = Z(B.z + ca * B.hl);   // v0.52
-    x.lineCap = 'round'; x.lineWidth = 6; x.strokeStyle = '#1e1810'; x.beginPath(); x.moveTo(p0x, p0y); x.lineTo(p1x, p1y); x.stroke(); x.lineWidth = 3; x.strokeStyle = B.type === 'short' ? '#d9cfae' : '#c8a860'; x.stroke(); x.lineCap = 'butt';
+    x.lineCap = 'round'; x.lineJoin = 'round'; x.lineWidth = 6; x.strokeStyle = '#1e1810'; x.beginPath(); x.moveTo(p0x, p0y); x.lineTo(p1x, p1y); if (B.leg) x.lineTo(X(B.leg.x + Math.sin(B.leg.a) * B.leg.hl), Z(B.leg.z + Math.cos(B.leg.a) * B.leg.hl)); x.stroke(); x.lineWidth = 3; x.strokeStyle = B.type === 'short' || B.type === 'clearing' || B.type === 'dogleg' ? '#d9cfae' : '#c8a860'; x.stroke(); x.lineCap = 'butt';
     if (B.land != null) { const ux = -B.low * sa, uz = -B.low * ca, hx = X(B.x - ux * B.hl * 1.9), hy = Z(B.z - uz * B.hl * 1.9), tx = X(B.x + ux * B.hl * 0.4), ty = Z(B.z + uz * B.hl * 0.4), ang = Math.atan2(ty - hy, tx - hx);   // land uphill
       x.strokeStyle = '#8a1a10'; x.fillStyle = '#8a1a10'; x.lineWidth = 2; x.beginPath(); x.moveTo(hx, hy); x.lineTo(tx, ty); x.stroke(); x.beginPath(); x.moveTo(tx, ty); x.lineTo(tx - 9 * Math.cos(ang - 0.4), ty - 9 * Math.sin(ang - 0.4)); x.lineTo(tx - 9 * Math.cos(ang + 0.4), ty - 9 * Math.sin(ang + 0.4)); x.closePath(); x.fill(); }
     const lb = B.lab || [X(B.cx) > X(B.x) ? 14 : -14, 0, X(B.cx) > X(B.x) ? 'left' : 'right'], ox = X(B.x) + lb[0], oy = Z(B.z) + lb[1]; x.textAlign = lb[2]; x.fillStyle = '#1e1810'; x.font = 'bold 13px ' + F; x.fillText(S.name.toLowerCase(), ox, oy - 8);
@@ -4469,7 +4469,7 @@ function huntGen(id, from, r) {   // one venison job: a customer (not this strip
     sp: 'perish', life: Math.ceil(25 + 2 * km), fresh: 1, stress: 0, wc: 'H', hunt: { h: hi, got: 0 } };
 }
 const DROPS = [
-  { id: 'BALDY', name: 'BALDY RIDGE', who: 'STRANDED HIKER', x: -2700, z: 900, title: 'HIKER SUPPLIES', n: [2, 3], ppl: 1 },
+  { id: 'BALDY', name: 'BALDY RIDGE', who: 'STRANDED HIKER', x: -2200, z: 1400, title: 'HIKER SUPPLIES', n: [2, 3], ppl: 1 },
   { id: 'SPUR', name: 'EAST SPUR', who: 'SURVEY PARTY', x: 3180, z: -1260, title: 'SURVEY STORES', n: [2, 4], ppl: 3 },
   { id: 'BURNT', name: 'BURNT HILL', who: 'FIRE CREW', x: 2580, z: 1020, title: 'FIRE CREW RATIONS', n: [3, 4], ppl: 3, fire: 1 },
   { id: 'DEEP', name: 'DEEP WOODS', who: 'TRAPPER', x: -480, z: -960, title: 'TRAPPER\'S STORES', n: [2, 3], ppl: 1 },
@@ -4527,7 +4527,7 @@ const DLV_STRIPS = (() => {
 // ===================== v0.52 bush sites: unprepared landing spots, each with a customer (found by flying over / walking up; then they're on the paper map) =====================
 // The spots came out of a search of the heights the gear rolls on (terrainHeight): along-strip slope, bumps off the best-fit line, cross slope at +-9 m,
 // and the ground beyond the low end staying under a climb line. Nothing is flattened: the gear feels the real ground (rough surface; the two short strips are graded).
-const BUSH_T = { sandbar: 'SANDBAR', shore: 'LAKE SHORE', ridge: 'RIDGE BENCH', meadow: 'MEADOW', short: 'SHORT STRIP' };
+const BUSH_T = { sandbar: 'SANDBAR', shore: 'LAKE SHORE', ridge: 'RIDGE BENCH', meadow: 'MEADOW', short: 'SHORT STRIP', shoulder: 'MOUNTAIN SHOULDER', saddle: 'NARROW SADDLE', clearing: 'FOREST CLEARING', dogleg: 'DOGLEG STRIP', alpine: 'ALPINE STRIP' };   // v0.77 + 5 types
 const BUSH = [   // a = strip axis (x += sin a, z += cos a), hl/hw = half length / width (m), low = the downhill end of a one-way strip (+1 = +axis end)
   { id: 'CREEK', name: 'CREEK BAR', type: 'sandbar', cust: 'PROSPECTOR CAMP', x: -910, z: 1750, a: 2.749, hl: 95, hw: 9 },
   { id: 'FISHBAR', name: 'FISH CAMP BAR', type: 'sandbar', cust: 'FISH CAMP', x: -90, z: 2120, a: 2.749, hl: 105, hw: 9 },
@@ -4537,9 +4537,17 @@ const BUSH = [   // a = strip axis (x += sin a, z += cos a), hl/hw = half length
   { id: 'ELK', name: 'ELK MEADOW', type: 'meadow', cust: 'ELK CAMP', x: -2220, z: -1150, a: 1.833, hl: 110, hw: 10, low: 1, lab: [0, 24, 'center'] },
   { id: 'RANGER', name: 'RANGER STRIP', type: 'short', cust: 'RANGER STATION', x: -1410, z: -1210, a: 2.225, hl: 80, hw: 8, lab: [0, -24, 'center'] },
   { id: 'RANCHS', name: 'RANCH STRIP', type: 'short', cust: 'RANCH', x: 1280, z: 2240, a: 2.618, hl: 90, hw: 8 },
+  // v0.77 tricky sites (found by a terrain search; the ground is the real ground, nothing flattened). diff 1-3 raises the pay (x1.2 + 0.2 per step)
+  { id: 'SHOULDER', name: 'EAGLE SHOULDER', type: 'shoulder', cust: 'CLIMBERS HUT', x: -4500, z: 350, a: 5.76, hl: 100, hw: 8, low: -1, diff: 3, note: '10% UPHILL ON THE WEST FACE, 740 M UP - NO GO-AROUND ONCE COMMITTED' },
+  { id: 'BENDBAR', name: 'OXBOW BAR', type: 'sandbar', cust: 'RAFT GUIDES', x: -3486, z: 2522, a: 1.97, hl: 90, hw: 9, diff: 1, note: 'GRAVEL BAR IN A RIVER BEND - WATER CLOSE ALONGSIDE' },
+  { id: 'SADDLE', name: 'KNIFE SADDLE', type: 'saddle', cust: 'RADIO RELAY', x: -4475, z: -1975, a: 2.094, hl: 85, hw: 6, low: 1, diff: 3, note: '12 M WIDE ON A CREST, THE GROUND DROPS AWAY BOTH SIDES' },
+  { id: 'CLEARING', name: 'TALL TIMBER', type: 'clearing', cust: 'TIMBER CRUISERS', x: 1550, z: -3300, a: 2.094, hl: 125, hw: 9, diff: 2, tall: true, note: '25 M SPRUCE 90 M OFF BOTH ENDS - STEEP APPROACH, NO DRAGGING IN' },
+  { id: 'DOGLEG', name: 'DOGLEG FLAT', type: 'dogleg', cust: 'HOMESTEAD', x: 650, z: 3050, a: 5.411, hl: 60, hw: 8, diff: 2, leg: { d: -0.45, hl: 55 }, note: 'TWO LEGS WITH A 26 DEG KINK - TURN AT THE KNEE, YOU NEED BOTH LEGS HEAVY' },
+  { id: 'ALPINE', name: 'HIGH COL', type: 'alpine', cust: 'SURVEY CAMP', x: -2940, z: 600, a: 0, hl: 70, hw: 7, low: 1, diff: 3, note: 'HIGHEST STRIP (1057 M), 140 M, ROUGH + SLOPED' },
 ];
 const bushHdg = (dx, dz) => Math.round(((Math.atan2(dx, -dz) * 180 / Math.PI) + 360) % 360 / 5) * 5 % 360;
-for (const B of BUSH) { B.len = Math.round(B.hl * 2 / 10) * 10;   // the landing heading of a one-way strip: up the hill (from the low end)
+for (const B of BUSH) { if (B.leg) { const g = B.leg, ex = B.x + Math.sin(B.a) * B.hl, ez = B.z + Math.cos(B.a) * B.hl; g.a = B.a + g.d; g.x = ex + Math.sin(g.a) * g.hl; g.z = ez + Math.cos(g.a) * g.hl; }   // v0.77 the dogleg's second leg (from the knee)
+  B.len = Math.round((B.hl + (B.leg ? B.leg.hl : 0)) * 2 / 10) * 10;   // the landing heading of a one-way strip: up the hill (from the low end)
   if (B.low) B.land = bushHdg(-B.low * Math.sin(B.a), -B.low * Math.cos(B.a));
   const r = dlvRng(B.x * 31 + B.z * 17 + 52), ang = r() * 6.283, d = 90 + r() * 120; B.hx = B.x + Math.cos(ang) * d; B.hz = B.z + Math.sin(ang) * d; }   // the search-area centre (map hint)
 { const C = {}, M = c => C[c] || (C[c] = new THREE.MeshLambertMaterial({ color: c })), BOXG = new THREE.BoxGeometry(1, 1, 1), R = dlvRng(5252);
@@ -4597,8 +4605,20 @@ for (const B of BUSH) { B.len = Math.round(B.hl * 2 / 10) * 10;   // the landing
     'RANCH': o => { for (const [a, b] of [[-3, -4], [3, -4], [-3, 0], [3, 0]]) gp(o, 0.25, 3.6, 0.25, 0x6a4a2a, a, 1.8, b - 1); roof(o, 7, 1.3, 5.2, 0x8a2a1a, 0, 3.5, -3);   // hay shed
       for (let k = 0; k < 9; k++) gp(o, 1.0, 0.45, 0.5, 0xd8c070, -2 + (k % 3) * 1.6, 0.23 + Math.floor(k / 3) * 0.45, -3.5 + (k % 2) * 0.2);
       gp(o, 2.2, 1.1, 1.1, 0xb8b8b0, 5.5, 1.6, -2); for (const a of [-0.8, 0.8]) gp(o, 0.12, 1.1, 0.12, 0x5a5e62, 5.5 + a, 0.55, -2); },   // farm fuel tank on its stand
+    'CLIMBERS HUT': o => { house(o, 3.2, 2.0, 2.6, 0xb84a2a, 0x3a3a3a, 1.4, 0, -2.5); gp(o, 0.9, 1.8, 0.06, 0x2a1e12, 0.4, 0.9, -1.17); ring(o, 3.4, 1.0);   // v0.77 the red tin hut
+      for (let k = 0; k < 3; k++) gp(o, 0.35, 0.6, 0.25, [0xd0a020, 0x2a6ab0, 0xc03020][k], -2.6 + k * 0.5, 0.3, 0.4); gp(o, 0.05, 1.6, 0.05, 0x9a9a9a, 2.0, 0.8, -0.6, 0, 0.3); },   // packs + an ice axe
+    'RAFT GUIDES': o => { tent(o, -3, -2.5); tent(o, 1.2, -3.2, 0.3, 2.4, 3.0); for (const [a, c] of [[-1.5, 0xd04020], [1.5, 0xe0a020]]) gp(o, 1.6, 0.45, 4.2, c, a + 3, 0.22, 3.2, 0.1);   // two rafts
+      for (let k = 0; k < 4; k++) gp(o, 0.08, 0.05, 2.2, 0x6a5a3a, 4.8, 0.06 + k * 0.05, 1 + k * 0.3); ring(o, -0.5, 1.6); logs(o, -4, 1.5, 2, 0.4); },
+    'RADIO RELAY': o => { gp(o, 2.4, 2.2, 2.0, 0x9aa0a4, 0, 1.1, -2.5); for (let k = 0; k < 6; k++) gp(o, 0.12, 3, 0.12, 0xc03020 + (k % 2) * 0x2fbfbf, 3.2, 1.5 + k * 3, -2.5);   // shelter + a red / white mast
+      gp(o, 1.8, 0.05, 1.0, 0x1a2a4a, -2.6, 1.2, -1.5, 0, -0.6); gp(o, 0.08, 1.1, 0.08, 0x5a5e62, -2.6, 0.55, -1.5); for (let k = 0; k < 2; k++) drum(o, 1.6 + k * 0.7, -0.8, 0x6a7a4a); },   // solar panel, two drums
+    'TIMBER CRUISERS': o => { tent(o, -2.5, -2.5); tent(o, 1.5, -2.8, -0.2); ring(o, 0, 1.2); logs(o, 3.6, 0.6, 6, 0.3);
+      for (let k = 0; k < 5; k++) gp(o, 0.04, 1.4, 0.04, 0xe06a10, -4 + k * 0.4, 0.7, 2.2); gp(o, 0.5, 0.4, 0.3, 0xe06a10, 4.2, 0.2, -1.2); },   // flagging stakes + the chainsaw box
+    'HOMESTEAD': o => { house(o, 5.2, 2.4, 4.0, 0x7a5a3a, 0x4a4a4a, 1.8, 0, -3); gp(o, 0.6, 3.6, 0.6, 0x7a766c, 2.0, 1.8, -4.2); gp(o, 1.0, 2.0, 0.06, 0x2a1e12, -0.8, 1.0, -0.97);
+      rails(o, [[-7, 1], [-7, 6], [-2, 6]]); for (let k = 0; k < 6; k++) gp(o, 0.9, 0.5, 0.06, 0x3a6a2a, -6 + (k % 3) * 1.2, 0.25, 2 + Math.floor(k / 3) * 1.4); },   // fence + a vegetable patch
+    'SURVEY CAMP': o => { tent(o, -2.2, -2.5); tent(o, 1.6, -2.6, 0.2, 2.2, 2.8); for (const t of [0, 2.1, 4.2]) gp(o, 0.04, 1.5, 0.04, 0xc8a050, 4 + Math.sin(t) * 0.35, 0.72, 1 + Math.cos(t) * 0.35, 0, Math.cos(t) * 0.2, Math.sin(t) * 0.2);   // theodolite tripod
+      gp(o, 0.2, 0.18, 0.28, 0xd8c040, 4, 1.5, 1); gp(o, 0.4, 0.4, 0.4, 0xe8e8e0, -4.5, 0.2, 1.5); gp(o, 0.06, 2.2, 0.06, 0xd03020, -4.5, 1.3, 1.5); },   // a painted survey cairn + pole
   };
-  const GS = [], RV = [], RC = [], RU = [];   // every camp in one merged mesh, every strip surface in another: 2 draw calls for all 8 sites
+  const GS = [], RV = [], RC = [], RU = [], LATE = [];   // every camp in one merged mesh, every strip surface in another: 2 draw calls for all 8 sites
   for (const B of BUSH) {
     const S = { x: B.x, z: B.z, a: B.a, y: 0 }, l0 = B.low ? -B.low * (B.hl - 25) : 0;   // strip frame: local x across, z along (W(S, w, l))
     const score = s => { let e = 0; for (const w of [B.hw + 8, B.hw + 18, B.hw + 30]) for (const l of [l0 - 14, l0, l0 + 14]) { const [x, z] = W(S, s * w, l), [x0, z0] = W(S, s * (B.hw + 2), l); e += Math.abs(groundY(x, z) - groundY(x0, z0)); if (waterDist(x, z) < 10) e += 60; } return e; };
@@ -4607,28 +4627,38 @@ for (const B of BUSH) { B.len = Math.round(B.hl * 2 / 10) * 10;   // the landing
     Object.assign(B, { bx, bz, ry, px, pz, cx, cz });
     G = new THREE.Group(); const o = { x: cx, z: cz, a: ry, y: 0 }; o.y = groundY(cx, cz); CUST[B.cust](o);
     const mk = (l, w, h = 0.35) => { const [x, z] = W(S, w, l), y = groundY(x, z); part({ x: 0, z: 0, a: 0, y: 0 }, 0.6, h, 0.45, 0xe8e2d0, x, y + h / 2 - 0.05, z, B.a); };
-    if (B.type === 'short') { for (let l = -B.hl; l <= B.hl + 0.1; l += 40) for (const w of [-B.hw - 1, B.hw + 1]) mk(l, w); const [wx, wz] = W(S, s * (B.hw + 14), -l0 - B.hl + 30); sockAt(wx, wz); MOWN.push({ x: B.x, z: B.z, a: B.a, hl: B.hl, hw: B.hw }); }
+    const mown = B.type === 'short' || B.type === 'clearing' || B.type === 'dogleg';   // v0.77 the clearing + dogleg are mown like the short strips
+    if (mown) { for (let l = -B.hl; l <= B.hl + 0.1; l += 40) for (const w of [-B.hw - 1, B.hw + 1]) mk(l, w); const [wx, wz] = W(S, s * (B.hw + 14), -l0 - B.hl + 30); sockAt(wx, wz); MOWN.push({ x: B.x, z: B.z, a: B.a, hl: B.hl, hw: B.hw }); if (B.leg) MOWN.push({ x: B.leg.x, z: B.leg.z, a: B.leg.a, hl: B.leg.hl, hw: B.hw }); }
     else for (const l of [-B.hl, B.hl]) for (const w of [-B.hw, B.hw]) mk(l, w, 0.5);   // painted rocks at the corners: someone uses this spot
     // the strip surface: graded / gravel ribbon, or two worn wheel tracks in the grass (meadow / ridge bench)
-    const v = RV, col = RC, cA = new THREE.Color({ sandbar: 0xb3a98c, shore: 0xa69c7c, short: 0x86ad55, meadow: 0x7e6c48, ridge: 0x7e6c48 }[B.type]), cc = new THREE.Color();
-    const quad = (l, w, dl, dw) => { cc.copy(cA).offsetHSL(0, 0, (R() - 0.5) * 0.06); const tex = B.type === 'short';   // v0.63 conformed to the ground; mown 'short' strips get the runway pattern (others: a plain texel)
-      conformPoly([W(S, w, l), W(S, w + dw, l), W(S, w + dw, l + dl), W(S, w, l + dl)].map(([x, z]) => [x, z]), 0.05, v, RU, (x, z) => { if (!tex) return [0.02, 0.5]; const dx = x - B.x, dz = z - B.z, sa = Math.sin(B.a), ca = Math.cos(B.a); return [((dx * ca - dz * sa) / B.hw + 1) / 2, ((dx * sa + dz * ca) / B.hl + 1) / 2]; }, () => { for (let k = 0; k < 3; k++) col.push(cc.r, cc.g, cc.b); }); };
-    for (let l = -B.hl; l < B.hl; l += 10) { if (B.type === 'meadow' || B.type === 'ridge') { for (const w of [-1.8, 1.0]) quad(l, w, 10, 0.8); } else for (let w = -B.hw; w < B.hw; w += B.hw) quad(l, w, 10, B.hw); }
+    const v = RV, col = RC, cA = new THREE.Color({ sandbar: 0xb3a98c, shore: 0xa69c7c, short: 0x86ad55, meadow: 0x7e6c48, ridge: 0x7e6c48, shoulder: 0x7e6c48, saddle: 0x7a6a4a, alpine: 0x847250, clearing: 0x86ad55, dogleg: 0x86ad55 }[B.type]), cc = new THREE.Color();
+    const quad = (l, w, dl, dw, S = S0, Bq = B) => { cc.copy(cA).offsetHSL(0, 0, (R() - 0.5) * 0.06); const tex = mown;   // v0.63 conformed to the ground; mown 'short' strips get the runway pattern (others: a plain texel)
+      conformPoly([W(S, w, l), W(S, w + dw, l), W(S, w + dw, l + dl), W(S, w, l + dl)].map(([x, z]) => [x, z]), 0.05, v, RU, (x, z) => { if (!tex) return [0.02, 0.5]; const dx = x - Bq.x, dz = z - Bq.z, sa = Math.sin(Bq.a), ca = Math.cos(Bq.a); return [((dx * ca - dz * sa) / B.hw + 1) / 2, ((dx * sa + dz * ca) / Bq.hl + 1) / 2]; }, () => { for (let k = 0; k < 3; k++) col.push(cc.r, cc.g, cc.b); }); };
+    const S0 = S, tracks = B.type === 'meadow' || B.type === 'ridge' || B.type === 'shoulder' || B.type === 'saddle' || B.type === 'alpine';
+    for (const Q of B.leg ? [B, B.leg] : [B]) { const Sq = { x: Q.x, z: Q.z, a: Q.a, y: 0 };
+      for (let l = -Q.hl; l < Q.hl; l += 10) { if (tracks) { for (const w of [-1.8, 1.0]) quad(l, w, 10, 0.8, Sq, Q); } else for (let w = -B.hw; w < B.hw; w += B.hw) quad(l, w, 10, B.hw, Sq, Q); } }
+    if (B.tall) { B.trees = []; const Tc = new THREE.ConeGeometry(1, 1, 7).translate(0, 0.5, 0), Tt = new THREE.CylinderGeometry(0.25, 0.35, 1, 5).translate(0, 0.5, 0), W0 = { x: 0, z: 0, a: 0, y: 0 };   // v0.77 a wall of 20-27 m spruce round the clearing
+      for (const sg of [-1, 1]) for (let k = 0; k < 34; k++) { const l = sg * (B.hl + 90 + R() * 60), w = (R() * 2 - 1) * (B.hw + 45), [x, z] = W(S, w, l), y = groundY(x, z), h = 20 + R() * 7;   // across both ends
+        B.trees.push([x, y, z, h]); geo(Tt, 0x4a3422, W0, x, y, z).scale.set(1, h * 0.3, 1); const c = geo(Tc, R() < 0.5 ? 0x1e3a24 : 0x274a2c, W0, x, y + h * 0.22, z); c.scale.set(2.2 + R(), h * 0.8, 2.2 + R()); }
+      for (const sg of [-1, 1]) for (let l = -B.hl; l <= B.hl; l += 9) { const w = sg * (B.hw + 16 + R() * 14), [x, z] = W(S, w, l), y = groundY(x, z), h = 18 + R() * 7;   // and along both sides
+        B.trees.push([x, y, z, h]); geo(Tt, 0x4a3422, W0, x, y, z).scale.set(1, h * 0.3, 1); const c = geo(Tc, R() < 0.5 ? 0x1e3a24 : 0x274a2c, W0, x, y + h * 0.22, z); c.scale.set(2.2 + R(), h * 0.8, 2.2 + R()); } }
     G.updateMatrixWorld(true); const gs = GS, n0 = gs.length;
     for (const q of G.children) { const h = (q.geometry.index ? q.geometry.toNonIndexed() : q.geometry.clone()).applyMatrix4(q.matrix); for (const k of Object.keys(h.attributes)) if (k !== 'position') h.deleteAttribute(k); h.computeVertexNormals();
       const n = h.attributes.position.count, c = q.material.color, cl = new Float32Array(n * 3); for (let i = 0; i < n; i++) cl.set([c.r, c.g, c.b], i * 3); h.setAttribute('color', new THREE.BufferAttribute(cl, 3)); gs.push(h); }
     B.tris = gs.slice(n0).reduce((t, h) => t + h.attributes.position.count / 3, 0);
-    DLV_STRIPS.push({ id: B.id, name: B.name, x: B.x, z: B.z, board: [bx, bz, ry], pad: [px, pz], site: true, found: false, B });
+    (B.diff ? LATE : DLV_STRIPS).push({ id: B.id, name: B.name, x: B.x, z: B.z, board: [bx, bz, ry], pad: [px, pz], site: true, found: false, B });   // v0.77 the new sites go after Halvorsen (older boards keep their index + seeds)
   }
   { const S = HALV, sa = Math.sin(S.a), ca = Math.cos(S.a), P = (w, l) => [S.x - ca * w + sa * l, S.z + sa * w + ca * l];   // v0.56 the Halvorsen station board: across the strip from the compound
     const [bx, bz] = P(30, -40), [px, pz] = P(22, -32); DLV_STRIPS.push({ id: 'HALV', name: 'HALVORSEN STN', x: S.x, z: S.z, board: [bx, bz, Math.atan2(ca, -sa)], pad: [px, pz], lock: true }); }
+  DLV_STRIPS.push(...LATE);
   { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(RV, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(RC, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(RU, 2)); g.computeVertexNormals();
     const rm = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ vertexColors: true, map: runwayTex('grayb'), side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -2 })); rm.userData.noBatch = true; scene.add(rm); BUSH.rib = rm;
     const mm = new THREE.Mesh(mergeGeometries(GS), new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true })); mm.userData.noBatch = true; scene.add(mm); for (const h of GS) h.dispose();
     mm.userData.tris = mm.geometry.attributes.position.count / 3; BUSH.mesh = mm; for (const B of BUSH) B.mesh = mm; }
+  const offQ = (x, z, Q, hw, fn) => { const dx = x - Q.x, dz = z - Q.z, sa = Math.sin(Q.a), ca = Math.cos(Q.a), l = Math.abs(dx * sa + dz * ca), w = Math.abs(dx * ca - dz * sa);
+    return (l < Q.hl + (fn ? 40 : 85) && w < hw + 8) || (fn && l < Q.hl + 260 && w < hw + 4 + (l - Q.hl) * 0.12); };   // v0.77 the tall-timber clearing: cut 85 m off the ends, no funnel (the spruce wall stands 90-150 m out)
   const c52 = MYS_SITES.clear, off = (x, z) => BUSH.some(B => { const dx = x - B.x, dz = z - B.z; if (dx * dx + dz * dz > 640000) return false;   // the strip (+40 m), a funnel off each end, the camp
-    const sa = Math.sin(B.a), ca = Math.cos(B.a), l = Math.abs(dx * sa + dz * ca), w = Math.abs(dx * ca - dz * sa);
-    return (l < B.hl + 40 && w < B.hw + 8) || (l < B.hl + 260 && w < B.hw + 4 + (l - B.hl) * 0.12) || hyp(x - B.cx, z - B.cz) < 24; });
+    return offQ(x, z, B, B.hw, !B.tall) || (B.leg && offQ(x, z, B.leg, B.hw, true)) || hyp(x - B.cx, z - B.cz) < 24; });
   MYS_SITES.clear = () => { c52();
     for (const k of CHUNKS) for (let i = 0; i < k.n; i++) if (off(k.xz[i * 3], k.xz[i * 3 + 2])) k.full.fill(0, i * 16, i * 16 + 16);
     scene.traverse(m => { if (!m.isInstancedMesh || CHUNKS.some(k => k.im === m)) return; const A = m.instanceMatrix.array; let hit = false;
@@ -4655,10 +4685,12 @@ const STRIP_DRESS = [];   // { id, m, n: piece counts, tris, S: the strip frame 
     { id: 'LODGE', x: LODGE.x, z: LODGE.z, a: Math.atan2(Math.sin(LODGE.a), Math.cos(LODGE.a)), hl: LODGE.hl, hw: LODGE.hw, side: 1 },
     { id: 'DRYFORK', x: DRYFORK_STRIP.x, z: DRYFORK_STRIP.z, a: DRYFORK_STRIP.a, hl: DRYFORK_STRIP.hl, hw: DRYFORK_STRIP.hw, side: 1 },
     { id: 'HALV', x: HALV.x, z: HALV.z, a: HALV.a, hl: HALV.hl, hw: HALV.hw, side: 0, dirt: true },
-  ].concat(BUSH.map(B => ({ id: B.id, x: B.x, z: B.z, a: B.a, hl: B.hl, hw: B.hw, side: B.side || 1, type: B.type, sock: B.type !== 'short' })));
+  ].concat(BUSH.map(B => ({ id: B.id, x: B.x, z: B.z, a: B.a, hl: B.hl, hw: B.hw, side: B.side || 1, type: B.type, sock: B.type !== 'short' && B.type !== 'clearing' && B.type !== 'dogleg' })),
+    BUSH.filter(B => B.leg).map(B => ({ id: B.id + '2', x: B.leg.x, z: B.leg.z, a: B.leg.a, hl: B.leg.hl, hw: B.hw, side: B.side || 1, type: B.type, leg: true })));   // v0.77 the dogleg's second leg
   for (const S of L) {
     const sa = Math.sin(S.a), ca = Math.cos(S.a), Wp = (l, w) => [S.x + sa * l + ca * w, S.z + ca * l - sa * w], parts = [], N = {};
     const add = (k, l, w, sx, sy, sz, col, ry = r() * 6.283, rx = 0, rz = 0, dy = 0) => { const [x, z] = Wp(l, w), y = groundY(x, z) + dy, e = k === 'log' ? sx / 2 : Math.max(sx, sz);
+      if (L.some(Q => Q !== S && hyp(Q.x - x, Q.z - z) < Q.hl + 30 && Math.abs((x - Q.x) * Math.sin(Q.a) + (z - Q.z) * Math.cos(Q.a)) < Q.hl + 3 && Math.abs((x - Q.x) * Math.cos(Q.a) - (z - Q.z) * Math.sin(Q.a)) < Q.hw + 1.5)) return;   // v0.77 never on another strip (the dogleg's legs)
       if (k !== 'pole' && k !== 'cone') { let lo = 1e9, hi = -1e9; for (const [ox, oz] of [[e, 0], [-e, 0], [0, e], [0, -e], [e, e], [-e, -e], [e, -e], [-e, e]]) { const h = groundY(x + ox * 1.5, z + oz * 1.5); lo = Math.min(lo, h); hi = Math.max(hi, h); } if (hi - lo > 0.5) return; }   // too steep for it to sit: skip
       _dm.compose(_dv.set(x, y, z), _dq.setFromEuler(_de.set(rx, ry, rz, 'YXZ')), _ds.set(sx, sy, sz)); const g = G[k].clone().applyMatrix4(_dm), n = g.attributes.position.count, c = new Float32Array(n * 3);
       cA.setHex(col); for (let i = 0; i < n; i++) c.set([cA.r, cA.g, cA.b], i * 3); g.setAttribute('color', new THREE.BufferAttribute(c, 3)); parts.push(g); N[k] = (N[k] || 0) + 1; };
@@ -4677,7 +4709,7 @@ const STRIP_DRESS = [];   // { id, m, n: piece counts, tris, S: the strip frame 
     }
     // markers: white half-buried tyres down the edges (rugged strips), cones at the four corners, a pair of oil drums at one end
     if (!S.tidy && !bar) for (let l = -S.hl + 25; l < S.hl - 20; l += 60) for (const sg of [-1, 1]) add('tyre', l, sg * (S.hw + 0.6), 0.36, 0.36, 0.42, 0xe8e6de, S.a + Math.PI / 2, 0, 0, 0.12);
-    for (const l of [-S.hl, S.hl]) for (const sg of [-1, 1]) add('cone', l + Math.sign(l) * 1.2, sg * (S.hw + 0.8), 0.2, 0.5, 0.2, S.tidy ? 0xf07020 : 0xe06a1a, 0);
+    for (const l of S.leg ? [S.hl] : [-S.hl, S.hl]) for (const sg of [-1, 1]) add('cone', l + Math.sign(l) * 1.2, sg * (S.hw + 0.8), 0.2, 0.5, 0.2, S.tidy ? 0xf07020 : 0xe06a1a, 0);
     if (!S.tidy) { const sg = S.side || 1; for (const k of [0, 1]) add('drum', S.hl - 8 - k * 0.7, sg * (S.hw + 3.2 + k * 0.1), 0.29, 0.88, 0.29, k ? 0xb8302a : 0x2a5a8a, r(), 0, 0, -0.02); }
     if (S.sock) { const l = S.hl - 30, w = (S.side || 1) * (S.hw + 12);   // a limp sock on a pole: there is no wind (v0.45)
       add('pole', l, w, 0.1, 5.6, 0.1, 0x8a8d90, 0); add('cone', l, w, 0.28, 1.6, 0.28, 0xff6a13, 0, Math.PI - 0.12, 0, 5.45); }
@@ -4686,10 +4718,15 @@ const STRIP_DRESS = [];   // { id, m, n: piece counts, tris, S: the strip frame 
     STRIP_DRESS.push({ id: S.id, m, n: N, tris: g.attributes.position.count / 3, S });
   }
 }
+function tallTick() {   // v0.77 the tall-timber clearing's spruce wall is solid: a wing or the prop into one is a crash (the forest elsewhere stays decoration)
+  if (mode !== 'plane' || ac.crashed) return; const p = ac.pos;
+  for (const B of BUSH) { if (!B.trees || hyp(p[0] - B.x, p[2] - B.z) > B.hl + 140) continue;
+    for (const [x, y, z, h] of B.trees) if (p[1] < y + h * 0.95 && p[1] > y - 3 && hyp(p[0] - x, p[2] - z) < 5.5) { crash(ac, 'Flew into the trees at ' + B.name); return; } }
+}
 function bushFind(S, quiet) {   // a bush site goes on the map
   if (!S.site || S.found) return; S.found = true; MAP.key = ''; S.key = ''; DLV.found = (DLV.found || 0) + 1; if (quiet) return;
   const B = S.B; sfx('clack'); saveSoon();
-  say('FOUND ' + S.name + ' - ' + BUSH_T[B.type] + ' ~' + B.len + ' M' + (B.land != null ? ', ONE-WAY: LAND UPHILL HDG ' + String(B.land).padStart(3, '0') : '') + ' - ' + B.cust + ' - ON YOUR MAP NOW');
+  say('FOUND ' + S.name + ' - ' + BUSH_T[B.type] + ' ~' + B.len + ' M' + (B.land != null ? ', ONE-WAY: LAND UPHILL HDG ' + String(B.land).padStart(3, '0') : '') + ' - ' + B.cust + (B.note ? ' - ' + B.note : '') + ' - ON YOUR MAP NOW');
 }
 function bushTick() {   // flown over low (within ~400 m, under ~250 m above it) or walked up to: found
   for (const S of DLV_STRIPS) if (S.site && !S.found && hyp(PP.x - S.x, PP.z - S.z) < 400 && PP.y - groundY(S.x, S.z) < 250) bushFind(S);
@@ -4783,7 +4820,7 @@ function dlvGen0(from, forceH) {   // one offer from this strip (seeded by the r
   const id = DLV.seq++; { const rh = dlvRng(id * 49979687 + 11); if (!forceH && rh() < HUNT_P) return huntGen(id, from, rh); }   // v0.53
   { const ra = dlvRng(id * 86028121 + 5); if (!forceH && ra() < DROP_P) return dropGen(id, from, ra); }   // v0.54 airdrops
   const r = dlvRng(id * 7919 + 13), fS = dlvS(from), others = DLV_STRIPS.filter(S => S.id !== from && !S.lock), bush = others.filter(S => S.site), main = others.filter(S => !S.site);
-  const pool = bush.length && r() < (fS && fS.site ? 0.25 : 0.5) ? bush : main, to = pool[Math.floor(r() * pool.length)], bx = to.site || (fS && fS.site) ? 1.2 : 1;   // v0.52 bush sites
+  const pool = bush.length && r() < (fS && fS.site ? 0.25 : 0.5) ? bush : main, to = pool[Math.floor(r() * pool.length)], bx = to.site || (fS && fS.site) ? 1.2 + 0.2 * Math.max(to.B?.diff || 0, fS?.B?.diff || 0) : 1;   // v0.52 bush sites (v0.77 + the tricky ones' difficulty)
   const [title, kinds] = DLV_T[Math.floor(r() * DLV_T.length)], items = dlvCapL(kinds.map(k => { const [a, b] = CARGO_K[k].lb; return { k, lb: Math.round(a + r() * (b - a)) }; }));
   const lb = items.reduce((s, i) => s + i.lb, 0), km = dlvKm(dlvS(from), to), dl = r() < 0.45 ? Math.ceil(6 + km * 1.5) : 0;
   const r2 = dlvRng(id * 104729 + 7), r3 = dlvRng(id * 15485863 + 3), spc = r2() < 0.35;
@@ -7745,7 +7782,7 @@ renderer.setAnimationLoop(() => {
   fpsFrames++; fpsT += dt; instT += dt;
   if (fpsT >= 1) { fps = Math.round(fpsFrames / fpsT); fpsFrames = 0; fpsT = 0; }
   if (msgT > 0) { msgT -= dt; msgA += dt; }
-  fuelTick(dt); hoseTick(dt); fuelPumpTick(dt); saveTick(dt); CLOUDS.tick(dt); updateDay(dt); wxTick(dt); gfxTick(dt); updateWater(dt); townTick(dt); updateFalling(dt); updateAudio(dt);
+  tallTick(); fuelTick(dt); hoseTick(dt); fuelPumpTick(dt); saveTick(dt); CLOUDS.tick(dt); updateDay(dt); wxTick(dt); gfxTick(dt); updateWater(dt); townTick(dt); updateFalling(dt); updateAudio(dt);
   panelUpdate(ac, dt); cmpWet(dt);
   if (instT > 0.1) { instT = 0; drawWrist(); }
   if ((chunkT += dt) > 0.2) { chunkT = 0; updateChunks(); }
