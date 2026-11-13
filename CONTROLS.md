@@ -411,6 +411,6 @@ A customer stands at every job board. Walk up to them for a hello: their rep tie
 
 ## Parking brake (v0.77.11)
 - v0.84: it sits on a small black bracket plate hung from the switch strip's lower edge (it used to float in mid-air), and it gets the yellow ring like every other control.
-- A black T-handle under the left of the panel. VR: grab it with either hand to pull it out (set); grab it again to push it in (off). Desktop: **\\** toggles it in the seat.
+- A black T-handle under the left of the panel. VR (v0.84.5): grip the T-bar with either hand. Your glove closes round it and the handle slides with your hand along its shaft, up to 5 cm out of its sleeve. Past 80 % it clicks in to the set detent; push it back under 20 % and it releases. Let go part-way and it springs to the nearest detent of the state it's in. Desktop: **\\** toggles it in the seat.
 - A red lamp beside it and PARK BRAKE on the status line show it's set. It's off by default and isn't saved.
 - It holds both main wheels only with weight on them. In the air it does nothing. A full rudder pedal still frees that side a little (the toe brakes are differential).

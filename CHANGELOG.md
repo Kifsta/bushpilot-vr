@@ -2,6 +2,15 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.84.5 – the parking brake slides on its shaft
+
+Neil: pulled out, the T-handle floated in the air, detached from its mount.
+- **Shaft and sleeve:** a sleeve runs from the bezel back through the bracket, and the steel shaft is 7.5 cm long. Fully out (5 cm, up from 3.5), 1.5 cm of shaft is still in the sleeve, and the visible stretch connects the T-bar to the collar. The T-bar is now a hand wide (7 cm).
+- **Moves with the hand:** while you grip it, the handle follows your hand along the shaft axis, clamped to 0–5 cm. Past 80 % it clicks in to the set detent (sound and haptic); pushed back under 20 % it releases. Let go and it springs to the detent of its state. A grab alone no longer toggles it. Desktop **\\** still toggles.
+- **Glove:** one fixed fist pose per hand (overhand, knuckles over the T-bar, fingers wrapped round it), riding the handle through its travel.
+- The handle's meshes are kept out of the static cockpit batch, so they are never drawn at the merged (home) position.
+- Tests: new t845 (17/0: grab without setting, half out under the hand, set past 80 %, 5 cm stop, shaft still in the sleeve, palm on the bar with the fingers closed, detents, release; both hands). t84 and t7711 now pull the handle instead of tapping it (10/0, 9/0). Physics md5 unchanged.
+
 ## v0.84.4 – the rifle: back to the v0.44-full (zombie) version
 Neil's headset test of v0.83, item 2. Where the old and new behaviour conflicted, the old wins. The physics block is untouched.
 - **Model restored, not kept:** the Synty-style GLB did not map onto the old mechanics. Measured from the grip, its rear sight sat 5.8 cm up (v0.44: 6.2), its eye relief put the eye 10 cm behind the grip (v0.44: 20), its loading gate was 6 cm further forward and its lever pivot was elsewhere, so the sight alignment could not match. The v0.44 carbine is back, built in code exactly as in v0.44-full (`rflBuild44`; `assets/lever-rifle.glb` is no longer loaded): round barrel over a full-length tube, short deep forend, boxy receiver, buckhorn rear sight with a brass bead level 3 cm over the bore, big loop lever, sliding bolt, straight-grip stock, crescent buttplate. Its points are v0.44's: grip (0,0,0), forend -0.3, gate (0.019, 0.002, -0.125), eject port, muzzle -0.705, and the eye (0, 0.062, 0.2). The lever, hammer, trigger and gate are separate moving parts, and the bolt and the fed round move with the stroke as in v0.44.

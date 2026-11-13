@@ -31,7 +31,7 @@ Desktop - on foot: WASD walk, Shift run, C crouch, Space hop, F climb in, G refu
   Airdrops: in flight open the right door (1 upper window, 2 lower door), G pushes the next bundle out - drop it on the smoke / X.
   Running costs: fuel is paid at the red drums (4 strips, 4 prices); oil, tyres + brakes, repairs and the 100-hour service at the home HANGAR board (1-4 there).
 VR - in the cockpit: grip the stick (right) and throttle (left), left stick = rudder, left trigger = brakes, reach up and pull the flap handle down
-  a notch at a time, wind the trim crank, turn knobs / the mag key / the primer / the fuel valve with your hand; every cockpit control needs the grip (yellow ring = what it takes).
+  a notch at a time, wind the trim crank, turn knobs / the mag key / the primer / the fuel valve with your hand; every cockpit control needs the grip (yellow ring = what it takes); the parking brake T-handle: grip it and pull it out along its shaft to set, push it in to release.
   Grip the clipboard on your thigh to lift it, its hand's trigger turns the page. A / X recentre, B reset, Y climb out. Turn your left wrist to your face and poke its MENU button with your right finger for SETTINGS.
 VR - on foot: left stick walks (click = run), right stick turns (snap / smooth in Settings), right stick down = crouch, up = hop,
   Y climb in, take the nozzle off a red drum, put it in a wing filler cap and hold the trigger to refuel from the pump, grab the map off its cockpit holder.
@@ -3485,10 +3485,16 @@ PB.P = new THREE.Vector3(-0.17, -0.305 + CK.y, PANEL_Z + 0.03);   // v0.77.11 un
 { const G = new THREE.Group(); G.position.copy(PB.P); plane.add(G); PB.G = G; const blk = mat(0x1a1a1a);
   box(0.05, 0.03, 0.012, mat(0x3a3a3a), 0, 0, -0.03, G); PB.H = new THREE.Group(); G.add(PB.H);   // v0.84 on a bracket plate hung from the switch strip's lower edge (it floated in mid-air)
   box(0.1, 0.075, 0.008, mat(0x1c1c1e), 0, 0.01, -0.04, G); box(0.1, 0.012, 0.03, mat(0x1c1c1e), 0, 0.044, -0.05, G);   // bezel in the panel's lower lip; the handle slides out of it
-  box(0.007, 0.007, 0.034, mat(0x9a9a9a), 0, 0, -0.012, PB.H); box(0.044, 0.012, 0.01, blk, 0, 0, 0.006, PB.H); box(0.03, 0.004, 0.002, mat(0xc02020), 0, 0.007, 0.006, PB.H);   // shaft, T-bar, red band
-  PB.L = new THREE.Mesh(new THREE.CircleGeometry(0.005, 10), new THREE.MeshBasicMaterial({ color: 0x401010 })); PB.L.position.set(0.035, 0.008, -0.023); G.add(PB.L); }   // indicator lamp: red when set
+  box(0.016, 0.016, 0.074, mat(0x2a2a2a), 0, 0, -0.042, G); box(0.02, 0.02, 0.004, mat(0x555555), 0, 0, -0.006, G);   // v0.84.5 the sleeve the shaft runs in, with its collar
+  box(0.007, 0.007, 0.075, mat(0x9a9a9a), 0, 0, -0.0325, PB.H); box(0.07, 0.012, 0.01, blk, 0, 0, 0.006, PB.H); box(0.05, 0.004, 0.002, mat(0xc02020), 0, 0.007, 0.006, PB.H);   // shaft (long enough to stay in the sleeve fully out), T-bar (a full hand wide), red band
+  PB.L = new THREE.Mesh(new THREE.CircleGeometry(0.005, 10), new THREE.MeshBasicMaterial({ color: 0x401010 })); PB.L.position.set(0.035, 0.008, -0.023); G.add(PB.L); PB.H.traverse(o => { o.userData.noBatch = true; }); }   // indicator lamp: red when set
 function pbSet(on, g) { PB.on = on ?? !PB.on; sfx('click'); if (g) hap(g, 0.6, 20); say(PB.on ? 'PARKING BRAKE SET' : 'PARKING BRAKE OFF'); }
-function pbTick(dt) { PB.H.position.z = snapTo('pbrk', PB.on ? 0.035 : 0, dt); PB.L.material.color.setHex(PB.on ? 0xff2a1a : 0x401010); }
+const PB_TRAV = 0.05;   // v0.84.5 the handle slides 5 cm out along its shaft
+function pbHold(g, h, start) {   // v0.84.5 the hand pulls the T-handle along its shaft: clamped travel, detents at both ends (set past 80 %, off under 20 %)
+  PB.G.worldToLocal(g.getWorldPosition(_ch)); if (start) { h.z0 = _ch.z; h.v0 = PB.x = PB.H.position.z / PB_TRAV; return; }
+  const x = clamp(h.v0 + (_ch.z - h.z0) / PB_TRAV, 0, 1); PB.x = x; if (!PB.on && x > 0.8) pbSet(true, g); else if (PB.on && x < 0.2) pbSet(false, g);
+}
+function pbTick(dt) { const g = [...CKH].find(e => e[1].k === 'pbrk'); if (g) { const s = SNAP.pbrk || (SNAP.pbrk = { v: 0, w: 0 }); s.v = PB.x * PB_TRAV; s.w = 0; PB.H.position.z = s.v; } else PB.H.position.z = snapTo('pbrk', PB.on ? PB_TRAV : 0, dt); PB.L.material.color.setHex(PB.on ? 0xff2a1a : 0x401010); }
 function pbApply() { if (PB.on && ECO.wow) ctl.brake = 1; }   // both wheels, only with weight on them
 function toggleLanding() { LIGHTS.landing = !LIGHTS.landing; sfx('click'); say(LIGHTS.landing ? 'LANDING LIGHT ON' : 'LANDING LIGHT OFF'); }
 ldgTog.rotation.x = 0.5;
@@ -4057,7 +4063,7 @@ function ckHand(g, squeeze, id) {   // returns true while this hand is busy with
     if (!best) return false;
     h = { k: best }; CKH.set(g, h); tick(g); delete WIN.tgt[best];
     if (best === 'start') { CKX.grabStart = true; ENG.starterVR = true; } else if (best in SW || best === 'ldg') ckGrabStart(g, h);
-    if (best === 'pbrk') pbSet(undefined, g);   // v0.77.11 grab the T-handle: pull it out to set, push it in to release (either hand)
+    if (best === 'pbrk') pbHold(g, h, true);   // v0.84.5 grab the T-handle and slide it: pull it out to set, push it in to release (either hand)
     if (best === 'card') { CARD.g = g; sfx('pick'); say('CHECKLIST'); }
     if (best === 'kb') { KB.g = g; sfx('pick'); }
     if (best === 'mic') micGrab(g);   // v0.82 either hand
@@ -4070,6 +4076,7 @@ function ckHand(g, squeeze, id) {   // returns true while this hand is busy with
   if (!h) return false;
   if (h.k === 'start' && !ENG.starter) ENG.starterVR = true;
   if ((h.k in SW && h.k !== 'start') || h.k === 'ldg') ckGrabMove(g, h);
+  if (h.k === 'pbrk') pbHold(g, h);
   if (h.lat) {   // v0.44: roll your wrist to turn the latch handle; past ~35 deg it lets go and the window / door moves with your hand
     const tw = Math.abs(twistAbout(h.q0, g.getWorldQuaternion(_hq), h.ax)); CKX.vis['L' + h.k] = clamp(tw, 0, 1.1);
     if (tw > 0.6) { h.lat = false; LATCH[h.k] = 0; sfx('clack'); hap(g, 0.6, 22); cubD.worldToLocal(g.getWorldPosition(_ch)); h.v0 = WIN[h.k];
@@ -4321,6 +4328,7 @@ const GDEF = {
   lr: { o: () => LWR.hp, sh: 'box', c: GV3(0, 0, 0), b: GV3(0.009, 0.017, 0.015), st: 'wrap', wa: 1, wr: 0.012, tl: 0, wz: -0.022 },
   rup: { o: () => rupH, sh: 'box', c: GV3(0.005, 0, 0), b: GV3(0.025, 0.01, 0.035), st: 'wrap', wa: 2, wr: 0.011, tl: 0.012, wz: -0.012 },
   rlo: { o: () => rloH, sh: 'box', c: GV3(0, 0, 0), b: GV3(0.017, 0.0125, 0.04), st: 'wrap', wa: 2, wr: 0.013, tl: 0.015, wz: -0.012 },
+  pbrk: { fix: 'pbrk', o: () => PB.H, sh: 'box', c: GV3(0, 0, 0.006), b: GV3(0.035, 0.006, 0.005), st: 'wrap', wa: 0, wr: 0.006, tl: 0, wz: -0.004 },   // v0.84.5 a fist round the T-bar, one pose per hand
   rcg: { o: () => rcgH, sh: 'box', c: GV3(0, 0, 0), b: GV3(0.017, 0.0125, 0.04), st: 'wrap', wa: 2, wr: 0.013, tl: 0.015, wz: -0.012 },   // v0.77.13 cargo door handle
 };
 const _gF = new THREE.Matrix4(), _gI = new THREE.Matrix4(), _gH = new THREE.Matrix4(), _gx = GV3(0, 0, 0), _gy = GV3(0, 0, 0), _gz = GV3(0, 0, 0), _gA = GV3(0, 0, 0),
@@ -4400,6 +4408,7 @@ const _gfV = GV3(0, 0, 0);
 function gripFixed(kind, sx, out) {   // v0.77.1 the authored hand frames (hand space in the control's frame) for the binoculars and paper (v0.77.5 the rifle's come from its lab pose: rflLabSolve)
   if (kind === 'noz') return out.copy(nozInHand(sx, out)).invert();   // v0.77.7 the hand in the nozzle's frame (the nozzle hangs off the controller by nozInHand)
   if (kind === 'board') return out.makeRotationX(KB_GRIPX).premultiply(_gfR.makeRotationY(sx * KB_YAW)).premultiply(_gfR.makeRotationZ(sx * KB_ROLL));   // v0.84 the clipboard as in Neil's photo: its edge in the hand like a handle (finger stack up the edge, thumb on the front, knuckles round the back), tipped 11 deg and turned 20 deg so a level controller shows you the page
+  if (kind === 'pbrk') return out.makeBasis(_gx.set(0, 0.95, 0.31).cross(_gfV.set(sx, 0, 0)), _gy.set(0, 0.95, 0.31), _gz.set(sx, 0, 0));   // v0.84.5 overhand on the T-bar: thumb side up and back toward you, knuckles over the top
   if (kind === 'paper') return out.makeBasis(_gfV.set(1, sx, 0).normalize(), _gy.set(sx, -1, 0).normalize(), _gz.set(0, 0, -1));   // v0.77.2 key pinch on the corner: thumb on the front, fingers behind, pointing in along the diagonal
   _gfV.set(sx * (0.0155 - GDEF.bR.wr), -0.045, GDEF.bR.wz).applyMatrix4(HOFF);   // 'bino': this hand's barrel in its palm; v0.84 the body is the hand frame turned end for end (B_FLIP, as binoOne): eyepieces on the thumb side
   _gfQ.setFromRotationMatrix(HOFF).multiply(B_FLIP); _gfV.sub(_gfW.set(sx * B_BAR, 0, B_PZ).applyQuaternion(_gfQ));
