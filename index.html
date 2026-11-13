@@ -31,7 +31,7 @@ Desktop - on foot: WASD walk, Shift run, C crouch, Space hop, F climb in, G refu
   Airdrops: in flight open the right door (1 upper window, 2 lower door), G pushes the next bundle out - drop it on the smoke / X.
   Running costs: fuel is paid at the red drums (4 strips, 4 prices); oil, tyres + brakes, repairs and the 100-hour service at the home HANGAR board (1-4 there).
 VR - in the cockpit: grip the stick (right) and throttle (left), left stick = rudder, left trigger = brakes, reach up and pull the flap handle down
-  a notch at a time, wind the trim crank, turn knobs / the mag key / the primer / the fuel valve with your hand; every cockpit control needs the grip (yellow ring = what it takes); the parking brake T-handle: grip it and pull it out along its shaft to set, push it in to release.
+  a notch at a time, wind the trim crank, turn knobs / the mag key / the primer / the fuel valve with your hand; every cockpit control needs the grip (yellow ring = what it takes); the parking brake T-handle: grip it and pull it out along its shaft to set, push it in to release. Binoculars: the 7x view comes up inside 12 cm of your eyes and drops past 16 cm.
   Grip the clipboard on your thigh to lift it, its hand's trigger turns the page. A / X recentre, B reset, Y climb out. Turn your left wrist to your face and poke its MENU button with your right finger for SETTINGS.
 VR - on foot: left stick walks (click = run), right stick turns (snap / smooth in Settings), right stick down = crouch, up = hop,
   Y climb in, take the nozzle off a red drum, put it in a wing filler cap and hold the trigger to refuel from the pump, grab the map off its cockpit holder.
@@ -6017,7 +6017,8 @@ function rflLabHc(L, sx, out) {   // v0.77.5 a lab pose's hand frame in rifle sp
 }
 const FORE_D = GV3(0, 0.003, -0.005), PRIM_D = GV3(0, 0.03, -0.02);   // v0.84.4 the lab's forend cradle / trigger hand moved onto the v0.44 forend / wrist (index finger at the v0.44 trigger)
 function rflLabSolve(st, L, sx) {   // v0.77.5 the fixed lab pose: frame, finger angles, thumb, cuff bend - no solving in the headset
-  const D = L === RIFLE_POSES.primary.lab ? PRIM_D : FORE_D; rflLabHc(L, sx, st.Hc); st.Hc.elements[12] += D.x; st.Hc.elements[13] += D.y; st.Hc.elements[14] += D.z;   // v0.84.4 the lab's hand shapes moved onto the v0.44 wrist / forend (looks only: the rifle comes off the controller the v0.44 way) st.ja.set(L.ja); st.gT.fromArray(L.gT); st.gA.fromArray(L.gA).normalize(); st.isp = st.gp.isp = L.src.isp || 0; st.gp.u = false; st.dev = L.src.dev || 0;
+  const D = L === RIFLE_POSES.primary.lab ? PRIM_D : FORE_D; rflLabHc(L, sx, st.Hc); st.Hc.elements[12] += D.x; st.Hc.elements[13] += D.y; st.Hc.elements[14] += D.z;   // v0.84.4 the lab's hand shapes moved onto the v0.44 wrist / forend (looks only: the rifle comes off the controller the v0.44 way)
+  st.ja.set(L.ja); st.gT.fromArray(L.gT); st.gA.fromArray(L.gA).normalize(); st.isp = st.gp.isp = L.src.isp || 0; st.gp.u = false; st.dev = L.src.dev || 0;
 }
 function rflLoadPoses(src, solve) {   // v0.84.4: the lab's finger data stay on the gloves; the controller-to-rifle offsets are v0.44's again (grip angle, SUPPORT_TILT)
   RIFLE_POSES.primary.lab = { src: src.rgripR, sx: 1, ...solve.rgripR }; RIFLE_POSES.support.lab = { src: src.rforeL, sx: -1, ...solve.rforeL };
@@ -6074,7 +6075,8 @@ function rflPose(dt) {
     const G = RFL.hand; rflSide((G.userData.src?.handedness === 'left' ? -1 : 1) * (RFL.free ? -1 : 1)); G.updateWorldMatrix(true, false); G.getWorldPosition(_rH); G.getWorldQuaternion(_rq2);   // v0.77.6 free: RFL.hand is the forend hand, the offsets are the other side's primary
     const q1 = _rq3.copy(_rq2).multiply(Q_GRIP); _ru.set(0, 1, 0).applyQuaternion(q1); RFL.trigV = RFL.free ? 0 : G.userData.src?.gamepad?.buttons[0]?.value || 0;
     if (RFL.free) {   // v0.77.6 (Neil): let go of the stock with the forend held - that hand keeps its forend grip and the rifle hangs off it at the fixed support offset
-      _rq.copy(_rq2).multiply(RFL.freeQ); _rp.copy(RFL.freeP).applyQuaternion(_rq2).add(_rH);   // v0.84.4 (v0.44 forendHold) it stays where it was in that hand RFL.stockF = RFL.stockFv = RFL.stockW = 0; _rd.set(0, 0, -1).applyQuaternion(_rq);
+      _rq.copy(_rq2).multiply(RFL.freeQ); _rp.copy(RFL.freeP).applyQuaternion(_rq2).add(_rH);   // v0.84.4 (v0.44 forendHold) it stays where it was in that hand
+      RFL.stockF = RFL.stockFv = RFL.stockW = 0; _rd.set(0, 0, -1).applyQuaternion(_rq);
       RFL.vel.subVectors(_rH, RFL.prev).divideScalar(Math.max(dt, 1e-3)); RFL.prev.copy(_rH); rflHoldBlend(dt); } else {
     const M = eyeWorld(G.userData.src?.handedness === 'left' ? 0 : 1); _rE.setFromMatrixPosition(M); _rd.set(0, 0, -1).transformDirection(M); _rp3.set(0, 1, 0).transformDirection(M);
     _rp2.copy(_rE).addScaledVector(_rd, -CHEEK.z).addScaledVector(_rp3, CHEEK.y);                      // where the grip hand sits when shouldered
@@ -6472,8 +6474,8 @@ function binoTwo(m) {   // v0.77.1 two hands: halfway between where each hand al
   binoOne(m, BINO.g); _bP.copy(m.position); _bQ.copy(m.quaternion); binoOne(m, BINO.g2); m.position.lerp(_bP, 0.5); m.quaternion.slerp(_bQ, 0.5); }
 function binoHandK(g) { return BINO.place === 'hand' && (BINO.g === g || BINO.g2 === g) ? (binoSide(g) > 0 ? 'bR' : 'bL') : null; }
 // v0.67.1 when the 7x view comes up: the eyepieces 12 cm or less in front of the headset along your view (up to 7 cm off to the side), the binoculars looking within ~40 deg of
-// where you look. It stays up out to 15 cm / 9.5 cm / ~57 deg (no flicker).
-const BZ = { on: 0.12, off: 0.15, back: -0.03, backOff: -0.05, lat: 0.07, latOff: 0.095, dot: 0.75, dotOff: 0.55, near: 0.06 }, _bE = GV3(0, 0, 0), _bO = GV3(0, 0, 0), _bC = GV3(0, 0, 0), _bW = GV3(0, 0, 0);
+// where you look. It stays up out to 16 cm / 9.5 cm / ~57 deg, and either change has to hold 0.12 s (v0.84.6: no flicker at the edge).
+const BZ = { on: 0.12, off: 0.16, db: 0.12, back: -0.03, backOff: -0.05, lat: 0.07, latOff: 0.095, dot: 0.75, dotOff: 0.55, near: 0.06 }, _bE = GV3(0, 0, 0), _bO = GV3(0, 0, 0), _bC = GV3(0, 0, 0), _bW = GV3(0, 0, 0);
 const B_PTS = [GV3(0, 0.002, 0.068), GV3(-0.03, 0.002, 0.068), GV3(0.03, 0.002, 0.068), GV3(-0.032, 0, -0.072), GV3(0.032, 0, -0.072), GV3(0, 0, 0)];
 function binoUp(m) {
   m.updateMatrixWorld(); camera.updateMatrixWorld(); camera.getWorldPosition(_bC); camera.getWorldDirection(_bW);
@@ -6493,7 +6495,8 @@ function binoTick(dt, vrOn) {
   else m.visible = true;
   if (BINO.desk && (vrOn || RFL.adsOn)) binoDesk(false);
   let up = BINO.force; if (BINO.place === 'hand') up = binoUp(m) || up;
-  if (up !== BINO.on) { BINO.on = up; BINO.disk.visible = up; BINO.last = ''; if (up) sfx('click'); }
+  if (BINO.force) BINO.dbT = 0; else { BINO.dbT = Math.max(0, (BINO.dbT || 0) + (up !== BINO.on ? dt : -dt)); if (up !== BINO.on && BINO.dbT < BZ.db) up = BINO.on; }   // v0.84.6 debounce: 0.12 s of wanting the other state (net: frames that don't count it back down) before the view comes up or drops
+  if (up !== BINO.on) { BINO.on = up; BINO.dbT = 0; BINO.disk.visible = up; BINO.last = ''; if (up) sfx('click'); }
   if (BINO.place === 'hand' && (BINO.on || BINO.near < BZ.near)) m.visible = false;   // v0.67.1 zoomed (the mask shows the view), or inside 6 cm of the eyes: never drawn through the near plane
   if (!(BINO.on || BINO.desk) || (BINO.t -= dt) > 0) return; BINO.t = 0.4;
   binoSpot();
@@ -6533,8 +6536,8 @@ function binoHead(outP, outQ) {   // v0.77.10 this frame's head pose: three.js s
   camera.updateMatrixWorld(); camera.getWorldPosition(outP); camera.getWorldQuaternion(outQ);
 }
 function binoHandNudge() {   // v0.77.10 the view is anchored to your head; turning your hands only nudges it, slowly (a quarter of the turn since you raised them, at most 3 deg, 0.45 s lag), so hand shake never shows at 7x
-  const g = BINO.g, now = performance.now(), dt = clamp((now - BINO.ht) / 1000, 0, 0.1); BINO.ht = now; if (!g) { BINO.hq.identity(); return; }
-  g.updateWorldMatrix(true, false); _bhD.set(0, 0, -1).transformDirection(g.matrixWorld).applyQuaternion(_bhI.copy(BINO.cam.quaternion).invert());
+  const g = BINO.g, now = performance.now(), dt = clamp((now - BINO.ht) / 1000, 0, 1 / 30); BINO.ht = now; if (!g) { BINO.hq.identity(); return; }   // v0.84.6 dt capped at 1/30 s: a slow frame no longer lets a big chunk of hand shake through
+  BINO.m.updateMatrixWorld(); _bhD.set(0, 0, -1).transformDirection(BINO.m.matrixWorld).applyQuaternion(_bhI.copy(BINO.cam.quaternion).invert());   // v0.84.6 the binoculars' own line of sight: since v0.84.1 the controller's -z points back at your face, and nudging toward a near-opposite direction swung the view about wildly
   if (!BINO.hb) { BINO.hb = _bhP.clone().copy(_bhD); BINO.hq.identity(); return; }
   _bhT.setFromUnitVectors(BINO.hb, _bhD); _bhO.identity().slerp(_bhT, B_NUDGE.k); const a = 2 * Math.acos(clamp(_bhO.w, -1, 1)); if (a > B_NUDGE.max) _bhO.identity().slerp(_bhT, B_NUDGE.k * B_NUDGE.max / a);
   BINO.hq.slerp(_bhO, 1 - Math.exp(-dt / B_NUDGE.tau));

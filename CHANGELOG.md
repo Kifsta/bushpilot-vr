@@ -2,6 +2,14 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.84.6 – binoculars: no jitter at the eyes; rifle finger curl fixed
+
+Neil: the grip is right now, but raising the binoculars to the eyes made the view jitter.
+- **Hysteresis and debounce:** the 7× view comes up inside 12 cm and now stays up out to 16 cm (was 15). Either change needs 0.12 s of net "wanting" it; frames that don't want it count the timer back down. With ±1.2 cm of noise and a one-frame 6 cm tracking spike every 9th frame, v0.84.5 changed state 42 times in 5 s; v0.84.6 changes twice (up, then down when you lower them). See qa-v086-bino-threshold.png.
+- **Steadier view:** it is still rendered from your head every frame. The slow hand nudge (a quarter of the turn, at most 3°, 0.45 s lag) now follows the binoculars' own line of sight, which is also right for a two-hand hold. Since the v0.84.1 flip the controller's -z points back at your face, so it no longer feeds the nudge. Its time step is capped at 1/30 s, so a slow frame can't let a chunk of hand shake through.
+- **Rifle fix (v0.84.4 bug):** in rflLabSolve the glove finger angles, thumb target and cuff bend, and in the forend-only hold the stock reset, were on the same line as a trailing comment, so they never ran. The rifle gloves held flat hands. They are on their own lines now, and the fingers curl round the wrist and forend again.
+- Tests: new t846 (9/0; the v0.84.5 build fails 4: debounce, the 16 cm exit, the tracking-spike blink). t671 waits out the debounce. t7710 drives the nudge through the binoculars' pose and measures it against their own turn. Physics md5 unchanged.
+
 ## v0.84.5 – the parking brake slides on its shaft
 
 Neil: pulled out, the T-handle floated in the air, detached from its mount.
