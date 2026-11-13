@@ -3847,12 +3847,12 @@ const KB_W = 512, KB_H = 704, KB = { home: new THREE.Vector3(-0.165, -0.055, -0.
   KB.m = new THREE.Group(); const paper = new THREE.Mesh(new THREE.PlaneGeometry(0.15, 0.206), new THREE.MeshBasicMaterial({ map: KB.t, color: 0xdedede })); paper.position.set(0, -0.006, 0.002); paper.userData.noBatch = true; KB.m.add(paper);
   const back = new THREE.Mesh(mergeGeometries([['b', 0.17, 0.235, 0.006, 0, 0, -0.002, 0x7a5232], ['b', 0.07, 0.022, 0.012, 0, 0.106, 0.004, 0xb0b4b8], ['b', 0.02, 0.012, 0.016, 0, 0.1, 0.008, 0x8a8e92]].map(partGeo)), ITEM_VM);
   back.userData.noBatch = true; KB.m.add(back); KB.m.userData.noBatch = true; }
-const KB_HW = 0.085, KB_HH = 0.1175, KB_HOLD_S = 1.2, PAPER_IN = 0.009, _ppM = new THREE.Matrix4();   // v0.77.3 board half-size, held scale, the pinch inset from the corner
+const KB_HW = 0.085, KB_HH = 0.1175, KB_HOLD_S = 1.2, PAPER_IN = 0.009, KB_ROLL = 0, KB_YAW = 0.35, KB_GRIPX = Math.PI / 2 - 0.186, KB_PIN = new THREE.Vector3(0.018, 0.045, 0), _ppM = new THREE.Matrix4();   // v0.77.3 board half-size, held scale, the pinch inset from the corner
 function paperSx(g) { return g.userData.src?.handedness === 'left' ? -1 : 1; }
 function paperPin(g, out) { g.updateWorldMatrix(true, false); _ppM.multiplyMatrices(g.matrixWorld, HOFF); return out.set(paperSx(g) * G_PIN.x, G_PIN.y, G_PIN.z).applyMatrix4(_ppM); }   // where this hand's thumb meets its index
 const _ppH = new THREE.Matrix4(), _ppA = new THREE.Vector3(), _ppS = new THREE.Vector3();
 function paperHeld(g, k, out) {   // v0.77.8 the held paper's world frame (unscaled) from this hand's controller: the inverse of its fixed corner pinch, so it turns 1:1 with the hand
-  const sx = paperSx(g), D = GDEF[k]; gripFixed('paper', sx, _ppH); _ppA.set(sx * G_PIN.x, G_PIN.y, G_PIN.z).applyMatrix4(_ppH); _ppH.setPosition(_ppA.subVectors(D.pc, _ppA));
+  const sx = paperSx(g), D = GDEF[k]; gripFixed(D.fix, sx, _ppH); _ppA.set(sx * G_PIN.x, G_PIN.y, G_PIN.z).applyMatrix4(_ppH); _ppH.setPosition(_ppA.subVectors(D.pc, _ppA));
   g.updateWorldMatrix(true, false); return out.multiplyMatrices(g.matrixWorld, HOFF).multiply(_ppH.invert());
 }
 function paperHandK(g) { const L = paperSx(g) < 0; return KB.g === g ? (L ? 'kbL' : 'kbR') : MAP.state === 'held' && (MAP.g === g || MAP.g2 === g) ? (L ? 'mpL' : 'mpR') : null; }
@@ -4397,12 +4397,13 @@ function gripSolve(st, k, sx) {   // on grab: hand frame in the control's frame 
 const _gfV = GV3(0, 0, 0);
 function gripFixed(kind, sx, out) {   // v0.77.1 the authored hand frames (hand space in the control's frame) for the binoculars and paper (v0.77.5 the rifle's come from its lab pose: rflLabSolve)
   if (kind === 'noz') return out.copy(nozInHand(sx, out)).invert();   // v0.77.7 the hand in the nozzle's frame (the nozzle hangs off the controller by nozInHand)
+  if (kind === 'board') return out.makeRotationX(KB_GRIPX).premultiply(_gfR.makeRotationY(sx * KB_YAW)).premultiply(_gfR.makeRotationZ(sx * KB_ROLL));   // v0.84 the clipboard as in Neil's photo: its edge in the hand like a handle (finger stack up the edge, thumb on the front, knuckles round the back), tipped 11 deg and turned 20 deg so a level controller shows you the page
   if (kind === 'paper') return out.makeBasis(_gfV.set(1, sx, 0).normalize(), _gy.set(sx, -1, 0).normalize(), _gz.set(0, 0, -1));   // v0.77.2 key pinch on the corner: thumb on the front, fingers behind, pointing in along the diagonal
   _gfV.set(sx * (0.0155 - GDEF.bR.wr), -0.045, GDEF.bR.wz).applyMatrix4(HOFF);   // 'bino': this hand's barrel in its palm; v0.84 the body is the hand frame turned end for end (B_FLIP, as binoOne): eyepieces on the thumb side
   _gfQ.setFromRotationMatrix(HOFF).multiply(B_FLIP); _gfV.sub(_gfW.set(sx * B_BAR, 0, B_PZ).applyQuaternion(_gfQ));
   return out.makeRotationFromQuaternion(_gfQ).setPosition(_gfV).invert().multiply(HOFF);
 }
-const _gfQ = new THREE.Quaternion(), _gfW = new THREE.Vector3();
+const _gfQ = new THREE.Quaternion(), _gfW = new THREE.Vector3(), _gfR = new THREE.Matrix4();
 function gripOn(st, k, sx) {      // while a control is held: (re)solve on a new grab, then ride the control
   if (st.gk !== k) { st.gk = k; gripSolve(st, k, sx); st.gn++; }
   st.gt = 1; gripFrame(k, _gF);
@@ -6518,8 +6519,9 @@ function binoRelease(g) { if (BINO.g2 === g) { BINO.g2 = null; return; } if (BIN
 { const S = KB_HOLD_S, pin = (hw, hh, sx) => GV3(sx * (hw - PAPER_IN), -(hh - PAPER_IN), 0);   // v0.77.3 the clipboard and the map: one corner pinch per hand
   const mh = MAP_SHEET_B[0] / 2, mv = MAP_SHEET_B[1] / 2;
   GDEF.noz = { fix: 'noz', o: () => HOSE.noz, sh: 'cyl', c: NOZ.H, ax: NOZ.ax, wd: NOZ.ax, r: NOZ.r, hl: NOZ.hl, st: 'wrap', wr: NOZ.r, tl: 0, wz: 0 };   // v0.77.7 the fuel nozzle's pistol grip: one fixed hold, glove on the controller
-  Object.assign(GDEF, { kbL: { fix: 'paper', ns: 1, o: () => KB.m, sh: 'box', c: GV3(0, 0, -0.002 * S), b: GV3(KB_HW * S, KB_HH * S, 0.004), st: 'pinch', pc: pin(KB_HW * S, KB_HH * S, -1) },
-    kbR: { fix: 'paper', ns: 1, o: () => KB.m, sh: 'box', c: GV3(0, 0, -0.002 * S), b: GV3(KB_HW * S, KB_HH * S, 0.004), st: 'pinch', pc: pin(KB_HW * S, KB_HH * S, 1) },
+  const pinB = sx => GV3(sx * (KB_HW - KB_PIN.x), -(KB_HH - KB_PIN.y), KB_PIN.z).multiplyScalar(S);   // v0.84 the clipboard: thumb + index meet on its lower edge, near the outer corner
+  Object.assign(GDEF, { kbL: { fix: 'board', ns: 1, o: () => KB.m, sh: 'box', c: GV3(0, 0, -0.002 * S), b: GV3(KB_HW * S, KB_HH * S, 0.004), st: 'pinch', pc: pinB(-1) },
+    kbR: { fix: 'board', ns: 1, o: () => KB.m, sh: 'box', c: GV3(0, 0, -0.002 * S), b: GV3(KB_HW * S, KB_HH * S, 0.004), st: 'pinch', pc: pinB(1) },
     mpL: { fix: 'paper', o: () => MAP.sheet, sh: 'box', c: GV3(0, 0, 0), b: GV3(mh, mv, 0.001), st: 'pinch', pc: pin(mh, mv, -1) },
     mpR: { fix: 'paper', o: () => MAP.sheet, sh: 'box', c: GV3(0, 0, 0), b: GV3(mh, mv, 0.001), st: 'pinch', pc: pin(mh, mv, 1) } }); }
 Object.assign(GDEF, {   // v0.53 procedural grips on the rifle mesh: wrap the wrist of the stock, wrap the forend, pinch the lever loop

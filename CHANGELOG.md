@@ -2,6 +2,13 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.84.3 – the clipboard held as in Neil's photo
+Neil's headset test of v0.83, item 3 (reference: a hand holding a clipboard at its lower-left edge).
+- **New hand pose (`gripFixed('board')`, the clipboard only; the paper map keeps its corner pinch):** the board's edge sits in the hand like a controller handle. The finger stack runs up the edge, the thumb is on the front face, the fingers are round the back, and the palm faces in. The left hand holds the lower-left edge and the right hand the lower-right, about 2 cm in from the corner and 5 cm up.
+- **Readable at a neutral pose:** the old pinch frame put the page facing away and upside down with the controller level (the page faced the eye at -0.18, its up axis at -0.58). The new frame leaves only the hand's 0.6 rad tilt, less 11°, and a 20° inward turn between the controller and the board. With the controller level, 30 cm below and ahead of your eyes, the page faces you (0.93). Raise it about 45° (forearm up from below, as in the photo) and the board stands upright (up 1.00, no roll), clip at the top. It still turns 1:1 with your hand.
+- The knuckles stay outside the board's edge, and the thumb stays off the printed area. The trigger of the holding hand still turns pages.
+- **Tests:** new t843 (9 checks): a level controller faces you; raised 45° it is upright and unrolled; the hand is at the lower outer corner; the trigger turns pages; clean console. The v0.84.2 build fails 6 of them. t772: the clipboard pinch is checked against its new point, and the knuckle probe is mirrored for the left hand (10/0). t46 checks the left-edge hold with the left hand (15/0).
+
 ## v0.84.2 – cockpit controls need the grip; the parking brake mounted, with its ring
 Neil's headset test of v0.83, items 4 and 5.
 - **No more AUTO pokes (item 5):** a fingertip pushing into a cockpit control no longer works it. Before, the MASTER rocker, the landing-light toggle and the START button (hold) went off by touch (`ckPoke`), and so did the COM radio's face for a call-out. That code is removed. Every cockpit control now needs a **grip squeeze while the yellow ring is on it**, with either hand: switches, knobs, the mag key, primer, fuel valve, mixture, carb heat, panel light, START (hold grip), the landing light, the parking brake, flaps, trim, stick, throttle, windows, door, the clipboard, the hand mic and the COM radio. The ring is still the hover indicator, and your hands still stop at the panel.
