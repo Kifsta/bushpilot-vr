@@ -19,7 +19,7 @@
 </script>
 </head>
 <body>
-<div id="info">BUSH PILOT VR v0.82 - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
+<div id="info">BUSH PILOT VR v0.83 - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
 You start on foot by the Cub at the cabin strip. Walk up to her and climb in (F / Y), then start her up off the checklist card (J).
 Desktop - flying: W/S or arrows pitch, A/D or arrows roll, Q/E rudder, Shift / Ctrl (or + / -) throttle, B brakes, \ parking brake, [ ] flaps, PgUp / PgDn trim,
   R reset to the strip (cold and dark), F climb out, M map, L landing light, Home recentre, mouse looks (click to capture).
@@ -1556,7 +1556,7 @@ const _a = new THREE.Vector3(), _b = new THREE.Vector3(), _w = new THREE.Vector3
 
 // ---- sound: procedural Web Audio (no files). Engine / wind / tyres / stall horn loops + one-shots ----
 let actx = null;
-const SND = { ok: false };
+const SND = { ok: false, n: {}, cg: ['card', 0.3, 'set'], pp: 0, chop: 0, popN: 0, popT: 0, hot: false, coolT: 0, tickT: 0, townT: 4 };   // v0.83 sound-pass state
 const audioInit = () => {
   if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
   if (actx.state === 'suspended') actx.resume();
@@ -1597,7 +1597,12 @@ function audioGraph() {
   const crP = A.createOscillator(); crP.type = 'square'; crP.frequency.value = 1.7; const crPg = gain(0.5);
   crL.connect(crAM.gain); crP.connect(crPg).connect(crAM.gain); cr.connect(crAM); SND.crG = gain(0); crAM.connect(SND.crG).connect(SND.amb); cr.start(); crL.start(); crP.start();
   SND.waterG = gain(0); const wf = filt('bandpass', 700, 0.9); loopNoise().connect(wf).connect(SND.waterG).connect(SND.amb);
-  SND.rainG = gain(0); loopNoise().connect(filt('highpass', 1400, 0.4)).connect(filt('lowpass', 7000, 0.5)).connect(SND.rainG).connect(SND.amb);   // v0.75 rain hiss (the weather sets it)
+  SND.rainG = gain(0); SND.rainLP = filt('lowpass', 7000, 0.5); loopNoise().connect(filt('highpass', 1400, 0.4)).connect(SND.rainLP).connect(SND.rainG).connect(SND.amb);   // v0.75 rain hiss (the weather sets it); v0.83 duller inside the cabin
+  const noiseR = () => { const n = A.createBufferSource(); n.buffer = nb; n.loop = true; n.start(0, Math.random() * 1.9); return n; };   // v0.83 a loop from a random offset (not in step with the others)
+  SND.propG = gain(0); SND.propAM = gain(0.55); SND.propO = A.createOscillator(); SND.propO.frequency.value = 20; SND.propO.connect(gain(0.45)).connect(SND.propAM.gain); SND.propO.start();   // v0.83 prop thrum: low noise pulsed at the blade-pass rate
+  noiseR().connect(filt('bandpass', 150, 0.9)).connect(SND.propAM).connect(SND.propG).connect(SND.engPan);
+  SND.drumG = gain(0); const dAM = gain(0); noiseR().connect(filt('lowpass', 16, 0.7)).connect(gain(4)).connect(dAM.gain); noiseR().connect(filt('bandpass', 1300, 0.7)).connect(dAM).connect(SND.drumG).connect(SND.amb);   // v0.83 rain drumming on the fabric / patter round you
+  SND.townG = gain(0); const tBP = filt('bandpass', 360, 0.7); noiseR().connect(tBP).connect(SND.townG).connect(SND.amb); const tl = A.createOscillator(); tl.frequency.value = 0.11; tl.connect(gain(110)).connect(tBP.frequency); tl.start();   // v0.83 a low town murmur
   const wfl = A.createOscillator(); wfl.frequency.value = 0.9; const wflg = gain(260); wfl.connect(wflg).connect(wf.frequency); wfl.start();   // burble
 }
 function sndVol() { if (!SND.ok || !SND.amb) return; SND.master.gain.value = 0.8 * GFX.volM; SND.eng.gain.value = GFX.volE; SND.fx.gain.value = GFX.volF; SND.amb.gain.value = 0.55 * GFX.volA; }   // v0.68.1
@@ -1695,7 +1700,7 @@ function hxTick(dt) {
 function sfx(kind, pos, delay = 0) {
   if (HX.ctx && !pos && (kind === 'pick' || kind === 'clack' || kind === 'leaf')) HX.confirm();   // v0.24
   if (!SND.ok) return;
-  const A = actx, t = A.currentTime + delay;
+  SND.n[kind] = (SND.n[kind] || 0) + 1; const A = actx, t = A.currentTime + delay;   // v0.83 counts per kind (tests)
   let out = SND.fx; if (pos) { out = mkPanner(3, 1); setPos(out, pos); out.connect(SND.fx); }
   const burst = (len, decay, vol, type, f, at = 0) => {
     const s = A.createBufferSource(); s.buffer = SND.noise; const g = A.createGain(), b = A.createBiquadFilter(); b.type = type; b.frequency.value = f;
@@ -1743,6 +1748,19 @@ function sfx(kind, pos, delay = 0) {
   else if (kind === 'ping') { ping(3400 + Math.random() * 600, 0.14, 0.14); ping(5100 + Math.random() * 500, 0.08, 0.07, 0.05); ping(4300, 0.06, 0.05, 0.12); }   // brass on the ground
   else if (kind === 'thock') { burst(0.07, 1, 0.6, 'bandpass', 520); ping(230, 0.08, 0.25, 0, 'triangle'); }   // a bullet into wood
   else if (kind === 'flesh') { burst(0.09, 1, 0.6, 'lowpass', 520); ping(110, 0.08, 0.25, 0, 'sine'); }
+  else if (kind === 'pop') { burst(0.05, 1, 0.5, 'lowpass', 420 + Math.random() * 200); burst(0.02, 1, 0.3, 'bandpass', 1700); }   // v0.83 an exhaust pop after a throttle chop
+  else if (kind === 'cool') { ping(2400 + Math.random() * 1800, 0.03, 0.06, 0, 'triangle'); burst(0.01, 1, 0.12, 'highpass', 4200); }   // v0.83 the hot engine ticking as it cools
+  else if (kind === 'cargo') { const m = SND.cg[0], w = SND.cg[1], act = SND.cg[2], v = act === 'lift' ? 0.45 : act === 'drop' ? 1 : 0.75, lf = 1 - 0.45 * w;   // v0.83 cargo by what it is and what it weighs
+    if (act === 'lift') burst(0.08, 1, 0.12 + 0.1 * w, 'bandpass', 600 * lf + 200); else burst(0.09 + 0.06 * w, 1, (0.35 + 0.35 * w) * v, 'lowpass', 300 * lf + 60);
+    if (m === 'card') burst(0.04, 1, 0.22 * v, 'bandpass', 1400 * lf);
+    else if (m === 'wood') { ping(240 * lf + 90, 0.08, 0.2 * v, 0, 'triangle'); burst(0.03, 1, 0.25 * v, 'bandpass', 1000); }
+    else if (m === 'metal') { ping(520 * lf + 180, 0.25, 0.1 * v, 0, 'triangle'); ping(1310 * lf + 300, 0.18, 0.05 * v, 0.004); }
+    else if (m === 'soft') burst(0.12, 1, 0.18 * v, 'lowpass', 500);
+    else { burst(0.03, 1, 0.25 * v, 'highpass', 2000); ping(900, 0.05, 0.06 * v, 0, 'square'); } }
+  else if (kind === 'strap') { burst(0.22, 1, 0.1, 'bandpass', 2300); for (let i = 0; i < 4; i++) burst(0.012, 1, 0.22, 'highpass', 3000, 0.24 + i * 0.05); burst(0.03, 1, 0.35, 'bandpass', 1500, 0.46); }   // v0.83 webbing pulled through, the ratchet, the buckle
+  else if (kind === 'hammer') { const n = 3 + Math.floor(Math.random() * 3); for (let i = 0; i < n; i++) { burst(0.03, 1, 0.35, 'bandpass', 1900, i * 0.42); ping(760, 0.05, 0.12, i * 0.42, 'triangle'); } }   // v0.83 town: someone nailing boards
+  else if (kind === 'door') { tone('sawtooth', 300, 240, 0.35, 0.04, 0, 700); burst(0.08, 1, 0.45, 'lowpass', 380, 0.42); burst(0.02, 1, 0.25, 'bandpass', 1600, 0.42); }   // v0.83 a screen door creaks and slaps shut
+  else if (kind === 'axe') { burst(0.05, 1, 0.5, 'bandpass', 650); ping(300, 0.07, 0.2, 0, 'triangle'); burst(0.08, 1, 0.2, 'highpass', 2600, 0.02); }   // v0.83 splitting wood
   else if (kind === 'hoof') { for (let i = 0; i < 4; i++) burst(0.04, 1, 0.22, 'lowpass', 380, i * 0.09 + Math.random() * 0.03); }   // v0.53 deer bolting
 }
 const _lf = new THREE.Vector3(), _lu = new THREE.Vector3(), _lp = new THREE.Vector3();
@@ -1755,7 +1773,7 @@ function updateAudio(dt) {
   plane.localToWorld(_sv.set(0, 0.2, -1.6)); setPos(SND.engPan, _sv);
   const rpm = ENG.rpm, pn = clamp((ac.power - C.IDLE_POWER) / (1 - C.IDLE_POWER), 0, 1);
   SND.o1.frequency.setTargetAtTime(Math.max(rpm, 30) / 30, t, 0.04); SND.o2.frequency.setTargetAtTime(Math.max(rpm, 30) / 60, t, 0.04);
-  SND.engLP.frequency.setTargetAtTime(180 + rpm * 0.22 + pn * 250, t, 0.08);
+  const mf = mode === 'plane' ? 0.78 + 0.22 * WIN.open : 1; SND.engLP.frequency.setTargetAtTime((180 + rpm * 0.22 + pn * 250) * mf, t, 0.08);   // v0.83 a bit duller with the windows shut
   SND.engGain.gain.setTargetAtTime(ac.crashed ? 0 : !ac.engineOut ? 0.07 + 0.11 * pn : ENG.cranking ? 0.05 : 0, t, ac.engineOut && !ENG.cranking ? 0.03 : 0.1);
   SND.stG.gain.setTargetAtTime(ENG.cranking ? 0.16 : 0, t, 0.04); SND.stO.frequency.setTargetAtTime(ENG.cranking ? 105 + ENG.rpm * 0.25 : 70, t, 0.25);   // v0.19 starter whine
   const inPlane = mode === 'plane', V = o.V || 0;
@@ -1764,7 +1782,18 @@ function updateAudio(dt) {
   SND.rumbG.gain.setTargetAtTime(inPlane && o.wow ? Math.min(1, V / 12) * 0.3 : 0, t, 0.05);
   const aStall = C.ALPHA_STALL - C.FLAP_DALPHA * Math.sin((o.flap || 0) * Math.PI / 180) / Math.sin(50 * Math.PI / 180);
   SND.hornG.gain.setTargetAtTime(inPlane && !o.wow && V > 5 && o.alpha > aStall - 0.035 ? 0.06 : 0, t, 0.03);   // horn ~2 deg before the break
+  engAudio(dt, t, rpm, pn, inPlane);   // v0.83
   ambientAudio(dt, t, inPlane);
+}
+const _sv2 = new THREE.Vector3();
+function engAudio(dt, t, rpm, pn, inPlane) {   // v0.83 prop thrum, exhaust pops after a throttle chop, a hot engine ticking as it cools
+  SND.propO.frequency.setTargetAtTime(Math.max(rpm, 30) / 30, t, 0.05);
+  SND.propG.gain.setTargetAtTime(ac.crashed || ac.engineOut || rpm < 150 ? 0 : (0.05 + 0.13 * pn) * Math.min(1, rpm / 1200) * (inPlane ? 0.6 + 0.6 * WIN.open : 1), t, 0.1);
+  const th = ac.ctl.throttle || 0; SND.chop = SND.chop * Math.exp(-dt / 0.35) + Math.max(0, SND.pp - th); SND.pp = th;
+  if (SND.chop > 0.45 && rpm > 1700 && !ac.engineOut && !SND.popN) { SND.popN = 2 + Math.floor(Math.random() * 3); SND.popT = 0.08; SND.chop = 0; }
+  if (SND.popN && (SND.popT -= dt) <= 0) { SND.popN--; SND.popT = 0.1 + Math.random() * 0.28; sfx('pop', plane.localToWorld(_sv2.set(0.25, -0.35, -1.3))); }
+  if (ENG.running) { SND.hot = SND.hot || rpm > 1000; SND.coolT = 0; } else if (SND.hot) { SND.hot = false; SND.coolT = 90; SND.tickT = 2; }
+  if (SND.coolT > 0) { SND.coolT -= dt; if ((SND.tickT -= dt) <= 0) { SND.tickT = 1.2 + Math.random() * 3.5 * (1.4 - SND.coolT / 90); sfx('cool', plane.localToWorld(_sv2.set(0, 0.1, -1.4))); } }
 }
 // v0.12 ambience. TOD.day / TOD.dusk / TOD.night (0..1) are driven by the day cycle (v0.13); water by the river distance (v0.14)
 const TOD = { day: 1, dusk: 0, night: 0 }, AMB = { bird: 4, owl: 20, water: 0 };
@@ -1774,6 +1803,12 @@ function ambientAudio(dt, t, inPlane) {
   SND.crG.gain.setTargetAtTime(0.012 * Math.max(TOD.dusk, TOD.night * 0.6) * eng * (agl < 30 ? 1 : 0), t, 1.5);
   SND.waterG.gain.setTargetAtTime(0.05 * AMB.water * eng, t, 0.6);
   const quiet = !inPlane || ENG.rpm < 200, onGround = agl < 40;
+  let tn = null, td = 1e9; for (let i = 0; i < TOWNS.length; i++) { const T = TOWNS[i], d = hyp(_lp.x - T.x, _lp.z - T.z) - T.r; if (d < td) { td = d; tn = T; } }   // v0.83 town ambience: a murmur and the odd sound of work
+  const tk = agl < 60 ? clamp(1 - td / 220, 0, 1) : 0, busy = Math.max(TOD.day, 0.25 * TOD.dusk); AMB.town = tk > 0 ? tn.name : ''; AMB.tk = tk;
+  SND.townG.gain.setTargetAtTime(0.03 * tk * busy * eng, t, 1);
+  if ((SND.townT -= dt) < 0) { SND.townT = 3 + Math.random() * 7;
+    if (tk > 0.4 && (quiet || td < 0)) { const day = TOD.day > 0.5, L = day ? ['hammer', 'door', 'axe', 'bark', 'cluck', 'door'] : ['bark', 'door'];
+      if (day || Math.random() < 0.3) { const a = Math.random() * 6.28, rr = tn.r * (0.2 + 0.6 * Math.random()), x = tn.x + Math.cos(a) * rr, z = tn.z + Math.sin(a) * rr; sfx(L[Math.floor(Math.random() * L.length)], _sv.set(x, groundY(x, z) + 1.5, z)); } } }
   if ((AMB.bird -= dt) < 0) { AMB.bird = 3 + Math.random() * 9;
     const trees = gy > 60 && gy < 950 || TREES.some(p => Math.abs(p[0] - _lp.x) + Math.abs(p[2] - _lp.z) < 150);
     if (quiet && onGround && trees && TOD.day > 0.5) { const a = Math.random() * 6.28, d = 15 + Math.random() * 30; sfx('bird', _sv.set(_lp.x + Math.cos(a) * d, ey + 4 + Math.random() * 6, _lp.z + Math.sin(a) * d)); } }
@@ -5161,6 +5196,8 @@ function dlvMake(job, k, lb, n) {
   DLV.items.push(it); return it;
 }
 function dlvGroundY(x, z) { const S = dlvPadAt(x, z); return Math.max(groundY(x, z), S ? S.padY : -1e9); }
+const CG_MAT = { parcel: 'card', fbox: 'card', bundle: 'soft', sack: 'soft', cement: 'soft', feed: 'soft', deer: 'soft', crate: 'wood', hens: 'wood', dog: 'wood', nails: 'metal', fuel: 'metal', outboard: 'metal', generator: 'metal', medkit: 'case', cooler: 'case' };   // v0.83 what a piece sounds like
+function cargoSfx(it, act, p) { SND.cg[0] = CG_MAT[it.k] || 'card'; SND.cg[1] = clamp((it.lb || 20) / 120, 0, 1); SND.cg[2] = act; sfx('cargo', p); }
 function dlvSetGround(it, x, z, ry) { scene.add(it.mesh); it.st = 'ground'; it.cz = null; it.g = null; it.mesh.position.set(x, dlvGroundY(x, z) + it.h / 2, z); it.mesh.rotation.set(0, ry || 0, 0); }
 function dlvSpawn(job) {   // the cargo appears on the origin pad, in a row
   if (job.hunt) return;   // v0.53 a hunt: the cargo is a deer you have yet to shoot
@@ -5315,7 +5352,7 @@ function loadCargo(it, zn, x, z, quiet) {
   if (!ok) { it.st = pst; it.cz = pcz; if (prev && it.mesh.parent !== prev) prev.add(it.mesh); if (!quiet) say('NO ROOM - ' + CZ[zn].name + ' IS FULL'); return false; }
   dlvUnhold(it); it.st = 'cargo'; it.cv.set(0, 0, 0);
   wbUpdate(); cgStraps(); saveSoon();
-  if (!quiet) { sfx('thud', it.mesh.getWorldPosition(new THREE.Vector3())); const B = WBS.plan;
+  if (!quiet) { cargoSfx(it, 'set', it.mesh.getWorldPosition(new THREE.Vector3())); const B = WBS.plan;
     say('LOADED ' + CARGO_K[it.k].n + ' ' + it.lb + ' LB - ' + CZ[zn].name + (zn === 'foot' ? '' : cgSecured(it) ? ' (STRAPPED)' : ' (LOOSE - STRAP IT)') +
       ' | ' + B.lb.toFixed(0) + ' LB CG +' + B.arm.toFixed(1) + (B.over ? ' OVER GROSS' : B.inEnv ? '' : ' OUT OF LIMITS') + (WBS.bagLb > WNB.BAG_MAX_LB ? ' | BAGGAGE OVER 50 LB' : '')); }
   return true;
@@ -5325,7 +5362,7 @@ function cgLoadAny(it, quiet) {   // desktop / from the seat: heavy pieces on th
   for (const z of UPG.pod && upgNearPod() ? ['pod', zn, zn === 'rear' ? 'bag' : 'rear', 'foot'] : [zn, zn === 'rear' ? 'bag' : 'rear', 'foot'].concat(UPG.pod ? ['pod'] : [])) if (loadCargo(it, z, undefined, undefined, true)) { if (!quiet) loadCargoSay(it); return true; }
   if (!quiet) say('NO ROOM IN THE CUB'); return false;
 }
-function loadCargoSay(it) { const B = WBS.plan; sfx('thud', it.mesh.getWorldPosition(new THREE.Vector3()));
+function loadCargoSay(it) { const B = WBS.plan; cargoSfx(it, 'set', it.mesh.getWorldPosition(new THREE.Vector3()));
   say('LOADED ' + CARGO_K[it.k].n + ' ' + it.lb + ' LB - ' + CZ[it.cz].name + (it.cz === 'foot' ? '' : cgSecured(it) ? ' (STRAPPED)' : ' (LOOSE - / STRAPS)') + ' | ' + B.lb.toFixed(0) + ' LB CG +' + B.arm.toFixed(1) + (B.over ? ' OVER GROSS' : B.inEnv ? '' : ' OUT OF LIMITS')); }
 function cgZoneAt(p) {   // p in body axes -> the zone a released piece lands in
   for (const zn of UPG.pod ? ['bag', 'rear', 'foot', 'pod'] : ['bag', 'rear', 'foot']) { const Z = CZ[zn], y0 = Z.y(clamp(p.z, Z.z0, Z.z1));
@@ -5351,13 +5388,13 @@ function cgStraps() {
 }
 function cgStrapPoints() { return [['belt', (DLV.belt ? BELT.on : BELT.off).localToWorld(new THREE.Vector3(DLV.belt ? 0 : 0.24, 0, DLV.belt ? 0 : -0.07))], ['net', NET[DLV.net ? 'on' : 'off'].localToWorld(new THREE.Vector3())]]; }
 function cgToggle(k, on) {
-  DLV[k] = on ?? !DLV[k]; cgStraps(); sfx('click'); const n = cgIn().filter(it => it.cz === (k === 'belt' ? 'rear' : 'bag')).length;
+  DLV[k] = on ?? !DLV[k]; cgStraps(); sfx('strap'); const n = cgIn().filter(it => it.cz === (k === 'belt' ? 'rear' : 'bag')).length;
   say((k === 'belt' ? 'REAR SEAT BELT ' : 'BAGGAGE NET ') + (DLV[k] ? 'SECURED' : 'UNDONE') + (n ? ' (' + n + ' PIECE' + (n > 1 ? 'S' : '') + ')' : ''));
   if (DLV[k]) for (const it of cgIn()) if (it.cz === (k === 'belt' ? 'rear' : 'bag')) it.cv.set(0, 0, 0);
   saveSoon();
 }
 function nearPlane(r = 3.5) { camera.getWorldPosition(_w); if (mode === 'plane') return true; const dp = qRot(ac.q, [0.3, 0, 0.6]); return hyp(_w.x - ac.pos[0] - dp[0], _w.z - ac.pos[2] - dp[2]) < r; }
-function cargoStrapDesk() { if (!nearPlane()) { say('TOO FAR FROM THE CUB'); return; } const on = !(DLV.belt && DLV.net); DLV.belt = DLV.net = on; cgStraps(); sfx('click');
+function cargoStrapDesk() { if (!nearPlane()) { say('TOO FAR FROM THE CUB'); return; } const on = !(DLV.belt && DLV.net); DLV.belt = DLV.net = on; cgStraps(); sfx('strap');
   if (on) for (const it of cgIn()) it.cv.set(0, 0, 0); say('CARGO ' + (on ? 'STRAPPED DOWN (SEAT BELT + NET)' : 'STRAPS UNDONE')); saveSoon(); }
 // ---- loose cargo: slides / hops / floats with the specific force the airframe feels ----
 const CG_MU_S = 0.55, CG_MU_K = 0.4, _cf = new THREE.Vector3(), _cgq = new THREE.Quaternion();
@@ -5434,9 +5471,9 @@ function dlvGrab(g, a) {   // VR on foot: strap anchor first, then the nearest p
     if (!P || P.it !== bi || P.g === g) { DLV.lift = { it: bi, g }; HX.pulse(g, 0.3, 20, 'cargo'); say(CARGO_K[bi.k].n + ' ' + bi.lb + ' LB - TWO-HAND LIFT: GRAB IT WITH YOUR OTHER HAND TOO'); return true; }
     if (!dlvTake(bi)) { DLV.lift = null; HX.pulse(g, 0.2, 15, 'strap'); return true; }
     DLV.lift = null; scene.attach(bi.mesh); bi.two = [P.g, g]; DLV.held.set(P.g, bi); DLV.held.set(g, bi); bi.g = null; dlvTwoTick();
-    sfx('pick'); for (const h of bi.two) HX.pulse(h, 0.7, 40, 'cargo'); say('LIFTED ' + CARGO_K[bi.k].n + ' ' + bi.lb + ' LB - LET GO WITH EITHER HAND TO SET IT DOWN'); return true; }
+    cargoSfx(bi, 'lift'); for (const h of bi.two) HX.pulse(h, 0.7, 40, 'cargo'); say('LIFTED ' + CARGO_K[bi.k].n + ' ' + bi.lb + ' LB - LET GO WITH EITHER HAND TO SET IT DOWN'); return true; }
   if (!dlvTake(bi)) { HX.pulse(g, 0.2, 15, 'strap'); return true; }
-  g.attach(bi.mesh); bi.g = g; DLV.held.set(g, bi); sfx('pick'); HX.pulse(g, 0.3 + Math.min(0.4, bi.lb / 150), 30, 'cargo'); say(CARGO_K[bi.k].n + ' ' + bi.lb + ' LB - ' + dlvJob(bi.job)?.title); return true;
+  g.attach(bi.mesh); bi.g = g; DLV.held.set(g, bi); cargoSfx(bi, 'lift'); HX.pulse(g, 0.3 + Math.min(0.4, bi.lb / 150), 30, 'cargo'); say(CARGO_K[bi.k].n + ' ' + bi.lb + ' LB - ' + dlvJob(bi.job)?.title); return true;
 }
 function dlvDrop(it, w, quiet) {   // let go at world point w: into the Cub if it's over a load zone, else it falls to the ground
   plane.updateMatrixWorld(); const pb = plane.worldToLocal(_dp.copy(w)), zn = cgZoneAt(pb);
@@ -5456,7 +5493,7 @@ function dlvRelease(g) { if (DLV.lift && DLV.lift.g === g) { DLV.lift = null; re
 function dlvFallTick(dt) {
   for (const it of DLV.items) { if (it.st !== 'fall') continue; const p = it.mesh.position, rest = dlvGroundY(p.x, p.z) + it.h / 2;
     it.vy -= 9.81 * dt; p.y += it.vy * dt;
-    if (p.y <= rest) { p.y = rest; const v = -it.vy; it.vy = 0; it.st = 'ground'; if (v > 1) sfx('thud', p); if (v > 1.2) dlvKnock(it, (v - 1.2) * 0.12, 'DROPPED'); dlvCheck(it); saveSoon(); } }
+    if (p.y <= rest) { p.y = rest; const v = -it.vy; it.vy = 0; it.st = 'ground'; if (v > 1) cargoSfx(it, v > 2.5 ? 'drop' : 'set', p); if (v > 1.2) dlvKnock(it, (v - 1.2) * 0.12, 'DROPPED'); dlvCheck(it); saveSoon(); } }
 }
 function dlvCheck(it) {   // a piece came to rest on the ground: is its whole job on the destination pad?
   const j = dlvJob(it.job); if (!j || j.st !== 'active' || j.drop || j.emg) return;   // (v0.58 an emergency ends its own way) (v0.54 airdrop bundles are scored where they land from the air)
@@ -5484,7 +5521,7 @@ function dlvDeskE() {   // desktop E on foot: pick up / put down / load / unload
     if (!bi && cgIn().length) { say('UNDO THE STRAPS FIRST (/)'); return; } }
   if (!bi) { say(DLV.items.length ? 'NO CARGO WITHIN REACH' : 'NO CARGO - TAKE A JOB AT THE BOARD'); return; }
   if (!dlvTake(bi)) return;
-  camera.add(bi.mesh); bi.mesh.position.set(0, -0.32, -0.62); bi.mesh.rotation.set(0.15, 0, 0); DLV.desk = bi; sfx('pick');
+  camera.add(bi.mesh); bi.mesh.position.set(0, -0.32, -0.62); bi.mesh.rotation.set(0.15, 0, 0); DLV.desk = bi; cargoSfx(bi, 'lift');
   say((CARGO_K[bi.k].two ? 'ON THE HAND TRUCK: ' : 'CARRYING ') + CARGO_K[bi.k].n + ' ' + bi.lb + ' LB (' + dlvJob(bi.job)?.title + ' TO ' + dlvS(dlvJob(bi.job)?.to)?.name + ') - E BY THE CUB LOADS IT, E ELSEWHERE SETS IT DOWN' + (bi.lb > 35 ? ' - HEAVY: SLOW GOING' : ''));
 }
 function dlvBoard() { const it = DLV.desk; if (!it) return; DLV.desk = null; it.st = 'held'; if (!cgLoadAny(it)) { camera.getWorldPosition(_w); dlvDrop(it, _w.setY(_w.y - 1), true); } }   // climbing in with a load: it goes in the back
@@ -7843,7 +7880,8 @@ function wxTick(dt) {   // after updateDay (it sets the clear-sky colours and li
   CLOUDS.st.dy = E.low; wxMist(E.mist);
   RAIN.visible = E.rain > 0.03;
   if (RAIN.visible) { const u = RAIN.material.uniforms; WX.rainT += dt; u.uT.value = WX.rainT % 1000; camera.getWorldPosition(u.uC.value); u.uO.value = E.rain; u.uL.value = 0.3 + 0.7 * TOD.day; }
-  if (SND.ok && SND.rainG) SND.rainG.gain.setTargetAtTime(0.05 * E.rain, actx.currentTime, 1.2);
+  if (SND.ok && SND.rainG) { const T = actx.currentTime, inP = mode === 'plane', V = ac.out.V || 0; SND.rainG.gain.setTargetAtTime(0.05 * E.rain * (inP ? 0.6 + 0.4 * WIN.open : 1), T, 1.2);   // v0.83 E.rain carries the fronts: drumming on the Cub's fabric, faster with speed
+    SND.rainLP.frequency.setTargetAtTime(inP ? 2600 + 4400 * WIN.open : 7000, T, 0.5); SND.drumG.gain.setTargetAtTime(E.rain * (inP ? 0.1 * (1 + Math.min(1.5, V / 30)) : 0.03), T, 0.8); }
 }
 function wxVisKm() { return 10 * Math.pow(WX.E.vis, 1.3); }   // reported visibility (km): 10+ clear, ~5 haze, ~3 rain, ~2 fog banks
 function wxMetar() {   // the clipboard's METAR-ish line: no wind (00000KT) - weather here is only what you see

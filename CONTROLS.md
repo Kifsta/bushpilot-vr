@@ -29,6 +29,9 @@ v0.50 turns it into a **bush delivery** game: take a job off a strip's job board
 | Landing light | Flick the toggle under the panel up / down with your fingertip (or squeeze it) | L |
 | Reset / recentre | B = reset to the home strip, cold and dark (keeps your fuel and cash; below 5 gal it tops up to 5 gal, paid at the home drum price), A / X = recentre | R reset, Home recentre |
 
+## Sound (v0.83)
+- The engine has a prop thrum, sounds duller with the windows shut, pops when you chop the throttle at high rpm and ticks as it cools after shutdown. Under a rain front the rain drums on the fabric (louder at speed, duller with the windows shut). Cargo sounds like what it is (wood, metal, sacks, card, cases) and what it weighs, and the straps make a buckle sound. In the three towns you hear a murmur and people at work. The volumes are under MENU > AUDIO, as before.
+
 ## Hand mic (v0.82)
 - A push-to-talk handset hangs on a clip under the right end of the panel, on a coiled cord to the radio. Grab it with either hand (grip) and the cord stretches after it. Let go and it snaps back onto the clip. The cord swings with the Cub in turns, bumps and turbulence. It doesn't transmit anything yet.
 

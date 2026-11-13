@@ -2,6 +2,22 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.83 – sound pass: engine, rain fronts, cargo, towns
+Neil's approved queue, item (b). Everything is WebAudio synthesis, as before: no audio files. It adds 4 looping noise sources and 2 slow oscillators to the graph; the rest are short one-shots, rate-limited. updateAudio stays well under 0.25 ms a frame. Only sound changes: the physics block is untouched and the md5 is unchanged.
+- **Engine:**
+  - **Prop thrum:** low noise pulsed at the two-blade pass rate (rpm / 30), rising with power, on the engine's 3D position. It's louder with the windows or door open.
+  - **Cabin muffle:** with the windows shut, the engine note is a little duller (low-pass x0.78).
+  - **Exhaust pops:** a sharp throttle chop at high rpm (over 1700) gives 2–4 pops from the exhaust stack. A gentle throttle change, or a chop at low rpm, doesn't.
+  - **Cooling ticks:** after a run, the hot engine ticks as it cools (metal pings from the cowl), spacing out over 90 s.
+- **Rain, tied to the v0.79 fronts** (and the weather's own light rain, through the same `WX.E.rain`):
+  - **Drumming:** under a front, rain drums on the Cub's fabric. It's louder at speed (up to 2.5x) and a quieter patter on foot.
+  - **Cabin muffle:** in the cabin the rain hiss is duller and lower (low-pass 2.6 kHz). It opens up when you open a window or the door.
+  - It fades in and out with the front, and it's dry above the cloud base or outside a front, as before.
+- **Cargo:** each piece sounds like what it is and what it weighs: wood (crates, dog and hen crates), metal (fuel cans, nail kegs, the outboard, the generator), soft (sacks, cement and feed bags, the venison, drop bundles), card (parcels, fragile boxes) and hard cases (medicine case, cooler). There are separate sounds for picking it up, setting it down or loading it, and dropping it hard (over 2.5 m/s). Heavier pieces are lower and louder. The belt and the baggage net make a webbing, ratchet and buckle sound.
+- **Towns:** within about 220 m of CUTLER, DRY FORK or HOLLIS, on the ground or low (under 60 m), there's a quiet town murmur. Every 3–10 s you hear someone at work somewhere in town: hammering, a screen door, an axe, a dog, hens. It's quieter in the evening, and at night only the odd dog or door. It's ducked under a running engine like the other ambience.
+- **Tests:** new t83 (18 checks: the graph; drumming and muffled hiss under a front in the cockpit; windows open = brighter and louder; on foot = open hiss and quieter patter; no rain = no drum; pops on a chop and not on gentle / low-rpm changes; cooling ticks that stop; the Cub state untouched; prop thrum off with the engine off; cargo materials and weights; straps; load and a hard drop; town sounds in CUTLER, fading at the edge, none at home; cost; console). t43, t50, t51, t54, t75, t79 and t82 pass.
+- The help line reads v0.83.
+
 ## v0.82 – a hand mic with a coiled cord in the Cub
 Neil's request: a push-to-talk handset clipped in the cockpit, on a coiled cord that moves with the aircraft. It's visual only: the physics block is untouched and the md5 is unchanged.
 - **Where:** the handset hangs on a small clip under the right end of the panel, by the radio, within easy reach of either hand. The cord plugs into a jack under the radio stack. The handset is low-poly: a body, a grille, the red PTT bar on its side and a strain relief.
