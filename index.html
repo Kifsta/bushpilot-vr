@@ -36,7 +36,7 @@ VR - in the cockpit: grip the stick (right) and throttle (left), left stick = ru
 VR - on foot: left stick walks (click = run), right stick turns (snap / smooth in Settings), right stick down = crouch, up = hop,
   Y climb in, take the nozzle off a red drum, put it in a wing filler cap and hold the trigger to refuel from the pump, grab the map off its cockpit holder.
   Jobs: poke ACCEPT on a strip's job board, grip cargo to carry it, let go over the rear seat / baggage bay, grab the belt buckle / net to strap.
-  Hunting: grip the rifle's wrist (cabin / Cub rack), other hand on the forend, trigger fires, pinch the lever loop and swing it (or flick), rounds from the belt pouch into the gate; binoculars in the holster on your left hip (one hand or both, a hand on each barrel), raise them to your eyes; grip and hold a downed deer to dress it.
+  Hunting: grip the rifle's wrist (cabin / Cub rack; right stick in + up / down = grip angle), other hand on the forend, trigger fires, grab the lever loop with your other hand and swing it (or flick, or B / Y), rounds from the belt pouch into the gate; binoculars in the holster on your left hip (one hand or both, a hand on each barrel), raise them to your eyes; grip and hold a downed deer to dress it.
   Airdrops: unlatch + open both halves of the right door, reach back and grip a bundle, put your hand out through the door and let go.
   Running costs: carry the drum's nozzle to a wing cap (trigger pumps) to buy fuel; poke a price on the hangar / fuel boards for oil, tyres, repairs, the 100-hour.
 MENU (Esc / F2 on desktop, the wrist MENU button in VR; poke, point + trigger, or click): resume, save / load (3 slots), graphics + presets, comfort, controls (dominant hand), audio volumes. ` = old settings list.
@@ -2051,8 +2051,10 @@ function footXR(dt) {
   if (moving) walk(-dz(ly), dz(lx), yaw, WALK * (vr.sprint ? 2 : 1) * crouchWalk(), dt);
   // v0.10 right stick: hold down = crouch, push up = hop
   const ax = Math.abs(rx), ay = Math.abs(ry), vert = ay > ax;
+  const rS = RFL.place === 'vr' && RFL.hand && !RFL.free && RFL.hand.userData.src?.handedness !== 'left' ? RFL.hand.userData.src?.gamepad : null;   // v0.44: right stick IN + up / down with the rifle = grip angle
+  if (rS?.buttons[3]?.pressed) { FOOT.crouchIn = false; if (ay > 0.6) { if (!vr.gpLatch) { vr.gpLatch = true; rflGripAdj(ry < 0 ? 5 : -5); } } else if (ay < 0.3) vr.gpLatch = false; } else {
   FOOT.crouchIn = vert && ry > 0.6;
-  if (vert && ry < -0.7) { if (!vr.jumpLatch) { vr.jumpLatch = true; jump(); } } else if (ry > -0.3) vr.jumpLatch = false;
+  if (vert && ry < -0.7) { if (!vr.jumpLatch) { vr.jumpLatch = true; jump(); } } else if (ry > -0.3) vr.jumpLatch = false; }
   vr.turning = 0;
   if (GFX.turn === 2) { if (ax > 0.25 && ax > ay) { const ang = -Math.sign(rx) * (ax - 0.25) / 0.75 * 2.0 * dt; vr.turning = Math.abs(ang) / dt; _w.setFromMatrixPosition(M);   // v0.35 smooth turn (up to ~115 deg/s)
     footRig.position.sub(_w).applyAxisAngle(_up, ang).add(_w); footRig.rotation.y += ang; bodyYaw += ang; } }
@@ -5681,20 +5683,22 @@ const RIFLE_POSE_SRC = {"rgripR": {"mcp": [0.026, -0.058, 0.058], "Z": [0, -0.85
 const RIFLE_POSE_SOLVE = { rgripR: { ja: [0.1, 0.88, 1.28, 0.26, 1.84, 1.12, 0.1, 1.68, 1.2, 0.26, 1.28, 1.28], gT: [-0.01943, -0.01869, -0.05592], gA: [-0.5584, -0.7263, -0.4008] },
   rforeL: { ja: [0.1, 1.2, 0.64, 0.1, 1.2, 0.8, 0.02, 1.2, 0.72, 0.02, 1.2, 0.16], gT: [-0.02229, -0.02626, -0.03903], gA: [-0.5737, -0.7739, -0.2682] } };
 const RIFLE_POSES = {
-  primary: { c: GV3(0, -0.03, 0.056), ax: GV3(0, -0.961, 0.276), r: 0.015, hl: 0.045, wd: GV3(0, -0.961, 0.276), wr: 0.015, tl: 0.004, wz: -0.004, lab: null },   // shape: the stock wrist (reach / hover)
-  support: { c: GV3(0, 0.006, -0.27), b: GV3(0.017, 0.022, 0.1), wr: 0.017, tl: 0.08, wz: -0.004, lab: null },   // shape: the forend
+  primary: { c: GV3(0, 0.012, 0.035), ax: GV3(0, -0.961, 0.276), r: 0.015, hl: 0.045, wd: GV3(0, -0.961, 0.276), wr: 0.015, tl: 0.004, wz: -0.004, lab: null },   // shape: the stock wrist (reach / hover)
+  support: { c: GV3(0, 0.012, -0.275), b: GV3(0.02, 0.025, 0.1), wr: 0.017, tl: 0.08, wz: -0.004, lab: null },   // shape: the forend
   GRIP_OFFSET: [null, null],   // [right primary, left primary]: { grip, q, fore, qs } - filled by rflLoadPoses
 };
 const GUN = { stockEngage: 0.14, stockFull: 0.04, stockTau: 0.15, leverTime: 0.12, leverMax: 0.9, mv: 400, drag: 0.0029, zeroM: 50, disp: 0.0006,
   gateR: 0.025, magnetR: 0.05, loadR: 0.1, loadCos: 0.5, pouchR: 0.24, grabR: 0.15, stockR: 0.15, loadBtnR: 0.25, tube: 7, pouch: 60, flick: 1.6,
   pickupBlend: 0.12, handoffBlend: 0.08, inertiaWn: 55, stockCapPos: 0.003, stockCapRot: 0.6, gateCone: 40 * D2R };   // v0.67 from the v0.9-v0.44 rifle: pick-up / hand-off blends, one-hand muzzle lag, stock pull rate cap, loading-gate entry cone
 const RECOIL2 = { rise: 4.5, kick: 3.3, yaw: 0.6, wn: 20, zeta: 0.45, kwn: 32, kzeta: 0.65, random: 0.15, stock: 0.4, twoHand: 0.7, desk: 0.6 };
-// points of the mesh (rifle space: metres, muzzle -z, +x = right side, origin just above the trigger)
-const RF = { grip: GV3(0, -0.006, 0.075), fore: GV3(0, 0.006, -0.27), muz: GV3(0, 0.024, -0.658), ej: GV3(0, 0.048, -0.088), gate: GV3(0.0215, -0.005, -0.112),
-  loop: GV3(0, -0.05, 0.15), notch: GV3(0, 0.0517, -0.266), bead: GV3(0, 0.0517, -0.6435), butt: 0.314 };   // sight picture: the bead's top level with the rear blade (clears the receiver; the cocked hammer drops below it)
-const SIGHT_A = Math.atan2(RF.bead.y - RF.notch.y, RF.notch.z - RF.bead.z);   // the sight line vs the bore (level here)
-const EYE_R = GV3(0, RF.notch.y - 0.44 * Math.tan(SIGHT_A), RF.notch.z + 0.44);   // the sighting eye: 44 cm behind the notch, on the sight line
-const TRIG_BACK = 0.03;
+// v0.84.4 the v0.44-full rifle is back (Neil): its model, its points and its hold. Rifle space: metres, muzzle -z, +x = right side, origin = the controller grip (the front of the stock wrist).
+const SIGHT_Y = 0.062, CHEEK_Z = 0.2;   // v0.44 cheek weld: the sight line runs SIGHT_Y over the grip, the eye sits on it CHEEK_Z behind the grip
+const RF = { grip: GV3(0, 0, 0), fore: GV3(0, 0.012, -0.3), muz: GV3(0, 0.032, -0.705), ej: GV3(0, 0.055, -0.11), gate: GV3(0.019, 0.002, -0.125),
+  loop: GV3(0, -0.044, 0.018), notch: GV3(0, SIGHT_Y, -0.33), bead: GV3(0, SIGHT_Y, -0.695), butt: 0.33 };   // the buckhorn notch and the brass bead on one level line, 3 cm over the bore
+const SIGHT_A = Math.atan2(RF.bead.y - RF.notch.y, RF.notch.z - RF.bead.z);   // the sight line vs the bore (level: 0)
+const EYE_R = GV3(0, SIGHT_Y, CHEEK_Z);   // the sighting eye (v0.44): on the sight line, CHEEK_Z behind the grip
+const SUPPORT_TILT = new THREE.Quaternion().setFromAxisAngle(GV3(1, 0, 0), Math.atan2(0.032, 0.3));   // v0.44: the support hand sits under the forend
+let gripPitch = -40; try { const v = localStorage.getItem('bp_gripPitch'); if (v !== null && isFinite(+v)) gripPitch = clamp(+v, -80, 20); } catch (e) { /* no storage */ }   // v0.44 controller grip -> rifle wrist angle (deg, - = muzzle down), right stick click + up / down
 const RFL = { g: null, sx: 0, place: 'cabin', hand: null, sup: null, levHand: null, levA: 0, levS: 0, levReq: false, levFree: false, levGrab0: 0,
   tube: 6, ch: false, cocked: false, spent: false, lifted: false, spare: 20, stockW: 0, stockF: 0, stockFv: 0, ads: 0, adsOn: false, prev: GV3(0, 0, 0), vel: GV3(0, 0, 0), flickCool: 0,
   rec: { a: 0, av: 0, y: 0, yv: 0, z: 0, zv: 0 }, flashT: 0, gp: [0, 0, 0], gry: 0, deskT: 0, gateT: 0, trigT: 0, round: new Map(), reload: new Set(), hint: '', bullets: [], cases: [], log: null,
@@ -5771,18 +5775,29 @@ function storeHint(p, vrOn) {
   STORE.hint = k;
 }
 // ---- model ----
-function rflBuild(root) {
-  const g = root.getObjectByName('LeverRifle') || root; g.removeFromParent(); g.position.set(0, 0, 0); g.quaternion.identity();
-  g.traverse(o => { o.userData.noBatch = true; if (o.isMesh) { o.material = ITEM_VM; o.castShadow = true; o.receiveShadow = false; } });
-  RFL.g = g; RFL.lever = g.getObjectByName('Lever'); RFL.hammer = g.getObjectByName('Hammer'); RFL.trig = g.getObjectByName('Trigger'); RFL.gateM = g.getObjectByName('LoadingGate');
-  RFL.muzzle = g.getObjectByName('Muzzle');
-  { const P = RFL.hammer.geometry.attributes.position; let top = 0; for (let i = 0; i < P.count; i++) top = Math.max(top, P.getY(i));   // v0.67.2: the hammer stood 6 mm into the sight line (hammer down); its top cut to 5 mm under it
-    const k = Math.min(1, (RF.notch.y - 0.005 - RFL.hammer.position.y) / top); for (let i = 0; i < P.count; i++) if (P.getY(i) > 0) P.setY(i, P.getY(i) * k); P.needsUpdate = true; RFL.hammer.geometry.computeVertexNormals(); RFL.hammer.geometry.computeBoundingSphere(); RFL.hammer.geometry.computeBoundingBox(); }
-  { const tg = RFL.trig.geometry.clone().applyMatrix4(new THREE.Matrix4().makeScale(1, 1, -1)), a = tg.attributes, ix = tg.index;   // v0.67: the blade was modelled curving back from its pin (convex face to the finger); mirrored fore-aft about the pin
-    if (ix) { for (let i = 0; i < ix.count; i += 3) { const t = ix.getX(i + 1); ix.setX(i + 1, ix.getX(i + 2)); ix.setX(i + 2, t); } }
-    else for (const k in a) { const A = a[k], n = A.itemSize; for (let i = 0; i < A.count; i += 3) for (let c = 0; c < n; c++) { const t = A.array[(i + 1) * n + c]; A.array[(i + 1) * n + c] = A.array[(i + 2) * n + c]; A.array[(i + 2) * n + c] = t; } }
-    tg.computeVertexNormals(); RFL.trig.geometry = tg; }
-  RFL.trig.position.z += TRIG_BACK;   // v0.77.5 the blade 3 cm back in its guard, so the index finger fits in front of it (as in the pose lab)
+function rflBuild44() {   // v0.84.4 the v0.44-full carbine (Neil's reference proportions): round barrel over a full-length tube, short deep forend, tall boxy receiver, big loop lever, straight-grip stock, crescent buttplate
+  const g = new THREE.Group(), S = new THREE.Group(), wood = mat(0x8a4a1e), steel = mat(0x2c3442), brass = new THREE.MeshBasicMaterial({ color: 0xffd36a });
+  const cyl = (r, len, seg, m, y, z) => { const o = new THREE.Mesh(new THREE.CylinderGeometry(r, r, len, seg).rotateX(Math.PI / 2), m); o.position.set(0, y, z); S.add(o); return o; };
+  box(0.034, 0.066, 0.155, steel, 0, 0.019, -0.0975, S); box(0.03, 0.012, 0.05, steel, 0, -0.016, -0.04, S); box(0.012, 0.006, 0.035, steel, 0, 0.045, 0.004, S);   // receiver, lower tang, upper tang
+  cyl(0.0105, 0.53, 10, steel, 0.032, -0.44); cyl(0.0085, 0.51, 8, steel, 0.0105, -0.43); box(0.026, 0.04, 0.014, steel, 0, 0.022, -0.678, S);   // barrel, magazine tube, muzzle band
+  box(0.04, 0.05, 0.2, wood, 0, 0.012, -0.275, S); box(0.042, 0.054, 0.014, steel, 0, 0.013, -0.38, S); box(0.003, 0.017, 0.012, steel, 0, 0.0515, -0.695, S);   // forend, its band, front blade
+  const bd = new THREE.Mesh(new THREE.SphereGeometry(0.0035, 6, 4), brass); bd.position.copy(RF.bead); S.add(bd);
+  box(0.024, 0.013, 0.012, steel, 0, 0.0495, -0.33, S); for (const sx of [-1, 1]) box(0.007, 0.02, 0.006, steel, sx * 0.0095, 0.064, -0.33, S).rotation.z = -sx * 0.4;   // buckhorn rear sight
+  taper(-0.02, 0.09, [0.028, 0.045, -0.02], [0.03, 0.026, -0.042], wood, S); taper(0.09, 0.322, [0.032, 0.026, -0.042], [0.04, -0.006, -0.106], wood, S);   // wrist, buttstock
+  for (let i = 0; i < 4; i++) { const y0 = -0.006 - i * 0.025, y1 = y0 - 0.025, zc = t => 0.329 - 0.009 * Math.sin(Math.PI * (t + 0.006) / 0.1), z0 = zc(-y0 - 0.006), z1 = zc(-y1 - 0.006);
+    box(0.041, Math.hypot(0.025, z1 - z0) + 0.002, 0.007, steel, 0, (y0 + y1) / 2, (z0 + z1) / 2 + 0.004, S).rotation.x = Math.atan2(z0 - z1, 0.025); }   // crescent buttplate
+  box(0.034, 0.008, 0.02, steel, 0, -0.004, 0.331, S); box(0.034, 0.01, 0.022, steel, 0, -0.106, 0.333, S);
+  mergeInto(S, g);
+  const L = new THREE.Group(); L.name = 'Lever'; L.position.set(0, -0.012, -0.17); g.add(L);   // loop lever: pivots at the front of the receiver, swings down and forward
+  box(0.01, 0.01, 0.15, steel, 0, -0.005, 0.075, L); box(0.01, 0.034, 0.01, steel, 0, -0.024, 0.06, L); box(0.01, 0.01, 0.1, steel, 0, -0.044, 0.105, L);
+  const lp = new THREE.Mesh(new THREE.TorusGeometry(0.03, 0.005, 4, 12).rotateY(Math.PI / 2).scale(1, 1.05, 1.45), steel); lp.position.set(0, -0.032, 0.19); L.add(lp);
+  const B = new THREE.Group(); B.position.set(0, 0.046, -0.1); g.add(B); box(0.012, 0.012, 0.11, steel, 0, 0, 0, B);   // the bolt slides back with the lever
+  const H = new THREE.Group(); H.name = 'Hammer'; H.position.set(0, 0.041, -0.008); g.add(H); box(0.008, 0.016, 0.012, steel, 0, 0.008, -0.004, H);   // hammer (top under the sight line)
+  const T = new THREE.Group(); T.name = 'Trigger'; T.position.set(0, -0.017, -0.033); g.add(T); box(0.004, 0.018, 0.006, steel, 0, -0.009, -0.002, T);
+  const GT = box(0.003, 0.012, 0.024, mat(0x9a8040), RF.gate.x - 0.0015, RF.gate.y, RF.gate.z, g); GT.name = 'LoadingGate';
+  const M = new THREE.Object3D(); M.name = 'Muzzle'; M.position.copy(RF.muz); g.add(M);
+  g.traverse(o => { o.userData.noBatch = true; if (o.isMesh) { o.castShadow = true; o.receiveShadow = false; } });
+  RFL.g = g; RFL.lever = L; RFL.hammer = H; RFL.trig = T; RFL.gateM = GT; RFL.muzzle = M; RFL.bolt = B;
   { const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'), gr = x.createRadialGradient(32, 32, 0, 32, 32, 32);   // muzzle flash: additive sprite, no light
     gr.addColorStop(0, 'rgba(255,250,220,1)'); gr.addColorStop(0.25, 'rgba(255,200,90,0.9)'); gr.addColorStop(1, 'rgba(255,120,20,0)'); x.fillStyle = gr; x.fillRect(0, 0, 64, 64);
     RFL.flash = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, fog: false }));
@@ -5839,7 +5854,8 @@ function leverTick(dt) {
   RFL.lever.rotation.x = GUN.leverMax * a;
   RFL.hammer.rotation.x = RFL.cocked ? 0.55 : Math.max(0, 0.55 * smooth01(clamp((a - 0.1) / 0.6, 0, 1)));   // the bolt rides the hammer back
   RFL.feed.visible = RFL.lifted || (a > 0.72 && RFL.tube > 0 && !RFL.ch);
-  RFL.feed.position.set(0, 0.012 + 0.02 * smooth01(clamp((a - 0.45) / 0.5, 0, 1)), -0.105);
+  RFL.bolt.position.z = -0.1 + 0.06 * smooth01(clamp((a - 0.12) / 0.88, 0, 1));   // v0.84.4 (v0.44) the bolt unlocks over the first 12 % and rides back
+  RFL.feed.position.set(0, 0.031 + 0.019 * smooth01(clamp((a - 0.45) / 0.5, 0, 1)), Math.min(-0.125, RFL.bolt.position.z - 0.081));
   RFL.trig.rotation.x = -0.25 * Math.max(RFL.trigT > 0 ? 1 : 0, RFL.trigV); RFL.trigT = Math.max(0, RFL.trigT - dt);   // v0.67: pull = blade back about its pin, with the finger in VR
   if (RFL.gateT > 0) { RFL.gateT = Math.max(0, RFL.gateT - dt); RFL.gateM.rotation.y = -0.35 * Math.sin(Math.PI * (1 - RFL.gateT / 0.16)); } else RFL.gateM.rotation.y = 0;
 }
@@ -5984,26 +6000,29 @@ function rflBullets(dt) {
 }
 // ---- holding it: desktop (hip / aim down the sights), VR (grip hand, forend hand, virtual stock), slung on your back ----
 const CHEEK = GV3(0, 0, 0).subVectors(RF.grip, EYE_R);   // the grip hand from the sighting eye with the butt in the shoulder (rifle space)
-const _lbX = GV3(0, 0, 0), _lbY = GV3(0, 0, 0), _lbZ = GV3(0, 0, 0), _lbM = new THREE.Matrix4(), _lbS = new THREE.Matrix4().makeScale(-1, 1, 1), _lbH = new THREE.Matrix4().copy(HOFF).invert();
+const _lbX = GV3(0, 0, 0), _lbY = GV3(0, 0, 0), _lbZ = GV3(0, 0, 0), _lbS = new THREE.Matrix4().makeScale(-1, 1, 1);
 function rflLabHc(L, sx, out) {   // v0.77.5 a lab pose's hand frame in rifle space (as pose-lab labpage.js builds it), mirrored if this hand is the other side from the one it was authored for
   const P = L.src, a = L.sx; _lbZ.fromArray(P.Z).normalize(); _lbY.fromArray(P.arm); _lbY.addScaledVector(_lbZ, -_lbY.dot(_lbZ)).normalize(); _lbX.crossVectors(_lbY, _lbZ);
   out.makeBasis(_lbX, _lbY, _lbZ); const h0 = (P.mcp ? _lbX.set(a * 0.033, -0.03, -0.012) : _lbX.set(a * 0.0005, -0.045, -0.004)).applyMatrix4(out); out.setPosition(_lbY.fromArray(P.mcp || P.c).sub(h0));
   if (sx !== a) out.premultiply(_lbS).multiply(_lbS); return out;
 }
+const FORE_D = GV3(0, 0.003, -0.005), PRIM_D = GV3(0, 0.03, -0.02);   // v0.84.4 the lab's forend cradle / trigger hand moved onto the v0.44 forend / wrist (index finger at the v0.44 trigger)
 function rflLabSolve(st, L, sx) {   // v0.77.5 the fixed lab pose: frame, finger angles, thumb, cuff bend - no solving in the headset
-  rflLabHc(L, sx, st.Hc); st.ja.set(L.ja); st.gT.fromArray(L.gT); st.gA.fromArray(L.gA).normalize(); st.isp = st.gp.isp = L.src.isp || 0; st.gp.u = false; st.dev = L.src.dev || 0;
+  const D = L === RIFLE_POSES.primary.lab ? PRIM_D : FORE_D; rflLabHc(L, sx, st.Hc); st.Hc.elements[12] += D.x; st.Hc.elements[13] += D.y; st.Hc.elements[14] += D.z;   // v0.84.4 the lab's hand shapes moved onto the v0.44 wrist / forend (looks only: the rifle comes off the controller the v0.44 way) st.ja.set(L.ja); st.gT.fromArray(L.gT); st.gA.fromArray(L.gA).normalize(); st.isp = st.gp.isp = L.src.isp || 0; st.gp.u = false; st.dev = L.src.dev || 0;
 }
-function rflLoadPoses(src, solve) {   // v0.77.5 RIFLE_POSES from a pose-lab option file (+ its solved fingers); the controller-to-rifle offsets follow from the hand frames
+function rflLoadPoses(src, solve) {   // v0.84.4: the lab's finger data stay on the gloves; the controller-to-rifle offsets are v0.44's again (grip angle, SUPPORT_TILT)
   RIFLE_POSES.primary.lab = { src: src.rgripR, sx: 1, ...solve.rgripR }; RIFLE_POSES.support.lab = { src: src.rforeL, sx: -1, ...solve.rforeL };
-  for (const sx of [1, -1]) { const o = RIFLE_POSES.GRIP_OFFSET[sx > 0 ? 0 : 1] = { grip: GV3(0, 0, 0), q: new THREE.Quaternion(), fore: GV3(0, 0, 0), qs: new THREE.Quaternion() };
-    rflLabHc(RIFLE_POSES.primary.lab, sx, _lbM).multiply(_lbH); o.grip.setFromMatrixPosition(_lbM); o.q.setFromRotationMatrix(_lbM).invert();   // controller = hand * HOFF^-1
-    rflLabHc(RIFLE_POSES.support.lab, -sx, _lbM).multiply(_lbH); o.fore.setFromMatrixPosition(_lbM); o.fq = new THREE.Quaternion().setFromRotationMatrix(_lbM).invert(); o.fp = o.fore.clone().applyQuaternion(o.fq).negate();   // v0.77.6 held by the forend hand alone
-    aimQuat(_lbX.subVectors(o.fore, o.grip), _lbY.set(0, 1, 0), o.qs).invert(); }   // two hands: the grip -> forend controller line onto the bore
+  for (const sx of [1, -1]) RIFLE_POSES.GRIP_OFFSET[sx > 0 ? 0 : 1] = { grip: RF.grip.clone(), fore: RF.fore.clone(), qs: SUPPORT_TILT.clone() };
   RFL.sx = 0; rflSide(1);
 }
-function rflSide(sx) {   // v0.77.5 right- or left-hand primary: that side's offsets
-  if (RFL.sx === sx) return; RFL.sx = sx; const o = RIFLE_POSES.GRIP_OFFSET[sx > 0 ? 0 : 1];
-  RF.grip.copy(o.grip); RF.fore.copy(o.fore); Q_GRIP.copy(o.q); Q_SUP.copy(o.qs); CHEEK.subVectors(RF.grip, EYE_R);
+const _X1 = GV3(1, 0, 0);
+function rflSide(sx) {   // right- or left-hand primary: the same v0.44 offsets either side
+  Q_GRIP.setFromAxisAngle(_X1, gripPitch * D2R); if (RFL.sx === sx) return; RFL.sx = sx; const o = RIFLE_POSES.GRIP_OFFSET[sx > 0 ? 0 : 1];
+  RF.grip.copy(o.grip); RF.fore.copy(o.fore); Q_SUP.copy(o.qs); CHEEK.subVectors(RF.grip, EYE_R);
+}
+function rflGripAdj(d) {   // v0.44: right stick click + up / down while holding the rifle in the right hand = grip angle, 5 deg steps, saved
+  gripPitch = clamp(gripPitch + d, -80, 20); try { localStorage.setItem('bp_gripPitch', gripPitch); } catch (e) { /* no storage */ }
+  for (const st of HANDS.st) if (st.gk === 'rgrip') st.gk = null; say('GRIP ANGLE ' + gripPitch + '\u00B0'); rflPulse(RFL.hand, 0.4, 20);
 }
 rflLoadPoses(RIFLE_POSE_SRC, RIFLE_POSE_SOLVE);
 const _yq = new THREE.Quaternion(), _sp = GV3(0, 0, 0), _sq = new THREE.Quaternion();
@@ -6046,20 +6065,19 @@ function rflPose(dt) {
     const G = RFL.hand; rflSide((G.userData.src?.handedness === 'left' ? -1 : 1) * (RFL.free ? -1 : 1)); G.updateWorldMatrix(true, false); G.getWorldPosition(_rH); G.getWorldQuaternion(_rq2);   // v0.77.6 free: RFL.hand is the forend hand, the offsets are the other side's primary
     const q1 = _rq3.copy(_rq2).multiply(Q_GRIP); _ru.set(0, 1, 0).applyQuaternion(q1); RFL.trigV = RFL.free ? 0 : G.userData.src?.gamepad?.buttons[0]?.value || 0;
     if (RFL.free) {   // v0.77.6 (Neil): let go of the stock with the forend held - that hand keeps its forend grip and the rifle hangs off it at the fixed support offset
-      const o = RIFLE_POSES.GRIP_OFFSET[RFL.sx > 0 ? 0 : 1]; _rq.copy(_rq2).multiply(o.fq); _rp.copy(o.fp).applyQuaternion(_rq2).add(_rH); RFL.stockF = RFL.stockFv = RFL.stockW = 0; _rd.set(0, 0, -1).applyQuaternion(_rq);
+      _rq.copy(_rq2).multiply(RFL.freeQ); _rp.copy(RFL.freeP).applyQuaternion(_rq2).add(_rH);   // v0.84.4 (v0.44 forendHold) it stays where it was in that hand RFL.stockF = RFL.stockFv = RFL.stockW = 0; _rd.set(0, 0, -1).applyQuaternion(_rq);
       RFL.vel.subVectors(_rH, RFL.prev).divideScalar(Math.max(dt, 1e-3)); RFL.prev.copy(_rH); rflHoldBlend(dt); } else {
     const M = eyeWorld(G.userData.src?.handedness === 'left' ? 0 : 1); _rE.setFromMatrixPosition(M); _rd.set(0, 0, -1).transformDirection(M); _rp3.set(0, 1, 0).transformDirection(M);
     _rp2.copy(_rE).addScaledVector(_rd, -CHEEK.z).addScaledVector(_rp3, CHEEK.y);                      // where the grip hand sits when shouldered
     const dS = _rH.distanceTo(_rp2), xS = 1 - clamp((dS - GUN.stockFull) / (GUN.stockEngage - GUN.stockFull), 0, 1), wT = xS * xS * xS * (xS * (xS * 6 - 15) + 10);
     { const wn = 2 / GUN.stockTau; for (let n = Math.ceil(h / 0.008), k = 0; k < n; k++) { const s = h / n; RFL.stockFv += (wn * wn * (wT - RFL.stockF) - 2 * wn * RFL.stockFv) * s; RFL.stockF = clamp(RFL.stockF + RFL.stockFv * s, 0, 1); } }
     if (RFL.sup) {   // two hands: grip -> forend (v0.77.1 eased back to the one-hand aim when the forend hand is too close or behind, so a grab anywhere never flips it)
-      RFL.sup.getWorldPosition(_rp2); _rd.subVectors(_rp2, _rH); const dl = _rd.length(); _rd.divideScalar(dl || 1); _rp3.set(0, 0, -1).applyQuaternion(q1);
-      const w = clamp((dl - 0.08) / 0.1, 0, 1) * clamp(_rd.dot(_rp3) * 2, 0, 1); aimQuat(_rd, _ru, _rq).multiply(Q_SUP); if (w < 1) _rq.slerp(q1, 1 - w);
+      RFL.sup.getWorldPosition(_rp2); _rd.subVectors(_rp2, _rH); if (_rd.lengthSq() > 0.0025) aimQuat(_rd.normalize(), _ru, _rq).multiply(Q_SUP); else _rq.copy(q1);   // v0.84.4 (v0.44) grip -> forend hand, roll from the grip hand, the forend tilted onto that hand
     } else _rq.copy(q1);
     _rp.copy(RF.grip).applyQuaternion(_rq).negate().add(_rH);
     if (RFL.stockF > 1e-4 || RFL.stockW > 0) {   // shouldered: the sight line from the eye over the forend, the cheek on the comb
-      _rp2.copy(RF.fore).applyQuaternion(_rq).add(_rp).addScaledVector(_ru, RF.notch.y - RF.fore.y);
-      _rd.subVectors(_rp2, _rE); if (_rd.lengthSq() < 0.01) _rd.set(0, 0, -1).applyQuaternion(_rq); _rd.normalize();
+      if (RFL.sup) RFL.sup.getWorldPosition(_rp2); else _rp2.copy(_rH); _rp2.addScaledVector(_ru, SIGHT_Y);   // v0.84.4 (v0.44) the sight line from the eye over the forend hand (or the grip hand)
+      _rd.subVectors(_rp2, _rE); if (_rd.lengthSq() < 0.0064) _rd.set(0, 0, -1).transformDirection(M); _rd.normalize();
       aimQuat(_rd, _ru, _sq).multiply(Q_SIGHT); _sp.copy(EYE_R).applyQuaternion(_sq).negate().add(_rE);
       const dp = _sp.distanceTo(_rp), da = _sq.angleTo(_rq), fk = h * 90;   // v0.67 (from v0.9.1): the stock's own pull is rate-capped, <= 3 mm / 0.6 deg per 90 Hz frame; hand motion passes straight through
       const mx = Math.min(dp > 1e-6 ? GUN.stockCapPos * fk / dp : 1, da > 1e-6 ? GUN.stockCapRot * D2R * fk / da : 1);
@@ -6072,8 +6090,9 @@ function rflPose(dt) {
   } else return;
   RFL.baseP.copy(_rp); RFL.baseQ.copy(_rq);
   // recoil about the grip: muzzle rise, a little yaw, the kick back
-  _rq2.setFromEuler(_fe.set(R.a, R.y, 0)); _rp2.copy(RF.grip).applyQuaternion(_rq); _rp3.copy(RF.grip).applyQuaternion(_sq.copy(_rq).multiply(_rq2));
-  g.position.copy(_rp).add(_rp2).sub(_rp3).add(_rd.set(0, 0, R.z * 0.5).applyQuaternion(_rq)); g.quaternion.copy(_sq);
+  g.quaternion.copy(_rq); g.position.copy(_rp);   // v0.84.4 (v0.44) recoil pivots under the grip one-handed, in the shoulder pocket when shouldered; full rearward kick
+  if (Math.abs(R.a) + Math.abs(R.y) + Math.abs(R.z) > 1e-5) { const pz = 0.3 * (RFL.place === 'desk' ? 0 : RFL.stockW); _rp2.set(0, -0.04, pz).applyQuaternion(g.quaternion);
+    g.rotateX(R.a); g.rotateY(R.y); _rp3.set(0, -0.04, pz).applyQuaternion(g.quaternion); g.position.add(_rp2).sub(_rp3); g.translateZ(R.z); }
 }
 const POUCH_OFF = GV3(0.12, -0.62, -0.15);   // v0.77.1 belt, front right: 12 cm right, 62 cm below the eyes, 15 cm forward (head-yaw frame, so looking down at it does not move it)
 function rflPouch(out) { const y = headYaw(); camera.getWorldPosition(out); return out.add(_rd.copy(POUCH_OFF).applyAxisAngle(_ry, y)); }
@@ -6150,7 +6169,9 @@ function rflGrab(g, p) {
   if (RFL.hand === g || RFL.sup === g || RFL.levHand === g) return true;
   if (!RFL.round.has(g) && RFL.place === 'vr' && p.distanceTo(rflPouch(_rp2)) < GUN.pouchR) return rflTakeRound(g);   // v0.77.1 the pouch first: loading, the rifle is often held low across the belt
   if (RFL.place === 'vr' && RFL.free) { if (RFL.g.worldToLocal(_rp2.copy(p)).distanceTo(RIFLE_POSES.primary.c) < GUN.stockR) { RFL.sup = RFL.hand; RFL.hand = g; RFL.free = false; RFL.prev.copy(p); tick(g); return true; } return false; }   // v0.77.6 held by the forend alone: a hand that grabs the stock zone takes the stock
-  if (RFL.place === 'vr') { if (rflDistTo(p) < GUN.grabR) { RFL.sup = g; RFL.free = false; tick(g); return true; } return false; }   // v0.77.1 the other hand anywhere on it: always the one forend grip (the lever is B / Y or a flick)
+  if (RFL.place === 'vr') { RFL.g.updateMatrixWorld(true);   // v0.84.4 (v0.44) the other hand: on the lever loop it works the lever, near the forend it steadies the rifle
+    if (!RFL.levHand && RFL.lever.localToWorld(_rp2.set(0, -0.032, 0.188)).distanceTo(p) < 0.07) { RFL.levHand = g; RFL.levFree = false; RFL.levGrab0 = rflHandAngle(p) - RFL.levA * GUN.leverMax; tick(g); return true; }
+    if (RFL.g.localToWorld(_rp2.copy(RF.fore)).distanceTo(p) < 0.3) { RFL.sup = g; RFL.free = false; tick(g); return true; } return false; }   // v0.77.1 the other hand anywhere on it: always the one forend grip (the lever is B / Y or a flick)
   if (RFL.place !== 'vr' && RFL.place !== 'desk' && (RFL.place === 'back' ? rflBackReach(p) : rflDistTo(p) < GUN.grabR)) {   // pick it up (rack, ground, your back; any part): this hand takes the wrist
     const was = RFL.place; RFL.g.updateWorldMatrix(true, false); RFL.g.matrixWorld.decompose(RFL.baseP, RFL.baseQ, _hbV); RFL.free = false; rflPut('vr'); RFL.hand = g; RFL.prev.copy(p); RFL.stockF = RFL.stockW = RFL.stockFv = 0; sfx('pick'); HX.pulse(g, 0.5, 30, 'rifle');   // v0.67: it flies into the hand from where it was
     if (was !== 'back') say('RIFLE ' + RFL.tube + (RFL.ch ? '+1' : '') + ' - TRIGGER FIRES, FLICK DOWN OR WORK THE LEVER, ROUNDS FROM THE BELT POUCH INTO THE GATE');
@@ -6166,7 +6187,8 @@ function rflRelease(g) {
   if (RFL.sup === g) RFL.sup = null;
   if (RFL.hand !== g || RFL.place !== 'vr') return;
   if (RFL.levHand) rflLevRelease();
-  if (RFL.sup) { RFL.hand = RFL.sup; RFL.sup = null; RFL.free = true; RFL.stockF = RFL.stockFv = RFL.stockW = 0; RFL.prev.copy(RFL.hand.getWorldPosition(_rp2)); return; }   // v0.77.6 (Neil) no promotion: the forend hand stays on the forend (RFL.free) - the stock is only taken by grabbing it
+  if (RFL.sup) { const S = RFL.sup; S.updateWorldMatrix(true, false); S.getWorldPosition(_rp2); S.getWorldQuaternion(_rq2).invert(); RFL.freeQ.copy(_rq2).multiply(RFL.baseQ); RFL.freeP.subVectors(RFL.baseP, _rp2).applyQuaternion(_rq2);   // v0.84.4 (v0.44 forendHold): it stays where it is
+    RFL.hand = S; RFL.sup = null; RFL.free = true; RFL.stockF = RFL.stockFv = RFL.stockW = 0; RFL.prev.copy(_rp2); return; }   // v0.77.6 (Neil) no promotion: the forend hand stays on the forend (RFL.free) - the stock is only taken by grabbing it
   RFL.g.getWorldPosition(_rp2); const rk = rflNearRack(_rp2); camera.getWorldPosition(_rp3);   // (rflNearRack uses _rp3)
   if (rk) { rflPut(rk); sfx('clack'); say('RIFLE ' + rflRackLabel(rk)); }
   else if (_rp2.y > _rp3.y - 0.45 && hyp(_rp2.x - _rp3.x, _rp2.z - _rp3.z) < 0.32 && RFL.g.localToWorld(_rp.copy(RF.fore)).y > _rp2.y) { rflPut('back'); sfx('pick'); say('RIFLE SLUNG - REACH OVER YOUR RIGHT SHOULDER FOR IT'); }   // let go by your head, muzzle up: slung
@@ -6527,7 +6549,7 @@ function binoRelease(g) { if (BINO.g2 === g) { BINO.g2 = null; return; } if (BIN
 Object.assign(GDEF, {   // v0.53 procedural grips on the rifle mesh: wrap the wrist of the stock, wrap the forend, pinch the lever loop
   rgrip: { labK: 'primary', o: () => RFL.g, sh: 'cyl', st: 'wrap', wa: 2, ...RIFLE_POSES.primary },   // v0.77.1 the one wrist grip (pose data: RIFLE_POSES; v0.77.5 its lab pose)
   rfore: { labK: 'support', o: () => RFL.g, sh: 'box', st: 'wrap', wa: 2, ...RIFLE_POSES.support },   // v0.77.1 the one forend grip (pose data: RIFLE_POSES; v0.77.5 its lab pose)
-  rlev: { o: () => RFL.lever, sh: 'box', c: GV3(0, -0.05, 0.15), b: GV3(0.005, 0.022, 0.035), st: 'pinch', pc: GV3(0, -0.068, 0.15) },
+  rlev: { o: () => RFL.lever, sh: 'box', c: GV3(0, -0.032, 0.19), b: GV3(0.005, 0.03, 0.045), st: 'pinch', pc: GV3(0, -0.062, 0.19) },   // v0.84.4 the v0.44 loop (lever space)
   bR: { fix: 'bino', o: () => BINO.m, sh: 'cyl', c: GV3(0.032, 0, -0.005), a: 2, r: 0.021, hl: 0.05, st: 'wrap', wa: 2, wr: 0.021, tl: 0.02, wz: -0.004 },   // v0.65 binocular barrels
   bL: { fix: 'bino', o: () => BINO.m, sh: 'cyl', c: GV3(-0.032, 0, -0.005), a: 2, r: 0.021, hl: 0.05, st: 'wrap', wa: 2, wr: 0.021, tl: 0.02, wz: -0.004 },
 });
@@ -6559,7 +6581,7 @@ binoPut('cub');
 setTimeout(function huntAssets(tries = 3) {   // the rifle + deer models: after start-up (a dynamic import issued mid-evaluation can fail), retried
   Promise.all([import('three/addons/loaders/GLTFLoader.js'), import('three/addons/utils/SkeletonUtils.js')]).then(([{ GLTFLoader }, SU]) => {
     HUNT.SU = SU; const L = new GLTFLoader();
-    L.load('assets/lever-rifle.glb', g => { try { rflBuild(g.scene); } catch (e) { HUNT.err.push('rifle: ' + e); console.warn('rifle model', e); } }, undefined, e => HUNT.err.push('rifle: ' + (e?.message || e)));
+    try { rflBuild44(); } catch (e) { HUNT.err.push('rifle: ' + e); console.warn('rifle model', e); }   // v0.84.4 the v0.44 model, built here (no file)
     for (const sp of ['deer', 'stag']) L.load('assets/animals/' + DSP[sp].file + '.glb', g => { try { deerSrc(sp, g); } catch (e) { HUNT.err.push(sp + ': ' + e); console.warn(sp + ' model', e); } }, undefined, e => HUNT.err.push(sp + ': ' + (e?.message || e)));
   }).catch(e => { if (--tries > 0) return setTimeout(() => huntAssets(tries), 1000); HUNT.err.push(String(e)); });
 }, 400);

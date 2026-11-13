@@ -2,6 +2,28 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.84.4 – the rifle: back to the v0.44-full (zombie) version
+Neil's headset test of v0.83, item 2. Where the old and new behaviour conflicted, the old wins. The physics block is untouched.
+- **Model restored, not kept:** the Synty-style GLB did not map onto the old mechanics. Measured from the grip, its rear sight sat 5.8 cm up (v0.44: 6.2), its eye relief put the eye 10 cm behind the grip (v0.44: 20), its loading gate was 6 cm further forward and its lever pivot was elsewhere, so the sight alignment could not match. The v0.44 carbine is back, built in code exactly as in v0.44-full (`rflBuild44`; `assets/lever-rifle.glb` is no longer loaded): round barrel over a full-length tube, short deep forend, boxy receiver, buckhorn rear sight with a brass bead level 3 cm over the bore, big loop lever, sliding bolt, straight-grip stock, crescent buttplate. Its points are v0.44's: grip (0,0,0), forend -0.3, gate (0.019, 0.002, -0.125), eject port, muzzle -0.705, and the eye (0, 0.062, 0.2). The lever, hammer, trigger and gate are separate moving parts, and the bolt and the fed round move with the stroke as in v0.44.
+- **Restored mechanics (v0.44):**
+  - **Grip:** the rifle is the controller turned by the grip angle (-40°, adjustable with the right stick in + up / down, 5° steps, saved as `bp_gripPitch`). This replaces the v0.77.5 pose-lab option-B controller-to-rifle offsets.
+  - **Two-hand aim:** grip hand to forend hand with `SUPPORT_TILT` (6.1°). The v0.77.1 ease-back blend is gone.
+  - **Support grab:** within 30 cm of the forend, instead of "anywhere on the rifle".
+  - **Lever by hand:** the other hand can grab the lever loop again (within 7 cm) and stroke it.
+  - **Forend only:** with only the forend held, the rifle keeps its exact pose in that hand (v0.44 `forendHold`). The v0.77.6 fixed support offset is gone.
+  - **Cheek weld:** the sight line from the eye over the forend hand (or the grip hand), with the eye `CHEEK_Z` behind the grip.
+  - **Recoil:** it pivots 4 cm under the grip, moving back to the shoulder pocket as the stock pulls in, with the full rearward kick. This replaces the pivot at the pose-B wrist with a half kick.
+- **Kept (identical to v0.44 already, or needed by this game):**
+  - The lever stroke (eject at 70 %, lift at 95 %, chamber on close), the B / Y lever button and the flick, the hammer and trigger rules, the 7 + 1 rounds, and gate loading from the belt pouch.
+  - Ballistics: 400 m/s, drag, about 2 MOA, zeroed at 50 m (the zero is re-solved for the old sight height). The stock pull, rate caps, blends and one-hand inertia, with the GUN and RECOIL2 numbers unchanged.
+  - The Dry Fork ammo counter and economy, deer hunting, the cabin rack, the Cub floor holder and the back slot.
+  - The gloves keep the pose-lab hand shapes (finger angles), moved onto the old wrist and forend. They are looks only: the rifle comes off the controller the v0.44 way. The lever-hand pinch is re-pointed at the old loop.
+- **Tests:**
+  - New t844 (12 checks): the model and points; one hand = controller x grip angle at the grip; grip-angle steps are saved; two-hand bore with `SUPPORT_TILT`; forend-only keeps the pose; regrab the wrist; a full stroke on the loop by hand chambers the next round; the cheek weld puts the eye on the notch-bead line; the 50 m zero; fire, recoil and settle; a B / Y stroke ejects; clean console.
+  - t67, t672, t775 and t776 checked the GLB model's nodes and the option-B offsets. They are retired as SUPERSEDED by t844 (originals in bpt/superseded/), as t774 was.
+  - t771 A: the support grabs are now near the forend.
+  - Two binocular checks still expected the head-aimed binoculars that v0.84.1 removed; they now check the v0.84.1 thumb-side pose (t771 B, t53).
+
 ## v0.84.3 – the clipboard held as in Neil's photo
 Neil's headset test of v0.83, item 3 (reference: a hand holding a clipboard at its lower-left edge).
 - **New hand pose (`gripFixed('board')`, the clipboard only; the paper map keeps its corner pinch):** the board's edge sits in the hand like a controller handle. The finger stack runs up the edge, the thumb is on the front face, the fingers are round the back, and the palm faces in. The left hand holds the lower-left edge and the right hand the lower-right, about 2 cm in from the corner and 5 cm up.

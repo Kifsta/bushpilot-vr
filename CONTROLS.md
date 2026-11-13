@@ -170,6 +170,14 @@ Fourteen **unprepared landing spots** off the airfields (eight since v0.52, six 
 - They're short: an empty Cub lifts off in 55–110 m, and at max gross in 130–195 m. Landing rolls run 50–130 m. Watch your weight going into the bench and the meadow, and use the slope.
 
 ## Hunting (v0.53): lever rifle, deer, binoculars
+
+**v0.84.4: the v0.44-full rifle is back (Neil).** The rifle model and the way it sits in your hands are the zombie version's again. Where the rows below describe the v0.77 hold, this wins:
+- **Grip:** squeeze on the stock's wrist. The rifle is your controller turned by the **grip angle** (default -40°, muzzle down from the controller's forward). To change it, hold the **right stick in** and push it up or down while the rifle is in your right hand: 5° steps, kept between sessions. The rifle's origin is at your controller, so it moves 1:1 with your hand.
+- **Support hand:** grip within about 30 cm of the forend. The bore runs from your grip hand to your forend hand, tilted 6° so the forend sits on that hand.
+- **Lever by hand:** with your other hand, squeeze on the **lever loop** (within 7 cm) and swing it down and back up. B / Y and the flick still work.
+- **Forend only:** let go of the wrist while the forend is held, and the rifle stays exactly where it was in that hand. Grab the wrist again to shoot.
+- **Shouldering (cheek weld):** bring the grip hand about 20 cm in front of your eye and 6 cm below it. The stock pulls in, and your eye sits on the sight line over the forend hand: the buckhorn notch and the brass bead are level, 3 cm over the bore. The sights are zeroed at 50 m. Recoil pivots under the grip, or in your shoulder when shouldered.
+- **Unchanged:** firing, the 7 + 1 rounds, loading through the gate from the belt pouch, the ballistics, the Dry Fork ammo counter, deer, the cabin rack, the Cub's floor holder and the back slot.
 Some jobs on the boards are **hunting jobs**: a lodge, the elk camp, the ranch or the Dry Fork butcher wants one deer. The board says `1 DEER (~100-150 LB) - HUNT AREA ON THE MAP`, and the paper map circles the herd's forest in orange with a hoof. Hunting jobs pay well.
 
 | | VR (Quest) | Desktop |
