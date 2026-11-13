@@ -19,7 +19,7 @@
 </script>
 </head>
 <body>
-<div id="info">BUSH PILOT VR v0.83 - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
+<div id="info">BUSH PILOT VR v0.84 - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
 You start on foot by the Cub at the cabin strip. Walk up to her and climb in (F / Y), then start her up off the checklist card (J).
 Desktop - flying: W/S or arrows pitch, A/D or arrows roll, Q/E rudder, Shift / Ctrl (or + / -) throttle, B brakes, \ parking brake, [ ] flaps, PgUp / PgDn trim,
   R reset to the strip (cold and dark), F climb out, M map, L landing light, Home recentre, mouse looks (click to capture).
@@ -4395,10 +4395,11 @@ const _gfV = GV3(0, 0, 0);
 function gripFixed(kind, sx, out) {   // v0.77.1 the authored hand frames (hand space in the control's frame) for the binoculars and paper (v0.77.5 the rifle's come from its lab pose: rflLabSolve)
   if (kind === 'noz') return out.copy(nozInHand(sx, out)).invert();   // v0.77.7 the hand in the nozzle's frame (the nozzle hangs off the controller by nozInHand)
   if (kind === 'paper') return out.makeBasis(_gfV.set(1, sx, 0).normalize(), _gy.set(sx, -1, 0).normalize(), _gz.set(0, 0, -1));   // v0.77.2 key pinch on the corner: thumb on the front, fingers behind, pointing in along the diagonal
-  _gfV.set(sx * (0.0155 - GDEF.bR.wr), -0.045, GDEF.bR.wz).applyMatrix4(HOFF);   // 'bino': this hand's barrel in its palm, eyepieces back toward the wrist (+z), objectives along the controller's forward
-  return out.makeTranslation(sx * B_BAR - _gfV.x, -_gfV.y, B_PZ - _gfV.z).multiply(HOFF);
+  _gfV.set(sx * (0.0155 - GDEF.bR.wr), -0.045, GDEF.bR.wz).applyMatrix4(HOFF);   // 'bino': this hand's barrel in its palm; v0.84 the body is the hand frame turned end for end (B_FLIP, as binoOne): eyepieces on the thumb side
+  _gfQ.setFromRotationMatrix(HOFF).multiply(B_FLIP); _gfV.sub(_gfW.set(sx * B_BAR, 0, B_PZ).applyQuaternion(_gfQ));
+  return out.makeRotationFromQuaternion(_gfQ).setPosition(_gfV).invert().multiply(HOFF);
 }
-const _gfQ = new THREE.Quaternion();
+const _gfQ = new THREE.Quaternion(), _gfW = new THREE.Vector3();
 function gripOn(st, k, sx) {      // while a control is held: (re)solve on a new grab, then ride the control
   if (st.gk !== k) { st.gk = k; gripSolve(st, k, sx); st.gn++; }
   st.gt = 1; gripFrame(k, _gF);
@@ -6455,11 +6456,10 @@ function binoPalm(g, out) {   // where this hand's barrel axis runs through its 
   return out.set(sx * (0.0155 - GDEF.bR.wr), -0.045, GDEF.bR.wz).applyMatrix4(_bM);
 }
 function binoSide(g) { return g.userData.src?.handedness === 'left' ? -1 : 1; }
-function binoOne(m, g) {   // v0.77.6 (Neil: still backwards) the eyepieces always face your eyes: the pair looks from your head out through this hand's palm (straight ahead once at the eyes), level with your head - however the controller is turned
-  binoPalm(g, _bP2); camera.updateMatrixWorld(); camera.getWorldPosition(_bC2); camera.getWorldDirection(_bF); _bU.set(0, 1, 0).transformDirection(camera.matrixWorld);
-  _bD.subVectors(_bP2, _bC2); const d = _bD.length(), k = clamp((d - B_HEAD[0]) / (B_HEAD[1] - B_HEAD[0]), 0, 1); _bD.divideScalar(d || 1); _bF.lerp(_bD, k).normalize(); if (Math.abs(_bF.dot(_bU)) > 0.98) _bU.set(0, 0, 1).transformDirection(camera.matrixWorld);
-  aimQuat(_bF, _bU, m.quaternion); m.position.copy(_bP2).sub(_bA.set(binoSide(g) * B_BAR, 0, B_PZ).applyQuaternion(m.quaternion)); }
-const B_HEAD = [0.15, 0.4], _bP2 = GV3(0, 0, 0), _bC2 = GV3(0, 0, 0), _bF = GV3(0, 0, 0), _bU = GV3(0, 0, 0), _bD = GV3(0, 0, 0);   // v0.77.6 within 15 cm of the eyes they look where you look; out past 40 cm, from your head out through the hand
+function binoOne(m, g) {   // v0.84 (Neil): one fixed pose per hand again (v0.77.1), turned end for end so the eyepieces sit on the THUMB side of the fist (the hand's -Z)
+  g.updateWorldMatrix(true, false); _bM.multiplyMatrices(g.matrixWorld, HOFF).decompose(_bP2, m.quaternion, _bC2); m.quaternion.multiply(B_FLIP);
+  binoPalm(g, m.position).sub(_bA.set(binoSide(g) * B_BAR, 0, B_PZ).applyQuaternion(m.quaternion)); }
+const B_FLIP = new THREE.Quaternion().setFromAxisAngle(GV3(1, 0, 0), Math.PI), _bP2 = GV3(0, 0, 0), _bC2 = GV3(0, 0, 0);   // end for end about the hand's x: eyepieces (body +z) onto the thumb side, upright once the thumb ring is at your eye; the palm keeps its own side's barrel
 function binoTwo(m) {   // v0.77.1 two hands: halfway between where each hand alone would hold them (each on its own barrel, fixed pose)
   binoOne(m, BINO.g); _bP.copy(m.position); _bQ.copy(m.quaternion); binoOne(m, BINO.g2); m.position.lerp(_bP, 0.5); m.quaternion.slerp(_bQ, 0.5); }
 function binoHandK(g) { return BINO.place === 'hand' && (BINO.g === g || BINO.g2 === g) ? (binoSide(g) > 0 ? 'bR' : 'bL') : null; }

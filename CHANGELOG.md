@@ -2,6 +2,14 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.84.1 – binoculars: eyepieces on the thumb side of the hand
+Neil's headset test of v0.83, item 1.
+- **Back to one fixed pose per hand (v0.77.1), turned end for end:** the binoculars no longer aim from your head through your palm (v0.77.6). Each hand holds them in one fixed pose relative to the controller: its own barrel in the palm, body along the fist, **eyepieces on the thumb / index side**. They are turned 180° about the hand's x axis, so when you bring your thumb ring to your eye (forearm up from below), they are upright and look where your hand points.
+- **The glove matches:** the authored hand frame for the binocular grip (`gripFixed('bino')`) gets the same turn. The glove wraps the barrel with the thumb at the eyepiece end. Before this fix it was drawn on the old frame, so the hand looked upside down. With one hand or two, each hand keeps its own side's barrel (right hand on the right barrel).
+- **7x view:** unchanged. It comes up within 12 cm of the eyes (7 cm to the side, about 40°), with hysteresis to 15 cm, and the steady head-anchored view and slow hand nudge from v0.77.10 are kept. Because the pose is fixed again, turning the hand about 70° away now takes the view down.
+- **Tests:** t69 (12/0) checks that the eyepieces are on the thumb side (body +z along the hand's -Z) and the right hand is on the right barrel. t671 (15/0) zooms at 12 cm with the hand in the thumb-to-eye pose; the head-aim check is replaced by "turned 29°: still up; 69°: down". t7710 (11/0) holds the hand thumb-to-eye. t65 (14/0) and t66 pass. Screenshots: qa-v084-bino-raising.png, qa-v084-bino-side.png, qa-v084-bino-zoomed*.png.
+- The help line reads v0.84.
+
 ## v0.83 – sound pass: engine, rain fronts, cargo, towns
 Neil's approved queue, item (b). Everything is WebAudio synthesis, as before: no audio files. It adds 4 looping noise sources and 2 slow oscillators to the graph; the rest are short one-shots, rate-limited. updateAudio stays well under 0.25 ms a frame. Only sound changes: the physics block is untouched and the md5 is unchanged.
 - **Engine:**
