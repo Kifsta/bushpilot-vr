@@ -19,7 +19,7 @@
 </script>
 </head>
 <body>
-<div id="info">BUSH PILOT VR v0.80 - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
+<div id="info">BUSH PILOT VR v0.81 - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
 You start on foot by the Cub at the cabin strip. Walk up to her and climb in (F / Y), then start her up off the checklist card (J).
 Desktop - flying: W/S or arrows pitch, A/D or arrows roll, Q/E rudder, Shift / Ctrl (or + / -) throttle, B brakes, \ parking brake, [ ] flaps, PgUp / PgDn trim,
   R reset to the strip (cold and dark), F climb out, M map, L landing light, Home recentre, mouse looks (click to capture).
@@ -532,7 +532,8 @@ try { const o = JSON.parse(localStorage.getItem('bp_gfx') || '{}'); if ((o.v || 
   if ((o.v || 0) < 49 && o.stk === 0) delete o.stk;   // v0.49.1: a saved CENTRES (the old default) switches to STAYS once; CENTRES chosen after this sticks
   for (const k in GFX_DEF) if (typeof o[k] === 'number' && isFinite(o[k])) GFX[k] = o[k]; } catch (e) { }
 try { const q = new URLSearchParams(location.search).get('gfx'); if (q) for (const kv of q.split(',')) { const [k, v] = kv.split(':'); if (k in GFX_DEF && isFinite(+v)) GFX[k] = +v; } } catch (e) { }
-const renderer = new THREE.WebGLRenderer({ antialias: !!GFX.msaa });
+const renderer = new THREE.WebGLRenderer({ antialias: !!GFX.msaa, stencil: false });   // v0.81 no stencil: nothing uses it (a lighter XR depth buffer)
+const DIRTY_TEX = new Set(); function texDirty(t) { t.needsUpdate = true; DIRTY_TEX.add(t); } function texInit(t) { renderer.initTexture(t); }   // v0.81 redrawn canvas textures upload before the eye pass, not mid-pass
 renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5) * GFX.scale);
 renderer.setSize(innerWidth, innerHeight);
 renderer.xr.enabled = true;
@@ -746,6 +747,7 @@ function instanced1(geo, material, list, opt, tiled) {
   const im = new THREE.InstancedMesh(geo, material, list.length);
   list.forEach((o, i) => { _q.setFromEuler(_e.set(0, o[3], 0)); im.setMatrixAt(i, _m4.compose(_v.set(o[0], o[1], o[2]), _q, _s.set(o[4], o[5], o[6]))); });
   scene.add(im); im.matrixAutoUpdate = false; im.updateMatrix();   // v0.47: placed once
+  if (opt && opt.ro) im.renderOrder = opt.ro;   // v0.81 every tile of a set
   im.computeBoundingSphere();   // from every instance: stays valid while the count is compacted below
   if (list.length) { im.instanceMatrix.setUsage(THREE.DynamicDrawUsage); im.frustumCulled = tiled || !opt;   // v0.48: every type is managed; the old unmanaged ones keep their (whole-set) culling sphere
     if (!im.geometry.boundingSphere) im.geometry.computeBoundingSphere(); const sc = list.map(o => Math.max(o[4], o[5], o[6])).sort((a, b) => a - b)[list.length >> 1];
@@ -1390,7 +1392,7 @@ function needleGeo(len, w, tail) { const sh = new THREE.Shape(); sh.moveTo(-tail
 const NEEDLE_M = 0xf4f4f4, HUB_M = 0x444444, HUB_G = new THREE.CircleGeometry(9, 12);
 const gNeedle = (g, len, w, material = NEEDLE_M, tail = 20, z = 0.0042) => gPart(g, needleGeo(len, w, tail), material, z);   // v0.43: needles 4 mm off the face
 const gHub = g => gPart(g, HUB_G, HUB_M, 0.0048);
-function faceOnce(g, face, extra) { const x = g.x; x.save(); x.drawImage(face, 0, 0); x.translate(GS / 2, GS / 2); if (extra) extra(x); x.restore(); g.t.needsUpdate = true; }
+function faceOnce(g, face, extra) { const x = g.x; x.save(); x.drawImage(face, 0, 0); x.translate(GS / 2, GS / 2); if (extra) extra(x); x.restore(); texDirty(g.t); }
 const HI_LBL = { 0: 'N', 90: 'E', 180: 'S', 270: 'W' };
 const ND = {};
 {
@@ -1475,7 +1477,7 @@ function drawInfo(a) {
   x.textAlign = 'center'; x.font = 'bold 28px sans-serif'; warn.slice(0, 2).forEach(([t, c], i) => { x.fillStyle = c; x.fillText(t, 128, 62 + i * 32); });
   x.fillStyle = '#9f9'; x.font = 'bold 17px monospace';
   const L = lines.slice(-3); L.forEach((l, i) => x.fillText(l, 128, 210 - (L.length - 1 - i) * 22));
-  G.info.t.needsUpdate = true;
+  texDirty(G.info.t);
 }
 let fps = 0;
 function panelUpdate(a, dt) {
@@ -1485,8 +1487,8 @@ function panelUpdate(a, dt) {
   ND.alt[0].rotation.z = -aALT(ft % 100000, 100000); ND.alt[1].rotation.z = -aALT(ft % 10000, 10000); ND.alt[2].rotation.z = -aALT(ft % 1000, 1000);
   ND.vsi.rotation.z = -aVSI(fpm); ND.rpm.rotation.z = -aRPM(ENG.rpm);
   ND.fuel.rotation.z = -aFUEL(fr); ND.fuel.color.setHex(fr < 0.15 ? 0xff5555 : 0xf4f4f4);
-  const gal = (fuel / 3.785).toFixed(1);
-  if (gal !== fuelKey) { fuelKey = gal; faceOnce(G.fuel, FACE.fuel, x => { x.fillStyle = '#ddd'; x.font = 'bold 20px sans-serif'; x.textAlign = 'center'; x.fillText(gal + ' GAL', 0, 52); }); }
+  const g10 = Math.round(fuel / 3.785 * 10);   // v0.81 a number key: the text is only built when the reading changes
+  if (g10 !== fuelKey) { fuelKey = g10; const gal = (g10 / 10).toFixed(1); faceOnce(G.fuel, FACE.fuel, x => { x.fillStyle = '#ddd'; x.font = 'bold 20px sans-serif'; x.textAlign = 'center'; x.fillText(gal + ' GAL', 0, 52); }); }
   ND.ball[0].position.x = ND.ball[1].position.x = IN.ball * 50 * gSc(G.tc); ND.tcSym.rotation.z = -clamp(IN.rate / 3, -2.2, 2.2) * 18 * D2R;   // standard rate = 18 deg mark
   ND.hiCard.rotation.z = IN.hdg;
   { const E = ENG, k = Math.min(1, dt * 2), tT = 60 + 130 * E.temp + (E.running ? 30 * Math.min(1, E.rpm / 2600) : 0), tP = E.running ? (52 + 28 * Math.min(1, E.rpm / 2300)) * (1.15 - 0.15 * E.temp) : E.cranking ? 9 : 0;   // v0.43 oil
@@ -2074,7 +2076,7 @@ function drawWrist() {   // v0.10: only re-uploads when something on it changed
   W.forEach((l, i) => { wctx.fillStyle = i < 3 ? (i ? '#9f9' : '#ffd84a') : msgT > 0 && i < 3 + Math.min(2, wrapText(msg, 26).length) ? '#fff' : '#fc8'; wctx.font = i ? '15px monospace' : 'bold 14px monospace'; wctx.fillText(l.slice(0, i ? 27 : 30), 4, 16 + i * 18); });   // v0.50: line 1 = wallet + jobs (gold)
   if (mb) { wctx.fillStyle = SETP.open ? '#ffd84a' : '#3a3a3a'; wctx.fillRect(8, 100, 240, 22); wctx.fillStyle = SETP.open ? '#111' : '#ddd'; wctx.font = 'bold 15px monospace'; wctx.textAlign = 'center';   // v0.68 the menu hint only while the wrist is turned to you (or the menu is open)
     wctx.fillText(SETP.open ? 'MENU BELOW: CLOSE MENU' : 'MENU BELOW: OPEN MENU', 128, 116); wctx.textAlign = 'left'; }
-  wtex.needsUpdate = true; hud.textContent = st;
+  texDirty(wtex); hud.textContent = st;
 }
 
 // ================= v0.45 fuel: two wing tanks (36 gal), burn with power, a hand pump on a drum at the home strip =================
@@ -2136,7 +2138,7 @@ function fuelPumpTick(dt) {
 // ---- v0.73 the fuel hose: a 9 m verlet rope from the drum's pump to a nozzle you carry; it sags, lies on the ground, and the nozzle slips out of your hand at full stretch ----
 const NOZ = { H: new THREE.Vector3(0, -0.062, -0.04), INLET: new THREE.Vector3(0, -0.11, -0.071), SPOUT: new THREE.Vector3(0, -0.041, 0.2), spoutA: 0.28, rake: 0.53, r: 0.016, hl: 0.05 };   // v0.77.7 nozzle points (its frame: +z spout, +y up): grip centre, hose inlet, spout end; the grip raked back 30 deg
 NOZ.ax = new THREE.Vector3(0, Math.cos(NOZ.rake), Math.sin(NOZ.rake));   // up the grip
-const HOSE = { N: 24, L: 9, P: [], Q: [], held: null, rest: 'hook', inCap: -1, st: null, E: new THREE.Vector3(), tip: new THREE.Vector3(), dir: new THREE.Vector3(0, -1, 0), slipT: 0 };
+const HOSE = { N: 24, L: 9, P: [], Q: [], held: null, rest: 'hook', inCap: -1, st: null, E: new THREE.Vector3(), tip: new THREE.Vector3(), dir: new THREE.Vector3(0, -1, 0), slipT: 0, gy: new Float32Array(25), calm: 0 };   // v0.81 gy: ground heights per node; calm: still frames on the hook
 for (let i = 0; i <= HOSE.N; i++) { HOSE.P.push(new THREE.Vector3()); HOSE.Q.push(new THREE.Vector3()); }
 { HOSE.inst = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.012, 0.012, 1, 6), mat(0x1c1c1c), HOSE.N); HOSE.inst.frustumCulled = false; HOSE.inst.userData.noBatch = true; HOSE.inst.visible = false; scene.add(HOSE.inst);
   const nz = new THREE.Group(), dk = mat(0x2a2a2a), al = mat(0x9a9a9a), rd = mat(0xb02a1c); nz.userData.noBatch = true;   // v0.77.7 a pistol-grip fuel nozzle: body along +z, spout bent down at the front, grip below the back, trigger lever under the body inside its guard
@@ -2171,7 +2173,7 @@ function hoseIn(c) {   // the nozzle reaches a cap
   FUELP.on = true; FUELP.vr = true; FUELP.cap = c; FUELP.g = HOSE.held; FUELP.fullSaid = false; sfx('click'); if (HOSE.held) HX.pulse(HOSE.held, 0.35, 20, 'fuel');
   say('NOZZLE IN - SQUEEZE THE TRIGGER TO PUMP - $' + FUELP.st.price.toFixed(2) + '/GAL');
 }
-function hoseReset(F) { HOSE.held = null; HOSE.inCap = -1; HOSE.rest = 'hook'; if (!F) return; hoseOut(F, _hsA); hoseHook(F, _hsB);
+function hoseReset(F) { HOSE.held = null; HOSE.inCap = -1; HOSE.rest = 'hook'; HOSE.calm = 0; if (!F) return; hoseOut(F, _hsA); hoseHook(F, _hsB);
   for (let i = 0; i <= HOSE.N; i++) { const t = i / HOSE.N; HOSE.P[i].lerpVectors(_hsA, _hsB, t); HOSE.P[i].y -= Math.sin(t * Math.PI) * 0.35; HOSE.Q[i].copy(HOSE.P[i]); } HOSE.E.copy(_hsB); }
 function hoseTick(dt) {
   const F = mode === 'foot' ? hoseStation() : null;
@@ -2189,16 +2191,20 @@ function hoseTick(dt) {
     else if (HOSE.rest === 'cap' && FUELP.on && HOSE.inCap >= 0) { capW(HOSE.inCap, HOSE.tip); HOSE.dir.set(0, -1, 0); HOSE.E.copy(HOSE.tip).y += 0.2; }
     else if (HOSE.rest === 'hook') { hoseHook(F, HOSE.E); HOSE.dir.set(0, -1, 0); HOSE.tip.copy(HOSE.E).y -= 0.15; }
     else { HOSE.rest = 'free'; HOSE.inCap = -1; pin = false; } }
+  const calm = !HOSE.held && HOSE.rest === 'hook' && !FUELP.on && pin;   // v0.81 hanging still on its hook: after 30 still frames the rope sleeps (no sim, the last matrices stay)
+  if (calm && HOSE.calm >= 30) { if (HOSE.lever) HOSE.lever.rotation.x = 0; return; }
   const h = Math.min(dt, 1 / 30) / 2, g2 = 9.81 * h * h; plane.updateMatrixWorld(); _hsWi.copy(plane.matrixWorld).invert(); _hsB.copy(HOSE.E).applyMatrix4(_hsWi); const wingNear = Math.abs(_hsB.x) < TIP_X + HOSE.L && Math.abs(_hsB.z) < HOSE.L + 2;
   for (let sub = 0; sub < 2; sub++) {
     for (let i = 1; i <= N; i++) { if (i === N && pin) continue; const p = P[i], q = Q[i]; _hsB.subVectors(p, q).multiplyScalar(0.985); q.copy(p); p.add(_hsB); p.y -= g2; }
+    for (let i = 1; i <= N; i++) HOSE.gy[i] = groundY(P[i].x, P[i].z) + 0.012;   // v0.81 the ground under each node once per sub-step (it was 14x: the hottest garbage source on foot)
     for (let it = 0; it < 14; it++) {
       P[0].copy(_hsA); if (pin) P[N].copy(HOSE.E);
       for (let i = 0; i < N; i++) { const a = P[i], b = P[i + 1]; _hsB.subVectors(b, a); const d = _hsB.length(); if (d <= seg || d < 1e-6) continue; const k = (d - seg) / d;
         const wa = i === 0 ? 0 : 1, wb = i + 1 === N && pin ? 0 : 1, w = wa + wb; if (!w) continue; a.addScaledVector(_hsB, k * wa / w); b.addScaledVector(_hsB, -k * wb / w); }
-      for (let i = 1; i <= N; i++) { const p = P[i], gy = groundY(p.x, p.z) + 0.012; if (p.y < gy) { p.y = gy; Q[i].x += (p.x - Q[i].x) * 0.5; Q[i].z += (p.z - Q[i].z) * 0.5; Q[i].y = p.y; } }   // lies on the ground (with a little friction)
+      for (let i = 1; i <= N; i++) { const p = P[i], gy = HOSE.gy[i]; if (p.y < gy) { p.y = gy; Q[i].x += (p.x - Q[i].x) * 0.5; Q[i].z += (p.z - Q[i].z) * 0.5; Q[i].y = p.y; } }   // lies on the ground (with a little friction)
       if (wingNear) for (let i = 1; i <= N; i++) if (!(i === N && pin)) hoseWing(P[i], Q[i]);   // v0.77.7 drapes over the wing, never through it
     } }
+  { let mv = 0; for (let i = 1; i <= N; i++) mv = Math.max(mv, P[i].distanceToSquared(Q[i])); HOSE.calm = calm && mv < 1e-8 ? HOSE.calm + 1 : 0; }
   if (!pin) { HOSE.E.copy(P[N]); HOSE.dir.subVectors(P[N], P[N - 1]).normalize(); HOSE.tip.copy(HOSE.E).addScaledVector(HOSE.dir, 0.15); }
   for (let i = 0; i < N; i++) { const a = P[i], b = P[i + 1]; _hsB.subVectors(b, a); const d = Math.max(_hsB.length(), 1e-4); _hsQ.setFromUnitVectors(_hsU, _hsB.divideScalar(d)); _hsS.set(1, d, 1); _hsC.addVectors(a, b).multiplyScalar(0.5); _hsM.compose(_hsC, _hsQ, _hsS); HOSE.inst.setMatrixAt(i, _hsM); }
   HOSE.inst.instanceMatrix.needsUpdate = true;
@@ -2493,8 +2499,8 @@ const LODGE = { x: -380, z: -2440, a: 1.83, hl: 140, hw: 10 };   // backcountry 
         for (let q = 0; q < 6; q++) P.push([cx + Math.cos(q * 1.047 + a) * rr, cy + Math.sin(q * 1.047 + a) * rr * 0.9]); poly(Math.cos(a) < 0.2 ? lt : dk, P); }
       const P = []; for (let q = 0; q < 6; q++) P.push([ox + 116 + Math.cos(q * 1.047) * 48, oy + 96 + Math.sin(q * 1.047) * 42]); poly(lt, P); };
     conifer(0, 0, '#284d2e', '#1b3822', 4); conifer(256, 0, '#2d5532', '#1f3f26', 5); decid(0, 256, '#55803a', '#3f6430', 7); decid(256, 256, '#6f8a34', '#556c28', 6);
-    const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
-    const sm = new THREE.MeshLambertMaterial({ map: tex, alphaTest: 0.45, side: THREE.DoubleSide });
+    const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 2;   // v0.81 never seen close (they're hidden inside 380 m)
+    const sm = vlMat({ map: tex, alphaTest: 0.45, side: THREE.DoubleSide });   // v0.81 vertex-lit: every sprite normal is up, so per-vertex light = per-pixel light (Lambert maths, cheaper fill)
     const cell = c => { const u0 = (c % 2) * 0.5, v0 = c < 2 ? 0.5 : 0, P = [], U = [], N = [];   // two crossed upright quads, normals up (lit like the ground, no dark edge-on side)
       for (const a of [0, Math.PI / 2]) { const ca = Math.cos(a) * 0.5, sa = Math.sin(a) * 0.5;
         P.push(-ca, 0, -sa, ca, 0, sa, ca, 1, sa, -ca, 0, -sa, ca, 1, sa, -ca, 1, -sa); U.push(u0, v0, u0 + 0.5, v0, u0 + 0.5, v0 + 0.5, u0, v0, u0 + 0.5, v0 + 0.5, u0, v0 + 0.5); for (let k = 0; k < 6; k++) N.push(0, 1, 0); }
@@ -2506,7 +2512,7 @@ const LODGE = { x: -380, z: -2440, a: 1.83, hl: 140, hw: 10 };   // backcountry 
       const s = 1.3 + r() * 1.5; L[r() < 0.5 ? 0 : 1].push([x, h - 0.4 * s, z, r() * 3.14, 4.6 * s, 10.5 * s * (1 + r() * 0.3), 4.6 * s]); }
     for (const G0 of GROVES) for (let k = 0; k < 260; k++) { const a = r() * 6.283, d = 30 + 230 * Math.sqrt(r()), x = G0.x + Math.cos(a) * d, z = G0.z + Math.sin(a) * d, h = groundY(x, z);   // the valley groves spread out into woods
       if (h > 90 || clearOf(x, z, 12) || waterDist(x, z) < 10) continue; const s = 0.9 + r() * 0.6; L[r() < 0.6 ? 2 : 3].push([x, h - 0.2, z, r() * 3.14, 7.5 * s, 9 * s, 7.5 * s]); }
-    for (let c = 0; c < 4; c++) { const im = instanced(cell(c), sm, L[c], { lod: 2600, tree: 1, near: 380, spr: 1 }); im.userData.noBatch = true; }
+    for (let c = 0; c < 4; c++) { const im = instanced(cell(c), sm, L[c], { lod: 2600, tree: 1, near: 380, spr: 1, ro: 1 }); im.userData.noBatch = true; }   // v0.81 ro: the alpha-tested sprites draw after every depth-writing opaque (discard breaks early-Z), before the clouds (2)
     FOREST2.n = L.reduce((t, l) => t + l.length, 0); }
 }
 const _lcP = new THREE.Vector3();
@@ -2636,7 +2642,7 @@ const TOWN_MESH = [];
   // ---- Dry Fork strip: 300 x 20 m mown ribbon following the ground, corner markers + windsock ----
   { const S = DRYFORK_STRIP, v = [], sa = Math.sin(S.a), ca = Math.cos(S.a), Pt = (l, w) => { const x = S.x + sa * l + ca * w, z = S.z + ca * l - sa * w; return [x, groundY(x, z) + 0.06, z]; };
     const g = conformStrip(S, S.hl, S.hw, 0.04); v.length = 0;   // v0.63 exact on the ground + the runway texture
-    const sm = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ color: rwyTint(0x86ad55), map: runwayTex('bush'), side: THREE.DoubleSide, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -2 })); scene.add(sm);
+    const sm = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ color: rwyTint(0x86ad55), map: runwayTex('bush'), side: THREE.DoubleSide, transparent: true, forceSinglePass: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -2 })); scene.add(sm);
     TOWN_MESH.push({ m: sm, x: S.x, z: S.z });
     const G = new THREE.Group(), mk = [];
     for (let l = -S.hl; l <= S.hl; l += 50) for (const w of [-S.hw - 1, S.hw + 1]) { const [x, y, z] = Pt(l, w); mk.push([x, y + 0.2, z, S.a, 1, 1, 1]); }
@@ -2838,7 +2844,7 @@ const MYS_SITES = {}, LAB = { floor: 0, rect: null };
   // the station strip: graded gravel, edge markers, windsock, avgas drums (fuel for the hop over the east pass)
   { const S = HALV, v = [], sa = Math.sin(S.a), ca = Math.cos(S.a), Pt = (l, w) => { const x = S.x + sa * l + ca * w, z = S.z + ca * l - sa * w; return [x, groundY(x, z) + 0.06, z]; };
     const g = conformStrip(S, S.hl, S.hw, 0.04); v.length = 0;   // v0.63 exact on the ground; graded gravel with the dirt runway texture
-    grainTexture([3, 40]); const sm = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ color: 0xc8c4bc, map: runwayTex('dirtb'), side: THREE.DoubleSide, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -2 })); scene.add(sm);
+    grainTexture([3, 40]); const sm = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ color: 0xc8c4bc, map: runwayTex('dirtb'), side: THREE.DoubleSide, transparent: true, forceSinglePass: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -2 })); scene.add(sm);
     TOWN_MESH.push({ m: sm, x: S.x, z: S.z, far: 6000 }); MOWN.push(S);
     const mk = []; for (let l = -S.hl; l <= S.hl; l += 40) for (const w of [-S.hw - 1, S.hw + 1]) { const [x, y, z] = Pt(l, w); mk.push([x, y + 0.2, z, S.a, 1, 1, 1]); }
     instanced(new THREE.BoxGeometry(0.9, 0.4, 0.4), mat(0xe8e2d0), mk, { far: 3500 });
@@ -3368,7 +3374,7 @@ function mapJobs() {   // v0.51.1: job boards (gold square) + every active job's
     x.strokeStyle = col; x.lineWidth = 2.5; x.setLineDash([8, 6]); x.beginPath(); x.moveTo(ax, ay); x.lineTo(bx, by); x.stroke(); x.setLineDash([]);
     const o = n * 7; x.lineWidth = 3.5; x.beginPath(); x.arc(bx, by, 15 + o, 0, 6.283); x.stroke();
     x.fillStyle = col; x.font = 'bold 17px ' + F; const same = A.slice(0, n).filter(q => q.to === j.to).length; x.fillText((n + 1) + ' ' + j.title, bx, by - 26 - 7 * (A.length - 1) - same * 19); });
-  x.textAlign = 'left'; MAP.tex.needsUpdate = true;
+  x.textAlign = 'left'; texDirty(MAP.tex);
 }
 function mapStow(where) {   // 'clip' (cockpit holder) | 'world' (on the ground)
   MAP.state = where; MAP.g = MAP.g2 = null; falling.delete(MAP.item);
@@ -3896,7 +3902,7 @@ function kbKey() {   // what each page shows, rounded so the canvas only redraws
   return '';
 }
 function kbDraw() {
-  if (KB.page) { const k = 'P' + KB.page + '|' + kbKey(); if (k === KB.key) return; KB.key = k; const x = KB.x; x.fillStyle = '#f4f1e6'; x.fillRect(0, 0, KB_W, KB_H); kbTabs(x); kbBody(x); KB.t.needsUpdate = true; return; }
+  if (KB.page) { const k = 'P' + KB.page + '|' + kbKey(); if (k === KB.key) return; KB.key = k; const x = KB.x; x.fillStyle = '#f4f1e6'; x.fillRect(0, 0, KB_W, KB_H); kbTabs(x); kbBody(x); texDirty(KB.t); return; }
   const L = kbLines(), k = DLV.cash + '|' + JSON.stringify(L) + renderer.xr.isPresenting; if (k === KB.key) return; KB.key = k;
   const x = KB.x; x.fillStyle = '#f4f1e6'; x.fillRect(0, 0, KB_W, KB_H); x.fillStyle = '#c9d6e8'; for (let y = 96; y < KB_H; y += 34) x.fillRect(0, y, KB_W, 1.5); kbTabs(x);
   x.textAlign = 'left'; x.textBaseline = 'alphabetic'; x.fillStyle = '#1a1a1a'; x.font = 'bold 34px sans-serif'; x.fillText('JOBS', 22, 66); x.textAlign = 'right'; x.fillStyle = '#1e6a2a'; x.fillText('$' + DLV.cash.toLocaleString('en-US'), KB_W - 22, 66); x.textAlign = 'left';
@@ -3910,7 +3916,7 @@ function kbDraw() {
     x.fillStyle = '#333'; x.font = F(19); x.fillText(e.pcs, 40, Y + o(124), KB_W - 58);
     x.fillStyle = e.sp ? '#8a1a6a' : '#333'; x.font = 'bold ' + F(21); x.fillText((e.sp ? { fragile: 'FRAGILE ', perish: 'PERISHABLE ', live: 'LIVE ' }[e.sp] : '') + e.due, 40, Y + o(154), KB_W - 70 - rw);
     x.fillStyle = e.warn ? '#b8301e' : '#2a5a22'; x.font = 'bold ' + F(20); x.fillText(e.st, 40, Y + o(184), KB_W - 58); });
-  KB.t.needsUpdate = true;
+  texDirty(KB.t);
 }
 function updateKb() {
   if (KB.desk && !renderer.xr.isPresenting) { camera.add(KB.m); KB.m.position.set(0.0, -0.02, -0.32); KB.m.rotation.set(0, 0, 0); KB.m.scale.setScalar(1.15); return; }
@@ -4148,12 +4154,13 @@ function gloveSkin(i, st, inv) {   // this frame's skin matrices: (xrOffset^-1 *
   for (let k = 0; k < HN; k++) U[k].multiplyMatrices(_hm, st.R[k]).multiply(GLOVE.B[h][k]);
 }
 const CUFF_DEV = 35 * D2R;   // v0.77.5 the most the glove's cuff bends sideways at the wrist
+function thMix(R0, U0, W0, u, w, k, i) { const a = R0[k][i] + (U0[k][i] - R0[k][i]) * u; return a + (W0[k][i] - a) * w; }
 function buildHand(st, sx) {                      // posed glove in hand space from st.c (finger curls 0..1) and st.th (0 thumb resting .. 1 lifted)
   const zL = sx > 0 ? _hzZ : _hzZn;   // v0.49.1: the left hand's bone frames mirror the right's (and match WebXR joints for tracked hands)
   { const dv = clamp((st.dev || 0) * (st.ge || 0), -CUFF_DEV, CUFF_DEV), cs = Math.cos(dv), sn = Math.sin(dv); hBone(st, 0, _hs.set(sx * 0.031, 0.075 + 0.085 * cs, 0.085 * sn), _hd.set(0, -cs, -sn), 0.055, 0.05, 0.068, zL); }   // cuff (v0.77.5 bends sideways at the wrist by st.dev, up to CUFF_DEV, as the pose lab's)
   hBone(st, 1, _hs.set(sx * 0.033, 0.05, -0.002), _hd.set(0, -1, 0), 0.083, 0.027, 0.088, zL);   // palm
   for (let f = 0; f < 4; f++) {
-    const [kz, L, w, spl] = HF[f], c = st.c[f], e = st.ge, cs = c + (1 - G_SPL - c) * e; let a = 0.05; _hs.set(sx * 0.033, -0.03, kz);
+    const H = HF[f], kz = H[0], L = H[1], w = H[2], spl = H[3], c = st.c[f], e = st.ge, cs = c + (1 - G_SPL - c) * e; let a = 0.05; _hs.set(sx * 0.033, -0.03, kz);   // v0.81 no destructuring per finger per frame
     for (let j = 0; j < 3; j++) {
       a += FIST[j] * c + (st.ja[f * 3 + j] - FIST[j] * c) * e + (f === 0 && j && st.jx ? st.jx * e : 0); _hd.set(-sx * Math.sin(a), -Math.cos(a), 0.45 * spl * (1 - cs) + (f === 0 && st.isp ? st.isp * e : 0)).normalize();   // v0.46: solved grip angles
       hBone(st, 2 + f * 3 + j, _hs, _hd, L[j], 0.017 - j * 0.0015, w - j * 0.001, zL); _hs.addScaledVector(_hd, L[j]);
@@ -4162,8 +4169,8 @@ function buildHand(st, sx) {                      // posed glove in hand space f
   }
   // thumb: blend rest -> up (st.th), -> wrap (st.tw), -> pinch (st.tp, tip target = the index pad)
   const R0 = TH_P.rest, U0 = TH_P.up, W0 = TH_P.wrap, u = st.th, w = st.tw || 0, pn = st.tp || 0;
-  const mix = (k, i) => { const a = R0[k][i] + (U0[k][i] - R0[k][i]) * u; return a + (W0[k][i] - a) * w; };
-  _tA.set(mix(0, 0), mix(0, 1), mix(0, 2)); _tT.set(mix(1, 0), mix(1, 1), mix(1, 2));
+  const mix = thMix;   // v0.81 a plain function (the closure was rebuilt per hand per frame)
+  _tA.set(mix(R0, U0, W0, u, w, 0, 0), mix(R0, U0, W0, u, w, 0, 1), mix(R0, U0, W0, u, w, 0, 2)); _tT.set(mix(R0, U0, W0, u, w, 1, 0), mix(R0, U0, W0, u, w, 1, 1), mix(R0, U0, W0, u, w, 1, 2));
   if (pn > 0) { _tP.set(st.tipH.x * sx - 0.004, st.tipH.y + 0.006, st.tipH.z - 0.012); _tT.lerp(_tP, pn); _tA.lerp(_tU.set(-0.55, -0.6, -0.58), pn); }
   if (st.ge > 0) { _tT.lerp(st.gT, st.ge); _tA.lerp(st.gA, st.ge); }   // v0.46: thumb onto the control
   _tA.x *= sx; _tA.normalize(); _tT.x *= sx;
@@ -4371,25 +4378,28 @@ function ckPoke(i, g, st, dt) {                  // fingertip pokes: rocker, lan
 }
 const knobOut = id => CKX.vis[id] !== undefined && id in PULL ? CKX.vis[id] : id === 'mix' ? (ENG.mix < 0.5 ? PULL.mix : 0) : id === 'carb' ? (ENG.carb ? PULL.carb : 0) : 0;   // pulled-out knobs ring where they are
 const _rP = new THREE.Vector3(), _rT = new THREE.Vector3(), _rG = new THREE.Vector3(), RING_HYST = 0.008;
+const HRS = { prev: null, best: null, bd: 1e9, br: 0.02, L: null };   // v0.81 hoverRing's candidate state
+function hrCand(k, lp, r, d) { const C = HRS; if (k === C.prev) d -= RING_HYST; if (d < C.bd) { C.bd = d; C.best = k; _hd.copy(lp); C.br = r; } }
+function hrNear(p) { return Math.min(p.distanceTo(_rT), p.distanceTo(_rP), p.distanceTo(_rG) < CK_R ? p.distanceTo(_rG) - 0.02 : 1); }
 function hoverRing(tips) {                       // v0.24.1: one ring per free hand on the nearest control it can use (fingertip / pinch point), with hysteresis
   const live = [false, false];
   for (const [i, g, st] of tips) {
-    live[i] = true; const prev = HANDS.hovH[i]; let best = null, bd = 1e9, br = 0.02, force = null;
-    const cand = (k, lp, r, d) => { if (k === prev) d -= RING_HYST; if (d < bd) { bd = d; best = k; _hd.copy(lp); br = r; } };
+    live[i] = true; const C = HRS; C.prev = HANDS.hovH[i]; C.best = null; C.bd = 1e9; C.br = 0.02; let force = null; const cand = hrCand;   // v0.81 the candidate state lives on HRS (no closures per hand per frame)
     plane.worldToLocal(_rT.copy(st.tip)); g.getWorldPosition(_rG); plane.worldToLocal(_rG);
     plane.worldToLocal(_rP.set(st.right ? -0.004 : 0.004, -0.075, -0.05).applyMatrix4(st.W));   // where thumb + index pinch, ahead of the hand
-    const near = p => Math.min(p.distanceTo(_rT), p.distanceTo(_rP), p.distanceTo(_rG) < CK_R ? p.distanceTo(_rG) - 0.02 : 1);   // fingertip, pinch point, or (as before) right in the palm
+    const near = hrNear;   // fingertip, pinch point, or (as before) right in the palm
     for (const id in SW) { _hx.copy(SW[id].p).setZ(SWP.z + 0.012 + knobOut(id)); const d = near(_hx); if (d < 0.045) cand(id, _hx, id === 'master' ? 0.021 : 0.017, d); }
     { _hx.copy(LDG_SW).setZ(LDG_SW.z + 0.014); const d = near(_hx); if (d < 0.045) cand('ldg', _hx, 0.015, d); }
-    for (const [k, o, r] of [['rup', rupH, WIN_R], ['rlo', rloH, WIN_R], ['rcg', rcgH, WIN_R], ['lf', LWF.hp, WIN_R], ['lr', LWR.hp, WIN_R], ['card', CARD.mesh, 0.07], ['kb', KB.m, 0.1]]) {
+    const HL = HRS.L || (HRS.L = [['rup', rupH, WIN_R], ['rlo', rloH, WIN_R], ['rcg', rcgH, WIN_R], ['lf', LWF.hp, WIN_R], ['lr', LWR.hp, WIN_R], ['card', CARD.mesh, 0.07], ['kb', KB.m, 0.1]]);   // v0.81 built once
+    for (let q = 0; q < HL.length; q++) { const k = HL[q][0], o = HL[q][1], r = HL[q][2];
       o.getWorldPosition(_hx); plane.worldToLocal(_hx); const d = _hx.distanceTo(_rG); if (d < r) cand(k, _hx, 0.03, d + 0.02); }
-    { let fd = 1e9; for (const [k, o, fr] of [['stick', knob, 0.06], ['thr', throttleKnob, 0.05]]) { const hg = k === 'stick' ? vr.stickG : vr.thrG; if (hg && hg !== g) continue;   // v0.61 either hand: stick and throttle, unless the other hand has it
+    { let fd = 1e9; for (let q = 0; q < 2; q++) { const k = q ? 'thr' : 'stick', o = q ? throttleKnob : knob, fr = q ? 0.05 : 0.06, hg = k === 'stick' ? vr.stickG : vr.thrG; if (hg && hg !== g) continue;   // v0.61 either hand: stick and throttle, unless the other hand has it
       o.getWorldPosition(_hx); plane.worldToLocal(_hx); const d = _hx.distanceTo(_rG); if (d < fr && d < fd) { fd = d; force = k; } if (d < 0.09) cand(k, _hx, 0.03, d + 0.03); } }   // hand actually on the stick / throttle: it wins
-    for (const [k, fn, r, rr] of [['flap', flapW, FLAP_REACH, 0.045], ['trim', trimW, 0.07, 0.02]]) { fn(_hx); plane.worldToLocal(_hx); const d = Math.min(_hx.distanceTo(_rG), _hx.distanceTo(_rP));   // v0.42 overhead: either hand
+    for (let q = 0; q < 2; q++) { const k = q ? 'trim' : 'flap', fn = q ? trimW : flapW, r = q ? 0.07 : FLAP_REACH, rr = q ? 0.02 : 0.045; fn(_hx); plane.worldToLocal(_hx); const d = Math.min(_hx.distanceTo(_rG), _hx.distanceTo(_rP));   // v0.42 overhead: either hand
       if (d < r) cand(k, _hx, rr, d + 0.02); }
-    if (force && best !== force) { best = force; (force === 'stick' ? knob : throttleKnob).getWorldPosition(_hd); plane.worldToLocal(_hd); br = 0.03; }
-    HANDS.hovH[i] = best; const ring = HANDS.rings[i]; ring.visible = !!best; if (!best) continue;
-    ring.position.copy(_hd); ring.scale.setScalar(br);
+    if (force && C.best !== force) { C.best = force; (force === 'stick' ? knob : throttleKnob).getWorldPosition(_hd); plane.worldToLocal(_hd); C.br = 0.03; }
+    const best = C.best; HANDS.hovH[i] = best; const ring = HANDS.rings[i]; ring.visible = !!best; if (!best) continue;
+    ring.position.copy(_hd); ring.scale.setScalar(C.br);
     if (best in SW || best === 'ldg') ring.rotation.set(0, 0, 0); else { camera.getWorldPosition(_hs); plane.worldToLocal(_hs); ring.lookAt(plane.localToWorld(_hs)); }
   }
   for (let i = 0; i < 2; i++) if (!live[i] && !(HANDS.hovH[i] && CKH.get(grips[i])?.k === HANDS.hovH[i])) { HANDS.hovH[i] = null; HANDS.rings[i].visible = false; }   // a held control keeps its ring
@@ -4405,7 +4415,7 @@ function panelZone(p) {   // is this (plane-local) point in front of solid panel
 function panelStop(st) {
   let pen = 0;
   for (let k = 0; k < HN; k++) { const c = st.cap[k];
-    for (const q of [c.s, c.e]) { _psA.copy(q).applyMatrix4(st.W); plane.worldToLocal(_psA);
+    for (let e = 0; e < 2; e++) { _psA.copy(e ? c.e : c.s).applyMatrix4(st.W); plane.worldToLocal(_psA);   // v0.81 both ends of each bone, no array per bone
       if (!panelZone(_psA)) continue; const d = (_psA.y > CK.y - 0.14 ? PANEL_BEZ : PANEL_FACE) + c.r - _psA.z; if (d > pen && d < 0.18) pen = d; } }
   CKX.stop = pen;
   if (pen <= 0) return;
@@ -4447,7 +4457,7 @@ function tipTick() {
   const st = tipState(k), txt = TIP_NAME[k] + (st ? '  ' + st : '');
   if (txt !== TIP.txt) { TIP.txt = txt; const x = TIP.x; x.clearRect(0, 0, 512, 80); x.font = 'bold 40px sans-serif'; const w = Math.min(500, x.measureText(txt).width + 36);
     x.fillStyle = 'rgba(18,18,20,0.82)'; x.beginPath(); x.roundRect(256 - w / 2, 6, w, 68, 16); x.fill(); x.strokeStyle = '#ffd84a'; x.lineWidth = 3; x.stroke();
-    x.fillStyle = '#ffe9a8'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(txt, 256, 41); TIP.t.needsUpdate = true; }
+    x.fillStyle = '#ffe9a8'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(txt, 256, 41); texDirty(TIP.t); }
   camera.getWorldPosition(_tpC); plane.worldToLocal(_tpC);
   const up = k === 'flap' || k === 'trim' ? -0.045 : k === 'stick' ? 0.07 : 0.034;   // overhead tags hang below the control
   TIP.mesh.position.copy(_tpA); TIP.mesh.position.y += up; TIP.mesh.position.lerp(_tpC, 0.08);
@@ -4793,7 +4803,7 @@ for (const B of BUSH) { if (B.leg) { const g = B.leg, ex = B.x + Math.sin(B.a) *
     const [bx, bz] = P(30, -40), [px, pz] = P(22, -32); DLV_STRIPS.push({ id: 'HALV', name: 'HALVORSEN STN', x: S.x, z: S.z, board: [bx, bz, Math.atan2(ca, -sa)], pad: [px, pz], lock: true }); }
   DLV_STRIPS.push(...LATE);
   { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(RV, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(RC, 4)); g.setAttribute('uv', new THREE.Float32BufferAttribute(RU, 2)); g.computeVertexNormals();   // v0.78.1 RGBA: the alpha feathers the edges
-    const rm = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ vertexColors: true, map: runwayTex('grayb'), side: THREE.DoubleSide, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -2 })); rm.userData.noBatch = true; scene.add(rm); BUSH.rib = rm;
+    const rm = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ vertexColors: true, map: runwayTex('grayb'), side: THREE.DoubleSide, transparent: true, forceSinglePass: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -2 })); rm.userData.noBatch = true; scene.add(rm); BUSH.rib = rm;
     const mm = new THREE.Mesh(mergeGeometries(GS), new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true })); mm.userData.noBatch = true; scene.add(mm); for (const h of GS) h.dispose();
     mm.userData.tris = mm.geometry.attributes.position.count / 3; BUSH.mesh = mm; for (const B of BUSH) B.mesh = mm; }
   const offQ = (x, z, Q, hw, fn) => { const dx = x - Q.x, dz = z - Q.z, sa = Math.sin(Q.a), ca = Math.cos(Q.a), l = Math.abs(dx * sa + dz * ca), w = Math.abs(dx * ca - dz * sa);
@@ -4952,7 +4962,7 @@ function jbLocked(S) {   // the Halvorsen board before Dry Fork vouches for you
   x.fillStyle = '#ccd3da'; x.fillRect(20, 196, JB_W - 40, 26); x.fillStyle = '#2a7a2a'; x.fillRect(20, 196, (JB_W - 40) * Math.min(1, v / REP_UNL), 26);
   x.fillStyle = '#111'; x.font = 'bold 15px sans-serif'; x.fillText('YOUR REP AT DRY FORK: ' + v + ' / ' + REP_UNL + ' ' + repStars(v), 28, 214);
   x.fillStyle = '#444'; x.font = '15px sans-serif'; x.fillText('Deliver to Dry Fork on time and in good shape to raise it.', 20, 254); x.fillText('- C. Lindqvist, Station Director', 20, 290);
-  S.tex.needsUpdate = true;
+  texDirty(S.tex);
 }
 // ---- contracts ----
 function dlvRng(n) { let s = (n * 2654435761) >>> 0 || 1; return () => { s = (s + 0x6D2B79F5) | 0; let t = Math.imul(s ^ (s >>> 15), 1 | s); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
@@ -5011,7 +5021,7 @@ function lblDraw(slot, job, lb) {   // destination in big letters, the job colou
   else if (job.sp === 'perish') { x.strokeStyle = '#1a6ad0'; x.lineWidth = 4; for (let a = 0; a < 3; a++) { const dx = Math.cos(a * Math.PI / 3) * 24, dy = Math.sin(a * Math.PI / 3) * 24; x.beginPath(); x.moveTo(cx - dx, cy - dy); x.lineTo(cx + dx, cy + dy); x.stroke(); }
     x.beginPath(); x.arc(cx, cy, 7, 0, 6.283); x.stroke(); }
   else if (job.sp === 'live') { x.fillStyle = '#7a4a1a'; x.beginPath(); x.ellipse(cx, cy + 8, 13, 11, 0, 0, 6.283); x.fill(); for (const [ox, oy] of [[-16, -8], [-6, -18], [6, -18], [16, -8]]) { x.beginPath(); x.arc(cx + ox, cy + oy, 6, 0, 6.283); x.fill(); } }
-  x.restore(); LBL.t.needsUpdate = true;
+  x.restore(); texDirty(LBL.t);
 }
 function lblQuad(slot, w, h, px, py, pz, rx, ry) {   // a label quad in the piece's frame, uvs on its slot
   const g = new THREE.PlaneGeometry(w, h).toNonIndexed(); if (rx) g.rotateX(rx); if (ry) g.rotateY(ry); g.translate(px, py, pz);
@@ -5178,7 +5188,7 @@ function jbDraw(S) {
   { const v = repOf(S.id), T = repTier(v); x.fillStyle = T[2]; x.font = 'bold 14px sans-serif'; x.fillText('REP: ' + repWho(S.id) + '  ' + repStars(v) + '  ' + T[1] + ' (' + v + ')' + (repPayX(v) >= 1.01 ? ' - PAY +' + Math.round((repPayX(v) - 1) * 100) + '%' : ''), 20, JB_H - 30, JB_W - 40); }   // v0.56
   x.fillStyle = '#3a2a1a'; x.font = '13px sans-serif';
   x.fillText(inb.length ? 'DELIVER HERE: ' + inb.map(j => j.title).join(', ') + ' - SET IT ON THE YELLOW PAD' : 'JOBS ' + act + '/' + DLV_MAX + ' - POKE ACCEPT (DESKTOP 1-3) - DELIVER TO THE YELLOW PAD', 20, JB_H - 13, JB_W - 40);
-  S.tex.needsUpdate = true;
+  texDirty(S.tex);
 }
 function jbKey(S) { const L = DLV.offers[S.id]; let k = DLV.cash + '|' + (S.lock ? 'L' + repOf('DRYFORK') : repOf(S.id)) + '|' + dlvActive().length + '|' + dlvRoom() + '|'; for (const j of L) k += j.id + j.st + (j.st === 'active' ? jbStatus(j).join() : '') + ';';
   for (const j of dlvActive()) if (j.to === S.id) k += 'i' + j.id; return k; }
@@ -5580,7 +5590,7 @@ function wbCardRest(x, P, y) {
   wbChart(x, 40, y + 16, 206, 296 - (y + 16), P);   // chart fills down to the axis labels
   const [st, col] = wbStatus(P); x.fillStyle = col; x.font = 'bold 15px sans-serif'; x.textAlign = 'center'; x.fillText(st, 128, 347);
   x.font = '10px sans-serif'; x.fillStyle = '#555'; x.fillText(P.lb > WNB.GROSS_LB ? 'OVER MAX GROSS 1750 BY ' + Math.ceil(P.lb - WNB.GROSS_LB) + ' LB' + (WBS.bagLb > WNB.BAG_MAX_LB ? ', BAG > 50' : '') : WBS.bagLb > WNB.BAG_MAX_LB ? 'BAGGAGE OVER 50 LB MAX' : 'MAX GROSS 1750 \u00B7 PAYLOAD LEFT ' + Math.floor(WNB.GROSS_LB - P.lb) + ' LB', 128, 329); x.textAlign = 'left';
-  WBC_T.needsUpdate = true;
+  texDirty(WBC_T);
 }
 wbUpdate();
 // ================= v0.53 HUNTING: a Winchester-1892-style lever carbine, deer herds, venison jobs, binoculars =================
@@ -6676,7 +6686,7 @@ function ecoDraw(F) {
     x.fillStyle = !ok ? '#9a9a90' : afford ? '#2a7a2a' : '#a04030'; x.fillRect(W - 112, Y + 4, 92, B.rh - 14); x.fillStyle = '#fff'; x.textAlign = 'center'; x.font = 'bold 16px sans-serif'; x.fillText(!ok ? 'OK' : '$' + c, W - 66, Y + B.rh / 2 + 3); x.textAlign = 'left'; });
   if (!B.home) { x.fillStyle = '#555'; ecoFit(x, 'FUEL: PARK BY THE DRUM, ENGINE OFF, NOZZLE ON A WING CAP (DESKTOP G)', 18, 220, W - 36, 15); ecoFit(x, 'PAID AS IT FLOWS. ' + (F.id === 'DRYFORK' ? 'THE DEPOT: CHEAPEST FUEL IN THE VALLEY.' : 'HOME $' + FUEL_ST[0].price.toFixed(2) + ', DRY FORK $' + FUEL_ST[3].price.toFixed(2)), 18, 242, W - 36, 15); }
   x.fillStyle = '#666'; ecoFit(x, 'POKE A PRICE TO PAY (DESKTOP ' + (B.rows.length > 1 ? '1-' + B.rows.length : '1') + ') - THE CUB PARKED NEARBY, ENGINE OFF', 18, SVB_H - 12, W - 36, 13);
-  B.tex.needsUpdate = true;
+  texDirty(B.tex);
 }
 function ecoDo(F, i) {   // a row on a service board
   const B = F.B, r = B.rows[i]; if (!r) return false; const [c, t, ok, q] = ecoCost(F, r), E = ECO;
@@ -6913,7 +6923,7 @@ function upbDraw() {
     x.fillStyle = later ? '#8a8a80' : '#222'; ecoFit(x, (i + 1) + '. ' + (later ? L[0] : I.label + (I.price ? ' - ' + I.lb + ' LB' : '')), 22, Y + 14, W - 150, 14, 1);
     x.fillStyle = later ? '#9a9a90' : bt === 'LOCKED' ? '#8a4a30' : '#555'; ecoFit(x, why, 22, Y + 28, W - 150, 11);
     x.fillStyle = col; x.fillRect(W - 112, Y + 3, 92, UPB.rh - 10); x.fillStyle = '#fff'; x.textAlign = 'center'; x.font = 'bold 14px sans-serif'; x.fillText(bt, W - 66, Y + UPB.rh / 2 + 3); x.textAlign = 'left'; });
-  UPB.tex.needsUpdate = true;
+  texDirty(UPB.tex);
 }
 function upgDo(i) {   // a row on the parts board
   const r = UPB.rows[i]; if (!r) return false;
@@ -7297,7 +7307,7 @@ function emgSignDraw() {
     x.fillStyle = '#b8201a'; x.fillRect(W - 150, H - 54, 134, 38); x.fillStyle = '#fff'; x.font = 'bold 18px sans-serif'; x.textAlign = 'center'; x.fillText('ACCEPT', W - 83, H - 28); x.textAlign = 'left'; }
   else { T('NO CALL-OUTS RIGHT NOW', 78, 'bold 18px sans-serif', '#555'); T('RANGER KOWALSKI RUNS THE LIST.', 108); T('NEXT CHECK-IN IN ~' + Math.max(1, Math.ceil(EMG.nextT - DLV.gt)) + ' MIN', 132);
     T(UPG.radio ? 'YOUR COM RADIO WILL HEAR THE NEXT ONE (C TO TAKE IT)' : 'A COM RADIO (HANGAR PARTS BOARD) HEARS CALLS IN THE AIR', 160, '13px sans-serif', '#555'); }
-  T('POKE THE SIGN (DESKTOP 4) - ' + EMG.done + ' CALL-OUTS DONE', H - 10, '11px sans-serif', '#777'); EMG_TEX.needsUpdate = true;
+  T('POKE THE SIGN (DESKTOP 4) - ' + EMG.done + ' CALL-OUTS DONE', H - 10, '11px sans-serif', '#777'); texDirty(EMG_TEX);
 }
 function emgSignAct(S) { if (emgActive()) { emgCancel(); return true; } if (EMG.call) return emgAccept(S); say('NO CALL-OUTS RIGHT NOW - NEXT CHECK-IN IN ~' + Math.max(1, Math.ceil(EMG.nextT - DLV.gt)) + ' MIN'); sfx('tick'); return true; }
 const _emL = new THREE.Vector3();
@@ -7377,14 +7387,15 @@ const FR = { D: [2.2 / Math.hypot(2.2, 1.1), -1.1 / Math.hypot(2.2, 1.1)], L: []
     FR.L.push(F); } FR.r = r; }
 { const q = new URLSearchParams(location.search).get('front'); if (q) { const [x, z] = q.split(',').map(Number); if (isFinite(x) && isFinite(z)) { frPlace(0, x, z); FR.force = true; } } }   // v0.79 ?front=x,z puts a rain shaft there (shows even with ?wx=)
 function frPos(F, sh, out) { const D = FR.D; out[0] = D[0] * (F.a + sh.d) - D[1] * (F.b + sh.o); out[1] = D[1] * (F.a + sh.d) + D[0] * (F.b + sh.o); return out; }   // shaft centre (x, z): a along the drift, b across it
+const _frP = [0, 0];   // v0.81 one scratch point for the fronts (no per-call arrays)
 function frAt(x, z, y = 0) {   // v0.79 rain from the fronts at a point: 0 (dry) .. 1 (under the core of a shaft)
-  if (y > FR.H) return 0; let f = 0; const P = [0, 0];
-  for (const F of FR.L) for (const sh of F.sh) { frPos(F, sh, P); const d = Math.hypot(x - P[0], z - P[1]); if (d < sh.r * 1.05) f = Math.max(f, sh.k * (1 - smooth01(clamp((d - sh.r * 0.5) / (sh.r * 0.55), 0, 1)))); }
+  if (y > FR.H) return 0; let f = 0; const P = _frP;
+  for (const F of FR.L) for (const sh of F.sh) { frPos(F, sh, P); const d = hyp(x - P[0], z - P[1]); if (d < sh.r * 1.05) f = Math.max(f, sh.k * (1 - smooth01(clamp((d - sh.r * 0.5) / (sh.r * 0.55), 0, 1)))); }
   return f; }
 function frPlace(i, x, z) { const F = FR.L[i], D = FR.D, sh = F.sh[Math.floor(F.sh.length / 2)]; F.a = D[0] * x + D[1] * z - sh.d; F.b = -D[1] * x + D[0] * z - sh.o; }   // tests: put front i's middle shaft over (x, z)
 function frBuild() {   // two draw calls for every front: the see-through shafts (soft edges, fade near you and into the fog) and the dark cloud base over them
   const n = FR.L.reduce((t, F) => t + F.sh.length, 0), g = new THREE.CylinderGeometry(1, 1, 1, 18, 1, true).translate(0, 0.5, 0);
-  const m = new THREE.ShaderMaterial({ transparent: true, depthWrite: false, side: THREE.DoubleSide, fog: true, uniforms: THREE.UniformsUtils.merge([THREE.UniformsLib.fog, { uO: { value: 1 }, uC: { value: new THREE.Color(0x7c858e) } }]),
+  const m = new THREE.ShaderMaterial({ transparent: true, forceSinglePass: true, depthWrite: false, side: THREE.DoubleSide, fog: true, uniforms: THREE.UniformsUtils.merge([THREE.UniformsLib.fog, { uO: { value: 1 }, uC: { value: new THREE.Color(0x7c858e) } }]),
     vertexShader: 'varying float vY; varying float vE; varying float vD; varying float vU;\nvoid main() { vec4 w = modelMatrix * instanceMatrix * vec4(position, 1.0); vec3 n = normalize(mat3(modelMatrix * instanceMatrix) * normal); vec3 e = cameraPosition - w.xyz;\n vD = length(e); vE = pow(abs(dot(n, e / vD)), 1.3); vY = uv.y; vU = uv.x; gl_Position = projectionMatrix * viewMatrix * w; }',
     fragmentShader: 'uniform float uO; uniform vec3 uC; uniform vec3 fogColor; uniform float fogNear; uniform float fogFar; varying float vY; varying float vE; varying float vD; varying float vU;\nvoid main() { float ff = smoothstep(fogNear, fogFar, vD);\n float a = uO * 0.4 * vE * smoothstep(0.0, 0.15, vY) * (0.5 + 0.5 * vY) * smoothstep(150.0, 650.0, vD) * (0.78 + 0.22 * sin(vU * 113.0 + vY * 7.0)) * (1.0 - 0.6 * ff);\n gl_FragColor = vec4(mix(uC, fogColor, ff), a); }' });
   FR.im = new THREE.InstancedMesh(g, m, n); FR.im.frustumCulled = false; FR.im.renderOrder = 2; FR.im.userData.noBatch = true; FR.im.userData.noCast = true; scene.add(FR.im);
@@ -7392,14 +7403,14 @@ function frBuild() {   // two draw calls for every front: the see-through shafts
 function frTick(dt, on) {   // v0.79 move the fronts, draw them, and rain on you when you're under one (on top of the map-wide weather)
   for (const F of FR.L) { F.a += F.v * dt; if (F.a > FR.WRAP) { F.a -= 2 * FR.WRAP; F.b = (FR.r() - 0.5) * 6000; } }
   if (!on) { if (FR.im) FR.im.visible = FR.cl.visible = false; FR.f = 0; return; }
-  if (!FR.im) frBuild(); FR.im.visible = FR.cl.visible = true; const P = [0, 0]; let i = 0;
+  if (!FR.im) frBuild(); FR.im.visible = FR.cl.visible = true; const P = _frP; let i = 0;
   for (const F of FR.L) for (const sh of F.sh) { frPos(F, sh, P); _m4.compose(_v.set(P[0], -60, P[1]), _q.identity(), _s.set(sh.r, FR.H + 60, sh.r)); FR.im.setMatrixAt(i, _m4);
     for (let c = 0; c < 2; c++) { _m4.compose(_v.set(P[0] + (c - 0.5) * sh.r * 0.8, FR.H + 30 + c * 25, P[1] + (c - 0.5) * sh.r * 0.3), _q.setFromAxisAngle(_up, sh.o + c), _s.set(sh.r * 1.5, sh.r * 0.32, sh.r * 1.1)); FR.cl.setMatrixAt(i * 2 + c, _m4); } i++; }
   FR.im.instanceMatrix.needsUpdate = true; FR.cl.instanceMatrix.needsUpdate = true;
   FR.cl.material.emissive.setRGB(0.17, 0.2, 0.22).multiplyScalar(0.15 + 0.85 * TOD.day); FR.cl.material.color.setRGB(0.55, 0.58, 0.6).multiplyScalar(0.3 + 0.7 * TOD.day); FR.im.material.uniforms.uC.value.setRGB(0.49, 0.52, 0.56).multiplyScalar(0.25 + 0.75 * TOD.day);
   camera.getWorldPosition(_v); const f = FR.f = frAt(_v.x, _v.z, _v.y), E = WX.E; if (f <= 0) return;   // under a shaft: rain, greyer, darker, shorter visibility (no wind)
   E.rain = Math.max(E.rain, f); E.mist = Math.max(E.mist, 0.3 * f); E.grey = Math.max(E.grey, 0.62 * f); E.dim = Math.max(E.dim, 0.3 * f); E.vis = Math.min(E.vis, 1 - 0.62 * f); }
-function frNear(x, z) { let d = 1e9; const P = [0, 0]; for (const F of FR.L) for (const sh of F.sh) { frPos(F, sh, P); d = Math.min(d, Math.hypot(x - P[0], z - P[1]) - sh.r); } return d; }   // distance to the nearest shaft's edge (m)
+function frNear(x, z) { let d = 1e9; const P = _frP; for (const F of FR.L) for (const sh of F.sh) { frPos(F, sh, P); d = Math.min(d, hyp(x - P[0], z - P[1]) - sh.r); } return d; }   // distance to the nearest shaft's edge (m)
 function wxSave() { return { s: WX.s, t: Math.round(WX.t), P: WX_K.map(k => Math.round(WX.P[k] * 1000) / 1000), F: FR.L.map(F => [Math.round(F.a), Math.round(F.b)]) }; }   // v0.79 + where the fronts are
 function wxLoad(d) { if (WX.forced || !d || !WX_S[d.s]) return; wxSet(d.s); if (Array.isArray(d.F)) d.F.forEach((q, i) => { if (FR.L[i] && Array.isArray(q) && isFinite(q[0]) && isFinite(q[1])) { FR.L[i].a = clamp(q[0], -FR.WRAP, FR.WRAP); FR.L[i].b = clamp(q[1], -4000, 4000); } }); if (isFinite(d.t)) WX.t = clamp(d.t, 30, 1500); if (Array.isArray(d.P)) WX_K.forEach((k, i) => { if (isFinite(d.P[i])) WX.P[k] = clamp(d.P[i], 0, k === 'low' ? 400 : 1); }); }   // v0.79 F: where the fronts were (older saves: they start upwind)
 const SV = { t: 30, due: -1, last: 0, off: false, air: false, cubT: 0, cub: null, n: 0, why: '' };
@@ -7710,7 +7721,7 @@ function fpsTick(dt) {
   const c = FPSM.userData.c, x = c.getContext('2d'), r = renderer.info.render, ok = FT.frm < 11.6 ? '#9f9' : FT.frm < 14.5 ? '#fd6' : '#f77';
   x.clearRect(0, 0, 256, 64); x.fillStyle = 'rgba(0,0,0,0.6)'; x.fillRect(0, 0, 256, 64); x.font = 'bold 24px monospace'; x.fillStyle = ok;
   x.fillText(fps + ' fps ' + FT.frm.toFixed(1) + ' ms', 8, 26); x.font = '17px monospace'; x.fillStyle = '#ddd'; x.fillText('cpu ' + FT.cpu.toFixed(1) + ' ' + r.calls + ' dc ' + (r.triangles / 1000).toFixed(0) + 'k tri', 8, 52);
-  FPSM.userData.t.needsUpdate = true;
+  texDirty(FPSM.userData.t);
 }
 // ---- v0.48 auto resolution: frame time over budget for > 1 s steps down; ~10 s steady on budget steps back up (the wait doubles if it bounces) ----
 // steps: 0 = as set; 1 = 85 % viewport + foveation HIGH; 2 = 75 % + forest 75 % / nearer thinning; 3 = 65 % + forest 55 % / 60 %.
@@ -7814,7 +7825,7 @@ function setpPerf(dt) {   // twice a second while the board is open
   SETP.pm.visible = SETP.tab === 'gfx'; if (!SETP.open || SETP.tab !== 'gfx' || (SETP.pT -= dt) > 0) return; SETP.pT = 0.5;
   const x = SETP.px; x.fillStyle = '#e9dcb8'; x.fillRect(0, 0, 1024, 176); x.strokeStyle = '#5a4630'; x.lineWidth = 6; x.strokeRect(3, 3, 1018, 170);
   x.fillStyle = '#2e2418'; x.font = 'bold 22px Georgia, serif'; x.fillText('PERF', 22, 36); x.font = '14px Georgia, serif'; x.fillStyle = '#6a5638'; x.fillText('live - try one row at a time', 90, 36);
-  perfLines().forEach(([t, c], i) => { x.fillStyle = c; x.font = (i ? '20px' : 'bold 24px') + ' monospace'; x.fillText(t, 22, 76 + i * 38, 980); }); SETP.pt.needsUpdate = true;
+  perfLines().forEach(([t, c], i) => { x.fillStyle = c; x.font = (i ? '20px' : 'bold 24px') + ' monospace'; x.fillText(t, 22, 76 + i * 38, 980); }); texDirty(SETP.pt);
 }
 const _spL = new THREE.Vector3(), _wfN = new THREE.Vector3(), _wfP = new THREE.Vector3(), _wfE = new THREE.Vector3(), _wfQ = new THREE.Quaternion();
 // v0.62 the MENU button under the wrist screen: only there while you turn that wrist to your face (inner wrist toward the headset, close enough to read), with hysteresis
@@ -7882,7 +7893,7 @@ function setpDraw() {
   else if (T === 'audio') { x.font = '15px Georgia, serif'; x.fillStyle = '#6a5638'; x.fillText('Master scales the other three.', 30, 300); }
   else if (T === 'resume') { setpBtn(x, 262, 200, 500, 120, 'RESUME', SETP.lit === 'close'); x.font = '17px Georgia, serif'; x.fillStyle = '#6a5638'; x.textAlign = 'center'; x.fillText('Back to the game. The tabs above hold saves and settings (all kept in this browser).', 512, 380); x.textAlign = 'left'; }
   setpBtn(x, 822, 580, 172, 44, 'CLOSE', false, '#5a4630');
-  if (SETP.desk) SETP.deskDraw(); SETP.t.needsUpdate = true;
+  if (SETP.desk) SETP.deskDraw(); texDirty(SETP.t);
 }
 function setpHit(u, v) {   // canvas px -> a GFX_OPT row index, a button id, 'tab:<id>', 'close' or null
   if (u > 822 && u < 994 && v > 580 && v < 624) return 'close';
@@ -7995,6 +8006,8 @@ function sockFix(m, dx = 0) {
   return m; }
 scene.traverse(o => { const M = o.material; if (!o.isMesh || !M || !M.map || M.transparent || !M.depthTest || o.geometry.type !== 'PlaneGeometry') return;   // v0.60 painted boards / signs / papers on their backing: pulled forward in depth (no z-fight at range)
   const P = o.geometry.parameters; if (P.width < 0.3 || P.width > 8) return; for (let q = o.parent; q; q = q.parent) if (q === plane) return; Object.assign(M, { polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -4 }); });
+for (const o of TERR_M) { o.updateMatrix(); o.matrixAutoUpdate = false; }   // v0.81 static scenery: the ground tiles and towns/sites never move, no matrix rebuild each frame
+for (const t of TOWN_MESH) t.m.traverse(o => { o.updateMatrix(); o.matrixAutoUpdate = false; });
 gfxApply();
 { PL.visible = SL.visible = true; renderer.compile(scene, camera); PL.visible = SL.visible = false; }
 { vlTick(); for (const f of [true, false]) for (let c = 0; c < 4; c++) { vlApply(f); PL.visible = !!(c & 1); SL.visible = !!(c & 2); renderer.compile(scene, camera); } PL.visible = SL.visible = false; VL.key = ''; vlApply(); }   // v0.48: both terrain looks x each panel-glow / landing-light combination compiled at load (no hitch when one comes on)   // v0.47 LIGHTS_WARM: precompile the lit-cockpit / landing-light variants
@@ -8044,7 +8057,7 @@ renderer.setAnimationLoop(() => {
   hxTick(dt);                                // v0.24 haptics (engine / buffet / gear + queued pulses)
   if (xr || HANDS.force) { updateHands(dt); setpTick(); jbPoke(); ecoPoke(); upgPoke(); emgPoke(); }
   vlTick(); batchTick(); if (GFX.shadows && ((FT.n & 1) || mode !== 'plane' || ac.vel[0] * ac.vel[0] + ac.vel[1] * ac.vel[1] + ac.vel[2] * ac.vel[2] > 0.1)) renderer.shadowMap.needsUpdate = true;   // v0.47 static batches; shadow map at half rate   // v0.23 gloves (after the stick / knobs have their final pose); v0.45 wrist SETTINGS board
-  binoRender();   // v0.53 the 7x view (only while raised)
+  if (DIRTY_TEX.size) { DIRTY_TEX.forEach(texInit); DIRTY_TEX.clear(); } binoRender();   // v0.53 the 7x view (only while raised); v0.81 the textures upload first
   renderer.render(scene, camera);
   const cpu = performance.now() - t0;            // JS + draw submission (GPU time isn't visible from here)
   dynTick(rawDt);   // v0.48 auto resolution

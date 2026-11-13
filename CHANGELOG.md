@@ -2,6 +2,31 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.81 – low-risk Quest performance fixes (no visual or physics change)
+Neil approved items 1–6 of the perf audit (/workspace/perf-audit/report.md). Items 7 and 8 are skipped. The flight model isn't touched: its allocations stay as they are and the md5 is unchanged.
+- **#1 single-pass ribbons and shafts:** `forceSinglePass` on the three strip-ribbon materials (Dry Fork, Halvorsen, the bush-site ribbons) and on the rain-front shaft material. three r160 drew each transparent double-sided mesh twice (back faces, then front faces). The ribbons are flat on the ground and the shafts are see-through, so it doesn't change how they look.
+- **#2 fuel hose:** the ground height under each node is looked up once per substep, not once per constraint iteration (that was 242 KB of garbage a frame on foot). The hose also sleeps once it has lain still on its hook for 30 frames. It wakes when you grab it, when the pump runs, or when the hose is reset.
+- **#3 dense sprites:** the DENSE forest's flat trees use the vertex-lit material (the same lighting as the vertex-lit ground), draw after the opaque scenery (renderOrder 1, so less overdraw), and use anisotropy 2 instead of 4.
+- **#4 garbage outside physics:** no per-frame arrays, closures or destructuring in the hand poses (`buildHand`), the hover rings, the panel-stop check, the rain-front lookups or the fuel gauge text (the text is only rebuilt when the reading changes).
+- **#5 static scenery:** the ground tiles and every town / site mesh (and its children) stop rebuilding their matrices every frame (`matrixAutoUpdate` off once they're placed). Nothing in that set ever moves.
+- **#6 texture uploads and stencil:** redrawn canvas textures (wrist, map, kneeboard, tips, FPS, PERF, settings, job / upgrade / emergency boards, labels, W&B card, gauge faces) go through `texDirty()`, and are uploaded with `renderer.initTexture` before the eye pass instead of inside it. The renderer is created with `stencil: false` (nothing used it).
+- **Measured (v0.80 build vs v0.81, the audit's scripts, SwiftShader):**
+
+  | | v0.80 | v0.81 |
+  |---|---|---|
+  | Draw calls: home cockpit / on foot / town CUTLER strip | 94 / 75 / 102 | 92 / 73 / 99 |
+  | Draw calls: forest DENSE 150 m / inside rain / rain front from 3 km | 93 / 96 / 98 | 90 / 94 / 96 |
+  | Triangles (thousands): home cockpit / forest DENSE 150 m | 283 / 341 | 278 / 335 |
+  | Garbage per frame: cockpit | 208.5 KB | 180.6 KB |
+  | Garbage per frame: on foot | 438.9 KB | 177.0 KB |
+  | Garbage per frame: hoseTick (on foot) | 242.3 KB | 6.1 KB |
+  | Garbage per frame: hand poses / three render (cockpit) | 20.4 / 50.2 KB | 11.4 / 29.2 KB |
+
+  About 104–109 KB a frame of what's left is the flight model (`stepAircraft`), which stays as it is for the md5.
+- **No visual change:** before/after screenshots at the same spots with the sim frozen (home cockpit, home on foot, DENSE forest at 150 m, a rain front from 3 km, Dry Fork strip). The only differences are the spinning prop and sub-pixel shimmer.
+- **Tests:** t42, t43, t44, t45 (hose), t46, t461, t52, t53 and t57 (boards), t58 (emergency signs), t68 (wrist), t76, t78 and t781 (dense forest), t79 (rain fronts), t7710, t80 and t792 pass on the v0.81 build. The t52 / t76 failures in the v0.79.2 suite log were stale: the tests were updated to the v0.80 counts (23 boards, 24 strips) while that suite was still running the v0.79.2 page. On v0.80 / v0.81 they pass 29/0 and 11/0. t78 now runs on the harness's page (it pointed at a scratch `_t78.html` that no longer exists, so it timed out). t43 prints no summary line, so the suite shows it blank; it has 0 FAIL.
+- The help line reads v0.81.
+
 ## v0.80 – four more tricky destinations, each with a job hook (+ the home ammo carton is open and empty)
 Neil's approved queue, item (a), with the v0.79.2 loose end folded in.
 - **Sites (18 in all):** a new terrain search (in the page, on `terrainHeight`: the ground the gear rolls on) away from every strip (1.1 km), town (900 m), airdrop (700 m), herd and road. Nothing is flattened and the physics block is untouched.
