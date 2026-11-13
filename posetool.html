@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="icon" href="data:,">
+<title>Bush Pilot VR - Pose Lab</title>
+<style>
+  html, body { margin:0; height:100%; overflow:hidden; background:#0f1419; font-family:system-ui, sans-serif; color:#e8e8e0; }
+  #wrap { display:flex; height:100%; }
+  #view { flex:1; position:relative; min-width:0; }
+  #view canvas { display:block; }
+  #side { width:440px; overflow-y:auto; background:#161d24; padding:10px; box-sizing:border-box; border-left:1px solid #2c3844; }
+  #side h1 { font-size:18px; margin:4px 0 6px; color:#f0c040; }
+  #side p { font-size:13px; line-height:1.4; margin:4px 0 8px; color:#c8ccc0; }
+  #side canvas.pnl { width:100%; display:block; margin:6px 0; border-radius:6px; cursor:pointer; }
+  #side textarea { width:100%; box-sizing:border-box; height:64px; background:#0f1419; color:#e8e8e0; border:1px solid #3b4a5a; border-radius:4px; font:12px monospace; }
+  #side button { background:#3b4a5a; color:#fff; border:0; border-radius:4px; padding:7px 10px; margin:3px 2px; font-size:13px; cursor:pointer; }
+  #side button:hover { background:#4d6074; }
+  #msg { position:absolute; left:10px; top:10px; background:rgba(0,0,0,.55); padding:6px 9px; border-radius:4px; font-size:13px; pointer-events:none; white-space:pre-line; max-width:70%; }
+  #load { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:20px; color:#f0c040; pointer-events:none; }
+  @media (max-width: 900px) { #wrap { flex-direction:column; } #side { width:100%; height:45%; } }
+</style>
+<script type="importmap">
+{ "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<div id="wrap">
+  <div id="view"><div id="msg"></div><div id="load">Loading the game's items...</div></div>
+  <div id="side">
+    <h1>BUSH PILOT VR - POSE LAB</h1>
+    <p><b>In the headset:</b> press ENTER VR (bottom of the page). Your hand holds the item. Squeeze the GRIP on your OTHER hand and move it: the item moves and turns with it. Sticks nudge it. Point and pull the trigger on the big panel buttons. SAVE, then COPY CODE.</p>
+    <p><b>On a PC:</b> drag the arrows / rings on the item (T = move, R = rotate, Ctrl+Z = undo, drag empty space to look around). Click the panels below just like in VR.</p>
+    <canvas class="pnl" id="cMain"></canvas>
+    <canvas class="pnl" id="cOut"></canvas>
+    <p><b>Load a pose:</b> paste a code (from VR Dev or from your saved list) and press LOAD.</p>
+    <textarea id="paste" placeholder="paste a pose code here"></textarea>
+    <button id="bLoad">LOAD CODE</button><button id="bCopy">COPY CODE</button><button id="bCopyJ">COPY JSON</button><button id="bCopyAll">COPY ALL SAVED</button><button id="bShare" style="display:none">SHARE...</button>
+  </div>
+</div>
+<script type="module">
+import * as THREE from 'three';
+import { VRButton } from 'three/addons/webxr/VRButton.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { TransformControls } from 'three/addons/controls/TransformControls.js';
+// Bush Pilot VR - POSE LAB. Set how an item sits in a gloved hand, then send VR Dev the code.
+// The glove below is the game's own (index.html): skeleton, skinned mesh, finger maths and grip solver, copied verbatim between the GAME CODE markers.
+// Frame of every pose: the game's HAND SPACE of the holding hand (= controller grip space * HOFF, HOFF = rotate HAND_TILT 0.6 rad about X).
+//   Right hand: back of the hand +X, thumb toward -Z, fingers point -Y, wrist +Y; the fist wraps the Z axis. Left hand: the same with X mirrored (back of the hand -X).
+//   A pose = the item's root frame in that hand space (pos metres, quat x y z w). Fingers = the game's grip state: ja (12 joint angles, rad), gT / gA (thumb tip target / axis, right-hand space), isp, dev.
+const D2R = Math.PI / 180, clamp = (x, a, b) => (x < a ? a : x > b ? b : x);
+const GFX = { glove: 0 };
+// ================= GAME CODE (index.html, verbatim) =================
+const HAND_TILT = 0.6, HN = 17;                           // 17 bones per hand: cuff, palm, 4 fingers x 3, thumb x 3 (v0.49: a skinned glove on them)
+const HF = [[-0.034, [0.044, 0.026, 0.021], 0.0185, -0.07], [-0.012, [0.047, 0.028, 0.022], 0.019, -0.02],
+            [0.010, [0.044, 0.027, 0.021], 0.018, 0.03], [0.030, [0.035, 0.021, 0.019], 0.016, 0.08]];   // knuckle z, phalanx lengths, width, splay
+const FIST = [1.6, 1.0, 0.9];                              // joint bends (rad) of a full fist around a ~3 cm grip
+// v0.24.1 thumb: metacarpal direction + a 2-bone reach to a tip target (hand space, right hand). REST = on the stick face beside the
+// index, UP = lifted a little off it, WRAP = folded low over the curled index (fists), PINCH = pad on the index tip.
+const TH_L = [0.044, 0.031, 0.025], TH_B = new THREE.Vector3(0.022, 0.040, -0.034), TH_HINT = new THREE.Vector3(0.3, 0.1, -1).normalize();
+const TH_P = { rest: [[-0.35, -0.78, -0.52], [-0.006, -0.042, -0.049]], up: [[-0.22, -0.74, -0.64], [0.010, -0.034, -0.064]],
+  wrap: [[-0.55, -0.62, -0.55], [-0.024, -0.020, -0.046]] };
+const _tA = new THREE.Vector3(), _tT = new THREE.Vector3(), _tU = new THREE.Vector3(), _tW = new THREE.Vector3(), _tP = new THREE.Vector3();
+const HOFF = new THREE.Matrix4().makeRotationX(HAND_TILT);
+const _hx = new THREE.Vector3(), _hy = new THREE.Vector3(), _hz = new THREE.Vector3(), _hs = new THREE.Vector3(), _hd = new THREE.Vector3(), _hm = new THREE.Matrix4(),
+      _hm2 = new THREE.Matrix4(), _hv = new THREE.Vector3(), _hq = new THREE.Quaternion(), _hzX = new THREE.Vector3(1, 0, 0), _hzZ = new THREE.Vector3(0, 0, 1), _hzZn = new THREE.Vector3(0, 0, -1), _thz = new THREE.Vector3(), _thD = new THREE.Vector3(), _thq = new THREE.Quaternion();
+function hBone(st, k, s, d, len, t, w, zh) {     // box k from point s along unit d (hand space or world), width across zh
+  _hz.copy(zh).addScaledVector(d, -zh.dot(d)); if (_hz.lengthSq() < 1e-8) _hz.set(0, 0, 1); _hz.normalize(); _hx.crossVectors(d, _hz);
+  if (st.R) st.R[k].makeBasis(_hx, d, _hz).setPosition(s.x, s.y, s.z);   // v0.49: the rigid bone frame the glove is skinned to
+  st.M[k].makeBasis(_hx.multiplyScalar(t), _hy.copy(d).multiplyScalar(len), _hz.multiplyScalar(w)).setPosition(s.x + d.x * len / 2, s.y + d.y * len / 2, s.z + d.z * len / 2);
+  const cp = st.cap[k]; cp.s.copy(s); cp.e.copy(s).addScaledVector(d, len); cp.r = Math.min(t, w) / 2;
+}
+const GLOVE_PAL = [   // SAGE (US Nomex + tan leather), BLACK, TAN
+  [0x6c7656, 0xae8a5e, 0x3b3a2c, 0x545d43, 0x22201b, 0xb9b9b0], [0x2c2d2f, 0x1d1b1a, 0x5a5a58, 0x38393b, 0x111111, 0x9a9a9a], [0xa48d66, 0x7a5636, 0x4a3a28, 0x8a7652, 0x2a2018, 0xc8c0a8]];
+const GLOVE = { gm: [null, null], geo: [null, null], B: [], pal: -1, sk: [null, null], tris: 0 };
+function gloveBuild() {   // -> { pos, sk, reg } (non-indexed triangles, right hand, bind pose)
+  const st = { c: [0, 0, 0, 0], th: 0, tw: 0, tp: 0, ge: 0, ja: new Float32Array(12), gT: GV3(0, 0, 0), gA: GV3(0, 0, 0), tipH: GV3(0, 0, 0),
+    cap: Array.from({ length: HN }, () => ({ s: GV3(0, 0, 0), e: GV3(0, 0, 0), r: 0 })), M: Array.from({ length: HN }, () => new THREE.Matrix4()), R: Array.from({ length: HN }, () => new THREE.Matrix4()) };
+  buildHand(st, 1); const B = st.R.map(m => m.clone());
+  const P = [], S = [], G = [], v = new THREE.Vector3(), n = new THREE.Vector3(), q = new THREE.Vector3();
+  const B1i = B[1].clone().invert(), _pc = new THREE.Vector3();
+  const ring = (k, y, a, b, sides, sa, sb, w, rot, bump, bz, pull) => {   // one ring of points (hand space) + outward normals, around bone k's local y axis; pull draws a root ring in toward the palm's axis so it stays buried
+    const pts = [];
+    if (pull) { _pc.set(0, y, 0).applyMatrix4(B[k]).applyMatrix4(B1i); _pc.x = 0; _pc.z = 0; _pc.applyMatrix4(B[1]); }
+    for (let i = 0; i < sides; i++) { const t = rot + i * 2 * Math.PI / sides, c = Math.cos(t), s = Math.sin(t);
+      let x = a * c, z = b * s; if (c < 0 && bump) x -= bump * (-c) * (bz === undefined ? 1 : Math.exp(-(((z - bz) / 0.006) ** 2)));
+      v.set(x, y, z).applyMatrix4(B[k]); if (pull) v.lerp(_pc, pull); n.set(c / a, 0, s / b).transformDirection(B[k]); pts.push({ p: v.clone(), n: n.clone(), sk: [sa, sb, w], c }); }
+    return pts; };
+  const tri = (A, Bp, C, reg) => { for (const o of [A, Bp, C]) { P.push(o.p.x, o.p.y, o.p.z); S.push(...o.sk); G.push(reg); } };
+  const loft = (R, regOf) => {   // quads between consecutive rings; regOf(ringIndex, side, mean outward normal) -> region
+    for (let r = 0; r + 1 < R.length; r++) { const A = R[r], C = R[r + 1], N = A.length;
+      for (let i = 0; i < N; i++) { const j = (i + 1) % N; q.copy(A[i].n).add(A[j].n).add(C[i].n).add(C[j].n).normalize(); const g = regOf(r, i, q);
+        tri(A[i], C[i], C[j], g); tri(A[i], C[j], A[j], g); } } };
+  const cap = (Rr, tip, reg, flip) => { const N = Rr.length; for (let i = 0; i < N; i++) { const j = (i + 1) % N; flip ? tri(Rr[i], tip, Rr[j], reg) : tri(Rr[j], tip, Rr[i], reg); } };
+  const PALM = GV3(-1, 0, 0);   // right hand: the palm faces -x in hand space
+  // palm + back + gauntlet (bones 0 cuff / 1 palm, rigid together): superellipse sections along the palm bone (local y 0 = wrist end .. 0.083 = knuckles)
+  const SEC = [[-0.086, 0.0272, 0.0345, 0], [-0.07, 0.026, 0.0338, 0], [-0.052, 0.0242, 0.0328, 0], [-0.041, 0.0232, 0.0322, 0], [-0.029, 0.022, 0.0318, 0], [-0.016, 0.019, 0.031, 1],
+    [0.004, 0.0172, 0.0355, 1], [0.03, 0.0158, 0.0415, 1], [0.058, 0.0145, 0.0445, 1], [0.077, 0.0138, 0.045, 1], [0.089, 0.0105, 0.041, 1]];
+  const PS = 10, PR = [];
+  for (const [y, a, b, k] of SEC) { const pts = [];
+    for (let i = 0; i < PS; i++) { const t = (k ? Math.PI / PS : 0) + i * 2 * Math.PI / PS, c = Math.cos(t), s = Math.sin(t), e = k ? 2 / 2.6 : 1;   // the gauntlet rounder than the hand
+      let x = a * Math.sign(c) * Math.abs(c) ** e, z = b * Math.sign(s) * Math.abs(s) ** e;
+      if (k && c > 0 && z < -0.012 && y > -0.01 && y < 0.07) x += 0.0042 * Math.sin(Math.PI * (y + 0.01) / 0.08) * Math.min(1, (-z - 0.012) / 0.015);   // thenar (thumb) pad
+      if (k && c < 0 && y > 0.06) for (const f of HF) x -= 0.0022 * Math.exp(-(((z - f[0] - 0.002) / 0.0075) ** 2)) * (y > 0.085 ? 0.4 : 1);   // knuckle ridges on the back
+      if (k && c < 0 && y > 0.0 && y < 0.06) x -= 0.0015 * Math.sin(Math.PI * y / 0.06);   // rounded back of the hand
+      v.set(x, y, z).applyMatrix4(B[1]); n.set(c, 0, s).transformDirection(B[1]); pts.push({ p: v.clone(), n: n.clone(), sk: [1, 1, 1] }); }
+    PR.push(pts); }
+  const CUFF = 5;   // rings 0..4 are the gauntlet
+  loft(PR, (r, i, nn) => { const pm = nn.dot(PALM);
+    if (r < CUFF) return r === 3 ? 3 : r === 4 && pm < -0.4 ? 2 : 0;   // gauntlet fabric, strap band, a seam where it meets the hand
+    return pm > 0.25 ? 1 : r === PR.length - 2 && pm < -0.5 ? 2 : 0; });   // leather palm, Nomex back, a seam across the knuckles
+  { const c = PR[0].reduce((o, p) => o.add(p.p), GV3(0, 0, 0)).multiplyScalar(1 / PS); cap(PR[0], { p: c.addScaledVector(GV3(0, 1, 0).transformDirection(B[1]), 0.012), sk: [1, 1, 1] }, 4, false); }
+  { const c = PR[PR.length - 1].reduce((o, p) => o.add(p.p), GV3(0, 0, 0)).multiplyScalar(1 / PS); cap(PR[PR.length - 1], { p: c, sk: [1, 1, 1] }, 0, true); }
+  { const tz = 0.0, ty0 = -0.0415, ty1 = -0.0285, tw = 0.011, h = 0.0028;   // velcro tab on the back of the strap + its snap
+    const at = (y, z, out) => v.set(-(0.0226 + out), y, z).applyMatrix4(B[1]).clone();
+    const box = (y0, y1, z0, z1, o0, o1, reg) => { const c = [at(y0, z0, o0), at(y1, z0, o0), at(y1, z1, o0), at(y0, z1, o0), at(y0, z0, o1), at(y1, z0, o1), at(y1, z1, o1), at(y0, z1, o1)].map(p => ({ p, sk: [1, 1, 1] }));
+      for (const [a, b, cc, d] of [[4, 5, 6, 7], [0, 1, 5, 4], [1, 2, 6, 5], [2, 3, 7, 6], [3, 0, 4, 7]]) { tri(c[a], c[cc], c[b], reg); tri(c[a], c[d], c[cc], reg); } };
+    box(ty0, ty1, tz - tw, tz + tw, -0.001, h, 3); box(ty0 + 0.004, ty1 - 0.004, tz - 0.0035, tz + 0.0035, h, h + 0.0012, 5); }
+  // fingers: one tube per finger through palm -> proximal -> middle -> distal, joint rings shared 50/50
+  const FS = 6, ROT = Math.PI / 6;
+  const finger = (b0, L, t, w, palmB, tipLeather) => {   // b0 = proximal bone index; t / w = thickness / width (as the collision capsules)
+    const a0 = t / 2 + 0.0008, w0 = w / 2 + 0.0004, R = [], spec = [   // [bone frame, y, a, b, skinA, skinB, weightA, knuckle bump]
+      [b0, -0.016, a0 * 1.12, w0 * 1.05, palmB, b0, 0.88, 0, 0.3], [b0, -0.005, a0 * 1.1, w0 * 1.06, palmB, b0, 0.5, 0.0016], [b0, 0.28 * L[0], a0, w0, b0, b0, 1, 0], [b0, 0.72 * L[0], a0 * 0.95, w0 * 0.97, b0, b0, 1, 0],
+      [b0 + 1, 0, a0 * 0.97, w0 * 0.96, b0, b0 + 1, 0.5, 0.0011], [b0 + 1, 0.5 * L[1], a0 * 0.9, w0 * 0.92, b0 + 1, b0 + 1, 1, 0],
+      [b0 + 2, 0, a0 * 0.88, w0 * 0.89, b0 + 1, b0 + 2, 0.5, 0.0008], [b0 + 2, 0.34 * L[2], a0 * 0.86, w0 * 0.87, b0 + 2, b0 + 2, 1, 0], [b0 + 2, 0.42 * L[2], a0 * 0.85, w0 * 0.86, b0 + 2, b0 + 2, 1, 0],
+      [b0 + 2, 0.72 * L[2], a0 * 0.8, w0 * 0.82, b0 + 2, b0 + 2, 1, 0], [b0 + 2, 0.93 * L[2], a0 * 0.62, w0 * 0.66, b0 + 2, b0 + 2, 1, 0], [b0 + 2, 1.0 * L[2], a0 * 0.3, w0 * 0.34, b0 + 2, b0 + 2, 1, 0]];
+    for (const [k, y, a, b, sa, sb, ww, bump, pull] of spec) R.push(ring(k, y, a, b, FS, sa, sb, ww, ROT, bump, undefined, pull));
+    loft(R, (r, i, nn) => { const pm = nn.dot(tipLeather || PALM); if (r >= 8 && tipLeather !== false) return 1; if (r === 7) return pm > 0.3 ? 1 : 2; return pm > 0.3 ? 1 : 0; });
+    const end = R[R.length - 1]; v.set(0, 0, 0); for (const o of end) v.add(o.p); v.multiplyScalar(1 / FS); v.addScaledVector(GV3(0, 1, 0).transformDirection(B[b0 + 2]), 0.0022);
+    cap(end, { p: v.clone(), sk: [b0 + 2, b0 + 2, 1] }, 1, true); };
+  for (let f = 0; f < 4; f++) finger(2 + f * 3, HF[f][1], 0.017, HF[f][2], 1);
+  // thumb: metacarpal rooted in the heel of the palm (its base rings blend into the palm: the web), proximal, distal
+  { const R = [], a0 = 0.0102, w0 = 0.0108, L = TH_L, spec = [
+      [14, -0.008, a0 * 1.2, w0 * 1.25, 1, 14, 0.75, 0, 0.6], [14, 0.01, a0 * 1.18, w0 * 1.2, 1, 14, 0.4, 0, 0.22], [14, 0.3 * L[0], a0 * 1.08, w0 * 1.1, 14, 14, 1, 0], [14, 0.72 * L[0], a0, w0, 14, 14, 1, 0],
+      [15, 0, a0 * 0.97, w0 * 0.97, 14, 15, 0.5, 0.0012], [15, 0.5 * L[1], a0 * 0.92, w0 * 0.92, 15, 15, 1, 0], [16, 0, a0 * 0.9, w0 * 0.9, 15, 16, 0.5, 0.0009],
+      [16, 0.3 * L[2], a0 * 0.88, w0 * 0.88, 16, 16, 1, 0], [16, 0.38 * L[2], a0 * 0.87, w0 * 0.87, 16, 16, 1, 0], [16, 0.7 * L[2], a0 * 0.8, w0 * 0.8, 16, 16, 1, 0],
+      [16, 0.92 * L[2], a0 * 0.62, w0 * 0.62, 16, 16, 1, 0], [16, 1.0 * L[2], a0 * 0.3, w0 * 0.3, 16, 16, 1, 0]];
+    for (const [k, y, a, b, sa, sb, ww, bump, pull] of spec) R.push(ring(k, y, a, b, FS, sa, sb, ww, ROT, bump, undefined, pull));
+    // v0.49.1 web: on the metacarpal and the base of the thumb, the side facing the index is drawn onto the palm's thumb-side edge and skinned partly to the palm, so the thumb grows out of a webbed heel instead of a stalk
+    const WEB = [[0, 0, 0], [0.35, 0.02, 0.006], [0.55, 0.036, 0.004], [0.62, 0.054, 0.002], [0.5, 0.07, 0.001], [0.22, 0.08, 0]], T = new THREE.Vector3(), C = new THREE.Vector3(), dT = new THREE.Vector3();
+    for (let r = 1; r < WEB.length; r++) { const [wr, ty, tx] = WEB[r]; let j = 5; while (SEC[j + 1][0] < ty) j++; const u = (ty - SEC[j][0]) / (SEC[j + 1][0] - SEC[j][0]), bz = SEC[j][2] + u * (SEC[j + 1][2] - SEC[j][2]);
+      T.set(tx, ty, -(bz - 0.004)).applyMatrix4(B[1]); C.set(0, 0, 0); for (const o of R[r]) C.add(o.p); C.multiplyScalar(1 / FS); dT.subVectors(T, C).normalize();
+      for (const o of R[r]) { const f = wr * Math.max(0, o.n.dot(dT)) ** 1.5; if (f <= 0) continue; o.p.lerp(T, f); o.web = f;
+        if (o.sk[0] === 1) o.sk[2] = o.sk[2] + (1 - o.sk[2]) * f; else o.sk = [1, o.sk[0] === o.sk[1] ? o.sk[0] : 14, f]; } }
+    loft(R, (r, i) => { const A = R[r][i], Bq = R[r][(i + 1) % FS], c = (A.c + Bq.c) / 2, web = Math.max(A.web || 0, Bq.web || 0);
+      if (r >= 8) return 1; if (r === 7) return c > 0.2 ? 1 : 2; if (web > 0.25) return 1; return c > 0.2 ? 1 : 0; });   // leather pad and web, fabric over the nail side, seam ring at the tip
+    const end = R[R.length - 1]; v.set(0, 0, 0); for (const o of end) v.add(o.p); v.multiplyScalar(1 / FS); v.addScaledVector(GV3(0, 1, 0).transformDirection(B[16]), 0.0022);
+    cap(end, { p: v.clone(), sk: [16, 16, 1] }, 1, true); }
+  GLOVE.sec = SEC;
+  return { pos: new Float32Array(P), sk: new Float32Array(S), reg: new Uint8Array(G), B };
+}
+function gloveMat() {
+  const m = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true }); m.userData.hSk = { value: Array.from({ length: HN }, () => new THREE.Matrix4().makeScale(0, 0, 0)) };
+  m.onBeforeCompile = sh => { sh.uniforms.hSk = m.userData.hSk;
+    sh.vertexShader = 'attribute vec3 sk;\nuniform mat4 hSk[' + HN + '];\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n  { vec4 p0 = vec4(transformed, 1.0); transformed = (sk.z * (hSk[int(sk.x + 0.5)] * p0) + (1.0 - sk.z) * (hSk[int(sk.y + 0.5)] * p0)).xyz; }'); };
+  m.customProgramCacheKey = () => 'glove49'; return m;
+}
+function gloveColours() {   // (re)paint both gloves from Settings > GLOVES
+  const p = clamp(GFX.glove | 0, 0, 2); if (p === GLOVE.pal) return; GLOVE.pal = p; const C = GLOVE_PAL[p].map(h => new THREE.Color(h)), _gc2 = new THREE.Color();
+  for (const g of GLOVE.geo) { if (!g) continue; const reg = g.userData.reg, col = g.attributes.color.array;
+    for (let t = 0; t < reg.length; t += 3) { const c = C[reg[t]], j = 0.94 + 0.12 * ((Math.sin(Math.floor(t / 6) * 12.9898) * 43758.5453) % 1 + 1) % 1; _gc2.copy(c).multiplyScalar(reg[t] === 2 || reg[t] === 4 ? 1 : j);   // a little per-face variation
+      for (let k = 0; k < 3; k++) col.set([_gc2.r, _gc2.g, _gc2.b], (t + k) * 3); }
+    g.attributes.color.needsUpdate = true; }
+}
+const CUFF_DEV = 35 * D2R;   // v0.77.5 the most the glove's cuff bends sideways at the wrist
+function thMix(R0, U0, W0, u, w, k, i) { const a = R0[k][i] + (U0[k][i] - R0[k][i]) * u; return a + (W0[k][i] - a) * w; }
+function buildHand(st, sx) {                      // posed glove in hand space from st.c (finger curls 0..1) and st.th (0 thumb resting .. 1 lifted)
+  const zL = sx > 0 ? _hzZ : _hzZn;   // v0.49.1: the left hand's bone frames mirror the right's (and match WebXR joints for tracked hands)
+  { const dv = clamp((st.dev || 0) * (st.ge || 0), -CUFF_DEV, CUFF_DEV), cs = Math.cos(dv), sn = Math.sin(dv); hBone(st, 0, _hs.set(sx * 0.031, 0.075 + 0.085 * cs, 0.085 * sn), _hd.set(0, -cs, -sn), 0.055, 0.05, 0.068, zL); }   // cuff (v0.77.5 bends sideways at the wrist by st.dev, up to CUFF_DEV, as the pose lab's)
+  hBone(st, 1, _hs.set(sx * 0.033, 0.05, -0.002), _hd.set(0, -1, 0), 0.083, 0.027, 0.088, zL);   // palm
+  for (let f = 0; f < 4; f++) {
+    const H = HF[f], kz = H[0], L = H[1], w = H[2], spl = H[3], c = st.c[f], e = st.ge, cs = c + (1 - G_SPL - c) * e; let a = 0.05; _hs.set(sx * 0.033, -0.03, kz);   // v0.81 no destructuring per finger per frame
+    for (let j = 0; j < 3; j++) {
+      a += FIST[j] * c + (st.ja[f * 3 + j] - FIST[j] * c) * e + (f === 0 && j && st.jx ? st.jx * e : 0); _hd.set(-sx * Math.sin(a), -Math.cos(a), 0.45 * spl * (1 - cs) + (f === 0 && st.isp ? st.isp * e : 0)).normalize();   // v0.46: solved grip angles
+      hBone(st, 2 + f * 3 + j, _hs, _hd, L[j], 0.017 - j * 0.0015, w - j * 0.001, zL); _hs.addScaledVector(_hd, L[j]);
+    }
+    if (f === 0) st.tipH.copy(_hs);
+  }
+  // thumb: blend rest -> up (st.th), -> wrap (st.tw), -> pinch (st.tp, tip target = the index pad)
+  const R0 = TH_P.rest, U0 = TH_P.up, W0 = TH_P.wrap, u = st.th, w = st.tw || 0, pn = st.tp || 0;
+  const mix = thMix;   // v0.81 a plain function (the closure was rebuilt per hand per frame)
+  _tA.set(mix(R0, U0, W0, u, w, 0, 0), mix(R0, U0, W0, u, w, 0, 1), mix(R0, U0, W0, u, w, 0, 2)); _tT.set(mix(R0, U0, W0, u, w, 1, 0), mix(R0, U0, W0, u, w, 1, 1), mix(R0, U0, W0, u, w, 1, 2));
+  if (pn > 0) { _tP.set(st.tipH.x * sx - 0.004, st.tipH.y + 0.006, st.tipH.z - 0.012); _tT.lerp(_tP, pn); _tA.lerp(_tU.set(-0.55, -0.6, -0.58), pn); }
+  if (st.ge > 0) { _tT.lerp(st.gT, st.ge); _tA.lerp(st.gA, st.ge); }   // v0.46: thumb onto the control
+  _tA.x *= sx; _tA.normalize(); _tT.x *= sx;
+  _thz.crossVectors(_tA, _thD.set(sx * 0.45, 0, -0.89)).normalize();   // v0.49.1: thumb roll from a fixed nail direction (~60 deg off the back of the hand, toward the thumb side), then carried down the next 2 bones by minimal rotation: no twist, no flips
+  _hs.set(sx * TH_B.x, TH_B.y, TH_B.z); hBone(st, 14, _hs, _tA, TH_L[0], 0.019, 0.02, _thz); _hs.addScaledVector(_tA, TH_L[0]);
+  _tU.subVectors(_tT, _hs); const D = clamp(_tU.length(), 0.012, TH_L[1] + TH_L[2] - 1e-4); _tU.normalize();      // 2-bone reach, knuckle bulging out
+  _tW.set(TH_HINT.x * sx, TH_HINT.y, TH_HINT.z).addScaledVector(_tU, -_tW.set(TH_HINT.x * sx, TH_HINT.y, TH_HINT.z).dot(_tU)); if (_tW.lengthSq() < 1e-8) _tW.set(0, 0, -1); _tW.normalize();
+  const ca = clamp((TH_L[1] * TH_L[1] + D * D - TH_L[2] * TH_L[2]) / (2 * TH_L[1] * D), -1, 1), sa = Math.sqrt(1 - ca * ca);
+  _hd.copy(_tU).multiplyScalar(ca).addScaledVector(_tW, sa); _thz.applyQuaternion(_thq.setFromUnitVectors(_tA, _hd)); _thD.copy(_hd); hBone(st, 15, _hs, _hd, TH_L[1], 0.0175, 0.0185, _thz); _hs.addScaledVector(_hd, TH_L[1]);
+  _hd.subVectors(_tT, _hs).normalize();      // last bone to the target
+  _thz.applyQuaternion(_thq.setFromUnitVectors(_thD, _hd)); hBone(st, 16, _hs, _hd, TH_L[2], 0.016, 0.017, _thz);
+}
+const GRIP_T = 0.1, G_MAX = [1.7, 1.9, 1.35], G_TUCK = [1.25, 1.45, 1.0], G_SPL = 0.3, G_STEP = 0.1;   // joint limits (rad), pinch: ring / pinky tuck, grasp splay
+const GV3 = (x, y, z) => new THREE.Vector3(x, y, z);
+const G_PIN = GV3(-0.008, -0.065, -0.042);   // pinch anchor (right hand, x mirrors): where a knob sits between thumb and index
+const _gF = new THREE.Matrix4(), _gI = new THREE.Matrix4(), _gH = new THREE.Matrix4(), _gx = GV3(0, 0, 0), _gy = GV3(0, 0, 0), _gz = GV3(0, 0, 0), _gA = GV3(0, 0, 0),
+  _ga = GV3(0, 0, 0), _gb = GV3(0, 0, 0), _gc = GV3(0, 0, 0), _gs = GV3(0, 0, 0), _gd = GV3(0, 0, 0), _gm = GV3(0, 0, 0), _gq = GV3(0, 0, 0),
+  _gP0 = GV3(0, 0, 0), _gP1 = GV3(0, 0, 0), _gS = GV3(1, 1, 1), _gQ0 = new THREE.Quaternion(), _gQ1 = new THREE.Quaternion(), _gJ = [0, 0, 0];
+function gSdf(gp, p) {   // signed distance from p (hand space) to the control's shape
+  _gq.subVectors(p, gp.C);
+  if (gp.cyl && !gp.u) { const t = _gq.dot(gp.A), rx = _gq.x - gp.A.x * t, ry = _gq.y - gp.A.y * t, rz = _gq.z - gp.A.z * t;
+    const dr = Math.sqrt(rx * rx + ry * ry + rz * rz) - gp.r, dt = Math.abs(t) - gp.hl;
+    return dr > 0 && dt > 0 ? Math.sqrt(dr * dr + dt * dt) : Math.max(dr, dt); }
+  const d = gBox(gp, gp.b);
+  if (gp.u) { _gq.subVectors(p, gp.uC); return gp.uo ? gBox(gp, gp.ub) : Math.min(d, gBox(gp, gp.ub)); }   // v0.67: a second box (the trigger blade for the rifle's index finger)
+  return d;
+}
+function gBox(gp, b) {   // signed distance to a box (half extents b, axes gp.X/Y/Z) of the point _gq (relative to its centre)
+  const qx = Math.abs(_gq.dot(gp.X)) - b.x, qy = Math.abs(_gq.dot(gp.Y)) - b.y, qz = Math.abs(_gq.dot(gp.Z)) - b.z;
+  const ox = Math.max(qx, 0), oy = Math.max(qy, 0), oz = Math.max(qz, 0);
+  return Math.sqrt(ox * ox + oy * oy + oz * oz) + Math.min(Math.max(qx, qy, qz), 0);
+}
+function gFingerHit(gp, sx, f, j0) {   // does any bone from joint j0 on (angles _gJ) touch the shape?
+  const [kz, L, , spl] = HF[f]; let a = 0.05; _gs.set(sx * 0.033, -0.03, kz);
+  for (let j = 0; j < 3; j++) {
+    a += _gJ[j]; _gd.set(-sx * Math.sin(a), -Math.cos(a), 0.45 * spl * G_SPL + (f === 0 ? gp.isp : 0)).normalize(); const rb = (0.017 - j * 0.0015) / 2 + 0.0008;
+    if (j >= j0) { _gm.copy(_gs).addScaledVector(_gd, L[j] * 0.5); if (gSdf(gp, _gm) < rb) return true; _gm.addScaledVector(_gd, L[j] * 0.5); if (gSdf(gp, _gm) < rb) return true; }
+    _gs.addScaledVector(_gd, L[j]);
+  }
+  return false;
+}
+// ================= /GAME CODE =================
+function gripSolveTail(st, D, sx) {   // gripSolve()'s finger + thumb part (index.html, verbatim below), st.Hc = the hand frame in the item's frame
+  const gp = st.gp;
+  _gI.copy(st.Hc).invert();                                                                   // shape into hand space
+  gp.cyl = D.sh === 'cyl'; gp.C.copy(D.c).applyMatrix4(_gI);
+  gp.X.set(1, 0, 0).transformDirection(_gI); gp.Y.set(0, 1, 0).transformDirection(_gI); gp.Z.set(0, 0, 1).transformDirection(_gI);
+  if (gp.cyl) { if (D.ax) gp.A.copy(D.ax).transformDirection(_gI); else gp.A.copy(D.a === 0 ? gp.X : D.a === 1 ? gp.Y : gp.Z); gp.r = D.r; gp.hl = D.hl; } else gp.b.copy(D.b);
+  for (let f = 0; f < 4; f++) {                                                               // curl joint by joint until a bone touches
+    gp.u = f === 0 && !!D.idx; if (gp.u) { gp.uC.copy(D.idx.c).applyMatrix4(_gI); gp.ub.copy(D.idx.b); gp.uo = !!D.idx.only; } gp.isp = st.isp = D.idx ? D.idx.sp : 0;   // v0.67 the index finds the trigger (the wrist is still there)
+    const lim = f === 0 && D.idx?.lim ? D.idx.lim : D.st === 'pinch' && f >= 1 ? G_TUCK : G_MAX; _gJ[0] = _gJ[1] = _gJ[2] = 0;
+    for (let j = 0; j < 3; j++) {
+      let lo = 0, hi = -1;
+      if (gFingerHit(gp, sx, f, j)) { _gJ[j] = 0; continue; }
+      for (let th = G_STEP; th <= lim[j] + 1e-6; th += G_STEP) { _gJ[j] = th; if (gFingerHit(gp, sx, f, j)) { hi = th; break; } lo = th; }
+      if (hi < 0) { _gJ[j] = lim[j]; continue; }
+      for (let n = 0; n < 4; n++) { const m = (lo + hi) / 2; _gJ[j] = m; if (gFingerHit(gp, sx, f, j)) hi = m; else lo = m; }
+      _gJ[j] = lo;
+    }
+    if (f === 0 && D.idx?.min) for (let j = 0; j < 3; j++) _gJ[j] = Math.max(_gJ[j], D.idx.min[j]);   // v0.67.2 the index hooks the blade (it is thin: a little overlap does not show)
+    st.ja[f * 3] = _gJ[0]; st.ja[f * 3 + 1] = _gJ[1]; st.ja[f * 3 + 2] = _gJ[2];
+  }
+  gp.u = false;
+  const R = D.st === 'wrap' ? TH_P.wrap : null;                                               // thumb opposes: natural tip target pulled onto the surface
+  if (R) { st.gT.set(sx * R[1][0], R[1][1], R[1][2]); st.gA.set(R[0][0], R[0][1], R[0][2]); if (D.th) st.gT.set(sx * D.th.x, D.th.y, D.th.z).applyMatrix4(_gI); } else { st.gT.set(-sx * 0.012, -0.06, -0.052); st.gA.set(-0.55, -0.6, -0.58); }   // v0.67.2 a thumb spot on the control (v0.77.1: the else was inside this comment; v0.77.2: th is for a right hand, x mirrors - it had the sign the wrong way round)
+  for (let n = 0; n < 3; n++) {
+    const d = gSdf(gp, st.gT) - 0.0085, e = 1e-4; _gm.copy(st.gT);
+    _gm.x += e; const dx = gSdf(gp, _gm); _gm.x -= e; _gm.y += e; const dy = gSdf(gp, _gm); _gm.y -= e; _gm.z += e; const dz = gSdf(gp, _gm);
+    _gd.set(dx, dy, dz).subScalar(d + 0.0085).divideScalar(e); if (_gd.lengthSq() < 1e-8) break; _gd.normalize(); st.gT.addScaledVector(_gd, -d);
+  }
+  _gd.set(sx * TH_B.x, TH_B.y, TH_B.z); _gd.subVectors(st.gT, _gd).normalize(); _gd.x *= sx;   // swing the thumb's metacarpal toward its contact so it reaches
+  st.gT.x *= sx; st.gA.normalize().lerp(_gd, 0.6).normalize();   // buildHand mixes the thumb in right-hand space
+
+}
+// ---------------------------------------------------------------------------------------------------
+const VER = 'posetool 1.0';
+const SIM = /[?&]xrsim/.test(location.search);   // test hook: drive the VR code path with fake controllers on a normal page
+const $ = id => document.getElementById(id);
+const viewEl = $('view');
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2)); renderer.xr.enabled = true; renderer.xr.setReferenceSpaceType('local-floor');
+viewEl.appendChild(renderer.domElement);
+const scene = new THREE.Scene(); scene.background = new THREE.Color(0xa9c8e4); scene.fog = new THREE.Fog(0xa9c8e4, 12, 40);
+const camera = new THREE.PerspectiveCamera(50, 1, 0.01, 100); camera.position.set(0.32, 1.38, 0.5);
+scene.add(new THREE.HemisphereLight(0xeaf2ff, 0x6b5c40, 2.2));
+const sun = new THREE.DirectionalLight(0xfff3dc, 2.4); sun.position.set(2, 4, 1.5); scene.add(sun);
+{ const fl = new THREE.Mesh(new THREE.PlaneGeometry(60, 60), new THREE.MeshLambertMaterial({ color: 0x7d8a5c })); fl.rotation.x = -Math.PI / 2; scene.add(fl);
+  const gr = new THREE.GridHelper(6, 12, 0x55603f, 0x66714a); gr.position.y = 0.002; scene.add(gr);
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 1, 8), new THREE.MeshLambertMaterial({ color: 0x8a6a40 })); pole.position.set(0, 0.5, -1.6); scene.add(pole); }
+// --------- the gloves ---------
+function gloveInitTool() {   // gloveInit() without the game's scene graph
+  const R = gloveBuild(); GLOVE.pal = -1;
+  for (let h = 0; h < 2; h++) {
+    const pos = R.pos.slice(), sk = R.sk.slice(), reg = R.reg;
+    if (h) { for (let i = 0; i < pos.length; i += 3) pos[i] = -pos[i]; for (let t = 0; t < pos.length; t += 9) for (let e = 0; e < 3; e++) { const a = pos[t + 3 + e]; pos[t + 3 + e] = pos[t + 6 + e]; pos[t + 6 + e] = a; }
+      for (let t = 0; t < sk.length; t += 9) for (let e = 0; e < 3; e++) { const a = sk[t + 3 + e]; sk[t + 3 + e] = sk[t + 6 + e]; sk[t + 6 + e] = a; } }
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('sk', new THREE.BufferAttribute(sk, 3));
+    g.setAttribute('color', new THREE.BufferAttribute(new Float32Array(pos.length), 3)); g.userData.reg = h ? Uint8Array.from(reg) : reg; GLOVE.geo[h] = g;
+    const st = mkSt(); buildHand(st, h ? -1 : 1); GLOVE.B[h] = st.R.map(m => m.clone().invert());
+  }
+  gloveColours();
+}
+function mkSt() { return { c: [0.2, 0.2, 0.2, 0.2], th: 1, tw: 0, tp: 0, ge: 0, ja: new Float32Array(12), gT: GV3(0, 0, 0), gA: GV3(0, 0, 0), tipH: GV3(0, 0, 0), isp: 0, jx: 0, dev: 0,
+  cap: Array.from({ length: HN }, () => ({ s: GV3(0, 0, 0), e: GV3(0, 0, 0), r: 0 })), M: Array.from({ length: HN }, () => new THREE.Matrix4()), R: Array.from({ length: HN }, () => new THREE.Matrix4()),
+  Hc: new THREE.Matrix4(), gp: { cyl: false, C: GV3(0, 0, 0), A: GV3(0, 0, 0), X: GV3(1, 0, 0), Y: GV3(0, 1, 0), Z: GV3(0, 0, 1), b: GV3(0, 0, 0), r: 0, hl: 0, u: false, uo: false, uC: GV3(0, 0, 0), ub: GV3(0, 0, 0), isp: 0 } }; }
+function mkGlove(ghost) {
+  const m = new THREE.Mesh(GLOVE.geo[0] || new THREE.BufferGeometry(), gloveMat()); m.frustumCulled = false; m.matrixAutoUpdate = false; m.visible = false;
+  if (ghost) { m.material.transparent = true; m.material.opacity = 0.33; m.material.depthWrite = false; m.renderOrder = 2; }
+  scene.add(m); return { mesh: m, st: mkSt() };
+}
+function poseGlove(G, W, sx, P, free) {   // P = a pose (grip state), else free = the controller's relaxed / curled hand
+  const st = G.st;
+  if (P) { st.ge = 1; st.ja.set(P.ja); st.gT.copy(P.gT); st.gA.copy(P.gA); st.isp = P.isp; st.dev = P.dev; st.jx = 0; st.th = 0; st.tw = 0; }
+  else { st.ge = 0; st.c = free.c; st.th = free.th; st.tw = free.tw; st.tp = 0; st.dev = 0; st.isp = 0; st.jx = 0; }
+  buildHand(st, sx); const h = sx > 0 ? 0 : 1; G.mesh.geometry = GLOVE.geo[h];
+  const U = G.mesh.material.userData.hSk.value; for (let k = 0; k < HN; k++) U[k].multiplyMatrices(W, st.R[k]).multiply(GLOVE.B[h][k]);
+  G.mesh.visible = true;
+}
+function freeCurl(gp) {   // handTargets(): grip curls the three lower fingers, trigger the index, thumb off the face lifts it
+  const b = gp?.buttons || [], trig = b[0]?.value ?? 0, trigT = !!(b[0]?.touched || trig > 0.05), grip = b[1]?.value ?? 0, thumbT = !!(b[3]?.touched || b[4]?.touched || b[5]?.touched);
+  return { c: [trigT ? 0.35 + 0.6 * trig : grip > 0.5 ? 0.03 : 0.28, 0.3 + 0.7 * grip, 0.34 + 0.66 * grip, 0.38 + 0.62 * grip], th: thumbT ? 0 : 1, tw: grip > 0.5 && trig > 0.5 ? 0.7 : 0 };
+}
+// --------- items, shapes, poses ---------
+const ITEMS = [
+  { k: 'rifle', name: 'RIFLE', sub: 'stock hand', model: 'rifle' }, { k: 'rifleSup', name: 'RIFLE', sub: 'forend hand', model: 'rifle' },
+  { k: 'bino', name: 'BINOCULARS', model: 'bino' }, { k: 'clip', name: 'CLIPBOARD', model: 'clip' },
+  { k: 'pbrk', name: 'PARK BRAKE', sub: 'T-handle', model: 'pbrk' }, { k: 'mic', name: 'HAND MIC', model: 'mic' }, { k: 'noz', name: 'FUEL NOZZLE', model: 'noz' }];
+const ITEM = Object.fromEntries(ITEMS.map(i => [i.k, i]));
+const shapeKey = (it, h) => ({ rifle: 'rgrip', rifleSup: 'rfore', bino: h === 'R' ? 'bR' : 'bL', clip: h === 'R' ? 'kbR' : 'kbL', noz: 'noz', mic: 'mic', pbrk: 'pbrk' })[it];
+const SH = {}, DEF = {}, MODELS = {};
+let DEFS_VER = '';
+const v3 = a => a ? GV3(a[0], a[1], a[2]) : undefined;
+function loadShapes(S) {
+  S.mic = { sh: 'box', c: [0, 0, 0], b: [0.025, 0.039, 0.014], st: 'wrap', wa: 1, wr: 0.014, wz: -0.004, tl: 0 };   // the handset body (index.html MIC box 0.05 x 0.078 x 0.028)
+  S.pbrk = { sh: 'box', c: [0, 0, 0.006], b: [0.022, 0.006, 0.005], st: 'wrap', wa: 0, wr: 0.006, wz: 0, tl: 0 };   // the T-bar (index.html PB.H box 0.044 x 0.012 x 0.01)
+  for (const k in S) { const s = S[k], D = { ...s }; for (const f of ['c', 'ax', 'wd', 'b', 'pc', 'th', 'wc', 'wo']) if (s[f]) D[f] = v3(s[f]); if (s.idx) D.idx = { ...s.idx, c: v3(s.idx.c), b: v3(s.idx.b) }; SH[k] = D; }
+}
+function mkPose(o) { return { p: v3(o.pos), q: new THREE.Quaternion().fromArray(o.quat).normalize(), ja: Float32Array.from(o.ja || new Array(12).fill(0)), gT: v3(o.gT || [0, 0, 0]), gA: v3(o.gA || [0, -1, 0]).normalize(), isp: o.isp || 0, dev: o.dev || 0, mode: o.mode || 'GAME' }; }
+function clonePose(P) { return { p: P.p.clone(), q: P.q.clone(), ja: Float32Array.from(P.ja), gT: P.gT.clone(), gA: P.gA.clone(), isp: P.isp, dev: P.dev, mode: P.mode }; }
+const poseM = (P, out) => out.compose(P.p, P.q, _one);
+const _one = GV3(1, 1, 1);
+const SOLV = mkSt();
+function autoFingers(P, it, h) {   // AUTO: the game's grip solver, each finger curled joint by joint until it touches the item's grip shape
+  const D = SH[shapeKey(it, h)]; if (!D) return; poseM(P, SOLV.Hc).invert(); gripSolveTail(SOLV, D, h === 'R' ? 1 : -1);
+  P.ja.set(SOLV.ja); P.gT.copy(SOLV.gT); P.gA.copy(SOLV.gA).normalize(); P.isp = SOLV.isp || 0; P.mode = 'AUTO';
+}
+function pbrkDefault(h) {   // the T-bar across the fist (the game has no authored hold yet: the glove goes onto the handle): bar along the hand's -Z, the shaft out of the palm toward the panel, wrist up
+  const sx = h === 'R' ? 1 : -1, M = new THREE.Matrix4().makeBasis(GV3(0, 0, -1), GV3(0, 1, 0), GV3(sx, 0, 0)), q = new THREE.Quaternion().setFromRotationMatrix(M);
+  const p = GV3(sx * (0.0155 - 0.006), -0.045, 0).sub(GV3(0, 0, 0.006).applyQuaternion(q));
+  return { pos: p.toArray(), quat: q.toArray() };
+}
+function defaultPose(it, h) {
+  const k = it + h, o = DEF[k];
+  if (o) { const P = mkPose(o); if (!o.ja) autoFingers(P, it, h); else P.mode = 'GAME'; return P; }
+  if (it === 'pbrk') { const P = mkPose(pbrkDefault(h)); autoFingers(P, it, h); return P; }
+  return null;
+}
+// --------- state ---------
+const S = { item: 'bino', hand: 'R', poses: {}, prec: 1, axes: 0, undo: [], saved: [], code: '', json: '', status: '', lastKey: '' };
+const keyOf = (it = S.item, h = S.hand) => it + h;
+const other = h => h === 'R' ? 'L' : 'R';
+const HN_ = { R: 'RIGHT', L: 'LEFT' };
+function pose(it = S.item, h = S.hand) { const k = keyOf(it, h); if (!S.poses[k]) S.poses[k] = defaultPose(it, h); return S.poses[k]; }
+function pushUndo() { S.undo.push({ k: keyOf(), item: S.item, hand: S.hand, P: clonePose(pose()) }); if (S.undo.length > 60) S.undo.shift(); }
+function doUndo() { const u = S.undo.pop(); if (!u) return say('NOTHING TO UNDO'); S.item = u.item; S.hand = u.hand; S.poses[u.k] = u.P; changed(); say('UNDONE'); }
+function persist() { try { const o = {}; for (const k in S.poses) o[k] = poseObj(S.poses[k]); localStorage.setItem('bpPoseLab.work', JSON.stringify({ item: S.item, hand: S.hand, poses: o, defs: DEFS_VER })); } catch (e) {} }
+function restore() { try { const w = JSON.parse(localStorage.getItem('bpPoseLab.work') || 'null'); if (w && w.defs === DEFS_VER) { for (const k in w.poses) S.poses[k] = mkPose(w.poses[k]); if (ITEM[w.item]) S.item = w.item; if (w.hand === 'L' || w.hand === 'R') S.hand = w.hand; } S.saved = JSON.parse(localStorage.getItem('bpPoseLab.saved') || '[]'); } catch (e) { S.saved = []; } }
+let persistT = 0;
+function changed() { MAINP.dirty = OUTP.dirty = true; persistT = 0.5; if (S.lastKey !== keyOf()) { S.lastKey = keyOf(); syncProxy(); } }
+let sayT = 0; function say(t) { S.status = t; sayT = 6; OUTP.dirty = MAINP.dirty = true; $('msg').textContent = t; }
+// --------- codes ---------
+const r = (v, k) => Math.round(v * k);
+function poseObj(P) { return { pos: P.p.toArray(), quat: P.q.toArray(), ja: Array.from(P.ja), gT: P.gT.toArray(), gA: P.gA.toArray(), isp: P.isp, dev: P.dev, mode: P.mode }; }
+function b64u(s) { return btoa(unescape(encodeURIComponent(s))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); }
+function ub64u(s) { s = s.replace(/\s+/g, '').replace(/-/g, '+').replace(/_/g, '/'); while (s.length % 4) s += '='; return decodeURIComponent(escape(atob(s))); }
+function encode(it, h, P) {   // compact JSON (ints: pos 0.1 mm, quat 1e-4, ja centiradians, gT 0.1 mm, gA 1e-2, isp / dev 1e-2), base64url
+  const q = P.q.clone().normalize(); if (q.w < 0) q.set(-q.x, -q.y, -q.z, -q.w);
+  return b64u(JSON.stringify({ v: 1, i: it, h, p: P.p.toArray().map(v => r(v, 1e4)), q: q.toArray().map(v => r(v, 1e4)), j: Array.from(P.ja, v => r(v, 100)), t: P.gT.toArray().map(v => r(v, 1e4)), a: P.gA.toArray().map(v => r(v, 100)), s: r(P.isp, 100), d: r(P.dev, 100), m: P.mode[0] }));
+}
+const MODE = { G: 'GAME', A: 'AUTO', O: 'OPEN', F: 'FIST', P: 'POINT', T: 'TRIGGER', M: 'MANUAL' };
+function decode(code) {
+  const o = JSON.parse(ub64u(code.trim())); if (o.v !== 1 || !ITEM[o.i] || !(o.h === 'L' || o.h === 'R')) throw new Error('not a Pose Lab code');
+  return { item: o.i, hand: o.h, P: mkPose({ pos: o.p.map(v => v / 1e4), quat: o.q.map(v => v / 1e4), ja: o.j.map(v => v / 100), gT: o.t.map(v => v / 1e4), gA: o.a.map(v => v / 100), isp: o.s / 100, dev: o.d / 100, mode: MODE[o.m] || 'MANUAL' }) };
+}
+function fullJSON(it, h, P) {
+  const e = new THREE.Euler().setFromQuaternion(P.q, 'XYZ'), f = (v, n) => +v.toFixed(n);
+  return { item: it, hand: h, frame: 'game hand space (index.html HOFF)', pos: P.p.toArray().map(v => f(v, 4)), quat: P.q.toArray().map(v => f(v, 4)), euler: [e.x, e.y, e.z].map(v => f(v / D2R, 1)), eulerOrder: 'XYZ',
+    fingers: { mode: P.mode, ja: Array.from(P.ja, v => f(v, 2)), gT: P.gT.toArray().map(v => f(v, 4)), gA: P.gA.toArray().map(v => f(v, 2)), isp: f(P.isp, 2), dev: f(P.dev, 2) } };
+}
+function curlPct(P, f) { return Math.round(100 * (P.ja[f * 3] + P.ja[f * 3 + 1] + P.ja[f * 3 + 2]) / (FIST[0] + FIST[1] + FIST[2])); }
+function thumbPct(P) { const u = GV3(TH_P.up[1][0], TH_P.up[1][1], TH_P.up[1][2]), w = GV3(TH_P.wrap[1][0], TH_P.wrap[1][1], TH_P.wrap[1][2]); const d = w.clone().sub(u); return Math.round(100 * clamp(P.gT.clone().sub(u).dot(d) / d.lengthSq(), -0.5, 2)); }
+function doSave() {
+  const P = pose(); S.code = encode(S.item, S.hand, P); S.codeLbl = label(S.item) + ' ' + HN_[S.hand]; S.json = JSON.stringify(fullJSON(S.item, S.hand, P));
+  const d = new Date(), t = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+  S.saved.unshift({ n: (S.saved[0]?.n || 0) + 1, t, item: S.item, hand: S.hand, code: S.code }); S.saved = S.saved.slice(0, 40);
+  try { localStorage.setItem('bpPoseLab.saved', JSON.stringify(S.saved)); } catch (e) {}
+  $('paste').value = S.code; say('SAVED #' + S.saved[0].n + ' - ' + label(S.item) + ' ' + HN_[S.hand] + ' HAND. Now COPY CODE, or take a photo of this panel.'); OUTP.dirty = true;
+}
+function label(it) { const I = ITEM[it]; return I.name + (I.sub ? ' (' + I.sub.toUpperCase() + ')' : ''); }
+async function copyText(t, what) {
+  if (!t) return say('PRESS SAVE FIRST');
+  let ok = false; try { await navigator.clipboard.writeText(t); ok = true; } catch (e) {}
+  if (!ok) try { const ta = document.createElement('textarea'); ta.value = t; document.body.appendChild(ta); ta.select(); ok = document.execCommand('copy'); ta.remove(); } catch (e) {}
+  say(ok ? what + ' COPIED - paste it into your message to VR Dev' : 'COPY WAS BLOCKED HERE. Take the headset off: the code is in the box on the page (and in SAVED), or photo this panel.');
+}
+function loadCode(code) {
+  try { const d = decode(code); pushUndo(); S.item = d.item; S.hand = d.hand; S.poses[keyOf()] = d.P; S.code = encode(d.item, d.hand, d.P); S.codeLbl = label(d.item) + ' ' + HN_[d.hand]; S.json = JSON.stringify(fullJSON(d.item, d.hand, d.P)); changed(); say('LOADED ' + label(d.item) + ' - ' + HN_[d.hand] + ' HAND'); return true; }
+  catch (e) { say('THAT IS NOT A WHOLE POSE LAB CODE - copy all of it (it starts with eyJ)'); return false; }
+}
+// --------- edits ---------
+function setFingers(mode) {
+  pushUndo(); const P = pose(), F = (c, f) => { for (let j = 0; j < 3; j++) P.ja[f * 3 + j] = FIST[j] * c; };
+  const thumb = k => { const u = TH_P.up, w = TH_P.wrap; P.gT.set(u[1][0] + (w[1][0] - u[1][0]) * k, u[1][1] + (w[1][1] - u[1][1]) * k, u[1][2] + (w[1][2] - u[1][2]) * k); P.gA.set(u[0][0] + (w[0][0] - u[0][0]) * k, u[0][1] + (w[0][1] - u[0][1]) * k, u[0][2] + (w[0][2] - u[0][2]) * k).normalize(); };
+  if (mode === 'GAME') { const D = defaultPose(S.item, S.hand); P.ja.set(D.ja); P.gT.copy(D.gT); P.gA.copy(D.gA); P.isp = D.isp; P.dev = D.dev; P.mode = D.mode; }
+  else if (mode === 'AUTO') autoFingers(P, S.item, S.hand);
+  else { const c = { OPEN: [0.12, 0.12, 0.12, 0.12], FIST: [1, 1, 1, 1], POINT: [0.04, 1, 1, 1], TRIGGER: [0.5, 1, 1, 1] }[mode]; for (let f = 0; f < 4; f++) F(c[f], f); thumb(mode === 'OPEN' ? 0 : 1); P.isp = 0; P.mode = mode; }
+  changed();
+}
+function nudgeFinger(f, d) {   // f 0..3 index..pinky, 4 thumb
+  pushUndo(); const P = pose();
+  if (f < 4) for (let j = 0; j < 3; j++) P.ja[f * 3 + j] = clamp(P.ja[f * 3 + j] + d * 0.12 * FIST[j], 0, G_MAX[j]);
+  else { const tg = d > 0 ? TH_P.wrap : TH_P.up, k = 0.25; P.gT.lerp(GV3(tg[1][0], tg[1][1], tg[1][2]), k); P.gA.lerp(GV3(tg[0][0], tg[0][1], tg[0][2]), k).normalize(); }
+  P.mode = 'MANUAL'; changed();
+}
+function mirrorFromOther() {
+  const o = S.poses[keyOf(S.item, other(S.hand))] || pose(S.item, other(S.hand)); if (!o) return; pushUndo();
+  const P = clonePose(o); P.p.x = -P.p.x; P.q.set(P.q.x, -P.q.y, -P.q.z, P.q.w); S.poses[keyOf()] = P; changed(); say('COPIED THE ' + HN_[other(S.hand)] + ' HAND\'S POSE, MIRRORED');
+}
+function resetGame() { pushUndo(); S.poses[keyOf()] = defaultPose(S.item, S.hand); changed(); say('BACK TO THE GAME\'S CURRENT POSE (' + DEFS_VER + ')'); }
+function squareUp() { pushUndo(); const P = pose(), e = new THREE.Euler().setFromQuaternion(P.q, 'XYZ'), s = 15 * D2R; e.set(Math.round(e.x / s) * s, Math.round(e.y / s) * s, Math.round(e.z / s) * s, 'XYZ'); P.q.setFromEuler(e); if (P.mode === 'AUTO') autoFingers(P, S.item, S.hand); changed(); say('ROTATION SQUARED TO 15 DEG STEPS'); }
+// --------- frames in the world ---------
+const isSup = () => S.item === 'rifleSup';
+const holdHand = () => isSup() ? other(S.hand) : S.hand;   // the hand whose controller carries the item
+const _m1 = new THREE.Matrix4(), _m2 = new THREE.Matrix4(), _m3 = new THREE.Matrix4(), _p1 = GV3(0, 0, 0), _q1 = new THREE.Quaternion(), _s1 = GV3(1, 1, 1);
+const DESK_W = new THREE.Matrix4().makeTranslation(0, 1.2, 0).multiply(HOFF);   // PC: the controller held level in front of you, pointing ahead
+function itemWorld(handW, out) {   // the item from the hand that carries it
+  const P = isSup() ? pose('rifle', holdHand()) : pose(); return out.multiplyMatrices(handW, poseM(P, _m3));
+}
+function targetWorld(handW, out) {   // what an edit moves: the item, or (rifle forend) the forend glove
+  itemWorld(handW, out); if (isSup()) out.multiply(poseM(pose(), _m3).invert()); return out;
+}
+function setFromTargetWorld(handW, Wt) {   // inverse of targetWorld: write the pose
+  const P = pose(); if (isSup()) { _m1.copy(Wt).invert().multiply(itemWorld(handW, _m2)); } else _m1.copy(handW).invert().multiply(Wt);
+  _m1.decompose(P.p, P.q, _s1); P.q.normalize(); if (P.mode === 'AUTO') autoFingers(P, S.item, S.hand); else if (P.mode === 'GAME') P.mode = 'MANUAL';
+  MAINP.dirty = OUTP.dirty = true; persistT = 0.5;
+}
+// --------- the item meshes ---------
+const itemObj = new THREE.Group(); itemObj.matrixAutoUpdate = false; scene.add(itemObj);
+let itemShown = '';
+function showItem() { const m = ITEM[S.item].model; if (itemShown === m) return; itemShown = m; itemObj.clear(); if (MODELS[m]) itemObj.add(MODELS[m]); }
+const axesH = new THREE.AxesHelper(0.05); axesH.matrixAutoUpdate = false; axesH.material.depthTest = false; axesH.renderOrder = 5; scene.add(axesH);
+// --------- panels: one canvas each, the same canvas is the VR texture and (on a PC) the page's panel ---------
+class Panel {
+  constructor(el, w, h, metres) {
+    this.cv = el; el.width = w; el.height = h; this.w = w; this.h = h; this.g = el.getContext('2d'); this.btns = []; this.hov = [-1, -1]; this.dirty = true; this.flash = -1; this.flashT = 0;
+    this.tex = new THREE.CanvasTexture(el); this.tex.colorSpace = THREE.SRGBColorSpace; this.tex.anisotropy = 4;
+    this.mesh = new THREE.Mesh(new THREE.PlaneGeometry(metres, metres * h / w), new THREE.MeshBasicMaterial({ map: this.tex, toneMapped: false })); this.mesh.userData.panel = this; this.mesh.visible = false; scene.add(this.mesh);
+    el.addEventListener('click', e => { const b = el.getBoundingClientRect(); this.press((e.clientX - b.left) * w / b.width, (e.clientY - b.top) * h / b.height); });
+    el.addEventListener('mousemove', e => { const b = el.getBoundingClientRect(); const i = this.hit((e.clientX - b.left) * w / b.width, (e.clientY - b.top) * h / b.height); if (i !== this.hov[0]) { this.hov[0] = i; this.dirty = true; } });
+  }
+  hit(x, y) { for (let i = this.btns.length - 1; i >= 0; i--) { const b = this.btns[i]; if (b.fn && x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h) return i; } return -1; }
+  press(x, y) { const i = this.hit(x, y); if (i < 0) return false; this.flash = i; this.flashT = 0.18; this.dirty = true; this.btns[i].fn(); return true; }
+  begin() { const g = this.g; this.btns = []; g.fillStyle = '#1b232c'; g.fillRect(0, 0, this.w, this.h); g.strokeStyle = '#f0c040'; g.lineWidth = 6; g.strokeRect(3, 3, this.w - 6, this.h - 6); g.textBaseline = 'middle'; }
+  text(t, x, y, size = 30, col = '#e8e8e0', align = 'left', bold = false, font = 'system-ui, sans-serif') { const g = this.g; g.font = (bold ? 'bold ' : '') + size + 'px ' + font; g.fillStyle = col; g.textAlign = align; g.fillText(t, x, y); }
+  wrap(t, x, y, w, size, col, lh, bold) { const g = this.g; g.font = (bold ? 'bold ' : '') + size + 'px system-ui, sans-serif'; const words = t.split(' '); let line = '', n = 0;
+    for (const wd of words) { const tt = line ? line + ' ' + wd : wd; if (g.measureText(tt).width > w && line) { this.text(line, x, y + n * lh, size, col, 'left', bold); n++; line = wd; } else line = tt; } if (line) { this.text(line, x, y + n * lh, size, col, 'left', bold); n++; } return n; }
+  btn(x, y, w, h, label, fn, on = false, size = 30, sub = '') {
+    const g = this.g, i = this.btns.length, hv = this.hov[0] === i || this.hov[1] === i, fl = this.flash === i && this.flashT > 0; this.btns.push({ x, y, w, h, fn });
+    g.fillStyle = fl ? '#ffffff' : on ? '#f0c040' : hv ? '#56708a' : '#34485c'; rr(g, x, y, w, h, 12); g.fill();
+    if (hv) { g.strokeStyle = '#f0c040'; g.lineWidth = 5; rr(g, x, y, w, h, 12); g.stroke(); }
+    const tc = on || fl ? '#1b232c' : '#ffffff'; if (sub) { this.text(label, x + w / 2, y + h * 0.38, size, tc, 'center', true); this.text(sub, x + w / 2, y + h * 0.74, size * 0.66, tc, 'center'); } else this.text(label, x + w / 2, y + h / 2 + 1, size, tc, 'center', true);
+  }
+  end() { this.tex.needsUpdate = true; this.dirty = false; }
+}
+function rr(g, x, y, w, h, r) { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); }
+const MAINP = new Panel($('cMain'), 1024, 1400, 0.5), OUTP = new Panel($('cOut'), 1024, 1180, 0.46);
+function instr() {
+  const I = ITEM[S.item], H = HN_[S.hand], O = HN_[other(S.hand)];
+  if (!inVR()) return isSup() ? 'The rifle is in your ' + O + ' hand (set that with RIFLE / stock hand). Drag the arrows (move) or rings (turn) on the ' + H + ' glove to place your forend hand on the rifle.' : 'Your ' + H + ' hand holds the ' + I.name + '. Drag the coloured arrows (move) or rings (turn) on it. T = move, R = turn, Ctrl+Z = undo. Drag empty space to look around.';
+  if (isSup()) return 'Your ' + O + ' hand holds the rifle at the wrist (change that with the RIFLE stock-hand button). The solid ' + H + ' glove on the forend is the pose you are setting: squeeze the GRIP on your ' + H + ' hand and move it - that glove follows.';
+  return 'Your ' + H + ' hand holds the ' + I.name + (S.item === 'pbrk' ? ' (in the game your glove goes onto the handle - here it rides your hand)' : '') + '. To move it: squeeze the GRIP on your ' + O + ' hand and move / turn that hand - the item follows. Sticks nudge it. Happy? Press SAVE.';
+}
+function drawMain() {
+  const p = MAINP, P = pose(), W = 1024; p.begin();
+  p.text('POSE LAB', 30, 46, 50, '#f0c040', 'left', true); p.text('Bush Pilot VR  -  items from ' + DEFS_VER, 994, 46, 24, '#9aa4ae', 'right');
+  p.g.fillStyle = '#26323e'; rr(p.g, 24, 82, W - 48, 150, 12); p.g.fill(); p.wrap(instr(), 42, 112, W - 84, 27, '#ffffff', 34);
+  let y = 262; p.text('1  ITEM', 30, y, 30, '#f0c040', 'left', true); y += 24;
+  ITEMS.forEach((it, i) => { const c = i % 4, rw = Math.floor(i / 4); p.btn(24 + c * 246, y + rw * 100, 234, 88, it.name, () => { if (S.item !== it.k) { S.item = it.k; changed(); } }, S.item === it.k, it.name.length > 10 ? 26 : 30, it.sub || ''); });
+  y += 214; p.text('2  WHICH HAND ' + (isSup() ? 'IS ON THE FOREND' : 'HOLDS IT'), 30, y, 30, '#f0c040', 'left', true); y += 24;
+  p.btn(24, y, 234, 84, 'LEFT', () => { S.hand = 'L'; changed(); }, S.hand === 'L', 32); p.btn(270, y, 234, 84, 'RIGHT', () => { S.hand = 'R'; changed(); }, S.hand === 'R', 32);
+  p.btn(516, y, 484, 84, 'COPY FROM ' + HN_[other(S.hand)] + ' HAND', mirrorFromOther, false, 26, 'mirrored onto this hand');
+  y += 120; p.text('3  MOVE IT', 30, y, 30, '#f0c040', 'left', true); p.text(inVR() ? 'grip on the other hand = grab + move  |  sticks = nudge' : 'drag the gizmo  |  T move  R turn', 994, y, 22, '#9aa4ae', 'right'); y += 24;
+  p.btn(24, y, 234, 84, S.prec === 1 ? 'SPEED 1x' : 'SPEED 1/4x', () => { S.prec = S.prec === 1 ? 0.25 : 1; changed(); }, S.prec !== 1, 28, 'slow = fine');
+  p.btn(270, y, 234, 84, S.axes ? 'STICKS: B' : 'STICKS: A', () => { S.axes ^= 1; changed(); }, S.axes === 1, 28, 'or press A / X');
+  p.btn(516, y, 234, 84, 'UNDO', doUndo, false, 30); p.btn(762, y, 238, 84, 'SQUARE UP', squareUp, false, 28, '15 deg steps');
+  y += 96; p.btn(24, y, 480, 70, 'RESET TO GAME POSE', resetGame, false, 26); p.btn(516, y, 484, 70, 'RECENTRE PANELS', placePanels, false, 26);
+  y += 80; p.text(S.axes ? 'STICKS B:  left = up / down + in / out   right = roll' : 'STICKS A:  left = left / right + fwd / back   right = turn + tilt', 30, y + 10, 23, '#c8ccc0');
+  y += 50; p.text('4  FINGERS', 30, y, 30, '#f0c040', 'left', true); p.text('now: ' + P.mode, 994, y, 24, '#9aa4ae', 'right'); y += 24;
+  ['GAME', 'AUTO', 'OPEN', 'FIST', 'POINT', 'TRIGGER'].forEach((m, i) => p.btn(24 + i * 164, y, 154, 76, m, () => setFingers(m), P.mode === m, 25, ['as now', 'wrap item', '', '', '', ''][i]));
+  y += 92; ['THUMB', 'INDEX', 'MIDDLE', 'RING', 'PINKY'].forEach((n, i) => { const f = i === 0 ? 4 : i - 1, c = i % 2, rw = Math.floor(i / 2), x = 24 + c * 496, yy = y + rw * 78, v = f === 4 ? thumbPct(P) : curlPct(P, f);
+    p.text(n, x + 6, yy + 34, 26, '#ffffff', 'left', true); p.g.fillStyle = '#0f1419'; p.g.fillRect(x + 124, yy + 22, 170, 24); p.g.fillStyle = '#f0c040'; p.g.fillRect(x + 124, yy + 22, 170 * clamp(v / 110, 0, 1), 24); p.text(v + '%', x + 300, yy + 34, 22, '#c8ccc0');
+    p.btn(x + 360, yy + 4, 60, 62, '-', () => nudgeFinger(f, -1), false, 40); p.btn(x + 426, yy + 4, 60, 62, '+', () => nudgeFinger(f, 1), false, 40); });
+  y += 240; p.text('5  SEND IT', 30, y, 30, '#f0c040', 'left', true); y += 24;
+  p.btn(24, y, 480, 96, 'SAVE', doSave, false, 40, 'shows the code on the other panel'); p.btn(516, y, 484, 96, 'COPY CODE', () => copyText(S.code, 'CODE'), false, 36, 'to the clipboard');
+  p.end();
+}
+function drawOut() {
+  const p = OUTP, W = 1024; p.begin(); const P = pose();
+  p.text('YOUR POSE', 30, 46, 44, '#f0c040', 'left', true);
+  const e = new THREE.Euler().setFromQuaternion(P.q, 'XYZ');
+  p.text(label(S.item) + '  -  ' + HN_[S.hand] + ' HAND', 30, 100, 30, '#ffffff', 'left', true);
+  p.text('pos mm   x ' + (P.p.x * 1000).toFixed(1) + '   y ' + (P.p.y * 1000).toFixed(1) + '   z ' + (P.p.z * 1000).toFixed(1), 30, 144, 28, '#c8ccc0', 'left', false, 'monospace');
+  p.text('turn deg x ' + (e.x / D2R).toFixed(1) + '   y ' + (e.y / D2R).toFixed(1) + '   z ' + (e.z / D2R).toFixed(1), 30, 182, 28, '#c8ccc0', 'left', false, 'monospace');
+  p.text('fingers  ' + P.mode + '  T' + thumbPct(P) + ' I' + curlPct(P, 0) + ' M' + curlPct(P, 1) + ' R' + curlPct(P, 2) + ' P' + curlPct(P, 3), 30, 220, 28, '#c8ccc0', 'left', false, 'monospace');
+  p.text(S.code ? 'CODE - ' + S.codeLbl + ' (last saved)' : 'CODE  (press SAVE to make it, then COPY CODE)', 30, 278, 26, '#f0c040', 'left', true);
+  p.g.fillStyle = '#0f1419'; rr(p.g, 24, 300, W - 48, 330, 10); p.g.fill();
+  if (S.code) { const L = 46; for (let i = 0, n = 0; i < S.code.length; i += L, n++) p.text(S.code.slice(i, i + L), 40, 326 + n * 34, 30, '#9dff9d', 'left', false, 'monospace'); }
+  else p.text('- not saved yet -', W / 2, 465, 30, '#66707a', 'center');
+  p.text('SAVED POSES (newest first, kept in this browser)  -  point + trigger to load', 30, 664, 23, '#f0c040', 'left', true);
+  S.saved.slice(0, 5).forEach((s, i) => { const y = 690 + i * 70; p.btn(24, y, W - 48, 60, '#' + s.n + '   ' + s.t + '   ' + label(s.item) + '   ' + HN_[s.hand], () => loadCode(s.code), s.code === S.code, 26); });
+  p.g.fillStyle = '#26323e'; rr(p.g, 24, 1060, W - 48, 106, 10); p.g.fill(); p.wrap(S.status || 'Tip: if copying does not work, take a photo of this panel (Meta button + trigger) and send that.', 40, 1088, W - 80, 25, '#ffffff', 32);
+  p.end();
+}
+// --------- the opposite-side view (VR) ---------
+const VIEW = { rt: new THREE.WebGLRenderTarget(512, 512, { samples: 2 }), cam: new THREE.PerspectiveCamera(38, 1, 0.01, 20), n: 0 };
+VIEW.rt.texture.colorSpace = THREE.SRGBColorSpace;
+VIEW.mesh = new THREE.Mesh(new THREE.PlaneGeometry(0.34, 0.34), new THREE.MeshBasicMaterial({ map: VIEW.rt.texture, toneMapped: false })); VIEW.mesh.visible = false; scene.add(VIEW.mesh);
+{ const c = document.createElement('canvas'); c.width = 512; c.height = 64; const g = c.getContext('2d'); g.fillStyle = '#1b232c'; g.fillRect(0, 0, 512, 64); g.fillStyle = '#f0c040'; g.font = 'bold 30px system-ui'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('VIEW FROM THE OTHER SIDE', 256, 33);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; VIEW.cap = new THREE.Mesh(new THREE.PlaneGeometry(0.34, 0.0425), new THREE.MeshBasicMaterial({ map: t, toneMapped: false })); VIEW.cap.position.y = 0.192; VIEW.mesh.add(VIEW.cap); }
+// --------- controllers (real XR, or ?xrsim fakes for the tests) ---------
+const CT = [0, 1].map(i => { const c = { i, grip: SIM ? new THREE.Object3D() : renderer.xr.getControllerGrip(i), ray: SIM ? new THREE.Object3D() : renderer.xr.getController(i), src: null, hand: null, pb: [], drag: null, W: new THREE.Matrix4() };
+  scene.add(c.grip, c.ray);
+  const lg = new THREE.BufferGeometry().setFromPoints([GV3(0, 0, 0), GV3(0, 0, -1)]); c.line = new THREE.Line(lg, new THREE.LineBasicMaterial({ color: 0xffe080 })); c.ray.add(c.line); c.line.visible = false;
+  c.dot = new THREE.Mesh(new THREE.SphereGeometry(0.006, 8, 6), new THREE.MeshBasicMaterial({ color: 0xffe080, depthTest: false })); c.dot.renderOrder = 6; c.dot.visible = false; scene.add(c.dot);
+  if (!SIM) { c.ray.addEventListener('connected', e => { c.src = e.data; c.hand = e.data.handedness === 'left' ? 'L' : 'R'; if (!e.data.gamepad) c.src = null; });
+    c.ray.addEventListener('disconnected', () => { c.src = null; c.hand = null; });
+    c.ray.addEventListener('selectstart', () => pressRay(c)); }   // a select is a user gesture: COPY CODE can reach the clipboard
+  return c; });
+const GA = mkGlove(false), GB = mkGlove(false), GH = [mkGlove(true), mkGlove(true)];
+const inVR = () => renderer.xr.isPresenting || SIM;
+const ctrlFor = h => CT.find(c => c.src && c.hand === h);
+const PANELS = [MAINP, OUTP];
+const _rc = new THREE.Raycaster(), _ro = GV3(0, 0, 0), _rd = GV3(0, 0, 0);
+function rayHit(c) {
+  c.ray.updateMatrixWorld(); _ro.setFromMatrixPosition(c.ray.matrixWorld); _rd.set(0, 0, -1).transformDirection(c.ray.matrixWorld); _rc.set(_ro, _rd);
+  const hits = _rc.intersectObjects(PANELS.map(p => p.mesh), false); if (!hits.length) return null; const h = hits[0], p = h.object.userData.panel;
+  return { p, x: h.uv.x * p.w, y: (1 - h.uv.y) * p.h, d: h.distance, pt: h.point };
+}
+function pressRay(c) { const h = rayHit(c); if (h && h.p.press(h.x, h.y)) buzz(c, 0.35, 25); }
+function buzz(c, a, ms) { try { c.src?.gamepad?.hapticActuators?.[0]?.pulse(a, ms); } catch (e) {} }
+let placeNext = false;
+function placePanels() {
+  const xc = renderer.xr.isPresenting ? renderer.xr.getCamera() : camera; xc.updateMatrixWorld(); const hp = GV3(0, 0, 0).setFromMatrixPosition(xc.matrixWorld), fw = GV3(0, 0, -1).transformDirection(xc.matrixWorld); fw.y = 0;
+  if (fw.lengthSq() < 1e-4) fw.set(0, 0, -1); fw.normalize(); const yaw = Math.atan2(-fw.x, -fw.z), at = (a, d, dy) => GV3(-Math.sin(yaw + a) * d, 0, -Math.cos(yaw + a) * d).add(hp).setY(hp.y + dy);
+  MAINP.mesh.position.copy(at(0.66, 0.8, -0.17)); OUTP.mesh.position.copy(at(-0.66, 0.8, -0.17)); VIEW.mesh.position.copy(at(0, 0.95, 0.2));
+  for (const m of [MAINP.mesh, OUTP.mesh, VIEW.mesh]) { m.lookAt(hp); m.visible = true; }
+  placeNext = false;
+}
+function edge(c, b, thr = 0.5) { const v = c.src?.gamepad?.buttons?.[b]?.value ?? 0, on = v > thr, was = !!c.pb[b]; c.pb[b] = on; return on && !was ? 1 : !on && was ? -1 : 0; }
+function handW(c, out) { c.grip.updateMatrixWorld(); return out.multiplyMatrices(c.grip.matrixWorld, HOFF); }
+const _dp = GV3(0, 0, 0), _dq = new THREE.Quaternion(), _cp = GV3(0, 0, 0), _cq = new THREE.Quaternion(), _tw = new THREE.Matrix4(), _id = new THREE.Quaternion();
+function vrTick(dt) {
+  const hold = ctrlFor(holdHand());
+  for (const c of CT) {
+    if (!c.src) { c.line.visible = c.dot.visible = false; continue; }
+    handW(c, c.W);
+    // the panels: aim + trigger
+    const h = rayHit(c), hi = h ? h.p.hit(h.x, h.y) : -1;
+    for (const p of PANELS) { const v = h && h.p === p ? hi : -1; if (p.hov[c.i] !== v) { p.hov[c.i] = v; p.dirty = true; } }
+    c.line.visible = true; c.line.scale.z = h ? h.d : 0.6; c.dot.visible = !!h; if (h) c.dot.position.copy(h.pt);
+    if (SIM && edge(c, 0) === 1) pressRay(c);
+    if (edge(c, 4) === 1) { S.axes ^= 1; MAINP.dirty = true; say(S.axes ? 'STICKS B: left = up / down, right = roll' : 'STICKS A: left = slide, right = turn + tilt'); buzz(c, 0.3, 20); }
+    if (edge(c, 3) === 1) placePanels();   // stick click: panels back in front of you
+    // the grab: the grip on the hand that is not carrying the item
+    const g = edge(c, 1);
+    if (g === 1) { if (c === hold) say('THAT HAND HOLDS THE ITEM - squeeze the GRIP on your ' + HN_[other(c.hand)] + ' hand to move it'); else if (hold) {
+      pushUndo(); c.grip.updateMatrixWorld(); c.grip.matrixWorld.decompose(_cp, _cq, _s1); targetWorld(hold.W, _tw).decompose(_p1, _q1, _s1);
+      c.drag = { cp: _cp.clone(), cq: _cq.clone(), tp: _p1.clone(), tq: _q1.clone() }; buzz(c, 0.4, 20); } }
+    if (g === -1) c.drag = null;
+  }
+  for (const c of CT) if (c.drag && hold && c.src) {
+    c.grip.matrixWorld.decompose(_cp, _cq, _s1); const d = c.drag;
+    _dp.subVectors(_cp, d.cp).multiplyScalar(S.prec).add(d.tp); _dq.copy(_cq).multiply(_q1.copy(d.cq).invert()); if (S.prec !== 1) _dq.copy(_id.identity().slerp(_dq, S.prec)); _dq.multiply(d.tq);
+    setFromTargetWorld(hold.W, _tw.compose(_dp, _dq, _one));
+  }
+  if (hold) sticks(dt);
+  // draw: the carried item + its glove, the forend glove for the rifle, see-through gloves on the free controllers
+  if (hold) { itemObj.matrix.copy(itemWorld(hold.W, _m1)); itemObj.visible = true; poseGlove(GA, hold.W, holdHand() === 'R' ? 1 : -1, isSup() ? pose('rifle', holdHand()) : pose()); } else { itemObj.visible = false; GA.mesh.visible = false; }
+  forendGlove(hold ? hold.W : null);
+  CT.forEach((c, i) => { if (c.src && c !== hold) poseGlove(GH[i], c.W, c.hand === 'R' ? 1 : -1, null, freeCurl(c.src.gamepad)); else GH[i].mesh.visible = false; });
+  axesH.visible = !!hold; if (hold) axesH.matrix.copy(hold.W);
+}
+function forendGlove(W) {   // the rifle's other hand: shown with the stock-hand pose too, so you see both
+  if (!W || (S.item !== 'rifle' && !isSup())) { GB.mesh.visible = false; return; }
+  const h = isSup() ? S.hand : other(S.hand); itemWorld(W, _m1).multiply(poseM(pose('rifleSup', h), _m2).invert()); poseGlove(GB, _m1, h === 'R' ? 1 : -1, pose('rifleSup', h));
+}
+function stickAx(c) { const a = c?.src?.gamepad?.axes || [], x = a.length >= 4 ? a[2] : a[0] || 0, y = a.length >= 4 ? a[3] : a[1] || 0; return [Math.abs(x) > 0.15 ? x : 0, Math.abs(y) > 0.15 ? y : 0]; }
+function sticks(dt) {
+  const [lx, ly] = stickAx(ctrlFor('L')), [rx, ry] = stickAx(ctrlFor('R'));
+  if (!lx && !ly && !rx && !ry) { S.nudging = false; return; } if (!S.nudging) { pushUndo(); S.nudging = true; }
+  const v = 0.04 * S.prec * dt, w = 40 * D2R * S.prec * dt;
+  _dp.set(lx * v, S.axes ? -ly * v : 0, S.axes ? 0 : ly * v);
+  _dq.setFromEuler(new THREE.Euler(-ry * w, S.axes ? 0 : -rx * w, S.axes ? -rx * w : 0, 'XYZ'));
+  nudge(_dp, _dq);
+}
+function nudge(dp, dq) {   // move / turn what you are editing along the hand's own axes
+  const P = pose();
+  if (isSup()) { poseM(P, _m1).invert().decompose(_p1, _q1, _s1); _p1.add(dp.clone().applyQuaternion(_q1)); _q1.multiply(dq); _m1.compose(_p1, _q1, _one).invert().decompose(P.p, P.q, _s1); }
+  else { P.p.add(dp); P.q.premultiply(dq); }
+  P.q.normalize(); if (P.mode === 'AUTO') autoFingers(P, S.item, S.hand); else if (P.mode === 'GAME') P.mode = 'MANUAL'; MAINP.dirty = OUTP.dirty = true; persistT = 0.5;
+}
+function viewRender() {   // a second camera on the far side of the held hand, looking back at it
+  const hold = ctrlFor(holdHand()); if (!hold || !VIEW.mesh.visible) return; if ((VIEW.n++ & 1) && !SIM) return;
+  const xc = renderer.xr.isPresenting ? renderer.xr.getCamera() : camera; const hp = GV3(0, 0, 0).setFromMatrixPosition(xc.matrixWorld), tp = GV3(0, 0, 0).setFromMatrixPosition(hold.W);
+  const d = tp.clone().sub(hp); d.y = 0; if (d.lengthSq() < 1e-4) d.set(0, 0, -1); d.normalize(); VIEW.cam.position.copy(tp).addScaledVector(d, 0.42).add(_p1.set(0, 0.06, 0)); VIEW.cam.lookAt(tp); VIEW.cam.updateMatrixWorld();
+  const vis = [MAINP.mesh.visible, OUTP.mesh.visible]; MAINP.mesh.visible = OUTP.mesh.visible = VIEW.mesh.visible = false; CT.forEach(c => { c.line.visible = false; });
+  const xe = renderer.xr.enabled; renderer.xr.enabled = false; const old = renderer.getRenderTarget(); renderer.setRenderTarget(VIEW.rt); renderer.render(scene, VIEW.cam); renderer.setRenderTarget(old); renderer.xr.enabled = xe;
+  MAINP.mesh.visible = vis[0]; OUTP.mesh.visible = vis[1]; VIEW.mesh.visible = true; CT.forEach(c => { c.line.visible = !!c.src; });
+}
+// --------- PC: orbit + gizmo ---------
+const orbit = new OrbitControls(camera, renderer.domElement); orbit.target.set(0, 1.17, -0.04); orbit.enableDamping = true; orbit.minDistance = 0.12; orbit.maxDistance = 3;
+const proxy = new THREE.Object3D(); scene.add(proxy);
+const tc = new TransformControls(camera, renderer.domElement); tc.setSize(0.7); tc.setSpace('local'); tc.attach(proxy); scene.add(tc);
+let tcDrag = false;
+tc.addEventListener('dragging-changed', e => { orbit.enabled = !e.value; tcDrag = e.value; if (e.value) pushUndo(); });
+tc.addEventListener('objectChange', () => { if (!tcDrag) return; proxy.updateMatrixWorld(); setFromTargetWorld(DESK_W, _tw.copy(proxy.matrixWorld)); });
+function syncProxy() { if (tcDrag) return; targetWorld(DESK_W, _tw).decompose(proxy.position, proxy.quaternion, _s1); proxy.scale.set(1, 1, 1); }
+addEventListener('keydown', e => { if (e.target.tagName === 'TEXTAREA') return; const k = e.key.toLowerCase();
+  if ((e.ctrlKey || e.metaKey) && k === 'z') { doUndo(); e.preventDefault(); } else if (k === 't') tc.setMode('translate'); else if (k === 'r') tc.setMode('rotate'); else if (k === 'l') tc.setSpace(tc.space === 'local' ? 'world' : 'local'); });
+function deskTick() {
+  syncProxy(); itemObj.matrix.copy(itemWorld(DESK_W, _m1)); itemObj.visible = true; poseGlove(GA, DESK_W, holdHand() === 'R' ? 1 : -1, isSup() ? pose('rifle', holdHand()) : pose());
+  forendGlove(DESK_W); GH[0].mesh.visible = GH[1].mesh.visible = false; axesH.visible = true; axesH.matrix.copy(DESK_W); orbit.update();
+}
+// --------- loop ---------
+function resize() { const w = viewEl.clientWidth, h = viewEl.clientHeight; renderer.setSize(w, h); camera.aspect = w / h; camera.updateProjectionMatrix(); }
+addEventListener('resize', resize); resize();
+renderer.xr.addEventListener('sessionstart', () => { placeNext = true; tc.detach(); tc.visible = false; S.status = ''; MAINP.dirty = OUTP.dirty = true; });
+renderer.xr.addEventListener('sessionend', () => { for (const m of [MAINP.mesh, OUTP.mesh, VIEW.mesh]) m.visible = false; tc.attach(proxy); tc.visible = true; CT.forEach(c => { c.src = null; c.drag = null; c.dot.visible = c.line.visible = false; }); MAINP.dirty = OUTP.dirty = true; });
+let lastT = 0, READY = false;
+renderer.setAnimationLoop(t => {
+  const dt = Math.min(0.05, Math.max(0, (t - lastT) / 1000)); lastT = t; if (!READY) { renderer.render(scene, camera); return; }
+  if (placeNext && (!renderer.xr.isPresenting || renderer.xr.getCamera().matrixWorld.elements[13] !== 0)) placePanels();
+  showItem(); if (S.lastKey !== keyOf()) changed();
+  if (inVR()) vrTick(dt); else deskTick();
+  for (const p of PANELS) if (p.flashT > 0) { p.flashT -= dt; if (p.flashT <= 0) p.dirty = true; }
+  if (MAINP.dirty) drawMain(); if (OUTP.dirty) drawOut();
+  if (persistT > 0 && (persistT -= dt) <= 0) persist();
+  if (sayT > 0 && (sayT -= dt) <= 0) $('msg').textContent = '';
+  viewRender(); renderer.render(scene, camera);
+});
+// --------- page buttons ---------
+$('bLoad').onclick = () => loadCode($('paste').value);
+$('bCopy').onclick = () => copyText(S.code || encode(S.item, S.hand, pose()), 'CODE');
+$('bCopyJ').onclick = () => copyText(JSON.stringify(fullJSON(S.item, S.hand, pose()), null, 1), 'JSON');
+$('bCopyAll').onclick = () => copyText(S.saved.map(s => '#' + s.n + ' ' + s.t + ' ' + label(s.item) + ' ' + HN_[s.hand] + '\n' + s.code).join('\n\n'), 'ALL SAVED CODES');
+if (navigator.share) { $('bShare').style.display = ''; $('bShare').onclick = () => { if (!S.code) return say('PRESS SAVE FIRST'); navigator.share({ title: 'Pose Lab code', text: label(S.item) + ' ' + HN_[S.hand] + ' hand\n' + S.code }).catch(() => {}); }; }
+// --------- start ---------
+(async () => {
+  try {
+    const [defs, gltf] = await Promise.all([fetch('posetool/defaults.json').then(r => r.json()), new GLTFLoader().loadAsync('posetool/items.glb')]);
+    DEFS_VER = defs.ver; Object.assign(DEF, defs.POSES); loadShapes(defs.SHAPES);
+    for (const it of ['rifle', 'bino', 'clip', 'noz', 'mic', 'pbrk']) { const o = gltf.scene.getObjectByName(it); if (o) { o.parent?.remove(o); o.position.set(0, 0, 0); o.quaternion.identity(); MODELS[it] = o; } }
+    gloveInitTool(); restore();
+    if (location.hash.startsWith('#p=')) loadCode(decodeURIComponent(location.hash.slice(3)));
+    if (navigator.xr) document.body.appendChild(VRButton.createButton(renderer));
+    $('load').remove(); READY = true; changed(); if (SIM) say('XR SIM');
+    if (SIM) { CT.forEach((c, i) => { c.src = { handedness: i ? 'left' : 'right', gamepad: { buttons: Array.from({ length: 7 }, () => ({ value: 0, pressed: false, touched: false })), axes: [0, 0, 0, 0] } }; c.hand = i ? 'L' : 'R'; }); camera.position.set(0, 1.6, 0.25); camera.lookAt(0, 1.2, -0.4); orbit.enabled = false; tc.detach(); tc.visible = false; placePanels(); }
+  } catch (e) { $('load').textContent = 'Could not load: ' + e.message; console.error(e); }
+})();
+window.__pl = { S, CT, pose, encode, decode, loadCode, setFingers, doSave, nudgeFinger, mirrorFromOther, resetGame, squareUp, placePanels, MAINP, OUTP, VIEW, camera, fullJSON, keyOf, ready: () => READY, THREE, renderer, scene, nudge, tc, proxy, DESK_W, setFromTargetWorld };
+</script>
+</body>
+</html>
