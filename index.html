@@ -36,7 +36,7 @@ VR - in the cockpit: grip the stick (right) and throttle (left), left stick = ru
 VR - on foot: left stick walks (click = run), right stick turns (snap / smooth in Settings), right stick down = crouch, up = hop,
   Y climb in, take the nozzle off a red drum, put it in a wing filler cap and hold the trigger to refuel from the pump, grab the map off its cockpit holder.
   Jobs: poke ACCEPT on a strip's job board, grip cargo to carry it, let go over the rear seat / baggage bay, grab the belt buckle / net to strap.
-  Hunting: grip the rifle's wrist (cabin / Cub rack; right stick in + up / down = grip angle), other hand on the forend, trigger fires, grab the lever loop with your other hand and swing it (or flick, or B / Y), rounds from the belt pouch into the gate; binoculars in the holster on your left hip (one hand or both, a hand on each barrel), raise them to your eyes; grip and hold a downed deer to dress it.
+  Hunting (v0.85: the new model, the v0.44 handling): grip the rifle's wrist (cabin / Cub rack; right stick in + up / down = grip angle), other hand on the forend, trigger fires, grab the lever loop with your other hand and swing it (or flick, or B / Y), rounds from the belt pouch into the gate; binoculars in the holster on your left hip (one hand or both, a hand on each barrel), raise them to your eyes; grip and hold a downed deer to dress it.
   Airdrops: unlatch + open both halves of the right door, reach back and grip a bundle, put your hand out through the door and let go.
   Running costs: carry the drum's nozzle to a wing cap (trigger pumps) to buy fuel; poke a price on the hangar / fuel boards for oil, tyres, repairs, the 100-hour.
 MENU (Esc / F2 on desktop, the wrist MENU button in VR; poke, point + trigger, or click): resume, save / load (3 slots), graphics + presets, comfort, controls (dominant hand), audio volumes. ` = old settings list.
@@ -4484,6 +4484,7 @@ function hoverRing(tips) {                       // v0.24.1: one ring per free h
     if (best in SW || best === 'ldg') ring.rotation.set(0, 0, 0); else { camera.getWorldPosition(_hs); plane.worldToLocal(_hs); ring.lookAt(plane.localToWorld(_hs)); }
   }
   for (let i = 0; i < 2; i++) if (!live[i] && !(HANDS.hovH[i] && CKH.get(grips[i])?.k === HANDS.hovH[i])) { HANDS.hovH[i] = null; HANDS.rings[i].visible = false; }   // a held control keeps its ring
+  for (let i = 0; i < 2; i++) if (HANDS.rings[i].visible && CKH.get(grips[i])?.k === 'pbrk') { PB.H.getWorldPosition(_hx); plane.worldToLocal(_hx); HANDS.rings[i].position.copy(_hx); }   // v0.85 the parking brake's ring rides the pulled-out T-handle
   HANDS.hov = HANDS.hovH[0] ?? HANDS.hovH[1];
 }
 // ---- v0.42 hands stop at the panel (soft stop: the glove rests on the face, the poke / grab maths still uses your real hand) ----
@@ -5814,6 +5815,36 @@ function rflBuild44() {   // v0.84.4 the v0.44-full carbine (Neil's reference pr
   RFL.feed = rndMesh(); RFL.feed.visible = false; g.add(RFL.feed);
   HUNT.rifleOk = true; HUNT.ms = Math.round(performance.now() - HUNT.t0); rflPut(RFL.place);
 }
+// v0.85 (Neil) the Synty-style model (assets/lever-rifle.glb) back on the v0.44 mechanics - visuals only, the v0.44 groups, points and numbers drive it.
+// Each GLB part is mapped into v0.44 rifle space: the rear notch and front bead onto the v0.44 sight line (uniform scale k), the buttstock behind the wrist stretched to the v0.44 butt
+// (same length of pull), the lever's arm lengthened so it pivots on the v0.44 axis with its loop where the v0.44 loop was, the hammer on its own pin (cut under the sight line),
+// the trigger blade and the loading gate moved onto the v0.44 trigger and gate. The v0.44 bolt stays (the GLB has none). If the file fails to load the v0.44 model stays as it is.
+const GLBM = { k: 0.967, y: 0.012, n: -0.266, w: 0.12, b: 0.314, a0: 0.03, loopZ: 0.19 };
+function glbP(v) {   // GLB rifle space -> v0.44 rifle space
+  const K = GLBM.k, zw = RF.notch.z + (GLBM.w - GLBM.n) * K;
+  v.z = v.z <= GLBM.w ? RF.notch.z + (v.z - GLBM.n) * K : zw + (v.z - GLBM.w) * (RF.butt - zw) / (GLBM.b - GLBM.w); v.x *= K; v.y = v.y * K + GLBM.y; return v;
+}
+function glbGeo(o, f) { const g = o.geometry.clone(), P = g.attributes.position, v = GV3(0, 0, 0); for (let i = 0; i < P.count; i++) { f(v.fromBufferAttribute(P, i), o); P.setXYZ(i, v.x, v.y, v.z); } g.deleteAttribute('normal'); g.computeVertexNormals(); g.computeBoundingSphere(); g.computeBoundingBox(); return g; }
+function glbMesh(geo, par) { const m = new THREE.Mesh(geo, ITEM_VM); m.castShadow = true; m.userData.noBatch = true; m.userData.glb = true; par.add(m); return m; }
+function rflSkin(root) {
+  const R0 = root.getObjectByName('LeverRifle') || root, N = n => R0.getObjectByName(n), g = RFL.g, K = GLBM.k;
+  for (const o of [...g.children, ...RFL.lever.children, ...RFL.hammer.children, ...RFL.trig.children]) if (o.isMesh && o !== RFL.feed && o !== RFL.gateM) o.visible = false;
+  RFL.gateM.material = new THREE.MeshBasicMaterial({ visible: false });
+  glbMesh(glbGeo(N('Body'), v => glbP(v)), g);
+  const Lv = N('Lever'), P = Lv.geometry.attributes.position, lo = GV3(9, 9, 9), hi = GV3(-9, -9, -9), t = GV3(0, 0, 0);   // the loop: the lever behind a0
+  for (let i = 0; i < P.count; i++) { t.fromBufferAttribute(P, i); if (t.z > GLBM.a0) { lo.min(t); hi.max(t); } }
+  const A = GLBM.a0 * K, st = (GLBM.loopZ - (lo.z + hi.z) / 2 * K + A) / A;   // arm stretch: loop centre onto the v0.44 loop
+  glbMesh(glbGeo(Lv, v => { const z = v.z * K; v.x *= K; v.y *= K; v.z = z < 0 ? z : z <= A ? z * st : A * st + z - A; }), RFL.lever);
+  const Hm = N('Hammer'), hp = glbP(Hm.position.clone()), HH = new THREE.Group(); HH.position.copy(hp); g.add(HH); RFL.hamV = HH;
+  const hg = glbGeo(Hm, (v, o) => glbP(v.add(o.position)).sub(hp)), HP = hg.attributes.position; let top = 0; for (let i = 0; i < HP.count; i++) top = Math.max(top, HP.getY(i));
+  const hk = Math.min(1, (RF.notch.y - 0.005 - hp.y) / top); for (let i = 0; i < HP.count; i++) if (HP.getY(i) > 0) HP.setY(i, HP.getY(i) * hk); hg.computeVertexNormals(); hg.computeBoundingSphere(); glbMesh(hg, HH);   // top 5 mm under the sight line
+  const Tg = N('Trigger'), tp = glbP(Tg.position.clone()), tg = glbGeo(Tg, (v, o) => { glbP(v.add(o.position)).sub(tp); v.z = -v.z; }), ix = tg.index;   // blade mirrored fore-aft about its pin (v0.67), on the v0.44 pin
+  if (ix) for (let i = 0; i < ix.count; i += 3) { const a = ix.getX(i + 1); ix.setX(i + 1, ix.getX(i + 2)); ix.setX(i + 2, a); }
+  tg.computeVertexNormals(); glbMesh(tg, RFL.trig);
+  const Gt = N('LoadingGate'); Gt.geometry.computeBoundingBox(); const gc = glbP(Gt.geometry.boundingBox.getCenter(GV3(0, 0, 0)).add(Gt.position)), go = GV3(0, 0, 0).subVectors(RF.gate, RFL.gateM.position);
+  glbMesh(glbGeo(Gt, (v, o) => glbP(v.add(o.position)).sub(gc).add(go)), RFL.gateM);
+  HUNT.skin = true;
+}
 const RND_G = (() => { const gs = [['c', 0.0058, 0.026, 8, 0, 0, 0.004, 0xc9a040, Math.PI / 2], ['c', 0.0062, 0.0015, 8, 0, 0, 0.0175, 0xb08a30, Math.PI / 2], ['c', 0.0052, 0.009, 8, 0, 0, -0.0135, 0x8a8a8e, Math.PI / 2]].map(partGeo);
   const g = mergeGeometries(gs); for (const x of gs) x.dispose(); return g; })();   // .44-40 cartridge, tip toward -z
 function rndMesh() { const m = new THREE.Mesh(RND_G, ITEM_VM); m.userData.noBatch = true; return m; }
@@ -5862,6 +5893,7 @@ function leverTick(dt) {
   if (p > 0.02 && a <= 0.02) { RFL.levA = a = 0; sfx('levClose', ej()); rflPulse(RFL.hand, 0.7, 30, 'lever'); rflPulse(RFL.levHand, 0.5, 25, 'lever'); if (RFL.lifted) { RFL.lifted = false; RFL.ch = true; } }
   RFL.lever.rotation.x = GUN.leverMax * a;
   RFL.hammer.rotation.x = RFL.cocked ? 0.55 : Math.max(0, 0.55 * smooth01(clamp((a - 0.1) / 0.6, 0, 1)));   // the bolt rides the hammer back
+  if (RFL.hamV) RFL.hamV.rotation.x = RFL.hammer.rotation.x;   // v0.85 the model's hammer on its own pin
   RFL.feed.visible = RFL.lifted || (a > 0.72 && RFL.tube > 0 && !RFL.ch);
   RFL.bolt.position.z = -0.1 + 0.06 * smooth01(clamp((a - 0.12) / 0.88, 0, 1));   // v0.84.4 (v0.44) the bolt unlocks over the first 12 % and rides back
   RFL.feed.position.set(0, 0.031 + 0.019 * smooth01(clamp((a - 0.45) / 0.5, 0, 1)), Math.min(-0.125, RFL.bolt.position.z - 0.081));
@@ -6019,6 +6051,24 @@ const FORE_D = GV3(0, 0.003, -0.005), PRIM_D = GV3(0, 0.03, -0.02);   // v0.84.4
 function rflLabSolve(st, L, sx) {   // v0.77.5 the fixed lab pose: frame, finger angles, thumb, cuff bend - no solving in the headset
   const D = L === RIFLE_POSES.primary.lab ? PRIM_D : FORE_D; rflLabHc(L, sx, st.Hc); st.Hc.elements[12] += D.x; st.Hc.elements[13] += D.y; st.Hc.elements[14] += D.z;   // v0.84.4 the lab's hand shapes moved onto the v0.44 wrist / forend (looks only: the rifle comes off the controller the v0.44 way)
   st.ja.set(L.ja); st.gT.fromArray(L.gT); st.gA.fromArray(L.gA).normalize(); st.isp = st.gp.isp = L.src.isp || 0; st.gp.u = false; st.dev = L.src.dev || 0;
+  if (HUNT.skin && L === RIFLE_POSES.primary.lab) rflCurl(st, sx);   // v0.85 on the model's wrist
+}
+const WRIST_M = { c: GV3(0, 0.008, -0.015), b: GV3(0.0125, 0.027, 0.035) };   // v0.85 the model's stock wrist (rifle space, a tall narrow oval as a box)
+function rflCurl(st, sx) {   // v0.85 close the middle, ring and little fingers round the wrist: curl joint by joint until a bone touches it (as gripSolve), never less than the lab pose
+  const gp = st.gp; _gI.copy(st.Hc).invert(); gp.cyl = false; gp.u = false; gp.C.copy(WRIST_M.c).applyMatrix4(_gI); gp.b.copy(WRIST_M.b);
+  gp.X.set(1, 0, 0).transformDirection(_gI); gp.Y.set(0, 1, 0).transformDirection(_gI); gp.Z.set(0, 0, 1).transformDirection(_gI);
+  for (let f = 1; f < 4; f++) {
+    _gJ[0] = _gJ[1] = _gJ[2] = 0;
+    for (let j = 0; j < 3; j++) {
+      let lo = 0, hi = -1;
+      if (gFingerHit(gp, sx, f, j)) { _gJ[j] = 0; continue; }
+      for (let th = G_STEP; th <= G_MAX[j] + 1e-6; th += G_STEP) { _gJ[j] = th; if (gFingerHit(gp, sx, f, j)) { hi = th; break; } lo = th; }
+      if (hi < 0) { _gJ[j] = G_MAX[j]; continue; }
+      for (let n = 0; n < 4; n++) { const m = (lo + hi) / 2; _gJ[j] = m; if (gFingerHit(gp, sx, f, j)) hi = m; else lo = m; }
+      _gJ[j] = lo;
+    }
+    for (let j = 0; j < 3; j++) st.ja[f * 3 + j] = Math.max(st.ja[f * 3 + j], _gJ[j]);
+  }
 }
 function rflLoadPoses(src, solve) {   // v0.84.4: the lab's finger data stay on the gloves; the controller-to-rifle offsets are v0.44's again (grip angle, SUPPORT_TILT)
   RIFLE_POSES.primary.lab = { src: src.rgripR, sx: 1, ...solve.rgripR }; RIFLE_POSES.support.lab = { src: src.rforeL, sx: -1, ...solve.rforeL };
@@ -6594,6 +6644,7 @@ setTimeout(function huntAssets(tries = 3) {   // the rifle + deer models: after 
   Promise.all([import('three/addons/loaders/GLTFLoader.js'), import('three/addons/utils/SkeletonUtils.js')]).then(([{ GLTFLoader }, SU]) => {
     HUNT.SU = SU; const L = new GLTFLoader();
     try { rflBuild44(); } catch (e) { HUNT.err.push('rifle: ' + e); console.warn('rifle model', e); }   // v0.84.4 the v0.44 model, built here (no file)
+    L.load('assets/lever-rifle.glb', g => { try { if (RFL.g) rflSkin(g.scene); } catch (e) { HUNT.err.push('rifle skin: ' + e); console.warn('rifle skin', e); } }, undefined, e => HUNT.err.push('rifle skin: ' + (e?.message || e)));   // v0.85 its look on top
     for (const sp of ['deer', 'stag']) L.load('assets/animals/' + DSP[sp].file + '.glb', g => { try { deerSrc(sp, g); } catch (e) { HUNT.err.push(sp + ': ' + e); console.warn(sp + ' model', e); } }, undefined, e => HUNT.err.push(sp + ': ' + (e?.message || e)));
   }).catch(e => { if (--tries > 0) return setTimeout(() => huntAssets(tries), 1000); HUNT.err.push(String(e)); });
 }, 400);

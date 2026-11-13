@@ -171,6 +171,8 @@ Fourteen **unprepared landing spots** off the airfields (eight since v0.52, six 
 
 ## Hunting (v0.53): lever rifle, deer, binoculars
 
+**v0.85: the new rifle model on the v0.44 rifle (Neil).** The rifle looks like the Synty-style carbine again, but everything you do with it is v0.84.4's: the same hold, sight line, eye relief, lever, loading gate, recoil and numbers. The model's sights line up on the v0.44 sight line, its lever swings on the v0.44 pivot with the loop where your hand works it, the gate and trigger sit where v0.44 had them, the hammer stays under the sights, and the bolt slides back out of the receiver as you work the lever. Your trigger hand now closes round the stock wrist.
+
 **v0.84.4: the v0.44-full rifle is back (Neil).** The rifle model and the way it sits in your hands are the zombie version's again. Where the rows below describe the v0.77 hold, this wins:
 - **Grip:** squeeze on the stock's wrist. The rifle is your controller turned by the **grip angle** (default -40°, muzzle down from the controller's forward). To change it, hold the **right stick in** and push it up or down while the rifle is in your right hand: 5° steps, kept between sessions. The rifle's origin is at your controller, so it moves 1:1 with your hand.
 - **Support hand:** grip within about 30 cm of the forend. The bore runs from your grip hand to your forend hand, tilted 6° so the forend sits on that hand.
@@ -413,6 +415,6 @@ A customer stands at every job board. Walk up to them for a hello: their rep tie
 
 ## Parking brake (v0.77.11)
 - v0.84: it sits on a small black bracket plate hung from the switch strip's lower edge (it used to float in mid-air), and it gets the yellow ring like every other control.
-- A black T-handle under the left of the panel. VR (v0.84.5): grip the T-bar with either hand. Your glove closes round it and the handle slides with your hand along its shaft, up to 5 cm out of its sleeve. Past 80 % it clicks in to the set detent; push it back under 20 % and it releases. Let go part-way and it springs to the nearest detent of the state it's in. Desktop: **\\** toggles it in the seat.
+- A black T-handle under the left of the panel. VR (v0.84.5): grip the T-bar with either hand. Your glove closes round it and the handle slides with your hand along its shaft, up to 5 cm out of its sleeve. Past 80 % it clicks in to the set detent; push it back under 20 % and it releases. Let go part-way and it springs to the nearest detent of the state it's in. The yellow ring follows the handle as you pull it out (v0.85). Desktop: **\\** toggles it in the seat.
 - A red lamp beside it and PARK BRAKE on the status line show it's set. It's off by default and isn't saved.
 - It holds both main wheels only with weight on them. In the air it does nothing. A full rudder pedal still frees that side a little (the toe brakes are differential).

@@ -2,6 +2,21 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.85 – the new rifle model on the v0.44 rifle
+
+Neil: keep the v0.84.4–v0.84.7 rifle interaction exactly as it is, but bring the new Synty-style model back. Visuals only: no mechanic, point or number changed (GUN, RECOIL2, RF, EYE_R, grips, lever, gate, bolt).
+- **How it is mapped:** the v0.44 groups (Lever, Hammer, Trigger, LoadingGate, bolt, Muzzle) still do the work. `rflSkin` loads assets/lever-rifle.glb, hides the v0.44 meshes and maps each GLB part into v0.44 rifle space:
+  - The rear notch and front bead land exactly on the v0.44 sight line (uniform scale 0.967, +12 mm up). The eye relief therefore stays v0.44's.
+  - Behind the stock wrist the buttstock is stretched to the v0.44 butt (same length of pull).
+  - The lever's arm is lengthened so it pivots on the v0.44 lever axis with its loop where the v0.44 loop was, which is where the lever hand's grip lands.
+  - The hammer sits on its own pin and turns with the v0.44 hammer, its top cut 5 mm under the sight line.
+  - The trigger blade sits on the v0.44 trigger pin (mirrored fore-aft as in v0.67). The loading gate is centred on the v0.44 gate.
+  - The muzzle flash stays at the v0.44 muzzle, 4 mm inside the model's barrel end. The v0.44 bolt stays (the model has none) and slides out of the receiver's rear.
+  - If the file fails to load, the v0.44 model stays.
+- **Trigger hand:** on the model's narrower wrist, the middle, ring and little fingers now curl until they touch it (`rflCurl`, as the cockpit grips do), never less than the lab pose.
+- **Parking brake:** the yellow ring now rides the pulled-out T-handle (it stayed at the home spot).
+- Tests: t845 has a new ring check (19/0). Rifle tests unchanged and passing (see the commit). Physics md5 unchanged.
+
 ## v0.84.7 – binoculars in the headset: the frame goes to the headset again
 
 Neil: on v0.84.6 the binoculars were still broken in VR when the 7× view came up. Desktop tests didn't show it. A code review of the XR path against three.js r160 found:
