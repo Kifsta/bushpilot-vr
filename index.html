@@ -31,7 +31,7 @@ Desktop - on foot: WASD walk, Shift run, C crouch, Space hop, F climb in, G refu
   Airdrops: in flight open the right door (1 upper window, 2 lower door), G pushes the next bundle out - drop it on the smoke / X.
   Running costs: fuel is paid at the red drums (4 strips, 4 prices); oil, tyres + brakes, repairs and the 100-hour service at the home HANGAR board (1-4 there).
 VR - in the cockpit: grip the stick (right) and throttle (left), left stick = rudder, left trigger = brakes, reach up and pull the flap handle down
-  a notch at a time, wind the trim crank, turn knobs / the mag key / the primer / the fuel valve with your hand, poke the rocker and toggles.
+  a notch at a time, wind the trim crank, turn knobs / the mag key / the primer / the fuel valve with your hand; every cockpit control needs the grip (yellow ring = what it takes).
   Grip the clipboard on your thigh to lift it, its hand's trigger turns the page. A / X recentre, B reset, Y climb out. Turn your left wrist to your face and poke its MENU button with your right finger for SETTINGS.
 VR - on foot: left stick walks (click = run), right stick turns (snap / smooth in Settings), right stick down = crouch, up = hop,
   Y climb in, take the nozzle off a red drum, put it in a wing filler cap and hold the trigger to refuel from the pump, grab the map off its cockpit holder.
@@ -3481,7 +3481,8 @@ const ldgSw = new THREE.Group(); ldgSw.position.copy(LDG_SW); plane.add(ldgSw);
 box(0.03, 0.02, 0.006, mat(0x222222), 0, 0, -0.004, ldgSw); const ldgTog = box(0.006, 0.006, 0.022, mat(0xd8d8d8), 0, 0, 0.008, ldgSw);
 PB.P = new THREE.Vector3(-0.17, -0.305 + CK.y, PANEL_Z + 0.03);   // v0.77.11 under the panel, left of the stick: the T-handle you pull out to set it
 { const G = new THREE.Group(); G.position.copy(PB.P); plane.add(G); PB.G = G; const blk = mat(0x1a1a1a);
-  box(0.05, 0.03, 0.012, mat(0x3a3a3a), 0, 0, -0.03, G); PB.H = new THREE.Group(); G.add(PB.H);   // bezel in the panel's lower lip; the handle slides out of it
+  box(0.05, 0.03, 0.012, mat(0x3a3a3a), 0, 0, -0.03, G); PB.H = new THREE.Group(); G.add(PB.H);   // v0.84 on a bracket plate hung from the switch strip's lower edge (it floated in mid-air)
+  box(0.1, 0.075, 0.008, mat(0x1c1c1e), 0, 0.01, -0.04, G); box(0.1, 0.012, 0.03, mat(0x1c1c1e), 0, 0.044, -0.05, G);   // bezel in the panel's lower lip; the handle slides out of it
   box(0.007, 0.007, 0.034, mat(0x9a9a9a), 0, 0, -0.012, PB.H); box(0.044, 0.012, 0.01, blk, 0, 0, 0.006, PB.H); box(0.03, 0.004, 0.002, mat(0xc02020), 0, 0.007, 0.006, PB.H);   // shaft, T-bar, red band
   PB.L = new THREE.Mesh(new THREE.CircleGeometry(0.005, 10), new THREE.MeshBasicMaterial({ color: 0x401010 })); PB.L.position.set(0.035, 0.008, -0.023); G.add(PB.L); }   // indicator lamp: red when set
 function pbSet(on, g) { PB.on = on ?? !PB.on; sfx('click'); if (g) hap(g, 0.6, 20); say(PB.on ? 'PARKING BRAKE SET' : 'PARKING BRAKE OFF'); }
@@ -4024,6 +4025,7 @@ function ckTargets() {   // [id, worldPos, radius]
   const out = [];
   for (const id in SW) out.push([id, plane.localToWorld(_cw.copy(SW[id].p)).clone(), CK_R]);
   out.push(['ldg', plane.localToWorld(_cw.copy(LDG_SW)).clone(), CK_R], ['pbrk', PB.H.getWorldPosition(new THREE.Vector3()), 0.05]);
+  if (UPG.radio && EMG.call) out.push(['radio', plane.localToWorld(_cw.copy(UPG_M.radio.p)).clone(), 0.07]);   // v0.84
   out.push(['card', CARD.mesh.getWorldPosition(_cw).clone(), 0.07], ['kb', KB.m.getWorldPosition(_cw).clone(), 0.1], ['mic', MIC.m.getWorldPosition(_cw).clone(), 0.06]);   // v0.82 the hand mic
   out.push(['rup', rupH.getWorldPosition(_cw).clone(), WIN_R], ['rlo', rloH.getWorldPosition(_cw).clone(), WIN_R], ['rcg', rcgH.getWorldPosition(_cw).clone(), WIN_R],
     ['lf', LWF.hp.getWorldPosition(_cw).clone(), WIN_R], ['lr', LWR.hp.getWorldPosition(_cw).clone(), WIN_R]);
@@ -4057,6 +4059,7 @@ function ckHand(g, squeeze, id) {   // returns true while this hand is busy with
     if (best === 'card') { CARD.g = g; sfx('pick'); say('CHECKLIST'); }
     if (best === 'kb') { KB.g = g; sfx('pick'); }
     if (best === 'mic') micGrab(g);   // v0.82 either hand
+    if (best === 'radio') { emgRadioTake(); hap(g, 0.4, 14); }   // v0.84 grip the COM radio to take the call-out
     if (best === 'rup' || best === 'rlo' || best === 'rcg') { cubD.worldToLocal(_ch); h.a0 = hingeAng(best, _ch); h.v0 = WIN[best]; }
     if (best === 'lf' || best === 'lr') { cubD.worldToLocal(_ch); h.z0 = _ch.z; h.v0 = WIN[best]; }
     if (best in LATCH && LATCH[best] && WIN[best] < 0.03) { h.lat = true; h.q0 = g.getWorldQuaternion(new THREE.Quaternion()); h.ax = new THREE.Vector3(0, 0, -1).applyQuaternion(h.q0); }   // v0.44: twist the latch first
@@ -4093,7 +4096,7 @@ function engKey(e) {   // desktop keys in the plane
 // Hand space (right hand; the left is built mirrored in X): the fist wraps the Z axis through the origin, back of the hand +X,
 // thumb toward -Z, fingers extend along -Y, wrist toward +Y. A free hand rides its controller grip tilted HAND_TILT about X
 // (the controller handle lies diagonally across a real palm), so a pointing index finger points along the controller ray.
-const HAND_TILT = 0.6, HN = 17, R_TIP = 0.008;            // 17 bones per hand: cuff, palm, 4 fingers x 3, thumb x 3 (v0.49: a skinned glove on them)
+const HAND_TILT = 0.6, HN = 17;                           // 17 bones per hand: cuff, palm, 4 fingers x 3, thumb x 3 (v0.49: a skinned glove on them)
 const HF = [[-0.034, [0.044, 0.026, 0.021], 0.0185, -0.07], [-0.012, [0.047, 0.028, 0.022], 0.019, -0.02],
             [0.010, [0.044, 0.027, 0.021], 0.018, 0.03], [0.030, [0.035, 0.021, 0.019], 0.016, 0.08]];   // knuckle z, phalanx lengths, width, splay
 const FIST = [1.6, 1.0, 0.9];                              // joint bends (rad) of a full fist around a ~3 cm grip
@@ -4107,8 +4110,8 @@ const HOFF = new THREE.Matrix4().makeRotationX(HAND_TILT);
 const HJ = ['thumb-metacarpal', 'thumb-phalanx-proximal', 'thumb-phalanx-distal', 'thumb-tip'].concat(...['index', 'middle', 'ring', 'pinky'].map(f =>
   [f + '-finger-phalanx-proximal', f + '-finger-phalanx-intermediate', f + '-finger-phalanx-distal', f + '-finger-tip']));
 const HANDS = { force: false, st: [], mesh: null, ring: null, rings: [], hov: null, hovH: [null, null], t: 0, xr: [0, 1].map(i => { const h = renderer.xr.getHand(i); xrOffset.add(h); return h; }) };
-const CKX = { vis: {}, haps: 0, grabStart: false, pokeStart: [false, false], pk: {}, lock: {}, keyStart: false };
-function starterSync() { ENG.starterVR = CKX.grabStart || CKX.pokeStart[0] || CKX.pokeStart[1] || CKX.keyStart; }   // v0.44: the mag key's START position cranks too
+const CKX = { vis: {}, haps: 0, grabStart: false, lock: {}, keyStart: false };
+function starterSync() { ENG.starterVR = CKX.grabStart || CKX.keyStart; }   // v0.44: the mag key's START position cranks too
 {
   // v0.49: the glove meshes are built on first use (gloveInit), in your own frame (xrOffset) like v0.46.1's boxes
   const ring = new THREE.Mesh(new THREE.TorusGeometry(1, 0.1, 4, 20), new THREE.MeshBasicMaterial({ color: 0xffd84a, transparent: true, opacity: 0.85, depthWrite: false }));
@@ -4441,33 +4444,6 @@ function handTargets(i, g, st) {                 // decide pose + world matrix f
   else if (FUELP.g === g || huntHold(g)) { st.tc[0] = st.tc[1] = st.tc[2] = st.tc[3] = 0.6; st.tth = 0.3; st.ttw = 0.5; st.mode = 'hold'; }
   return right;
 }
-const _plL = new THREE.Vector3(), _pkD = new THREE.Vector3(), _pkV = new THREE.Vector3(), _pkPrev = new THREE.Vector3();
-function pkS(id, i) { return CKX.pk[id + i] || (CKX.pk[id + i] = { arm: false, p: false }); }
-function ckPoke(i, g, st, dt) {                  // fingertip pokes: rocker, landing toggle, START (hold)
-  plane.updateWorldMatrix(false, false); plane.worldToLocal(_plL.copy(st.tip));
-  if (!st.hasPrev) { st.prevL.copy(_plL); st.hasPrev = true; }
-  _pkV.subVectors(_plL, st.prevL).divideScalar(Math.max(dt, 1e-3)); _pkPrev.copy(st.prevL); st.prevL.copy(_plL);
-  for (const k in CKX.lock) CKX.lock[k] -= dt / 2;
-  { // master rocker: push the half that sticks out, past flat
-    const s = pkS('master', i); _pkD.set(_plL.x - SWP.x + 0.1125, _plL.y - SWP.y - 0.028, _plL.z - SWP.z);
-    const on = ENG.master, inX = Math.abs(_pkD.x) < 0.013, yy = on ? -_pkD.y : _pkD.y, front = _pkD.z - R_TIP;
-    if (!s.arm && (front > 0.02 || !inX || Math.abs(_pkD.y) > 0.03)) s.arm = true;
-    if (s.arm && inX && yy > 0.002 && yy < 0.02 && front < 0.011 && front > -0.012 && _pkV.z < -0.02 && !(CKX.lock.master > 0)) { engSet('master', !on); hap(g, 0.6, 18); s.arm = false; CKX.lock.master = 0.25; }
-  }
-  { // landing light toggle: push the bat tip up / down through the middle
-    const s = pkS('ldg', i); _pkD.subVectors(_plL, LDG_SW); const py = _pkPrev.y - LDG_SW.y, on = LIGHTS.landing;
-    const inZ = Math.abs(_pkD.x) < 0.012 && _pkD.z > 0.003 && _pkD.z < 0.032;
-    if (!s.arm && (!inZ || (on ? _pkD.y > 0.012 : _pkD.y < -0.012))) s.arm = true;
-    if (s.arm && inZ && !(CKX.lock.ldg > 0) && (on ? py > -0.001 && _pkD.y < -0.002 && _pkV.y < -0.02 : py < 0.001 && _pkD.y > 0.002 && _pkV.y > 0.02)) { toggleLanding(); hap(g, 0.6, 18); s.arm = false; CKX.lock.ldg = 0.25; }
-  }
-  { // START: press and hold the button in
-    const s = pkS('start', i); _pkD.set(_plL.x - SW.start.p.x, _plL.y - SW.start.p.y, _plL.z - SWP.z);
-    const inXY = hyp(_pkD.x, _pkD.y) < 0.014, front = _pkD.z - R_TIP;
-    if (!s.arm && !s.p && (front > 0.02 || !inXY)) s.arm = true;
-    const p = s.p ? inXY && front < 0.018 && front > -0.02 : s.arm && inXY && front < 0.013 && front > -0.01 && _pkV.z < 0.05;
-    if (p !== s.p) { s.p = p; if (p) { hap(g, 0.5, 16); sfx('click'); s.arm = false; } CKX.pokeStart[i] = p; starterSync(); }
-  }
-}
 const knobOut = id => CKX.vis[id] !== undefined && id in PULL ? CKX.vis[id] : id === 'mix' ? (ENG.mix < 0.5 ? PULL.mix : 0) : id === 'carb' ? (ENG.carb ? PULL.carb : 0) : 0;   // pulled-out knobs ring where they are
 const _rP = new THREE.Vector3(), _rT = new THREE.Vector3(), _rG = new THREE.Vector3(), RING_HYST = 0.008;
 const HRS = { prev: null, best: null, bd: 1e9, br: 0.02, L: null };   // v0.81 hoverRing's candidate state
@@ -4482,7 +4458,8 @@ function hoverRing(tips) {                       // v0.24.1: one ring per free h
     const near = hrNear;   // fingertip, pinch point, or (as before) right in the palm
     for (const id in SW) { _hx.copy(SW[id].p).setZ(SWP.z + 0.012 + knobOut(id)); const d = near(_hx); if (d < 0.045) cand(id, _hx, id === 'master' ? 0.021 : 0.017, d); }
     { _hx.copy(LDG_SW).setZ(LDG_SW.z + 0.014); const d = near(_hx); if (d < 0.045) cand('ldg', _hx, 0.015, d); }
-    const HL = HRS.L || (HRS.L = [['rup', rupH, WIN_R], ['rlo', rloH, WIN_R], ['rcg', rcgH, WIN_R], ['lf', LWF.hp, WIN_R], ['lr', LWR.hp, WIN_R], ['card', CARD.mesh, 0.07], ['kb', KB.m, 0.1], ['mic', MIC.m, 0.06]]);   // v0.81 built once; v0.82 the hand mic
+    const HL = HRS.L || (HRS.L = [['rup', rupH, WIN_R], ['rlo', rloH, WIN_R], ['rcg', rcgH, WIN_R], ['lf', LWF.hp, WIN_R], ['lr', LWR.hp, WIN_R], ['card', CARD.mesh, 0.07], ['kb', KB.m, 0.1], ['mic', MIC.m, 0.06], ['pbrk', PB.H, 0.05]]);   // v0.81 built once; v0.82 the hand mic; v0.84 the parking brake (it had no ring)
+    if (UPG.radio && EMG.call) { _hx.copy(UPG_M.radio.p); const d = near(_hx); if (d < 0.07) cand('radio', _hx, 0.035, d); }   // v0.84 the COM radio's face takes a call-out with the grip (was a fingertip poke)
     for (let q = 0; q < HL.length; q++) { const k = HL[q][0], o = HL[q][1], r = HL[q][2];
       o.getWorldPosition(_hx); plane.worldToLocal(_hx); const d = _hx.distanceTo(_rG); if (d < r) cand(k, _hx, 0.03, d + 0.02); }
     { let fd = 1e9; for (let q = 0; q < 2; q++) { const k = q ? 'thr' : 'stick', o = q ? throttleKnob : knob, fr = q ? 0.05 : 0.06, hg = k === 'stick' ? vr.stickG : vr.thrG; if (hg && hg !== g) continue;   // v0.61 either hand: stick and throttle, unless the other hand has it
@@ -4500,9 +4477,9 @@ function hoverRing(tips) {                       // v0.24.1: one ring per free h
 // ---- v0.42 hands stop at the panel (soft stop: the glove rests on the face, the poke / grab maths still uses your real hand) ----
 const PANEL_FACE = -0.600 + CK.z, PANEL_BEZ = PANEL_Z + 0.012, _psA = new THREE.Vector3(), _psN = new THREE.Vector3();
 function panelZone(p) {   // is this (plane-local) point in front of solid panel / switch strip / card holder?
-  if (Math.abs(p.x) > 0.325 || p.y > CK.y + 0.14 || p.y < CK.y - 0.31) return false;
+  if (Math.abs(p.x) > 0.325 || p.y > CK.y + 0.14 || p.y < CK.y - 0.335) return false;   // v0.84 down to the brake bracket
   if (p.y >= CK.y - 0.14) return true;
-  return (p.x > -0.315 && p.x < -0.015 && p.y > CK.y - 0.26) || (p.x > 0.13 && p.x < 0.31);
+  return (p.x > -0.315 && p.x < -0.015 && p.y > CK.y - 0.26) || (p.x > 0.13 && p.x < 0.31 && p.y > CK.y - 0.31) || (p.x > -0.22 && p.x < -0.12 && p.y > CK.y - 0.335);   // v0.84 + the parking-brake bracket
 }
 function panelStop(st) {
   let pen = 0;
@@ -4573,8 +4550,7 @@ function updateHands(dt) {
         const kt = st.mode === 'free' || st.mode === 'hold' ? k : 1; st.th += (st.tth - st.th) * kt; st.tw += ((st.ttw || 0) - st.tw) * kt; st.tp += ((st.ttp || 0) - st.tp) * kt;
         buildHand(st, st.right ? 1 : -1); st.tip.copy(st.tipH).applyMatrix4(st.W); st.vis = true;
       }
-      if (mode === 'plane' && (st.mode === 'free' || st.mode === 'tracked')) { ckPoke(i, g, st, dt); tips.push([i, g, st]); if (st.vis) panelStop(st); }
-      else { st.hasPrev = false; if (CKX.pokeStart[i]) { CKX.pokeStart[i] = false; starterSync(); } }
+      if (mode === 'plane' && (st.mode === 'free' || st.mode === 'tracked')) { tips.push([i, g, st]); if (st.vis) panelStop(st); }   // v0.84 (Neil): no more fingertip pokes on cockpit controls - every one needs the grip (ckHand), the yellow ring shows which
     }
     gloveSkin(i, st, _hInv);   // v0.49 glove skin matrices
     any = any || st.vis;
@@ -7404,12 +7380,12 @@ function emgSignDraw() {
 }
 function emgSignAct(S) { if (emgActive()) { emgCancel(); return true; } if (EMG.call) return emgAccept(S); say('NO CALL-OUTS RIGHT NOW - NEXT CHECK-IN IN ~' + Math.max(1, Math.ceil(EMG.nextT - DLV.gt)) + ' MIN'); sfx('tick'); return true; }
 const _emL = new THREE.Vector3();
-function emgPoke() {   // VR fingertips: the nearest red sign; the COM radio's face in the Cub (accepts a call-out)
+function emgPoke() {   // VR fingertips: the nearest red sign (on foot)
   if (!HANDS.st.length) return;
   for (let i = 0; i < 2; i++) { const st = HANDS.st[i]; if (!st.vis) continue;
     if (mode === 'foot') { for (const s of EMG_SIGNS) { if (hyp(st.tip.x - s.x, st.tip.z - s.z) > 1.5) continue; s.m.worldToLocal(_emL.copy(st.tip)); const on = Math.abs(_emL.x) < EMG_PW / 2 && Math.abs(_emL.y) < EMG_PH / 2 && _emL.z < 0.012 && _emL.z > -0.05;
         if (!EMG.poke[i] && (_emL.z > 0.04 || Math.abs(_emL.x) > EMG_PW / 2 || Math.abs(_emL.y) > EMG_PH / 2)) EMG.poke[i] = true; if (EMG.poke[i] && on) { EMG.poke[i] = false; emgSignAct(s.S); if (grips[i]) HX.pulse(grips[i], 0.4, 14, 'ui'); } } }
-    else if (UPG.radio && EMG.call) { plane.worldToLocal(_emL.copy(st.tip)); const d = _emL.distanceTo(UPG_M.radio.p); if (!EMG.rpoke[i] && d > 0.1) EMG.rpoke[i] = true; if (EMG.rpoke[i] && d < 0.05) { EMG.rpoke[i] = false; emgRadioTake(); if (grips[i]) HX.pulse(grips[i], 0.4, 14, 'ui'); } } }
+  }   // v0.84 the COM radio in the Cub: grip it (ckHand 'radio'), no fingertip poke
 }
 function emgRadioTake() { if (!EMG.call) return false; if (!UPG.radio) { say('NO COM RADIO - TAKE CALL-OUTS AT A RED EMERGENCY SIGN'); return true; } sfx('static'); if (emgAccept(null)) msg = 'RADIO - YOU: "KOWALSKI, CUB TAKING IT." - ' + msg; return true; }
 function emgKey(e) {

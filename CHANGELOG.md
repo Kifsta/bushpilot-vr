@@ -2,6 +2,15 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.84.2 – cockpit controls need the grip; the parking brake mounted, with its ring
+Neil's headset test of v0.83, items 4 and 5.
+- **No more AUTO pokes (item 5):** a fingertip pushing into a cockpit control no longer works it. Before, the MASTER rocker, the landing-light toggle and the START button (hold) went off by touch (`ckPoke`), and so did the COM radio's face for a call-out. That code is removed. Every cockpit control now needs a **grip squeeze while the yellow ring is on it**, with either hand: switches, knobs, the mag key, primer, fuel valve, mixture, carb heat, panel light, START (hold grip), the landing light, the parking brake, flaps, trim, stick, throttle, windows, door, the clipboard, the hand mic and the COM radio. The ring is still the hover indicator, and your hands still stop at the panel.
+- **COM radio:** with a call-out on the air, your hand on the radio's face shows the ring; grip takes the job (C still works on the desktop). A touch alone does nothing.
+- **Parking brake (item 4):** it hung about 4.5 cm under the switch strip with nothing behind it. It now sits on a small black bracket plate that hangs from the strip's lower edge, flush with the panel face, and your hands stop on it like the rest of the panel. It gets the same yellow ring as the other controls (it was the one grip target in the cockpit with no ring).
+- **Audit:** every cockpit grip target (`ckTargets`) now has a ring in `hoverRing`. The parking brake was the only one missing; the COM radio was the only other touch-only control and is now a grip target too.
+- **Text:** the help line ("every cockpit control needs the grip") and CONTROLS.md (landing light, MASTER, START, COM radio, the parking brake, and a new "v0.84 grip only" paragraph).
+- **Tests:** new t84 (10 checks). Fingertips swept through MASTER, the landing light and START without the grip flip nothing and never crank (the v0.84.1 build cranks 72 times). MASTER rings and flips on a grip. The brake rings for each hand and only a grip pulls it. The bracket reaches the strip and is flush with it. The radio ignores a touch and takes the call on a grip. The help text and the console are checked. t44's "fingertip poke flips master" now checks that it doesn't.
+
 ## v0.84.1 – binoculars: eyepieces on the thumb side of the hand
 Neil's headset test of v0.83, item 1.
 - **Back to one fixed pose per hand (v0.77.1), turned end for end:** the binoculars no longer aim from your head through your palm (v0.77.6). Each hand holds them in one fixed pose relative to the controller: its own barrel in the palm, body along the fist, **eyepieces on the thumb / index side**. They are turned 180° about the hand's x axis, so when you bring your thumb ring to your eye (forearm up from below), they are upright and look where your hand points.

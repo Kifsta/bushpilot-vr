@@ -26,7 +26,7 @@ v0.50 turns it into a **bush delivery** game: take a job off a strip's job board
 | Elevator trim | v0.42: the crank on the roof console, right of the flap handle. Grab its knob and wind it: anticlockwise (as you look at it) = nose up, clockwise = nose down, 3 turns end to end, 8 clicks a turn. The white pointer beside it shows where it is | PageDown nose up, PageUp nose down (hold) |
 | Brakes | Left trigger (v0.61: the right trigger when your left hand is on the stick) | B |
 | Get out (stopped, idle) | Y | F |
-| Landing light | Flick the toggle under the panel up / down with your fingertip (or squeeze it) | L |
+| Landing light | Grip the toggle under the panel (the yellow ring on it) to flick it up / down | L |
 | Reset / recentre | B = reset to the home strip, cold and dark (keeps your fuel and cash; below 5 gal it tops up to 5 gal, paid at the home drum price), A / X = recentre | R reset, Home recentre |
 
 ## Sound (v0.83)
@@ -39,12 +39,12 @@ v0.50 turns it into a **bush delivery** game: take a job off a strip's job board
 | | VR (Quest) | Desktop |
 |---|---|---|
 | Fuel valve ON / OFF | Grab the red pointer handle (switch strip under the left of the panel) and roll your wrist a quarter turn. It clicks into each detent and bumps at the stop. ON feeds both wing tanks | U |
-| Master ON / OFF | Push the half of the red rocker that sticks out with your fingertip | O |
+| Master ON / OFF | Grip the red rocker to flip it (v0.84: no fingertip push) | O |
 | Mixture RICH (in) / CUTOFF (out) | Grab the red knob and pull it out / push it in | Y |
 | Carb heat COLD (in) / HOT (out) | Grab the black knob and pull it out / push it in | H |
 | Primer | v0.44: it is locked in. Grab the chrome T-handle and twist it a quarter turn to unlock it, then pull it all the way out and push it back in (one shot per stroke). Push it home and twist it back to lock it. v0.46.1: the twist has to be deliberate (past about 30° and held for a moment), and while you're pumping it ignores how your wrist rolls. It only locks again once it's fully home and you twist it back the way it came | P (one stroke) |
 | Mags OFF > R > L > BOTH > START | Grab the key and twist clockwise / back (click + buzz per position). v0.44: keep twisting past BOTH, against the spring, to START, and the engine cranks while you hold it. Let go and it springs back to BOTH | I (Space to crank) |
-| Starter | Press and hold the red START button with your fingertip (or squeeze and hold it, and the glove points its index finger at it), or turn the key to START | Hold Space |
+| Starter | Squeeze and hold the grip on the red START button (the glove points its index finger at it), or turn the key to START | Hold Space |
 | Checklist card | Squeeze it (under the right of the panel); let go to put it back | J |
 
 Start: fuel ON, master ON, mixture RICH, carb heat COLD, prime 2–3 strokes (cold) or 0–1 (warm), throttle cracked (~10%), mags BOTH, hold the starter until it runs (~700 rpm).
@@ -54,6 +54,8 @@ Shutdown: throttle idle, mixture CUTOFF (it stops), mags OFF, master OFF, fuel O
 v0.23 hands (VTOL VR style, no laser): your hands are gloves. Squeeze with the trigger off = point the index finger; trigger curls it; thumb off the buttons lifts the thumb. A yellow ring shows what your hand will work. Squeezing a control and letting go without moving it still does the old one-step toggle. Quest hand tracking (no controllers) shows tracked gloves and pokes switches with your index tip.
 
 v0.49 flying gloves: the hands are now low-poly pilot gloves (fabric back, leather palm and fingertips, a short gauntlet with a velcro strap tab). They grab, point, poke and relax exactly as before. Change the colour with Settings > **Gloves**.
+
+**v0.84 grip only (Neil):** cockpit controls no longer work by touch. A fingertip pushing the MASTER rocker, flicking the landing light or pressing START (and poking the COM radio) does nothing now. Put your hand on a control so the yellow ring shows, then squeeze **grip** (either hand) to work it: switches, knobs, the mag key, primer, fuel valve, mixture, carb heat, panel light, START (hold), landing light, parking brake, flaps, trim, stick, throttle, windows and door, the clipboard, the hand mic and the COM radio. Your hands still stop at the panel.
 
 v0.24.1 grip on the ring: point your fingertip at a switch or knob, and a yellow ring appears on it (one ring per hand). Squeeze grip to use it. Toggles flip, START cranks while you hold grip, the mags key and fuel valve turn when you twist your wrist, and push-pull knobs follow your hand in and out. Window handles and the checklist drag. Poking with the fingertip still works. The stick, throttle and flap lever only take the grip when your hand is on them.
 
@@ -290,7 +292,7 @@ A customer stands at every job board. Walk up to them for a hello: their rep tie
 | | VR (Quest) | Desktop |
 |---|---|---|
 | Take a call-out | Poke the red EMERGENCY sign (Home, Ridge, Lodge, Dry Fork boards) | **4** at the sign |
-| Take it by radio (COM radio fitted, master on) | Poke the radio's face | **C** in the Cub |
+| Take it by radio (COM radio fitted, master on) | Grip the radio's face (yellow ring) | **C** in the Cub |
 | Hand your emergency to the state helicopter (−6 rep) | Poke the red sign again | **4** at the sign |
 | Help a casualty to the Cub | Walk up to them (they lean on you and follow), then walk to the Cub's door | Same |
 | Belt the patient in | Squeeze the rear seat **belt buckle** | **/** |
@@ -325,7 +327,7 @@ A customer stands at every job board. Walk up to them for a hello: their rep tie
   - The bottom of PERF (v0.75) shows a METAR-style weather line, e.g. `HOME AUTO 00000KT 3000 -RA BKN012 OVC020`, and the trend (`BECMG LIGHT OVERCAST IN ~12 MIN`). There is never any wind (00000KT).
 
 ## Lights and time of day
-- Landing light: flick the toggle under the panel (VR fingertip) or press L.
+- Landing light: grip the toggle under the panel (VR) or press L.
 - Panel lights: the PANEL LT knob on the switch strip, far right (twist it, or press K). It needs the MASTER on.
 - Time of day is fixed, so there is no clock and no dusk to beat. Pick it in Settings → **Time of day** (EARLY / MORNING / AFTERNOON / LATE / SUNSET / NIGHT). A saved game keeps its time.
 
@@ -399,6 +401,7 @@ A customer stands at every job board. Walk up to them for a hello: their rep tie
 - Stopped or cranking you see the two solid blades. From about 300 rpm a see-through disc fades in. Above 650 rpm only the disc is drawn: a faint grey sweep with two soft streaks, and a faint yellow arc where the painted tips run. You can see through it in VR and on desktop.
 
 ## Parking brake (v0.77.11)
+- v0.84: it sits on a small black bracket plate hung from the switch strip's lower edge (it used to float in mid-air), and it gets the yellow ring like every other control.
 - A black T-handle under the left of the panel. VR: grab it with either hand to pull it out (set); grab it again to push it in (off). Desktop: **\\** toggles it in the seat.
 - A red lamp beside it and PARK BRAKE on the status line show it's set. It's off by default and isn't saved.
 - It holds both main wheels only with weight on them. In the air it does nothing. A full rudder pedal still frees that side a little (the toe brakes are differential).
