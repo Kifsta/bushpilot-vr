@@ -31,7 +31,7 @@ Desktop - on foot: WASD walk, Shift run, C crouch, Space hop, F climb in, G refu
   Airdrops: in flight open the right door (1 upper window, 2 lower door), G pushes the next bundle out - drop it on the smoke / X.
   Running costs: fuel is paid at the red drums (4 strips, 4 prices); oil, tyres + brakes, repairs and the 100-hour service at the home HANGAR board (1-4 there).
 VR - in the cockpit: grip the stick (right) and throttle (left), left stick = rudder, left trigger = brakes, reach up and pull the flap handle down
-  a notch at a time, wind the trim crank, turn knobs / the mag key / the primer / the fuel valve with your hand; every cockpit control needs the grip (yellow ring = what it takes); the parking brake T-handle: grip it and pull it out along its shaft to set, push it in to release. Binoculars: the 7x view comes up inside 12 cm of your eyes and drops past 16 cm.
+  a notch at a time, wind the trim crank, turn knobs / the mag key / the primer / the fuel valve with your hand; every cockpit control needs the grip (yellow ring = what it takes); the parking brake T-handle: grip it and pull it out along its shaft to set, push it in to release. Binoculars: the 7x view comes up inside 12 cm of your eyes and drops past 16 cm (v0.84.7: fixed in the headset).
   Grip the clipboard on your thigh to lift it, its hand's trigger turns the page. A / X recentre, B reset, Y climb out. Turn your left wrist to your face and poke its MENU button with your right finger for SETTINGS.
 VR - on foot: left stick walks (click = run), right stick turns (snap / smooth in Settings), right stick down = crouch, up = hop,
   Y climb in, take the nozzle off a red drum, put it in a wing filler cap and hold the trigger to refuel from the pump, grab the map off its cockpit holder.
@@ -6476,9 +6476,9 @@ function binoHandK(g) { return BINO.place === 'hand' && (BINO.g === g || BINO.g2
 // v0.67.1 when the 7x view comes up: the eyepieces 12 cm or less in front of the headset along your view (up to 7 cm off to the side), the binoculars looking within ~40 deg of
 // where you look. It stays up out to 16 cm / 9.5 cm / ~57 deg, and either change has to hold 0.12 s (v0.84.6: no flicker at the edge).
 const BZ = { on: 0.12, off: 0.16, db: 0.12, back: -0.03, backOff: -0.05, lat: 0.07, latOff: 0.095, dot: 0.75, dotOff: 0.55, near: 0.06 }, _bE = GV3(0, 0, 0), _bO = GV3(0, 0, 0), _bC = GV3(0, 0, 0), _bW = GV3(0, 0, 0);
-const B_PTS = [GV3(0, 0.002, 0.068), GV3(-0.03, 0.002, 0.068), GV3(0.03, 0.002, 0.068), GV3(-0.032, 0, -0.072), GV3(0.032, 0, -0.072), GV3(0, 0, 0)];
+const _bUq = new THREE.Quaternion(), B_PTS = [GV3(0, 0.002, 0.068), GV3(-0.03, 0.002, 0.068), GV3(0.03, 0.002, 0.068), GV3(-0.032, 0, -0.072), GV3(0.032, 0, -0.072), GV3(0, 0, 0)];
 function binoUp(m) {
-  m.updateMatrixWorld(); camera.updateMatrixWorld(); camera.getWorldPosition(_bC); camera.getWorldDirection(_bW);
+  m.updateMatrixWorld(); binoHead(_bC, _bUq); _bW.set(0, 0, -1).applyQuaternion(_bUq);   // v0.84.7 this frame's XR head pose (the controllers are this frame's too); `camera` only gets it inside render(), a frame late
   let near = 9; for (const q of B_PTS) near = Math.min(near, m.localToWorld(_bE.copy(q)).distanceTo(_bC)); BINO.near = near;
   m.localToWorld(_bE.copy(B_PTS[0])).sub(_bC); const f = _bE.dot(_bW), lat = _bE.addScaledVector(_bW, -f).length(), al = _bO.set(0, 0, -1).transformDirection(m.matrixWorld).dot(_bW);
   BINO.f = f; BINO.lat = lat; BINO.al = al;
@@ -6526,7 +6526,7 @@ function binoRender() {
   if (!BINO.on) { BINO.hb = null; return; }   // v0.77.10 every frame while raised (every other frame made the picture judder against the head-locked ring)
   binoHead(BINO.cam.position, BINO.cam.quaternion); binoHandNudge(); BINO.cam.quaternion.multiply(BINO.hq); BINO.cam.updateMatrixWorld(true);
   const xr = renderer.xr.enabled, su = renderer.shadowMap.autoUpdate, nu = renderer.shadowMap.needsUpdate; renderer.xr.enabled = false; renderer.shadowMap.autoUpdate = false; renderer.shadowMap.needsUpdate = false; BINO.disk.visible = false;
-  renderer.setRenderTarget(BINO.rt); renderer.render(scene, BINO.cam); renderer.setRenderTarget(null); renderer.xr.enabled = xr; renderer.shadowMap.autoUpdate = su; renderer.shadowMap.needsUpdate = nu; BINO.disk.visible = true;
+  const rt0 = renderer.getRenderTarget(); renderer.setRenderTarget(BINO.rt); renderer.render(scene, BINO.cam); renderer.setRenderTarget(rt0); renderer.xr.enabled = xr; renderer.shadowMap.autoUpdate = su; renderer.shadowMap.needsUpdate = nu; BINO.disk.visible = true;   // v0.84.7 put back the target we found: in a headset that is the XR layer's framebuffer (null drew the rest of the frame to the page canvas, never the headset)
 }
 const _bhM = new THREE.Matrix4(), _bhP = GV3(0, 0, 0), _bhD = GV3(0, 0, 0), _bhT = new THREE.Quaternion(), _bhI = new THREE.Quaternion(), _bhO = new THREE.Quaternion(), B_NUDGE = { k: 0.25, max: 3 * D2R, tau: 0.45 };
 function binoHead(outP, outQ) {   // v0.77.10 this frame's head pose: three.js sets the XR eye cameras' matrices from the viewer pose before our frame runs, but camera.matrixWorld only after render() (a frame late here)

@@ -2,6 +2,14 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.84.7 – binoculars in the headset: the frame goes to the headset again
+
+Neil: on v0.84.6 the binoculars were still broken in VR when the 7× view came up. Desktop tests didn't show it. A code review of the XR path against three.js r160 found:
+1. **(root cause) The 7× pass dropped the XR framebuffer.** Each XR frame, three.js binds the headset layer's framebuffer with `setRenderTarget(xrTarget)` before our loop runs. binoRender drew the 7× picture into its render target and then called `setRenderTarget(null)`. In a headset that sent the rest of the frame, the whole scene and the mask, to the page canvas instead of the headset. So whenever the view was up, the headset got no new frame: it froze or judder-reprojected the last one. On desktop, null *is* the canvas, which is why no desktop test caught it. Fix: save the render target we found and put it back.
+2. **The raise test used last frame's head.** `camera` only gets the XR pose inside `renderer.render()`, so the 12 / 16 cm test compared this frame's controllers with last frame's head. That's noise at the threshold whenever you move your head. Fix: it reads this frame's XR viewer pose (`binoHead`, the same as the 7× camera).
+- Checked and fine: the 7× pass turns `xr.enabled` off (a plain camera into the render target, no ArrayCamera); the mask is a camera child, and three's `updateCamera` updates its children before drawing, so it's this frame's pose; the picture is rendered every frame (the 0.4 s timer is only the deer/site readout); the picture is mono from the eyes' midpoint; the shadow map is not re-rendered for the pass; foveation only affects the XR layer.
+- Tests: t846 has 2 new checks (11/0; the v0.84.6 build fails both). t671 15/0, t7710 11/0, t53 34/0. Physics md5 unchanged.
+
 ## v0.84.6 – binoculars: no jitter at the eyes; rifle finger curl fixed
 
 Neil: the grip is right now, but raising the binoculars to the eyes made the view jitter.
