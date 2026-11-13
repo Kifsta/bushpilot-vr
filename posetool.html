@@ -319,7 +319,7 @@ let DEFS_VER = '';
 const v3 = a => a ? GV3(a[0], a[1], a[2]) : undefined;
 function loadShapes(S) {
   S.mic = { sh: 'box', c: [0, 0, 0], b: [0.025, 0.039, 0.014], st: 'wrap', wa: 1, wr: 0.014, wz: -0.004, tl: 0 };   // the handset body (index.html MIC box 0.05 x 0.078 x 0.028)
-  S.pbrk = { sh: 'box', c: [0, 0, 0.006], b: [0.022, 0.006, 0.005], st: 'wrap', wa: 0, wr: 0.006, wz: 0, tl: 0 };   // the T-bar (index.html PB.H box 0.044 x 0.012 x 0.01)
+  if (!S.pbrk) S.pbrk = { sh: 'box', c: [0, 0, 0.006], b: [0.022, 0.006, 0.005], st: 'wrap', wa: 0, wr: 0.006, wz: 0, tl: 0 };   // the T-bar (index.html PB.H box 0.044 x 0.012 x 0.01)
   for (const k in S) { const s = S[k], D = { ...s }; for (const f of ['c', 'ax', 'wd', 'b', 'pc', 'th', 'wc', 'wo']) if (s[f]) D[f] = v3(s[f]); if (s.idx) D.idx = { ...s.idx, c: v3(s.idx.c), b: v3(s.idx.b) }; SH[k] = D; }
 }
 function mkPose(o) { return { p: v3(o.pos), q: new THREE.Quaternion().fromArray(o.quat).normalize(), ja: Float32Array.from(o.ja || new Array(12).fill(0)), gT: v3(o.gT || [0, 0, 0]), gA: v3(o.gA || [0, -1, 0]).normalize(), isp: o.isp || 0, dev: o.dev || 0, mode: o.mode || 'GAME' }; }
