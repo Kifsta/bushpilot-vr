@@ -2,6 +2,15 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.82 – a hand mic with a coiled cord in the Cub
+Neil's request: a push-to-talk handset clipped in the cockpit, on a coiled cord that moves with the aircraft. It's visual only: the physics block is untouched and the md5 is unchanged.
+- **Where:** the handset hangs on a small clip under the right end of the panel, by the radio, within easy reach of either hand. The cord plugs into a jack under the radio stack. The handset is low-poly: a body, a grille, the red PTT bar on its side and a strain relief.
+- **The cord:** a 12-link verlet chain, 2 substeps and 6 constraint passes a frame. It's springy when stretched, soft when bunched, can stretch to about 5x its length before it goes hard, and rests on the floor. It's drawn as a 3-turn-per-link helix of thin wire round a Catmull-Rom curve through the chain: 3-sided rings, about 1.3k triangles, one draw call, rebuilt in place (dynamic buffer, no garbage). It costs about 0.05 ms a frame.
+- **It moves with the Cub:** the chain feels gravity minus the Cub's own acceleration, measured from its velocity change and turned into the cabin's axes. So it swings out in turns, sags in pull-ups, floats in pushovers, jiggles in turbulence and bounces on rough ground and touchdowns. Only what you see changes.
+- **Grab it:** squeeze either hand on it (the hover ring shows) and it rides in your fist with the cord stretching after it. Let go anywhere and it snaps back onto its clip in about 0.14 s (with a clack). The other hand can take it over without dropping it. A reset (R) and climbing out also put it back on the clip.
+- **Tests:** new t82 (17 checks: on the clip, a grab target, the tube's size; at rest pinned and sagging; either hand grabs and the handset follows; the cord stretches and stays attached; snap-back; hand-over; a 3 g side pull swings it the other way and it settles; a pull-up sags it; a bump bounces it; the Cub state untouched; cost; reset and climb-out; console). t42, t44, t46, t511, t772, t7711, t778 and t64 (cockpit grabs) pass.
+- The help line reads v0.82.
+
 ## v0.81 – low-risk Quest performance fixes (no visual or physics change)
 Neil approved items 1–6 of the perf audit (/workspace/perf-audit/report.md). Items 7 and 8 are skipped. The flight model isn't touched: its allocations stay as they are and the md5 is unchanged.
 - **#1 single-pass ribbons and shafts:** `forceSinglePass` on the three strip-ribbon materials (Dry Fork, Halvorsen, the bush-site ribbons) and on the rain-front shaft material. three r160 drew each transparent double-sided mesh twice (back faces, then front faces). The ribbons are flat on the ground and the shafts are see-through, so it doesn't change how they look.

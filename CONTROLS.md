@@ -29,6 +29,9 @@ v0.50 turns it into a **bush delivery** game: take a job off a strip's job board
 | Landing light | Flick the toggle under the panel up / down with your fingertip (or squeeze it) | L |
 | Reset / recentre | B = reset to the home strip, cold and dark (keeps your fuel and cash; below 5 gal it tops up to 5 gal, paid at the home drum price), A / X = recentre | R reset, Home recentre |
 
+## Hand mic (v0.82)
+- A push-to-talk handset hangs on a clip under the right end of the panel, on a coiled cord to the radio. Grab it with either hand (grip) and the cord stretches after it. Let go and it snaps back onto the clip. The cord swings with the Cub in turns, bumps and turbulence. It doesn't transmit anything yet.
+
 ## Engine start / shutdown (v0.19: the plane starts cold and dark)
 | | VR (Quest) | Desktop |
 |---|---|---|

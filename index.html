@@ -19,7 +19,7 @@
 </script>
 </head>
 <body>
-<div id="info">BUSH PILOT VR v0.81 - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
+<div id="info">BUSH PILOT VR v0.82 - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
 You start on foot by the Cub at the cabin strip. Walk up to her and climb in (F / Y), then start her up off the checklist card (J).
 Desktop - flying: W/S or arrows pitch, A/D or arrows roll, Q/E rudder, Shift / Ctrl (or + / -) throttle, B brakes, \ parking brake, [ ] flaps, PgUp / PgDn trim,
   R reset to the strip (cold and dark), F climb out, M map, L landing light, Home recentre, mouse looks (click to capture).
@@ -1794,7 +1794,7 @@ function resetFlight() {
   IN.prevHdg = null;
   if (mode === 'foot') toPlane();
   resetAircraft(ac); crashTimer = 0; flapNotch = 0; TRIM.v = 0; TRIM.g = null; vr.flapG = null; resetFuel();   // v0.79.2 a reset keeps your fuel and cash: no free fill-up
-  engColdDark(); cardHome(); kbHome(); CKH.clear(); CKX.keyStart = false; PRIME.lock = true; Object.assign(LATCH, { rup: 1, rlo: 1, lf: 1, lr: 1, rcg: 1 }); WIN.rup = WIN.rlo = WIN.lf = WIN.lr = WIN.rcg = 0; WIN.tgt = {};   // v0.19: back to cold and dark
+  engColdDark(); cardHome(); kbHome(); micRelease(); CKH.clear(); CKX.keyStart = false; PRIME.lock = true; Object.assign(LATCH, { rup: 1, rlo: 1, lf: 1, lr: 1, rcg: 1 }); WIN.rup = WIN.rlo = WIN.lf = WIN.lr = WIN.rcg = 0; WIN.tgt = {};   // v0.19: back to cold and dark
 }
 const RESET_FLOOR = 5 * 3.785;   // v0.79.2 litres: a reset with less than 5 gal aboard is topped up to 5 gal at the home drum, paid (on the hangar account if you are broke)
 function resetFuel() {
@@ -1811,7 +1811,7 @@ function exitPlane() {
   footRig.add(xrOffset); mode = 'foot'; lookYaw = lookPitch = 0; needRecenter = renderer.xr.isPresenting ? 2 : 0;
   ctl.elev = ctl.ail = ctl.rud = 0;
   bodyYaw = yaw; huntExit();   // v0.53 binoculars in the holster on your left hip
-  if (ENG.running) { ENG.running = false; say('ENGINE SHUT DOWN'); } ENG.starterVR = false; CKH.clear(); cardHome(); kbHome();   // v0.19
+  if (ENG.running) { ENG.running = false; say('ENGINE SHUT DOWN'); } ENG.starterVR = false; CKH.clear(); cardHome(); kbHome(); micRelease();   // v0.19
 }
 function board() {
   camera.getWorldPosition(_w); const dp = qRot(ac.q, [0.6, 0, 0]);
@@ -3928,6 +3928,60 @@ function updateKb() {
   paperHeld(KB.g, sx < 0 ? 'kbL' : 'kbR', _cm).decompose(KB.m.position, KB.m.quaternion, _ppS); KB.m.scale.setScalar(KB_HOLD_S);   // v0.77.8 the clipboard turns 1:1 with your hand (no billboard)
 }
 
+// ---- v0.82 the hand mic: a push-to-talk handset on a clip under the right of the panel, its coiled cord a light verlet chain swung by the Cub's accelerations (visual only: no physics) ----
+const MIC = { clip: new THREE.Vector3(0.235, -0.225 + CK.y, PANEL_Z + 0.04), jack: new THREE.Vector3(0.1, -0.272 + CK.y, PANEL_Z + 0.05), N: 12, SEG: 0.028, TURNS: 3, SPT: 6, RC: 0.0075, RW: 0.0021,
+  g: null, back: 0, rp: new THREE.Vector3(), rq: new THREE.Quaternion(), pv: null, acc: new THREE.Vector3(0, -9.81, 0), P: [], O: [], m: null, cord: null, floor: CK.y - 0.6, stretch: 0 };
+const MIC_EXIT = new THREE.Vector3(0, -0.047, 0), MIC_HOLD = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -Math.PI / 2);   // the cord leaves the handset's foot; in the fist its top points along the grip's -Z
+const _mq = new THREE.Quaternion(), _mq2 = new THREE.Quaternion(), _mv = new THREE.Vector3(), _mv2 = new THREE.Vector3(), _mg = new THREE.Vector3();
+{ const dk = mat(0x1c1c1e), G = new THREE.Group(); G.position.copy(MIC.clip); plane.add(G); MIC.m = G;
+  box(0.05, 0.078, 0.028, dk, 0, 0, 0, G); box(0.036, 0.03, 0.004, mat(0x4a4a4c), 0, 0.017, 0.015, G); box(0.006, 0.026, 0.014, mat(0x8a1a12), -0.027, -0.004, 0, G);   // body, grille, the red PTT bar on its left side
+  { const sr = new THREE.Mesh(new THREE.CylinderGeometry(0.005, 0.007, 0.012, 6), dk); sr.position.set(0, -0.044, 0); G.add(sr); }   // the strain relief
+  const C = box(0.03, 0.012, 0.016, mat(0x707478), MIC.clip.x, MIC.clip.y + 0.034, MIC.clip.z - 0.016, plane); C.userData.noBatch = true;   // the clip on the panel lip
+  const J = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.014, 6), mat(0x707478)); J.position.copy(MIC.jack); plane.add(J);   // the jack under the radio
+  G.traverse(o => { o.userData.noBatch = true; }); J.userData.noBatch = true;
+  for (let i = 0; i <= MIC.N; i++) { const p = MIC.jack.clone().lerp(MIC.clip.clone().add(MIC_EXIT), i / MIC.N); p.y -= Math.sin(Math.PI * i / MIC.N) * 0.08; MIC.P.push(p); MIC.O.push(p.clone()); }
+  const S = MIC.N * MIC.TURNS * MIC.SPT + 1, pos = new Float32Array(S * 3 * 3), nrm = new Float32Array(S * 3 * 3), idx = [];
+  for (let i = 0; i < S - 1; i++) for (let j = 0; j < 3; j++) { const a = i * 3 + j, b = i * 3 + (j + 1) % 3, c = a + 3, d = b + 3; idx.push(a, c, b, b, c, d); }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3).setUsage(THREE.DynamicDrawUsage)); g.setAttribute('normal', new THREE.BufferAttribute(nrm, 3).setUsage(THREE.DynamicDrawUsage)); g.setIndex(idx);
+  const cm = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ color: 0x18181a })); cm.frustumCulled = false; cm.userData.noBatch = true; plane.add(cm); MIC.cord = cm; MIC.S = S; }
+function micPose(out, q) {   // the handset's plane-local pose now: on the clip, in a hand, or snapping back
+  if (MIC.g) { MIC.g.getWorldPosition(_mv); plane.worldToLocal(out.copy(_mv)); plane.getWorldQuaternion(_mq).invert(); q.copy(_mq).multiply(MIC.g.getWorldQuaternion(_mq2)).multiply(MIC_HOLD); return; }
+  out.copy(MIC.clip); q.identity(); if (MIC.back > 0) { const k = MIC.back * MIC.back; out.lerp(MIC.rp, k); q.slerp(MIC.rq, k); }
+}
+function micGrab(g) { MIC.g = g; MIC.back = 0; sfx('pick'); }
+function micRelease(g) { if (!MIC.g || (g && MIC.g !== g)) return; micPose(MIC.rp, MIC.rq); MIC.g = null; MIC.back = 1; sfx('clack'); }   // let go anywhere: it springs back onto its clip
+function micTick(dt) {
+  if (!(dt > 0)) return; dt = Math.min(dt, 1 / 30);
+  if (MIC.back > 0) MIC.back = Math.max(0, MIC.back - dt / 0.14);
+  micPose(MIC.m.position, MIC.m.quaternion);
+  if (!MIC.pv) MIC.pv = ac.vel.slice(); _mv.set((ac.vel[0] - MIC.pv[0]) / dt, (ac.vel[1] - MIC.pv[1]) / dt, (ac.vel[2] - MIC.pv[2]) / dt); MIC.pv[0] = ac.vel[0]; MIC.pv[1] = ac.vel[1]; MIC.pv[2] = ac.vel[2];   // the felt acceleration in the cabin: gravity minus the Cub's own (turns, pull-ups, turbulence, bumps on the ground), plane-local
+  if (_mv.length() > 40) _mv.setLength(40); _mg.set(0, -9.81, 0).sub(_mv).applyQuaternion(_mq.copy(plane.quaternion).invert()); MIC.acc.lerp(_mg, Math.min(1, dt / 0.03));
+  const P = MIC.P, O = MIC.O, N = MIC.N, h = dt / 2; MIC.m.updateMatrix(); _mv2.copy(MIC_EXIT).applyMatrix4(MIC.m.matrix);
+  for (let st = 0; st < 2; st++) {
+    for (let i = 1; i < N; i++) { const p = P[i], o = O[i], vx = (p.x - o.x) * 0.985, vy = (p.y - o.y) * 0.985, vz = (p.z - o.z) * 0.985; o.copy(p); p.x += vx + MIC.acc.x * h * h; p.y += vy + MIC.acc.y * h * h; p.z += vz + MIC.acc.z * h * h; }
+    P[0].copy(MIC.jack); P[N].copy(_mv2);
+    for (let it = 0; it < 6; it++) for (let i = 0; i < N; i++) { const a = P[i], b = P[i + 1]; _mv.subVectors(b, a); const d = _mv.length() || 1e-6, L = MIC.SEG, k = d > 5 * L ? 1 : d > L ? 0.4 : 0.15, c = (d - L) / d * k * 0.5;   // a coiled cord: springy when stretched, soft when bunched
+      if (i > 0) a.addScaledVector(_mv, c); if (i + 1 < N) b.addScaledVector(_mv, -c); }
+    for (let i = 1; i < N; i++) if (P[i].y < MIC.floor) P[i].y = MIC.floor;   // the floor
+  }
+  let len = 0; for (let i = 0; i < N; i++) len += P[i].distanceTo(P[i + 1]); MIC.stretch = len / (N * MIC.SEG);
+  micDraw();
+}
+const _mt = new THREE.Vector3(), _mn = new THREE.Vector3(1, 0, 0), _mb = new THREE.Vector3(), _mr = new THREE.Vector3(), _mc = new THREE.Vector3();
+function micPt(u, out) {   // Catmull-Rom through the chain, u in 0..N
+  const P = MIC.P, N = MIC.N, k = Math.min(N - 1, Math.floor(u)), t = u - k, p0 = P[Math.max(0, k - 1)], p1 = P[k], p2 = P[k + 1], p3 = P[Math.min(N, k + 2)], t2 = t * t, t3 = t2 * t;
+  return out.set(0, 0, 0).addScaledVector(p0, -0.5 * t3 + t2 - 0.5 * t).addScaledVector(p1, 1.5 * t3 - 2.5 * t2 + 1).addScaledVector(p2, -1.5 * t3 + 2 * t2 + 0.5 * t).addScaledVector(p3, 0.5 * t3 - 0.5 * t2);
+}
+function micDraw() {   // a helix of wire wound round the chain: 3-sided rings, about 1.3k triangles
+  const S = MIC.S, pa = MIC.cord.geometry.attributes.position, na = MIC.cord.geometry.attributes.normal, A = pa.array, B = na.array, N = MIC.N, TW = Math.PI * 2 * MIC.TURNS * N; _mn.set(1, 0, 0);
+  for (let i = 0; i < S; i++) { const u = i / (S - 1) * N; micPt(u, _mc); micPt(Math.min(N, u + 0.05), _mt); micPt(Math.max(0, u - 0.05), _mb); _mt.sub(_mb).normalize();
+    _mn.addScaledVector(_mt, -_mn.dot(_mt)); if (_mn.lengthSq() < 1e-8) _mn.set(0, 1, 0).addScaledVector(_mt, -_mt.y); _mn.normalize(); _mb.crossVectors(_mt, _mn);
+    const th = TW * i / (S - 1), c = Math.cos(th), s2 = Math.sin(th); _mr.copy(_mn).multiplyScalar(c).addScaledVector(_mb, s2); _mc.addScaledVector(_mr, MIC.RC);
+    for (let j = 0; j < 3; j++) { const f = j * 2.0944, cf = Math.cos(f), sf = Math.sin(f), n = (i * 3 + j) * 3, nx = _mr.x * cf + _mt.x * sf, ny = _mr.y * cf + _mt.y * sf, nz = _mr.z * cf + _mt.z * sf;
+      A[n] = _mc.x + nx * MIC.RW; A[n + 1] = _mc.y + ny * MIC.RW; A[n + 2] = _mc.z + nz * MIC.RW; B[n] = nx; B[n + 1] = ny; B[n + 2] = nz; } }
+  pa.needsUpdate = true; na.needsUpdate = true;
+}
+
 // ---- VR hand grabs on cockpit controls (they win over the stick / throttle grab while the hand is on them) ----
 const CKH = new Map(), _ch = new THREE.Vector3(), _cw = new THREE.Vector3(), _cd = new THREE.Vector3();
 const CK_R = 0.035, WIN_R = 0.075;
@@ -3935,7 +3989,7 @@ function ckTargets() {   // [id, worldPos, radius]
   const out = [];
   for (const id in SW) out.push([id, plane.localToWorld(_cw.copy(SW[id].p)).clone(), CK_R]);
   out.push(['ldg', plane.localToWorld(_cw.copy(LDG_SW)).clone(), CK_R], ['pbrk', PB.H.getWorldPosition(new THREE.Vector3()), 0.05]);
-  out.push(['card', CARD.mesh.getWorldPosition(_cw).clone(), 0.07], ['kb', KB.m.getWorldPosition(_cw).clone(), 0.1]);
+  out.push(['card', CARD.mesh.getWorldPosition(_cw).clone(), 0.07], ['kb', KB.m.getWorldPosition(_cw).clone(), 0.1], ['mic', MIC.m.getWorldPosition(_cw).clone(), 0.06]);   // v0.82 the hand mic
   out.push(['rup', rupH.getWorldPosition(_cw).clone(), WIN_R], ['rlo', rloH.getWorldPosition(_cw).clone(), WIN_R], ['rcg', rcgH.getWorldPosition(_cw).clone(), WIN_R],
     ['lf', LWF.hp.getWorldPosition(_cw).clone(), WIN_R], ['lr', LWR.hp.getWorldPosition(_cw).clone(), WIN_R]);
   return out;
@@ -3949,6 +4003,7 @@ function ckHand(g, squeeze, id) {   // returns true while this hand is busy with
     else if (h.k in SW || h.k === 'ldg') ckGrabEnd(g, h);   // v0.23: twist / pull / flick, or tap = the old one-shot toggle
     if (h.k === 'card') cardHome();
     if (h.k === 'kb') kbHome();
+    if (h.k === 'mic') micRelease(g);   // v0.82 back onto its clip (unless the other hand took it over)
     if (h.k === 'rup' && WIN.rup > 0.7) { WIN.tgt.rup = 1; say('WINDOW LATCHED UNDER THE WING'); }
     if (h.k === 'rlo' && WIN.rlo > 0.5) WIN.tgt.rlo = 1;
     if (h.k === 'rcg' && WIN.rcg > 0.5) WIN.tgt.rcg = 1;   // v0.77.13 past halfway it drops open on its stop
@@ -3966,6 +4021,7 @@ function ckHand(g, squeeze, id) {   // returns true while this hand is busy with
     if (best === 'pbrk') pbSet(undefined, g);   // v0.77.11 grab the T-handle: pull it out to set, push it in to release (either hand)
     if (best === 'card') { CARD.g = g; sfx('pick'); say('CHECKLIST'); }
     if (best === 'kb') { KB.g = g; sfx('pick'); }
+    if (best === 'mic') micGrab(g);   // v0.82 either hand
     if (best === 'rup' || best === 'rlo' || best === 'rcg') { cubD.worldToLocal(_ch); h.a0 = hingeAng(best, _ch); h.v0 = WIN[best]; }
     if (best === 'lf' || best === 'lr') { cubD.worldToLocal(_ch); h.z0 = _ch.z; h.v0 = WIN[best]; }
     if (best in LATCH && LATCH[best] && WIN[best] < 0.03) { h.lat = true; h.q0 = g.getWorldQuaternion(new THREE.Quaternion()); h.ax = new THREE.Vector3(0, 0, -1).applyQuaternion(h.q0); }   // v0.44: twist the latch first
@@ -4390,7 +4446,7 @@ function hoverRing(tips) {                       // v0.24.1: one ring per free h
     const near = hrNear;   // fingertip, pinch point, or (as before) right in the palm
     for (const id in SW) { _hx.copy(SW[id].p).setZ(SWP.z + 0.012 + knobOut(id)); const d = near(_hx); if (d < 0.045) cand(id, _hx, id === 'master' ? 0.021 : 0.017, d); }
     { _hx.copy(LDG_SW).setZ(LDG_SW.z + 0.014); const d = near(_hx); if (d < 0.045) cand('ldg', _hx, 0.015, d); }
-    const HL = HRS.L || (HRS.L = [['rup', rupH, WIN_R], ['rlo', rloH, WIN_R], ['rcg', rcgH, WIN_R], ['lf', LWF.hp, WIN_R], ['lr', LWR.hp, WIN_R], ['card', CARD.mesh, 0.07], ['kb', KB.m, 0.1]]);   // v0.81 built once
+    const HL = HRS.L || (HRS.L = [['rup', rupH, WIN_R], ['rlo', rloH, WIN_R], ['rcg', rcgH, WIN_R], ['lf', LWF.hp, WIN_R], ['lr', LWR.hp, WIN_R], ['card', CARD.mesh, 0.07], ['kb', KB.m, 0.1], ['mic', MIC.m, 0.06]]);   // v0.81 built once; v0.82 the hand mic
     for (let q = 0; q < HL.length; q++) { const k = HL[q][0], o = HL[q][1], r = HL[q][2];
       o.getWorldPosition(_hx); plane.worldToLocal(_hx); const d = _hx.distanceTo(_rG); if (d < r) cand(k, _hx, 0.03, d + 0.02); }
     { let fd = 1e9; for (let q = 0; q < 2; q++) { const k = q ? 'thr' : 'stick', o = q ? throttleKnob : knob, fr = q ? 0.05 : 0.06, hg = k === 'stick' ? vr.stickG : vr.thrG; if (hg && hg !== g) continue;   // v0.61 either hand: stick and throttle, unless the other hand has it
@@ -4552,7 +4608,7 @@ function ckGrabEnd(g, h) {
   else if (k === 'master') engSet('master');
   else if (k === 'ldg') toggleLanding();
 }
-function updateCockpitV19(dt = 1 / 72) { updateSwitches(dt); updateCard(); updateKb(); glassGlint(); }
+function updateCockpitV19(dt = 1 / 72) { updateSwitches(dt); updateCard(); updateKb(); micTick(dt); glassGlint(); }   // v0.82 the hand mic's cord
 
 // ---- map holder: board + pocket lip behind the existing wall clip; the one shared map rides here while you fly ----
 { const leather = mat(0x4a3322), tmp = new THREE.Group(); box(0.27, 0.205, 0.004, leather, 0, 0, -0.006, tmp); box(0.27, 0.06, 0.012, leather, 0, -0.075, 0.008, tmp); mergeInto(tmp, MAP.clip); }   // one draw call
