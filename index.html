@@ -691,7 +691,7 @@ function splitTiles(geo, tile) {   // non-indexed triangle soup -> one geometry 
     geo.computeVertexNormals();
     const material = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true, map: grainTexture([size / 6, size / 6]) }); WET_MATS.push(material);
     const tiles = (inner ? splitTiles(geo, 3000) : [geo]);          // v0.10: tiles so the GPU only gets what's in view
-    for (const g of tiles) { const tm = new THREE.Mesh(g, material); tm.userData.noCast = true; tm.userData.lm = material; scene.add(tm); TERR_M.push(tm); }   // v0.35: the ground only receives shadows
+    for (const g of tiles) { const tm = new THREE.Mesh(g, material); tm.userData.noCast = true; tm.userData.lm = material; tm.userData.ring = !inner; scene.add(tm); TERR_M.push(tm); }   // v0.35: the ground only receives shadows
     return tiles;
   };
   terrainMesh = build(2 * T_IN, 2 * T_IN / T_C1, true);
@@ -7738,10 +7738,13 @@ const GFX_PRESET = {   // v0.48: one-poke presets (render scale takes effect nex
   QUALITY: { scale: 1, fov: 0.66, terr: 2, trees: 1, dist: 1.3, clouds: 2, fog: 1, shadows: 1, grass: 1, hz: 72, dyn: 1 } };   // v0.68.1 (Quest 3: expect drops in busy places; auto resolution steps down)
 function gfxPreset(n) { for (const [k, v] of Object.entries(GFX_PRESET[n])) if (GFX[k] !== v) gfxSet(k, v, true); say(n + (renderer.xr.isPresenting && GFX.scale !== GQ.xrScale ? ' - RENDER SCALE AT NEXT VR START' : '')); sfx('click'); if (GQ.menu) gfxMenuSync(); }
 function gfxCycle(k, d = 1) { if (k === 'hx') { HX.cycle(); if (GQ.menu) gfxMenuSync(); return; } const o = GFX_OPT.find(r => r[0] === k), i = o[2].findIndex(v => Math.abs(v - GFX[k]) < 1e-6); gfxSet(k, o[2][((i < 0 ? 0 : i) + d + o[2].length) % o[2].length]); }
-function vlWant() { return GFX.terr < 2 && !GFX.shadows && !LIGHTS.landing; }   // per-pixel lights (landing light) and shadow maps need the Lambert look
+function vlWant() { return GFX.terr < 2 && !LIGHTS.landing; }   // per-pixel lights (landing light) need the Lambert look; v0.85.1 shadows decide per tile (shNearUpdate)
+function vlLam(lm) {   // v0.85.1 the per-pixel ground under the shadow box: FAST+GRAIN = the ground's own Lambert, FAST = a grain-free Lambert twin (matches the grain-free vertex-lit tiles round it)
+  if (GFX.terr > 0) return lm; const k = lm.uuid + 'L'; let t = VL.by.get(k); if (!t) VL.by.set(k, t = new THREE.MeshLambertMaterial({ color: lm.color, vertexColors: lm.vertexColors, flatShading: true, side: lm.side })); return t;
+}
 function vlApply(force) {   // v0.48 Terrain shading: FAST / FAST+GRAIN (vertex-lit) or FULL (the v0.47 per-pixel Lambert)
-  const on = force === undefined ? vlWant() : force, key = on + '|' + GFX.terr; if (key === VL.key) return; VL.key = key;
-  for (const o of TERR_M) { const lm = o.userData.lm; o.material = on ? vlTwin(lm, GFX.terr > 0) : lm; if (lm.map) { const a = GFX.terr > 1 ? 4 : 2; if (lm.map.anisotropy !== a) { lm.map.anisotropy = a; lm.map.needsUpdate = true; } } }
+  const on = force === undefined ? vlWant() : force, sh = force === undefined && GFX.shadows > 0, key = on + '|' + GFX.terr + '|' + sh + '|' + SHN.ver; if (key === VL.key) return; VL.key = key;
+  for (const o of TERR_M) { const lm = o.userData.lm; o.material = !on ? lm : sh && o.userData.shIn ? vlLam(lm) : vlTwin(lm, GFX.terr > 0); if (lm.map) { const a = GFX.terr > 1 ? 4 : 2; if (lm.map.anisotropy !== a) { lm.map.anisotropy = a; lm.map.needsUpdate = true; } } }   // v0.85.1 shadows on: only tiles the shadow box touches go per-pixel
 }
 function vlTick() {   // the vertex-lit uniforms follow the sun / moon and sky light
   VL.vlS.value.copy(hemi.color).multiplyScalar(hemi.intensity); VL.vlG.value.copy(hemi.groundColor).multiplyScalar(hemi.intensity);
@@ -7749,7 +7752,7 @@ function vlTick() {   // the vertex-lit uniforms follow the sun / moon and sky l
 }
 function gfxApply(k) {
   const all = !k;
-  if (all || k === 'terr' || k === 'shadows') { VL.key = ''; vlApply(); }
+  if (all || k === 'terr' || k === 'shadows') { VL.key = ''; vlApply(); if (k === 'terr' && GFX.shadows) shPrewarm(); }
   if (all || k === 'scale') { renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5) * GFX.scale); if (!renderer.xr.isPresenting) renderer.xr.setFramebufferScaleFactor(GFX.scale); }
   if (all || k === 'fov') renderer.xr.setFoveation(DYN.lvl ? Math.max(1, GFX.fov) : GFX.fov);
   if (k === 'dyn' && !GFX.dyn) dynSet(0);
@@ -7766,11 +7769,40 @@ function gfxApply(k) {
 }
 // ---- shadows: one directional shadow map that follows you (a tight "cascade": 28 m box LOW / 1024 px, 64 m HIGH / 2048 px) ----
 scene.add(sun.target);
-function gfxShadowFlags() {   // every opaque mesh receives; everything but the terrain, sky, water and see-through stuff casts
+function shSolid(m) { return !!m && !m.transparent && !m.isMeshBasicMaterial && !m.isShaderMaterial && !m.isPointsMaterial && !m.isSpriteMaterial; }
+function gfxShadowFlags() {   // every opaque mesh receives (v0.85.1: ground tiles / world batch cells only under the shadow box, see shNearUpdate); everything but the terrain, sky, water and see-through stuff casts
   const on = GFX.shadows > 0;
   scene.traverse(o => { if (!o.isMesh && !o.isInstancedMesh) return; const m = Array.isArray(o.material) ? o.material[0] : o.material; if (!m) return;
-    const solid = !m.transparent && !m.isMeshBasicMaterial && !m.isShaderMaterial && !m.isPointsMaterial && !m.isSpriteMaterial;
-    o.receiveShadow = on && solid; o.castShadow = on && solid && !o.userData.noCast; });
+    const solid = shSolid(m), u = o.userData;
+    o.receiveShadow = on && (u.shN ? !!u.shIn && (u.ring !== undefined || solid) : solid); o.castShadow = on && solid && !u.noCast; });
+}
+// v0.85.1 (perf #8) receive only near the shadow box: the ground tiles and the world's batch cells whose bounds touch the shadow camera's box (+ a margin, so it is only
+// re-tested after the box moves half its size or the sun turns) receive shadows; ground tiles outside it stay on the vertex-lit look. receiveShadow is a uniform: no recompile.
+const SHN = { items: [], nb: -1, last: new THREE.Vector3(1e9, 0, 0), dir: new THREE.Vector3(), ver: 0, n: 0, v: new THREE.Vector3(), d: new THREE.Vector3(), box: [-1, -1, -1, -1] };
+function shItems() { const L = SHN.items; L.length = 0; for (const o of TERR_M) L.push(o); for (const B of BATCH.list) if (B.root === scene) L.push(B.mesh); for (const o of L) o.userData.shN = true; SHN.nb = BATCH.list.length; }
+function shBounds(o) { const u = o.userData, g = o.geometry; if (u.shG !== g || !u.shB) { if (!g.boundingBox) g.computeBoundingBox(); (u.shB ||= new THREE.Box3()).copy(g.boundingBox).applyMatrix4(o.matrixWorld); u.shG = g; } return u.shB; }
+function shNearUpdate(force) {
+  if (!GFX.shadows) return; if (BATCH.list.length !== SHN.nb) { shItems(); force = true; }
+  const t = sun.target.position, M = GQ.shR * 0.5; SHN.d.copy(sun.position).sub(t).normalize();
+  if (!force && Math.abs(t.x - SHN.last.x) < M && Math.abs(t.y - SHN.last.y) < M && Math.abs(t.z - SHN.last.z) < M && SHN.d.dot(SHN.dir) > 0.9995) return;
+  SHN.last.copy(t); SHN.dir.copy(SHN.d); SHN.n++;
+  sun.updateMatrixWorld(); sun.shadow.updateMatrices(sun); const c = sun.shadow.camera, V = c.matrixWorldInverse, E = 2 * M, R = GQ.shR + E, z0 = -(c.near - E), z1 = -(c.far + E), v = SHN.v;
+  let ax = 1e9, bx = -1e9, ay = 1e9, by = -1e9, az = 1e9, bz = -1e9;   // the box's own world bounds (both ways round is tight enough for big tiles; the ring round the inner grid is near only once the box reaches past the hole's edge)
+  for (let i = 0; i < 8; i++) { v.set(i & 1 ? R : -R, i & 2 ? R : -R, i & 4 ? z1 : z0).applyMatrix4(c.matrixWorld); ax = Math.min(ax, v.x); bx = Math.max(bx, v.x); ay = Math.min(ay, v.y); by = Math.max(by, v.y); az = Math.min(az, v.z); bz = Math.max(bz, v.z); }
+  SHN.box = [ax, bx, az, bz]; const inHole = ax > -T_IN && bx < T_IN && az > -T_IN && bz < T_IN; let ch = false;
+  for (const o of SHN.items) { const b = shBounds(o); let near = !b.isEmpty() && b.max.x > ax && b.min.x < bx && b.max.y > ay && b.min.y < by && b.max.z > az && b.min.z < bz;
+    if (near) { let lx = 1e9, hx = -1e9, ly = 1e9, hy = -1e9, lz = 1e9, hz = -1e9;
+      for (let i = 0; i < 8; i++) { v.set(i & 1 ? b.max.x : b.min.x, i & 2 ? b.max.y : b.min.y, i & 4 ? b.max.z : b.min.z).applyMatrix4(V); lx = Math.min(lx, v.x); hx = Math.max(hx, v.x); ly = Math.min(ly, v.y); hy = Math.max(hy, v.y); lz = Math.min(lz, v.z); hz = Math.max(hz, v.z); }
+      near = hx > -R && lx < R && hy > -R && ly < R && hz > z1 && lz < z0; }
+    if (near && o.userData.ring) near = !inHole;
+    if (o.userData.ring !== undefined && !!o.userData.shIn !== near) ch = true;
+    o.userData.shIn = near; const m = Array.isArray(o.material) ? o.material[0] : o.material; o.receiveShadow = near && (o.userData.ring !== undefined || shSolid(m)); }
+  if (ch) SHN.ver++;
+}
+function shPrewarm() {   // compile every ground look the near / far tiles can switch between now, so crossing a tile edge never compiles a shader mid-flight
+  const g = new THREE.Group(), q = []; for (const o of TERR_M) { const lm = o.userData.lm; if (q.some(e => e[0] === lm)) continue; q.push([lm, o.geometry]); }
+  for (const [lm, geo] of q) for (const m of [lm, vlLam(lm), vlTwin(lm, true), vlTwin(lm, false)]) { const d = new THREE.Mesh(geo, m); d.receiveShadow = true; g.add(d); }
+  renderer.compile(g, camera, scene);
 }
 function gfxShadows() {
   const on = GFX.shadows > 0; renderer.shadowMap.enabled = on; renderer.shadowMap.type = GFX.shadows > 1 ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap; renderer.shadowMap.needsUpdate = true;
@@ -7779,7 +7811,10 @@ function gfxShadows() {
     if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; }
     sun.shadow.mapSize.set(sz, sz); c.left = c.bottom = -R; c.right = c.top = R; c.near = 10; c.far = 1000; c.updateProjectionMatrix();
     sun.shadow.bias = -0.0006; sun.shadow.normalBias = GFX.shadows > 1 ? 0.04 : 0.07; GQ.shR = R; GQ.shTex = 2 * R / sz; }
+  if (on) { SHN.nb = -1; gfxShadowFollow(0); }   // v0.85.1 place the box and pick the near tiles / cells before the flags
+  else for (const o of SHN.items) o.userData.shIn = false;
   gfxShadowFlags(); scene.traverse(o => { if (o.material) for (const m of [].concat(o.material)) m.needsUpdate = true; });
+  VL.key = ''; vlApply(); if (on) shPrewarm();
 }
 const _gsF = new THREE.Vector3();
 function gfxShadowFollow(dt) {
@@ -7788,7 +7823,7 @@ function gfxShadowFollow(dt) {
   if (mode === 'plane') plane.getWorldPosition(_gsF);
   const fx = Math.round(_gsF.x / t) * t, fz = Math.round(_gsF.z / t) * t;
   sun.target.position.set(fx, _gsF.y, fz); sun.target.updateMatrixWorld();
-  sun.position.normalize().multiplyScalar(400).add(sun.target.position);
+  sun.position.normalize().multiplyScalar(400).add(sun.target.position); shNearUpdate();
   if ((GQ.shadowT -= dt) <= 0) { GQ.shadowT = 3; gfxShadowFlags(); }   // late-built meshes pick up the flags
 }
 // ---- clouds: OFF hides them, HIGH adds a second, higher layer of 40 smaller cumulus (same material, one more draw) ----

@@ -2,6 +2,21 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.85.1 – cheaper shadows: only near the shadow box (perf audit #8)
+
+Neil: "Go 8". Graphics only; physics untouched (md5 unchanged). Shadows OFF (the default) is unchanged.
+- **What changed:** with Shadows LOW / HIGH the ground used to go per-pixel Lambert everywhere, and every ground tile and static-scenery batch cell ran the shadow lookup, though the shadow box is only ±28 m (LOW) or ±64 m (HIGH). Now `shNearUpdate` (called from `gfxShadowFollow`) tests the five ground meshes (four 3 km inner tiles and the outer ring) and the world's batch cells against the shadow camera's box, both in light space and in world bounds. Only the ones it touches get `receiveShadow`, and only those ground tiles go per-pixel; the rest stay on the vertex-lit `vlTwin`.
+  - Cheap: it re-tests only after the box moves half its size or the sun turns, with the box padded so nothing is missed in between. That is 32 bounding-box tests, and `receiveShadow` is a uniform in three r160, so there's no recompile.
+  - `vlWant()` no longer looks at shadows; the per-tile choice is in `vlApply`. FAST + shadows uses a grain-free Lambert twin (`vlLam`) under the box, so it matches the grain-free vertex-lit tiles around it.
+  - `shPrewarm` compiles all four ground looks when shadows or Terrain shading change, so crossing a tile edge in flight never compiles a shader (tested: program count constant).
+  - The Cub, props, trees and towns receive exactly as before.
+- **No seam:** the vertex-lit ground uses the same maths as Lambert. Rendering the same frame with the far tiles vertex-lit and with every tile per-pixel differs by at most 0.08 % of pixels: scattered depth-precision specks on far fence or power lines, nothing along the tile edge.
+- **Measured (SwiftShader, 800×450, frozen sim):**
+  - Per-pixel ground tiles with shadows on dropped from 5 of 5 to 1 over open country, 2 at a tile corner and 4 at the home strip. The home strip sits on the corner of the four inner tiles.
+  - World batch cells taking shadows dropped from 27 to 0–3.
+  - Desktop frame times are within noise. The gain is GPU fill on Quest and needs a headset check.
+- **Tests:** new t851 (13 checks: near-only receive at the home strip, over terrain and over the ring; nothing in the box missed; HIGH; no compile crossing tiles; no seam; OFF/LOW/HIGH and FAST/FULL round trips). t48's "shadows force Lambert" check is updated to the new rule.
+
 ## v0.85 – the new rifle model on the v0.44 rifle
 
 Neil: keep the v0.84.4–v0.84.7 rifle interaction exactly as it is, but bring the new Synty-style model back. Visuals only: no mechanic, point or number changed (GUN, RECOIL2, RF, EYE_R, grips, lever, gate, bolt).
