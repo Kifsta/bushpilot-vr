@@ -2,6 +2,19 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.80 – four more tricky destinations, each with a job hook (+ the home ammo carton is open and empty)
+Neil's approved queue, item (a), with the v0.79.2 loose end folded in.
+- **Sites (18 in all):** a new terrain search (in the page, on `terrainHeight`: the ground the gear rolls on) away from every strip (1.1 km), town (900 m), airdrop (700 m), herd and road. Nothing is flattened and the physics block is untouched.
+  - **DEADMAN BOX** (1900, 3300): a box canyon, 220 m, one-way. The high end runs into a 160 m headwall within 400 m: land uphill, no go-around past short final. Canyon geologists' camp with core boxes and a drill tripod.
+  - **HANGING VALLEY** (4400, -1900): 380 m up, 220 m at 4 % uphill into a 77 m headwall, one-way. Goat counters' tent, antenna and solar panel.
+  - **BLIND HOGBACK** (1050, 700): 200 m with a 4.3 m hump in the middle. From the threshold at eye height you can't see the far end. A beekeeper's honey house and hives.
+  - **TABLE MESA** (4271, -671): 170 m on a mesa top at 394 m. The SW end is the lip of a 28 m escarpment. A fire lookout on 7 m legs, plus water drums.
+- **Job hooks:** each new site has a `hook` (title + cargo kinds). A plain light job sent there carries that customer's own work instead of a generic parcel run: CORE SAMPLES (crate + fragile box), COLLARS + BATTERIES, HIVES + HONEY, LOOKOUT RATIONS. Special, heavy, hunting and airdrop jobs are as before. Pay goes by difficulty as in v0.77: x1.8 for the three diff-3 sites, x1.6 for the hogback.
+- **Seeds and saves:** the new boards come after the v0.77 ones and the camps / strips are built after the older ones, so the older boards keep their index and the older camps their shapes. Saved offers load as saved. New offers anywhere can now also go to the four new sites (as in v0.77).
+- **Home ammo carton (v0.79.2 follow-up):** the carton on the stump is now open and empty (dark floor, four walls, the lid folded back).
+- **Tests:** new t80 (13 checks: 4 sites / kinds / boards / briefings / hooks; box + valley headwalls, the hogback's hidden far end, the mesa lip; hook cargo on the plain runs and other strips unchanged; pay; the FOUND text; no trees; save / load; the open carton; console). t52 (now 23 boards / 18 sites; the hogback is judged by cross slope since its hump is the point; the Cub runs prove it lifts off and stops on every new strip, empty and at gross), t76 (24 dressed strips) updated. t77, t50, t51, t52h, t56, t58, t53 rerun.
+- The help line reads v0.80.
+
 ## v0.79.2 – ammo only at Dry Fork; R keeps your fuel
 Neil's two loose ends.
 - **Ammo economy:** the home ammo box no longer sells ammo (it was $10 for 20, against $35 for 20 at Dry Fork). The carton on the stump is empty: walking up to it, grabbing it or pressing Z by it says "AMMO BOX EMPTY - BUY .44-40 AT THE DRY FORK HANGAR HARDWARE ($35 / 20)". No purchase and no restock. The free starter supply is the existing one: a new game starts with a full tube and 20 rounds in the pouch. The "pouch empty" messages and the help line point to Dry Fork. With the rifle in hand, Z by the box now loads a round instead of trying to buy. Saves are unchanged: the pouch is saved as before, and nothing was saved for the home box.
