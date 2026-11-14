@@ -2,6 +2,13 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.88.2 – the park brake grip; t45 / t46 fixed
+
+Physics untouched (md5 unchanged).
+- **Park brake T-handle (fix):** in v0.87.1, Neil's grip-mode-G hold put his hand frame on the handle but kept the old frame's fist, so the fingers sank 1.6 cm into the T-bar and the thumb 9 mm. Now the game curls the fingers and places the thumb onto the bar from his hand frame, the way mode G means. They touch it, wrap it (3 fingers in contact) and stay out of it. The hand rides the handle's frame, so the grip is the same over the whole 3.5 cm pull. His hand position is unchanged. (`gripCurl` is split out of `gripSolve`; only grip-state Pose Lab entries use it, and only pbrk L / R has one.)
+- **Fuel nozzle (test fix, the game was right):** t45 put the *hand* where the old hold had the spout. With Neil's v0.87.1 nozzle hold, that left the spout 15 cm off the far cap and the hose end past its 9 m, so the hose let go. The test now puts the spout in the cap, pointing down with the hose toward the drum, and the hand goes wherever his hold puts it. From the default home parking, the far (right) cap is reachable with 0.54 m of hose to spare. It fills to 36 gal and stops when pulled out, and is refused when the Cub is 400 m away.
+- Tests: t46 15/15, t45 15/15, t871, t845, t84, t844.
+
 ## v0.88.1 – carry a stack of parcels
 
 Neil couldn't stack packages while carrying them. This was never broken: in-hand stacking was never built. v0.74 / v0.77.9 stack only in the Cub's bay. A hand that held a piece refused any second grab, and the free hand just took a second piece of its own. Neither the v0.84.2 grip-only change nor the v0.87.1 Pose Lab holds is involved. Physics untouched (md5 unchanged).

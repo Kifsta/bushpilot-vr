@@ -41,7 +41,7 @@ Nine holds now come from Neil's Pose Lab codes, each mirrored for the other hand
 - **Map:** one hand holds a lower corner; with both hands the sheet sits between them.
 - **Checklist card:** rides your hand where it sits (it no longer turns to face you).
 - **Hand mic:** in your fist, the cord on it. It doesn't transmit anything yet.
-- **Park brake:** the fist on the T-handle stays on it through the whole pull.
+- **Park brake:** Neil's hand position on the T-handle. Since v0.88.2 the fingers and thumb close onto the bar from there (none inside it), and stay on it through the whole pull.
 - **Fuel nozzle:** in your hand where the lab puts it; the hose stays on and the trigger refuels at a wing cap.
 - **Clipboard (v0.87.2):** pinched at its lower outer corner in Neil's hold. To read it, raise the controller about 80–90° and the page faces you. The trigger turns the pages as before.
 - **Map in both hands (v0.87.2):** the sheet sits between your two pinches, level and facing you.

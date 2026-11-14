@@ -4591,8 +4591,8 @@ function gFingerHit(gp, sx, f, j0) {   // does any bone from joint j0 on (angles
   return false;
 }
 function gripSolve(st, k, sx) {   // on grab: hand frame in the control's frame (st.Hc) + finger angles (st.ja) + thumb target (st.gT, st.gA)
-  const plk = plKey(k, sx); st.plJg = null; if (plk && POSE_LAB[plk]) return plSolve(st, plk);   // v0.87.1 a Pose Lab hold replaces the solve (none yet for gripped controls)
-  const D = GDEF[k], gp = st.gp; st.dev = 0; if (D.labK) return rflLabSolve(st, RIFLE_POSES[D.labK].lab, sx); gripFrame(k, _gF); _gI.copy(_gF).invert(); _gH.multiplyMatrices(_gI, st.W); if (D.fix) gripFixed(D.fix, sx, _gH); _gH.extractBasis(_gx, _gy, _gz);   // v0.77.1 fix: one authored pose per hand, whatever way the hand came in
+  const plk = plKey(k, sx); st.plJg = null; if (plk && POSE_LAB[plk]) { plSolve(st, plk); if (POSE_LAB[plk].ja && !GDEF[k].labK) gripCurl(st, GDEF[k], sx); return; }   // v0.87.1 a Pose Lab hold replaces the solve; v0.88.2 a grip-mode-G hold (his hand frame, the game's fingers) curls the game's fingers onto the control from his hand frame (they were the old frame's fist: 1.6 cm into the brake's T-bar)
+  const D = GDEF[k]; st.dev = 0; if (D.labK) return rflLabSolve(st, RIFLE_POSES[D.labK].lab, sx); gripFrame(k, _gF); _gI.copy(_gF).invert(); _gH.multiplyMatrices(_gI, st.W); if (D.fix) gripFixed(D.fix, sx, _gH); _gH.extractBasis(_gx, _gy, _gz);   // v0.77.1 fix: one authored pose per hand, whatever way the hand came in
   if (D.st === 'wrap') {
     if (D.wd) _gA.copy(D.wd); else _gA.set(0, 0, 0).setComponent(D.wa, 1); if (_gz.dot(_gA) < 0) _gA.negate();          // finger-width axis along the grip, the way your hand already faces
     _gy.addScaledVector(_gA, -_gy.dot(_gA)); if (_gy.lengthSq() < 1e-6) _gy.copy(_gx).cross(_gA); _gy.normalize(); _gx.crossVectors(_gy, _gA);
@@ -4605,7 +4605,10 @@ function gripSolve(st, k, sx) {   // on grab: hand frame in the control's frame 
     st.Hc.copy(_gH); _ga.set(sx * G_PIN.x, G_PIN.y, G_PIN.z); _gb.copy(_ga).applyMatrix4(_gH); _gc.subVectors(D.pc, _gb);   // keep your wrist angle, knob between thumb and index
     st.Hc.elements[12] += _gc.x; st.Hc.elements[13] += _gc.y; st.Hc.elements[14] += _gc.z;
   }
-  _gI.copy(st.Hc).invert();                                                                   // shape into hand space
+  gripCurl(st, D, sx);
+}
+function gripCurl(st, D, sx) {   // the fingers curl onto the control and the thumb finds its surface, from the hand frame st.Hc (v0.88.2 split out of gripSolve)
+  const gp = st.gp; _gI.copy(st.Hc).invert();                                                 // shape into hand space
   gp.cyl = D.sh === 'cyl'; gp.C.copy(D.c).applyMatrix4(_gI);
   gp.X.set(1, 0, 0).transformDirection(_gI); gp.Y.set(0, 1, 0).transformDirection(_gI); gp.Z.set(0, 0, 1).transformDirection(_gI);
   if (gp.cyl) { if (D.ax) gp.A.copy(D.ax).transformDirection(_gI); else gp.A.copy(D.a === 0 ? gp.X : D.a === 1 ? gp.Y : gp.Z); gp.r = D.r; gp.hl = D.hl; } else gp.b.copy(D.b);
