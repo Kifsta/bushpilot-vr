@@ -2,6 +2,16 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.88.1 – carry a stack of parcels
+
+Neil couldn't stack packages while carrying them. This was never broken: in-hand stacking was never built. v0.74 / v0.77.9 stack only in the Cub's bay. A hand that held a piece refused any second grab, and the free hand just took a second piece of its own. Neither the v0.84.2 grip-only change nor the v0.87.1 Pose Lab holds is involved. Physics untouched (md5 unchanged).
+- **Carry a stack (VR):** while one hand carries a piece, grab another with your free hand and it goes on top of the carried one. The free hand is empty again, so you can keep going.
+- **Overloading only warns:** HEAVY over 35 lb, OVERLOADED: SLOW GOING over 80 lb, TALL STACK over 1.1 m. Walking slows to 0.8x / 0.5x as in v0.52.
+- **Taking pieces off:** a free hand takes the top piece off the stack (a piece lying nearby wins over your own stack's top).
+- **Letting go:** over the Cub, every piece loads and stacks in the bay (v0.77.9 placement; W&B counts all of it). On the ground, they land as a pile: falling pieces now come to rest on a piece under them. Lifting the bottom of a pile drops what was on it, and save / load keeps a pile.
+- Two-hand pieces and desktop E carrying are unchanged.
+- Test t881: grab-based, through handGrab / handRelease: stack 2, 3 and 4 pieces (107 lb overload), the stack rides the hand, take the top off, a pile on the ground, save / load, lift the bottom, let go over the rear seat (all 3 load, stacked, W&B), and a single carry as before. Bay stacking: t74, t779.
+
 ## v0.88 – Trees: 3D ONLY / MIXED / 2D ONLY, and close 2D trees no longer pop
 
 Neil saw the DENSE forest's close 2D trees vanish and come back. Physics untouched (md5 unchanged).

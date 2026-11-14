@@ -5488,7 +5488,8 @@ function dlvSpawn(job) {   // the cargo appears on the origin pad, in a row
   job.items.forEach((d, i) => { const it = dlvMake(job, d.k, d.lb, i), lx = -0.9 + (i % 3) * 0.9, lz = -0.6 + Math.floor(i / 3) * 0.7 + (job.id % 3 - 1) * 0.45;
     dlvSetGround(it, S.pad[0] + lx * c + lz * s, S.pad[1] - lx * s + lz * c, S.ry); });
 }
-function dlvRemove(it) { it.mesh.removeFromParent(); if (it.slot >= 0) { it.mesh.geometry.dispose(); LBL.free.push(it.slot); it.slot = -1; } for (const [g, h] of DLV.held) if (h === it) DLV.held.delete(g); if (DLV.desk === it) DLV.desk = null; const i = DLV.items.indexOf(it); if (i >= 0) DLV.items.splice(i, 1); }
+function dlvRemove(it) { if (it.up) for (let p = it.up, q; p; p = q) { q = p.up; p.mesh.updateMatrixWorld(true); scene.attach(p.mesh); dlvUnstack(p); p.st = 'fall'; p.vy = 0; }   // v0.88.1 what rode on it drops
+  if (it.on || it.up) dlvUnstack(it); it.mesh.removeFromParent(); if (it.slot >= 0) { it.mesh.geometry.dispose(); LBL.free.push(it.slot); it.slot = -1; } for (const [g, h] of DLV.held) if (h === it) DLV.held.delete(g); if (DLV.desk === it) DLV.desk = null; const i = DLV.items.indexOf(it); if (i >= 0) DLV.items.splice(i, 1); }
 // ---- the boards ----
 function jbAccept(S, i) {
   if (S.lock) { say('HALVORSEN: NO CIVILIAN CONTRACTS - DRY FORK HAS TO VOUCH FOR YOU (REP ' + repOf('DRYFORK') + '/' + REP_UNL + ')'); sfx('tick'); return; }   // v0.56
@@ -5626,7 +5627,7 @@ function cgAuto(it, zn) {   // lowest free spot in the zone (desktop, or the han
     const y = cgSupport(zn, it, x, z) - Z.y(z); if (y < by - 1e-4) { by = y; best = [x, z]; } }
   return best;
 }
-function dlvUnhold(it) { for (const [g, h] of DLV.held) if (h === it) DLV.held.delete(g); if (DLV.desk === it) DLV.desk = null; it.g = null; it.two = null; }
+function dlvUnhold(it) { for (const [g, h] of DLV.held) if (h === it) DLV.held.delete(g); if (DLV.desk === it) DLV.desk = null; it.g = null; it.two = null; if (it.on || it.up) dlvUnstack(it); }
 function loadCargo(it, zn, x, z, quiet) {
   if (zn === 'pod' && (!UPG.pod || upgPodLb() + it.lb > POD_MAX_LB)) { if (!quiet) say('THE POD TAKES ' + POD_MAX_LB + ' LB - ' + upgPodLb() + ' IN IT'); return false; }   // v0.57
   const prev = it.mesh.parent, pst = it.st, pcz = it.cz; it.st = 'loading'; it.cz = null;
@@ -5741,14 +5742,41 @@ function dlvDist(it, w) { it.mesh.worldToLocal(_dl.copy(w)); const s = it.sz; re
 function dlvTake(it, quiet) {   // out of the Cub / off the ground into a hand: false if it's strapped in
   if (it.k === 'patient') { if (!quiet) say('THE PATIENT STAYS PUT - THE CLINIC NURSE HELPS THEM OUT'); return false; }   // v0.58
   if (it.st === 'cargo' && it.cz !== 'pod' && cgSecured(it)) { if (!quiet) say('UNDO THE ' + (it.cz === 'rear' ? 'SEAT BELT' : 'CARGO NET') + ' FIRST'); return false; }
-  const was = it.st; it.st = 'held'; it.cz = null; it.cv.set(0, 0, 0); if (was === 'cargo') { cgStraps(); wbUpdate(); } return true;
+  const was = it.st; it.st = 'held'; it.cz = null; it.cv.set(0, 0, 0); if (was === 'cargo') { cgStraps(); wbUpdate(); }
+  if (was === 'ground') for (const o of DLV.items) if (o.st === 'ground' && o !== it && dlvOver(o, it) && o.mesh.position.y > it.mesh.position.y) { o.st = 'fall'; o.vy = 0; }   // v0.88.1 a pile on the ground: what sat on it drops
+  return true;
 }
+// v0.88.1 carried stacks: grab a piece with your free hand while the other carries one and it goes on top of the carried one (and so on). it.on = the piece under it, it.up = the one on it.
+// Overloading is allowed: heavy / tall stacks only warn (and slow you down, v0.52).
+const dlvTop = it => { while (it.up) it = it.up; return it; }, dlvBase = it => { while (it.on) it = it.on; return it; };
+function dlvStack(it) { const L = []; for (let p = dlvBase(it); p; p = p.up) L.push(p); return L; }
+function dlvOver(o, it) { const a = o.mesh.position, b = it.mesh.position; return hyp(a.x - b.x, a.z - b.z) < (Math.min(o.sz[0], o.sz[2]) + Math.min(it.sz[0], it.sz[2])) / 2 - 0.02; }
+function dlvRestY(it, x, z, yb, rr) {   // where a piece set down / falling at (x, z) comes to rest: the ground, or the top of a ground piece under it (tops up to 25 cm over its bottom yb)
+  let y = dlvGroundY(x, z) + it.h / 2; const r = Math.min(it.sz[0], it.sz[2]) / 2;
+  for (const o of DLV.items) { if (o === it || o.st !== 'ground') continue; const q = o.mesh.position, t = q.y + o.h / 2;
+    if (t <= yb + 0.25 && hyp(q.x - x, q.z - z) < (rr || r + Math.min(o.sz[0], o.sz[2]) / 2 - 0.02)) y = Math.max(y, t + it.h / 2); }
+  return y;
+}
+function dlvStackOn(base, it) {   // it (already taken) goes on top of the carried stack, square and centred
+  const t = dlvTop(base); it.g = null; it.two = null; it.st = 'held'; it.on = t; t.up = it; t.mesh.attach(it.mesh);
+  it.mesh.position.set(0, (t.h + it.h) / 2 + 0.004, 0); it.mesh.rotation.set(0, 0, 0);
+  const L = dlvStack(base), lb = L.reduce((a, p) => a + p.lb, 0), ht = L.reduce((a, p) => a + p.h, 0);
+  return { n: L.length, lb, ht, warn: (lb > 80 ? ' - OVERLOADED: SLOW GOING' : lb > 35 ? ' - HEAVY' : '') + (ht > 1.1 ? ' - TALL STACK, MIND IT' : '') };
+}
+function dlvUnstack(it) { if (it.on) it.on.up = null; if (it.up) it.up.on = null; it.on = it.up = null; }
 function dlvGrab(g, a) {   // VR on foot: strap anchor first, then the nearest piece of cargo under the hand
   if (mode !== 'foot' || DLV.held.has(g)) return false;
   plane.updateMatrixWorld(); cgStraps();
   for (const [k, p] of cgStrapPoints()) if ((k === 'belt' ? DLV.rH : DLV.bH) && p.distanceTo(a) < 0.13) { cgToggle(k); HX.pulse(g, 0.5, 25, 'strap'); return true; }
-  let bi = null, bd = 0.09; for (const it of DLV.items) { if (it.st !== 'ground' && it.st !== 'cargo' && it.st !== 'fall') continue; const d = dlvDist(it, a); if (d < bd) { bd = d; bi = it; } }
-  if (!bi) return false;
+  let bi = null, bd = 0.09, ti = null, td = 0.09; for (const it of DLV.items) { const top = it.st === 'held' && it.on && !it.up; if (it.st !== 'ground' && it.st !== 'cargo' && it.st !== 'fall' && !top) continue; const d = dlvDist(it, a); if (top) { if (d < td) { td = d; ti = it; } } else if (d < bd) { bd = d; bi = it; } }
+  bi = bi || ti; if (!bi) return false;   // (v0.88.1 a piece to pick up wins over the top of your own stack)
+  if (bi.st === 'held') {   // v0.88.1 the top piece of the stack in your other hand: this hand takes it off
+    dlvUnstack(bi); g.attach(bi.mesh); bi.g = g; DLV.held.set(g, bi); cargoSfx(bi, 'lift'); HX.pulse(g, 0.3, 25, 'cargo'); say('TOOK ' + CARGO_K[bi.k].n + ' ' + bi.lb + ' LB OFF THE STACK'); return true; }
+  const hb = !CARGO_K[bi.k].two && [...DLV.held].find(([h, p]) => h !== g && !p.two)?.[1];
+  if (hb) {   // v0.88.1 the other hand carries a piece: this one goes on top of it
+    if (!dlvTake(bi)) { HX.pulse(g, 0.2, 15, 'strap'); return true; }
+    const r = dlvStackOn(hb, bi); cargoSfx(bi, 'set', bi.mesh.getWorldPosition(new THREE.Vector3())); HX.pulse(g, 0.3, 25, 'cargo'); HX.pulse(dlvBase(hb).g, 0.3 + Math.min(0.5, r.lb / 200), 30, 'cargo');
+    say('STACKED ' + CARGO_K[bi.k].n + ' ' + bi.lb + ' LB ON TOP - CARRYING ' + r.n + ' PIECES, ' + r.lb + ' LB' + r.warn); return true; }
   if (CARGO_K[bi.k].two) {   // v0.52 two-hand lift: the first hand takes hold, the second one lifts it; it rides between your hands
     const P = DLV.lift;
     if (!P || P.it !== bi || P.g === g) { DLV.lift = { it: bi, g }; HX.pulse(g, 0.3, 20, 'cargo'); say(CARGO_K[bi.k].n + ' ' + bi.lb + ' LB - TWO-HAND LIFT: GRAB IT WITH YOUR OTHER HAND TOO'); return true; }
@@ -5772,9 +5800,15 @@ function dlvTwoTick() {   // v0.52: a two-hand piece sits between the hands, tur
     it.mesh.position.addVectors(_t2a, _t2b).multiplyScalar(0.5); it.mesh.position.y -= 0.05; it.mesh.rotation.set(0, Math.atan2(-(_t2b.z - _t2a.z), _t2b.x - _t2a.x), 0); }
 }
 function dlvWalkK() { if (mode !== 'foot') return 1; let lb = 0; for (const it of DLV.items) if (it.st === 'held') lb += it.lb; return lb > 80 ? 0.5 : lb > 35 ? 0.8 : 1; }   // v0.52 heavy carries slow you down
-function dlvRelease(g) { if (DLV.lift && DLV.lift.g === g) { DLV.lift = null; return; } const it = DLV.held.get(g); if (!it) return; it.mesh.getWorldPosition(_dg); dlvDrop(it, _dg); HX.pulse(g, 0.15, 12, 'release'); }
+function dlvRelease(g) { if (DLV.lift && DLV.lift.g === g) { DLV.lift = null; return; } const it = DLV.held.get(g); if (!it) return;
+  const L = []; for (let p = it.up; p; p = p.up) L.push(p); const W = L.map(p => p.mesh.getWorldPosition(new THREE.Vector3()));   // v0.88.1 a carried stack: the bottom piece first, then each one where it was (onto the one below)
+  for (const p of L) { dlvUnstack(p); scene.attach(p.mesh); } dlvUnstack(it);
+  it.mesh.getWorldPosition(_dg); const r = dlvDrop(it, _dg); let n = r === 'cargo' ? 1 : 0;
+  L.forEach((p, i) => { p.st = 'held'; if (r === 'cargo' && !cgZoneAt(plane.worldToLocal(_dp.copy(W[i]))) && cgLoadAny(p, true)) n++; else if (dlvDrop(p, W[i], true) === 'cargo') n++; });   // (the top of a tall stack over the cabin: still into the Cub)
+  if (L.length && n) { wbUpdate(); const B = WBS.plan; say('LOADED ' + n + ' OF ' + (L.length + 1) + ' PIECES | ' + B.lb.toFixed(0) + ' LB CG +' + B.arm.toFixed(1) + (B.over ? ' OVER GROSS' : B.inEnv ? '' : ' OUT OF LIMITS')); }
+  HX.pulse(g, 0.15, 12, 'release'); }
 function dlvFallTick(dt) {
-  for (const it of DLV.items) { if (it.st !== 'fall') continue; const p = it.mesh.position, rest = dlvGroundY(p.x, p.z) + it.h / 2;
+  for (const it of DLV.items) { if (it.st !== 'fall') continue; const p = it.mesh.position, rest = dlvRestY(it, p.x, p.z, p.y - it.h / 2);   // v0.88.1 onto a piece under it
     it.vy -= 9.81 * dt; p.y += it.vy * dt;
     if (p.y <= rest) { p.y = rest; const v = -it.vy; it.vy = 0; it.st = 'ground'; if (v > 1) cargoSfx(it, v > 2.5 ? 'drop' : 'set', p); if (v > 1.2) dlvKnock(it, (v - 1.2) * 0.12, 'DROPPED'); dlvCheck(it); saveSoon(); } }
 }
@@ -5885,7 +5919,7 @@ function dlvLoad(d) {
     for (const o of d.items || []) { const j = dlvJob(o.j); if (!j || j.st !== 'active' || !CARGO_K[o.k]) continue;
       const it = dlvMake(j, o.k, o.lb, o.n || 0); it.dmg = clamp(+o.dmg || 0, 0, 1);
       if (o.s === 'c' && CZ[o.zn] && o.p?.length === 3) { it.st = 'loading'; if (cgPlace(it, o.zn, o.p[0], o.p[2]) || cgLoadAny(it, true)) it.st = 'cargo'; else dlvSetGround(it, ac.pos[0] + 2, ac.pos[2], 0); }
-      else if (o.p?.length >= 2) dlvSetGround(it, o.p[0], o.p[1], o.ry || 0); }
+      else if (o.p?.length >= 2) { dlvSetGround(it, o.p[0], o.p[1], o.ry || 0); it.mesh.position.y = dlvRestY(it, o.p[0], o.p[1], 1e5, 0.12); } }   // v0.88.1 a saved pile (or a carried stack) rebuilds as a pile
     for (const j of dlvActive()) if (!j.emg && !DLV.items.some(it => it.job === j.id) && !(j.hunt && !j.hunt.got) && !(j.drop && j.drop.res.length)) { j.st = 'offer'; j.due = 0; if (j.hunt) { j.hunt.got = 0; j.fresh = 1; } }   // (a hunt still on stays on)   // a job whose cargo is gone goes back on the board
   } else dlvInit(true);
   cgStraps(); for (const S of DLV_STRIPS) S.key = '';
