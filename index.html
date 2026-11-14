@@ -3441,7 +3441,7 @@ const CLOUDS = (() => {
     const x = (r() - 0.5) * 2 * (T_OUT - 300), z = (r() - 0.5) * 2 * (T_OUT - 300), h = groundY(x, z);
     if (h < 900) continue; const w = 180 + r() * 160; list.push({ x, y: h + 60 + r() * 80, z, sx: w, sy: w * 0.3, sz: w * 0.7, ry: r() * 6.3, cap: true }); n++;
   }
-  const im = new THREE.InstancedMesh(geo, m, list.length); im.frustumCulled = false; im.renderOrder = 2; scene.add(im);
+  const im = new THREE.InstancedMesh(geo, m, list.length); im.frustumCulled = false; im.renderOrder = 2; im.userData.noCast = true; scene.add(im);   // v0.89 noCast: 1 km up, never inside the 400 m shadow camera (the shadow pass drew all 58 anyway)
   const W = { x: 2.2, z: -1.1 }, HALF = 4800;          // gentle drift (m/s); valley clouds wrap round the map, caps stay on their peaks
   const upd = (t) => list.forEach((c, i) => {
     let x = c.x, z = c.z; if (!c.cap) { x = ((c.x + W.x * t + HALF) % (2 * HALF) + 2 * HALF) % (2 * HALF) - HALF; z = ((c.z + W.z * t + HALF) % (2 * HALF) + 2 * HALF) % (2 * HALF) - HALF; }
@@ -8108,7 +8108,7 @@ function gfxShadowFlags() {   // every opaque mesh receives (v0.85.1: ground til
   const on = GFX.shadows > 0;
   scene.traverse(o => { if (!o.isMesh && !o.isInstancedMesh) return; const m = Array.isArray(o.material) ? o.material[0] : o.material; if (!m) return;
     const solid = shSolid(m), u = o.userData;
-    o.receiveShadow = on && (u.shN ? !!u.shIn && (u.ring !== undefined || solid) : solid); o.castShadow = on && solid && !u.noCast; });
+    o.receiveShadow = on && (u.shN ? !!u.shIn && (u.ring !== undefined || solid) : u.shcOff ? o.receiveShadow : solid); o.castShadow = on && solid && !u.noCast && !u.shcOff && (!u.shN || u.ring !== undefined || TERR_M.includes(o) || !!u.shIn); if (u.shc) o.receiveShadow = false; });   // v0.89 managed sets cast through their near companions; batch cells only near
 }
 // v0.85.1 (perf #8) receive only near the shadow box: the ground tiles and the world's batch cells whose bounds touch the shadow camera's box (+ a margin, so it is only
 // re-tested after the box moves half its size or the sun turns) receive shadows; ground tiles outside it stay on the vertex-lit look. receiveShadow is a uniform: no recompile.
@@ -8118,7 +8118,7 @@ function shBounds(o) { const u = o.userData, g = o.geometry; if (u.shG !== g || 
 function shNearUpdate(force) {
   if (!GFX.shadows) return; if (BATCH.list.length !== SHN.nb) { shItems(); force = true; }
   const t = sun.target.position, M = GQ.shR * 0.5; SHN.d.copy(sun.position).sub(t).normalize();
-  if (!force && Math.abs(t.x - SHN.last.x) < M && Math.abs(t.y - SHN.last.y) < M && Math.abs(t.z - SHN.last.z) < M && SHN.d.dot(SHN.dir) > 0.9995) return;
+  if (!force && Math.abs(t.x - SHN.last.x) < M && Math.abs(t.y - SHN.last.y) < M && Math.abs(t.z - SHN.last.z) < M && SHN.d.dot(SHN.dir) > 0.9995) { if (SHC.cn !== CHS.n) shcUpdate(); return; }
   SHN.last.copy(t); SHN.dir.copy(SHN.d); SHN.n++;
   sun.updateMatrixWorld(); sun.shadow.updateMatrices(sun); const c = sun.shadow.camera, V = c.matrixWorldInverse, E = 2 * M, R = GQ.shR + E, z0 = -(c.near - E), z1 = -(c.far + E), v = SHN.v;
   let ax = 1e9, bx = -1e9, ay = 1e9, by = -1e9, az = 1e9, bz = -1e9;   // the box's own world bounds (both ways round is tight enough for big tiles; the ring round the inner grid is near only once the box reaches past the hole's edge)
@@ -8130,8 +8130,34 @@ function shNearUpdate(force) {
       near = hx > -R && lx < R && hy > -R && ly < R && hz > z1 && lz < z0; }
     if (near && o.userData.ring) near = !inHole;
     if (o.userData.ring !== undefined && !!o.userData.shIn !== near) ch = true;
-    o.userData.shIn = near; const m = Array.isArray(o.material) ? o.material[0] : o.material; o.receiveShadow = near && (o.userData.ring !== undefined || shSolid(m)); }
+    o.userData.shIn = near; const m = Array.isArray(o.material) ? o.material[0] : o.material; o.receiveShadow = near && (o.userData.ring !== undefined || shSolid(m));
+    if (o.userData.ring === undefined && !TERR_M.includes(o)) o.castShadow = near && shSolid(m) && !o.userData.noCast; }   // v0.89 a batch cell (town buildings, props, rocks) casts only near the box too
   if (ch) SHN.ver++;
+  shcUpdate();
+}
+// v0.89 near shadow casters: the managed instanced sets (3D trees, rocks, stumps, bushes ...) never cast themselves (frustumCulled off: the shadow pass drew every uploaded
+// instance, ~5000 trees for a 28 m box). A shadow-only companion per set holds just the uploaded instances inside the padded shadow box (in the main pass it draws
+// no instances: three r160 tests shadow casters' layers against the *view* camera, so a layer can't hide it), and the set receives only while one of its trees is in
+// there. Refilled when the box re-tests (every half box) or the chunks rebuild.
+const SHC = { cn: -1, n: 0 };
+function shcHide() { this.userData.c = this.count; this.count = 0; }   // the main pass (each eye): no instances, no GL draw
+function shcShow() { this.count = this.userData.c; }
+function shcUpdate() {
+  SHC.cn = CHS.n; const on = GFX.shadows > 0;
+  const c = sun.shadow.camera, V = c.matrixWorldInverse.elements, M = GQ.shR * 0.5, R0 = GQ.shR + 2 * M, z0 = -(c.near - 2 * M), z1 = -(c.far + 2 * M); let tot = 0;
+  for (const k of CHUNKS) { if (k.spr || !shSolid(k.lm) || k.im.userData.noCast) continue;
+    if (!k.shc) { k.shc = { m: null, cap: 0 }; k.im.userData.shcOff = true; }
+    const A = k.im.instanceMatrix.array, n = on && k.im.visible ? k.im.count : 0, r = k.sz * 1.5, R = R0 + r; let S = k.shc, c2 = 0;
+    for (let i = 0; i < n; i++) { const o = i * 16; if (!A[o + 15]) continue; const x = A[o + 12], y = A[o + 13], z = A[o + 14];
+      const lx = V[0] * x + V[4] * y + V[8] * z + V[12]; if (lx > R || lx < -R) continue; const ly = V[1] * x + V[5] * y + V[9] * z + V[13]; if (ly > R || ly < -R) continue;
+      const lz = V[2] * x + V[6] * y + V[10] * z + V[14]; if (lz > z0 + r || lz < z1 - r) continue;
+      if (c2 >= S.cap) { const cap = Math.max(64, S.cap * 2), m = new THREE.InstancedMesh(k.im.geometry, k.im.material, cap); m.onBeforeRender = shcHide; m.onAfterRender = shcShow; m.frustumCulled = false; m.matrixAutoUpdate = false; m.castShadow = true; m.receiveShadow = false;
+        m.userData.noBatch = true; m.userData.shc = true; if (k.im.customDepthMaterial) m.customDepthMaterial = k.im.customDepthMaterial; m.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+        if (S.m) { m.instanceMatrix.array.set(S.m.instanceMatrix.array.subarray(0, c2 * 16)); S.m.removeFromParent(); S.m.dispose(); } scene.add(m); S.m = m; S.cap = cap; }
+      S.m.instanceMatrix.array.set(A.subarray(o, o + 16), c2 * 16); c2++; }
+    if (S.m) { S.m.count = c2; S.m.visible = c2 > 0; S.m.instanceMatrix.needsUpdate = true; }
+    k.im.castShadow = false; k.im.receiveShadow = on && c2 > 0; tot += c2; }
+  SHC.n = tot;
 }
 function shPrewarm() {   // compile every ground look the near / far tiles can switch between now, so crossing a tile edge never compiles a shader mid-flight
   const g = new THREE.Group(), q = []; for (const o of TERR_M) { const lm = o.userData.lm; if (q.some(e => e[0] === lm)) continue; q.push([lm, o.geometry]); }
@@ -8146,7 +8172,7 @@ function gfxShadows() {
     sun.shadow.mapSize.set(sz, sz); c.left = c.bottom = -R; c.right = c.top = R; c.near = 10; c.far = 1000; c.updateProjectionMatrix();
     sun.shadow.bias = -0.0006; sun.shadow.normalBias = GFX.shadows > 1 ? 0.04 : 0.07; GQ.shR = R; GQ.shTex = 2 * R / sz; }
   if (on) { SHN.nb = -1; gfxShadowFollow(0); }   // v0.85.1 place the box and pick the near tiles / cells before the flags
-  else for (const o of SHN.items) o.userData.shIn = false;
+  else { for (const o of SHN.items) o.userData.shIn = false; shcUpdate(); }   // v0.89 OFF: the near casters empty and hidden
   gfxShadowFlags(); scene.traverse(o => { if (o.material) for (const m of [].concat(o.material)) m.needsUpdate = true; });
   VL.key = ''; vlApply(); if (on) shPrewarm();
 }
@@ -8166,7 +8192,7 @@ function gfxClouds() {
   CLOUDS.im.visible = GFX.clouds > 0;
   if (GFX.clouds > 1 && !CLOUDS2) { let sd = 4242; const r = () => (sd = (sd * 16807) % 2147483647) / 2147483647; const L = [];
     for (let i = 0; i < 40; i++) { const w = 90 + r() * 170; L.push({ x: (r() - 0.5) * 9000, y: 1150 + r() * 600, z: (r() - 0.5) * 9000, sx: w, sy: w * (0.3 + r() * 0.2), sz: w * (0.5 + r() * 0.4), ry: r() * 6.3 }); }
-    const im = new THREE.InstancedMesh(CLOUDS.im.geometry, CLOUDS.im.material, L.length); im.frustumCulled = false; im.renderOrder = 2; scene.add(im); CLOUDS2 = { im, L, T: 0, acc: 1 }; }
+    const im = new THREE.InstancedMesh(CLOUDS.im.geometry, CLOUDS.im.material, L.length); im.frustumCulled = false; im.renderOrder = 2; im.userData.noCast = true; scene.add(im); CLOUDS2 = { im, L, T: 0, acc: 1 }; }
   if (CLOUDS2) CLOUDS2.im.visible = GFX.clouds > 1;
 }
 function clouds2Tick(dt) {

@@ -2,6 +2,23 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.89 – near shadow casters for trees, rocks and town props
+
+Physics untouched (md5 unchanged).
+- **Only what is near you casts:** with Shadows LOW / HIGH, the streamed 3D trees, rocks and town buildings/props used to draw *every* uploaded instance into the shadow map (thousands of trees for a ±28 m box). Each set now has a small shadow-only copy holding just the instances inside the (padded) shadow box. It is refilled when the box re-tests (every half box) or the chunks rebuild, which takes about 0.1 ms. In the main pass the copy draws no instances, so it adds no GL draws. The full sets stay vertex/near-lit as before, and only take shadows while one of their pieces is inside the box. Scenery batch cells cast only when near. Clouds (1 km up) never cast.
+- **Shadow pass, headless (calls / triangles), v0.88 → v0.89:**
+
+  | Spot | LOW | HIGH |
+  |---|---|---|
+  | Home strip | 76/178k → 56/42k | 77/178k → 62/53k |
+  | Among trees | 31/156k → 13/24k | 34/159k → 21/29k |
+  | Town, 8 m up | 32/135k → 13/32k | 32/135k → 16/32k |
+  | 30 m | 67/175k → 51/44k | 77/177k → 62/57k |
+  | 300 m | 31/145k → 9/24k | 31/145k → 9/24k |
+
+  The main pass is unchanged (same calls and triangles). The picture is pixel-identical to v0.88 at every spot.
+- New test **t89** (55 checks): pixel diff vs v0.88 casting, every in-box instance is in its copy, main pass unchanged, far sets don't receive, no clouds, and OFF → LOW toggling.
+
 ## v0.88.3 – park brake: Neil's fist back, thumb on the bar (corrects v0.88.2)
 
 Physics untouched (md5 unchanged).
