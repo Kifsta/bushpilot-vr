@@ -2,6 +2,31 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.88 – Trees: 3D ONLY / MIXED / 2D ONLY, and close 2D trees no longer pop
+
+Neil saw the DENSE forest's close 2D trees vanish and come back. Physics untouched (md5 unchanged).
+- **Causes (three):**
+  1. **A packing bug from v0.47.** When a chunk re-packed its visible instances, the slots past the new count kept stale copies. Some trees were drawn twice while others were dropped until the next rebuild.
+  2. **Auto resolution in VR.** Each forest step (75 % / 55 %) re-thinned *all* sprites, so 20–36 % of the close ones vanished at once.
+  3. **The near ring and the 2D LOD were decided on the CPU** in 40 m rebuild steps, so whole groups switched at once as you walked or flew low.
+- **Fix:** each sprite's visibility is now decided per frame on the GPU: its own near fade (MIXED), the far thinning and the auto-res fade past 900 m, all smooth with distance. The CPU only uploads a superset that covers every point until the next rebuild, and the packing bug is fixed. Turning your head never rebuilds anything.
+- **Graphics → Trees** (replaces v0.78 Forest NORMAL / DENSE; saved in `bp_gfx`; the default is unchanged):
+  - **3D ONLY** (default): today's NORMAL look.
+  - **MIXED**: the old DENSE, 3D trees near you plus about 50k 2D trees farther out.
+  - **2D ONLY**: every tree is 2D, about 1.5x denser than DENSE. Fewer draw calls, since the 3D tree meshes are gone.
+  - The old "Trees" density row is now called **Tree density** (OFF / SPARSE / MEDIUM / FULL).
+- **Cost** (headless, the same spot, calls / triangles):
+
+  | Mode | On foot | Aerial |
+  |---|---|---|
+  | v0.87.2 DENSE | 31 / 226k | 31 / 218k |
+  | MIXED | 31 / 262k | 31 / 258k |
+  | 2D ONLY | 23 / 243k | 23 / 246k |
+  | 3D ONLY | 27 / 151k (unchanged) | 27 / 145k (unchanged) |
+
+  A sprite rebuild takes about 3–7 ms on the CPU, at most every 40 m (more when high). The GPU cost per hidden sprite is 8 collapsed vertices and no fragments.
+- Test t88: walking 150 m in 1 m steps (MIXED and 2D ONLY), head turns, auto-res steps, low flight at 60 m, the superset check (nothing the shader shows is missing), the packing check, the modes and budget, and the saved setting. t78 is updated for the new row.
+
 ## v0.87.2 – Neil's clipboard hold; his left-hand binocular and round codes
 
 Three more Pose Lab codes from Neil, through the same `POSE_LAB` table. Physics untouched (md5 unchanged).
