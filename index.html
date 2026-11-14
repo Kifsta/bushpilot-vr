@@ -165,6 +165,22 @@ const C = {
     [0, 0.9, 5.0], [0, -0.75, 0.3],            // fin top, belly
   ],
 };
+// v0.90 gear kits (hangar upgrades). a.gk = null / undefined = the stock wheels, and then nothing below runs: the wheel physics is byte-for-byte v0.89.
+// Weights / drag: PA-18 on EDO 2000 floats ~ +175 lb empty and 10-15 mph slower; Federal-style wheel-skis ~ +55 lb, a few mph slower.
+const GEARKIT = {
+  floats: { name: 'AMPHIBIOUS FLOATS', fl: true, cd: 0.018, lb: 250, arm: 9, y: 1.1,   // Wipline-style amphibs: wheels retract into the floats (a.gdn = wheels down)
+    gear: [[-1.1, -1.85, -0.35, 0.3], [1.1, -1.85, -0.35, 0.3], [0, -1.4, 2.45, 0.1]],   // wheels-down geometry (x, y, z, r): mains behind the step... (tail = the float-heel wheels)
+    // each float: keel points (body frame) bow -> stern; flat forebody to the step at z +0.15, the afterbody 7 deg up behind it
+    X: 1.1, W: 0.55, H: 0.62, L: 0.6, Z: [-2.85, -2.25, -1.65, -1.05, -0.45, 0.12, 0.75, 1.35, 1.95, 2.5],
+    RHO: 1000, CV: 1500, CF: 0.003, CW: 0.2, VH: 5, CLP: 0.02, CLA: 0.006, CS: 1.0, CSL: 400, RUD_A: 0.035, RUD_V: 8, LAND_K: 80000, LAND_C: 3000, LAND_MU: 0.5 },
+  skis: { name: 'SKIS', ski: true, cd: 0.005, lb: 55, arm: 2, y: 0.95 },
+};
+GEARKIT.floats.Y = GEARKIT.floats.Z.map(z => z < -1.6 ? -1.6 + (-1.6 - z) / 1.25 * 0.38 : z <= 0.15 ? -1.6 : -1.55 + (z - 0.15) * 0.123);
+const GEAR_STOCK = C.GEAR.map(g => [g.p[0], g.p[1], g.p[2], g.r]);
+function gearGeo(kit) { const G = kit && kit.gear || GEAR_STOCK; C.GEAR.forEach((g, i) => { g.p[0] = G[i][0]; g.p[1] = G[i][1]; g.p[2] = G[i][2]; g.r = G[i][3]; }); }   // v0.90 the amphibs' wheels (the game calls it with the tyres upgrade on top)
+const WATERS = { at: null };   // the game adds the river here; the lakes are below
+function waterH(x, z) { for (const L of LAKES) if (Math.hypot(x - L.x, z - L.z) < L.r) return L.h - 0.2; return WATERS.at ? WATERS.at(x, z) : null; }
+const snowAt = (x, z, ny) => ny > 0.55 && terrainHeight(x, z) > 930 + 110 * Math.sin(x * 0.0021 + z * 0.0013);   // the terrain's snow faces (same rule as its colours)
 // ========================================================
 
 const clamp = (x, a, b) => (x < a ? a : x > b ? b : x);
@@ -276,6 +292,7 @@ function terrainNormal(x, z) {
 
 // v0.20 ground surfaces: peak tyre grip, rolling resistance, and small bumps (felt through the gear at taxi speed, not drawn)
 const SURF = {
+  ski:    { name: 'snow',   mu: 0.45, roll: 0.03, bump: 0.008, ski: true },   // v0.90 skis on snow: slides, steers on the edges, no brakes
   strip:  { name: 'strip',  mu: 0.55, roll: 0.055, bump: 0.010 },   // mown grass strip
   meadow: { name: 'meadow', mu: 0.50, roll: 0.060, bump: 0.020 },
   pad:    { name: 'pad',    mu: 0.50, roll: 0.070, bump: 0.030 },   // rough paddock
@@ -341,6 +358,40 @@ function createAircraft() {
 }
 function crash(a, why) { a.crashed = true; a.crashReason = why; }
 
+// v0.90 floats: per keel point, buoyancy (displaced box), heave damping, planing lift (speed squared, forebody > afterbody), skin + wave drag along the float,
+// keel side drag, water rudders at the sterns (fade as they kick up past RUD_V), and a skid on land / the shore. Adds to Fw / M; a.fbx / a.fby = body x / y force.
+// Returns wet + touching points (<0 = crashed).
+function floatForces(a, dt, sinkLim, Fw, M) {
+  const K = a.gk, c = a.ctl; let n = 0, fbx = 0, fby = 0; a.fw = 0; a.fd = 0;
+  if (a.gdn) for (let i = 0; i < 2; i++) { const g = C.GEAR[i], Pw = vAdd(a.pos, qRot(a.q, g.p)), hw = waterH(Pw[0], Pw[2]);   // wheels down on the water: they dig in and it goes over
+    if (hw !== null && hw > Pw[1] + 0.05 && hw > terrainHeight(Pw[0], Pw[2]) + 0.35 && Math.hypot(a.vel[0], a.vel[2]) > 5) { crash(a, 'wheels down on the water - it flipped onto its back'); return -1; } }
+  const fwdW = qRot(a.q, [0, 0, -1]), fh = Math.hypot(fwdW[0], fwdW[2]) || 1, fx = fwdW[0] / fh, fz = fwdW[2] / fh;   // the floats' heading, flat
+  for (let sd = -1; sd <= 1; sd += 2) for (let j = 0; j < K.Z.length; j++) {
+    const P = [sd * K.X, K.Y[j], K.Z[j]], Pw = vAdd(a.pos, qRot(a.q, P)), vP = vAdd(a.vel, qRot(a.q, vCross(a.w, P)));
+    const hw = waterH(Pw[0], Pw[2]), hg = terrainHeight(Pw[0], Pw[2]); let F = [0, 0, 0];
+    const vl = vP[0] * fx + vP[2] * fz, vs = vP[0] * -fz + vP[2] * fx;   // along / across the float (side + = right)
+    if (hw !== null && hw > Pw[1]) {
+      if (-vP[1] > sinkLim && hw - Pw[1] < 0.1) { crash(a, 'hard landing on the water (' + (-vP[1] * 196.85).toFixed(0) + ' fpm)'); return -1; }   // slammed in: the float struts fold
+      const d = Math.min(K.H, hw - Pw[1]), wet = Math.min(1, d / 0.04), A = K.W * K.L, fore = K.Z[j] <= 0.15;
+      F[1] = K.RHO * C.G * A * d - K.CV * A * vP[1] + 0.5 * K.RHO * vl * vl * A * (fore ? K.CLP : K.CLA) * wet;
+      const Dl = 0.5 * K.RHO * vl * Math.abs(vl) * (K.CF * K.L * (K.W + 2 * d) * wet + K.CW * K.W * d * K.L / (1 + (vl / K.VH) ** 4));   // wave drag: the hump peaks near VH, falls off once planing
+      let Ds = 0.5 * K.RHO * vs * Math.abs(vs) * K.CS * K.L * d + K.CSL * vs * K.L * d;
+      if (j === K.Z.length - 1) Ds += 0.5 * K.RHO * vl * Math.abs(Math.min(Math.abs(vl), K.RUD_V)) * K.RUD_A * 3 * clamp(c.rud, -1, 1) * (Math.abs(vl) < K.RUD_V ? 1 : K.RUD_V / Math.abs(vl));   // water rudder
+      F[0] = -Dl * fx + Ds * fz; F[2] = -Dl * fz - Ds * fx; n++; a.fw++; a.fd = Math.max(a.fd, d);
+    }
+    const pen = hg - Pw[1];
+    if (pen > 0 && !(hw !== null && hw > hg + 0.25)) {   // keel on the ground (the shore, a sandbar, the strip)
+      const dp = -vP[1]; if (dp > sinkLim) { crash(a, 'hard landing on the floats (' + (dp * 196.85).toFixed(0) + ' fpm)'); return -1; }
+      if (pen > 0.3) { crash(a, 'floats crushed'); return -1; }
+      const Fn = Math.max(0, K.LAND_K * pen + K.LAND_C * dp), vh = Math.hypot(vP[0], vP[2]), k = K.LAND_MU * Fn * Math.tanh(vh / 0.3) / (vh || 1);
+      F[1] += Fn; F[0] -= vP[0] * k; F[2] -= vP[2] * k; n += 256;
+    }
+    if (!F[0] && !F[1] && !F[2]) continue;
+    for (let i = 0; i < 3; i++) Fw[i] += F[i];
+    const Fb = qRotInv(a.q, F), Mg = vCross(P, Fb); fbx += Fb[0]; fby += Fb[1]; M[0] += Mg[0]; M[1] += Mg[1]; M[2] += Mg[2];
+  }
+  a.fbx = fbx; a.fby = fby; return (n & 255) + (n >> 8 ? 1 : 0);
+}
 // ctl: elev (+ = stick back/nose up), ail (+ = roll right), rud (+ = yaw right), throttle 0..1, brake 0..1
 function stepAircraft(a, dt) {
   if (a.crashed) return;
@@ -364,7 +415,7 @@ function stepAircraft(a, dt) {
   else if (alpha < C.ALPHA_STALL_NEG) stall = smooth((C.ALPHA_STALL_NEG - alpha) / C.STALL_WIDTH);
   const CL = (C.CL0 + C.FLAP_CL * fl + C.CL_ALPHA * alpha) * (1 - stall) + C.POST_STALL_CL * Math.sin(2 * alpha) * stall;
   const AR = b * b / S;
-  const CD = C.CD0 + CL * CL / (Math.PI * C.OSWALD * AR) + stall * C.CD_FLAT * Math.sin(alpha) ** 2
+  const CD = (a.gk ? C.CD0 + a.gk.cd : C.CD0) + CL * CL / (Math.PI * C.OSWALD * AR) + stall * C.CD_FLAT * Math.sin(alpha) ** 2
            + C.CD_BETA * Math.sin(beta) ** 2 + C.FLAP_CD * fd;
   const vhat = V > 0.01 ? vScale(vb, 1 / V) : [0, 0, -1];
   const liftDir = vNorm(vCross([1, 0, 0], vhat));
@@ -404,12 +455,14 @@ function stepAircraft(a, dt) {
   // slip-angle side grip, rolling resistance and brakes limited by grip (over-braking locks the wheel and it skids).
   let wow = 0;
   const up = qRot(a.q, [0, 1, 0]);
-  for (let i = 0; i < C.GEAR.length; i++) {
+  if (a.gk && a.gk.fl) { const r = floatForces(a, dt, sinkLim, Fw, M); if (r < 0) return; wow = r; Fbx += a.fbx; Fby += a.fby; }
+  if (!(a.gk && a.gk.fl && !a.gdn)) for (let i = 0; i < C.GEAR.length; i++) {   // v0.90 amphibs: the wheels only when they're down
     const g = C.GEAR[i], st = a.gs[i];
     const A = g.main ? [g.p[0], g.p[1] + g.r, g.p[2]] : g.p;       // extended axle (mains) / tyre bottom (tail)
     const Aw = vAdd(a.pos, qRot(a.q, A));
-    const sf = surfaceAt(Aw[0], Aw[2]);
+    let sf = surfaceAt(Aw[0], Aw[2]);
     const n = terrainNormal(Aw[0], Aw[2]);
+    if (a.gk && a.gk.ski && snowAt(Aw[0], Aw[2], n[1])) sf = SURF.ski;   // v0.90 skis on snow
     const hg = terrainHeight(Aw[0], Aw[2]) + bumpH(Aw[0], Aw[2], sf.bump);
     const vA = vAdd(a.vel, qRot(a.q, vCross(a.w, A)));
     const dpen = -vDot(vA, n);
@@ -478,6 +531,7 @@ function stepAircraft(a, dt) {
     let br = 0;                                                   // toe brakes, differential via rudder
     if (g.brake === 'L') br = c.brake * clamp(1 - c.rud, 0, 1);
     if (g.brake === 'R') br = c.brake * clamp(1 + c.rud, 0, 1);
+    if (sf.ski) br = 0;   // v0.90 brakes do nothing on skis
     const Fb = br * C.BRAKE_FORCE, cap = Math.sqrt(Math.max(0, Fmax * Fmax - Fs * Fs));
     let Fl;
     if (Fb > cap && Fb > 0) {                                     // locked: the tyre skids along its slip velocity
@@ -503,6 +557,7 @@ function stepAircraft(a, dt) {
   for (const cp of C.CRASH_POINTS) {
     const P = vAdd(a.pos, qRot(a.q, cp));
     if (P[1] < terrainHeight(P[0], P[2])) { crash(a, cp[0] ? 'wing strike' : cp[2] < -1 ? 'prop strike / nose over' : 'airframe hit ground'); return; }
+    if (a.gk) { const hw = waterH(P[0], P[2]); if (hw !== null && P[1] < hw - 0.05) { crash(a, cp[0] ? 'wingtip in the water' : cp[2] < -1 ? 'prop in the water / nosed over' : 'airframe in the water'); return; } }   // v0.90
   }
 
   if (dz) { M[0] += dz * Fby; M[1] -= dz * Fbx; }
@@ -1348,6 +1403,45 @@ const GV = (() => {
   }
   return { update, mesh };
 })();
+// v0.90 gear-kit models (low poly, vertex coloured, one mesh each; shown by kitVis): the amphibious floats (pontoons, struts, spreader bars, water rudders) with
+// their retracting wheels, and the wheel-skis (they ride the axles; the tail ski steers with the tail wheel). The stock legs / tyres hide under the floats.
+const KITM = (() => {
+  const K = GEARKIT.floats, _c = new THREE.Color(), _a = new THREE.Vector3(), _q = new THREE.Quaternion();
+  const paint = (g, hex) => { g = g.index ? g.toNonIndexed() : g; const n = g.attributes.position.count, c = new Float32Array(n * 3); _c.set(hex); for (let i = 0; i < n; i++) c.set([_c.r, _c.g, _c.b], i * 3); g.setAttribute('color', new THREE.BufferAttribute(c, 3)); if (g.attributes.uv) g.deleteAttribute('uv'); return g; };
+  const rod = (a, b, r, hex, L) => { _a.subVectors(b, a); const l = _a.length(); _q.setFromUnitVectors(_up, _a.normalize()); L.push(paint(new THREE.CylinderGeometry(r, r, l, 5).applyQuaternion(_q).translate((a.x + b.x) / 2, (a.y + b.y) / 2, (a.z + b.z) / 2), hex)); };
+  const pontoon = sx => {   // sections bow -> stern: keel (GEARKIT), chines, deck; the bow sweeps up, the stern tapers
+    const Z = K.Z, n = Z.length, pos = [], ring = j => { const z = Z[j], ky = K.Y[j], w = K.W / 2 * (j === 0 ? 0.45 : j === n - 1 ? 0.55 : j === 1 ? 0.85 : 1), dy = K.H * (j === 0 ? 0.55 : j === n - 1 ? 0.7 : 1) - (j === 0 ? 0 : 0);
+      const top = Math.max(ky + 0.18, K.Y[2] + dy - (j === 0 ? 0.08 : 0)); return [[sx * K.X, ky, z], [sx * K.X + w, ky + 0.12, z], [sx * K.X + w * 0.88, top, z], [sx * K.X - w * 0.88, top, z], [sx * K.X - w, ky + 0.12, z]]; };
+    const R = Z.map((_, j) => ring(j)), tri = (a, b, c) => pos.push(...a, ...b, ...c);
+    for (let j = 0; j < n - 1; j++) for (let k = 0; k < 5; k++) { const a = R[j][k], b = R[j][(k + 1) % 5], c = R[j + 1][(k + 1) % 5], d = R[j + 1][k]; tri(a, c, b); tri(a, d, c); }
+    for (const [j, f] of [[0, 1], [n - 1, 0]]) { const r = R[j]; for (let k = 1; k < 4; k++) f ? tri(r[0], r[k], r[k + 1]) : tri(r[0], r[k + 1], r[k]); }
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.computeVertexNormals(); return paint(g, 0xc9cdd1); };
+  const F = [];
+  for (const sx of [-1, 1]) { F.push(pontoon(sx));
+    F.push(paint(new THREE.BoxGeometry(0.05, 0.06, 4.6).translate(sx * K.X + sx * K.W * 0.47, K.Y[3] + 0.36, -0.2), 0x2a4a8a));   // the stripe down each side
+    const deck = K.Y[3] + K.H, fr = D2B(sx * 0.30, -0.75, -0.30), rr = D2B(sx * 0.30, 0.10, -0.33), f0 = new THREE.Vector3(sx * K.X, deck, -1.1), r0 = new THREE.Vector3(sx * K.X, deck, 0.75);
+    rod(f0, fr, 0.03, 0x9a9a9a, F); rod(r0, rr, 0.03, 0x9a9a9a, F); rod(f0, rr, 0.02, 0x8a8a8a, F); rod(r0, new THREE.Vector3(sx * 0.3, -0.72, 0.9), 0.025, 0x9a9a9a, F);   // N-struts + brace
+    F.push(paint(new THREE.BoxGeometry(0.02, 0.22, 0.16).translate(sx * K.X, K.Y[n1()] - 0.04, Z1() + 0.12), 0x1a1a1a)); }   // water rudders
+  function n1() { return K.Z.length - 1; } function Z1() { return K.Z[K.Z.length - 1]; }
+  for (const z of [-1.1, 0.75]) rod(new THREE.Vector3(-K.X, K.Y[3] + K.H - 0.02, z), new THREE.Vector3(K.X, K.Y[3] + K.H - 0.02, z), 0.025, 0x8a8a8a, F);   // spreader bars
+  const mt = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true });
+  const fl = new THREE.Mesh(mergeGeometries(F), mt); fl.visible = false; fl.userData.noBatch = true; plane.add(fl);
+  const W = [], wg = r => new THREE.CylinderGeometry(r, r, 0.14, 10).rotateZ(Math.PI / 2);
+  for (const sx of [-1, 1]) { const G = K.gear[sx < 0 ? 0 : 1]; W.push(paint(wg(G[3]).translate(sx * K.X, G[1] + G[3], G[2]), 0x151515), paint(new THREE.CylinderGeometry(0.1, 0.1, 0.16, 8).rotateZ(Math.PI / 2).translate(sx * K.X, G[1] + G[3], G[2]), 0x8a8a8a));
+    const T = K.gear[2]; W.push(paint(wg(0.1).translate(sx * K.X, T[1] + 0.1, T[2]), 0x151515)); }
+  const wh = new THREE.Mesh(mergeGeometries(W), mt); wh.visible = false; wh.userData.noBatch = true; plane.add(wh);
+  const ski = (L, wd, tip) => { const g = new THREE.BoxGeometry(wd, 0.05, L).translate(0, 0.025, 0); const t = new THREE.BoxGeometry(wd, 0.05, tip).rotateX(0.5).translate(0, 0.025 + Math.sin(0.5) * tip / 2, -L / 2 - Math.cos(0.5) * tip / 2 + 0.02);
+    return mergeGeometries([paint(g, 0xd8d8d0), paint(t, 0xd8d8d0), paint(new THREE.BoxGeometry(0.06, 0.16, 0.5).translate(0, 0.12, 0), 0x5a5a5a)]); };
+  const skiL = new THREE.Mesh(ski(1.7, 0.34, 0.32), mt), skiR = new THREE.Mesh(ski(1.7, 0.34, 0.32), mt), skiT = new THREE.Mesh(ski(0.55, 0.16, 0.12), mt);
+  for (const m of [skiL, skiR, skiT]) { m.visible = false; m.userData.noBatch = true; plane.add(m); }
+  return { fl, wh, skiL, skiR, skiT, wy: 0 };
+})();
+function kitVis() { const f = UPG.gk === 'floats', s = UPG.gk === 'skis'; KITM.fl.visible = f; KITM.wh.visible = f; GV.mesh.visible = !f; KITM.skiL.visible = KITM.skiR.visible = KITM.skiT.visible = s; }
+function kitTick(dt) {   // the amphibs' wheels slide down / up (1.5 s); the skis follow the axles + the tail wheel
+  if (UPG.gk === 'floats') { KITM.wy = clamp(KITM.wy + (ac.gdn ? -dt : dt) / 1.5, 0, 1); KITM.wh.position.y = KITM.wy * 0.36; }
+  else if (UPG.gk === 'skis') { const gs = ac.gs; for (let i = 0; i < 2; i++) { const m = i ? KITM.skiR : KITM.skiL, d = Math.min(gs[i].d, 0.2), ts = UPG.tyres ? 1 + UPG_TD / 0.44 : 1; m.position.set((i ? 1 : -1) * 0.95, -0.91 + gs[i].s - 0.44 * ts + d + 0.06, -0.45); m.rotation.x = -0.16; }
+    const tl = Math.min(gs[2].d, 0.15); KITM.skiT.position.set(0, -0.38 + tl - 0.17, 4.45); KITM.skiT.rotation.set(-0.16, ac.tw.psi, 0, 'YXZ'); }
+}
 // moving surfaces (drawing frame, inside cubD)
 const flapGrp = new THREE.Group(); flapGrp.position.set(0, wy(ROOT_X, HINGE_Z) + 0.04, HINGE_Z); cubD.add(flapGrp);
 for (const sx of [-1, 1]) { const b = box(2.25, 0.06, 0.36, yellow, sx * 1.455, (1.455 - ROOT_X) * Math.tan(DIH), 0.18, flapGrp); b.rotation.set(INC, 0, sx * DIH); }
@@ -2037,7 +2131,7 @@ function toPlane() { dlvBoard(); huntBoard(); rig.add(xrOffset); mode = 'plane';
 function resetFlight() {
   IN.prevHdg = null;
   if (mode === 'foot') toPlane();
-  resetAircraft(ac); crashTimer = 0; flapNotch = 0; TRIM.v = 0; TRIM.g = null; vr.flapG = null; resetFuel();   // v0.79.2 a reset keeps your fuel and cash: no free fill-up
+  resetAircraft(ac); ac.gdn = UPG.gk === 'floats'; crashTimer = 0; flapNotch = 0; TRIM.v = 0; TRIM.g = null; vr.flapG = null; resetFuel();   // v0.79.2 a reset keeps your fuel and cash: no free fill-up   (v0.90 the amphibs reset wheels down)
   engColdDark(); cardHome(); kbHome(); micRelease(); CKH.clear(); CKX.keyStart = false; PRIME.lock = true; Object.assign(LATCH, { rup: 1, rlo: 1, lf: 1, lr: 1, rcg: 1 }); WIN.rup = WIN.rlo = WIN.lf = WIN.lr = WIN.rcg = 0; WIN.tgt = {};   // v0.19: back to cold and dark
 }
 const RESET_FLOOR = 5 * 3.785;   // v0.79.2 litres: a reset with less than 5 gal aboard is topped up to 5 gal at the home drum, paid (on the hangar account if you are broke)
@@ -2051,7 +2145,7 @@ function exitPlane() {
   if (!(acGS() < 1 && ctl.throttle < 0.05 && !ac.crashed)) { say('STOP + IDLE TO EXIT'); return; }
   const s = qRot(ac.q, [2.2, 0, -0.3]), f = qRot(ac.q, [0, 0, -1]), yaw = Math.atan2(-f[0], -f[2]);
   const x = ac.pos[0] + s[0], z = ac.pos[2] + s[2];
-  footRig.position.set(x, groundY(x, z) + EYE, z); footRig.rotation.set(0, yaw, 0);
+  { const hw = waterH(x, z); if (hw !== null && hw - groundY(x, z) > 0.6) { say('TOO DEEP TO STEP OUT - TAXI IN AND BEACH IT (THE FLOATS ON THE SAND), OR TIE UP IN THE SHALLOWS'); return; } }   // v0.90 floats: wade ashore, don't swim footRig.rotation.set(0, yaw, 0);
   footRig.add(xrOffset); mode = 'foot'; lookYaw = lookPitch = 0; needRecenter = renderer.xr.isPresenting ? 2 : 0;
   ctl.elev = ctl.ail = ctl.rud = 0;
   bodyYaw = yaw; huntExit();   // v0.53 binoculars in the holster on your left hip
@@ -2096,6 +2190,7 @@ addEventListener('keydown', e => {
   if (e.code === 'KeyR') resetFlight();
   if (e.code === 'KeyM') mapDesk();
   if (e.code === 'KeyL' && mode === 'plane') toggleLanding();
+  if (e.code === 'Semicolon' && mode === 'plane') gearSet();   // v0.90 the amphibs' wheels
   if (e.code === 'Backslash' && mode === 'plane') pbSet();   // v0.77.11 parking brake
   if (e.code === 'KeyG' && mode === 'foot') fuelDesk();
   if (e.code === 'Home') recenter();
@@ -2544,6 +2639,7 @@ function waterDist(x, z) {   // metres to the nearest water edge (<= 0 = in it),
   return best;
 }
 const waterLevel = (x, z) => { const L = inLake(x, z); return L ? L.h - 0.2 : groundY(x, z) + 0.3; };
+WATERS.at = (x, z) => z < 2400 && z > -5900 && Math.abs(x - RIVER_X(z)) < 8.5 ? terrainHeight(x, z) + 0.3 : null;   // v0.90 floats: the main river (its ribbon: 9 m half width, 0.3 m over the bed)
 const WATER = (() => {
   const U = { t: { value: 0 } };
   const m = new THREE.MeshLambertMaterial({ color: 0x3f7896, emissive: 0x0d2230, flatShading: true, transparent: true, opacity: 0.88, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 });
@@ -2572,7 +2668,7 @@ const WTK = { t: 0 };
 function updateWater(dt) {   // river / lake animation, the water sound, and no floats on this Cub
   WATER.tick(dt);
   if ((WTK.t -= dt) <= 0) { WTK.t = 0.5; const pp = playerPos(), d = waterDist(pp.x, pp.z); AMB.water = clamp(1 - d / 70, 0, 1) * (mode === 'plane' && !ac.out.wow ? 0 : 1);
-    if (mode === 'plane' && ac.out.wow && !ac.crashed && inLake(ac.pos[0], ac.pos[2]) && acGS() > 1) crash(ac, 'Ran into the lake - no floats on this Cub'); }
+    if (mode === 'plane' && ac.out.wow && !ac.crashed && !ac.gk?.fl && inLake(ac.pos[0], ac.pos[2]) && acGS() > 1) crash(ac, 'Ran into the lake - no floats on this Cub'); }   // v0.90 (the amphibs: physics)
 }
 
 // ================= v0.15: forests (more conifers, deciduous groves, feathered forest edges) + seven new points of interest =================
@@ -3721,6 +3817,12 @@ function pbTick(dt) { const g = [...CKH].find(e => e[1].k === 'pbrk'); if (g) { 
 function pbApply() { if (PB.on && ECO.wow) ctl.brake = 1; }   // both wheels, only with weight on them
 function toggleLanding() { LIGHTS.landing = !LIGHTS.landing; sfx('click'); say(LIGHTS.landing ? 'LANDING LIGHT ON' : 'LANDING LIGHT OFF'); }
 ldgTog.rotation.x = 0.5;
+// v0.90 the amphibs' gear selector: a blue-knobbed toggle right of the landing light (only with the floats on). Up = wheels up (water), down = wheels down (land)
+const GEAR_SW = new THREE.Vector3(0.145, -0.135 + CK.y, PANEL_Z + 0.012);
+const gearSw = new THREE.Group(); gearSw.position.copy(GEAR_SW); plane.add(gearSw); gearSw.visible = false;
+box(0.03, 0.02, 0.006, mat(0x1a2a4a), 0, 0, -0.004, gearSw); const gearTog = box(0.006, 0.006, 0.022, mat(0xd8d8d8), 0, 0, 0.008, gearSw); box(0.012, 0.012, 0.01, mat(0x2a5ad0), 0, 0, 0.02, gearTog);
+gearTog.rotation.x = 0.5;   // (down: as the landing light sits off)
+function gearSet(dn) { if (UPG.gk !== 'floats') return; ac.gdn = dn === undefined ? !ac.gdn : dn; sfx('click'); say(ac.gdn ? 'WHEELS DOWN - FOR LAND (NEVER ON THE WATER)' : 'WHEELS UP - FOR THE WATER (NEVER ON LAND)'); saveSoon(); }
 function updateDay(dt) {   // sun / sky / fog colour from the fixed time of day, plus the two dynamic lights
   const a = (DAY.h - 6) / 13 * Math.PI, el = Math.sin(a);    // sunrise 06:00 east, sunset 19:00 west
   sunDir.set(Math.cos(a), Math.max(el, -1), 0.35).normalize();
@@ -3971,6 +4073,7 @@ function updateSwitches(dt) {
   const E = ENG, S = SW; dt = clamp(dt || 0, 0, 0.05);
   S.master.mesh.rotation.x = snapTo('master', E.master ? -0.35 : 0.35, dt);
   ldgTog.rotation.x = snapTo('ldg', LIGHTS.landing ? -0.5 : 0.5, dt); pbTick(dt);
+  gearSw.visible = UPG.gk === 'floats'; if (gearSw.visible) gearTog.rotation.x = snapTo('gear', ac.gdn ? 0.5 : -0.5, dt);   // v0.90
   S.mags.mesh.rotation.z = snapTo('mags', ROT.mags[E.mags], dt);
   S.start.mesh.position.z = SWP.z - (E.starter ? 0.006 : 0);
   S.prime.mesh.position.z = SWP.z + 0.04 * Math.sin(Math.PI * (1 - E.primeT / 0.5)) * (E.primeT > 0 ? 1 : 0);
@@ -4262,6 +4365,7 @@ function ckTargets() {   // [id, worldPos, radius]
   const out = [];
   for (const id in SW) out.push([id, plane.localToWorld(_cw.copy(SW[id].p)).clone(), CK_R]);
   out.push(['ldg', plane.localToWorld(_cw.copy(LDG_SW)).clone(), CK_R], ['pbrk', PB.H.getWorldPosition(new THREE.Vector3()), 0.05]);
+  if (UPG.gk === 'floats') out.push(['gear', plane.localToWorld(_cw.copy(GEAR_SW)).clone(), CK_R]);   // v0.90
   if (UPG.radio && EMG.call) out.push(['radio', plane.localToWorld(_cw.copy(UPG_M.radio.p)).clone(), 0.07]);   // v0.84
   out.push(['card', CARD.mesh.getWorldPosition(_cw).clone(), 0.07], ['kb', KB.m.getWorldPosition(_cw).clone(), 0.1], ['mic', MIC.m.getWorldPosition(_cw).clone(), 0.06]);   // v0.82 the hand mic
   out.push(['rup', rupH.getWorldPosition(_cw).clone(), WIN_R], ['rlo', rloH.getWorldPosition(_cw).clone(), WIN_R], ['rcg', rcgH.getWorldPosition(_cw).clone(), WIN_R],
@@ -4274,7 +4378,7 @@ function ckHand(g, squeeze, id) {   // returns true while this hand is busy with
   let h = CKH.get(g);
   if (h && !squeeze) {           // release
     if (h.k === 'start') { CKX.grabStart = false; starterSync(); }
-    else if (h.k in SW || h.k === 'ldg') ckGrabEnd(g, h);   // v0.23: twist / pull / flick, or tap = the old one-shot toggle
+    else if (h.k in SW || h.k === 'ldg' || h.k === 'gear') ckGrabEnd(g, h);   // v0.23: twist / pull / flick, or tap = the old one-shot toggle
     if (h.k === 'card') cardHome();
     if (h.k === 'kb') kbHome();
     if (h.k === 'mic') micRelease(g);   // v0.82 back onto its clip (unless the other hand took it over)
@@ -4291,7 +4395,7 @@ function ckHand(g, squeeze, id) {   // returns true while this hand is busy with
     else for (const [k, p, r] of ckTargets()) { const d = p.distanceTo(_ch); if (d < r && d < bd) { bd = d; best = k; } }   // no ring: hand on it
     if (!best) return false;
     h = { k: best }; CKH.set(g, h); tick(g); delete WIN.tgt[best];
-    if (best === 'start') { CKX.grabStart = true; ENG.starterVR = true; } else if (best in SW || best === 'ldg') ckGrabStart(g, h);
+    if (best === 'start') { CKX.grabStart = true; ENG.starterVR = true; } else if (best in SW || best === 'ldg' || best === 'gear') ckGrabStart(g, h);
     if (best === 'pbrk') pbHold(g, h, true);   // v0.84.5 grab the T-handle and slide it: pull it out to set, push it in to release (either hand)
     if (best === 'card') { CARD.g = g; sfx('pick'); say('CHECKLIST'); }
     if (best === 'kb') { KB.g = g; sfx('pick'); }
@@ -4304,7 +4408,7 @@ function ckHand(g, squeeze, id) {   // returns true while this hand is busy with
   }
   if (!h) return false;
   if (h.k === 'start' && !ENG.starter) ENG.starterVR = true;
-  if ((h.k in SW && h.k !== 'start') || h.k === 'ldg') ckGrabMove(g, h);
+  if ((h.k in SW && h.k !== 'start') || h.k === 'ldg' || h.k === 'gear') ckGrabMove(g, h);
   if (h.k === 'pbrk') pbHold(g, h);
   if (h.lat) {   // v0.44: roll your wrist to turn the latch handle; past ~35 deg it lets go and the window / door moves with your hand
     const tw = Math.abs(twistAbout(h.q0, g.getWorldQuaternion(_hq), h.ax)); CKX.vis['L' + h.k] = clamp(tw, 0, 1.1);
@@ -4553,6 +4657,7 @@ const GDEF = {
   mix: { o: () => SW.mix.mesh, sh: 'cyl', c: GV3(0, 0, 0.012), a: 2, r: 0.012, hl: 0.009, st: 'pinch', pc: GV3(0, 0, 0.014) },
   carb: { o: () => SW.carb.mesh, sh: 'cyl', c: GV3(0, 0, 0.012), a: 2, r: 0.012, hl: 0.009, st: 'pinch', pc: GV3(0, 0, 0.014) },
   ldg: { o: () => ldgTog, sh: 'box', c: GV3(0, 0, 0.002), b: GV3(0.003, 0.003, 0.011), st: 'pinch', pc: GV3(0, 0, 0.006) },
+  gear: { o: () => gearTog, sh: 'box', c: GV3(0, 0, 0.002), b: GV3(0.003, 0.003, 0.011), st: 'pinch', pc: GV3(0, 0, 0.006) },   // v0.90 the amphibs' selector: pinched like the landing-light toggle
   lf: { o: () => LWF.hp, sh: 'box', c: GV3(0, 0, 0), b: GV3(0.009, 0.017, 0.015), st: 'wrap', wa: 1, wr: 0.012, tl: 0, wz: -0.022 },
   lr: { o: () => LWR.hp, sh: 'box', c: GV3(0, 0, 0), b: GV3(0.009, 0.017, 0.015), st: 'wrap', wa: 1, wr: 0.012, tl: 0, wz: -0.022 },
   rup: { o: () => rupH, sh: 'box', c: GV3(0.005, 0, 0), b: GV3(0.025, 0.01, 0.035), st: 'wrap', wa: 2, wr: 0.011, tl: 0.012, wz: -0.012 },
@@ -4766,6 +4871,7 @@ function hoverRing(tips) {                       // v0.24.1: one ring per free h
     const near = hrNear;   // fingertip, pinch point, or (as before) right in the palm
     for (const id in SW) { _hx.copy(SW[id].p).setZ(SWP.z + 0.012 + knobOut(id)); const d = near(_hx); if (d < 0.045) cand(id, _hx, id === 'master' ? 0.021 : 0.017, d); }
     { _hx.copy(LDG_SW).setZ(LDG_SW.z + 0.014); const d = near(_hx); if (d < 0.045) cand('ldg', _hx, 0.015, d); }
+    if (UPG.gk === 'floats') { _hx.copy(GEAR_SW).setZ(GEAR_SW.z + 0.014); const d = near(_hx); if (d < 0.045) cand('gear', _hx, 0.015, d); }   // v0.90
     const HL = HRS.L || (HRS.L = [['rup', rupH, WIN_R], ['rlo', rloH, WIN_R], ['rcg', rcgH, WIN_R], ['lf', LWF.hp, WIN_R], ['lr', LWR.hp, WIN_R], ['card', CARD.mesh, 0.07], ['kb', KB.m, 0.1], ['mic', MIC.m, 0.06], ['pbrk', PB.H, 0.05]]);   // v0.81 built once; v0.82 the hand mic; v0.84 the parking brake (it had no ring)
     if (UPG.radio && EMG.call) { _hx.copy(UPG_M.radio.p); const d = near(_hx); if (d < 0.07) cand('radio', _hx, 0.035, d); }   // v0.84 the COM radio's face takes a call-out with the grip (was a fingertip poke)
     for (let q = 0; q < HL.length; q++) { const k = HL[q][0], o = HL[q][1], r = HL[q][2];
@@ -4777,7 +4883,7 @@ function hoverRing(tips) {                       // v0.24.1: one ring per free h
     if (force && C.best !== force) { C.best = force; (force === 'stick' ? knob : throttleKnob).getWorldPosition(_hd); plane.worldToLocal(_hd); C.br = 0.03; }
     const best = C.best; HANDS.hovH[i] = best; const ring = HANDS.rings[i]; ring.visible = !!best; if (!best) continue;
     ring.position.copy(_hd); ring.scale.setScalar(C.br);
-    if (best in SW || best === 'ldg') ring.rotation.set(0, 0, 0); else { camera.getWorldPosition(_hs); plane.worldToLocal(_hs); ring.lookAt(plane.localToWorld(_hs)); }
+    if (best in SW || best === 'ldg' || best === 'gear') ring.rotation.set(0, 0, 0); else { camera.getWorldPosition(_hs); plane.worldToLocal(_hs); ring.lookAt(plane.localToWorld(_hs)); }
   }
   for (let i = 0; i < 2; i++) if (!live[i] && !(HANDS.hovH[i] && CKH.get(grips[i])?.k === HANDS.hovH[i])) { HANDS.hovH[i] = null; HANDS.rings[i].visible = false; }   // a held control keeps its ring
   for (let i = 0; i < 2; i++) if (HANDS.rings[i].visible && CKH.get(grips[i])?.k === 'pbrk') { PB.H.getWorldPosition(_hx); plane.worldToLocal(_hx); HANDS.rings[i].position.copy(_hx); }   // v0.85 the parking brake's ring rides the pulled-out T-handle
@@ -4812,7 +4918,7 @@ function tipState(k) {
   switch (k) {
     case 'master': return E.master ? 'ON' : 'OFF'; case 'mags': return CKX.keyStart ? 'START' : MAG_N[E.mags]; case 'start': return E.starter ? 'CRANKING' : 'PUSH + HOLD'; case 'prime': return PRIME.lock ? 'LOCKED - TWIST' : 'PULL + PUSH';
     case 'plt': return ['OFF', 'DIM', 'BRIGHT'][LIGHTS.pl];
-    case 'valve': return E.valve ? 'ON' : 'OFF'; case 'mix': return E.mix > 0.5 ? 'RICH' : 'CUTOFF'; case 'carb': return E.carb ? 'HOT' : 'COLD'; case 'ldg': return LIGHTS.landing ? 'ON' : 'OFF';
+    case 'valve': return E.valve ? 'ON' : 'OFF'; case 'mix': return E.mix > 0.5 ? 'RICH' : 'CUTOFF'; case 'carb': return E.carb ? 'HOT' : 'COLD'; case 'ldg': return LIGHTS.landing ? 'ON' : 'OFF'; case 'gear': return ac.gdn ? 'WHEELS DOWN' : 'WHEELS UP';
     case 'rup': case 'rlo': case 'rcg': case 'lf': case 'lr': return WIN[k] < 0.03 && LATCH[k] ? 'LATCHED - TWIST' : WIN[k] > 0.5 ? 'OPEN' : 'SHUT';
     case 'thr': return Math.round(ctl.throttle * 20) * 5 + '%'; case 'flap': return FLAP_DEG[flapNotch] + '\u00b0';
     case 'trim': { const v = Math.round(TRIM.v * 10); return v === 0 ? 'NEUTRAL' : (v > 0 ? 'NOSE UP ' : 'NOSE DN ') + Math.abs(v); }
@@ -4822,6 +4928,7 @@ function tipState(k) {
 function tipAnchor(k, out) {
   if (k in SW) return out.copy(SW[k].p).setZ(SWP.z + 0.02);
   if (k === 'ldg') return out.copy(LDG_SW).setZ(LDG_SW.z + 0.02);
+  if (k === 'gear') return out.copy(GEAR_SW).setZ(GEAR_SW.z + 0.02);
   const o = { card: CARD.mesh, kb: KB.m, rup: rupH, rlo: rloH, rcg: rcgH, lf: LWF.hp, lr: LWR.hp, stick: knob, thr: throttleKnob, flap: flapKnob, trim: trimKnob }[k];
   return o ? plane.worldToLocal(o.getWorldPosition(out)) : null;
 }
@@ -4877,7 +4984,7 @@ function ckGrabStart(g, h) {
   if (k === 'prime') { h.q0 = g.getWorldQuaternion(new THREE.Quaternion()); h.pt = 0; }
   if (k in ROT) { h.q0 = g.getWorldQuaternion(new THREE.Quaternion()); h.i0 = k === 'mags' ? ENG.mags : k === 'plt' ? LIGHTS.pl : ENG.valve ? 1 : 0; h.i = h.i0; }
   if (k in PULL) { h.o0 = k === 'mix' ? (ENG.mix > 0.5 ? 0 : PULL.mix) : k === 'carb' ? (ENG.carb ? PULL.carb : 0) : 0; h.arm = false; }
-  if (k === 'master' || k === 'ldg') { k === 'master' ? engSet('master') : toggleLanding(); h.moved = h.fl = true; hap(g, 0.6, 18); }   // v0.24.1: grip flips a toggle at once
+  if (k === 'master' || k === 'ldg' || k === 'gear') { k === 'master' ? engSet('master') : k === 'gear' ? gearSet() : toggleLanding(); h.moved = h.fl = true; hap(g, 0.6, 18); }   // v0.24.1: grip flips a toggle at once
 }
 function ckGrabMove(g, h) {
   const k = h.k; g.getWorldPosition(_ch); plane.worldToLocal(_ch); const dp = _ch.clone().sub(h.p0);
@@ -5038,7 +5145,7 @@ const DLV_STRIPS = (() => {
 // ===================== v0.52 bush sites: unprepared landing spots, each with a customer (found by flying over / walking up; then they're on the paper map) =====================
 // The spots came out of a search of the heights the gear rolls on (terrainHeight): along-strip slope, bumps off the best-fit line, cross slope at +-9 m,
 // and the ground beyond the low end staying under a climb line. Nothing is flattened: the gear feels the real ground (rough surface; the two short strips are graded).
-const BUSH_T = { sandbar: 'SANDBAR', shore: 'LAKE SHORE', ridge: 'RIDGE BENCH', meadow: 'MEADOW', short: 'SHORT STRIP', shoulder: 'MOUNTAIN SHOULDER', saddle: 'NARROW SADDLE', clearing: 'FOREST CLEARING', dogleg: 'DOGLEG STRIP', alpine: 'ALPINE STRIP', box: 'BOX CANYON', hanging: 'HANGING VALLEY', hogback: 'BLIND HOGBACK', mesa: 'MESA TOP' };   // v0.77 + 5 types, v0.80 + 4
+const BUSH_T = { sandbar: 'SANDBAR', shore: 'LAKE SHORE', ridge: 'RIDGE BENCH', meadow: 'MEADOW', short: 'SHORT STRIP', shoulder: 'MOUNTAIN SHOULDER', saddle: 'NARROW SADDLE', clearing: 'FOREST CLEARING', dogleg: 'DOGLEG STRIP', alpine: 'ALPINE STRIP', box: 'BOX CANYON', hanging: 'HANGING VALLEY', hogback: 'BLIND HOGBACK', mesa: 'MESA TOP', float: 'FLOAT LANDING', glacier: 'SKI STRIP' };   // v0.77 + 5 types, v0.80 + 4
 const BUSH = [   // a = strip axis (x += sin a, z += cos a), hl/hw = half length / width (m), low = the downhill end of a one-way strip (+1 = +axis end)
   { id: 'CREEK', name: 'CREEK BAR', type: 'sandbar', cust: 'PROSPECTOR CAMP', x: -910, z: 1750, a: 2.749, hl: 95, hw: 9 },
   { id: 'FISHBAR', name: 'FISH CAMP BAR', type: 'sandbar', cust: 'FISH CAMP', x: -90, z: 2120, a: 2.749, hl: 105, hw: 9 },
@@ -5059,6 +5166,12 @@ const BUSH = [   // a = strip axis (x += sin a, z += cos a), hl/hw = half length
   { id: 'BOXCAN', name: 'DEADMAN BOX', type: 'box', cust: 'CANYON GEOLOGISTS', x: 1900, z: 3300, a: 1.833, hl: 110, hw: 8, low: -1, diff: 3, hook: { t: 'CORE SAMPLES', k: ['crate', 'fbox'] }, note: 'BOX CANYON - LAND UP INTO THE 160 M HEADWALL, NO GO-AROUND PAST SHORT FINAL' },
   { id: 'HANGING', name: 'HANGING VALLEY', type: 'hanging', cust: 'GOAT COUNTERS', x: 4400, z: -1900, a: 2.88, hl: 110, hw: 8, low: -1, diff: 3, hook: { t: 'COLLARS + BATTERIES', k: ['parcel', 'fbox'] }, note: '380 M UP ON THE MOUNTAIN, 4 % UPHILL INTO A HEADWALL - ONE WAY IN, ONE WAY OUT' },
   { id: 'HOGBACK', name: 'BLIND HOGBACK', type: 'hogback', cust: 'BEEKEEPER', x: 1050, z: 700, a: 2.88, hl: 100, hw: 8, diff: 2, hook: { t: 'HIVES + HONEY', k: ['crate', 'crate'] }, note: 'A 4 M HUMP MID-STRIP - YOU CAN\'T SEE THE FAR END UNTIL YOU\'RE OVER THE TOP' },
+  // v0.90 gear-kit sites (kit: offered only once you own the kit): three float landings (a beach by a camp: land on the water, beach it, wade ashore) and two ski strips on snowfields
+  { id: 'ELCOVE', name: 'EAST LAKE COVE', type: 'float', cust: 'FISHING LODGE', x: 1525, z: -1707, a: 1.92, hl: 18, hw: 6, diff: 1, kit: 'floats', note: 'FLOATS ONLY - LAND ON THE EAST LAKE, BEACH ON THE SAND BY THE LODGE' },
+  { id: 'NWWEST', name: 'NW LAKE WEST', type: 'float', cust: 'CANOE OUTFITTER', x: -1370, z: 2600, a: Math.PI, hl: 18, hw: 6, diff: 1, kit: 'floats', note: 'FLOATS ONLY - THE NW LAKE IS 340 M ACROSS: LAND LONG, BEACH BY THE CANOE RACKS' },
+  { id: 'CARIBOU', name: 'CARIBOU REACH', type: 'float', cust: 'RIVER GUIDES', x: -86, z: -3860, a: 0.09, hl: 18, hw: 5, diff: 2, kit: 'floats', note: 'FLOATS ONLY - THE RIVER IS 17 M WIDE ON A 260 M STRAIGHT; THE GUIDES ARE ON THE WEST BANK' },
+  { id: 'ICEFIELD', name: 'NORTH ICEFIELD', type: 'glacier', cust: 'GLACIER SURVEY', x: 5540, z: 5300, a: 1.572, hl: 110, hw: 9, diff: 2, kit: 'skis', note: 'SKIS ONLY - SNOW AT 1040 M, FLAT; NO BRAKES: PLAN THE ROLL-OUT' },
+  { id: 'WGLACIER', name: 'WEST GLACIER', type: 'glacier', cust: 'HELI-SKI HUT', x: -5740, z: 3560, a: 2.096, hl: 110, hw: 9, low: -1, diff: 2, kit: 'skis', note: 'SKIS ONLY - 5% SLOPE ON THE SNOW: LAND UPHILL, TAKE OFF DOWNHILL' },
   { id: 'MESA', name: 'TABLE MESA', type: 'mesa', cust: 'FIRE LOOKOUT', x: 4271, z: -671, a: 2.3, hl: 85, hw: 7, diff: 3, hook: { t: 'LOOKOUT RATIONS', k: ['sack', 'parcel'] }, note: 'THE SW END IS THE LIP OF A 28 M ESCARPMENT - CROSS IT LOW AND SLOW, NO UNDERSHOOT' },
 ];
 const bushHdg = (dx, dz) => Math.round(((Math.atan2(dx, -dz) * 180 / Math.PI) + 360) % 360 / 5) * 5 % 360;
@@ -5102,6 +5215,11 @@ for (const B of BUSH) { if (B.leg) { const g = B.leg, ex = B.x + Math.sin(B.a) *
       gp(o, 2.2, 1.4, 2.2, 0x6a4a2a, 5.5, 3.2, -2.5); roof(o, 2.6, 0.7, 2.8, 0x2a2a2a, 5.5, 3.9, -2.5);
       for (let k = 0; k < 4; k++) { gp(o, 0.35, 1.2, 0.04, 0xb89a6a, -3.4 + k * 0.5, 1.1, 0.1); gp(o, 0.25, 0.7, 0.05, 0x6a4a30, -3.4 + k * 0.5, 1.2, 0.12); }   // fur stretchers
       boat(o, 3.5, 3.6, 1.4, 0x2a6a3a, 4.6); logs(o, -3.6, -3.8, 6); },
+    'FISHING LODGE': o => { house(o, 5.4, 2.6, 4.2, 0x7a5a3a, 0x3a4a3a, 1.7, 0, -3); boat(o, -5, 3, 0.3, 0x3a6a8a); boat(o, -6.5, 3.6, 0.2, 0xb04a2a); drum(o, 3.6, -0.6); drum(o, 4.3, -0.6); ring(o, 4, 3); },   // v0.90
+    'CANOE OUTFITTER': o => { house(o, 3.8, 2.3, 3.2, 0x8a6a44, 0x2a2a2a, 1.4, 1, -3); for (let k = 0; k < 4; k++) boat(o, -4 + k * 1.2, 2.5, 0, [0xc04020, 0x2a6a3a, 0xd0a020, 0x2a4a8a][k], 4.6); logs(o, 3.5, 2); tent(o, 6, -1); },
+    'RIVER GUIDES': o => { tent(o, -2, -2); tent(o, 2.4, -2.6); boat(o, -4.5, 2, 0.1, 0xd05a1a, 4.8); ring(o, 0.5, 2); drum(o, 4.5, 0.5); },
+    'GLACIER SURVEY': o => { tent(o, -2, -2, 0, 2.6, 3.2); tent(o, 2.2, -2.4, 0.3, 2.6, 3.2); drum(o, 4, 0.4, 0x2a4a8a); drum(o, 4.6, 0.4, 0x2a4a8a); gp(o, 0.08, 2.6, 0.08, 0xd03020, -4, 1.3, 1); },
+    'HELI-SKI HUT': o => { house(o, 4.6, 2.4, 3.8, 0xa03a2a, 0x2a2a2a, 1.9, 0, -3); logs(o, -4, 1); drum(o, 3.8, 0.5); for (let k = 0; k < 5; k++) gp(o, 0.08, 1.7, 0.1, 0xd8d8d8, -2 + k * 0.4, 0.85, 1.2); },
     'BOATHOUSE': o => { house(o, 5, 3, 7, 0x8a2a1a, 0x3a3a3a, 1.8, -2, -2); gp(o, 3.4, 2.6, 0.06, 0x2a2a2a, -2, 1.3, 1.52);
       for (let k = 0; k < 3; k++) boat(o, 3 + k * 1.1, -1.5, 0, [0xc04a1a, 0x2a6a3a, 0xe0c040][k], 4.2);
       drum(o, 6.8, 1.6); drum(o, 7.4, 1.9, 0x2a4a8a); gp(o, 1.6, 0.9, 0.8, 0x8a6a44, 6.6, 0.45, -3.6); },
@@ -5155,7 +5273,7 @@ for (const B of BUSH) { if (B.leg) { const g = B.leg, ex = B.x + Math.sin(B.a) *
     if (mown) { for (let l = -B.hl; l <= B.hl + 0.1; l += 40) for (const w of [-B.hw - 1, B.hw + 1]) mk(l, w); const [wx, wz] = W(S, s * (B.hw + 14), -l0 - B.hl + 30); sockAt(wx, wz); MOWN.push({ x: B.x, z: B.z, a: B.a, hl: B.hl, hw: B.hw }); if (B.leg) MOWN.push({ x: B.leg.x, z: B.leg.z, a: B.leg.a, hl: B.leg.hl, hw: B.hw }); }
     else for (const l of [-B.hl, B.hl]) for (const w of [-B.hw, B.hw]) mk(l, w, 0.5);   // painted rocks at the corners: someone uses this spot
     // the strip surface: graded / gravel ribbon, or two worn wheel tracks in the grass (meadow / ridge bench)
-    const v = RV, col = RC, cA = new THREE.Color({ sandbar: 0xb3a98c, shore: 0xa69c7c, short: 0x86ad55, meadow: 0x7e6c48, ridge: 0x7e6c48, shoulder: 0x7e6c48, saddle: 0x7a6a4a, alpine: 0x847250, clearing: 0x86ad55, dogleg: 0x86ad55, box: 0x8a7a5a, hanging: 0x7e6c48, hogback: 0x7e6c48, mesa: 0x947a58 }[B.type]).offsetHSL(0, -0.08, -0.02), cc = new THREE.Color();   // v0.78.1 toned down a little
+    const v = RV, col = RC, cA = new THREE.Color({ sandbar: 0xb3a98c, shore: 0xa69c7c, short: 0x86ad55, meadow: 0x7e6c48, ridge: 0x7e6c48, shoulder: 0x7e6c48, saddle: 0x7a6a4a, alpine: 0x847250, clearing: 0x86ad55, dogleg: 0x86ad55, box: 0x8a7a5a, hanging: 0x7e6c48, hogback: 0x7e6c48, mesa: 0x947a58, float: 0xc2b48c, glacier: 0xe8edf0 }[B.type]).offsetHSL(0, -0.08, -0.02), cc = new THREE.Color();   // v0.78.1 toned down a little
     const quad = (l, w, dl, dw, S = S0, Bq = B, fw = 0) => { cc.copy(cA).offsetHSL(0, 0, (R() - 0.5) * 0.06); const tex = mown, sa = Math.sin(Bq.a), ca = Math.cos(Bq.a);   // v0.63 conformed to the ground; mown 'short' strips get the runway pattern (others: a plain texel)
       const loc = (x, z) => { const dx = x - Bq.x, dz = z - Bq.z; return [dx * ca - dz * sa, dx * sa + dz * ca]; }, w0 = w, w1 = w + dw;   // v0.78.1 strip-local (across, along)
       const alpha = (x, z) => { if (tex) return 1; const [a, b] = loc(x, z), e = fw ? Math.min(a - w0, w1 - a) / fw : ((Bq.hw ?? B.hw) - Math.abs(a)) / RIB_FW; return Math.max(0, Math.min(1, e, (Bq.hl - Math.abs(b)) / RIB_FE)); };   // feathered sides (tracks: both edges) + ends
@@ -5347,7 +5465,7 @@ function dlvGen(from, forceH) { return repShape(dlvGen0(from, forceH)); }   // v
 function dlvGen0(from, forceH) {   // one offer from this strip (seeded by the running job number, so a save reloads the same board); forceH: heavy freight
   const id = DLV.seq++; { const rh = dlvRng(id * 49979687 + 11); if (!forceH && rh() < HUNT_P) return huntGen(id, from, rh); }   // v0.53
   { const ra = dlvRng(id * 86028121 + 5); if (!forceH && ra() < DROP_P) return dropGen(id, from, ra); }   // v0.54 airdrops
-  const r = dlvRng(id * 7919 + 13), fS = dlvS(from), others = DLV_STRIPS.filter(S => S.id !== from && !S.lock), bush = others.filter(S => S.site), main = others.filter(S => !S.site);
+  const r = dlvRng(id * 7919 + 13), fS = dlvS(from), others = DLV_STRIPS.filter(S => S.id !== from && !S.lock && !(S.B && S.B.kit && !(UPG.kown && UPG.kown[S.B.kit]))), bush = others.filter(S => S.site), main = others.filter(S => !S.site);
   const pool = bush.length && r() < (fS && fS.site ? 0.25 : 0.5) ? bush : main, to = pool[Math.floor(r() * pool.length)], bx = to.site || (fS && fS.site) ? 1.2 + 0.2 * Math.max(to.B?.diff || 0, fS?.B?.diff || 0) : 1;   // v0.52 bush sites (v0.77 + the tricky ones' difficulty)
   const pick = DLV_T[Math.floor(r() * DLV_T.length)], hk = to.B && to.B.hook, [title, kinds] = hk ? [hk.t, hk.k] : pick, items = dlvCapL(kinds.map(k => { const [a, b] = CARGO_K[k].lb; return { k, lb: Math.round(a + r() * (b - a)) }; }));
   const lb = items.reduce((s, i) => s + i.lb, 0), km = dlvKm(dlvS(from), to), dl = r() < 0.45 ? Math.ceil(6 + km * 1.5) : 0;
@@ -5940,7 +6058,7 @@ function wbUpdate() {   // v0.50: every piece of cargo aboard is a load at its s
       if (it.cz === 'rear') rear += it.lb; else if (it.cz === 'bag') bag += it.lb; else if (it.cz === 'pod') pod += it.lb; else foot += it.lb; if (!cgSecured(it)) loose += it.lb; }
     else if (it.st === 'held' && mode === 'plane') held += it.lb; }
   if (held) WB_L.push({ lb: held, arm: WNB.PILOT_ARM, y: 0.1 });
-  if (UPG.n) { for (const L of UPG.loads) WB_L.push(L); if (UPG.aux > 0) { UPG.auxL.lb = UPG.aux / 3.785 * WNB.FUEL_LB_GAL; WB_L.push(UPG.auxL); } }   // v0.57 fitted parts + aux fuel (none on a stock Cub)
+  if (UPG.loads.length) { for (const L of UPG.loads) WB_L.push(L); if (UPG.aux > 0) { UPG.auxL.lb = UPG.aux / 3.785 * WNB.FUEL_LB_GAL; WB_L.push(UPG.auxL); } }   // v0.57 fitted parts + aux fuel (none on a stock Cub)
   const plan = massProps(fuelGal, WB_L);
   const act = mode === 'plane' ? plan : massProps(fuelGal, WB_L.length ? WB_L.concat(WB_OFF) : WB_OFF);
   ac.mass = act.mass; ac.cgz = act.cgz; ac.I = act.I;
@@ -5992,7 +6110,7 @@ function wbRows() {   // [name, lb, arm] for the card and the kneeboard (v0.64)
   const rows = [['EMPTY', WNB.EMPTY_LB, '+' + WNB.EMPTY_ARM.toFixed(1)], ['PILOT', WNB.PILOT_LB, '+11'], ['FUEL ' + WBS.fuelGal.toFixed(1) + ' GAL', WBS.fuelGal * WNB.FUEL_LB_GAL, '+24'],
     ['REAR SEAT' + (WBS.rearLb ? DLV.belt ? ' \u2713BELT' : ' LOOSE' : ''), WBS.rearLb, '+37'], ['BAGGAGE' + (WBS.bagLb ? DLV.net ? ' \u2713NET' : ' LOOSE' : ''), WBS.bagLb, '+57']];   // v0.50 cargo rows
   if (WBS.footLb) rows.push(['FLOOR (LOOSE)', WBS.footLb, '+25']);
-  if (UPG.n) { const lb = UPG.loads.reduce((s, L) => s + L.lb, 0), mo = UPG.loads.reduce((s, L) => s + L.lb * L.arm, 0); rows.push(['PARTS (' + UPG.n + ')', lb, (mo >= 0 ? '+' : '') + (mo / lb).toFixed(0)]); }   // v0.57
+  if (UPG.loads.length) { const lb = UPG.loads.reduce((s, L) => s + L.lb, 0), mo = UPG.loads.reduce((s, L) => s + L.lb * L.arm, 0); rows.push(['PARTS (' + UPG.loads.length + ')', lb, (mo >= 0 ? '+' : '') + (mo / lb).toFixed(0)]); }   // v0.57
   if (UPG.tank) rows.push(['AUX ' + (UPG.aux / 3.785).toFixed(1) + ' GAL', UPG.aux / 3.785 * WNB.FUEL_LB_GAL, '+24']);
   if (UPG.pod) rows.push(['CARGO POD' + (WBS.podLb > POD_MAX_LB ? ' OVER' : ''), WBS.podLb || 0, '+' + POD_ARM.toFixed(0)]);
   return rows;
@@ -7265,7 +7383,29 @@ const UPG_I = {   // label, price, gate [rep key, rep needed], what it does, wei
   light: { label: 'LED LANDING LIGHT', price: 380, gate: null, eff: 'BRIGHTER, WIDER, LONGER BEAM', lb: 3, arm: 0, y: 1.6, cd: 0 },
   radio: { label: 'COM RADIO', price: 650, gate: null, eff: 'CUSTOMERS CALL YOU; LATE COSTS HALF THE REP', lb: 4, arm: -8, y: 0.17, cd: 0 },
 };
-const UPG_LATER = [['AMPHIBIOUS FLOATS', 'LAKES + RIVERS - A LATER VERSION'], ['WHEEL-SKIS', 'SNOW + GLACIERS - A LATER VERSION']];
+// v0.90 gear kits (rows f0 / f1 on the board): bought with cash, swapped by the hangar crew while you wait (Cub home, stopped, engine off). One kit at a time, or the stock wheels.
+const UPG_KIT = [{ k: 'floats', label: 'AMPHIBIOUS FLOATS', price: 7800, gate: null, eff: 'LAKES + RIVERS; WHEELS IN THE FLOATS (; KEY / BLUE SWITCH). +250 LB, ~13 MPH SLOWER' },
+  { k: 'skis', label: 'WHEEL-SKIS', price: 2600, gate: null, eff: 'SNOWFIELDS + GLACIERS; NO BRAKES ON SNOW. +55 LB, ~4 MPH SLOWER' }];
+UPG.gk = ''; UPG.kown = {}; ac.gdn = false;
+function kitState(i) { const K = UPG_KIT[i];
+  if (UPG.gk === K.k) return ['WHEELS', '#5a6a7a', 'FITTED - BACK TO THE STOCK WHEELS'];
+  if (UPG.kown[K.k]) return ['FIT', '#2a5aa0', 'BOUGHT - THE CREW SWAPS IT ON' + (UPG.gk ? ' (FOR THE ' + UPG_KIT.find(q => q.k === UPG.gk).label + ')' : '')];
+  return ['$' + K.price.toLocaleString('en-US'), DLV.cash >= K.price ? '#2a7a2a' : '#a04030', K.eff]; }
+function kitCan() { if (UPG.fit) return 'FINISH BOLTING THE ' + UPG_I[UPG.fit.key].label + ' FIRST'; if (mode !== 'foot' || acGS() > 0.5 || ENG.running) return 'THE CUB HAS TO BE STOPPED, ENGINE OFF, YOU ON FOOT';
+  if (!upgCubHome()) return 'THE CREW SWAPS GEAR AT THE HOME HANGAR - BRING THE CUB OVER'; if (DLV.items.some(it => it.st === 'cargo')) return 'UNLOAD THE CUB FIRST'; return ''; }
+function kitSet(k) {   // the swap itself (also the save / load path, with no checks)
+  UPG.gk = k || ''; ac.gdn = UPG.gk === 'floats'; upgApply();
+}
+function kitPlace(x, z, yaw) { const a = ac; resetAircraft(a); a.q = qMul(qAxis([0, 1, 0], yaw), a.q); a.pos = [x, a.pos[1] - terrainHeight(0, 0) + terrainHeight(x, z) + 0.02, z]; }   // sat on its new gear where it stood
+const acYaw = () => { const f = qRot(ac.q, [0, 0, -1]); return Math.atan2(-f[0], -f[2]); };
+function kitDo(i) { const K = UPG_KIT[i], [bt] = kitState(i);
+  if (bt === 'WHEELS' || bt === 'FIT') { const why = kitCan(); if (why) { say(why); sfx('tick'); return true; }
+    const ry = acYaw(), x = ac.pos[0], z = ac.pos[2]; kitSet(bt === 'FIT' ? K.k : ''); kitPlace(x, z, ry); sfx('clack');
+    say(bt === 'FIT' ? K.label + ' ON - ' + (K.k === 'floats' ? 'WHEELS DOWN FOR LAND (; OR THE BLUE SWITCH: UP FOR WATER). LAND ON A LAKE OR THE RIVER, BEACH IT TO GET OUT' : 'THE TYRES POKE THROUGH: WHEELS ON HARD GROUND, SKIS ON SNOW (NO BRAKES THERE)') : 'BACK ON THE STOCK WHEELS');
+    UPB.key = ''; saveSoon(); return true; }
+  if (DLV.cash < K.price) { say('NOT ENOUGH CASH: ' + K.label + ' IS $' + K.price.toLocaleString('en-US') + ', YOU HAVE ' + ecoMoney(DLV.cash) + ' (PARTS ARE CASH ONLY)'); sfx('tick'); return true; }
+  DLV.cash -= K.price; DLV.spent = (DLV.spent || 0) + K.price; UPG.kown[K.k] = 1; sfx('cash'); say('BOUGHT THE ' + K.label + ' (-$' + K.price.toLocaleString('en-US') + ') - PRESS FIT TO HAVE THE CREW SWAP IT ON');
+  UPB.key = ''; for (const F of FUEL_ST) F.B.key = ''; saveSoon(); return true; }
 const UPG_M = (() => {   // mounts (plane-local): p = where the part goes, n = bolt axis (out of the part), bolts, geo (vertex coloured), r = snap distance
   const H = Math.PI / 2, dr = (x, y, z) => D2B(x, z, y), dN = (x, y, z) => new THREE.Vector3(x, y, z).transformDirection(CUB_M);
   const inD = parts => mergeGeometries(parts.map(partGeo)).applyMatrix4(CUB_M), inB = parts => mergeGeometries(parts.map(partGeo));
@@ -7304,9 +7444,11 @@ function upgGhost(key) { if (UPG_GHOST.userData.key === key) return; UPG_GHOST.u
 function upgApply() {   // what the fitted parts change (exact stock values with none)
   UPG.n = UPG_K.filter(k => UPG[k]).length;
   let cd = CD0_0; for (const k of UPG_K) if (UPG[k] && UPG_I[k].cd) cd += UPG_I[k].cd; C.CD0 = UPG.n ? cd : CD0_0;
-  for (let i = 0; i < 2; i++) { C.GEAR[i].p[1] = UPG.tyres ? GEAR0[i].y - UPG_TD : GEAR0[i].y; C.GEAR[i].r = UPG.tyres ? GEAR0[i].r + UPG_TD : GEAR0[i].r; }   // same axle, 5 cm more tyre
+  const KT = UPG.gk ? GEARKIT[UPG.gk] : null; ac.gk = KT; if (!KT || !KT.fl) ac.gdn = false; gearGeo(KT && KT.fl ? KT : null);   // v0.90 the gear kit: physics (null = the stock wheels), the amphibs' wheel geometry
+  if (!(KT && KT.fl)) for (let i = 0; i < 2; i++) { C.GEAR[i].p[1] = UPG.tyres ? GEAR0[i].y - UPG_TD : GEAR0[i].y; C.GEAR[i].r = UPG.tyres ? GEAR0[i].r + UPG_TD : GEAR0[i].r; }   // same axle, 5 cm more tyre
   for (const k in SURF) { const s = SURF[k], o = SURF0[k], t = UPG.tyres && k !== 'strip'; s.roll = t ? o.roll * 0.78 : o.roll; s.bump = t ? o.bump * 0.4 : o.bump; }   // big low-pressure tyres soak up rough ground
-  UPG.loads = UPG_K.filter(k => UPG[k]).map(k => ({ lb: UPG_I[k].lb, arm: UPG_I[k].arm, y: UPG_I[k].y }));
+  UPG.loads = UPG_K.filter(k => UPG[k] && !(k === 'tyres' && KT && KT.fl)).map(k => ({ lb: UPG_I[k].lb, arm: UPG_I[k].arm, y: UPG_I[k].y }));   // (the floats replace the tundras)
+  if (KT) UPG.loads.push({ lb: KT.lb, arm: KT.arm, y: KT.y }); if (typeof kitVis === 'function') kitVis();
   if (!UPG.tank) UPG.aux = 0; upgRebuild(); WBS.key = ''; wbUpdate(); UPB.key = '';
 }
 const upgAuxRoom = () => UPG.tank ? Math.max(0, AUX_L - UPG.aux) : 0;
@@ -7403,17 +7545,17 @@ function upbDraw() {
   x.textAlign = 'right'; x.fillStyle = DLV.cash < 0 ? '#b8301e' : '#1e6a2a'; x.fillText(ecoMoney(DLV.cash), W - 18, 38); x.textAlign = 'left';
   x.fillStyle = '#333'; ecoFit(x, 'CASH ONLY. BOUGHT PARTS WAIT ON THE FLOOR: CARRY ONE TO THE CUB', 18, 62, W - 36, 15, 1);
   ecoFit(x, (renderer.xr.isPresenting ? 'HOLD IT TO THE GREEN OUTLINE, GRIP + TWIST EACH YELLOW BOLT' : 'E CARRIES IT, E AT THE CUB PUTS IT ON, E PER BOLT') + '. CUB HERE, ENGINE OFF', 18, 80, W - 36, 14);
-  x.fillStyle = '#555'; ecoFit(x, 'FITTED: ' + (UPG.n ? UPG_K.filter(k => UPG[k]).map(k => UPG_I[k].label).join(', ') + ' (+' + UPG.loads.reduce((s, L) => s + L.lb, 0) + ' LB)' : 'NOTHING - A STOCK CUB'), 18, 98, W - 36, 13);
-  UPB.rows.forEach((r, i) => { const Y = UPB.r0 + i * UPB.rh, later = r[0] === 'f', L = later ? UPG_LATER[+r[1]] : null, [bt, col, why] = later ? ['LATER', '#b0aca0', L[1]] : upgState(r), I = UPG_I[r];
-    x.fillStyle = later ? '#ece6d6' : '#e8dcc0'; x.fillRect(14, Y, W - 28, UPB.rh - 4);
-    x.fillStyle = later ? '#8a8a80' : '#222'; ecoFit(x, (i + 1) + '. ' + (later ? L[0] : I.label + (I.price ? ' - ' + I.lb + ' LB' : '')), 22, Y + 14, W - 150, 14, 1);
-    x.fillStyle = later ? '#9a9a90' : bt === 'LOCKED' ? '#8a4a30' : '#555'; ecoFit(x, why, 22, Y + 28, W - 150, 11);
+  x.fillStyle = '#555'; ecoFit(x, 'FITTED: ' + (UPG.loads.length ? UPG_K.filter(k => UPG[k]).map(k => UPG_I[k].label).concat(UPG.gk ? [UPG_KIT.find(q => q.k === UPG.gk).label] : []).join(', ') + ' (+' + UPG.loads.reduce((s, L) => s + L.lb, 0) + ' LB)' : 'NOTHING - A STOCK CUB'), 18, 98, W - 36, 13);
+  UPB.rows.forEach((r, i) => { const Y = UPB.r0 + i * UPB.rh, kit = r[0] === 'f', L = kit ? UPG_KIT[+r[1]] : null, [bt, col, why] = kit ? kitState(+r[1]) : upgState(r), I = UPG_I[r];   // v0.90 the gear kits
+    x.fillStyle = kit ? '#dfe6ea' : '#e8dcc0'; x.fillRect(14, Y, W - 28, UPB.rh - 4);
+    x.fillStyle = '#222'; ecoFit(x, (i + 1) + '. ' + (kit ? L.label + ' - GEAR KIT' : I.label + (I.price ? ' - ' + I.lb + ' LB' : '')), 22, Y + 14, W - 150, 14, 1);
+    x.fillStyle = bt === 'LOCKED' ? '#8a4a30' : '#555'; ecoFit(x, why, 22, Y + 28, W - 150, 11);
     x.fillStyle = col; x.fillRect(W - 112, Y + 3, 92, UPB.rh - 10); x.fillStyle = '#fff'; x.textAlign = 'center'; x.font = 'bold 14px sans-serif'; x.fillText(bt, W - 66, Y + UPB.rh / 2 + 3); x.textAlign = 'left'; });
   texDirty(UPB.tex);
 }
 function upgDo(i) {   // a row on the parts board
   const r = UPB.rows[i]; if (!r) return false;
-  if (r[0] === 'f') { say(UPG_LATER[+r[1]][0] + ': NOT IN STOCK YET - ' + UPG_LATER[+r[1]][1]); sfx('tick'); return true; }
+  if (r[0] === 'f') return kitDo(+r[1]);
   const I = UPG_I[r], [bt] = upgState(r);
   if (bt === 'REMOVE') { upgRemove(r); UPB.key = ''; return true; }
   if (bt === 'BOLTING') { say('TIGHTEN THE BOLTS ON THE ' + I.label); sfx('tick'); return true; }
@@ -7467,11 +7609,13 @@ function upgPodLb() { let lb = 0; for (const it of DLV.items) if (it.st === 'car
 function upgNearPod() {   // desktop: standing on the left of the Cub by the pod (the cabin door is on the right) = E loads / unloads the pod
   if (!UPG.pod || mode !== 'foot') return false; camera.getWorldPosition(_ua); plane.updateMatrixWorld(); plane.worldToLocal(_ua); return _ua.x < -0.45 && _ua.x > -2.2 && Math.abs(_ua.z - UPG_M.pod.p.z) < 1.1;
 }
-function upgSave() { return { fit: UPG_K.filter(k => UPG[k]), own: UPG_K.filter(k => UPG.own[k]), aux: Math.round(UPG.aux * 100) / 100, bolting: UPG.fit ? UPG.fit.key : null }; }
+function upgSave() { return { fit: UPG_K.filter(k => UPG[k]), own: UPG_K.filter(k => UPG.own[k]), aux: Math.round(UPG.aux * 100) / 100, bolting: UPG.fit ? UPG.fit.key : null, gk: UPG.gk, kown: UPG_KIT.map(q => q.k).filter(k => UPG.kown[k]), gdn: !!ac.gdn }; }   // v0.90 gk / kown / gdn
 function upgLoad(d) {   // also a fresh start (d = null): a stock Cub
   for (const k of UPG_K) { UPG[k] = 0; UPG.own[k] = 0; upgPartGone(k); } UPG.fit = null; UPG.aux = 0; UPG.held.clear(); UPG.tw = null; UPG.heard = {};
+  UPG.kown = {}; UPG.gk = '';
+  if (d && typeof d === 'object') { if (Array.isArray(d.kown)) for (const q of UPG_KIT) if (d.kown.includes(q.k)) UPG.kown[q.k] = 1; if (UPG.kown[d.gk]) UPG.gk = d.gk; }   // v0.90
   if (d && typeof d === 'object') { for (const k of UPG_K) { if (Array.isArray(d.own) && d.own.includes(k)) UPG.own[k] = 1; if (Array.isArray(d.fit) && d.fit.includes(k)) UPG[k] = UPG.own[k] = 1; } if (UPG_K.includes(d.bolting)) UPG.own[d.bolting] = 1; }
-  upgApply(); if (d && UPG.tank && isFinite(+d.aux)) UPG.aux = clamp(+d.aux, 0, AUX_L);
+  upgApply(); ac.gdn = UPG.gk === 'floats' && !(d && d.gdn === false); if (d && UPG.tank && isFinite(+d.aux)) UPG.aux = clamp(+d.aux, 0, AUX_L);
   for (const k of UPG_K) if (UPG.own[k] && !UPG[k]) upgPartFloor(k);   // (a part half bolted on when you saved is back on the floor)
 }
 upgLoad(null);
@@ -8589,7 +8733,7 @@ renderer.setAnimationLoop(() => {
 
   plane.position.fromArray(ac.pos); plane.quaternion.fromArray(ac.q);
   dlvTick(dt); wbWarn(dt); huntTick(dt, xr || HANDS.force); dropTick(dt); ecoTick(dt); upgTick(dt); emgTick(dt);   // v0.53 rifle, deer, binoculars; v0.54 bundles in the air, the signal smoke   // v0.50 delivery: game clock, falling / loose cargo, job boards
-  GV.update(dt);   // v0.20 gear legs / tyres / tail wheel
+  GV.update(dt); kitTick(dt);   // v0.20 gear legs / tyres / tail wheel (v0.90 + the gear kits)
   updateMap(); updateCockpitV19(dt);
   propTick(dt, ENG.rpm);
   stick.rotation.set(ctl.elev * STICK_MAX, 0, -ctl.ail * STICK_MAX);

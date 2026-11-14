@@ -27,6 +27,7 @@ v0.50 turns it into a **bush delivery** game: take a job off a strip's job board
 | Brakes | Left trigger (v0.61: the right trigger when your left hand is on the stick) | B |
 | Get out (stopped, idle) | Y | F |
 | Landing light | Grip the toggle under the panel (the yellow ring on it) to flick it up / down | L |
+| Amphib wheels up / down (v0.90, floats only) | Grip the blue-knobbed toggle right of the landing light | ; |
 | Reset / recentre | B = reset to the home strip, cold and dark (keeps your fuel and cash; below 5 gal it tops up to 5 gal, paid at the home drum price), A / X = recentre | R reset, Home recentre |
 
 ## Sound (v0.83)
@@ -310,7 +311,14 @@ Parts are sold on the **PARTS** board on the home hangar wall, next to the servi
 - **Cargo pod:** holds 100 lb of light pieces that can't slide. It adds drag.
 - **LED landing light:** brighter, wider and longer than stock. It uses the same landing-light switch.
 - **COM radio:** customers call with offers (requests first), and being late costs half the rep.
-- Floats and wheel-skis are on the board as "not in stock yet" (a later version).
+- **Gear kits (v0.90), rows 6-7:** the **amphibious floats** ($7,800) and the **wheel-skis** ($2,600). Buy one, then press **FIT** and the hangar crew swaps it on while you wait. The Cub has to be home and stopped, the engine off, you on foot and the cargo out. Press **WHEELS** to go back to stock. You can fit only one kit at a time; the other one you own waits in the hangar. The kit, the kits you own and the amphibs' wheel position are saved.
+- **Amphibious floats:** +250 lb and about 13 mph slower in cruise. The wheels retract into the floats:
+  - **Wheels down** for land, **wheels up** for water. Switch with **;** (desktop), or in VR grip the blue-knobbed toggle right of the landing-light switch. It shows only with the floats on.
+  - Landing on water with the wheels down flips the Cub. Wheels up on land, it sits on its keels and can't take off.
+  - On the water it floats about 20 cm deep, and the water rudders steer with the pedals. At full power, flaps 15, stick back over the hump, ease forward onto the step, and it lifts off at about 52 mph after about 220 m. The East Lake is 420 m across and the NW Lake 340 m. The main river is 17 m wide.
+  - You can't step out into deep water. Taxi in until the floats are on the sand (beach it) and wade ashore.
+  - Three float sites come up as jobs once you own the floats: **East Lake Cove** (Fishing Lodge), **NW Lake West** (Canoe Outfitter) and **Caribou Reach** on the river (River Guides).
+- **Wheel-skis:** +55 lb and about 4 mph slower. The tyres poke through the skis: on hard ground you roll on the wheels as usual, and on snow you slide on the skis, with lower friction and no brakes, so plan the roll-out. Two ski strips come up as jobs once you own the skis: **North Icefield** (Glacier Survey, flat, 1040 m) and **West Glacier** (Heli-Ski Hut, 5% slope: land uphill).
 - Every part's weight shows on the W&B card. With nothing fitted, the Cub flies exactly as stock.
 
 ## Townsfolk and emergencies (v0.58)

@@ -2,6 +2,37 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.90 – gear kits: amphibious floats and wheel-skis
+
+Physics for the stock wheels untouched (md5 unchanged). Everything new runs only when a kit is fitted (`a.gk`).
+- **Hangar board rows 6-7:** the amphibious floats ($7,800) and wheel-skis ($2,600) are now on sale. Buy one and the crew fits it with **FIT**; **WHEELS** puts the stock gear back. It works only at home, stopped, with the engine off and the cargo out. The kit, owned kits and the wheel switch are saved.
+- **Floats physics:** two pontoons with 10 keel points each. Each point gets:
+  - buoyancy and heave damping;
+  - planing lift (forebody stronger than the afterbody);
+  - skin drag plus wave drag with a hump near 5 m/s that falls away on the step;
+  - keel side drag, plus water rudders at the sterns.
+
+  On land the floats skid on their keels. Hard water entry (over about 800 fpm) breaks the struts, and a wingtip, prop or airframe in the water is a crash.
+- **Floats weight and drag:** +250 lb at +9 in, CD0 +0.018. Measured in gk-test:
+
+  | | Wheels | Floats | Skis |
+  |---|---|---|---|
+  | Full-power cruise | 106 mph | 93 mph | 102 mph |
+  | Takeoff | strip 121 m | water ~220 m / 19.5 s, liftoff 53 mph; strip (wheels down) 167 m | — |
+- **Amphibs:** the wheels retract into the floats (**;** or the blue cockpit toggle). Wheels down onto water above 5 m/s flips the Cub. Wheels down at a walk is the ramp, rolling on the lake bed.
+- **Water:** the lakes and the main river (17 m ribbon) count as water for the floats. You can't step out into water deeper than 0.6 m: beach it and wade ashore. The old "ran into the lake" crash now applies only without floats.
+- **Wheel-skis:** +55 lb, CD0 +0.005. On snow faces (the terrain's own snow rule), the skis take over: mu 0.45, rolling 0.03, and no brakes. On other ground the tyres roll as normal.
+- **Models:** low-poly vertex-coloured models:
+  - aluminium pontoons with a blue stripe, N-struts, spreader bars and water rudders;
+  - amphib wheels that slide down and up over 1.5 s;
+  - skis riding the axles, with a steering tail ski.
+
+  The stock legs hide under the floats.
+- **Five kit sites** (offered as jobs only once you own that kit, so a stock Cub's job pool is unchanged):
+  - **Floats:** East Lake Cove (Fishing Lodge), NW Lake West (Canoe Outfitter) and Caribou Reach (River Guides, on a straight 260 m reach).
+  - **Skis:** North Icefield (Glacier Survey) and West Glacier (Heli-Ski Hut, 5% uphill).
+- **Tests:** new **gk-test.mjs** (physics, 13 checks) and **t90** (game, 15 checks). t57 is updated for the kits being on sale.
+
 ## v0.89 – near shadow casters for trees, rocks and town props
 
 Physics untouched (md5 unchanged).
