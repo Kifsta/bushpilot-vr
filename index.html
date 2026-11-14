@@ -19,7 +19,7 @@
 </script>
 </head>
 <body>
-<div id="info">BUSH PILOT VR v0.84 - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
+<div id="info">BUSH PILOT VR <span id="ver">v0.91.1</span> - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
 You start on foot by the Cub at the cabin strip. Walk up to her and climb in (F / Y), then start her up off the checklist card (J).
 Desktop - flying: W/S or arrows pitch, A/D or arrows roll, Q/E rudder, Shift / Ctrl (or + / -) throttle, B brakes, \ parking brake, [ ] flaps, PgUp / PgDn trim,
   R reset to the strip (cold and dark), F climb out, M map, L landing light, Home recentre, mouse looks (click to capture).
@@ -581,6 +581,8 @@ const hyp = (a, b, c = 0) => Math.sqrt(a * a + b * b + c * c);   // v0.59 Math.h
 
 // ======================= RENDERING =======================
 // v0.35 settings (persist in localStorage 'bp_gfx'; ?gfx=shadows:2,grass:1 overrides for testing). Defaults = the v0.34 look and cost.
+const BP_VERSION = 'v0.91.1';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
+{ const e = document.getElementById('ver'); if (e) e.textContent = BP_VERSION; }
 const GFX_DEF = { shadows: 0, scale: 0.9, fov: 1, dist: 1, trees: 1, grass: 0, clouds: 1, fog: 1, msaa: 1, hz: 72, vig: 0, turn: 0, fps: 0, tod: 11, stk: 1, tips: 1, terr: 1, dyn: 1, glove: 0, hand: 0, volM: 1, volE: 1, volA: 1, volF: 1, wx: 1, forest: 0, ground: 0, gtex: 0 };   // v0.68.1 dominant hand, volumes. v0.48 BALANCED: 90 % scale, 72 Hz, fast terrain shading, auto resolution; v0.49.1 the stick stays where you let go of it
 const GFX = Object.assign({}, GFX_DEF);
 try { const o = JSON.parse(localStorage.getItem('bp_gfx') || '{}'); if ((o.v || 0) < 48) { if (o.scale === 1) delete o.scale; if (o.hz === 0) delete o.hz; }   // v0.48: saved copies of the old defaults (100 %, AUTO Hz) move to the new ones once
@@ -8182,7 +8184,7 @@ const GFX_OPT = [   // key, label, values, value labels, note (shown small under
   ['ground', 'Ground style', [0, 1, 2, 3, 4], ['VALLEY', 'OUTBACK', 'TROPICAL', 'FACETED', 'GOLDEN'], 'look of the land - same cost'],   // v0.86
   ['gtex', 'Ground texture', [0, 1, 2, 3, 4, 5], ['GRAIN', 'MEADOW', 'RED GRAVEL', 'LUSH', 'PAINTERLY', 'DRY GRASS'], 'surface detail (FAST+GRAIN / FULL)'],   // v0.87
   ['trees', 'Tree density', [0, 0.4, 0.7, 1], ['OFF', 'SPARSE', 'MEDIUM', 'FULL'], 'tree density'],
-  ['forest', 'Trees', [0, 1, 2], ['3D ONLY', 'MIXED', '2D ONLY'], 'MIXED: 3D near + 50k 2D far out; 2D ONLY: every tree 2D, 1.5x denser'],   // v0.88 (v0.78 Forest NORMAL / DENSE = 3D ONLY / MIXED)
+  ['forest', 'Trees', [0, 1, 2], ['3D ONLY', 'MIXED', '2D ONLY'], 'MIXED: 3D near, 2D far; 2D ONLY: all 2D'],   // v0.88 (v0.78 Forest NORMAL / DENSE = 3D ONLY / MIXED)
   ['dist', 'Draw distance', [0.6, 0.8, 1, 1.3], ['NEAR', 'MEDIUM', 'NORMAL', 'FAR'], 'trees, rocks, haze'],
   ['clouds', 'Clouds', [0, 1, 2], ['OFF', 'NORMAL', 'HIGH'], 'sky detail'],
   ['fog', 'Haze', [0, 1, 2], ['LIGHT', 'NORMAL', 'THICK'], 'how far you can see'],
@@ -8551,7 +8553,7 @@ const SETP_ROW = i => ({ X: i < 10 ? 30 : 527, Y: 96 + (i % 10) * 48 });   // v0
 // Poke with a fingertip or point either controller at it and pull the trigger. Desktop: the same board in a page overlay (Esc / F2), clicked with the mouse.
 const MENU_TABS = [['resume', 'RESUME'], ['save', 'SAVE / LOAD'], ['gfx', 'GRAPHICS'], ['comfort', 'COMFORT'], ['controls', 'CONTROLS'], ['audio', 'AUDIO']];
 const MENU_ROWS = { gfx: ['scale', 'fov', 'terr', 'ground', 'gtex', 'trees', 'forest', 'dist', 'clouds', 'fog', 'wx', 'shadows', 'grass', 'msaa', 'dyn', 'hz', 'fps', 'tod', 'glove'], comfort: ['vig', 'turn', 'stk', 'tips'], controls: ['hand', 'hx'], audio: ['volM', 'volE', 'volA', 'volF'] };
-const MENU_TAB = i => ({ X: 22 + i * 164, W: 158 });
+const MENU_TAB = i => ({ X: 22 + i * 146, W: 140 });   // (v0.91.1 narrower: the version sits at the right of the tab row)
 const MENU_SLOT = n => 76 + (n - 1) * 128;   // a manual slot's box top (right column)
 const MENU_HELP = ['TRIGGER  fire / brake / next page', 'GRIP  grab (stick, throttle, knobs, cargo)', 'A / X  recentre + set height', 'B  reset flight (on the rifle: lever)', 'Y  climb in / out (left rifle: lever)',
   'LEFT STICK  walk (click: run)', 'RIGHT STICK  turn / crouch', 'WRIST TO FACE  MENU button', 'DESKTOP  Esc or F2 menu, ` old list', 'Full list: CONTROLS.md / the GUIDE book'];
@@ -8570,6 +8572,7 @@ function setpDraw() {
   const x = SETP.x; x.fillStyle = '#e9dcb8'; x.fillRect(0, 0, 1024, 640); x.strokeStyle = '#5a4630'; x.lineWidth = 6; x.strokeRect(3, 3, 1018, 634);
   MENU_TABS.forEach(([id, t], i) => { const { X, W } = MENU_TAB(i), on = SETP.tab === id; x.fillStyle = on ? '#e9dcb8' : '#7a6040'; x.fillRect(X, 10, W, 52); x.strokeStyle = '#5a4630'; x.lineWidth = 2; x.strokeRect(X, 10, W, 52);
     x.fillStyle = on ? '#2e2418' : '#f2ead2'; x.font = 'bold 20px Georgia, serif'; x.textAlign = 'center'; x.fillText(t, X + W / 2, 44); x.textAlign = 'left'; });
+  x.fillStyle = '#5a4630'; x.font = 'bold 22px Georgia, serif'; x.textAlign = 'right'; x.fillText(BP_VERSION, 1008, 45); x.textAlign = 'left';   // v0.91.1 the version in the menu header
   x.fillStyle = '#5a4630'; x.fillRect(10, 62, 1004, 3);
   setpRows().forEach((gi, i) => { const [k, lab, , , note] = GFX_OPT[gi], { X, Y } = SETP_ROW(i);
     x.fillStyle = '#2e2418'; x.font = 'bold 21px Georgia, serif'; x.fillText(lab, X, Y); x.font = '14px Georgia, serif'; x.fillStyle = '#6a5638'; x.fillText(note, X, Y + 20);

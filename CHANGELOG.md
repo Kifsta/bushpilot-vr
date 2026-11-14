@@ -2,6 +2,12 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.91.1 – the version in the menu header
+
+- The menu's tab row now ends with the game's version (**v0.91.1**), right-aligned in the header. The tabs are a little narrower (140 px) to make room. The desktop info line shows the same version (it still said v0.84).
+- One constant, `BP_VERSION`. Test **t911**: it equals the newest CHANGELOG entry and the info line, it sits clear of the last tab, and every tab still hits.
+- The Graphics > Trees note is shorter (*MIXED: 3D near, 2D far; 2D ONLY: all 2D*). Since v0.88 it had run under its button.
+
 ## v0.91 – Pose Lab holds look in the game exactly as in the Pose Lab
 
 Physics untouched (md5 unchanged). Neil's report: the left hand on the rifle forend (his Pose Lab picture), the binoculars and the round look different in the game.
