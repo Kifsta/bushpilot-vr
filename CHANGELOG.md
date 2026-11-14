@@ -2,6 +2,15 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.87.2 – Neil's clipboard hold; his left-hand binocular and round codes
+
+Three more Pose Lab codes from Neil, through the same `POSE_LAB` table. Physics untouched (md5 unchanged).
+- **Clipboard (left hand, every joint, mirrored for the right):** the board sits in your hand where Neil put it (still drawn at 1.2x), and the glove pinches its lower outer corner. The trigger still turns the pages, and the desktop reading view is unchanged. **Reading in VR:** with this hold, the page faces you when you raise the controller about 80–90° (it used to face you with the controller level, as in v0.84.3).
+- **Binoculars (left hand, mode G):** the same p, q and joints as v0.87.1. Mode G is only the lab's "as game" finger button and changes nothing in the lab or the game: the lab renders are pixel-identical. The zoom view and the thumb-side eyepieces are as before.
+- **Rifle round (left hand, mode G, every joint):** now Neil's own left-hand code instead of the mirror of roundR. It has the same values, so nothing moves (pixel-identical in the lab). Loading at the gate works with either hand.
+- **Fix (v0.87.1):** with the map in both hands, the sheet again sits between the two pinches, level and facing you, as in v0.87. v0.87.1 placed it halfway between the two one-hand holds, which could turn it away from you. Each glove still rides its corner in Neil's hold.
+- Tests: t871 covers the clipboard (both hands, the pinch grip, 1.2x, the pages). t843 checks that Neil's clipboard hold reads face-on and upright when raised. t772 allows Neil's map pinch (5.4 cm from the old pinch point, still on the margin).
+
 ## v0.87.1 – Neil's Pose Lab holds in the game (8 poses + mirrors)
 
 Neil set eight holds in the Pose Lab (posetool.html) and sent the codes. The game now reads them through a new hook: `POSE_LAB` (item in glove hand space + 15 per-joint finger rotations J, or grip-state fingers), `plSolve` (replaces gripSolve for a gripped control that has an entry) and `plFingers` (the J bones after buildHand, eased in and out over 0.1 s). Every hold is mirrored for the other hand (p.x = −p.x, q = (x, −y, −z, w), the same J). Holds with no entry are exactly v0.87's. Physics untouched (md5 unchanged).
