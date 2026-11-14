@@ -2,6 +2,11 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.91.2 – a smaller ammo-pouch zone
+
+- **Belt pouch (VR):** the grab zone that hands you a round is now a 10 cm ball round the pouch (it was 24 cm, a 48 cm ball round a 9 x 8 x 4 cm pouch). A grab low across the belt now gets the rifle or nothing instead of a round. The same zone serves the keep-squeezing reload.
+- Test **t912**: a grab on the pouch or 8 cm off it takes a round; 13 cm and 20 cm off (where v0.91.1 still gave one) does not; the rifle's forend held low across the belt is grabbed as the forend. t771's sloppy-hand reload now reaches 7 cm round the pouch (was 14 cm).
+
 ## v0.91.1 – the version in the menu header
 
 - The menu's tab row now ends with the game's version (**v0.91.1**), right-aligned in the header. The tabs are a little narrower (140 px) to make room. The desktop info line shows the same version (it still said v0.84).
