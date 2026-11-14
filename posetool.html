@@ -234,7 +234,7 @@ function gFingerHit(gp, sx, f, j0) {   // does any bone from joint j0 on (angles
 // ================= /GAME CODE =================
 function gripSolveTail(st, D, sx) {   // gripSolve()'s finger + thumb part (index.html, verbatim below), st.Hc = the hand frame in the item's frame
   const gp = st.gp;
-  _gI.copy(st.Hc).invert();                                                                   // shape into hand space
+  _gI.copy(st.Hc).invert();                                                 // shape into hand space
   gp.cyl = D.sh === 'cyl'; gp.C.copy(D.c).applyMatrix4(_gI);
   gp.X.set(1, 0, 0).transformDirection(_gI); gp.Y.set(0, 1, 0).transformDirection(_gI); gp.Z.set(0, 0, 1).transformDirection(_gI);
   if (gp.cyl) { if (D.ax) gp.A.copy(D.ax).transformDirection(_gI); else gp.A.copy(D.a === 0 ? gp.X : D.a === 1 ? gp.Y : gp.Z); gp.r = D.r; gp.hl = D.hl; } else gp.b.copy(D.b);
