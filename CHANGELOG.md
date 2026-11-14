@@ -2,6 +2,20 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.86 – Ground style: five looks for the land, same frame cost
+
+Neil: "Could we look at sampling different ground textures? Can you send me 5 different styles but I don't want to compromise frame rate." Graphics only; physics untouched (md5 unchanged). The default (VALLEY) looks exactly as before.
+- **New setting:** GRAPHICS → **Ground style** (under Terrain shading): VALLEY (the current look), OUTBACK, TROPICAL, FACETED, GOLDEN. Saved with the other graphics settings (`bp_gfx`). `?ground=a`…`e` picks one for testing.
+  - **VALLEY:** the original green patchwork, conifer slopes, grey rock and snow.
+  - **OUTBACK:** red earth, ochre, spinifex and saltbush paddocks, dusty eucalypt scrub, red rock faces, bleached sandstone in place of snow, and pale gravel roads.
+  - **TROPICAL:** sugar cane, lush pasture and red volcanic soil, dark rainforest slopes, wet basalt, moss in place of snow, and red-dirt roads.
+  - **FACETED:** a flat-shaded, low-poly look with no colour jitter. Forest is banded by height and slope, rock by slope, the paddocks use three flat tones, and the grain is flat so each face reads as one colour.
+  - **GOLDEN:** straw, wheat, stubble and fallow paddocks, autumn forest (rust, gold and evergreen), warm grey rock, snow, and pale gravel roads.
+- **Why it costs nothing:** a style only rewrites the ground's per-face vertex colours, swaps the 64 px grain image inside the same texture object, and sets the dirt-road colour. There's no new texture, sampler, material, shader program, pass or draw call. It works the same with FAST, FAST+GRAIN and FULL, and with the v0.85.1 near-shadow tiles. Measured with `renderer.info` at the home strip cockpit and about 210 m up, with shadows OFF and LOW: programs (133 / 160), textures, geometries, draw calls and triangles are identical to v0.85.1 for every style. Render time is the same within noise.
+- **No hitch:** a switch recolours about 3000 ground faces a frame (`gsTick`, from `vlTick`), and each whole tile swaps when it's done, in about 20 frames. Switching back to VALLEY restores the saved build-time colours and the original grain canvas exactly. The world's `rand()` stream is untouched (each style has its own hash). A style chosen at load (saved, or from `?ground=`) is applied before the first frame. The first switch keeps one copy of the original colours in JS (about 3 MB); GPU memory is unchanged.
+- Strips, rivers, lakes, trees, towns and the grass tufts keep their own colours. The strips stay readable on every style.
+- Test: `t86` (new) covers the default being untouched, every style changing colours over several slices with the same programs, textures, geometries and draws, five distinct looks, an exact round trip back to VALLEY (even mid-switch), no new programs across all terrain and shadow settings, saving from the menu, and `?ground=c`.
+
 ## v0.85.1 – cheaper shadows: only near the shadow box (perf audit #8)
 
 Neil: "Go 8". Graphics only; physics untouched (md5 unchanged). Shadows OFF (the default) is unchanged.
