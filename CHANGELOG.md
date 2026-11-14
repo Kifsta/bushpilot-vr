@@ -2,6 +2,28 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.92 – item weight
+
+- **What you carry has weight (VR).** A held item now trails your controller on a critically damped spring, so a heavier item follows more slowly, and it sags by its weight. Your glove is drawn on it the whole time.
+  - The spring runs in the rig frame, so the Cub's motion doesn't drag it. Stiffness is 140 / sqrt(1 + kg / 3) rad/s; sag is 4 cm x kg / (kg + 15); the lag is capped at 6 cm and 15°.
+  - In a quick 30 cm swing, an 8 lb parcel trails 1.4 cm and a 55 lb cement bag 3.6 cm. Held still, a 50 lb sack sits 2.4 cm low.
+  - Covered: cargo (a carried stack counts all its pieces), drop bundles, hangar parts and the rifle (3.4 kg, 7 mm of sag).
+  - A two-hand piece (outboard, generator, deer) takes half its weight in each hand and is drawn with both hands' average. Both gloves stay on it.
+  - The rifle in two hands trails less (1.2 vs 1.6 cm), and there's **no offset when shouldered**, so the cheek weld and sight line stay exact. A hand on the lever loop rides with the rifle.
+  - Rounds, binoculars, the map, the card, the mic and cockpit controls weigh nothing.
+- **Drawn only.** The weighed-down poses are set just for `renderer.render` and put back straight after (wtApply / wtRestore). Every grab, aim, shot, load, stack and drop test still uses the controller. The physics md5 is unchanged.
+- **Settings > CONTROLS > Item weight** ON (default) / OFF, saved. OFF draws exactly what v0.91.3 drew.
+- Test **t92** (14/14):
+  - the default and the menu row;
+  - the sack's sag, straight down, while its real pose stays in the hand;
+  - OFF gives an exact zero offset;
+  - mid-swing, the glove is drawn on the item exactly as it holds it;
+  - heavy trails more than light, and both settle;
+  - letting go clears the offset;
+  - two-hand: half the weight a hand, both gloves on it;
+  - the rifle: one hand vs two hands, and shouldered = none;
+  - nothing heavy = nothing offset.
+
 ## v0.91.3 – a smaller virtual-stock zone
 
 - **Rifle (VR):** the virtual stock now starts to pull the rifle onto your cheek only when the grip hand comes within **8 cm** of the shoulder point (20 cm in front of the eye, 6 cm below it), and it is fully in within 2.5 cm. It was 14 cm and 4 cm, so a rifle carried near your face no longer snaps to the shoulder. The spring, rate caps and cheek weld are unchanged (GUN.stockEngage 0.08, stockFull 0.025).

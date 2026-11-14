@@ -19,7 +19,7 @@
 </script>
 </head>
 <body>
-<div id="info">BUSH PILOT VR <span id="ver">v0.91.3</span> - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
+<div id="info">BUSH PILOT VR <span id="ver">v0.92</span> - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
 You start on foot by the Cub at the cabin strip. Walk up to her and climb in (F / Y), then start her up off the checklist card (J).
 Desktop - flying: W/S or arrows pitch, A/D or arrows roll, Q/E rudder, Shift / Ctrl (or + / -) throttle, B brakes, \ parking brake, [ ] flaps, PgUp / PgDn trim,
   R reset to the strip (cold and dark), F climb out, M map, L landing light, Home recentre, mouse looks (click to capture).
@@ -581,9 +581,9 @@ const hyp = (a, b, c = 0) => Math.sqrt(a * a + b * b + c * c);   // v0.59 Math.h
 
 // ======================= RENDERING =======================
 // v0.35 settings (persist in localStorage 'bp_gfx'; ?gfx=shadows:2,grass:1 overrides for testing). Defaults = the v0.34 look and cost.
-const BP_VERSION = 'v0.91.3';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
+const BP_VERSION = 'v0.92';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
 { const e = document.getElementById('ver'); if (e) e.textContent = BP_VERSION; }
-const GFX_DEF = { shadows: 0, scale: 0.9, fov: 1, dist: 1, trees: 1, grass: 0, clouds: 1, fog: 1, msaa: 1, hz: 72, vig: 0, turn: 0, fps: 0, tod: 11, stk: 1, tips: 1, terr: 1, dyn: 1, glove: 0, hand: 0, volM: 1, volE: 1, volA: 1, volF: 1, wx: 1, forest: 0, ground: 0, gtex: 0 };   // v0.68.1 dominant hand, volumes. v0.48 BALANCED: 90 % scale, 72 Hz, fast terrain shading, auto resolution; v0.49.1 the stick stays where you let go of it
+const GFX_DEF = { shadows: 0, scale: 0.9, fov: 1, dist: 1, trees: 1, grass: 0, clouds: 1, fog: 1, msaa: 1, hz: 72, vig: 0, turn: 0, fps: 0, tod: 11, stk: 1, tips: 1, terr: 1, dyn: 1, glove: 0, hand: 0, wt: 1, volM: 1, volE: 1, volA: 1, volF: 1, wx: 1, forest: 0, ground: 0, gtex: 0 };   // v0.68.1 dominant hand, volumes. v0.48 BALANCED: 90 % scale, 72 Hz, fast terrain shading, auto resolution; v0.49.1 the stick stays where you let go of it
 const GFX = Object.assign({}, GFX_DEF);
 try { const o = JSON.parse(localStorage.getItem('bp_gfx') || '{}'); if ((o.v || 0) < 48) { if (o.scale === 1) delete o.scale; if (o.hz === 0) delete o.hz; }   // v0.48: saved copies of the old defaults (100 %, AUTO Hz) move to the new ones once
   if ((o.v || 0) < 49 && o.stk === 0) delete o.stk;   // v0.49.1: a saved CENTRES (the old default) switches to STAYS once; CENTRES chosen after this sticks
@@ -4590,7 +4590,7 @@ function gloveInit() {
 function gloveSkin(i, st, inv) {   // this frame's skin matrices: (xrOffset^-1 * W) * R_k * B_k^-1 (rigid), or collapsed while hidden
   const m = GLOVE.gm[i], h = st.right ? 0 : 1; if (m.geometry !== GLOVE.geo[h]) m.geometry = GLOVE.geo[h];
   const U = m.material.userData.hSk.value; m.visible = st.vis;
-  if (!st.vis) return; _hm.multiplyMatrices(inv, st.W);
+  if (!st.vis) return; const wd = WT.gD[i]; _hm.multiplyMatrices(inv, wd ? _wtM.multiplyMatrices(wd, st.W) : st.W);   // v0.92 item weight: the glove drawn where the weighed-down item is
   for (let k = 0; k < HN; k++) U[k].multiplyMatrices(_hm, st.R[k]).multiply(GLOVE.B[h][k]);
   const w = st.plbw || 0; if (w > 0) for (let k = 2; k < HN; k++) {   // v0.91 a Pose Lab hold: the fingers skinned on the lab's bind (exactly what Neil saw in the lab), eased in / out with the hold
     const e = U[k].elements, l = _hmL.multiplyMatrices(_hm, st.R[k]).multiply(GLOVE.BL[h][k]).elements; for (let j = 0; j < 16; j++) e[j] += (l[j] - e[j]) * w; }
@@ -6154,6 +6154,53 @@ const RIFLE_POSES = {
   support: { c: GV3(0, 0.012, -0.275), b: GV3(0.02, 0.025, 0.1), wr: 0.017, tl: 0.08, wz: -0.004, lab: null },   // shape: the forend
   GRIP_OFFSET: [null, null],   // [right primary, left primary]: { grip, q, fore, qs } - filled by rflLoadPoses
 };
+// v0.92 item weight (Neil): what a hand carries trails the controller on a spring (heavier = slower) and sags a little, by its weight. Drawn only: the item's and the
+// hand's real poses (every grab, aim, load, drop and stack test) stay on the controller - wtApply moves them for renderer.render and wtRestore puts them back. Settings: Item weight.
+const WT = { h: [0, 1].map(() => ({ p: GV3(0, 0, 0), v: GV3(0, 0, 0), q: new THREE.Quaternion(), w: GV3(0, 0, 0), m: 0, live: false, dp: GV3(0, 0, 0), dq: new THREE.Quaternion(), pv: GV3(0, 0, 0), D: new THREE.Matrix4() })),
+  gD: [null, null], rD: new THREE.Matrix4(), tD: new THREE.Matrix4(), go: [], sv: [], LAG: 0.06, ANG: 15 * D2R, RIFLE: 3.4, LB: 0.4536 };
+const _wtM = new THREE.Matrix4(), _wtM2 = new THREE.Matrix4(), _wtPi = new THREE.Matrix4(), _wtQx = new THREE.Quaternion(), _wtQ = new THREE.Quaternion(), _wtQ2 = new THREE.Quaternion(), _wtV = GV3(0, 0, 0), _wtV2 = GV3(0, 0, 0), _wtDn = GV3(0, 0, 0), _wtS = GV3(0, 0, 0);
+const wtWn = m => 140 / Math.sqrt(1 + m / 3), wtSag = m => 0.04 * m / (m + 15);   // rad/s, kg: the 3.4 kg rifle 96 rad/s + 7 mm, a 50 lb sack 46 rad/s + 2.4 cm (a 1 m/s swing trails 2 v / wn: 2 / 4 cm)
+function wtItem(g) {   // what this hand carries and how heavy (kg) it is for that hand: [kg, kind] kind 1 = rides on the hand, 2 = two-hand piece, 3 = the rifle
+  if (RFL.g && RFL.place === 'vr' && (RFL.hand === g || RFL.sup === g)) return [WT.RIFLE / (RFL.hand && RFL.sup ? 2 : 1), 3];
+  let it = DLV.held.get(g); if (it) return it.two ? [it.lb * WT.LB / 2, 2] : [dlvStack(it).reduce((a, p) => a + p.lb, 0) * WT.LB, 1];
+  it = DROP.held.get(g); if (it) return [it.lb * WT.LB, 1];
+  it = UPG.held.get(g); if (it) return [(UPG_I[it.k]?.lb || 0) * WT.LB, 1];
+  return [0, 0];
+}
+function wtMix(A, B, k, D) {   // the average of two hands' offsets (k = how much of B), as D
+  _wtV.lerpVectors(A.dp, B.dp, k); _wtV2.lerpVectors(A.pv, B.pv, k); _wtQ.copy(A.dq).slerp(B.dq, k); return wtMat(_wtV, _wtQ, _wtV2, D); }
+function wtMat(dp, dq, pv, D) { return D.makeTranslation(-pv.x, -pv.y, -pv.z).premultiply(_wtM2.makeRotationFromQuaternion(dq)).premultiply(_wtM2.makeTranslation(pv.x + dp.x, pv.y + dp.y, pv.z + dp.z)); }
+function wtTick(dt) {   // after the hands' logic for this frame, before updateHands skins the gloves
+  WT.gD[0] = WT.gD[1] = null; WT.go.length = 0; if (!GFX.wt) { for (const H of WT.h) H.live = false; return; }
+  xrOffset.updateWorldMatrix(true, false); _wtPi.copy(xrOffset.matrixWorld).invert(); xrOffset.getWorldQuaternion(_wtQx); _wtDn.set(0, -1, 0).transformDirection(_wtPi);   // the spring lives in the rig: the plane's motion doesn't drag it
+  const K = [0, 0];
+  for (let i = 0; i < 2; i++) { const g = grips[i], H = WT.h[i], [m, k] = g.userData.src ? wtItem(g) : [0, 0]; K[i] = k;
+    if (m <= 0) { H.live = false; continue; }
+    if (!H.live) { H.p.copy(g.position); H.q.copy(g.quaternion); H.v.set(0, 0, 0); H.w.set(0, 0, 0); H.live = true; }   // picked up: from the controller, then it settles into its sag
+    const wn = wtWn(m), tp = _wtS.copy(g.position).addScaledVector(_wtDn, wtSag(m));
+    { const ex = Math.exp(-wn * dt);   // critically damped, solved exactly over the frame (stable at any rate): e' = (e + (v + wn e) t) exp(-wn t), position and turn
+      _wtV.subVectors(H.p, tp); _wtV2.copy(H.v).addScaledVector(_wtV, wn); H.v.addScaledVector(_wtV2, -wn * dt).multiplyScalar(ex); H.p.copy(tp).addScaledVector(_wtV.addScaledVector(_wtV2, dt), ex);
+      _wtQ.copy(H.q).multiply(_wtQ2.copy(g.quaternion).invert()); if (_wtQ.w < 0) { _wtQ.x = -_wtQ.x; _wtQ.y = -_wtQ.y; _wtQ.z = -_wtQ.z; _wtQ.w = -_wtQ.w; }
+      const sn = Math.hypot(_wtQ.x, _wtQ.y, _wtQ.z), an = 2 * Math.atan2(sn, _wtQ.w); _wtV.set(_wtQ.x, _wtQ.y, _wtQ.z).multiplyScalar(sn > 1e-9 ? an / sn : 2);
+      _wtV2.copy(H.w).addScaledVector(_wtV, wn); H.w.addScaledVector(_wtV2, -wn * dt).multiplyScalar(ex); _wtV.addScaledVector(_wtV2, dt).multiplyScalar(ex); const el = _wtV.length();
+      H.q.copy(g.quaternion); if (el > 1e-9) H.q.premultiply(_wtQ2.setFromAxisAngle(_wtV.divideScalar(el), el)); }
+    _wtV.subVectors(H.p, tp); const lag = _wtV.length(); if (lag > WT.LAG) H.p.copy(tp).addScaledVector(_wtV, WT.LAG / lag);   // never further than 6 cm / 15 deg behind
+    const ag = H.q.angleTo(g.quaternion); if (ag > WT.ANG) { _wtQ2.copy(H.q); H.q.copy(g.quaternion).slerp(_wtQ2, WT.ANG / ag); }
+    H.pv.copy(g.position).applyMatrix4(xrOffset.matrixWorld); H.dp.copy(H.p).applyMatrix4(xrOffset.matrixWorld).sub(H.pv);   // -> a world offset about the controller
+    H.dq.copy(_wtQx).multiply(_wtQ.copy(H.q).multiply(_wtQ2.copy(g.quaternion).invert())).multiply(_wtQ2.copy(_wtQx).invert()); wtMat(H.dp, H.dq, H.pv, H.D); }
+  for (let i = 0; i < 2; i++) if (K[i] === 1) { WT.gD[i] = WT.h[i].D; WT.go.push([grips[i], WT.h[i].D]); }   // rides on the hand: the hand and all it holds
+  if (K[0] === 2 && K[1] === 2 && WT.h[0].live && WT.h[1].live) { wtMix(WT.h[0], WT.h[1], 0.5, WT.tD); WT.gD[0] = WT.gD[1] = WT.tD; const it = DLV.held.get(grips[0]); if (it) WT.go.push([it.mesh, WT.tD]); }   // a two-hand piece: both hands' average
+  const r = [0, 1].filter(i => K[i] === 3 && WT.h[i].live);
+  if (r.length) { const A = WT.h[r[0]], B = WT.h[r[r.length - 1]], k = 1 - clamp(RFL.stockW || 0, 0, 1);   // the rifle: its hands' average, none on the shoulder (the cheek weld stays exact)
+    _wtV.lerpVectors(A.dp, B.dp, 0.5).multiplyScalar(k); _wtV2.lerpVectors(A.pv, B.pv, 0.5); _wtQ.copy(A.dq).slerp(B.dq, 0.5); _wtQ2.identity().slerp(_wtQ, k); wtMat(_wtV, _wtQ2, _wtV2, WT.rD);
+    for (const i of r) WT.gD[i] = WT.rD; const lv = grips.indexOf(RFL.levHand); if (lv >= 0) WT.gD[lv] = WT.rD; WT.go.push([RFL.g, WT.rD]); }   // (a hand on the lever loop rides with it too)
+}
+function wtApply() {   // just before renderer.render: the weighed-down poses
+  const S = WT.sv; S.length = 0;
+  for (const [o, D] of WT.go) { if (!o.parent) continue; o.updateWorldMatrix(true, false); S.push([o, o.matrix.clone(), o.position.clone(), o.quaternion.clone(), o.scale.clone()]);
+    _wtM.multiplyMatrices(D, o.matrixWorld).premultiply(_wtPi.copy(o.parent.matrixWorld).invert()); o.matrix.copy(_wtM); o.matrix.decompose(o.position, o.quaternion, o.scale); o.matrixWorldNeedsUpdate = true; }
+}
+function wtRestore() { for (const [o, M, p, q, sc] of WT.sv) { o.matrix.copy(M); o.position.copy(p); o.quaternion.copy(q); o.scale.copy(sc); o.updateMatrixWorld(true); } WT.sv.length = 0; }
 const GUN = { stockEngage: 0.08, stockFull: 0.025, stockTau: 0.15, leverTime: 0.12, leverMax: 0.9, mv: 400, drag: 0.0029, zeroM: 50, disp: 0.0006,
   gateR: 0.025, magnetR: 0.05, loadR: 0.1, loadCos: 0.5, pouchR: 0.1, grabR: 0.15, stockR: 0.15, loadBtnR: 0.25, tube: 7, pouch: 60, flick: 1.6,   // v0.91.2 (Neil) pouchR 0.24 -> 0.1 m: the grab zone round the belt pouch (9 x 8 x 4 cm) was a 48 cm ball that took grabs meant for the rifle
   pickupBlend: 0.12, handoffBlend: 0.08, inertiaWn: 55, stockCapPos: 0.003, stockCapRot: 0.6, gateCone: 40 * D2R };   // v0.67 from the v0.9-v0.44 rifle: pick-up / hand-off blends, one-hand muzzle lag, stock pull rate cap, loading-gate entry cone
@@ -8203,6 +8250,7 @@ const GFX_OPT = [   // key, label, values, value labels, note (shown small under
   ['tips', 'Control labels', [0, 1], ['OFF', 'ON'], 'VR: name + state by your hand'],
   ['glove', 'Gloves', [0, 1, 2], ['SAGE', 'BLACK', 'TAN'], 'flying gloves'],
   ['hand', 'Dominant hand', [0, 1], ['RIGHT', 'LEFT'], 'the watch goes on the other wrist'],   // v0.68.1
+  ['wt', 'Item weight', [0, 1], ['OFF', 'ON'], 'VR: heavy things lag + sag'],   // v0.92
   ['volM', 'Master volume', [0, 0.25, 0.5, 0.75, 1], ['OFF', '25%', '50%', '75%', '100%'], 'everything'],
   ['volE', 'Engine + flight', [0, 0.25, 0.5, 0.75, 1], ['OFF', '25%', '50%', '75%', '100%'], 'engine, starter, prop wash, tyres'],
   ['volA', 'Ambient', [0, 0.25, 0.5, 0.75, 1], ['OFF', '25%', '50%', '75%', '100%'], 'wind, crickets, water'],
@@ -8552,7 +8600,7 @@ const SETP_ROW = i => ({ X: i < 10 ? 30 : 527, Y: 96 + (i % 10) * 48 });   // v0
 // v0.68.1 the MENU board: tabs along the top (RESUME, SAVE / LOAD, GRAPHICS, COMFORT, CONTROLS, AUDIO), big poke / point targets, CLOSE bottom right.
 // Poke with a fingertip or point either controller at it and pull the trigger. Desktop: the same board in a page overlay (Esc / F2), clicked with the mouse.
 const MENU_TABS = [['resume', 'RESUME'], ['save', 'SAVE / LOAD'], ['gfx', 'GRAPHICS'], ['comfort', 'COMFORT'], ['controls', 'CONTROLS'], ['audio', 'AUDIO']];
-const MENU_ROWS = { gfx: ['scale', 'fov', 'terr', 'ground', 'gtex', 'trees', 'forest', 'dist', 'clouds', 'fog', 'wx', 'shadows', 'grass', 'msaa', 'dyn', 'hz', 'fps', 'tod', 'glove'], comfort: ['vig', 'turn', 'stk', 'tips'], controls: ['hand', 'hx'], audio: ['volM', 'volE', 'volA', 'volF'] };
+const MENU_ROWS = { gfx: ['scale', 'fov', 'terr', 'ground', 'gtex', 'trees', 'forest', 'dist', 'clouds', 'fog', 'wx', 'shadows', 'grass', 'msaa', 'dyn', 'hz', 'fps', 'tod', 'glove'], comfort: ['vig', 'turn', 'stk', 'tips'], controls: ['hand', 'hx', 'wt'], audio: ['volM', 'volE', 'volA', 'volF'] };
 const MENU_TAB = i => ({ X: 22 + i * 146, W: 140 });   // (v0.91.1 narrower: the version sits at the right of the tab row)
 const MENU_SLOT = n => 76 + (n - 1) * 128;   // a manual slot's box top (right column)
 const MENU_HELP = ['TRIGGER  fire / brake / next page', 'GRIP  grab (stick, throttle, knobs, cargo)', 'A / X  recentre + set height', 'B  reset flight (on the rifle: lever)', 'Y  climb in / out (left rifle: lever)',
@@ -8763,10 +8811,10 @@ renderer.setAnimationLoop(() => {
   if (instT > 0.1) { instT = 0; drawWrist(); }
   if ((chunkT += dt) > 0.2) { chunkT = 0; updateChunks(); }
   hxTick(dt);                                // v0.24 haptics (engine / buffet / gear + queued pulses)
-  if (xr || HANDS.force) { updateHands(dt); setpTick(); jbPoke(); ecoPoke(); upgPoke(); emgPoke(); }
+  if (xr || HANDS.force) { wtTick(dt); updateHands(dt); setpTick(); jbPoke(); ecoPoke(); upgPoke(); emgPoke(); }
   vlTick(); batchTick(); if (GFX.shadows && ((FT.n & 1) || mode !== 'plane' || ac.vel[0] * ac.vel[0] + ac.vel[1] * ac.vel[1] + ac.vel[2] * ac.vel[2] > 0.1)) renderer.shadowMap.needsUpdate = true;   // v0.47 static batches; shadow map at half rate   // v0.23 gloves (after the stick / knobs have their final pose); v0.45 wrist SETTINGS board
   if (DIRTY_TEX.size) { DIRTY_TEX.forEach(texInit); DIRTY_TEX.clear(); } binoRender();   // v0.53 the 7x view (only while raised); v0.81 the textures upload first
-  renderer.render(scene, camera);
+  if (xr || HANDS.force) wtApply(); renderer.render(scene, camera); wtRestore();   // v0.92 item weight: drawn weighed down, then back on the controller
   const cpu = performance.now() - t0;            // JS + draw submission (GPU time isn't visible from here)
   dynTick(rawDt);   // v0.48 auto resolution
   FT.sf += rawDt * 1000; FT.sc += cpu; FT.sm = Math.max(FT.sm, rawDt * 1000); FT.n++;

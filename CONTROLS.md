@@ -406,6 +406,7 @@ A customer stands at every job board. Walk up to them for a hello: their rep tie
 | Anti-aliasing | OFF / MSAA | applies after a reload |
 | Refresh rate | AUTO / 72 / 90 / 120 | Quest 3 |
 | Haptics | OFF … 100 % | controller buzz |
+| Item weight (v0.92, CONTROLS tab) | ON / OFF | VR: what you carry has weight. Cargo, drop bundles, hangar parts and the rifle trail your controller a little when you swing them (heavier = more: about 1.4 cm for an 8 lb parcel and 3.6 cm for a 55 lb bag in a quick 30 cm swing, never more than 6 cm / 15°) and sag by their weight (7 mm for the rifle, 2.4 cm for a 50 lb sack). Your glove stays on the item. A two-hand piece takes half its weight in each hand; the rifle in two hands trails less, and **none when shouldered**, so the cheek weld and sight line are exact. Rounds, binoculars, maps, the mic and cockpit controls weigh nothing. It is only drawn that way: every grab, aim, load and drop still works from where your controller is. Default ON; OFF is the old feel |
 | Comfort vignette | OFF / LIGHT / STRONG | darkens the edges while you move or turn on foot |
 | Turning | SNAP 30° / SNAP 45° / SMOOTH | right stick, on foot |
 | FPS counter | OFF / ON | fps, ms, CPU ms, draw calls and triangles, lower left of your view |
