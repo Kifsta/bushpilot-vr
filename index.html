@@ -526,12 +526,13 @@ const hyp = (a, b, c = 0) => Math.sqrt(a * a + b * b + c * c);   // v0.59 Math.h
 
 // ======================= RENDERING =======================
 // v0.35 settings (persist in localStorage 'bp_gfx'; ?gfx=shadows:2,grass:1 overrides for testing). Defaults = the v0.34 look and cost.
-const GFX_DEF = { shadows: 0, scale: 0.9, fov: 1, dist: 1, trees: 1, grass: 0, clouds: 1, fog: 1, msaa: 1, hz: 72, vig: 0, turn: 0, fps: 0, tod: 11, stk: 1, tips: 1, terr: 1, dyn: 1, glove: 0, hand: 0, volM: 1, volE: 1, volA: 1, volF: 1, wx: 1, forest: 0, ground: 0 };   // v0.68.1 dominant hand, volumes. v0.48 BALANCED: 90 % scale, 72 Hz, fast terrain shading, auto resolution; v0.49.1 the stick stays where you let go of it
+const GFX_DEF = { shadows: 0, scale: 0.9, fov: 1, dist: 1, trees: 1, grass: 0, clouds: 1, fog: 1, msaa: 1, hz: 72, vig: 0, turn: 0, fps: 0, tod: 11, stk: 1, tips: 1, terr: 1, dyn: 1, glove: 0, hand: 0, volM: 1, volE: 1, volA: 1, volF: 1, wx: 1, forest: 0, ground: 0, gtex: 0 };   // v0.68.1 dominant hand, volumes. v0.48 BALANCED: 90 % scale, 72 Hz, fast terrain shading, auto resolution; v0.49.1 the stick stays where you let go of it
 const GFX = Object.assign({}, GFX_DEF);
 try { const o = JSON.parse(localStorage.getItem('bp_gfx') || '{}'); if ((o.v || 0) < 48) { if (o.scale === 1) delete o.scale; if (o.hz === 0) delete o.hz; }   // v0.48: saved copies of the old defaults (100 %, AUTO Hz) move to the new ones once
   if ((o.v || 0) < 49 && o.stk === 0) delete o.stk;   // v0.49.1: a saved CENTRES (the old default) switches to STAYS once; CENTRES chosen after this sticks
   for (const k in GFX_DEF) if (typeof o[k] === 'number' && isFinite(o[k])) GFX[k] = o[k]; } catch (e) { }
 try { const g = new URLSearchParams(location.search).get('ground'); if (g) { const i = 'abcde'.indexOf(g.toLowerCase()[0]); if (i >= 0) GFX.ground = i; } } catch (e) { }   // v0.86 ?ground=a..e (VALLEY, OUTBACK, TROPICAL, FACETED, GOLDEN) for quick looks (like ?gfx=, kept only if you then change a setting)
+try { const g = +new URLSearchParams(location.search).get('gtex'); if (g >= 1 && g <= 5) GFX.gtex = Math.round(g); } catch (e) { }   // v0.87 ?gtex=1..5 (MEADOW, RED GRAVEL, LUSH, PAINTERLY, DRY GRASS)
 try { const q = new URLSearchParams(location.search).get('gfx'); if (q) for (const kv of q.split(',')) { const [k, v] = kv.split(':'); if (k in GFX_DEF && isFinite(+v)) GFX[k] = +v; } } catch (e) { }
 const renderer = new THREE.WebGLRenderer({ antialias: !!GFX.msaa, stencil: false });   // v0.81 no stencil: nothing uses it (a lighter XR depth buffer)
 const DIRTY_TEX = new Set(); function texDirty(t) { t.needsUpdate = true; DIRTY_TEX.add(t); } function texInit(t) { renderer.initTexture(t); }   // v0.81 redrawn canvas textures upload before the eye pass, not mid-pass
@@ -564,7 +565,7 @@ function vlMat(o) {
   m.customProgramCacheKey = () => 'vl48'; return m;
 }
 function vlTwin(m, map) {   // the vertex-lit twin of a plain Lambert material (shared per material)
-  const k = m.uuid + (map ? 'm' : ''); let t = VL.by.get(k); if (!t) VL.by.set(k, t = vlMat({ color: m.color, vertexColors: m.vertexColors, map: map ? m.map : null, side: m.side })); return t;
+  const k = m.uuid + (map ? 'm' : ''); let t = VL.by.get(k); if (!t) { VL.by.set(k, t = vlMat({ color: m.color, vertexColors: m.vertexColors, map: map ? m.map : null, side: m.side })); if (map && m.userData.gt) { const ob = t.onBeforeCompile; t.onBeforeCompile = sh => { ob(sh); gtPatch(sh); }; t.customProgramCacheKey = () => 'vl48gt'; } } return t;   // v0.87 a Ground texture twin keeps its detail patch
 }
 let seed = 12345; const rand = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
 
@@ -755,13 +756,128 @@ function gsTick(budget = 3000) {   // recolour up to `budget` faces this frame; 
       for (let k = 0; k < 9; k += 3) { J.buf[i + k] = cc.r; J.buf[i + k + 1] = cc.g; J.buf[i + k + 2] = cc.b; } }
     if (J.i >= q.count) { col.array.set(J.buf); col.needsUpdate = true; J.mi++; J.i = 0; J.buf = null; } }
   if (J.mi < TERR_M.length) return;
-  const mats = [...new Set(TERR_M.map(o => o.userData.lm))];   // the grain canvases (same 64 x 64 textures, re-uploaded once) and the road colour
+  const mats = [...new Set(TERR_M.map(o => o.userData.lm0 || o.userData.lm))];   // (v0.87 the grain materials, even under a Ground texture) the grain canvases (same 64 x 64 textures, re-uploaded once) and the road colour
   mats.forEach((m, k) => { if (!m.map) return; const O = GSTY.orig.grain; O[k] ||= { a: m.map.image, b: Object.assign(document.createElement('canvas'), { width: 64, height: 64 }) };   // the build-time canvas is kept as it is (no GPU read-back); styles draw on a second 64 px canvas
     if (J.st) gsGrain(J.st, O[k].b, k + 1); m.map.image = J.st ? O[k].b : O[k].a; m.map.needsUpdate = true; });   // same texture object, re-uploaded once
   if (GSTY.road) GSTY.road.color.setHex(GSTY.ROAD[J.st]);
   GSTY.cur = J.st; GSTY.job = null; GSTY.n++; if (GSTY.want !== GSTY.cur) gsStart(GSTY.want);
 }
 function gsRun(st) { gsStart(st); while (GSTY.job) gsTick(1e9); }   // all at once (load time / tests)
+// ---- v0.87 Ground texture: five real tiling surface textures (self-generated, nothing downloaded), built on first use. One 512 px RGB detail tile per set: R = the surface
+// on green ground (grass / leaves), G = on warm ground (soil / gravel / straw), B = on grey ground (rock). The ground still takes ONE texture sample a pixel (the grain's);
+// the vertex colour picks the channel (a few ALU ops). GRAIN (the default) keeps the v0.86 materials and programs untouched; a set swaps in a patched twin of each ground
+// material, compiled before the swap (async where the browser can), and the image is generated a channel per frame. One shared GL texture (inner + ring share its Source).
+const GT = { cur: 0, want: 0, job: null, busy: false, mats: new Map(), tex: [], img: new Map(), S: 512, n: 0, K: 0.79,
+  NAMES: ['GRAIN', 'MEADOW', 'RED GRAVEL', 'LUSH', 'PAINTERLY', 'DRY GRASS'], TILE: [6, 3, 3, 3, 4, 3], SD: [0, [46, 44, 46], [44, 48, 44], [42, 44, 40], [40, 40, 44], [48, 46, 46]] };
+const GT_GLSL = `vec4 gT = texture2D( map, vMapUv );
+  vec3 gC = vColor; float gMx = max( gC.r, max( gC.g, gC.b ) ), gMn = min( gC.r, min( gC.g, gC.b ) ), gS = ( gMx - gMn ) / max( gMx, 1e-4 );
+  float gR = 1.0 - smoothstep( 0.36, 0.44, gS ), gG = ( 1.0 - gR ) * smoothstep( 1.0, 1.25, gC.g / max( gC.r, 1e-4 ) ), gd = dot( gT.rgb, vec3( gG, 1.0 - gR - gG, gR ) );
+  diffuseColor.rgb *= ${GT.K.toFixed(3)} * mix( 0.25 + 1.5 * gd, 1.0, 0.7 * smoothstep( 0.45, 0.7, gMn ) );`;
+const gtPatch = sh => { sh.fragmentShader = sh.fragmentShader.replace('#include <map_fragment>', GT_GLSL); };
+function gtRng(seed) { let s = seed; return () => (s = s * 16807 % 2147483647) / 2147483647; }
+function gtNoise(r, f) {   // tileable value noise at f cells per tile (f divides 512)
+  const g = new Float32Array(f * f); for (let i = 0; i < g.length; i++) g[i] = r(); const S = GT.S, out = new Float32Array(S * S), sm = t => t * t * (3 - 2 * t);
+  for (let y = 0; y < S; y++) { const fy = y / S * f, j = Math.floor(fy), b = sm(fy - j), j1 = (j + 1) % f;
+    for (let x = 0; x < S; x++) { const fx = x / S * f, i = Math.floor(fx), a = sm(fx - i), i1 = (i + 1) % f;
+      out[y * S + x] = (g[j * f + i] * (1 - a) + g[j * f + i1] * a) * (1 - b) + (g[j1 * f + i] * (1 - a) + g[j1 * f + i1] * a) * b; } }
+  return out; }
+function gtBase(x, r, lo, hi, oct) {   // grey base: fine tileable noise only (no big blobs, so no visible repeat from altitude)
+  const S = GT.S, d = x.createImageData(S, S), N = oct.map(([f, w]) => [gtNoise(r, f), w]);
+  for (let i = 0; i < S * S; i++) { let v = 0; for (const [n, w] of N) v += n[i] * w; v = lo + (hi - lo) * v; d.data[i * 4] = d.data[i * 4 + 1] = d.data[i * 4 + 2] = v; d.data[i * 4 + 3] = 255; }
+  x.putImageData(d, 0, 0); }
+function gtWrap(x, px, py, rad, fn) { const S = GT.S; for (const dx of [-S, 0, S]) for (const dy of [-S, 0, S]) if (px + dx + rad > 0 && px + dx - rad < S && py + dy + rad > 0 && py + dy - rad < S) { x.save(); x.translate(px + dx, py + dy); fn(); x.restore(); } }
+const gtG = v => { v = Math.max(0, Math.min(255, v | 0)); return `rgb(${v},${v},${v})`; };
+function gtBlades(x, r, n, len, w, lo, hi, curl = 0.5, ang = null) {   // grass / straw blades (seen from above: tapered strokes every which way)
+  x.lineCap = 'round'; for (let k = 0; k < n; k++) { const px = r() * GT.S, py = r() * GT.S, L = len[0] + r() * (len[1] - len[0]), a = ang === null ? r() * 6.283 : ang + (r() - 0.5) * 0.9, c = (r() - 0.5) * curl * L;
+    const ex = Math.cos(a) * L, ey = Math.sin(a) * L, mx = ex / 2 - Math.sin(a) * c, my = ey / 2 + Math.cos(a) * c, t = lo + r() * (hi - lo), lw = w[0] + r() * (w[1] - w[0]);
+    gtWrap(x, px, py, L + 4, () => { x.strokeStyle = gtG(t * 0.55); x.lineWidth = lw + 1.2; x.beginPath(); x.moveTo(0, 0); x.quadraticCurveTo(mx, my, ex, ey); x.stroke();
+      x.strokeStyle = gtG(t); x.lineWidth = lw; x.beginPath(); x.moveTo(0, 0); x.quadraticCurveTo(mx, my, ex, ey); x.stroke(); x.lineWidth = lw * 0.45; x.strokeStyle = gtG(t + 30); x.beginPath(); x.moveTo(0, 0); x.quadraticCurveTo(mx * 0.9, my * 0.9, ex * 0.8, ey * 0.8); x.stroke(); }); } }
+function gtStones(x, r, n, rad, lo, hi, sides = 0) {   // pebbles / gravel / scree: a shadow, the stone, a lit top (sides > 0 = angular)
+  for (let k = 0; k < n; k++) { const px = r() * GT.S, py = r() * GT.S, R = rad[0] + r() * (rad[1] - rad[0]), t = lo + r() * (hi - lo), e = 0.6 + r() * 0.5, a = r() * 3.14, nv = sides ? sides + Math.floor(r() * 3) : 0, jit = Array.from({ length: nv }, () => 0.7 + r() * 0.5);
+    const shape = s => { x.beginPath(); if (!nv) x.ellipse(0, 0, R * s, R * e * s, a, 0, 6.283); else for (let i = 0; i <= nv; i++) { const q = a + i / nv * 6.283, rr = R * s * jit[i % nv]; i ? x.lineTo(Math.cos(q) * rr, Math.sin(q) * rr * e) : x.moveTo(Math.cos(q) * rr, Math.sin(q) * rr * e); } x.fill(); };
+    gtWrap(x, px, py, R * 1.6 + 3, () => { x.translate(R * 0.25, R * 0.3); x.fillStyle = gtG(t * 0.3); shape(1.12); x.translate(-R * 0.25, -R * 0.3); x.fillStyle = gtG(t); shape(1); x.translate(-R * 0.2, -R * 0.25); x.fillStyle = gtG(t + 35); shape(0.45); }); } }
+function gtLeaves(x, r, n, len, lo, hi, w = 0.45) {   // leaf litter / broad leaves: an ellipse with a darker midrib
+  for (let k = 0; k < n; k++) { const px = r() * GT.S, py = r() * GT.S, L = len[0] + r() * (len[1] - len[0]), a = r() * 6.283, t = lo + r() * (hi - lo);
+    gtWrap(x, px, py, L + 3, () => { x.rotate(a); x.fillStyle = gtG(t * 0.45); x.beginPath(); x.ellipse(1.5, 1.5, L, L * w, 0, 0, 6.283); x.fill(); x.fillStyle = gtG(t); x.beginPath(); x.ellipse(0, 0, L, L * w, 0, 0, 6.283); x.fill();
+      x.strokeStyle = gtG(t * 0.7); x.lineWidth = 1; x.beginPath(); x.moveTo(-L, 0); x.lineTo(L, 0); x.stroke(); }); } }
+function gtCracks(x, r, n, len, tone, wd = 1.5) {   // wandering dark cracks (rock joints, dried mud)
+  x.lineCap = 'round'; x.lineJoin = 'round'; for (let k = 0; k < n; k++) { let px = r() * GT.S, py = r() * GT.S, a = r() * 6.283; const pts = [[0, 0]], L = len[0] + r() * (len[1] - len[0]); let cx = 0, cy = 0;
+    for (let s = 0; s < L; s += 6) { a += (r() - 0.5) * 0.9; cx += Math.cos(a) * 6; cy += Math.sin(a) * 6; pts.push([cx, cy]); }
+    const lw = wd * (0.6 + r()); gtWrap(x, px, py, L + 4, () => { x.strokeStyle = gtG(tone); x.lineWidth = lw; x.beginPath(); pts.forEach(([u, v], i) => i ? x.lineTo(u, v) : x.moveTo(u, v)); x.stroke();
+      x.strokeStyle = gtG(tone + 120); x.lineWidth = lw * 0.5; x.translate(-1, -1); x.beginPath(); pts.forEach(([u, v], i) => i ? x.lineTo(u, v) : x.moveTo(u, v)); x.stroke(); }); } }
+function gtFacets(x, r, N, levels, jit = 0.38) {   // painterly low-poly: a jittered N x N grid of flat-toned triangles (wraps exactly)
+  const S = GT.S, cs = S / N, P = []; for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) P.push([(i + 0.5 + (r() - 0.5) * jit * 2) * cs, (j + 0.5 + (r() - 0.5) * jit * 2) * cs]);
+  const V = (i, j) => { const p = P[(j % N) * N + (i % N)]; return [p[0] + (i >= N ? S : 0), p[1] + (j >= N ? S : 0)]; };
+  x.lineWidth = 0.8; for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) { const a = V(i, j), b = V(i + 1, j), c = V(i, j + 1), d = V(i + 1, j + 1);
+    for (const tr of r() < 0.5 ? [[a, b, d], [a, d, c]] : [[a, b, c], [b, d, c]]) { x.fillStyle = x.strokeStyle = gtG(levels[Math.floor(r() * levels.length)]);
+      for (const ox of [0, -S]) for (const oy of [0, -S]) { x.beginPath(); tr.forEach(([u, v], k) => k ? x.lineTo(u + ox, v + oy) : x.moveTo(u + ox, v + oy)); x.closePath(); x.fill(); x.stroke(); } } } }
+function gtStrokes(x, r, n, len, wd, levels) {   // painterly brush dabs: short wide strokes in a few flat tones
+  x.lineCap = 'round'; for (let k = 0; k < n; k++) { const px = r() * GT.S, py = r() * GT.S, L = len[0] + r() * (len[1] - len[0]), a = r() * 6.283, w = wd[0] + r() * (wd[1] - wd[0]), t = levels[Math.floor(r() * levels.length)];
+    gtWrap(x, px, py, L + w, () => { x.rotate(a); x.strokeStyle = gtG(t); x.lineWidth = w; x.beginPath(); x.moveTo(-L / 2, 0); x.lineTo(L / 2, 0); x.stroke(); }); } }
+const GT_DRAW = {   // per set: [R = green ground, G = warm ground, B = grey ground] (at 512 px a tile is 3 m: ~6 mm a pixel)
+  1: [(x, r) => { gtBase(x, r, 40, 110, [[64, 0.5], [128, 0.5]]); gtBlades(x, r, 5200, [9, 26], [1, 2.2], 70, 215); },                                   // MEADOW: dense grass
+      (x, r) => { gtBase(x, r, 70, 170, [[32, 0.3], [64, 0.35], [128, 0.35]]); gtStones(x, r, 520, [1.5, 5], 110, 200); gtBlades(x, r, 500, [6, 16], [1, 1.6], 90, 180); },   // soil, small stones, stray blades
+      (x, r) => { gtBase(x, r, 70, 190, [[16, 0.3], [32, 0.3], [64, 0.2], [128, 0.2]]); gtCracks(x, r, 26, [60, 200], 25, 1.8); gtStones(x, r, 300, [1, 3], 150, 220); }],   // lichen-flecked rock
+  2: [(x, r) => { gtBase(x, r, 120, 190, [[64, 0.5], [128, 0.5]]); for (let k = 0; k < 70; k++) { const cx = r() * 512, cy = r() * 512, R = 14 + r() * 22, q = gtRng(1 + (r() * 1e6 | 0));   // spinifex hummocks on sand
+        for (let b = 0; b < 46; b++) { const a = q() * 6.283, L = R * (0.5 + q() * 0.6), t = 60 + q() * 120; gtWrap(x, cx, cy, R + 4, () => { x.strokeStyle = gtG(t); x.lineWidth = 1 + q(); x.beginPath(); x.moveTo(0, 0); x.lineTo(Math.cos(a) * L, Math.sin(a) * L); x.stroke(); }); } } },
+      (x, r) => { gtBase(x, r, 90, 160, [[64, 0.5], [128, 0.5]]); gtStones(x, r, 2600, [1.5, 6], 90, 210, 4); },                                               // red gravel: dense angular pebbles
+      (x, r) => { gtBase(x, r, 80, 200, [[8, 0.15], [32, 0.25], [64, 0.3], [128, 0.3]]); for (let k = 0; k < 420; k++) { const px = r() * 512, py = r() * 512, L = 10 + r() * 40, t = 60 + r() * 70, h = 1 + r() * 1.5; gtWrap(x, px, py, L, () => { x.fillStyle = gtG(t); x.fillRect(-L / 2, 0, L, h); }); }
+        gtCracks(x, r, 30, [40, 160], 20, 2.2); }],                                                                                                            // banded, cracked sandstone
+  3: [(x, r) => { gtBase(x, r, 30, 90, [[64, 0.5], [128, 0.5]]); gtLeaves(x, r, 2600, [3, 8], 80, 220, 0.62); gtBlades(x, r, 1400, [10, 24], [1.4, 2.6], 90, 210); },   // clover, broad leaves and lush blades
+      (x, r) => { gtBase(x, r, 40, 100, [[64, 0.5], [128, 0.5]]); gtLeaves(x, r, 1700, [7, 16], 70, 230, 0.42); },                                          // wet leaf litter
+      (x, r) => { gtBase(x, r, 60, 170, [[16, 0.25], [32, 0.25], [64, 0.25], [128, 0.25]]); gtCracks(x, r, 18, [60, 180], 20, 2); gtLeaves(x, r, 2200, [1.5, 4], 150, 240, 0.9); }],   // mossy basalt
+  4: [(x, r) => { gtFacets(x, r, 16, [70, 110, 150, 190]); gtStrokes(x, r, 260, [14, 30], [4, 7], [90, 140, 200]); },                                    // PAINTERLY: small facets + brush dabs
+      (x, r) => { gtFacets(x, r, 12, [80, 120, 160, 200]); gtStrokes(x, r, 160, [8, 18], [6, 10], [70, 130, 190]); },
+      (x, r) => { gtFacets(x, r, 8, [60, 100, 140, 180, 220], 0.45); }],                                                                                    // big angular rock facets
+  5: [(x, r) => { gtBase(x, r, 50, 120, [[64, 0.5], [128, 0.5]]); gtLeaves(x, r, 1300, [6, 14], 70, 220, 0.45); gtBlades(x, r, 900, [8, 20], [1, 1.8], 80, 190); },   // leaf litter and moss under trees
+      (x, r) => { gtBase(x, r, 70, 140, [[64, 0.5], [128, 0.5]]); gtBlades(x, r, 3400, [16, 40], [1.2, 2.4], 110, 245, 0.9); gtLeaves(x, r, 160, [5, 10], 60, 160); },   // dry tussock and straw, a few fallen leaves
+      (x, r) => { gtBase(x, r, 40, 90, [[64, 0.5], [128, 0.5]]); gtStones(x, r, 1300, [3, 11], 90, 220, 5); }] };                                       // scree
+function gtChannels(set, mk) {   // the three channels, each normalised to mean 128 and the set's contrast (so far away it averages to a flat tone); mk = a 512 px canvas maker
+  const S = GT.S, ch = [];
+  for (let c = 0; c < 3; c++) { const x = mk().getContext('2d', { willReadFrequently: true }); GT_DRAW[set][c](x, gtRng(977 * set + 31 * c + 7)); ch.push(x.getImageData(0, 0, S, S).data); }
+  const d = new ImageData(S, S);
+  for (let c = 0; c < 3; c++) { const a = ch[c]; let m = 0, q = 0; for (let i = 0; i < S * S; i++) { const v = a[i * 4]; m += v; q += v * v; } m /= S * S; const sd = Math.sqrt(Math.max(1, q / (S * S) - m * m)), k = GT.SD[set][c] / sd;
+    for (let i = 0; i < S * S; i++) d.data[i * 4 + c] = 128 + (a[i * 4] - m) * k; }
+  for (let i = 0; i < S * S; i++) d.data[i * 4 + 3] = 255; return d; }
+function gtWorker() {   // the tile is drawn off the main thread (OffscreenCanvas in a worker: no frame hitch); null = not supported, draw it here
+  if (GT.wk !== undefined) return GT.wk; GT.wk = null;
+  try { if (typeof Worker === 'undefined' || typeof OffscreenCanvas === 'undefined') return null;
+    const fns = [gtRng, gtNoise, gtBase, gtWrap, gtBlades, gtStones, gtLeaves, gtCracks, gtFacets, gtStrokes, gtChannels].map(f => f.toString()).join('\n');
+    const draw = '{' + Object.entries(GT_DRAW).map(([k, a]) => k + ': [' + a.map(f => f.toString()).join(', ') + ']').join(', ') + '}';
+    const src = `const GT = { S: ${GT.S}, SD: ${JSON.stringify(GT.SD)} }; const gtG = ${gtG.toString()};\n${fns}\nconst GT_DRAW = ${draw};\n` +
+      'onmessage = e => { const d = gtChannels(e.data, () => new OffscreenCanvas(GT.S, GT.S)); postMessage({ set: e.data, d }, [d.data.buffer]); };';
+    const w = new Worker(URL.createObjectURL(new Blob([src], { type: 'text/javascript' }))); w.onmessage = e => { GT.got = e.data; }; w.onerror = () => { GT.wk = null; GT.got = { set: -1 }; }; GT.wk = w; } catch (e) { GT.wk = null; }
+  return GT.wk; }
+function gtCanvas(d) { const c = document.createElement('canvas'); c.width = c.height = GT.S; c.getContext('2d').putImageData(d, 0, 0); return c; }
+function* gtBuild(set, sync) {   // -> the 512 px RGB tile canvas
+  const w = sync ? null : gtWorker();
+  if (w) { GT.got = null; w.postMessage(set); while (!GT.got) yield; if (GT.got.set === set) return gtCanvas(GT.got.d); }   // (a worker error falls through to drawing it here)
+  return gtCanvas(gtChannels(set, () => Object.assign(document.createElement('canvas'), { width: GT.S, height: GT.S }))); }
+function gtMat(lm) {   // the patched twin of a ground material (made once; its texture is the shared detail tile, scaled to the set's tile size)
+  let g = GT.mats.get(lm); if (g) return g;
+  const t = GT.tex.length ? GT.tex[0].clone() : new THREE.CanvasTexture(document.createElement('canvas')); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = lm.map.anisotropy; t.userData.size = lm.map.repeat.x * 6; GT.tex.push(t);
+  g = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true, map: t }); g.onBeforeCompile = gtPatch; g.customProgramCacheKey = () => 'gt87'; g.userData.gt = true; GT.mats.set(lm, g); return g; }
+function* gtJob(set, sync) {
+  let img = GT.img.get(set); if (!img) { const it = gtBuild(set, sync); let r; while (!(r = it.next()).done) yield; img = r.value; GT.img.set(set, img); if (GT.img.size > 2) GT.img.delete(GT.img.keys().next().value); }   // keep the last two sets' images (CPU), one on the GPU
+  const L0 = [...new Set(TERR_M.map(o => o.userData.lm0 || o.userData.lm))], G = L0.map(gtMat);
+  for (const t of GT.tex) { t.image = img; t.repeat.set(t.userData.size / GT.TILE[set], t.userData.size / GT.TILE[set]); t.needsUpdate = true; }
+  renderer.initTexture(GT.tex[0]); yield;   // upload once (the ring's texture shares the GL texture)
+  if (!GT.warm) {   // compile the patched looks (vertex-lit, per-pixel, shadow-receiving, x landing light / panel glow) before anything shows them
+    const geo = TERR_M[0].geometry, pl = PL.visible, sl = SL.visible;
+    for (let c = 0; c < 4; c++) { const g = new THREE.Group(); for (const m of G) for (const mm of [m, vlTwin(m, true)]) for (const rs of [false, true]) { const d = new THREE.Mesh(geo, mm); d.receiveShadow = rs; g.add(d); }
+      PL.visible = !!(c & 1); SL.visible = !!(c & 2);
+      if (!sync && renderer.compileAsync) { let done = false; renderer.compileAsync(g, camera, scene).then(() => done = true, () => done = true); PL.visible = pl; SL.visible = sl; while (!done) yield; }
+      else { renderer.compile(g, camera, scene); PL.visible = pl; SL.visible = sl; } if (!sync) yield; }
+    GT.warm = true; }
+  for (const o of TERR_M) { o.userData.lm0 ||= o.userData.lm; o.userData.lm = gtMat(o.userData.lm0); }
+  VL.key = ''; vlApply(); if (GFX.shadows) shPrewarm(); GT.cur = set; }
+function gtStart(set) { set = Math.max(0, Math.min(5, Math.round(set) || 0)); GT.want = set; if (GT.job) return; gtNext(); }
+function gtNext() {
+  const set = GT.want; if (set === GT.cur) return;
+  if (!set) { for (const o of TERR_M) if (o.userData.lm0) o.userData.lm = o.userData.lm0; VL.key = ''; vlApply(); if (GFX.shadows) shPrewarm(); for (const t of GT.tex) t.dispose(); GT.cur = 0; GT.n++; return; }   // back to the grain (its programs are warm); the detail tile leaves the GPU
+  GT.job = gtJob(set, false); }
+function gtTick() { if (!GT.job) return; if (GT.job.next().done) { GT.job = null; GT.n++; gtNext(); } }
+function gtRun(set) { GT.want = set; GT.job = null; if (!set) { gtNext(); return; } const it = gtJob(set, true); while (!it.next().done); GT.n++; }   // all at once (load time / tests)
 // grass strip, cabin, trees
 const FOREST2 = { n: 0 };   // v0.78 the sprite forest (count)
 const TREES = [];   // home-valley trees [x, y, z, scale] (the ambient birdsong listens for them)
@@ -7764,6 +7880,7 @@ const GFX_OPT = [   // key, label, values, value labels, note (shown small under
   ['fov', 'Foveation', [0, 0.33, 0.66, 1], ['OFF', 'LOW', 'MEDIUM', 'HIGH'], 'blurrier edges = faster'],
   ['terr', 'Terrain shading', [0, 1, 2], ['FAST', 'FAST+GRAIN', 'FULL'], 'ground: per-vertex light'],
   ['ground', 'Ground style', [0, 1, 2, 3, 4], ['VALLEY', 'OUTBACK', 'TROPICAL', 'FACETED', 'GOLDEN'], 'look of the land - same cost'],   // v0.86
+  ['gtex', 'Ground texture', [0, 1, 2, 3, 4, 5], ['GRAIN', 'MEADOW', 'RED GRAVEL', 'LUSH', 'PAINTERLY', 'DRY GRASS'], 'surface detail (FAST+GRAIN / FULL)'],   // v0.87
   ['trees', 'Trees', [0, 0.4, 0.7, 1], ['OFF', 'SPARSE', 'MEDIUM', 'FULL'], 'tree density'],
   ['forest', 'Forest', [0, 1], ['NORMAL', 'DENSE'], 'DENSE: +50k 2D trees far out (+4 draws)'],
   ['dist', 'Draw distance', [0.6, 0.8, 1, 1.3], ['NEAR', 'MEDIUM', 'NORMAL', 'FAR'], 'trees, rocks, haze'],
@@ -7814,12 +7931,13 @@ function vlApply(force) {   // v0.48 Terrain shading: FAST / FAST+GRAIN (vertex-
 }
 function vlTick() {   // the vertex-lit uniforms follow the sun / moon and sky light
   VL.vlS.value.copy(hemi.color).multiplyScalar(hemi.intensity); VL.vlG.value.copy(hemi.groundColor).multiplyScalar(hemi.intensity);
-  VL.vlC.value.copy(sun.color).multiplyScalar(sun.intensity); VL.vlD.value.copy(sun.position).sub(sun.target.position).normalize(); vlApply(); gsTick();
+  VL.vlC.value.copy(sun.color).multiplyScalar(sun.intensity); VL.vlD.value.copy(sun.position).sub(sun.target.position).normalize(); vlApply(); gsTick(); gtTick();
 }
 function gfxApply(k) {
   const all = !k;
   if (all || k === 'terr' || k === 'shadows') { VL.key = ''; vlApply(); if (k === 'terr' && GFX.shadows) shPrewarm(); }
-  if (all || k === 'ground') gsStart(GFX.ground);   // v0.86 recoloured a slice per frame (gsTick)
+  if (all || k === 'ground') gsStart(GFX.ground);
+  if (all || k === 'gtex') gtStart(GFX.gtex);   // v0.87 built and compiled over a few frames (gtTick), then swapped in   // v0.86 recoloured a slice per frame (gsTick)
   if (all || k === 'scale') { renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5) * GFX.scale); if (!renderer.xr.isPresenting) renderer.xr.setFramebufferScaleFactor(GFX.scale); }
   if (all || k === 'fov') renderer.xr.setFoveation(DYN.lvl ? Math.max(1, GFX.fov) : GFX.fov);
   if (k === 'dyn' && !GFX.dyn) dynSet(0);
@@ -8106,7 +8224,7 @@ const SETP_ROW = i => ({ X: i < 10 ? 30 : 527, Y: 96 + (i % 10) * 48 });   // v0
 // v0.68.1 the MENU board: tabs along the top (RESUME, SAVE / LOAD, GRAPHICS, COMFORT, CONTROLS, AUDIO), big poke / point targets, CLOSE bottom right.
 // Poke with a fingertip or point either controller at it and pull the trigger. Desktop: the same board in a page overlay (Esc / F2), clicked with the mouse.
 const MENU_TABS = [['resume', 'RESUME'], ['save', 'SAVE / LOAD'], ['gfx', 'GRAPHICS'], ['comfort', 'COMFORT'], ['controls', 'CONTROLS'], ['audio', 'AUDIO']];
-const MENU_ROWS = { gfx: ['scale', 'fov', 'terr', 'ground', 'trees', 'forest', 'dist', 'clouds', 'fog', 'wx', 'shadows', 'grass', 'msaa', 'dyn', 'hz', 'fps', 'tod', 'glove'], comfort: ['vig', 'turn', 'stk', 'tips'], controls: ['hand', 'hx'], audio: ['volM', 'volE', 'volA', 'volF'] };
+const MENU_ROWS = { gfx: ['scale', 'fov', 'terr', 'ground', 'gtex', 'trees', 'forest', 'dist', 'clouds', 'fog', 'wx', 'shadows', 'grass', 'msaa', 'dyn', 'hz', 'fps', 'tod', 'glove'], comfort: ['vig', 'turn', 'stk', 'tips'], controls: ['hand', 'hx'], audio: ['volM', 'volE', 'volA', 'volF'] };
 const MENU_TAB = i => ({ X: 22 + i * 164, W: 158 });
 const MENU_SLOT = n => 76 + (n - 1) * 128;   // a manual slot's box top (right column)
 const MENU_HELP = ['TRIGGER  fire / brake / next page', 'GRIP  grab (stick, throttle, knobs, cargo)', 'A / X  recentre + set height', 'B  reset flight (on the rifle: lever)', 'Y  climb in / out (left rifle: lever)',
@@ -8270,6 +8388,7 @@ for (const t of TOWN_MESH) t.m.traverse(o => { o.updateMatrix(); o.matrixAutoUpd
 gfxApply();
 { PL.visible = SL.visible = true; renderer.compile(scene, camera); PL.visible = SL.visible = false; }
 if (GFX.ground) gsRun(GFX.ground);   // v0.86 a chosen Ground style is in place before the first frame
+if (GFX.gtex) gtRun(GFX.gtex);   // v0.87 likewise a chosen Ground texture
 { vlTick(); for (const f of [true, false]) for (let c = 0; c < 4; c++) { vlApply(f); PL.visible = !!(c & 1); SL.visible = !!(c & 2); renderer.compile(scene, camera); } PL.visible = SL.visible = false; VL.key = ''; vlApply(); }   // v0.48: both terrain looks x each panel-glow / landing-light combination compiled at load (no hitch when one comes on)   // v0.47 LIGHTS_WARM: precompile the lit-cockpit / landing-light variants
 renderer.setAnimationLoop(() => {
   const t0 = performance.now(), rawDt = clock.getDelta(), dt = Math.min(rawDt, 0.05);

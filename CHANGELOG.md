@@ -2,6 +2,22 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.87 – Ground texture: five real tiling surface textures
+
+Neil, on v0.86: "I mean actual different texture tiles not just colours." Graphics only; physics untouched (md5 unchanged). The default (GRAIN) is exactly v0.86: same materials, same shaders.
+- **New setting:** GRAPHICS → **Ground texture** (under Ground style): GRAIN (current), MEADOW, RED GRAVEL, LUSH, PAINTERLY, DRY GRASS. Saved in `bp_gfx`; `?gtex=1`…`5` picks one for testing. It shows with Terrain shading FAST+GRAIN (the default) or FULL.
+  - **MEADOW:** dense grass blades; soil with small stones and stray blades; rock with lichen flecks and cracks.
+  - **RED GRAVEL:** spinifex hummocks on sand; dense angular red gravel; cracked, banded sandstone.
+  - **LUSH:** clover, broad leaves and lush blades; wet leaf litter; mossy basalt.
+  - **PAINTERLY:** a stylised low-poly tile made of flat-toned jittered triangle facets with brush dabs, and big angular facets on rock.
+  - **DRY GRASS:** leaf litter and moss under the green; dry tussock and straw with a few fallen leaves; scree.
+- **How it works:** each set is one 512 px RGB tile. R is the surface for green ground, G for warm ground (soil, gravel, straw) and B for grey ground (rock). The ground still takes **one** texture sample a pixel, the same sample the grain used. The face's vertex colour picks the channel (saturation for rock, green over red for grass), which costs a few ALU ops. Each channel is normalised to the same mean and contrast, so from a distance it averages to the same brightness as the grain look, with no repeat pattern. There are no low-frequency blobs in the tiles, plus mipmaps, and anisotropy stays at 2 or 4 as before.
+- **Assets:** all five sets are drawn procedurally in code (blades, pebbles, leaves, cracks, facets, brush dabs and tileable noise). Nothing is downloaded and there are no third-party files or licences.
+- **Cost:** draw calls and triangles are identical to GRAIN. There's one extra texture on the GPU: 512 × 512 RGBA with mipmaps, about 1.4 MB. The inner tiles and the ring share it through one Source, and it is freed when you go back to GRAIN. The patched ground shaders compile once when you first pick a set (8 programs, built before the swap, async where the browser can), and changing sets after that compiles nothing. Measured at the home strip cockpit and about 210 m up, with shadows OFF and LOW: render time is equal or lower within noise on this box (a software renderer).
+- **No hitch:** the tile is drawn in a Web Worker with an OffscreenCanvas (there's a main-thread fallback). The texture is uploaded, the shaders are compiled, and only then are the materials swapped. The heaviest frame was about 3 ms on this box. A set chosen at load (saved, or from `?gtex=`) is built before the first frame.
+- Strips, roads, rivers and the grass tufts keep their own textures and colours.
+- Test: `t87` (new) covers the default being untouched, each set built over frames and swapped only when ready (+1 texture, same draws, no new programs after the first set), every terrain and shadow setting staying stable, shadows LOW tile crossings compiling nothing, the texture being freed on return to GRAIN, a change mid-build landing on the last choice, saving from the menu, and `?gtex=2`.
+
 ## v0.86 – Ground style: five looks for the land, same frame cost
 
 Neil: "Could we look at sampling different ground textures? Can you send me 5 different styles but I don't want to compromise frame rate." Graphics only; physics untouched (md5 unchanged). The default (VALLEY) looks exactly as before.

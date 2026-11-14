@@ -364,12 +364,13 @@ A customer stands at every job board. Walk up to them for a hello: their rep tie
   - It stays until you turn more than about 68° away or move past 0.75 m, so it doesn't flicker at the edge.
   - Poking the message screen itself does nothing, and a finger already on the spot when the button appears doesn't press it.
 - **Desktop:** **Esc** or **F2** opens the MENU board (v0.68.1), ` (backquote) opens the old settings list, **F3** toggles the FPS counter.
-- Saved in this browser (`bp_gfx`). URL override for testing: `?gfx=shadows:2,grass:1`. **v0.86:** `?ground=a`…`e` picks a Ground style for a quick look (a = VALLEY, b = OUTBACK, c = TROPICAL, d = FACETED, e = GOLDEN).
+- Saved in this browser (`bp_gfx`). URL override for testing: `?gfx=shadows:2,grass:1`. **v0.86:** `?ground=a`…`e` picks a Ground style for a quick look (a = VALLEY, b = OUTBACK, c = TROPICAL, d = FACETED, e = GOLDEN). **v0.87:** `?gtex=1`…`5` picks a Ground texture (1 = MEADOW, 2 = RED GRAVEL, 3 = LUSH, 4 = PAINTERLY, 5 = DRY GRASS).
 
 | Setting | Options | Notes |
 |---|---|---|
 | Shadows | OFF / LOW / HIGH | sun shadow map that follows you (LOW 1024 px ±28 m, HIGH 2048 px soft ±64 m) |
 | Ground style (v0.86) | VALLEY / OUTBACK / TROPICAL / FACETED / GOLDEN | the colours of the land (just under Terrain shading). VALLEY is the original look and the default. Every style costs the same: only the ground's colours, its grain pattern and the dirt-road colour change. A switch fades in tile by tile over about a third of a second |
+| Ground texture (v0.87) | GRAIN / MEADOW / RED GRAVEL / LUSH / PAINTERLY / DRY GRASS | real surface detail on the ground, about 3 m a tile (PAINTERLY 4 m). Each set draws one texture per surface: on green ground grass or leaves, on warm ground soil, gravel or straw, on grey ground rock. GRAIN is the original look and the default. Shows with Terrain shading FAST+GRAIN or FULL (FAST has no ground texture). The tile is drawn in the background, then swapped in, within a few frames. It pairs well with a Ground style: MEADOW with VALLEY, RED GRAVEL with OUTBACK, LUSH with TROPICAL, PAINTERLY with FACETED, DRY GRASS with GOLDEN |
 | Render scale | 70–140 % | VR framebuffer scale, applies next time you enter VR |
 | Foveation | OFF / LOW / MEDIUM / HIGH | Quest fixed foveation |
 | Draw distance | NEAR / MEDIUM / NORMAL / FAR | chunks, rocks, trees and haze |
