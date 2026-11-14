@@ -2,6 +2,11 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.91.3 – a smaller virtual-stock zone
+
+- **Rifle (VR):** the virtual stock now starts to pull the rifle onto your cheek only when the grip hand comes within **8 cm** of the shoulder point (20 cm in front of the eye, 6 cm below it), and it is fully in within 2.5 cm. It was 14 cm and 4 cm, so a rifle carried near your face no longer snaps to the shoulder. The spring, rate caps and cheek weld are unchanged (GUN.stockEngage 0.08, stockFull 0.025).
+- Test **t913**: fully shouldered at 0 and 2 cm; partly at 5 cm; none at 10 and 13 cm in any direction, where v0.91.2 still pulled it in (0.32 at 10 cm). t844's cheek weld still passes.
+
 ## v0.91.2 – a smaller ammo-pouch zone
 
 - **Belt pouch (VR):** the grab zone that hands you a round is now a 10 cm ball round the pouch (it was 24 cm, a 48 cm ball round a 9 x 8 x 4 cm pouch). A grab low across the belt now gets the rifle or nothing instead of a round. The same zone serves the keep-squeezing reload.
