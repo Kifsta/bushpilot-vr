@@ -4591,7 +4591,7 @@ function gFingerHit(gp, sx, f, j0) {   // does any bone from joint j0 on (angles
   return false;
 }
 function gripSolve(st, k, sx) {   // on grab: hand frame in the control's frame (st.Hc) + finger angles (st.ja) + thumb target (st.gT, st.gA)
-  const plk = plKey(k, sx); st.plJg = null; if (plk && POSE_LAB[plk]) { plSolve(st, plk); if (POSE_LAB[plk].ja && !GDEF[k].labK) gripCurl(st, GDEF[k], sx); return; }   // v0.87.1 a Pose Lab hold replaces the solve; v0.88.2 a grip-mode-G hold (his hand frame, the game's fingers) curls the game's fingers onto the control from his hand frame (they were the old frame's fist: 1.6 cm into the brake's T-bar)
+  const plk = plKey(k, sx); st.plJg = null; if (plk && POSE_LAB[plk]) { plSolve(st, plk); if (POSE_LAB[plk].ja && !GDEF[k].labK) gripCurl(st, GDEF[k], sx, true); return; }   // v0.87.1 a Pose Lab hold replaces the solve; v0.88.3 a grip-state hold (park brake): his fingers as coded, the thumb pulled onto the control (it floated 1.6 cm off the T-bar)
   const D = GDEF[k]; st.dev = 0; if (D.labK) return rflLabSolve(st, RIFLE_POSES[D.labK].lab, sx); gripFrame(k, _gF); _gI.copy(_gF).invert(); _gH.multiplyMatrices(_gI, st.W); if (D.fix) gripFixed(D.fix, sx, _gH); _gH.extractBasis(_gx, _gy, _gz);   // v0.77.1 fix: one authored pose per hand, whatever way the hand came in
   if (D.st === 'wrap') {
     if (D.wd) _gA.copy(D.wd); else _gA.set(0, 0, 0).setComponent(D.wa, 1); if (_gz.dot(_gA) < 0) _gA.negate();          // finger-width axis along the grip, the way your hand already faces
@@ -4607,12 +4607,12 @@ function gripSolve(st, k, sx) {   // on grab: hand frame in the control's frame 
   }
   gripCurl(st, D, sx);
 }
-function gripCurl(st, D, sx) {   // the fingers curl onto the control and the thumb finds its surface, from the hand frame st.Hc (v0.88.2 split out of gripSolve)
+function gripCurl(st, D, sx, tOnly) {   // the fingers curl onto the control and the thumb finds its surface, from the hand frame st.Hc (v0.88.2 split out of gripSolve; tOnly: keep the fingers, pull the given thumb target onto the surface)
   const gp = st.gp; _gI.copy(st.Hc).invert();                                                 // shape into hand space
   gp.cyl = D.sh === 'cyl'; gp.C.copy(D.c).applyMatrix4(_gI);
   gp.X.set(1, 0, 0).transformDirection(_gI); gp.Y.set(0, 1, 0).transformDirection(_gI); gp.Z.set(0, 0, 1).transformDirection(_gI);
   if (gp.cyl) { if (D.ax) gp.A.copy(D.ax).transformDirection(_gI); else gp.A.copy(D.a === 0 ? gp.X : D.a === 1 ? gp.Y : gp.Z); gp.r = D.r; gp.hl = D.hl; } else gp.b.copy(D.b);
-  for (let f = 0; f < 4; f++) {                                                               // curl joint by joint until a bone touches
+  for (let f = 0; f < 4 && !tOnly; f++) {                                                     // curl joint by joint until a bone touches
     gp.u = f === 0 && !!D.idx; if (gp.u) { gp.uC.copy(D.idx.c).applyMatrix4(_gI); gp.ub.copy(D.idx.b); gp.uo = !!D.idx.only; } gp.isp = st.isp = D.idx ? D.idx.sp : 0;   // v0.67 the index finds the trigger (the wrist is still there)
     const lim = f === 0 && D.idx?.lim ? D.idx.lim : D.st === 'pinch' && f >= 1 ? G_TUCK : G_MAX; _gJ[0] = _gJ[1] = _gJ[2] = 0;
     for (let j = 0; j < 3; j++) {
@@ -4628,14 +4628,14 @@ function gripCurl(st, D, sx) {   // the fingers curl onto the control and the th
   }
   gp.u = false;
   const R = D.st === 'wrap' ? TH_P.wrap : null;                                               // thumb opposes: natural tip target pulled onto the surface
-  if (R) { st.gT.set(sx * R[1][0], R[1][1], R[1][2]); st.gA.set(R[0][0], R[0][1], R[0][2]); if (D.th) st.gT.set(sx * D.th.x, D.th.y, D.th.z).applyMatrix4(_gI); } else { st.gT.set(-sx * 0.012, -0.06, -0.052); st.gA.set(-0.55, -0.6, -0.58); }   // v0.67.2 a thumb spot on the control (v0.77.1: the else was inside this comment; v0.77.2: th is for a right hand, x mirrors - it had the sign the wrong way round)
+  if (tOnly) st.gT.x *= sx; else if (R) { st.gT.set(sx * R[1][0], R[1][1], R[1][2]); st.gA.set(R[0][0], R[0][1], R[0][2]); if (D.th) st.gT.set(sx * D.th.x, D.th.y, D.th.z).applyMatrix4(_gI); } else { st.gT.set(-sx * 0.012, -0.06, -0.052); st.gA.set(-0.55, -0.6, -0.58); }   // v0.67.2 a thumb spot on the control (v0.77.1: the else was inside this comment; v0.77.2: th is for a right hand, x mirrors - it had the sign the wrong way round)
   for (let n = 0; n < 3; n++) {
     const d = gSdf(gp, st.gT) - 0.0085, e = 1e-4; _gm.copy(st.gT);
     _gm.x += e; const dx = gSdf(gp, _gm); _gm.x -= e; _gm.y += e; const dy = gSdf(gp, _gm); _gm.y -= e; _gm.z += e; const dz = gSdf(gp, _gm);
     _gd.set(dx, dy, dz).subScalar(d + 0.0085).divideScalar(e); if (_gd.lengthSq() < 1e-8) break; _gd.normalize(); st.gT.addScaledVector(_gd, -d);
   }
   _gd.set(sx * TH_B.x, TH_B.y, TH_B.z); _gd.subVectors(st.gT, _gd).normalize(); _gd.x *= sx;   // swing the thumb's metacarpal toward its contact so it reaches
-  st.gT.x *= sx; st.gA.normalize().lerp(_gd, 0.6).normalize();   // buildHand mixes the thumb in right-hand space
+  st.gT.x *= sx; if (!tOnly) st.gA.normalize().lerp(_gd, 0.6).normalize();   // buildHand mixes the thumb in right-hand space
 }
 const _gfV = GV3(0, 0, 0);
 function gripFixed(kind, sx, out) {   // v0.77.1 the authored hand frames (hand space in the control's frame) for the binoculars and paper (v0.77.5 the rifle's come from its lab pose: rflLabSolve)

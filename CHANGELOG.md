@@ -2,10 +2,18 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.88.3 – park brake: Neil's fist back, thumb on the bar (corrects v0.88.2)
+
+Physics untouched (md5 unchanged).
+- **What t46 really measured:** a Pose Lab hold skips the grip solver, so the shape the test measured against was the *previous* control's. The "1.6 cm inside" was not real. Measured against the T-bar itself, Neil's fist touches it, wraps it (2 fingers in contact) and nothing is inside. Only the **thumb floated 1.6 cm off** the bar.
+- **Fix:** his fist and hand frame as coded, with the thumb tip pulled onto the bar (0.5 mm). The same applies to either hand, and the hand rides the handle's frame over the whole pull. v0.88.2's re-curled fingers (a straight-fingered hook) are undone.
+- **t46** rebuilds the control's shape for Pose Lab holds before measuring. It applies its contact rules to the solver's grips and to the grip-state park brake hold. Neil's per-joint holds (his own fingers, checked by t871) are only measured and printed: nozzle, clipboard, map R, rifle forend, binoculars R. Nozzle t45: unchanged from v0.88.2 (a test fix; the game was right).
+- Tests: t46 15/15, t871 64/64, t845 19/19, t84, t45.
+
 ## v0.88.2 – the park brake grip; t45 / t46 fixed
 
 Physics untouched (md5 unchanged).
-- **Park brake T-handle (fix):** in v0.87.1, Neil's grip-mode-G hold put his hand frame on the handle but kept the old frame's fist, so the fingers sank 1.6 cm into the T-bar and the thumb 9 mm. Now the game curls the fingers and places the thumb onto the bar from his hand frame, the way mode G means. They touch it, wrap it (3 fingers in contact) and stay out of it. The hand rides the handle's frame, so the grip is the same over the whole 3.5 cm pull. His hand position is unchanged. (`gripCurl` is split out of `gripSolve`; only grip-state Pose Lab entries use it, and only pbrk L / R has one.)
+- **Park brake T-handle (superseded by v0.88.3):** in v0.87.1, Neil's grip-mode-G hold put his hand frame on the handle but kept the old frame's fist, so the fingers sank 1.6 cm into the T-bar and the thumb 9 mm. Now the game curls the fingers and places the thumb onto the bar from his hand frame, the way mode G means. They touch it, wrap it (3 fingers in contact) and stay out of it. The hand rides the handle's frame, so the grip is the same over the whole 3.5 cm pull. His hand position is unchanged. (`gripCurl` is split out of `gripSolve`; only grip-state Pose Lab entries use it, and only pbrk L / R has one.)
 - **Fuel nozzle (test fix, the game was right):** t45 put the *hand* where the old hold had the spout. With Neil's v0.87.1 nozzle hold, that left the spout 15 cm off the far cap and the hose end past its 9 m, so the hose let go. The test now puts the spout in the cap, pointing down with the hose toward the drum, and the hand goes wherever his hold puts it. From the default home parking, the far (right) cap is reachable with 0.54 m of hose to spare. It fills to 36 gal and stops when pulled out, and is refused when the Cub is 400 m away.
 - Tests: t46 15/15, t45 15/15, t871, t845, t84, t844.
 
