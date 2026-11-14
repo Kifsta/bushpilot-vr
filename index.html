@@ -2145,7 +2145,8 @@ function exitPlane() {
   if (!(acGS() < 1 && ctl.throttle < 0.05 && !ac.crashed)) { say('STOP + IDLE TO EXIT'); return; }
   const s = qRot(ac.q, [2.2, 0, -0.3]), f = qRot(ac.q, [0, 0, -1]), yaw = Math.atan2(-f[0], -f[2]);
   const x = ac.pos[0] + s[0], z = ac.pos[2] + s[2];
-  { const hw = waterH(x, z); if (hw !== null && hw - groundY(x, z) > 0.6) { say('TOO DEEP TO STEP OUT - TAXI IN AND BEACH IT (THE FLOATS ON THE SAND), OR TIE UP IN THE SHALLOWS'); return; } }   // v0.90 floats: wade ashore, don't swim footRig.rotation.set(0, yaw, 0);
+  { const hw = waterH(x, z); if (hw !== null && hw - groundY(x, z) > 0.6) { say('TOO DEEP TO STEP OUT - TAXI IN AND BEACH IT (THE FLOATS ON THE SAND), OR TIE UP IN THE SHALLOWS'); return; } }   // v0.90 floats: wade ashore, don't swim
+  footRig.position.set(x, groundY(x, z) + EYE, z); footRig.rotation.set(0, yaw, 0);   // (v0.90.1 restored: v0.90 lost this line, so you got out where you last stood)
   footRig.add(xrOffset); mode = 'foot'; lookYaw = lookPitch = 0; needRecenter = renderer.xr.isPresenting ? 2 : 0;
   ctl.elev = ctl.ail = ctl.rud = 0;
   bodyYaw = yaw; huntExit();   // v0.53 binoculars in the holster on your left hip
@@ -5169,7 +5170,7 @@ const BUSH = [   // a = strip axis (x += sin a, z += cos a), hl/hw = half length
   // v0.90 gear-kit sites (kit: offered only once you own the kit): three float landings (a beach by a camp: land on the water, beach it, wade ashore) and two ski strips on snowfields
   { id: 'ELCOVE', name: 'EAST LAKE COVE', type: 'float', cust: 'FISHING LODGE', x: 1525, z: -1707, a: 1.92, hl: 18, hw: 6, diff: 1, kit: 'floats', note: 'FLOATS ONLY - LAND ON THE EAST LAKE, BEACH ON THE SAND BY THE LODGE' },
   { id: 'NWWEST', name: 'NW LAKE WEST', type: 'float', cust: 'CANOE OUTFITTER', x: -1370, z: 2600, a: Math.PI, hl: 18, hw: 6, diff: 1, kit: 'floats', note: 'FLOATS ONLY - THE NW LAKE IS 340 M ACROSS: LAND LONG, BEACH BY THE CANOE RACKS' },
-  { id: 'CARIBOU', name: 'CARIBOU REACH', type: 'float', cust: 'RIVER GUIDES', x: -86, z: -3860, a: 0.09, hl: 18, hw: 5, diff: 2, kit: 'floats', note: 'FLOATS ONLY - THE RIVER IS 17 M WIDE ON A 260 M STRAIGHT; THE GUIDES ARE ON THE WEST BANK' },
+  { id: 'CARIBOU', name: 'CARIBOU REACH', type: 'float', cust: 'RIVER GUIDES', x: -42, z: -4360, a: 0.258, hl: 18, hw: 5, diff: 2, kit: 'floats', note: 'FLOATS ONLY - THE RIVER IS 17 M WIDE ON A 260 M STRAIGHT; THE GUIDES ARE ON THE WEST BANK' },
   { id: 'ICEFIELD', name: 'NORTH ICEFIELD', type: 'glacier', cust: 'GLACIER SURVEY', x: 5540, z: 5300, a: 1.572, hl: 110, hw: 9, diff: 2, kit: 'skis', note: 'SKIS ONLY - SNOW AT 1040 M, FLAT; NO BRAKES: PLAN THE ROLL-OUT' },
   { id: 'WGLACIER', name: 'WEST GLACIER', type: 'glacier', cust: 'HELI-SKI HUT', x: -5740, z: 3560, a: 2.096, hl: 110, hw: 9, low: -1, diff: 2, kit: 'skis', note: 'SKIS ONLY - 5% SLOPE ON THE SNOW: LAND UPHILL, TAKE OFF DOWNHILL' },
   { id: 'MESA', name: 'TABLE MESA', type: 'mesa', cust: 'FIRE LOOKOUT', x: 4271, z: -671, a: 2.3, hl: 85, hw: 7, diff: 3, hook: { t: 'LOOKOUT RATIONS', k: ['sack', 'parcel'] }, note: 'THE SW END IS THE LIP OF A 28 M ESCARPMENT - CROSS IT LOW AND SLOW, NO UNDERSHOOT' },
@@ -5340,16 +5341,17 @@ const STRIP_DRESS = [];   // { id, m, n: piece counts, tris, S: the strip frame 
       if (k !== 'pole' && k !== 'cone') { let lo = 1e9, hi = -1e9; for (const [ox, oz] of [[e, 0], [-e, 0], [0, e], [0, -e], [e, e], [-e, -e], [e, -e], [-e, e]]) { const h = groundY(x + ox * 1.5, z + oz * 1.5); lo = Math.min(lo, h); hi = Math.max(hi, h); } if (hi - lo > 0.5) return; }   // too steep for it to sit: skip
       _dm.compose(_dv.set(x, y, z), _dq.setFromEuler(_de.set(rx, ry, rz, 'YXZ')), _ds.set(sx, sy, sz)); const g = G[k].clone().applyMatrix4(_dm), n = g.attributes.position.count, c = new Float32Array(n * 3);
       cA.setHex(col); for (let i = 0; i < n; i++) c.set([cA.r, cA.g, cA.b], i * 3); g.setAttribute('color', new THREE.BufferAttribute(c, 3)); parts.push(g); N[k] = (N[k] || 0) + 1; };
-    const bar = S.type === 'sandbar' || S.type === 'shore', open = sd2 => S.side === 0 ? false : Math.sign(sd2) !== S.side;   // the side away from the facilities gets the full rough edge
+    const bar = S.type === 'sandbar' || S.type === 'shore' || S.type === 'float', snow = S.type === 'glacier', open = sd2 => S.side === 0 ? false : Math.sign(sd2) !== S.side;   // the side away from the facilities gets the full rough edge
     for (const sg of [-1, 1]) {
-      if (!bar) for (let l = -S.hl + 4; l < S.hl - 2; l += S.tidy ? 4.5 : 1.5 + r()) {   // tall grass along the edge (the home strip: short, sparse, further out)
+      if (!bar && !snow) for (let l = -S.hl + 4; l < S.hl - 2; l += S.tidy ? 4.5 : 1.5 + r()) {   // tall grass along the edge (the home strip: short, sparse, further out)
         const w = sg * (S.hw + (S.tidy ? 2.5 + r() * 2 : 1.0 + r() * 2.6)), h = S.tidy ? 0.25 + r() * 0.15 : 0.45 + r() * 0.5;
         add('grass', l, w, 0.7 + r() * 0.5, h, 0.7 + r() * 0.5, [0xb8cc66, 0xc8cc70, 0xa8c060, 0xd4c878][Math.floor(r() * 4)], r() * 6.283, (r() - 0.5) * 0.2, 0, -0.02); }
       if (!open(sg)) continue;
       const nR = S.tidy ? 6 : bar ? 26 : 18;
       for (let i = 0; i < nR; i++) { const l = (r() * 2 - 1) * S.hl, w = sg * (S.hw + 2.5 + r() * 9), s0 = (S.tidy ? 0.25 : 0.2) + r() * r() * 0.7;   // rocks, mostly small
         add('rock', l, w, s0 * (0.8 + r() * 0.5), s0 * (0.5 + r() * 0.3), s0 * (0.8 + r() * 0.5), [0x7a7870, 0x8a857a, 0x6a6862, 0x949088][Math.floor(r() * 4)], r() * 6.283, r(), r(), -s0 * 0.25); }
-      if (!S.tidy) for (let i = 0; i < (bar ? 5 : 7); i++) { const l = (r() * 2 - 1) * S.hl, w = sg * (S.hw + 4 + r() * 9);
+      if (!S.tidy && !snow) for (let i = 0; i < (bar ? 5 : 7); i++) {   // (v0.90 the beaches: driftwood; the snow strips: rocks only)
+        const l = (r() * 2 - 1) * S.hl, w = sg * (S.hw + 4 + r() * 9);
         if (bar) add('log', l, w, 1.6 + r() * 2.2, 0.16 + r() * 0.08, 0.16 + r() * 0.08, 0x9a9080, r() * 6.283, 0, 0, 0.06);   // bleached driftwood
         else { const rr = 0.18 + r() * 0.16; add('stump', l, w, rr, 0.25 + r() * 0.35, rr, [0x5a4632, 0x6a5440, 0x4e3e2e][Math.floor(r() * 3)], r() * 6.283, (r() - 0.5) * 0.15, 0, -0.05); } }
     }

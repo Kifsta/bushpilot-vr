@@ -2,6 +2,14 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.90.1 – suite fixes after v0.90: stepping out of the Cub, the Caribou Reach site, kit-site dressing
+
+Physics untouched (md5 unchanged). Found by the full suite run after v0.90.
+- **Getting out of the Cub (bug from v0.90):** the v0.90 deep-water check in `exitPlane` swallowed the line that puts you beside the plane. Stepping out left you wherever you last stood on foot, and you faced the wrong way. The line is back, and t90 now checks that you stand by the Cub after beaching (it fails on v0.90).
+- **CARIBOU REACH** moved down the river to (-42, -4360). It was 629 m from the LOWER RIVER airdrop camp, and drop sites keep 900 m+ from any strip; it is now about 1.1 km away, on the same 17 m river straight.
+- **Kit-site dressing:** float beaches get beach dressing (rocks and bleached driftwood, no grass border or stumps). The snow strips get rocks only (no grass, stumps or logs on a glacier).
+- Tests (outside the repo): t50/t52h/t56 expect 28 boards; t52/t76 count the 5 kit sites (camp mesh budget 14k tris, 29 strip dressings) and leave them out of the wheel-strip loops; t52h flies a full 250 lb+ feed load, because the first FEED job drawn changed with the v0.90 job pool (the physics is the same: 295 lb rolls 192 m, as in v0.89).
+
 ## v0.90 – gear kits: amphibious floats and wheel-skis
 
 Physics for the stock wheels untouched (md5 unchanged). Everything new runs only when a kit is fitted (`a.gk`).
