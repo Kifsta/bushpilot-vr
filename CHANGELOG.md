@@ -2,6 +2,20 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.87.1 – Neil's Pose Lab holds in the game (8 poses + mirrors)
+
+Neil set eight holds in the Pose Lab (posetool.html) and sent the codes. The game now reads them through a new hook: `POSE_LAB` (item in glove hand space + 15 per-joint finger rotations J, or grip-state fingers), `plSolve` (replaces gripSolve for a gripped control that has an entry) and `plFingers` (the J bones after buildHand, eased in and out over 0.1 s). Every hold is mirrored for the other hand (p.x = −p.x, q = (x, −y, −z, w), the same J). Holds with no entry are exactly v0.87's. Physics untouched (md5 unchanged).
+- **Rifle round (right hand, set by Neil):** pinched in the curled fingers, the tip ahead. The round now sits where the lab put it (it was RND_HOLD); loading through the gate is as forgiving as before.
+- **Rifle forend (left hand):** the support hand sits 33 cm down the bore from the grip (v0.87: about 27 cm). Neil slid it about 6 cm toward the muzzle; it is still on the wood (the forend runs to about 45 cm, the muzzle is at 70 cm). It is not a frame or sign mismatch: the game and the lab render match. Letting go of the wrist still leaves the rifle in the forend hand.
+- **Binoculars (left hand):** the same place as v0.84 (eyepieces on the thumb side, q = [1,0,0,0] = the game's own turn, no flip); only the fingers are new. The binocular view still comes up at your eyes.
+- **Map (left hand):** the glove on the sheet's lower-left corner (right hand: lower right). Held in both hands, the sheet sits halfway between the two one-hand holds.
+- **Checklist card (left hand):** the card now rides the hand where Neil put it (still drawn at 1.3x). It no longer turns to face your eye.
+- **Hand mic (left hand):** MIC_HOLD's turn, 8.8 mm toward the back of the hand, with Neil's fist. The coiled cord stays on the handset. (The mic still doesn't transmit; nothing about push-to-talk changed.)
+- **Park brake T-handle (left hand, grip mode G):** the game's fist on Neil's hand position. The hand stays on the handle through the whole 5 cm pull.
+- **Fuel nozzle (left hand, every joint):** the nozzle hangs off the controller where the lab put it. The hose inlet and the spout ride it, so the hose stays on and refuelling at a wing cap works as before.
+- **Pose Lab:** refreshed from v0.87.1. Its defaults are now these holds (per-joint J), so opening an item shows what the game does.
+- Tests: new t871 (every pose lands as coded, the fingers are Neil's joints, the mirrors, and with no entries every hold matches v0.87). t82 allows the 9 mm mic offset; t845's palm proxy allows Neil's brake hold (bar 2 cm further into the fingers); t771 checks the forend hand is on the wood instead of palm-up.
+
 ## v0.87 – Ground texture: five real tiling surface textures
 
 Neil, on v0.86: "I mean actual different texture tiles not just colours." Graphics only; physics untouched (md5 unchanged). The default (GRAIN) is exactly v0.86: same materials, same shaders.

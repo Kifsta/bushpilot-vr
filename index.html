@@ -2431,6 +2431,7 @@ function hoseTick(dt) {
 }
 const _hsWi = new THREE.Matrix4(), _hsL = new THREE.Vector3(), _hsN = new THREE.Matrix4(), _hsR = new THREE.Matrix4().makeBasis(new THREE.Vector3(-1, 0, 0), new THREE.Vector3(0, Math.sin(NOZ.rake), -Math.cos(NOZ.rake)), new THREE.Vector3(0, -Math.cos(NOZ.rake), -Math.sin(NOZ.rake)));   // nozzle axes in hand space: down the grip = the hand's +z (index at the top), the body 25 deg below the controller's forward
 function nozInHand(sx, out) {   // v0.77.7 the nozzle in hand space: its grip along the hand's finger-width axis (index at the top), the spout the way your straight fingers point, the grip in the palm
+  { const pk = 'noz' + (sx < 0 ? 'L' : 'R'); if (POSE_LAB[pk]) return plT(pk, out); }   // v0.87.1 Neil's Pose Lab hold: the nozzle where he put it (the hose and the refuel spout follow the nozzle)
   _hsL.set(sx * (0.0155 - NOZ.r), -0.045, 0).sub(_hsC.copy(NOZ.H).applyMatrix4(_hsR)); return out.copy(_hsR).setPosition(_hsL);
 }
 function wingTopT(f) {   // the wing section's upper surface over the flat bottom (fraction of chord -> m), from AFT
@@ -3628,14 +3629,17 @@ function mapDesk() {   // desktop M: hold the map up in front of you (anywhere)
   if (MAP.state === 'world') { camera.getWorldPosition(_a); if (_a.distanceTo(MAP.fold.position) < 2.5) mapStow('clip'); else { say('MAP IS ON THE GROUND'); return; } }
   MAP.desk = !MAP.desk; if (!MAP.desk) { if (MAP.state === 'clip') mapStow('clip'); else MAP.sheet.visible = false; }
 }
-const _mx = V3(), _my = V3(), _mz = V3(), _mm = new THREE.Matrix4();
+const _mx = V3(), _my = V3(), _mz = V3(), _mm = new THREE.Matrix4(), _mpQ = new THREE.Quaternion();
 function updateMap() {   // after the plane pose is set (grips ride the cockpit)
   if (MAP.desk && !renderer.xr.isPresenting) { camera.add(MAP.sheet); MAP.sheet.visible = true; MAP.sheet.scale.setScalar(1); MAP.sheet.position.set(0, -0.02, -0.43); MAP.sheet.rotation.set(0, 0, 0); return; }
   if (MAP.state !== 'held') return;
   const E = eyeWorld(0); _eye.setFromMatrixPosition(E); _hf.set(0, 0, -1).transformDirection(E); _hf.y = 0; _hf.normalize();
   const right = _mx.set(-_hf.z, 0, _hf.x), c = paperPin(MAP.g, _kp), hh = MAP_SHEET_B[1] / 2 - PAPER_IN, s1 = paperSx(MAP.g);   // v0.77.3 each hand pinches its own lower corner
   if (MAP.g2) { const p2 = paperPin(MAP.g2, _kg); _my.subVectors(p2, c).multiplyScalar(-s1); _my.y = 0; if (_my.lengthSq() > 1e-4 && _my.dot(right) > 0) right.copy(_my.normalize()); c.add(p2).multiplyScalar(0.5); }   // two hands: left pinch -> right pinch, kept level
-  if (!MAP.g2) { paperHeld(MAP.g, s1 < 0 ? 'mpL' : 'mpR', _mm).decompose(MAP.sheet.position, MAP.sheet.quaternion, _ppS); return; }   // v0.77.8 one hand: the map turns 1:1 with your hand, pinched at its lower corner
+  if (!MAP.g2) { paperHeld(MAP.g, s1 < 0 ? 'mpL' : 'mpR', _mm).decompose(MAP.sheet.position, MAP.sheet.quaternion, _ppS); return; }
+  { const k1 = s1 < 0 ? 'mpL' : 'mpR', s2 = paperSx(MAP.g2), k2 = s2 < 0 ? 'mpL' : 'mpR';   // v0.87.1 two hands, both in Neil's Pose Lab hold: halfway between where each hand would hold it
+    if (s2 !== s1 && POSE_LAB[plKey(k1, s1)] && POSE_LAB[plKey(k2, s2)]) { paperHeld(MAP.g, k1, _mm).decompose(MAP.sheet.position, MAP.sheet.quaternion, _ppS); paperHeld(MAP.g2, k2, _mm).decompose(_ppA, _mpQ, _ppS);
+      MAP.sheet.position.lerp(_ppA, 0.5); MAP.sheet.quaternion.slerp(_mpQ, 0.5); return; } }   // v0.77.8 one hand: the map turns 1:1 with your hand, pinched at its lower corner
   _mz.subVectors(_eye, c); _mz.addScaledVector(right, -_mz.dot(right)).normalize(); _my.crossVectors(_mz, right);
   c.addScaledVector(_my, hh);   // two hands: the middle of the bottom edge between the pinches, the page up from the hands, facing you
   _mm.makeBasis(right, _my, _mz); MAP.sheet.position.copy(c); MAP.sheet.quaternion.setFromRotationMatrix(_mm);
@@ -4025,6 +4029,8 @@ function updateCard() {
   if (CARD.desk && !renderer.xr.isPresenting) { camera.add(CARD.mesh); CARD.mesh.position.set(0, -0.01, -0.3); CARD.mesh.rotation.set(0, 0, 0); CARD.mesh.scale.setScalar(1.25); return; }
   if (CARD.desk) cardHome();
   if (!CARD.g) return;
+  { const pk = 'card' + (CARD.g.userData.src?.handedness === 'left' ? 'L' : 'R'); if (POSE_LAB[pk]) {   // v0.87.1 Neil's Pose Lab hold: the card rides the hand where he put it (no turning to face you)
+    CARD.g.updateWorldMatrix(true, false); _cm.multiplyMatrices(CARD.g.matrixWorld, HOFF).multiply(plW(pk, _plWM)).multiply(plT(pk, _plRM)); scene.add(CARD.mesh); _cm.decompose(CARD.mesh.position, CARD.mesh.quaternion, _cr); CARD.mesh.scale.setScalar(1.3); return; } }
   const E = eyeWorld(0); _eye.setFromMatrixPosition(E); CARD.g.getWorldPosition(_cq); _cq.y += 0.05;
   scene.add(CARD.mesh); CARD.mesh.position.copy(_cq); CARD.mesh.scale.setScalar(1.3);
   _cz.subVectors(_eye, _cq).normalize(); _cr.crossVectors(_up, _cz).normalize(); _cy.crossVectors(_cz, _cr); _cm.makeBasis(_cr, _cy, _cz); CARD.mesh.quaternion.setFromRotationMatrix(_cm);
@@ -4039,9 +4045,10 @@ const KB_W = 512, KB_H = 704, KB = { home: new THREE.Vector3(-0.165, -0.055, -0.
 const KB_HW = 0.085, KB_HH = 0.1175, KB_HOLD_S = 1.2, PAPER_IN = 0.009, KB_ROLL = 0, KB_YAW = 0.35, KB_GRIPX = Math.PI / 2 - 0.186, KB_PIN = new THREE.Vector3(0.018, 0.045, 0), _ppM = new THREE.Matrix4();   // v0.77.3 board half-size, held scale, the pinch inset from the corner
 function paperSx(g) { return g.userData.src?.handedness === 'left' ? -1 : 1; }
 function paperPin(g, out) { g.updateWorldMatrix(true, false); _ppM.multiplyMatrices(g.matrixWorld, HOFF); return out.set(paperSx(g) * G_PIN.x, G_PIN.y, G_PIN.z).applyMatrix4(_ppM); }   // where this hand's thumb meets its index
-const _ppH = new THREE.Matrix4(), _ppA = new THREE.Vector3(), _ppS = new THREE.Vector3();
+const _ppH2 = new THREE.Matrix4(), _ppH = new THREE.Matrix4(), _ppA = new THREE.Vector3(), _ppS = new THREE.Vector3();
 function paperHeld(g, k, out) {   // v0.77.8 the held paper's world frame (unscaled) from this hand's controller: the inverse of its fixed corner pinch, so it turns 1:1 with the hand
-  const sx = paperSx(g), D = GDEF[k]; gripFixed(D.fix, sx, _ppH); _ppA.set(sx * G_PIN.x, G_PIN.y, G_PIN.z).applyMatrix4(_ppH); _ppH.setPosition(_ppA.subVectors(D.pc, _ppA));
+  const sx = paperSx(g), D = GDEF[k], pk = plKey(k, sx); g.updateWorldMatrix(true, false); if (pk && POSE_LAB[pk]) return out.multiplyMatrices(g.matrixWorld, HOFF).multiply(plW(pk, _ppH)).multiply(plT(pk, _ppH2));   // v0.87.1 Neil's Pose Lab hold: the paper where he put it in that hand
+  gripFixed(D.fix, sx, _ppH); _ppA.set(sx * G_PIN.x, G_PIN.y, G_PIN.z).applyMatrix4(_ppH); _ppH.setPosition(_ppA.subVectors(D.pc, _ppA));
   g.updateWorldMatrix(true, false); return out.multiplyMatrices(g.matrixWorld, HOFF).multiply(_ppH.invert());
 }
 function paperHandK(g) { const L = paperSx(g) < 0; return KB.g === g ? (L ? 'kbL' : 'kbR') : MAP.state === 'held' && (MAP.g === g || MAP.g2 === g) ? (L ? 'mpL' : 'mpR') : null; }
@@ -4169,8 +4176,11 @@ const _mq = new THREE.Quaternion(), _mq2 = new THREE.Quaternion(), _mv = new THR
   for (let i = 0; i < S - 1; i++) for (let j = 0; j < 3; j++) { const a = i * 3 + j, b = i * 3 + (j + 1) % 3, c = a + 3, d = b + 3; idx.push(a, c, b, b, c, d); }
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3).setUsage(THREE.DynamicDrawUsage)); g.setAttribute('normal', new THREE.BufferAttribute(nrm, 3).setUsage(THREE.DynamicDrawUsage)); g.setIndex(idx);
   const cm = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ color: 0x18181a })); cm.frustumCulled = false; cm.userData.noBatch = true; plane.add(cm); MIC.cord = cm; MIC.S = S; }
+const _mpM = new THREE.Matrix4(), _mpS = new THREE.Vector3();
 function micPose(out, q) {   // the handset's plane-local pose now: on the clip, in a hand, or snapping back
-  if (MIC.g) { MIC.g.getWorldPosition(_mv); plane.worldToLocal(out.copy(_mv)); plane.getWorldQuaternion(_mq).invert(); q.copy(_mq).multiply(MIC.g.getWorldQuaternion(_mq2)).multiply(MIC_HOLD); return; }
+  if (MIC.g) { const pk = 'mic' + (MIC.g.userData.src?.handedness === 'left' ? 'L' : 'R');
+    if (POSE_LAB[pk]) { MIC.g.updateWorldMatrix(true, false); plane.updateWorldMatrix(true, false); _plRM.copy(plane.matrixWorld).invert().multiply(MIC.g.matrixWorld).multiply(HOFF).multiply(plW(pk, _plWM)).multiply(plT(pk, _mpM)); _plRM.decompose(out, q, _mpS); return; }   // v0.87.1 Neil's Pose Lab hold (the cord follows the handset)
+    MIC.g.getWorldPosition(_mv); plane.worldToLocal(out.copy(_mv)); plane.getWorldQuaternion(_mq).invert(); q.copy(_mq).multiply(MIC.g.getWorldQuaternion(_mq2)).multiply(MIC_HOLD); return; }
   out.copy(MIC.clip); q.identity(); if (MIC.back > 0) { const k = MIC.back * MIC.back; out.lerp(MIC.rp, k); q.slerp(MIC.rq, k); }
 }
 function micGrab(g) { MIC.g = g; MIC.back = 0; sfx('pick'); }
@@ -4543,6 +4553,7 @@ function gFingerHit(gp, sx, f, j0) {   // does any bone from joint j0 on (angles
   return false;
 }
 function gripSolve(st, k, sx) {   // on grab: hand frame in the control's frame (st.Hc) + finger angles (st.ja) + thumb target (st.gT, st.gA)
+  const plk = plKey(k, sx); st.plJg = null; if (plk && POSE_LAB[plk]) return plSolve(st, plk);   // v0.87.1 a Pose Lab hold replaces the solve (none yet for gripped controls)
   const D = GDEF[k], gp = st.gp; st.dev = 0; if (D.labK) return rflLabSolve(st, RIFLE_POSES[D.labK].lab, sx); gripFrame(k, _gF); _gI.copy(_gF).invert(); _gH.multiplyMatrices(_gI, st.W); if (D.fix) gripFixed(D.fix, sx, _gH); _gH.extractBasis(_gx, _gy, _gz);   // v0.77.1 fix: one authored pose per hand, whatever way the hand came in
   if (D.st === 'wrap') {
     if (D.wd) _gA.copy(D.wd); else _gA.set(0, 0, 0).setComponent(D.wa, 1); if (_gz.dot(_gA) < 0) _gA.negate();          // finger-width axis along the grip, the way your hand already faces
@@ -4598,7 +4609,7 @@ function gripFixed(kind, sx, out) {   // v0.77.1 the authored hand frames (hand 
 const _gfQ = new THREE.Quaternion(), _gfW = new THREE.Vector3(), _gfR = new THREE.Matrix4();
 function gripOn(st, k, sx) {      // while a control is held: (re)solve on a new grab, then ride the control
   if (st.gk !== k) { st.gk = k; gripSolve(st, k, sx); st.gn++; }
-  st.gt = 1; gripFrame(k, _gF);
+  st.gt = 1; st.plJ = st.plJg || null; gripFrame(k, _gF);
   if (k === 'rgrip' && RFL.levA > 0) { RFL.lever.updateWorldMatrix(true, false); _gF.copy(RFL.lever.matrixWorld).multiply(_gI.makeTranslation(-RFL.lever.position.x, -RFL.lever.position.y, -RFL.lever.position.z)); }   // v0.67.2 working the lever: the hand rides the loop down and back
   st.GW.multiplyMatrices(_gF, st.Hc);
 }
@@ -4608,14 +4619,71 @@ function gripBlend(st, dt) {      // 0 -> 1 over GRIP_T on grab, back on release
   if (st.ge <= 0) return; if (st.ge >= 1) { st.W.copy(st.GW); return; }
   st.W.decompose(_gP0, _gQ0, _gS); st.GW.decompose(_gP1, _gQ1, _gS); _gP0.lerp(_gP1, st.ge); _gQ0.slerp(_gQ1, st.ge); st.W.compose(_gP0, _gQ0, _gS.set(1, 1, 1));
 }
-for (const st of HANDS.st) Object.assign(st, { gk: null, gt: 0, gw: 0, ge: 0, gn: 0, ja: new Float32Array(12), gT: GV3(0, 0, 0), gA: GV3(0, 0, 0), Hc: new THREE.Matrix4(), GW: new THREE.Matrix4(),
+for (const st of HANDS.st) Object.assign(st, { plJ: null, plJg: null, plJl: null, plw: 0, gk: null, gt: 0, gw: 0, ge: 0, gn: 0, ja: new Float32Array(12), gT: GV3(0, 0, 0), gA: GV3(0, 0, 0), Hc: new THREE.Matrix4(), GW: new THREE.Matrix4(),
   gp: { cyl: false, C: GV3(0, 0, 0), A: GV3(0, 0, 0), X: GV3(1, 0, 0), Y: GV3(0, 1, 0), Z: GV3(0, 0, 1), b: GV3(0, 0, 0), r: 0, hl: 0, u: false, uo: false, uC: GV3(0, 0, 0), ub: GV3(0, 0, 0), isp: 0 }, jx: 0 });
+// ---- v0.87.1 Pose Lab holds (posetool.html -> decode.mjs): POSE_LAB.<lab item><R|L> = { p, q, w?, J | ja/gT/gA/isp, dev }, the item's frame in this hand's HAND space (grip * HOFF).
+// Items with no entry keep the game's own hold (RND_HOLD, gripSolve, the 'hold' curls). J = 15 local bone quats (bones 2..16, right-hand terms): plFingers poses the glove from them
+const PL_SUP_J = [[0.0392, -0.0098, -0.3334, 0.9419], [0.0678, -0.0407, -0.6916, 0.7179], [0.0665, 0.0522, -0.5177, 0.8514], [-0.0135, 0.0135, -0.7068, 0.7072], [-0.0374, 0.028, -0.5889, 0.8069], [-0.208, 0.1139, 0.0347, 0.9709], [-0.0216, 0.026, -0.7923, 0.6091], [-0.0608, 0.0421, -0.5804, 0.811], [-0.1586, 0.114, 0.114, 0.9741], [0.0041, 0.0041, -0.8674, 0.4976], [0, -0.0047, -0.5646, 0.8253], [0, 0, -0.0799, 0.9968], [-0.1897, -0.4789, 0.1328, 0.8468], [0, 0.0749, 0, 0.9972], [0, -0.5012, 0, 0.8653]];   // Neil's forend cradle
+const PL_BINO_J = [[-0.0048, 0, -0.4484, 0.8938], [0, 0.0048, -0.4969, 0.8678], [0, 0, -0.1445, 0.9895], [-0.0049, 0, -0.2474, 0.9689], [-0.0047, 0.0047, -0.6052, 0.7961], [-0.0373, 0.014, -0.601, 0.7982], [0.005, 0, -0.228, 0.9737], [0.0095, -0.0048, -0.5098, 0.8602], [-0.0506, -0.0322, -0.6437, 0.7629], [0.0049, 0, -0.2522, 0.9677], [0.0049, -0.0049, -0.3802, 0.9249], [0.0626, 0.0179, -0.7202, 0.6907], [-0.4455, -0.8465, 0.1077, 0.271], [0, -0.035, -0.035, 0.9988], [-0.0511, 0.2231, -0.5669, 0.7913]];   // Neil's binocular hold (fingers only: the frame is the game's own)
+const PL_MAP_J = [[-0.086, 0.0382, -0.4874, 0.8681], [0, 0, 0, 1], [0, 0, 0, 1], [-0.1212, 0.0699, -0.5828, 0.8004], [0, 0, 0, 1], [0, 0, 0, 1], [0, 0, -0.6052, 0.7961], [0, -0.0046, -0.6631, 0.7485], [0, 0, -0.4794, 0.8776], [0.0047, -0.0047, -0.6052, 0.7961], [0, -0.0091, -0.6631, 0.7485], [0, -0.0048, -0.4794, 0.8776], [-0.2865, -0.4838, -0.1033, 0.8205], [0.1493, 0, -0.0597, 0.987], [0.01, 0, -0.05, 0.9987]];   // Neil's map pinch
+const PL_CARD_J = [[-0.0046, 0, -0.6327, 0.7744], [0, 0.0049, -0.2715, 0.9624], [0, 0.005, -0.2426, 0.9701], [0, 0, -0.6853, 0.7283], [0, 0, -0.2715, 0.9624], [0, 0, -0.2426, 0.9701], [0.0048, 0, -0.4484, 0.8938], [0, 0, -0.2715, 0.9624], [0, 0, -0.2426, 0.9701], [0.0096, -0.0048, -0.4484, 0.8938], [0, -0.0049, -0.2715, 0.9624], [0, -0.005, -0.2426, 0.9701], [-0.3664, -0.4369, -0.0376, 0.8207], [0.1741, 0, 0, 0.9847], [0.2029, 0, -0.6041, 0.7706]];   // Neil's checklist card
+const PL_MIC_J = [[-0.0136, -0.0091, -0.6925, 0.7212], [0, 0, -0.6012, 0.7991], [0, 0, -0.6288, 0.7776], [0, 0, -0.7345, 0.6786], [0, 0, -0.4794, 0.8776], [0, 0, -0.7833, 0.6216], [0, 0, -0.7345, 0.6786], [0, 0, -0.4794, 0.8776], [0, 0, -0.748, 0.6637], [0, 0, -0.7345, 0.6786], [0, 0, -0.4794, 0.8776], [0, 0, -0.435, 0.9004], [-0.3297, -0.4522, -0.0283, 0.8283], [0.1838, 0, -0.0695, 0.9805], [0.1252, 0, -0.4382, 0.8901]];   // Neil's hand mic fist
+const PL_NOZ_J = [[-0.0819, 0.0434, -0.4433, 0.8916], [0.0704, 0.0563, -0.5679, 0.8182], [-0.0037, 0.0037, -0.9635, 0.2675], [0, 0, -0.7345, 0.6786], [0, 0, -0.4794, 0.8776], [0, 0, -0.9391, 0.3436], [0, 0, -0.7345, 0.6786], [0, 0, -0.4794, 0.8776], [0, 0, -0.9356, 0.353], [0.0045, -0.0045, -0.7345, 0.6785], [0, -0.0048, -0.4794, 0.8776], [0, -0.0044, -0.7802, 0.6255], [-0.4978, -0.411, -0.169, 0.7448], [-0.0099, -0.1884, -0.119, 0.9748], [0.3331, -0.1466, -0.6441, 0.6728]];   // Neil's fuel nozzle
+const PL_RND_J = [[-0.0032, 0.0035, -0.7345, 0.6785], [0, 0.0045, -0.4794, 0.8776], [0, 0.0041, -0.4349, 0.9004], [-0.0009, 0.001, -0.7345, 0.6786], [0, 0.0013, -0.4794, 0.8776], [0, 0.0012, -0.435, 0.9004], [0.0014, -0.0015, -0.7345, 0.6786], [0, -0.0019, -0.4794, 0.8776], [0, -0.0018, -0.435, 0.9004], [0.0037, -0.004, -0.7345, 0.6785], [0, -0.0052, -0.4794, 0.8776], [0, -0.0047, -0.4349, 0.9004], [-0.4156, -0.4269, -0.1248, 0.7934], [0.164, 0, -0.0632, 0.9844], [0.1765, 0, -0.6615, 0.7288]];   // Neil's .44 round: a fist round it (FIST preset)
+const POSE_LAB = {
+  roundR: { p: [-0.0397, -0.0093, -0.0494], q: [-0.29551, 0, 0, 0.95534], J: PL_RND_J, dev: 0 },   // Neil's code: pos mm [-39.7, -9.3, -49.4], euler XYZ [-34.4, 0, 0]
+  roundL: { p: [0.0397, -0.0093, -0.0494], q: [-0.29551, 0, 0, 0.95534], J: PL_RND_J, dev: 0 },   // mirrored (p.x = -p.x, q = (x, -y, -z, w))
+  rifleSupL: { p: [0.1466, 0.2477, 0.1598], q: [-0.4873, -0.1252, -0.5826, 0.6383], J: PL_SUP_J, dev: 0.6 },   // Neil's forend hold (left hand, every joint): the rifle (gripFrame('rfore') = the rifle's root) in hand space; the glove 32.9 cm down the bore from the grip
+  binoL: { p: [0.0375, -0.045, -0.009], q: [1, 0, 0, 0], J: PL_BINO_J, dev: 0 },   // Neil's binocular hold (left hand, every joint), in gripFrame('bL'): p / q are the game's v0.84 hold (eyepieces on the thumb side), only the fingers are new
+  binoR: { p: [-0.0375, -0.045, -0.009], q: [1, 0, 0, 0], J: PL_BINO_J, dev: 0 },   // mirrored, in gripFrame('bR')
+  mapL: { p: [0.182, -0.1212, -0.1758], q: [-0.86034, 0.0702, 0.0395, 0.50332], J: PL_MAP_J, dev: 0 },   // Neil's map hold (left hand, every joint), in gripFrame('mpL') = the sheet: the glove on its lower-left corner
+  mapR: { p: [-0.182, -0.1212, -0.1758], q: [-0.86034, -0.0702, -0.0395, 0.50332], J: PL_MAP_J, dev: 0 },   // mirrored, in gripFrame('mpR'): the lower-right corner
+  cardL: { p: [0.0972, -0.0749, -0.1147], q: [-0.83191, 0, 0, 0.55491], J: PL_CARD_J, dev: 0 },   // Neil's checklist card (left hand, every joint): the card's root in hand space (drawn at 1.3x as before)
+  cardR: { p: [-0.0972, -0.0749, -0.1147], q: [-0.83191, 0, 0, 0.55491], J: PL_CARD_J, dev: 0 },   // mirrored
+  micL: { p: [0.0088, 0, 0], q: [-0.88448, 0, 0, 0.46659], J: PL_MIC_J, dev: 0 },   // Neil's hand mic (left hand, every joint): the game's MIC_HOLD turn, 8.8 mm toward the back of the hand
+  micR: { p: [-0.0088, 0, 0], q: [-0.88448, 0, 0, 0.46659], J: PL_MIC_J, dev: 0 },   // mirrored
+  pbrkL: { p: [0.024, -0.0535, -0.0009], q: [-0.56908, 0.47799, 0.46819, 0.47799], ja: [0.44, 1.86, 1.09, 0.43, 1.9, 1.19, 0.44, 1.89, 1.11, 0.46, 1.19, 1.35], gT: [-0.0012, -0.0335, -0.0407], gA: [-0.42, -0.86, -0.29], isp: 0, dev: 0 },   // Neil's park-brake hold (left hand, grip-state fingers = the game's fist), in gripFrame('pbrk') = the sliding T-handle
+  pbrkR: { p: [-0.024, -0.0535, -0.0009], q: [-0.56908, -0.47799, -0.46819, 0.47799], ja: [0.44, 1.86, 1.09, 0.43, 1.9, 1.19, 0.44, 1.89, 1.11, 0.46, 1.19, 1.35], gT: [-0.0012, -0.0335, -0.0407], gA: [-0.42, -0.86, -0.29], isp: 0, dev: 0 },   // mirrored
+  nozL: { p: [0.0005, -0.0339, -0.0732], q: [0, 0.73972, -0.67292, 0], J: PL_NOZ_J, dev: 0 },   // Neil's fuel nozzle (left hand, every joint), in gripFrame('noz') = the nozzle
+  nozR: { p: [-0.0005, -0.0339, -0.0732], q: [0, -0.73972, 0.67292, 0], J: PL_NOZ_J, dev: 0 },   // mirrored
+  rifleSupR: { p: [-0.1466, 0.2477, 0.1598], q: [-0.4873, 0.1252, 0.5826, 0.6383], J: PL_SUP_J, dev: 0.6 },   // mirrored
+};
+const PL_KEY = { rgrip: 'rifle', rfore: 'rifleSup', rlev: 'rlev', bR: 'binoR', bL: 'binoL', kbR: 'clipR', kbL: 'clipL', mpR: 'mapR', mpL: 'mapL' };   // gripSolve's GDEF key -> the lab's item id (the rest are the same); a per-hand frame (bR / bL ...) names its hand: only that hand takes the lab pose
+const plKey = (k, sx) => { const n = PL_KEY[k] || k, h = sx < 0 ? 'L' : 'R'; return /[LR]$/.test(n) ? (n.slice(-1) === h ? n : null) : n + h; };
+const _plP = new THREE.Vector3(), _plQ = new THREE.Quaternion(), _plS = new THREE.Vector3(1, 1, 1);
+const plT = (key, out) => { const L = POSE_LAB[key]; return out.compose(_plP.fromArray(L.p), _plQ.fromArray(L.q), _plS); };   // item in (glove) hand space
+const plW = (key, out) => { const w = POSE_LAB[key].w; return w ? out.compose(_plP.fromArray(w.p), _plQ.fromArray(w.q), _plS) : out.identity(); };   // glove on the controller
+function plSolve(st, key) { const L = POSE_LAB[key]; plT(key, st.Hc).invert(); st.dev = L.dev || 0; st.plJg = L.J || null;   // a POSE_LAB hold replaces gripSolve
+  if (L.ja) { st.ja.set(L.ja); st.gT.fromArray(L.gT); st.gA.fromArray(L.gA).normalize(); st.isp = st.gp.isp = L.isp || 0; } st.gp.u = false; }
+const PL_FB = [[14, 15, 16], [2, 3, 4], [5, 6, 7], [8, 9, 10], [11, 12, 13]], PL_S = new THREE.Matrix4().makeScale(-1, 1, 1), PL_D = new THREE.Matrix4().makeScale(1, 1, -1);
+const _plM = new THREE.Matrix4(), _plQp = new THREE.Quaternion(), _plQa = new THREE.Quaternion(), _plQb = new THREE.Quaternion(), _plV = new THREE.Vector3(), _plU = new THREE.Vector3();
+const _plP0 = new THREE.Vector3(), _plQ0 = new THREE.Quaternion(), _plP1 = new THREE.Vector3(), _plQ1 = new THREE.Quaternion(), _plSc = new THREE.Vector3();
+function plFingers(st, J, sx, k) {   // after buildHand: the finger bones from J; k < 1 blends from buildHand's fingers (the grab / let-go ease)
+  _plM.copy(st.R[1]); if (sx < 0) _plM.premultiply(PL_S).multiply(PL_D); _plQp.setFromRotationMatrix(_plM);   // the palm, right-hand terms
+  for (let f = 0; f < 5; f++) { const ch = PL_FB[f]; _plQa.copy(_plQp);
+    if (f === 0) _plV.set(TH_B.x, TH_B.y, TH_B.z); else _plV.set(0.033, -0.03, HF[f - 1][0]);
+    for (let j = 0; j < 3; j++) { const b = ch[j]; _plQa.multiply(_plQb.fromArray(J[b - 2]));
+      _plM.makeRotationFromQuaternion(_plQa).setPosition(_plV); if (sx < 0) _plM.premultiply(PL_S).multiply(PL_D);
+      if (k < 1) { st.R[b].decompose(_plP0, _plQ0, _plSc); _plM.decompose(_plP1, _plQ1, _plSc); _plP0.lerp(_plP1, k); _plQ0.slerp(_plQ1, k); st.R[b].compose(_plP0, _plQ0, _plSc.set(1, 1, 1)); } else st.R[b].copy(_plM);
+      _plV.add(_plU.set(0, f === 0 ? TH_L[j] : HF[f - 1][1][j], 0).applyQuaternion(_plQa)); } }
+}
+const PL_EASE = 0.1;   // s: fingers into / out of a POSE_LAB hold
+function plHand(st, dt, sx) {   // in updateHands, right after buildHand: st.plJ this frame (set by handTargets), eased in and out
+  if (st.plJ) { st.plJl = st.plJ; st.plw = Math.min(1, (st.plw || 0) + dt / PL_EASE); } else if (st.plw > 0) st.plw = Math.max(0, st.plw - dt / PL_EASE);
+  if (st.plw > 0 && st.plJl) { const w = st.plw, k = w * w * (3 - 2 * w); plFingers(st, st.plJl, sx, k); } else st.plJl = null;
+}
+const plRoundKey = g => 'round' + (g.userData.src?.handedness === 'left' ? 'L' : 'R');
+const _plRM = new THREE.Matrix4(), _plWM = new THREE.Matrix4();
+function rndHoldSet(g, m) {   // the held round on its controller: Neil's Pose Lab hold (grip * HOFF * plW * plT), else v0.67 RND_HOLD
+  const key = plRoundKey(g); if (!POSE_LAB[key]) { m.position.copy(RND_HOLD); m.quaternion.identity(); return; }
+  _plRM.copy(HOFF).multiply(plW(key, _plWM)).multiply(plT(key, _plM)); _plRM.decompose(m.position, m.quaternion, _plSc); m.scale.set(1, 1, 1);
+}
 const _pinch = new THREE.Vector3();
 function handTargets(i, g, st) {                 // decide pose + world matrix for one controller hand
   const src = g.userData.src, gp = src?.gamepad, b = gp?.buttons || [], right = src?.handedness !== 'left';
   const trig = b[0]?.value ?? (b[0]?.pressed ? 1 : 0), trigT = !!(b[0]?.touched || trig > 0.05), grip = b[1]?.value ?? (b[1]?.pressed ? 1 : 0);
   const thumbT = !!(b[3]?.touched || b[4]?.touched || b[5]?.touched || b[6]?.touched);
-  g.updateWorldMatrix(true, false); st.W.multiplyMatrices(g.matrixWorld, HOFF); st.mode = 'free'; st.gt = 0; st.jx = 0;
+  g.updateWorldMatrix(true, false); st.W.multiplyMatrices(g.matrixWorld, HOFF); st.mode = 'free'; st.gt = 0; st.jx = 0; st.plJ = null;
   // free hand: grip curls the three lower fingers, trigger curls the index, grip without trigger points, thumb off the face lifts it
   st.tc[0] = trigT ? 0.35 + 0.6 * trig : grip > 0.5 ? 0.03 : 0.28; st.tc[1] = 0.3 + 0.7 * grip; st.tc[2] = 0.34 + 0.66 * grip; st.tc[3] = 0.38 + 0.62 * grip;   // v0.24.1 relaxed
   st.tth = thumbT ? 0 : 1; st.ttw = grip > 0.5 && trig > 0.5 ? 0.7 : 0; st.ttp = 0;
@@ -4624,7 +4692,8 @@ function handTargets(i, g, st) {                 // decide pose + world matrix f
     if (gk) { gripOn(st, gk, right ? 1 : -1); st.mode = gk === 'flap' || gk === 'trim' || gk === 'stick' || gk === 'thr' ? gk : 'ck'; }   // v0.46 procedural grip
     else if (h) {
       const pt = h.k === 'start' ? plane.localToWorld(_hv.copy(SW.start.p).setZ(SWP.z + 0.016)) : null;
-      if (h.k === 'card') { st.tc[0] = st.tc[1] = st.tc[2] = st.tc[3] = 0.55; st.tth = 0.4; st.ttw = 0.3; }
+      if (h.k === 'mic') { const L = POSE_LAB['mic' + (right ? 'R' : 'L')]; if (L) { st.plJ = L.J || null; if (L.w) st.W.multiply(plW('mic' + (right ? 'R' : 'L'), _plWM)); } }   // v0.87.1 Neil's mic fingers
+      if (h.k === 'card') { st.tc[0] = st.tc[1] = st.tc[2] = st.tc[3] = 0.55; st.tth = 0.4; st.ttw = 0.3; const L = POSE_LAB['card' + (right ? 'R' : 'L')]; if (L) { st.plJ = L.J || null; if (L.w) st.W.multiply(plW('card' + (right ? 'R' : 'L'), _plWM)); } }   // v0.87.1 Neil's card fingers
       else if (h.k === 'start') {                    // v0.44: press START with a pointed index finger
         st.tc[0] = 0.04; st.tc[1] = st.tc[2] = st.tc[3] = 1; st.tth = 0; st.ttw = 0.8; st.ttp = 0;
         _pinch.set(right ? 0.03 : -0.03, -0.118, -0.034).applyMatrix4(st.W); st.W.elements[12] += pt.x - _pinch.x; st.W.elements[13] += pt.y - _pinch.y; st.W.elements[14] += pt.z - _pinch.z;
@@ -4634,7 +4703,9 @@ function handTargets(i, g, st) {                 // decide pose + world matrix f
   } else if (paperHandK(g)) { gripOn(st, paperHandK(g), right ? 1 : -1); st.mode = 'ck'; }   // v0.77.3 the map held on foot: its corner pinch
   else if (HOSE.held === g && HOSE.noz.visible) { gripOn(st, 'noz', right ? 1 : -1); st.mode = 'ck'; st.jx = 0.35 * trig; }   // v0.77.7 the nozzle's pistol grip, the index on the lever
   else if (huntHandK(g) || binoHandK(g)) { const hk = huntHandK(g) || binoHandK(g); gripOn(st, hk, right ? 1 : -1); st.mode = 'ck'; st.jx = hk === 'rgrip' ? 0.3 * trig : 0; }   // v0.67 the trigger finger squeezes   // v0.53 rifle grips, v0.65 binoculars
-  else if (FUELP.g === g || huntHold(g)) { st.tc[0] = st.tc[1] = st.tc[2] = st.tc[3] = 0.6; st.tth = 0.3; st.ttw = 0.5; st.mode = 'hold'; }
+  else if (FUELP.g === g || huntHold(g)) { st.tc[0] = st.tc[1] = st.tc[2] = st.tc[3] = 0.6; st.tth = 0.3; st.ttw = 0.5; st.mode = 'hold';
+    const rk = RFL.round.has(g) && !DROP.held.has(g) && BINO.g !== g && BINO.g2 !== g ? plRoundKey(g) : null, L = rk && POSE_LAB[rk];   // v0.87.1 a round in Neil's Pose Lab hold: its per-joint fingers
+    if (L) { st.plJ = L.J || null; if (L.w) st.W.multiply(plW(rk, _plWM)); } }
   return right;
 }
 const knobOut = id => CKX.vis[id] !== undefined && id in PULL ? CKX.vis[id] : id === 'mix' ? (ENG.mix < 0.5 ? PULL.mix : 0) : id === 'carb' ? (ENG.carb ? PULL.carb : 0) : 0;   // pulled-out knobs ring where they are
@@ -4742,7 +4813,7 @@ function updateHands(dt) {
         handTargets(i, g, st); gripBlend(st, dt); st.hide = 0; const k = 1 - Math.exp(-dt * 22);
         for (let f = 0; f < 4; f++) st.c[f] += (st.tc[f] - st.c[f]) * (st.mode === 'free' || st.mode === 'hold' ? k : 1);
         const kt = st.mode === 'free' || st.mode === 'hold' ? k : 1; st.th += (st.tth - st.th) * kt; st.tw += ((st.ttw || 0) - st.tw) * kt; st.tp += ((st.ttp || 0) - st.tp) * kt;
-        buildHand(st, st.right ? 1 : -1); st.tip.copy(st.tipH).applyMatrix4(st.W); st.vis = true;
+        buildHand(st, st.right ? 1 : -1); plHand(st, dt, st.right ? 1 : -1); st.tip.copy(st.tipH).applyMatrix4(st.W); st.vis = true;   // v0.87.1 plHand: Pose Lab per-joint fingers
       }
       if (mode === 'plane' && (st.mode === 'free' || st.mode === 'tracked')) { tips.push([i, g, st]); if (st.vis) panelStop(st); }   // v0.84 (Neil): no more fingertip pokes on cockpit controls - every one needs the grip (ckHand), the yellow ring shows which
     }
@@ -6354,7 +6425,7 @@ function rflTick(dt, vrOn) {
   // VR rounds: the tip into the loading gate (inside 2.5 cm) loads it; keep squeezing and go back to the pouch for the next one
   const vrFoot = vrOn && mode === 'foot'; POUCH.visible = vrFoot && rflHas(); if (POUCH.visible) { rflPouch(POUCH.position); POUCH.rotation.set(0, headYaw(), 0); }
   rflLoadAnim(dt);
-  for (const [gh, m] of RFL.round) { m.position.copy(RND_HOLD); m.quaternion.identity(); if (RFL.place !== 'vr' || RFL.hand === gh) continue;   // v0.67.2: forgiving - the tip within 6 cm of the gate, pointing roughly forward (60 deg), from any side, lever open or shut
+  for (const [gh, m] of RFL.round) { rndHoldSet(gh, m); if (RFL.place !== 'vr' || RFL.hand === gh) continue;   // v0.67.2: forgiving - the tip within 6 cm of the gate, pointing roughly forward (60 deg), from any side, lever open or shut
     gh.updateWorldMatrix(true, false); m.updateWorldMatrix(true, false); RFL.g.updateMatrixWorld();
     const tip = RFL.g.worldToLocal(m.localToWorld(_rp2.copy(RND_TIP))), d = tip.distanceTo(RF.gate); if (d > GUN.loadR && !(RFL.loadBtn === gh && d < GUN.loadBtnR)) continue;   // v0.77.1 inside 10 cm of the gate, any way round (or A / X within 25 cm)
     if (RFL.tube >= GUN.tube) { if (RFL.fullT <= 0) { say('MAGAZINE FULL (' + GUN.tube + ')'); rflPulse(gh, 0.15, 10, 'gate'); RFL.fullT = 1.5; } continue; }
@@ -6387,7 +6458,7 @@ function rflRoundHint() {   // v0.77.1 a round in the hand near the held rifle: 
 function rflLoadBtn(g) { if (RFL.place !== 'vr' || !RFL.round.has(g) || RFL.hand === g) return false; RFL.loadBtn = g; return true; }   // v0.77.1 A / X on the hand with the round: loads it if the gate is within 25 cm (next rflTick)
 function rflTakeRound(g) {
   if (RFL.spare <= 0) { say('CARTRIDGE POUCH EMPTY - BUY .44-40 AT THE DRY FORK HARDWARE ($35 / 20)'); return false; }
-  RFL.spare--; const m = rndMesh(); g.add(m); m.position.copy(RND_HOLD); RFL.round.set(g, m); sfx('pick'); HX.pulse(g, 0.35, 18, 'ammo'); return true;
+  RFL.spare--; const m = rndMesh(); g.add(m); rndHoldSet(g, m); RFL.round.set(g, m); sfx('pick'); HX.pulse(g, 0.35, 18, 'ammo'); return true;
 }
 const AMMO_HOME = 'AMMO BOX EMPTY - BUY .44-40 AT THE DRY FORK HANGAR HARDWARE ($35 / 20)';   // v0.79.2 no ammo sold at home: the 20-round starter pouch is all you get here
 function rflBuyAmmo() { say(AMMO_HOME + ' - POUCH ' + RFL.spare); }   // v0.79.2 the home carton is empty now: no purchase, no restock
