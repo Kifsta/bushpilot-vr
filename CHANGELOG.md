@@ -2,6 +2,14 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.91 – Pose Lab holds look in the game exactly as in the Pose Lab
+
+Physics untouched (md5 unchanged). Neil's report: the left hand on the rifle forend (his Pose Lab picture), the binoculars and the round look different in the game.
+- **Root cause:** the glove mesh is built in its bind pose with fingers straight and the thumb resting (`gloveBuild`: curls 0, thumb 0), and the game skins it on that pose. Pose Lab 2 builds the same mesh but takes its bind frames from its posing state (`mkSt`: curls 0.2, thumb lifted). So the lab drew every finger and thumb segment off its bone, by up to 4.6 cm at the tips. The pose data was never wrong: the game's bones match Neil's codes to the digit (his forend code = `POSE_LAB.rifleSupL`). What he saw and what the game drew just disagreed.
+- **The fix (game side, so nothing he posed changes):** while a Pose Lab hold is on, the glove's finger and thumb bones (2–16) are skinned on the lab's bind frames, eased in and out with the hold (0.1 s, or with the grip blend for the park brake). The bones themselves, and so every contact, hit test and tip, are unchanged. The joint quaternions are now normalised as the lab reads them. Cost: 15 extra matrix products per hand per frame, only while a Pose Lab hold is held.
+- **Park brake:** the game no longer pulls the coded thumb onto the T-bar (v0.88.3), because the lab never showed that pull. It is drawn as Neil posed it: fingers on the bar, thumb about 9 mm off it.
+- Test **t91** compares all 18 POSE_LAB holds, every bone's skin matrix in hand space: game vs the Pose Lab is now 0.00000 (it was up to 0.63). The rifle forend L, the round and the binoculars also go through the live controller path. t46 now measures and prints the park brake like Neil's other holds.
+
 ## v0.90.1 – suite fixes after v0.90: stepping out of the Cub, the Caribou Reach site, kit-site dressing
 
 Physics untouched (md5 unchanged). Found by the full suite run after v0.90.

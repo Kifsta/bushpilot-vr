@@ -124,3 +124,6 @@ Clear `st.plJ` when the hand lets go. Grip-state poses (no `J`) need only step 1
 - If the rifle's lab solve leaves the fingers empty, they are filled from `RIFLE_POSES.*.lab`.
 - Carried items get their hold offsets (`RND_HOLD`, `MIC_HOLD`, the card's grip offset, `BELT` / `NET` anchors, cargo side holds) and the plain-hand finger state.
 - Rerun `refresh.sh` after any item, grip or model change (for example the v0.85 rifle), then commit `posetool.html` and `posetool/`.
+
+## Glove skinning (v0.91)
+The lab skins the glove on the bind frames of its posing state (`mkSt`: curls 0.2, thumb lifted), not the mesh's own bind (curls 0, thumb 0). Since v0.91 the game draws every POSE_LAB hold on those same lab bind frames, so a pose looks the same in both. Plain hands and solver grips with no POSE_LAB entry are still drawn on the mesh's own bind in the game, so their GHOST / default preview in the lab is slightly off.

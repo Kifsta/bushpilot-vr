@@ -4477,7 +4477,7 @@ function hBone(st, k, s, d, len, t, w, zh) {     // box k from point s along uni
 // Right glove modelled, the left one is its mirror. Regions: 0 fabric back, 1 leather palm / fingertips, 2 seam, 3 strap, 4 cuff inside, 5 snap.
 const GLOVE_PAL = [   // SAGE (US Nomex + tan leather), BLACK, TAN
   [0x6c7656, 0xae8a5e, 0x3b3a2c, 0x545d43, 0x22201b, 0xb9b9b0], [0x2c2d2f, 0x1d1b1a, 0x5a5a58, 0x38393b, 0x111111, 0x9a9a9a], [0xa48d66, 0x7a5636, 0x4a3a28, 0x8a7652, 0x2a2018, 0xc8c0a8]];
-const GLOVE = { gm: [null, null], geo: [null, null], B: [], pal: -1, sk: [null, null], tris: 0 };
+const GLOVE = { gm: [null, null], geo: [null, null], B: [], BL: [], pal: -1, sk: [null, null], tris: 0 };
 function gloveBuild() {   // -> { pos, sk, reg } (non-indexed triangles, right hand, bind pose)
   const st = { c: [0, 0, 0, 0], th: 0, tw: 0, tp: 0, ge: 0, ja: new Float32Array(12), gT: GV3(0, 0, 0), gA: GV3(0, 0, 0), tipH: GV3(0, 0, 0),
     cap: Array.from({ length: HN }, () => ({ s: GV3(0, 0, 0), e: GV3(0, 0, 0), r: 0 })), M: Array.from({ length: HN }, () => new THREE.Matrix4()), R: Array.from({ length: HN }, () => new THREE.Matrix4()) };
@@ -4580,6 +4580,7 @@ function gloveInit() {
     const st = { c: [0, 0, 0, 0], th: 0, tw: 0, tp: 0, ge: 0, ja: new Float32Array(12), gT: GV3(0, 0, 0), gA: GV3(0, 0, 0), tipH: GV3(0, 0, 0),
       cap: Array.from({ length: HN }, () => ({ s: GV3(0, 0, 0), e: GV3(0, 0, 0), r: 0 })), M: Array.from({ length: HN }, () => new THREE.Matrix4()), R: Array.from({ length: HN }, () => new THREE.Matrix4()) };
     buildHand(st, h ? -1 : 1); GLOVE.B[h] = st.R.map(m => m.clone().invert());
+    st.c.fill(0.2); st.th = 1; buildHand(st, h ? -1 : 1); GLOVE.BL[h] = st.R.map(m => m.clone().invert());   // v0.91 the Pose Lab's bind (its mkSt: curls 0.2, thumb lifted): a Pose Lab hold is skinned as the lab skins it
   }
   for (let i = 0; i < 2; i++) { const m = new THREE.Mesh(GLOVE.geo[0], gloveMat()); m.frustumCulled = false; m.visible = false; m.userData.noCast = true; m.userData.noBatch = true; m.matrixAutoUpdate = false; xrOffset.add(m); GLOVE.gm[i] = m; }
   HANDS.mesh = GLOVE.gm[0]; HANDS.gm = GLOVE.gm; gloveColours();
@@ -4589,7 +4590,10 @@ function gloveSkin(i, st, inv) {   // this frame's skin matrices: (xrOffset^-1 *
   const U = m.material.userData.hSk.value; m.visible = st.vis;
   if (!st.vis) return; _hm.multiplyMatrices(inv, st.W);
   for (let k = 0; k < HN; k++) U[k].multiplyMatrices(_hm, st.R[k]).multiply(GLOVE.B[h][k]);
+  const w = st.plbw || 0; if (w > 0) for (let k = 2; k < HN; k++) {   // v0.91 a Pose Lab hold: the fingers skinned on the lab's bind (exactly what Neil saw in the lab), eased in / out with the hold
+    const e = U[k].elements, l = _hmL.multiplyMatrices(_hm, st.R[k]).multiply(GLOVE.BL[h][k]).elements; for (let j = 0; j < 16; j++) e[j] += (l[j] - e[j]) * w; }
 }
+const _hmL = new THREE.Matrix4();
 const CUFF_DEV = 35 * D2R;   // v0.77.5 the most the glove's cuff bends sideways at the wrist
 function thMix(R0, U0, W0, u, w, k, i) { const a = R0[k][i] + (U0[k][i] - R0[k][i]) * u; return a + (W0[k][i] - a) * w; }
 function buildHand(st, sx) {                      // posed glove in hand space from st.c (finger curls 0..1) and st.th (0 thumb resting .. 1 lifted)
@@ -4697,7 +4701,7 @@ function gFingerHit(gp, sx, f, j0) {   // does any bone from joint j0 on (angles
   return false;
 }
 function gripSolve(st, k, sx) {   // on grab: hand frame in the control's frame (st.Hc) + finger angles (st.ja) + thumb target (st.gT, st.gA)
-  const plk = plKey(k, sx); st.plJg = null; if (plk && POSE_LAB[plk]) { plSolve(st, plk); if (POSE_LAB[plk].ja && !GDEF[k].labK) gripCurl(st, GDEF[k], sx, true); return; }   // v0.87.1 a Pose Lab hold replaces the solve; v0.88.3 a grip-state hold (park brake): his fingers as coded, the thumb pulled onto the control (it floated 1.6 cm off the T-bar)
+  const plk = plKey(k, sx); st.plJg = null; st.plL = false; if (plk && POSE_LAB[plk]) { plSolve(st, plk); st.plL = true; return; }   // v0.87.1 a Pose Lab hold replaces the solve (v0.91 its fingers exactly as coded, skinned as the lab skins them: no more v0.88.3 thumb pull, which the lab never showed)
   const D = GDEF[k]; st.dev = 0; if (D.labK) return rflLabSolve(st, RIFLE_POSES[D.labK].lab, sx); gripFrame(k, _gF); _gI.copy(_gF).invert(); _gH.multiplyMatrices(_gI, st.W); if (D.fix) gripFixed(D.fix, sx, _gH); _gH.extractBasis(_gx, _gy, _gz);   // v0.77.1 fix: one authored pose per hand, whatever way the hand came in
   if (D.st === 'wrap') {
     if (D.wd) _gA.copy(D.wd); else _gA.set(0, 0, 0).setComponent(D.wa, 1); if (_gz.dot(_gA) < 0) _gA.negate();          // finger-width axis along the grip, the way your hand already faces
@@ -4766,7 +4770,7 @@ function gripBlend(st, dt) {      // 0 -> 1 over GRIP_T on grab, back on release
   if (st.ge <= 0) return; if (st.ge >= 1) { st.W.copy(st.GW); return; }
   st.W.decompose(_gP0, _gQ0, _gS); st.GW.decompose(_gP1, _gQ1, _gS); _gP0.lerp(_gP1, st.ge); _gQ0.slerp(_gQ1, st.ge); st.W.compose(_gP0, _gQ0, _gS.set(1, 1, 1));
 }
-for (const st of HANDS.st) Object.assign(st, { plJ: null, plJg: null, plJl: null, plw: 0, gk: null, gt: 0, gw: 0, ge: 0, gn: 0, ja: new Float32Array(12), gT: GV3(0, 0, 0), gA: GV3(0, 0, 0), Hc: new THREE.Matrix4(), GW: new THREE.Matrix4(),
+for (const st of HANDS.st) Object.assign(st, { plJ: null, plJg: null, plJl: null, plw: 0, plL: false, plbw: 0, gk: null, gt: 0, gw: 0, ge: 0, gn: 0, ja: new Float32Array(12), gT: GV3(0, 0, 0), gA: GV3(0, 0, 0), Hc: new THREE.Matrix4(), GW: new THREE.Matrix4(),
   gp: { cyl: false, C: GV3(0, 0, 0), A: GV3(0, 0, 0), X: GV3(1, 0, 0), Y: GV3(0, 1, 0), Z: GV3(0, 0, 1), b: GV3(0, 0, 0), r: 0, hl: 0, u: false, uo: false, uC: GV3(0, 0, 0), ub: GV3(0, 0, 0), isp: 0 }, jx: 0 });
 // ---- v0.87.1 Pose Lab holds (posetool.html -> decode.mjs): POSE_LAB.<lab item><R|L> = { p, q, w?, J | ja/gT/gA/isp, dev }, the item's frame in this hand's HAND space (grip * HOFF).
 // Items with no entry keep the game's own hold (RND_HOLD, gripSolve, the 'hold' curls). J = 15 local bone quats (bones 2..16, right-hand terms): plFingers poses the glove from them
@@ -4812,7 +4816,7 @@ function plFingers(st, J, sx, k) {   // after buildHand: the finger bones from J
   _plM.copy(st.R[1]); if (sx < 0) _plM.premultiply(PL_S).multiply(PL_D); _plQp.setFromRotationMatrix(_plM);   // the palm, right-hand terms
   for (let f = 0; f < 5; f++) { const ch = PL_FB[f]; _plQa.copy(_plQp);
     if (f === 0) _plV.set(TH_B.x, TH_B.y, TH_B.z); else _plV.set(0.033, -0.03, HF[f - 1][0]);
-    for (let j = 0; j < 3; j++) { const b = ch[j]; _plQa.multiply(_plQb.fromArray(J[b - 2]));
+    for (let j = 0; j < 3; j++) { const b = ch[j]; _plQa.multiply(_plQb.fromArray(J[b - 2]).normalize());   // (v0.91 unit, as the lab reads them)
       _plM.makeRotationFromQuaternion(_plQa).setPosition(_plV); if (sx < 0) _plM.premultiply(PL_S).multiply(PL_D);
       if (k < 1) { st.R[b].decompose(_plP0, _plQ0, _plSc); _plM.decompose(_plP1, _plQ1, _plSc); _plP0.lerp(_plP1, k); _plQ0.slerp(_plQ1, k); st.R[b].compose(_plP0, _plQ0, _plSc.set(1, 1, 1)); } else st.R[b].copy(_plM);
       _plV.add(_plU.set(0, f === 0 ? TH_L[j] : HF[f - 1][1][j], 0).applyQuaternion(_plQa)); } }
@@ -4820,7 +4824,8 @@ function plFingers(st, J, sx, k) {   // after buildHand: the finger bones from J
 const PL_EASE = 0.1;   // s: fingers into / out of a POSE_LAB hold
 function plHand(st, dt, sx) {   // in updateHands, right after buildHand: st.plJ this frame (set by handTargets), eased in and out
   if (st.plJ) { st.plJl = st.plJ; st.plw = Math.min(1, (st.plw || 0) + dt / PL_EASE); } else if (st.plw > 0) st.plw = Math.max(0, st.plw - dt / PL_EASE);
-  if (st.plw > 0 && st.plJl) { const w = st.plw, k = w * w * (3 - 2 * w); plFingers(st, st.plJl, sx, k); } else st.plJl = null;
+  let kb = 0; if (st.plw > 0 && st.plJl) { const w = st.plw, k = w * w * (3 - 2 * w); plFingers(st, st.plJl, sx, k); kb = k; } else st.plJl = null;
+  st.plbw = Math.max(kb, st.plL ? st.ge || 0 : 0);   // v0.91 the lab's bind for a Pose Lab hold's fingers (gloveSkin): with the per-joint ease, or the grip blend for a grip-state hold (park brake)
 }
 const plRoundKey = g => 'round' + (g.userData.src?.handedness === 'left' ? 'L' : 'R');
 const _plRM = new THREE.Matrix4(), _plWM = new THREE.Matrix4();
