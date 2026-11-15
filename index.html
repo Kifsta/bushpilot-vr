@@ -3739,6 +3739,23 @@ function townTick(dt) {   // distance-cull the towns (and the strip dressing)
   for (const t of TOWN_MESH) t.m.visible = hyp(t.x - _lcP.x, t.z - _lcP.z) < (t.far || 5000);
 }
 // ---- v0.12 clouds: low-poly flat-shaded cumulus, one instanced draw call, drifting; fade out near the camera (no hard pop) ----
+// v1.06.2 the highest ground-mesh vertex in each 120 m cell (the ground is flat triangles, so this is the exact top of the ground in the cell).
+// Built once from TERR_M's vertex buffers on the first cloud update (~0.2 M vertices, a few ms, one Float32Array); clouds ask a few dozen cells, no garbage.
+const CLDG = { n: 100, s: 120, o: 6000, a: null };
+function cldGrid() { const G = CLDG, a = new Float32Array(G.n * G.n).fill(-1e4), v = new THREE.Vector3();
+  for (const m of TERR_M) { m.updateMatrixWorld(true); const P = m.geometry.attributes.position, id = m.matrixWorld.equals(_CLD_I);
+    for (let i = 0; i < P.count; i++) { v.fromBufferAttribute(P, i); if (!id) v.applyMatrix4(m.matrixWorld);
+      const ix = Math.min(G.n - 1, Math.max(0, Math.floor((v.x + G.o) / G.s))), iz = Math.min(G.n - 1, Math.max(0, Math.floor((v.z + G.o) / G.s))), k = iz * G.n + ix;
+      if (v.y > a[k]) a[k] = v.y;
+      // a vertex on a cell edge belongs to the cells either side too
+      const fx = (v.x + G.o) / G.s - ix, fz = (v.z + G.o) / G.s - iz;
+      if (fx < 1e-6 && ix > 0 && v.y > a[k - 1]) a[k - 1] = v.y; if (fz < 1e-6 && iz > 0 && v.y > a[k - G.n]) a[k - G.n] = v.y; if (fx < 1e-6 && fz < 1e-6 && ix > 0 && iz > 0 && v.y > a[k - G.n - 1]) a[k - G.n - 1] = v.y; } }
+  G.a = a; }
+const _CLD_I = new THREE.Matrix4();
+function cldMax(x, z, R) { const G = CLDG; if (!G.a) cldGrid(); let h = -1e4;
+  const x0 = Math.max(0, Math.floor((x - R + G.o) / G.s)), x1 = Math.min(G.n - 1, Math.floor((x + R + G.o) / G.s)), z0 = Math.max(0, Math.floor((z - R + G.o) / G.s)), z1 = Math.min(G.n - 1, Math.floor((z + R + G.o) / G.s));
+  for (let iz = z0; iz <= z1; iz++) { const cz = iz * G.s - G.o, dz = z < cz ? cz - z : z > cz + G.s ? z - cz - G.s : 0; for (let ix = x0; ix <= x1; ix++) { const cx = ix * G.s - G.o, dx = x < cx ? cx - x : x > cx + G.s ? x - cx - G.s : 0; if (dx * dx + dz * dz > R * R) continue; const y = G.a[iz * G.n + ix]; if (y > h) h = y; } }
+  return h > -1e4 ? h : groundY(x, z); }
 const CLOUDS = (() => {
   let sd = 917; const r = () => (sd = (sd * 16807) % 2147483647) / 2147483647;     // own seed: the world rand() stream is untouched
   const parts = [];
@@ -3767,7 +3784,7 @@ const CLOUDS = (() => {
     let x = c.x, z = c.z; if (!c.cap) { x = ((c.x + W.x * t + HALF) % (2 * HALF) + 2 * HALF) % (2 * HALF) - HALF; z = ((c.z + W.z * t + HALF) % (2 * HALF) + 2 * HALF) % (2 * HALF) - HALF; }
     else x += Math.sin(t * 0.01 + i) * 30;
     let y = c.y - (c.cap ? 0 : st.dy);
-    if (!c.cap) { const R = 1.5 * Math.max(c.sx, c.sz); let h = groundY(x, z); for (let k = 0; k < 34; k++) { const rr = k < 12 ? R : k < 28 ? R * 0.68 : R * 0.35, b = k < 12 ? k * 0.5236 : k < 28 ? (k - 12) * 0.3927 : (k - 28) * 1.0472 + 0.26; h = Math.max(h, groundY(x + Math.cos(b) * rr, z + Math.sin(b) * rr)); } const fl = h + 0.28 * c.sy + 50;   // v1.06.1 the cloud's floor
+    if (!c.cap) { const R = 1.5 * Math.max(c.sx, c.sz); const h = cldMax(x, z, R), fl = h + 0.28 * c.sy + 50;   // v1.06.1 the cloud's floor (v1.06.2: exact, from the ground mesh's own vertices, no per-frame height lookups)
       c.fy = c.fy === undefined || fl > c.fy ? fl : c.fy + (fl - c.fy) * 0.1; y = Math.max(y, c.fy); }   // up at once, down slowly (no bobbing)
     _m4.compose(_v.set(x, y, z), _q.setFromAxisAngle(_up, c.ry), _s.set(c.sx, c.sy, c.sz)); im.setMatrixAt(i, _m4); });
   const st = { dy: 0 };   // v0.75 the weather lowers the valley cloud deck

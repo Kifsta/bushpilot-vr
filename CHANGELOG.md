@@ -2,6 +2,14 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v1.06.2 – the cloud floor from v1.06.1 now costs nothing per frame
+
+- **Perf fix:** v1.06.1 kept the valley clouds off the hills by checking terrain heights around every cloud, twice a second. On the desktop perf run that cost about +1 ms CPU and +48 KB of garbage per frame.
+  - Now, on the first cloud update, the game builds one 100×100 grid (120 m cells) holding the highest ground-mesh vertex in each cell. It takes about 8 ms, once.
+  - The ground is made of flat triangles, so that grid gives the exact top of the ground. Each cloud just reads the cells under its footprint, with no height lookups and no garbage.
+- **Same look as v1.06.1:** no cloud base sits inside the ground and there's still no blob over the Hidden Lake. A few more clouds lift a little over the high country.
+- **Perf vs v1.04 (desktop, 240 frames):** CPU, draws, triangles and per-frame garbage are back to v1.04 levels. Shader programs stay at 177 (no new ones).
+
 ## v1.06.1 – no more cloud blob over the Hidden Lake; the landmark rocks and cabins are solid on foot
 
 - **The Hidden Lake white blob is fixed.** It was a valley cumulus. Those clouds drift at fixed heights (460–910 m), so over the high country a cloud ended up sitting inside the hills around the lake, and from the look-out you saw a flat white wall on the water.

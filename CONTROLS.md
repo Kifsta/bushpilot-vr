@@ -130,6 +130,7 @@ v0.44 latches: every window and the door are latched while shut. Squeeze the han
 | Read Gordon's logbook / letter (v1.06) | On the mail sack by the Norseman's door: VR grip it, trigger turns the page; desktop look at it, E, then , and . to turn pages | same |
 | Voss at Walt's board / epilogue (v1.06) | With the letter read, walk up to Walt's board in the hangar: Voss's six lines, note 1147 written off (or $12,000 interest back). The board becomes the MACRAE AIR SERVICE epilogue; free flight carries on | same |
 | Walking into rocks / cabins (v1.06.1) | On foot, the landmark crags, rock towers and cabin walls stop you (knee, waist and head height). If you're ever stuck inside one, just walk out | same |
+| Valley clouds over the hills (v1.06.1-2) | Nothing to press: valley cumulus lift clear of high ground (no more white wall at the Hidden Lake look-out) | same |
 
 ## On foot
 | | VR | Desktop |
