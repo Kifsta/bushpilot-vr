@@ -19,7 +19,7 @@
 </script>
 </head>
 <body>
-<div id="info">BUSH PILOT VR <span id="ver">v0.93</span> - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
+<div id="info">BUSH PILOT VR <span id="ver">v0.93.1</span> - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
 You start on foot by the Cub at the cabin strip. Walk up to her and climb in (F / Y), then start her up off the checklist card (J).
 Desktop - flying: W/S or arrows pitch, A/D or arrows roll, Q/E rudder, Shift / Ctrl (or + / -) throttle, B brakes, \ parking brake, [ ] flaps, PgUp / PgDn trim,
   R reset to the strip (cold and dark), F climb out, M map, L landing light, Home recentre, mouse looks (click to capture).
@@ -48,6 +48,12 @@ import { VRButton } from 'three/addons/webxr/VRButton.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
 // === PHYSICS START ===
+// v0.93.1 Math.hypot exactly as V8 computes it (2 / 3 args: scaled by the largest; 4: its Kahan loop), as plain arithmetic: V8's builtin boxes its arguments and result (~0.5 KB of garbage per terrain height)
+const hyp2 = (x, y) => { const a = Math.abs(x), b = Math.abs(y); if (a === Infinity || b === Infinity) return Infinity; if (a !== a || b !== b) return NaN; const m = a > b ? a : b; if (m === 0) return 0; const p = a / m, q = b / m; return Math.sqrt(p * p + q * q) * m; };
+const hyp3 = (x, y, z) => { const a = Math.abs(x), b = Math.abs(y), c = Math.abs(z); if (a === Infinity || b === Infinity || c === Infinity) return Infinity; if (a !== a || b !== b || c !== c) return NaN;
+  let m = a > b ? a : b; if (c > m) m = c; if (m === 0) return 0; const pa = (a / m) * (a / m), pb = (b / m) * (b / m), k = (pa + pb) - pa - pb, pc = (c / m) * (c / m) - k; return Math.sqrt(pa + pb + pc) * m; };
+const hyp4 = (x, y, z, w) => { const v = [Math.abs(x), Math.abs(y), Math.abs(z), Math.abs(w)]; let m = 0, nan = false; for (const e of v) { if (e !== e) nan = true; else if (e > m) m = e; }
+  if (m === Infinity) return Infinity; if (nan) return NaN; if (m === 0) return 0; let s = 0, c = 0; for (const e of v) { const n = e / m, d = n * n - c, t = s + d; c = (t - s) - d; s = t; } return Math.sqrt(s) * m; };
 // Pure-JS flight model (no three.js dependency so it can be unit-tested in node).
 // Body axes: x = right, y = up, z = aft (nose points -z). Origin = centre of gravity.
 // World: y up, ground from terrainHeight(). Quaternions are [x,y,z,w].
@@ -179,7 +185,7 @@ GEARKIT.floats.Y = GEARKIT.floats.Z.map(z => z < -1.6 ? -1.6 + (-1.6 - z) / 1.25
 const GEAR_STOCK = C.GEAR.map(g => [g.p[0], g.p[1], g.p[2], g.r]);
 function gearGeo(kit) { const G = kit && kit.gear || GEAR_STOCK; C.GEAR.forEach((g, i) => { g.p[0] = G[i][0]; g.p[1] = G[i][1]; g.p[2] = G[i][2]; g.r = G[i][3]; }); }   // v0.90 the amphibs' wheels (the game calls it with the tyres upgrade on top)
 const WATERS = { at: null };   // the game adds the river here; the lakes are below
-function waterH(x, z) { for (const L of LAKES) if (Math.hypot(x - L.x, z - L.z) < L.r) return L.h - 0.2; return WATERS.at ? WATERS.at(x, z) : null; }
+function waterH(x, z) { for (const L of LAKES) if (hyp2(x - L.x, z - L.z) < L.r) return L.h - 0.2; return WATERS.at ? WATERS.at(x, z) : null; }
 const snowAt = (x, z, ny) => ny > 0.55 && terrainHeight(x, z) > 930 + 110 * Math.sin(x * 0.0021 + z * 0.0013);   // the terrain's snow faces (same rule as its colours)
 // ========================================================
 
@@ -190,7 +196,7 @@ const vSub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
 const vScale = (a, s) => [a[0] * s, a[1] * s, a[2] * s];
 const vDot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 const vCross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
-const vLen = a => Math.hypot(a[0], a[1], a[2]);
+const vLen = a => hyp3(a[0], a[1], a[2]);
 const vNorm = a => { const l = vLen(a) || 1; return vScale(a, 1 / l); };
 function qMul(a, b) {
   return [a[3] * b[0] + a[0] * b[3] + a[1] * b[2] - a[2] * b[1],
@@ -198,8 +204,10 @@ function qMul(a, b) {
           a[3] * b[2] + a[0] * b[1] - a[1] * b[0] + a[2] * b[3],
           a[3] * b[3] - a[0] * b[0] - a[1] * b[1] - a[2] * b[2]];
 }
-function qRot(q, v) { const u = [q[0], q[1], q[2]]; const t = vScale(vCross(u, v), 2); return vAdd(vAdd(v, vScale(t, q[3])), vCross(u, t)); }
-const qRotInv = (q, v) => qRot([-q[0], -q[1], -q[2], q[3]], v);
+function qRot(q, v) { return qRotS(q[0], q[1], q[2], q[3], v); }   // v0.93.1 one array per call (was six), the same arithmetic in the same order
+const qRotInv = (q, v) => qRotS(-q[0], -q[1], -q[2], q[3], v);
+function qRotS(x, y, z, w, v) { const t0 = (y * v[2] - z * v[1]) * 2, t1 = (z * v[0] - x * v[2]) * 2, t2 = (x * v[1] - y * v[0]) * 2;
+  return [v[0] + t0 * w + (y * t2 - z * t1), v[1] + t1 * w + (z * t0 - x * t2), v[2] + t2 * w + (x * t1 - y * t0)]; }
 const qAxis = (ax, ang) => { const s = Math.sin(ang / 2); return [ax[0] * s, ax[1] * s, ax[2] * s, Math.cos(ang / 2)]; };
 
 // Grass strip runs from z=+10 to z=-300 along x=0 (take off towards -z).
@@ -210,7 +218,7 @@ function baseHeight(x, z) {
           + 4 * Math.cos(x * 0.012 - z * 0.009)
           + 1.5 * Math.sin(x * 0.031 + z * 0.027);
   const dx = Math.max(0, Math.abs(x) - 60), dz = Math.max(0, z - 60, -380 - z);
-  return h * smooth(Math.hypot(dx, dz) / 220);   // flat plateau around the strip
+  return h * smooth(hyp2(dx, dz) / 220);   // flat plateau around the strip
 }
 // v0.7: mountain-ringed valley. Valley floor = union of capsules (main valley, arms, south river gorge, drainages);
 // mountains rise with distance from the floor: ridged value-noise 350-1250 m, lowered through a few passes.
@@ -224,7 +232,7 @@ const PASSES = [[1500, 2600, 3400, 5800], [-1200, -800, -5400, -1700], [3000, -2
 const MEADOW = { x: -2240, z: -340, hl: 150, hw: 18, blend: 110 };   // ridge-top backcountry strip (long axis along z)
 function segD(x, z, s) {
   const dx = s[2] - s[0], dz = s[3] - s[1], t = clamp(((x - s[0]) * dx + (z - s[1]) * dz) / (dx * dx + dz * dz), 0, 1);
-  return Math.hypot(x - s[0] - dx * t, z - s[1] - dz * t);
+  return hyp2(x - s[0] - dx * t, z - s[1] - dz * t);
 }
 function hash2(i, j) { let h = (i * 374761393 + j * 668265263) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; }
 function vnoise(x, z) {
@@ -243,27 +251,30 @@ function mountain(x, z) {
   let p = 1; for (const s of PASSES) p = Math.min(p, 0.36 + 0.64 * smooth(segD(x, z, s) / 520));
   return m * p * (350 + 900 * ridged(x, z));
 }
+const PD_X = PAD.x, PD_Z = PAD.z, MD_X = MEADOW.x, MD_Z = MEADOW.z, MD_HW = MEADOW.hw, MD_HL = MEADOW.hl, MD_B = MEADOW.blend;   // v0.93.1 plain numbers: V8's Maglev kept deoptimising rawHeight on MEADOW.x (~50 times in a few seconds)
 function rawHeight(x, z) {   // the smooth height formula (mesh vertices sample this)
   let h = baseHeight(x, z) + mountain(x, z);
-  let dx = Math.max(0, Math.abs(x - PAD.x) - 50), dz = Math.max(0, Math.abs(z - PAD.z) - 85);
+  let dx = Math.max(0, Math.abs(x - PD_X) - 50), dz = Math.max(0, Math.abs(z - PD_Z) - 85);
   if (dx < 150 && dz < 150) {
-    const t = smooth(Math.hypot(dx, dz) / 150);
+    const t = smooth(hyp2(dx, dz) / 150);
     const bumps = 0.07 * Math.sin(x * 0.9 + z * 0.31) * Math.sin(z * 0.73) + 0.04 * Math.sin(z * 2.1 + x * 1.3);  // rough paddock
     h = h * t + (PAD_H + bumps) * (1 - t);
   }
-  dx = Math.max(0, Math.abs(x - MEADOW.x) - MEADOW.hw); dz = Math.max(0, Math.abs(z - MEADOW.z) - MEADOW.hl);
-  if (dx < MEADOW.blend && dz < MEADOW.blend) {
-    const t = smooth(Math.hypot(dx, dz) / MEADOW.blend);
+  dx = Math.max(0, Math.abs(x - MD_X) - MD_HW); dz = Math.max(0, Math.abs(z - MD_Z) - MD_HL);
+  if (dx < MD_B && dz < MD_B) {
+    const t = smooth(hyp2(dx, dz) / MD_B);
     h = h * t + (MEADOW_H + 0.05 * Math.sin(x * 0.8 + z * 0.4) * Math.sin(z * 0.6)) * (1 - t);
   }
-  if (typeof LAKES !== 'undefined') for (const L of LAKES) { const d = Math.hypot(x - L.x, z - L.z); if (d < L.r + 500) h = Math.min(h, L.h - 2.5 * (1 - Math.min(1, d / L.r) ** 2) + Math.max(0, d - L.r) * 0.12); }
+  if (typeof LAKES !== 'undefined') for (const L of LAKES) { const d = hyp2(x - L.x, z - L.z); if (d < L.r + 500) h = Math.min(h, L.h - 2.5 * (1 - Math.min(1, d / L.r) ** 2) + Math.max(0, d - L.r) * 0.12); }
   return h;
 }
 const PAD_H = baseHeight(PAD.x, PAD.z);
 const MEADOW_H = baseHeight(MEADOW.x, MEADOW.z) + mountain(MEADOW.x, MEADOW.z);
 // v0.14: lakes dug into the valley floor (level = lowest point of the natural rim, so the water never floats)
+let VHC_ON = false; const VHC_X = new Int32Array(4096).fill(-2147483648), VHC_Z = new Int32Array(4096), VHC_V = new Float64Array(4096);
 const LAKES = [{ x: -1190, z: 2600, r: 170, name: 'NW LAKE' }, { x: 1600, z: -1500, r: 210, name: 'EAST LAKE' }];
 for (const L of LAKES) { let m = 1e9; for (let k = 0; k < 32; k++) { const a = k / 32 * 6.283, x = L.x + Math.cos(a) * L.r, z = L.z + Math.sin(a) * L.r; m = Math.min(m, baseHeight(x, z) + mountain(x, z)); } L.h = m - 0.4; }
+VHC_ON = true;   // v0.93.1 the ground is final from here (the lakes are dug): vertex heights may be cached
 // Ground = the rendered mesh exactly (piecewise-linear triangles), so wheels, feet and objects all sit on what you see.
 // Inner 6x6 km at 40 m cells, outer 12x12 km ring at 120 m cells; inner seam vertices follow the coarse edge (no cracks).
 const T_IN = 3000, T_OUT = 6000, T_C1 = 40, T_C2 = 120;
@@ -275,13 +286,17 @@ function vertH(X, Z) {
   }
   return rawHeight(X, Z);
 }
+function vertHc(X, Z) {   // v0.93.1 vertH through a 4096-entry cache of exact grid vertices (the same numbers, far less work and garbage: wheels and feet ask about the same few cells all frame)
+  if (!VHC_ON || (X | 0) !== X || (Z | 0) !== Z || X === -2147483648) return vertH(X, Z);
+  const h = (Math.imul(X, 73856093) ^ Math.imul(Z, 19349663)) >>> 20; if (VHC_X[h] === X && VHC_Z[h] === Z) return VHC_V[h];
+  const v = vertH(X, Z); VHC_X[h] = X; VHC_Z[h] = Z; VHC_V[h] = v; return v; }
 function terrainHeight(x, z) {
   const c = Math.abs(x) <= T_IN && Math.abs(z) <= T_IN ? T_C1 : T_C2;
   const fx = (x + T_OUT) / c, fz = (z + T_OUT) / c, ix = Math.floor(fx), iz = Math.floor(fz), u = fx - ix, v = fz - iz;
   const X = ix * c - T_OUT, Z = iz * c - T_OUT;
-  const ha = vertH(X, Z), hb = vertH(X, Z + c), hd = vertH(X + c, Z);
+  const ha = vertHc(X, Z), hb = vertHc(X, Z + c), hd = vertHc(X + c, Z);
   if (u + v <= 1) return ha + u * (hd - ha) + v * (hb - ha);
-  const hc = vertH(X + c, Z + c);
+  const hc = vertHc(X + c, Z + c);
   return hc + (1 - u) * (hb - hc) + (1 - v) * (hd - hc);
 }
 function terrainNormal(x, z) {
@@ -341,7 +356,7 @@ function massProps(fuelGal, loads = []) {
 }
 function resetAircraft(a) {
   const m = C.GEAR[0].p, t = C.GEAR[2].p;
-  const dm = S_STATIC + D_STATIC, L = Math.hypot(t[1] - m[1], t[2] - m[2]);
+  const dm = S_STATIC + D_STATIC, L = hyp2(t[1] - m[1], t[2] - m[2]);
   const th = Math.atan2(t[1] - m[1], t[2] - m[2]) - Math.asin((dm - TAIL_STATIC) / L);   // three-point attitude, gear settled
   a.q = qAxis([1, 0, 0], th);
   a.pos = [0, -qRot(a.q, m)[1] - dm, 0];
@@ -364,8 +379,8 @@ function crash(a, why) { a.crashed = true; a.crashReason = why; }
 function floatForces(a, dt, sinkLim, Fw, M) {
   const K = a.gk, c = a.ctl; let n = 0, fbx = 0, fby = 0; a.fw = 0; a.fd = 0;
   if (a.gdn) for (let i = 0; i < 2; i++) { const g = C.GEAR[i], Pw = vAdd(a.pos, qRot(a.q, g.p)), hw = waterH(Pw[0], Pw[2]);   // wheels down on the water: they dig in and it goes over
-    if (hw !== null && hw > Pw[1] + 0.05 && hw > terrainHeight(Pw[0], Pw[2]) + 0.35 && Math.hypot(a.vel[0], a.vel[2]) > 5) { crash(a, 'wheels down on the water - it flipped onto its back'); return -1; } }
-  const fwdW = qRot(a.q, [0, 0, -1]), fh = Math.hypot(fwdW[0], fwdW[2]) || 1, fx = fwdW[0] / fh, fz = fwdW[2] / fh;   // the floats' heading, flat
+    if (hw !== null && hw > Pw[1] + 0.05 && hw > terrainHeight(Pw[0], Pw[2]) + 0.35 && hyp2(a.vel[0], a.vel[2]) > 5) { crash(a, 'wheels down on the water - it flipped onto its back'); return -1; } }
+  const fwdW = qRot(a.q, [0, 0, -1]), fh = hyp2(fwdW[0], fwdW[2]) || 1, fx = fwdW[0] / fh, fz = fwdW[2] / fh;   // the floats' heading, flat
   for (let sd = -1; sd <= 1; sd += 2) for (let j = 0; j < K.Z.length; j++) {
     const P = [sd * K.X, K.Y[j], K.Z[j]], Pw = vAdd(a.pos, qRot(a.q, P)), vP = vAdd(a.vel, qRot(a.q, vCross(a.w, P)));
     const hw = waterH(Pw[0], Pw[2]), hg = terrainHeight(Pw[0], Pw[2]); let F = [0, 0, 0];
@@ -383,7 +398,7 @@ function floatForces(a, dt, sinkLim, Fw, M) {
     if (pen > 0 && !(hw !== null && hw > hg + 0.25)) {   // keel on the ground (the shore, a sandbar, the strip)
       const dp = -vP[1]; if (dp > sinkLim) { crash(a, 'hard landing on the floats (' + (dp * 196.85).toFixed(0) + ' fpm)'); return -1; }
       if (pen > 0.3) { crash(a, 'floats crushed'); return -1; }
-      const Fn = Math.max(0, K.LAND_K * pen + K.LAND_C * dp), vh = Math.hypot(vP[0], vP[2]), k = K.LAND_MU * Fn * Math.tanh(vh / 0.3) / (vh || 1);
+      const Fn = Math.max(0, K.LAND_K * pen + K.LAND_C * dp), vh = hyp2(vP[0], vP[2]), k = K.LAND_MU * Fn * Math.tanh(vh / 0.3) / (vh || 1);
       F[1] += Fn; F[0] -= vP[0] * k; F[2] -= vP[2] * k; n += 256;
     }
     if (!F[0] && !F[1] && !F[2]) continue;
@@ -501,7 +516,7 @@ function stepAircraft(a, dt) {
     let psi = 0;
     if (g.steer) {
       const tw = a.tw, psiR = c.rud * C.TAILWHEEL_STEER;   // right rudder -> wheel points left -> nose right
-      const vb2 = qRotInv(a.q, vA), sp = Math.hypot(vb2[0], vb2[2]), psiV = Math.atan2(-vb2[0], -vb2[2]);
+      const vb2 = qRotInv(a.q, vA), sp = hyp2(vb2[0], vb2[2]), psiV = Math.atan2(-vb2[0], -vb2[2]);
       if (!tw.free) {
         const want = psiR + (Fn > 0 ? clamp(st.Fy * C.TW_TRAIL / C.TW_SPRING, -1, 1) : 0);   // side load x trail twists it against the springs
         tw.psi += (want - tw.psi) * Math.min(1, dt / 0.04);
@@ -535,7 +550,7 @@ function stepAircraft(a, dt) {
     const Fb = br * C.BRAKE_FORCE, cap = Math.sqrt(Math.max(0, Fmax * Fmax - Fs * Fs));
     let Fl;
     if (Fb > cap && Fb > 0) {                                     // locked: the tyre skids along its slip velocity
-      const vv = Math.hypot(vl, vs) || 1, k = C.SLIDE_MU * Fmax * Math.tanh(vv / C.BRAKE_SLIP_V) / vv;
+      const vv = hyp2(vl, vs) || 1, k = C.SLIDE_MU * Fmax * Math.tanh(vv / C.BRAKE_SLIP_V) / vv;
       Fl = -vl * k; Fs = -vs * k; st.lock = true; st.lon = 0;
     } else {
       Fl = -Math.tanh(vl / C.LONG_SLIP_V) * sf.roll * Fn - Math.tanh(vl / C.BRAKE_SLIP_V) * Fb;
@@ -544,7 +559,7 @@ function stepAircraft(a, dt) {
         if (C.STICK_K * Math.abs(st.lon) > capL) st.lon = Math.sign(st.lon) * capL / C.STICK_K;
         Fl = clamp(Fl - C.STICK_K * st.lon, -capL, capL);
       } else st.lon = 0;
-      const h = Math.hypot(Fl, Fs); if (h > Fmax) { Fl *= Fmax / h; Fs *= Fmax / h; }
+      const h = hyp2(Fl, Fs); if (h > Fmax) { Fl *= Fmax / h; Fs *= Fmax / h; }
     }
     st.Fy = Fs; st.slip = Math.abs(vs) + (st.lock ? Math.abs(vl) : 0);
     const Fg = vAdd(vAdd(vScale(n, Fn), vScale(fwd, Fl)), vScale(side, Fs));
@@ -570,7 +585,7 @@ function stepAircraft(a, dt) {
   a.w = [w[0] + (M[0] - gy[0]) / I[0] * dt, w[1] + (M[1] - gy[1]) / I[1] * dt, w[2] + (M[2] - gy[2]) / I[2] * dt];
   const dq = qMul(a.q, [a.w[0], a.w[1], a.w[2], 0]);
   const q = [a.q[0] + 0.5 * dt * dq[0], a.q[1] + 0.5 * dt * dq[1], a.q[2] + 0.5 * dt * dq[2], a.q[3] + 0.5 * dt * dq[3]];
-  const ql = Math.hypot(q[0], q[1], q[2], q[3]); a.q = [q[0] / ql, q[1] / ql, q[2] / ql, q[3] / ql];
+  const ql = hyp4(q[0], q[1], q[2], q[3]); a.q = [q[0] / ql, q[1] / ql, q[2] / ql, q[3] / ql];
 
   const pn = (a.power - C.IDLE_POWER) / (1 - C.IDLE_POWER);
   a.out = { V, alpha, beta, stall, flap: a.flap, thrust: T, wow, vs: a.vel[1], alt: a.pos[1],
@@ -581,7 +596,7 @@ const hyp = (a, b, c = 0) => Math.sqrt(a * a + b * b + c * c);   // v0.59 Math.h
 
 // ======================= RENDERING =======================
 // v0.35 settings (persist in localStorage 'bp_gfx'; ?gfx=shadows:2,grass:1 overrides for testing). Defaults = the v0.34 look and cost.
-const BP_VERSION = 'v0.93';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
+const BP_VERSION = 'v0.93.1';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
 { const e = document.getElementById('ver'); if (e) e.textContent = BP_VERSION; }
 const GFX_DEF = { shadows: 0, scale: 1, fov: 1, dist: 1, trees: 1, grass: 0, clouds: 1, fog: 1, msaa: 1, hz: 90, vig: 0, turn: 0, fps: 0, tod: 11, stk: 1, tips: 1, terr: 1, dyn: 1, glove: 0, hand: 0, wt: 1, volM: 1, volE: 1, volA: 1, volF: 1, wx: 1, forest: 0, ground: 0, gtex: 0 };   // v0.68.1 dominant hand, volumes. v0.48 BALANCED: 90 % scale, 72 Hz, fast terrain shading, auto resolution; v0.49.1 the stick stays where you let go of it
 const GFX = Object.assign({}, GFX_DEF);
@@ -6181,50 +6196,53 @@ const RIFLE_POSES = {
 // v0.92 item weight (Neil): what a hand carries trails the controller on a spring (heavier = slower) and sags a little, by its weight. Drawn only: the item's and the
 // hand's real poses (every grab, aim, load, drop and stack test) stay on the controller - wtApply moves them for renderer.render and wtRestore puts them back. Settings: Item weight.
 const WT = { h: [0, 1].map(() => ({ p: GV3(0, 0, 0), v: GV3(0, 0, 0), q: new THREE.Quaternion(), w: GV3(0, 0, 0), m: 0, live: false, dp: GV3(0, 0, 0), dq: new THREE.Quaternion(), pv: GV3(0, 0, 0), D: new THREE.Matrix4() })),
-  gD: [null, null], rD: new THREE.Matrix4(), tD: new THREE.Matrix4(), go: [], sv: [], LAG: 0.06, ANG: 15 * D2R, RIFLE: 3.4, LB: 0.4536 };
+  gD: [null, null], rD: new THREE.Matrix4(), tD: new THREE.Matrix4(), go: [], sv: [], gp: [], sp: [], K: [0, 0], kg: 0, LAG: 0.06, ANG: 15 * D2R, RIFLE: 3.4, LB: 0.4536 };
 const _wtM = new THREE.Matrix4(), _wtM2 = new THREE.Matrix4(), _wtPi = new THREE.Matrix4(), _wtQx = new THREE.Quaternion(), _wtQ = new THREE.Quaternion(), _wtQ2 = new THREE.Quaternion(), _wtV = GV3(0, 0, 0), _wtV2 = GV3(0, 0, 0), _wtDn = GV3(0, 0, 0), _wtS = GV3(0, 0, 0);
 const wtWn = m => 140 / Math.sqrt(1 + m / 3), wtSag = m => 0.04 * m / (m + 15);   // rad/s, kg: the 3.4 kg rifle 96 rad/s + 7 mm, a 50 lb sack 46 rad/s + 2.4 cm (a 1 m/s swing trails 2 v / wn: 2 / 4 cm)
-function wtItem(g) {   // what this hand carries and how heavy (kg) it is for that hand: [kg, kind] kind 1 = rides on the hand, 2 = two-hand piece, 3 = the rifle
-  if (RFL.g && RFL.place === 'vr' && (RFL.hand === g || RFL.sup === g)) return [WT.RIFLE / (RFL.hand && RFL.sup ? 2 : 1), 3];
-  let it = DLV.held.get(g); if (it) return it.two ? [it.lb * WT.LB / 2, 2] : [dlvStack(it).reduce((a, p) => a + p.lb, 0) * WT.LB, 1];
-  it = DROP.held.get(g); if (it) return [it.lb * WT.LB, 1];
-  it = UPG.held.get(g); if (it) return [(UPG_I[it.k]?.lb || 0) * WT.LB, 1];
-  return [0, 0];
+function wtItem(g) {   // what this hand carries: returns the kind (1 = rides on the hand, 2 = two-hand piece, 3 = the rifle) and leaves its weight for that hand (kg) in WT.kg (v0.93.1 no arrays per frame)
+  WT.kg = 0; if (!g.userData.src) return 0;
+  if (RFL.g && RFL.place === 'vr' && (RFL.hand === g || RFL.sup === g)) { WT.kg = WT.RIFLE / (RFL.hand && RFL.sup ? 2 : 1); return 3; }
+  let it = DLV.held.get(g); if (it) { if (it.two) { WT.kg = it.lb * WT.LB / 2; return 2; } let lb = 0; for (const p of dlvStack(it)) lb += p.lb; WT.kg = lb * WT.LB; return 1; }
+  it = DROP.held.get(g); if (it) { WT.kg = it.lb * WT.LB; return 1; }
+  it = UPG.held.get(g); if (it) { WT.kg = (UPG_I[it.k]?.lb || 0) * WT.LB; return 1; }
+  return 0;
 }
+function wtGo(o, D) { const n = WT.go.length, e = WT.gp[n] || (WT.gp[n] = { o: null, D: null }); e.o = o; e.D = D; WT.go.push(e); }
 function wtMix(A, B, k, D) {   // the average of two hands' offsets (k = how much of B), as D
   _wtV.lerpVectors(A.dp, B.dp, k); _wtV2.lerpVectors(A.pv, B.pv, k); _wtQ.copy(A.dq).slerp(B.dq, k); return wtMat(_wtV, _wtQ, _wtV2, D); }
 function wtMat(dp, dq, pv, D) { return D.makeTranslation(-pv.x, -pv.y, -pv.z).premultiply(_wtM2.makeRotationFromQuaternion(dq)).premultiply(_wtM2.makeTranslation(pv.x + dp.x, pv.y + dp.y, pv.z + dp.z)); }
 function wtTick(dt) {   // after the hands' logic for this frame, before updateHands skins the gloves
   WT.gD[0] = WT.gD[1] = null; WT.go.length = 0; if (!GFX.wt) { for (const H of WT.h) H.live = false; return; }
   xrOffset.updateWorldMatrix(true, false); _wtPi.copy(xrOffset.matrixWorld).invert(); xrOffset.getWorldQuaternion(_wtQx); _wtDn.set(0, -1, 0).transformDirection(_wtPi);   // the spring lives in the rig: the plane's motion doesn't drag it
-  const K = [0, 0];
-  for (let i = 0; i < 2; i++) { const g = grips[i], H = WT.h[i], [m, k] = g.userData.src ? wtItem(g) : [0, 0]; K[i] = k;
+  const K = WT.K;
+  for (let i = 0; i < 2; i++) { const g = grips[i], H = WT.h[i], k = wtItem(g), m = WT.kg; K[i] = k;
     if (m <= 0) { H.live = false; continue; }
     if (!H.live) { H.p.copy(g.position); H.q.copy(g.quaternion); H.v.set(0, 0, 0); H.w.set(0, 0, 0); H.live = true; }   // picked up: from the controller, then it settles into its sag
     const wn = wtWn(m), tp = _wtS.copy(g.position).addScaledVector(_wtDn, wtSag(m));
     { const ex = Math.exp(-wn * dt);   // critically damped, solved exactly over the frame (stable at any rate): e' = (e + (v + wn e) t) exp(-wn t), position and turn
       _wtV.subVectors(H.p, tp); _wtV2.copy(H.v).addScaledVector(_wtV, wn); H.v.addScaledVector(_wtV2, -wn * dt).multiplyScalar(ex); H.p.copy(tp).addScaledVector(_wtV.addScaledVector(_wtV2, dt), ex);
       _wtQ.copy(H.q).multiply(_wtQ2.copy(g.quaternion).invert()); if (_wtQ.w < 0) { _wtQ.x = -_wtQ.x; _wtQ.y = -_wtQ.y; _wtQ.z = -_wtQ.z; _wtQ.w = -_wtQ.w; }
-      const sn = Math.hypot(_wtQ.x, _wtQ.y, _wtQ.z), an = 2 * Math.atan2(sn, _wtQ.w); _wtV.set(_wtQ.x, _wtQ.y, _wtQ.z).multiplyScalar(sn > 1e-9 ? an / sn : 2);
+      const sn = hyp(_wtQ.x, _wtQ.y, _wtQ.z), an = 2 * Math.atan2(sn, _wtQ.w); _wtV.set(_wtQ.x, _wtQ.y, _wtQ.z).multiplyScalar(sn > 1e-9 ? an / sn : 2);
       _wtV2.copy(H.w).addScaledVector(_wtV, wn); H.w.addScaledVector(_wtV2, -wn * dt).multiplyScalar(ex); _wtV.addScaledVector(_wtV2, dt).multiplyScalar(ex); const el = _wtV.length();
       H.q.copy(g.quaternion); if (el > 1e-9) H.q.premultiply(_wtQ2.setFromAxisAngle(_wtV.divideScalar(el), el)); }
     _wtV.subVectors(H.p, tp); const lag = _wtV.length(); if (lag > WT.LAG) H.p.copy(tp).addScaledVector(_wtV, WT.LAG / lag);   // never further than 6 cm / 15 deg behind
     const ag = H.q.angleTo(g.quaternion); if (ag > WT.ANG) { _wtQ2.copy(H.q); H.q.copy(g.quaternion).slerp(_wtQ2, WT.ANG / ag); }
     H.pv.copy(g.position).applyMatrix4(xrOffset.matrixWorld); H.dp.copy(H.p).applyMatrix4(xrOffset.matrixWorld).sub(H.pv);   // -> a world offset about the controller
     H.dq.copy(_wtQx).multiply(_wtQ.copy(H.q).multiply(_wtQ2.copy(g.quaternion).invert())).multiply(_wtQ2.copy(_wtQx).invert()); wtMat(H.dp, H.dq, H.pv, H.D); }
-  for (let i = 0; i < 2; i++) if (K[i] === 1) { WT.gD[i] = WT.h[i].D; WT.go.push([grips[i], WT.h[i].D]); }   // rides on the hand: the hand and all it holds
-  if (K[0] === 2 && K[1] === 2 && WT.h[0].live && WT.h[1].live) { wtMix(WT.h[0], WT.h[1], 0.5, WT.tD); WT.gD[0] = WT.gD[1] = WT.tD; const it = DLV.held.get(grips[0]); if (it) WT.go.push([it.mesh, WT.tD]); }   // a two-hand piece: both hands' average
-  const r = [0, 1].filter(i => K[i] === 3 && WT.h[i].live);
-  if (r.length) { const A = WT.h[r[0]], B = WT.h[r[r.length - 1]], k = 1 - clamp(RFL.stockW || 0, 0, 1);   // the rifle: its hands' average, none on the shoulder (the cheek weld stays exact)
+  for (let i = 0; i < 2; i++) if (K[i] === 1) { WT.gD[i] = WT.h[i].D; wtGo(grips[i], WT.h[i].D); }   // rides on the hand: the hand and all it holds
+  if (K[0] === 2 && K[1] === 2 && WT.h[0].live && WT.h[1].live) { wtMix(WT.h[0], WT.h[1], 0.5, WT.tD); WT.gD[0] = WT.gD[1] = WT.tD; const it = DLV.held.get(grips[0]); if (it) wtGo(it.mesh, WT.tD); }   // a two-hand piece: both hands' average
+  const r0 = K[0] === 3 && WT.h[0].live, r1 = K[1] === 3 && WT.h[1].live;
+  if (r0 || r1) { const A = WT.h[r0 ? 0 : 1], B = WT.h[r1 ? 1 : 0], k = 1 - clamp(RFL.stockW || 0, 0, 1);   // the rifle: its hands' average, none on the shoulder (the cheek weld stays exact)
     _wtV.lerpVectors(A.dp, B.dp, 0.5).multiplyScalar(k); _wtV2.lerpVectors(A.pv, B.pv, 0.5); _wtQ.copy(A.dq).slerp(B.dq, 0.5); _wtQ2.identity().slerp(_wtQ, k); wtMat(_wtV, _wtQ2, _wtV2, WT.rD);
-    for (const i of r) WT.gD[i] = WT.rD; const lv = grips.indexOf(RFL.levHand); if (lv >= 0) WT.gD[lv] = WT.rD; WT.go.push([RFL.g, WT.rD]); }   // (a hand on the lever loop rides with it too)
+    if (r0) WT.gD[0] = WT.rD; if (r1) WT.gD[1] = WT.rD; const lv = grips.indexOf(RFL.levHand); if (lv >= 0) WT.gD[lv] = WT.rD; wtGo(RFL.g, WT.rD); }   // (a hand on the lever loop rides with it too)
 }
 function wtApply() {   // just before renderer.render: the weighed-down poses
   const S = WT.sv; S.length = 0;
-  for (const [o, D] of WT.go) { if (!o.parent) continue; o.updateWorldMatrix(true, false); S.push([o, o.matrix.clone(), o.position.clone(), o.quaternion.clone(), o.scale.clone()]);
+  for (const { o, D } of WT.go) { if (!o.parent) continue; o.updateWorldMatrix(true, false); const n = S.length, e = WT.sp[n] || (WT.sp[n] = { o: null, M: new THREE.Matrix4(), p: GV3(0, 0, 0), q: new THREE.Quaternion(), s: GV3(0, 0, 0) });   // v0.93.1 pooled, not cloned each frame
+    e.o = o; e.M.copy(o.matrix); e.p.copy(o.position); e.q.copy(o.quaternion); e.s.copy(o.scale); S.push(e);
     _wtM.multiplyMatrices(D, o.matrixWorld).premultiply(_wtPi.copy(o.parent.matrixWorld).invert()); o.matrix.copy(_wtM); o.matrix.decompose(o.position, o.quaternion, o.scale); o.matrixWorldNeedsUpdate = true; }
 }
-function wtRestore() { for (const [o, M, p, q, sc] of WT.sv) { o.matrix.copy(M); o.position.copy(p); o.quaternion.copy(q); o.scale.copy(sc); o.updateMatrixWorld(true); } WT.sv.length = 0; }
+function wtRestore() { for (const { o, M, p, q, s: sc } of WT.sv) { o.matrix.copy(M); o.position.copy(p); o.quaternion.copy(q); o.scale.copy(sc); o.updateMatrixWorld(true); } WT.sv.length = 0; }
 const GUN = { stockEngage: 0.08, stockFull: 0.025, stockTau: 0.15, leverTime: 0.12, leverMax: 0.9, mv: 400, drag: 0.0029, zeroM: 50, disp: 0.0006,
   gateR: 0.025, magnetR: 0.05, loadR: 0.1, loadCos: 0.5, pouchR: 0.1, grabR: 0.15, stockR: 0.15, loadBtnR: 0.25, tube: 7, pouch: 60, flick: 1.6,   // v0.91.2 (Neil) pouchR 0.24 -> 0.1 m: the grab zone round the belt pouch (9 x 8 x 4 cm) was a 48 cm ball that took grabs meant for the rifle
   pickupBlend: 0.12, handoffBlend: 0.08, inertiaWn: 55, stockCapPos: 0.003, stockCapRot: 0.6, gateCone: 40 * D2R };   // v0.67 from the v0.9-v0.44 rifle: pick-up / hand-off blends, one-hand muzzle lag, stock pull rate cap, loading-gate entry cone

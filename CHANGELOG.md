@@ -2,6 +2,18 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.93.1 – less garbage per frame (physics md5 unchanged)
+
+- **The terrain height no longer makes garbage.** The flight model asks for the ground height many times a frame, through V8's `Math.hypot`, and that builtin boxes its arguments and result: about 0.5 KB per height.
+  - The physics now uses **hyp2 / hyp3 / hyp4**, the same algorithm V8 uses (scaled by the largest; the Kahan loop for 4), as plain arithmetic.
+  - They match `Math.hypot` bit for bit: 5 M random samples in node and Chrome, and 300 k in t931 incl. 0, -0, NaN and Infinity.
+- **Vertex height cache.** `terrainHeight` reads its 3–4 grid vertices through a 4096-entry cache of exact vertex heights (on once the lakes are dug at load). The wheels and feet ask about the same few cells all frame. The numbers are the same, with much less work. physics-test runs in 2.8 s (was 5.6 s).
+- **`rawHeight` reads plain constants for the meadow / paddock.** V8's Maglev kept deoptimising it on `MEADOW.x` (~50 times in a few seconds).
+- **`qRot` / `qRotInv`** build one array per call, not six, with the same arithmetic in the same order.
+- **Item weight (v0.92)** no longer allocates per frame: no `[kg, kind]` arrays, no filter, pooled weighed-object entries and pooled saved poses (no matrix / vector clones).
+- **Physics md5 unchanged** (`eee6637e…`). W&B pass.
+- New test **t931**: bit-identity of hyp2/3/4, qRot and qRotInv, and cached vs uncached terrain heights (120 k points), plus the pooled item-weight state.
+
 ## v0.93 – 90 Hz by default; auto quality drops detail before sharpness; no shader compiles on foot or in mist
 
 - **Defaults are now 100 % render scale at 90 Hz** (were 90 % at 72 Hz). A saved copy of the old BALANCED defaults (90 % / 72 Hz) moves to the new ones once. A scale or rate you choose after v0.93 sticks.
