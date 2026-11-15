@@ -124,6 +124,8 @@ v0.44 latches: every window and the door are latched while shut. Squeeze the han
 | Answer a radio call / call Home (v1.02) | Take the hand mic off its clip, squeeze that hand's trigger | Hold ' (quote) |
 | Walt's map fills in (v1.03, story) | Fly or walk: the paper map inks in round you (wider the higher you fly); named places + lakes found low overhead pay; 25 / 50 / 75 % mapped pays | same |
 | Signature vistas (v1.04) | Fly to them: Oxbow Falls (W), Sentinel Fjord (W coast), Needle Eye Arch (SE, fly through the gap), the North Icefall (SE, above the icefield strip), the Hidden Lake (far SW); the northern lights on clear nights, looking north. Each is a discovery: journal, map, +$150 | same |
+| Act 2: the north ice (v1.05, story) | After the cowling + 6 clues: Pete calls - fit the wheel-skis (he puts in half: $1,300 on the hangar board), fly the search cache from the Home pad to Walt's ski shelf (orange wands + dye, ~½ km N of the cowling), land northbound uphill, set every piece down inside the wands. Engine off on the shelf the skis freeze in | same |
+| Pour the cache fuel (v1.05) | Park the Cub by the cache tent, engine off, stand at the cans (it pours by itself, ~10 gal) | same |
 
 ## On foot
 | | VR | Desktop |

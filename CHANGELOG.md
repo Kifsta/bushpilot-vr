@@ -2,6 +2,31 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v1.05 – Act 2: the north ice. Walt's ski shelf, the wheel-skis and the search cache
+
+- **When it starts:** once you have found the cowling (the glint) and have six clues on the corkboard. You get a journal line, the story stinger and a banner: "the north ice: Gordon's Norseman is up there". The story act goes to 2 (or stays 2 if the note or the snow already got it there).
+- **Walt's ski shelf:** a snow bench under the ridge, about 0.4–0.7 km north-north-west of the cowling, at (-4020, -5160).
+  - About 480 x 120 m, sloping 3 % uphill to the north. You land northbound, uphill. Elevation is roughly 1,008 m at the south end and 1,022 m at the north end.
+  - It is cut into the ground in rawHeight (snow, so skis work there). The cowling itself has not moved: still (-3750, -4550).
+  - Markings: Walt's orange-topped wands down both edges, a windsock at the south-west corner, an orange dye threshold bar, and centre-line dashes you can see from final approach.
+  - Tested: a touchdown at 18 m/s with the engine idling and no brakes rolls about 170–245 m and stops inside the wands.
+  - **The skis freeze in:** stopped on the shelf on skis with the engine off, the Cub stays put. Without this it crept back down the slope, because skis have no brakes. Starting the engine frees it.
+  - On wheels the landing doesn't count, and you're told the shelf needs the wheel-skis.
+  - Landing on skis there logs it in the journal and sketches it on Walt's map.
+- **Radio beats:**
+  - **Pete (after the cowling call):** Walt staked the only flat ice up there. Land it uphill. He chips in half on the wheel-skis: in story, from Act 2 until you buy them, they cost **$1,300** on the hangar board (was $2,600; free play is unchanged). And nobody searches that ice without a cache.
+  - **Eleanor Voss:** her father, Harold Voss, chartered Gordon's last flight. He was the man at the Lodge. "Bring me any papers first."
+  - **Pete again** when you land on the shelf, and when the cache is pitched: "now walk that ice, from the shelf up to the cowling".
+  - **Check-in (key the mic):** in Act 2 Pete tells you the next step: buy or fit the skis, fly the cache, then walk the ice.
+- **The search cache, a supply run:** Pete stacks it on the Home pad after his call. It is two fuel cans, a tent crate and a grub sack, 150 lb in all, labelled NORTH ICE CACHE.
+  - It is a story job, not a board job, so the boards' seeded jobs are untouched.
+  - Fly it up, land inside the wands and set every piece down in the snow. The cache is then pitched where you put it: an orange ridge tent, the cans on the crate, and a flag pole.
+  - **Cache fuel:** park the Cub by the tent, shut down, and stand at the cans. About 10 gal pours into the tanks (or as much as fits; the rest keeps).
+  - The pieces survive a save and load mid-run. If they are lost, Pete stacks another set.
+- **Walt's map:** the cowling note gets a line under it: "ski shelf ½ km N", then "landed", then "cache in".
+- **Physics block:** only the terrain formula gained the shelf. physics-test md5 is identical (eee6637e…), and the flight model is untouched. The new meshes reuse ITEM_VM, so there are no new shaders.
+- New test t105, 15 checks.
+
 ## v1.04 – signature vistas (by VR Dev 2): Oxbow Falls, the Hidden Lake, Sentinel Fjord, Needle Eye Arch, the North Icefall, the northern lights
 
 - **Five landmarks and the aurora** come from VR Dev 2's standalone vistas module (`/workspace/v2-vistas/vistas.js`). It is patched into index.html inline by its own `apply.py --repo`, between the `// >>> V2 VISTAS BEGIN` / `// <<< V2 VISTAS END` markers just before the animation loop, with `vistaTick(dt)` after the loop's first `updateWater(dt)`. The patch is idempotent: re-running it replaces the block.

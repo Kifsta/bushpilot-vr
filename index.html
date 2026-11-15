@@ -252,7 +252,7 @@ function mountain(x, z) {
   let p = 1; for (const s of PASSES) p = Math.min(p, 0.36 + 0.64 * smooth(segD(x, z, s) / 520));
   return m * p * (350 + 900 * ridged(x, z));
 }
-const PD_X = PAD.x, PD_Z = PAD.z, MD_X = MEADOW.x, MD_Z = MEADOW.z, MD_HW = MEADOW.hw, MD_HL = MEADOW.hl, MD_B = MEADOW.blend;   // v0.93.1 plain numbers: V8's Maglev kept deoptimising rawHeight on MEADOW.x (~50 times in a few seconds)
+const PD_X = PAD.x, PD_Z = PAD.z, MD_X = MEADOW.x, MD_Z = MEADOW.z, MD_HW = MEADOW.hw, MD_HL = MEADOW.hl, MD_B = MEADOW.blend, SH_X = -4020, SH_Z = -5160, SH_HW = 70, SH_HL = 250, SH_B = 150, SH_H = 1015, SH_G = 0.03;   /* v1.05 SH_: Walt's north ice shelf: a 480 x 120 m snow bench, 3 % uphill to the north (ski landing) */   // v0.93.1 plain numbers: V8's Maglev kept deoptimising rawHeight on MEADOW.x (~50 times in a few seconds)
 function rawHeight(x, z) {   // the smooth height formula (mesh vertices sample this)
   let h = baseHeight(x, z) + mountain(x, z);
   let dx = Math.max(0, Math.abs(x - PD_X) - 50), dz = Math.max(0, Math.abs(z - PD_Z) - 85);
@@ -266,6 +266,8 @@ function rawHeight(x, z) {   // the smooth height formula (mesh vertices sample 
     const t = smooth(hyp2(dx, dz) / MD_B);
     h = h * t + (MEADOW_H + 0.05 * Math.sin(x * 0.8 + z * 0.4) * Math.sin(z * 0.6)) * (1 - t);
   }
+  dx = Math.max(0, Math.abs(x - SH_X) - SH_HW); dz = Math.max(0, Math.abs(z - SH_Z) - SH_HL);   // v1.05 the north ice shelf
+  if (dx < SH_B && dz < SH_B) { const t = smooth(hyp2(dx, dz) / SH_B); h = h * t + (SH_H + SH_G * (SH_Z - z) + 0.15 * Math.sin(x * 0.05 + z * 0.03)) * (1 - t); }
   if (typeof LAKES !== 'undefined') for (const L of LAKES) { const d = hyp2(x - L.x, z - L.z); if (d < L.r + 500) { const u = Math.min(1, d / L.r); h = Math.min(h, L.h - 2.5 * (1 - u * u) - 9.5 * smooth((0.86 - u) / 0.6) + Math.max(0, d - L.r) * 0.12); } }   // v0.98 deeper: the old 2.5 m shelf, then a drop-off to ~12 m in the middle
   return h;
 }
@@ -5630,7 +5632,7 @@ function bushFind(S, quiet) {   // a bush site goes on the map
 function bushTick() {   // flown over low (within ~400 m, under ~250 m above it) or walked up to: found
   for (const S of DLV_STRIPS) if (S.site && !S.found && hyp(PP.x - S.x, PP.z - S.z) < 400 && PP.y - groundY(S.x, S.z) < 250) bushFind(S);
 }
-const dlvS = id => DLV_STRIPS.find(S => S.id === id);
+const dlvS = id => DLV_STRIPS.find(S => S.id === id) || (id === 'NSHELF' ? ST_SITE : undefined);   // v1.05 + the story cache's site (a var, below)
 const dlvKm = (a, b) => hyp(a.x - b.x, a.z - b.z) / 1000;
 function dlvInPad(S, x, z) { const dx = x - S.pad[0], dz = z - S.pad[1], c = Math.cos(S.ry), s = Math.sin(S.ry), lx = dx * c - dz * s, lz = dx * s + dz * c; return Math.abs(lx) < DLV_PAD && Math.abs(lz) < DLV_PAD; }
 function dlvPadAt(x, z) { for (const S of DLV_STRIPS) if (dlvInPad(S, x, z)) return S; return null; }
@@ -5782,7 +5784,7 @@ function dlvGen0(from, forceH) {   // one offer from this strip (seeded by the r
 function dlvInit(fresh) { if (fresh) { DLV.cash = DLV_CASH0; DLV.gt = 0; DLV.seq = 1; } for (const S of DLV_STRIPS) { const L = DLV.offers[S.id] || (DLV.offers[S.id] = []); while (L.length < 3) L.push(dlvGen(S.id, L.length === 2 && !L.some(dlvFrt))); } }   // v0.52: a heavy job on every board
 function dlvActiveIn(a) { a.length = 0; for (let i = 0; i < DLV_STRIPS.length; i++) { const L = DLV.offers[DLV_STRIPS[i].id]; for (let k = 0; k < L.length; k++) if (L[k].st === 'active') a.push(L[k]); } for (let k = 0; k < EMG.jobs.length; k++) if (EMG.jobs[k].st === 'active') a.push(EMG.jobs[k]); return a; }   // v0.58 + an emergency
 const dlvActive = () => dlvActiveIn([]), _dlvA = [], dlvActiveR = () => dlvActiveIn(_dlvA);   // v0.59 R: one shared array for the read-only per-frame loops (no garbage)
-const dlvJob = id => { for (const S of DLV_STRIPS) for (const j of DLV.offers[S.id]) if (j.id === id) return j; for (const j of EMG.jobs) if (j.id === id) return j; return null; };
+const dlvJob = id => { for (const S of DLV_STRIPS) for (const j of DLV.offers[S.id]) if (j.id === id) return j; for (const j of EMG.jobs) if (j.id === id) return j; if (ST_JOBS) for (const j of ST_JOBS) if (j.id === id) return j; return null; };   // v1.05 + the story jobs (not on a board)
 const dlvLb = j => j.items.reduce((s, i) => s + i.lb, 0);
 const dlvRoom = () => Math.floor(WNB.GROSS_LB - (WBS.plan ? WBS.plan.lb : WNB.REF_LB));   // v0.52 payload left under max gross (you + the fuel aboard + any cargo already in)
 const dlvLeft = j => j.dl ? j.due - DLV.gt : Infinity;
@@ -6333,7 +6335,7 @@ function dlvLoad(d) {
     for (const S of DLV_STRIPS) { const L = d.offers?.[S.id]; if (Array.isArray(L)) DLV.offers[S.id] = L.filter(j => j && dlvS(j.to) && Array.isArray(j.items) && j.items.every(i => CARGO_K[i.k])).slice(0, 3).map(j => ({ ...j, from: S.id, ...(j.hunt ? { hunt: { h: clamp(j.hunt.h | 0, 0, DEER_HERDS.length - 1), got: j.hunt.got ? 1 : 0 } } : {}), ...(j.drop ? { drop: { s: clamp(j.drop.s | 0, 0, DROPS.length - 1), n: Math.max(1, j.drop.n | 0), res: Array.isArray(j.drop.res) ? j.drop.res.filter(q => q && isFinite(q.d)).map(q => ({ d: +q.d, c: clamp(+q.c || 0, 0, 1), lost: q.lost || 0, tree: q.tree ? 1 : 0 })) : [] } } : {}), ...(j.sp ? { sp: DLV_SPX[j.sp] ? j.sp : undefined, fresh: clamp(+j.fresh || 0, 0, 1), stress: clamp(+j.stress || 0, 0, 1), life: j.sp === 'perish' ? Math.max(1, +j.life || 1) : 0 } : {}) })); }
     dlvInit(false);
     if (Array.isArray(d.straps)) { DLV.belt = !!d.straps[0]; DLV.net = !!d.straps[1]; }
-    for (const o of d.items || []) { const j = dlvJob(o.j); if (!j || j.st !== 'active' || !CARGO_K[o.k]) continue;
+    for (const o of d.items || []) { const j = dlvJob(o.j); if (!j || (j.st !== 'active' && j.st !== 'story') || !CARGO_K[o.k]) continue;
       const it = dlvMake(j, o.k, o.lb, o.n || 0); it.dmg = clamp(+o.dmg || 0, 0, 1);
       if (o.s === 'c' && CZ[o.zn] && o.p?.length === 3) { it.st = 'loading'; if (cgPlace(it, o.zn, o.p[0], o.p[2]) || cgLoadAny(it, true)) it.st = 'cargo'; else dlvSetGround(it, ac.pos[0] + 2, ac.pos[2], 0); }
       else if (o.p?.length >= 2) { dlvSetGround(it, o.p[0], o.p[1], o.ry || 0); it.mesh.position.y = dlvRestY(it, o.p[0], o.p[1], 1e5, 0.12); } }   // v0.88.1 a saved pile (or a carried stack) rebuilds as a pile
@@ -9152,9 +9154,9 @@ function storySnow() { STORY.snow = true; STORY.act = Math.max(STORY.act, 2); co
 function storyKbPages() { KB_PAGES = STORY.on ? ['JOBS', 'W&B', 'CUB', 'PERF', 'NOTE', 'LOG'] : ['JOBS', 'W&B', 'CUB', 'PERF']; if (KB.page >= KB_PAGES.length) KB.page = 0; KB.key = ''; }
 function storyKbBody(x) { stDrawLetter(x, KB_W, KB_H, 76); x.fillStyle = '#7a3020'; x.font = 'bold 21px sans-serif'; x.fillText('OWED $' + storyOwed().toLocaleString('en-US') + ' - ' + (STORY.snow && !STORY.ext ? 'THE SNOW IS HERE' : storyLeft() + ' DAYS LEFT') + ' - PAID $' + STORY.paid.toLocaleString('en-US'), 22, KB_H - 18, KB_W - 44); }
 // ---- start, show, save ----
-function storyShow() { const on = STORY.on; SB.desk.visible = SB.m.visible = on; for (const it of SITEMS) it.m.visible = on; storyKbPages(); STORY.key = ''; if (typeof CB !== 'undefined') clueShow(); }
+function storyShow() { const on = STORY.on; SB.desk.visible = SB.m.visible = on; for (const it of SITEMS) it.m.visible = on; storyKbPages(); STORY.key = ''; if (typeof CB !== 'undefined') clueShow(); if (typeof A2 !== 'undefined') act2Show(); }
 function storyBegin() {   // a brand-new story game: up in Walt's hangar, a late-summer morning, the boards at story pay
-  DISC.found = {}; DISC.n = 0; fogStart(); STORY.on = true; STORY.act = 1; STORY.gh = 0; STORY.paid = 0; STORY.fee = 0; STORY.ext = 0; STORY.snow = false; storyShow();
+  DISC.found = {}; DISC.n = 0; fogStart(); if (typeof A2 !== 'undefined') act2Reset(); STORY.on = true; STORY.act = 1; STORY.gh = 0; STORY.paid = 0; STORY.fee = 0; STORY.ext = 0; STORY.snow = false; storyShow();
   for (const S of DLV_STRIPS) DLV.offers[S.id] = []; DLV.seq = 1; dlvInit(false); for (const S of DLV_STRIPS) S.key = '';
   if (GFX.dayl > 0) DAY.h = 8.25; updateDay(0);
   const x = HANGAR.x - 1.6, z = HANGAR.z + 0.4; footRig.position.set(x, groundY(x, z) + EYE, z); footRig.rotation.set(0, Math.PI / 2, 0); bodyYaw = Math.PI / 2; lookYaw = lookPitch = 0;
@@ -9303,6 +9305,7 @@ function radPtt() {   // the mic was keyed (a press)
 function radCheckIn() {
   const L = [['YOU', 'HOME, MACRAE CUB. CHECKING IN.']]; if (!STORY.on) { L.push(['PETE', 'READ YOU FIVE BY FIVE, ' + PILOT + '. BOARDS ARE FULL. FLY SAFE.']); return L; }
   const o = storyOwed(); L.push(['PETE', o > 0 ? 'READ YOU. DAY ' + storyDay() + ', ' + (STORY.snow ? 'SNOW\'S HERE' : storyLeft() + ' DAYS TO THE SNOW') + ', AND YOU OWE ' + $o(o) + '.' : 'READ YOU. THE NOTE\'S PAID. FLY FOR FUN FOR ONCE.']);
+  const a2 = act2Hint(); if (a2) { L.push(['PETE', a2]); return L; }   // v1.05 the north ice
   const nx = CLUES.find(c => !c.k()); if (nx) L.push(['PETE', nx.id === 'glint' ? (STORY.said.ghint ? 'DAWSON\'S FLASH ON THE NORTH ICE - NORTH-NORTH-WEST, THE HIGH SHOULDER. GO LOW WITH THE SUN UP.' : 'WALT\'S LOG SAYS GLARE ON THE NORTH ICE ALL DAY. THE SUN FINDS THINGS UP THERE.') : nx.id.startsWith('g_') ? 'ABOUT GORDON - TRY ' + nx.hint.toUpperCase() + '. THEY TALK ONCE THEY TRUST YOU.' : 'AND READ ' + nx.hint.toUpperCase() + '.']);
   else L.push(['PETE', 'WALT\'S BOARD IS FULL. EVERYTHING POINTS NORTH.']); return L; }
 function radKey(e, down) { if (e.code !== 'Quote' || e.repeat) return; RAD.kd = down; if (down && mode === 'plane') e.preventDefault && e.preventDefault(); }
@@ -9369,10 +9372,10 @@ function fogOverlay(x) {
   if (STORY.read.log || got.size) { const [ex, ey] = fogEdge(x, GLINT.x, GLINT.z); x.strokeStyle = PENC; x.lineWidth = 2.5; x.beginPath(); x.moveTo(ex, ey + 46); x.lineTo(ex, ey - 16); x.lineTo(ex - 7, ey - 4); x.moveTo(ex, ey - 16); x.lineTo(ex + 7, ey - 4); x.stroke();
     x.setLineDash([3, 4]); x.lineWidth = 1.2; x.beginPath(); x.moveTo(ex + 10, ey - 6); x.lineTo(ex + 160, ey - 6); x.stroke(); x.setLineDash([]); fogText(x, 'N. ICE - off the sheet, ~6 km NNW of home', ex + 300, ey - 6, 'bold 13px ' + HANDF, PENC, 0); fogText(x, '"glare all day" - W.', ex + 260, ey + 12, '12px ' + HANDF, PENC, 0);
     if (said.ghint && !said.glint) { x.strokeStyle = 'rgba(160,30,20,0.7)'; x.setLineDash([5, 4]); x.beginPath(); x.arc(ex, ey + 6, 22, 0, 6.283); x.stroke(); x.setLineDash([]); fogText(x, 'Dawson\'s flash?', ex - 70, ey + 40, '12px ' + HANDF, '#8a1a10', -0.05); }
-    if (said.glint) { fogIcon(x, 'x', ex, ey + 6); fogText(x, 'CF-G - red cowling!', ex - 78, ey + 40, 'bold 13px ' + HANDF, '#8a1a10', -0.05); }
+    if (said.glint) { fogIcon(x, 'x', ex, ey + 6); fogText(x, 'CF-G - red cowling!', ex - 78, ey + 40, 'bold 13px ' + HANDF, '#8a1a10', -0.05); if (said.r_a2) fogText(x, said.cache ? 'ski shelf ½ km N - cache in' : said.shelf ? 'ski shelf ½ km N - landed' : 'W.\'s ski shelf, wands, ½ km N', ex + 120, ey + 34, '12px ' + HANDF, PENC, -0.05); }
     for (const c of CLUES) { if (!c.id.startsWith('g_') || !got.has(c.id)) continue; const S = DLV_STRIPS.find(q => q.id === c.id.slice(2)); if (!S) continue; const px = fogU(S.pad[0]), py = fogV(S.pad[1]) - 12;
       x.strokeStyle = 'rgba(176,32,26,0.45)'; x.lineWidth = 1.5; x.beginPath(); x.moveTo(px, py); x.quadraticCurveTo((px + ex) / 2, (py + ey) / 2 + 40, ex, ey + 6); x.stroke(); fogPin(x, px, py); } }
-  for (const id in DISC.found) { const D = DISC.found[id]; if (id === 'north_ice_cowling') continue; const [px, py, on] = fogEdge(x, D.x, D.z); fogIcon(x, D.i, px, py); fogText(x, (on ? '' : '^ ') + D.n.toLowerCase(), px, py + 16, '12px ' + HANDF, PENC, -0.02); }
+  for (const id in DISC.found) { const D = DISC.found[id]; if (id.startsWith('north_')) continue; const [px, py, on] = fogEdge(x, D.x, D.z); fogIcon(x, D.i, px, py); fogText(x, (on ? '' : '^ ') + D.n.toLowerCase(), px, py + 16, '12px ' + HANDF, PENC, -0.02); }
   x.fillStyle = 'rgba(58,70,88,0.8)'; x.font = '13px ' + HANDF; x.textAlign = 'right'; x.fillText('mapped ' + Math.round(FOG.pct * 100) + '%  -  found ' + DISC.n, MAP_W - 190, MAP_H - 14); x.textAlign = 'left'; }
 function fogComposite() { FOG.cver = FOG.ver; const x = FOG.cx, t = FOG.tx; x.globalCompositeOperation = 'source-over'; x.drawImage(FOG.paper, 0, 0);
   t.globalCompositeOperation = 'source-over'; t.clearRect(0, 0, MAP_W, MAP_H); t.drawImage(MAP.base, 0, 0); t.globalCompositeOperation = 'destination-in'; t.imageSmoothingEnabled = true; t.drawImage(FOG.m, 0, 0, MAP_W, MAP_H); t.globalCompositeOperation = 'source-over';
@@ -9393,6 +9396,80 @@ function fogSave() { return FOG.on ? FOG.m.toDataURL('image/png') : null; }
 function fogLoad(d) { FOG.mx.clearRect(0, 0, FOG.W, FOG.H); if (typeof d !== 'string' || !/^data:image\/png;base64,/.test(d)) { if (STORY.on) fogStart(); return; }
   const im = new Image(); im.onload = () => { FOG.mx.clearRect(0, 0, FOG.W, FOG.H); FOG.mx.drawImage(im, 0, 0, FOG.W, FOG.H); fogPct(); FOG.ver++; MAP.key = ''; }; im.onerror = () => { if (STORY.on) fogStart(); }; im.src = d; }
 onDiscover((id, R) => { if (isFinite(R.x) && isFinite(R.z)) fogReveal(R.x, R.z, 350); FOG.ver++; });
+
+// ===================== v1.05 ACT 2: THE NORTH ICE - Walt's ski shelf, the wheel-skis, the search cache =====================
+// Once the cowling is found and six clues are on the corkboard, the search goes north. Pete calls: the only flat ice up there is a saddle Walt staked
+// with orange wands, half a km north of the cowling (SH_X / SH_Z: a 480 x 120 m bench cut in rawHeight, 3 % uphill to the north - snow, ski-landable;
+// stopped there with the engine off the skis freeze in). Wheels won't do: the hangar board sells
+// the wheel-skis and Pete puts in half ($1,300 in story). He stages a search cache on the Home pad (two fuel cans, a tent crate, a grub sack): a story
+// job (not on any board, so the boards' seeded jobs are untouched). Fly it up, land on skis inside the wands, set the pieces down in the snow -> the
+// cache is pitched (tent, cans) and its fuel can be poured into the Cub there. Voss calls too: her father chartered Gordon's last flight.
+var ST_SITE = { id: 'NSHELF', name: 'NORTH ICE CACHE', pad: [SH_X, SH_Z], ry: 0, padY: SH_H };
+var ST_JOBS = [{ id: 990001, from: 'HOME', to: 'NSHELF', title: 'SEARCH CACHE', items: [{ k: 'fuel', lb: 36 }, { k: 'fuel', lb: 36 }, { k: 'crate', lb: 48 }, { k: 'sack', lb: 30 }], pay: 0, dl: 0, due: 0, st: 'story', wc: 'L' }];
+const A2 = { t: 0, pour: 0, skiK: UPG_KIT.find(q => q.k === 'skis'), wheel: 0 };
+A2.skiP = A2.skiK.price; A2.skiE = A2.skiK.eff;
+const a2In = (x, z, m = 0) => Math.abs(x - SH_X) < SH_HW + m && Math.abs(z - SH_Z) < SH_HL + m;
+// Walt's wands: orange-topped poles down both long edges of the shelf, a windsock at the west end (one merged mesh, ITEM_VM: no new shader)
+{ const P = [], y = (x, z) => terrainHeight(x, z);
+  for (const s of [-1, 1]) for (let z = SH_Z - 230; z <= SH_Z + 230; z += 40) { const x = SH_X + s * 52, g = y(x, z) - SH_H; P.push(['c', 0.035, 1.7, 5, x, g + 0.85, z, 0x3a3a3a], ['b', 0.26, 0.32, 0.04, x + s * 0.14, g + 1.55, z, 0xff6a10]); }
+  for (let z = SH_Z + 238; z > SH_Z - 240; z -= 60) { const g = y(SH_X, z) - SH_H, th = z > SH_Z + 230; P.push(['b', th ? 44 : 3, 0.2, th ? 5 : 18, SH_X, g + 0.02, z, 0xff5a10, SH_G, 0, 0]); }   // Walt's dye: the threshold bar + centre-line dashes (you see them from a mile out)
+  const wx = SH_X - 58, wz = SH_Z + 215, g = y(wx, wz) - SH_H; P.push(['c', 0.05, 4.2, 6, wx, g + 2.1, wz, 0xd8d8d0], ['t', [0.32, 0.12], 1.6, 8, wx + 0.85, g + 3.95, wz, 0xff7a18, 0, 0, Math.PI / 2 - 0.2]);
+  A2.w = new THREE.Mesh(mergeGeometries(P.map(partGeo)), ITEM_VM); A2.w.position.set(0, SH_H, 0); A2.w.castShadow = true; A2.w.userData.noBatch = true; A2.w.visible = false; scene.add(A2.w); }
+// the pitched cache: an orange ridge tent, two cans on a crate, a sack, a marker pole with a flag (built where you set the gear down)
+{ const P = [['k', 1.25, 1.3, 4, 0, 0.65, 0, 0xe86a18, 0, Math.PI / 4, 0], ['b', 0.5, 0.02, 1.9, 0, 0.01, 0, 0x5a4a30], ['b', 0.44, 0.28, 0.36, 1.6, 0.14, 0.2, 0x8a6a40],
+    ['b', 0.17, 0.28, 0.28, 1.5, 0.42, 0.2, 0xb02a1e], ['b', 0.17, 0.28, 0.28, 1.72, 0.42, 0.2, 0xb02a1e], ['b', 0.4, 0.2, 0.3, 1.55, 0.1, -0.5, 0x8a7a58],
+    ['c', 0.03, 3, 5, -1.4, 1.5, 0.8, 0x3a3a3a], ['b', 0.02, 0.4, 0.6, -1.4, 2.75, 1.1, 0xff6a10]];
+  A2.c = new THREE.Mesh(mergeGeometries(P.map(partGeo)), ITEM_VM); A2.c.castShadow = true; A2.c.userData.noBatch = true; A2.c.visible = false; scene.add(A2.c); }
+function a2Place() { const p = STORY.said.cacheP; if (!Array.isArray(p)) { A2.c.visible = false; return; } A2.c.position.set(p[0], groundY(p[0], p[1]), p[1]); A2.c.rotation.y = 0.4; A2.c.visible = STORY.on && !!STORY.said.cache; }
+function act2Show() { A2.w.visible = !!STORY.on; a2Place(); a2Price(); }
+function act2Reset() { for (const it of DLV.items.slice()) if (ST_JOBS.some(j => j.id === it.job)) dlvRemove(it); A2.c.visible = false; A2.pour = 0; }
+function a2Price() { const K = A2.skiK, cut = STORY.on && STORY.said.a2 && !UPG.kown.skis, p = cut ? Math.round(A2.skiP / 2) : A2.skiP; if (K.price !== p) { K.price = p; K.eff = cut ? A2.skiE + ' - PETE PUT IN HALF' : A2.skiE; if (typeof UPB !== 'undefined') UPB.key = ''; } }
+const a2Its = () => DLV.items.filter(it => it.job === ST_JOBS[0].id);
+function a2Go() { if (STORY.said.cacheGo) return; STORY.said.cacheGo = 1; a2Spawn(); storyLog('Pete stacked a search cache on the Home pad: two cans of fuel, a tent, grub. Fly it to Walt\'s wands on the north shelf.'); saveSoon(); }
+function a2Spawn() { if (!a2Its().length) dlvSpawn(ST_JOBS[0]); }
+function act2Hint() { const s = STORY.said; if (!STORY.on || !s.a2) return null;
+  if (s.cache) return 'THE CACHE IS IN. WALK THE ICE BETWEEN THE SHELF AND THE COWLING, KID. GORDON\'S UP THERE SOMEWHERE.';
+  if (!s.r_a2) return 'THE NORTH ICE - WALT STAKED A SKI SHELF HALF A K NORTH OF YOUR COWLING. ORANGE WANDS. YOU\'LL WANT SKIS AND A CACHE.';
+  if (UPG.gk !== 'skis') return UPG.kown.skis ? 'FIT THE WHEEL-SKIS AT THE HANGAR BOARD BEFORE YOU GO NORTH. WHEELS SINK UP THERE.' : 'THE WHEEL-SKIS ARE ON THE HANGAR BOARD. I PUT IN HALF - ' + $o(A2.skiK.price) + ' TO YOU. THE CREW FITS THEM.';
+  const its = a2Its(), aboard = its.filter(it => it.st === 'cargo').length;
+  return aboard ? 'YOU\'VE GOT ' + aboard + ' OF THE CACHE ABOARD. LAND INSIDE WALT\'S WANDS ON THE NORTH SHELF AND SET IT DOWN IN THE SNOW.' : 'THE CACHE GEAR IS ON THE HOME PAD - TWO CANS, THE TENT, THE GRUB. FLY IT TO WALT\'S WANDS ON THE NORTH SHELF.'; }
+RAD_CALLS.push(
+  { id: 'a2', ask: 1, k: () => !!STORY.said.a2 && !!STORY.said.r_glint && hyp(ac.pos[0] - GLINT.x, ac.pos[2] - GLINT.z) > 800, L: () => [['PETE', 'CUB, HOME. I\'VE BEEN UP ALL NIGHT WITH WALT\'S OLD SHEETS AND THAT CORKBOARD OF YOURS.'], ['YOU', 'AND?'],
+    ['PETE', 'THERE\'S A SNOW BENCH UNDER THE RIDGE, HALF A K NORTH OF YOUR COWLING. WALT STAKED IT WITH ORANGE WANDS YEARS BACK - ONLY FLAT ICE UP THERE. LAND IT UPHILL, TO THE NORTH, AND SHUT DOWN - THE SKIS FREEZE IN.'],
+    ['PETE', UPG.gk === 'skis' ? 'YOU\'VE GOT THE WHEEL-SKIS ON. GOOD.' : UPG.kown.skis ? 'YOU\'VE GOT THE WHEEL-SKIS - HAVE THE CREW FIT THEM.' : 'WHEELS WON\'T DO IT. I\'M PUTTING IN HALF ON THE WHEEL-SKIS - ' + $o(Math.round(A2.skiP / 2)) + ' TO YOU AT THE HANGAR BOARD.'],
+    ['PETE', 'AND NOBODY SEARCHES THAT ICE WITHOUT A CACHE. FUEL, A TENT, GRUB. I\'LL STACK IT ON THE PAD - FLY IT UP AND LEAVE IT INSIDE THE WANDS.']], then: () => { storyLog('Pete: Walt staked a ski shelf with orange wands, half a km north of the cowling - land uphill, northbound. Skis (he put in half) and a cache first.'); a2Go(); } },
+  { id: 'a2voss', ask: 1, k: () => !!STORY.said.r_a2 && (STORY.said.cacheGo ? 1 : 0) && (A2.vt = (A2.vt || 0) + 1) > 20, L: () => [['VOSS', 'VALLEY CREDIT FOR ' + PILOT + ' MACRAE. PETE TELLS ME YOU FOUND A PIECE OF GORDON\'S AIRPLANE.'], ['YOU', 'ON THE NORTH ICE. I\'M GOING BACK UP ON SKIS.'],
+    ['VOSS', 'MY FATHER, HAROLD, CHARTERED THAT LAST FLIGHT. HE MET GORDON AT THE LODGE THE NIGHT BEFORE. HE NEVER WOULD TALK ABOUT IT.'],
+    ['VOSS', 'IF THERE ARE PAPERS UP THERE - A LOGBOOK, ANYTHING - BRING THEM TO ME FIRST. ' + (storyOwed() > 0 ? 'THE NOTE WILL KEEP WHILE YOU LOOK.' : 'PLEASE.')]], then: () => storyLog('Eleanor Voss: her father, Harold Voss, chartered Gordon\'s last flight - the man at the Lodge. "Bring me any papers first."') },
+  { id: 'a2shelf', k: () => !!STORY.said.shelf, L: () => [['PETE', 'HOME TO THE CUB. DAWSON SAYS HE SAW YOU GO DOWN ON THE SHELF. TELL ME YOU\'RE ON YOUR SKIS.'], ['YOU', 'DOWN AND IN ONE PIECE. THE WANDS ARE STILL STANDING.'], ['PETE', 'THEN WALT WAS RIGHT ABOUT THAT ICE. ' + (STORY.said.cache ? 'WALK IT CAREFUL.' : 'NOW GET THE CACHE UP THERE.')]] },
+  { id: 'a2cache', k: () => !!STORY.said.cache, L: () => [['PETE', 'CACHE IS PITCHED? TWO CANS UP THERE IS A WHOLE EXTRA SEARCH DAY. POUR THEM IN WHEN YOU NEED THEM.'], ['PETE', 'NOW WALK THAT ICE, KID. FROM THE SHELF UP TO THE COWLING. GORDON\'S UP THERE SOMEWHERE.']], then: () => storyLog('Pete: "Now walk that ice. From the shelf up to the cowling."') });
+const _a2C = new THREE.Vector3();
+function act2Tick(dt) {
+  // the skis freeze in: stopped on the shelf, engine off, the Cub stays put (the bench slopes 3 % and skis have no brakes)
+  if (UPG.gk === 'skis' && !ENG.running && ac.out && ac.out.wow > 0 && !ac.crashed && acGS() < 1.5 && a2In(ac.pos[0], ac.pos[2], 60)) { ac.vel[0] = ac.vel[1] = ac.vel[2] = 0; if (!A2.frz) { A2.frz = 1; if (mode === 'plane' && STORY.on) say('THE SKIS BITE INTO THE SNOW - THE CUB STAYS PUT WITH THE ENGINE OFF'); } } else if (A2.frz && ENG.running) A2.frz = 0;
+  if (!STORY.on) return; const s = STORY.said;
+  if (A2.pour > 0) a2Pour(dt);
+  if ((A2.t -= dt) > 0) return; A2.t = 0.5; a2Price();
+  if (!s.a2 && s.glint && clueGot().length >= 6) { s.a2 = 1; STORY.act = Math.max(STORY.act, 2); storyLog('Act 2 - the north ice. The cowling, six clues on the board: Gordon\'s Norseman is up there. Time to land on it.'); musStinger('story'); say('THE NORTH ICE: GORDON\'S NORSEMAN IS UP THERE. YOU\'LL NEED SKIS, A PLACE TO LAND, AND A CACHE - PETE WILL KNOW'); saveSoon(); }
+  if (!s.a2) return;
+  // landing on the shelf
+  if (!s.shelf && mode === 'plane' && ac.out && ac.out.wow > 0 && acGS() < 2.5 && !ac.crashed && a2In(ac.pos[0], ac.pos[2], 30)) {
+    if (UPG.gk === 'skis') { s.shelf = 1; storyLog('Landed on skis on Walt\'s north shelf, ' + storyDate() + '. The wands still stand.'); musStinger('story'); discoverLandmark('north_shelf', { name: 'Walt\'s ski shelf', x: SH_X, z: SH_Z, note: 'orange wands, the north ice', reward: 0, icon: 'peak', quiet: true }); say('DOWN ON WALT\'S SHELF ON SKIS. THE COWLING IS HALF A K SOUTH, UP THE RIDGE'); saveSoon(); }
+    else if (!A2.wheel) { A2.wheel = 1; say('WHEELS IN THE SNOW UP HERE - THIS SHELF WANTS THE WHEEL-SKIS'); } }
+  // the cache: every piece set down inside the wands
+  if (s.cacheGo && !s.cache) { const its = a2Its();
+    if (!its.length) { if (hyp(ac.pos[0] - SH_X, ac.pos[2] - SH_Z) > 2000) a2Spawn(); }   // lost (old save / sunk): Pete stacks another
+    else if (its.every(it => it.st === 'ground' && a2In(it.mesh.position.x, it.mesh.position.z, 40))) {
+      let x = 0, z = 0; for (const it of its) { x += it.mesh.position.x; z += it.mesh.position.z; dlvRemove(it); } x /= its.length; z /= its.length;
+      s.cache = 1; s.cacheP = [Math.round(x * 10) / 10, Math.round(z * 10) / 10]; s.cacheL = Math.round(its.filter(it => it.k === 'fuel').length * 18.9); a2Place(); cgStraps && cgStraps(); wbUpdate && wbUpdate();
+      storyLog('Pitched the search cache on the north shelf: the tent, ' + Math.round(s.cacheL / 3.785) + ' gallons of fuel, grub.'); musStinger('discovery');
+      discoverLandmark('north_cache', { name: 'The search cache', x, z, note: 'tent + fuel', reward: 0, icon: 'star', quiet: true }); say('THE SEARCH CACHE IS PITCHED: TENT, GRUB, ' + Math.round(s.cacheL / 3.785) + ' GAL OF FUEL (PARK THE CUB BY IT, STAND AT THE CANS TO POUR)'); saveSoon(); } }
+  // pour the cache fuel: on foot at the cans, the Cub parked within 25 m, engine off
+  if (s.cache && s.cacheL > 0 && !A2.pour && mode === 'foot' && Array.isArray(s.cacheP)) { camera.getWorldPosition(_a2C); const cx = s.cacheP[0] + 1.6 * Math.cos(0.4), cz = s.cacheP[1] - 1.6 * Math.sin(0.4);
+    if (hyp(_a2C.x - cx, _a2C.z - cz) < 3 && hyp(ac.pos[0] - cx, ac.pos[2] - cz) < 25 && acGS() < 0.3 && !ENG.running) { if (fuel < FUEL_MAX - 1) { A2.pour = 1; say('POURING THE CACHE FUEL INTO THE CUB ...'); sfx('click'); } else if (!A2.full) { A2.full = 1; say('THE CUB\'S TANKS ARE FULL - THE CACHE FUEL KEEPS (' + Math.round(s.cacheL / 3.785) + ' GAL)'); } } }
+}
+function a2Pour(dt) { const s = STORY.said, d = Math.min(3 * dt, s.cacheL, FUEL_MAX - fuel); fuel += d; s.cacheL = Math.max(0, s.cacheL - d); if ((A2.ps = (A2.ps || 0) - dt) <= 0) { A2.ps = 0.15; sfx('pour'); }
+  if (s.cacheL <= 0.01 || fuel >= FUEL_MAX - 0.01 || mode !== 'foot') { A2.pour = 0; A2.full = 0; s.cacheL = Math.round(s.cacheL * 10) / 10; say(s.cacheL > 0 ? 'TANKS FULL - ' + Math.round(s.cacheL / 3.785) + ' GAL LEFT IN THE CACHE' : 'THE CACHE CANS ARE EMPTY - THE TENT AND GRUB STAY'); saveSoon(); } }
 
 // ================= v0.45 save: where the Cub is parked, fuel, time of day, on foot or aboard. New key - older (v0.44 and before) saves are left alone and ignored =================
 const SAVE_KEY = 'bushpilot-vr-blank-v1', NOSAVE = /[?&]nosave\b/.test(location.search);
@@ -10507,7 +10584,7 @@ renderer.setAnimationLoop(() => {
   } else if ((crashTimer += dt) > 2.5) resetFlight();
 
   plane.position.fromArray(ac.pos); plane.quaternion.fromArray(ac.q);
-  dlvTick(dt); wbWarn(dt); huntTick(dt, xr || HANDS.force); fishTick(dt, xr || HANDS.force); storyTick(dt); cbTick(dt); glintTick(dt); discTick(dt); radTick(dt); fogTick(dt); musTick(dt); trustTick(dt); dropTick(dt); ecoTick(dt); upgTick(dt); emgTick(dt);   // v0.53 rifle, deer, binoculars; v0.54 bundles in the air, the signal smoke   // v0.50 delivery: game clock, falling / loose cargo, job boards
+  dlvTick(dt); wbWarn(dt); huntTick(dt, xr || HANDS.force); fishTick(dt, xr || HANDS.force); storyTick(dt); cbTick(dt); glintTick(dt); act2Tick(dt); discTick(dt); radTick(dt); fogTick(dt); musTick(dt); trustTick(dt); dropTick(dt); ecoTick(dt); upgTick(dt); emgTick(dt);   // v0.53 rifle, deer, binoculars; v0.54 bundles in the air, the signal smoke   // v0.50 delivery: game clock, falling / loose cargo, job boards
   GV.update(dt); kitTick(dt); flxTick(dt);   // v0.20 gear legs / tyres / tail wheel (v0.90 + the gear kits)
   updateMap(); updateCockpitV19(dt);
   propTick(dt, ENG.rpm);
