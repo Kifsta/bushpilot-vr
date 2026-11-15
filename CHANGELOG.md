@@ -2,6 +2,36 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.95 – simpler Cub and building light (per-vertex), with an A/B setting
+
+- **New setting: Settings > GRAPHICS > Cub + building light**, PER-VERTEX (default) or PER-PIXEL.
+  - Presets: PERFORMANCE and BALANCED use PER-VERTEX; QUALITY uses PER-PIXEL.
+  - It's the last row of the GRAPHICS tab, so the other rows don't move.
+- **What goes per-vertex:**
+  - the Cub's merged mesh (11.5 k triangles: the skin, wings, struts, tail and the static cockpit shell);
+  - the world's merged cells (hangar, strips, props);
+  - the town and site meshes (93 meshes, 112 k triangles).
+  - Each gets a twin material that works out the same Lambert maths per vertex, not per pixel: diffuse / π × (hemisphere + sun × max(n·l, 0)). The fragment only multiplies.
+  - Flat faces come from face normals (rebuilt on the merged meshes; flat Lambert never used them). Both sides are lit, and the fragment picks by facing, like the flat Lambert normal.
+  - Smooth-shaded parts (cones, round markers) stay per-pixel.
+- **What stays per-pixel:** the instruments, gloves, rifle, moving controls, doors and anything else not merged.
+- **It switches itself back to per-pixel when needed:**
+  - with **Shadows** on (it can't take shadows);
+  - with the **landing light or torch** on (everything);
+  - with the **panel glow** on at night (the Cub only, so the cockpit glow stays right; towns stay per-vertex).
+  - Both looks are compiled at load for each light combination, so a switch never compiles a shader.
+- **Same look:**
+  - Per-pixel vs per-vertex, 6 views (Cub front / side / rear-high, the cockpit, a town, the hangar): the mean channel difference is 0.00, and no view has more than 0.001 % of pixels over 6/255.
+  - Max single-pixel difference: 0–25/255, on a few anti-aliased edges.
+  - Shots: `qa-v095/grid-v095.png` and `qa-v095/*-pixel.png` / `*-vertex.png`.
+- **Cost:**
+  - Same draw calls (120 in the test view). Fragment work on those pixels drops from about 29 to about 8 shader ops (about 47 with the panel glow, which falls back anyway). The vertex shader gains about 15 ops, on far fewer vertices.
+  - Coverage: the Cub's mesh is 32 % of the cockpit view; the world set is 32 % of a town view.
+  - **Estimate on Quest 3:** about 0.1–0.2 ms of GPU per frame saved in the cockpit (1–2 % of the 11.1 ms budget at 90 Hz). The headset A/B (OVR Metrics GPU %) is the real test.
+  - CPU: nothing per frame (a two-flag check).
+- Fix: a world mesh with no normals (a flat Lambert never needed them) gets face normals before it is lit per vertex.
+- New test **t95** (8 checks).
+
 ## v0.94 – spray, wake and ripples on the floats; snow puffs and ski tracks; float jobs
 
 Looks and sounds only: nothing here feeds the physics (md5 unchanged), and nothing changes on the stock wheels.
@@ -28,7 +58,7 @@ Looks and sounds only: nothing here feeds the physics (md5 unchanged), and nothi
   - No garbage per frame, and the meshes are prewarmed at load (no mid-flight compile).
   - Nothing new is emitted when you are more than 600 m from the Cub.
   - **Cost:** flxTick averages 0.035 ms; at most 5 extra draws while effects show, 0 otherwise.
-- **Fix:** the rifle's muzzle-flash sprite is compiled as soon as the rifle model loads. The GLB can land after the load-time prewarm, and one tour run caught a shader compile on the first shot. The tour now shows 0 mid-flight compiles over 3 runs, with 153 programs, all at load.
+- **Fix:** the rifle's muzzle-flash sprite is compiled as soon as the rifle model loads. The GLB can land after the load-time prewarm, and one tour run caught a shader compile on the first shot. The next tour run showed 0 mid-flight compiles, with 153 programs, all at load.
 - New test **t94** (11 checks). Shots: `qa-v094/grid-v094.png` (float side / rear / low front / above, touchdown side / high, ski side / rear / above).
 
 ## v0.93.2 – crisp signs and labels at a slant

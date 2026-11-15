@@ -19,7 +19,7 @@
 </script>
 </head>
 <body>
-<div id="info">BUSH PILOT VR <span id="ver">v0.94</span> - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
+<div id="info">BUSH PILOT VR <span id="ver">v0.95</span> - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
 You start on foot by the Cub at the cabin strip. Walk up to her and climb in (F / Y), then start her up off the checklist card (J).
 Desktop - flying: W/S or arrows pitch, A/D or arrows roll, Q/E rudder, Shift / Ctrl (or + / -) throttle, B brakes, \ parking brake, [ ] flaps, PgUp / PgDn trim,
   R reset to the strip (cold and dark), F climb out, M map, L landing light, Home recentre, mouse looks (click to capture).
@@ -597,9 +597,9 @@ const hyp = (a, b, c = 0) => Math.sqrt(a * a + b * b + c * c);   // v0.59 Math.h
 
 // ======================= RENDERING =======================
 // v0.35 settings (persist in localStorage 'bp_gfx'; ?gfx=shadows:2,grass:1 overrides for testing). Defaults = the v0.34 look and cost.
-const BP_VERSION = 'v0.94';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
+const BP_VERSION = 'v0.95';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
 { const e = document.getElementById('ver'); if (e) e.textContent = BP_VERSION; }
-const GFX_DEF = { shadows: 0, scale: 1, fov: 1, dist: 1, trees: 1, grass: 0, clouds: 1, fog: 1, msaa: 1, hz: 90, vig: 0, turn: 0, fps: 0, tod: 11, stk: 1, tips: 1, terr: 1, dyn: 1, glove: 0, hand: 0, wt: 1, volM: 1, volE: 1, volA: 1, volF: 1, wx: 1, forest: 0, ground: 0, gtex: 0 };   // v0.68.1 dominant hand, volumes. v0.48 BALANCED: 90 % scale, 72 Hz, fast terrain shading, auto resolution; v0.49.1 the stick stays where you let go of it
+const GFX_DEF = { shadows: 0, scale: 1, fov: 1, dist: 1, trees: 1, grass: 0, clouds: 1, fog: 1, msaa: 1, hz: 90, vig: 0, turn: 0, fps: 0, tod: 11, stk: 1, tips: 1, terr: 1, dyn: 1, glove: 0, hand: 0, wt: 1, volM: 1, volE: 1, volA: 1, volF: 1, wx: 1, forest: 0, ground: 0, gtex: 0, cvl: 1 };   // v0.68.1 dominant hand, volumes. v0.48 BALANCED: 90 % scale, 72 Hz, fast terrain shading, auto resolution; v0.49.1 the stick stays where you let go of it
 const GFX = Object.assign({}, GFX_DEF);
 try { const o = JSON.parse(localStorage.getItem('bp_gfx') || '{}'); if ((o.v || 0) < 48) { if (o.scale === 1) delete o.scale; if (o.hz === 0) delete o.hz; }   // v0.48: saved copies of the old defaults (100 %, AUTO Hz) move to the new ones once
   if ((o.v || 0) < 49 && o.stk === 0) delete o.stk;
@@ -640,6 +640,35 @@ function vlMat(o) {
 }
 function vlTwin(m, map) {   // the vertex-lit twin of a plain Lambert material (shared per material)
   const k = m.uuid + (map ? 'm' : ''); let t = VL.by.get(k); if (!t) { VL.by.set(k, t = vlMat({ color: m.color, vertexColors: m.vertexColors, map: map ? m.map : null, side: m.side })); if (map && m.userData.gt) { const ob = t.onBeforeCompile; t.onBeforeCompile = sh => { ob(sh); gtPatch(sh); }; t.customProgramCacheKey = () => 'vl48gt'; } } return t;   // v0.87 a Ground texture twin keeps its detail patch
+}
+// ---- v0.95 Cub + building light: the Cub's and the world's merged (batched) meshes and the town meshes get a vertex-lit twin, the same maths as Lambert
+// (diffuse / pi * (hemi(n) + sun * max(n.l, 0))) worked out per vertex. Flat faces come from face normals. Both sides are worked out and the fragment picks by gl_FrontFacing,
+// like the flat Lambert normal (it always faces you). There are no per-pixel lights or shadows: with Shadows on, or the panel glow / landing light / torch lit, it goes back to Lambert.
+const CVL = { list: [], by: new Map(), p: null, w: null, warm: new Set() };
+function cvlMat(m) {   // the vertex-lit twin of a plain vertex-coloured Lambert (one per material)
+  let t = CVL.by.get(m); if (t) return t;
+  t = new THREE.MeshBasicMaterial({ color: m.color, vertexColors: m.vertexColors, side: m.side, fog: m.fog }); t.userData.cvlOf = m;
+  t.onBeforeCompile = sh => { Object.assign(sh.uniforms, { vlS: VL.vlS, vlG: VL.vlG, vlC: VL.vlC, vlD: VL.vlD });
+    sh.vertexShader = 'uniform vec3 vlS, vlG, vlC, vlD;\nvarying vec3 vLitF, vLitB;\n' + sh.vertexShader.replace('#include <project_vertex>', '#include <project_vertex>\n  vec3 vlN = normalize(mat3(modelMatrix) * normal); float vlY = 0.5 * vlN.y, vlL = dot(vlN, vlD);\n  vLitF = (mix(vlG, vlS, 0.5 + vlY) + vlC * max(vlL, 0.0)) * 0.3183099;\n  vLitB = (mix(vlG, vlS, 0.5 - vlY) + vlC * max(-vlL, 0.0)) * 0.3183099;');
+    sh.fragmentShader = 'varying vec3 vLitF, vLitB;\n' + sh.fragmentShader.replace('#include <color_fragment>', '#include <color_fragment>\n  diffuseColor.rgb *= gl_FrontFacing ? vLitF : vLitB;'); };
+  t.customProgramCacheKey = () => 'vl95'; CVL.by.set(m, t); return t;
+}
+function cvlAdd(o, w) {   // w: 'p' the Cub (also off under the panel glow), 'w' the world. Flat-shaded only: smooth ones (cones, round markers) would shade differently per vertex
+  const m = o.material; if (!m || !m.isMeshLambertMaterial || !m.vertexColors || !m.flatShading || m.side === THREE.BackSide || m.map || m.transparent || m.emissive.r + m.emissive.g + m.emissive.b > 0 || m.onBeforeCompile !== THREE.Material.prototype.onBeforeCompile) return false;
+  const g = o.geometry; if (!g || !g.attributes.position || g.index) return false; if (!g.attributes.normal) g.computeVertexNormals();   // flat Lambert never needed normals (non-indexed: these are the face normals)
+  CVL.list.push({ o, lam: m, vl: cvlMat(m), w }); CVL.p = CVL.w = null; return true;
+}
+function cvlWant(w) { return !!GFX.cvl && !GFX.shadows && !SL.visible && (w !== 'p' || !PL.visible); }
+function cvlApply(force) {   // swap in the look we want (programs for both are compiled at load / when a batch is made)
+  const p = force ?? cvlWant('p'), w = force ?? cvlWant('w'); if (p === CVL.p && w === CVL.w) return; CVL.p = p; CVL.w = w;
+  for (const e of CVL.list) e.o.material = (e.w === 'p' ? p : w) ? e.vl : e.lam;
+}
+function cvlWarm() {   // compile any new twin x each panel-glow / landing-light combination (no hitch when you switch, or a light comes on)
+  const pv = PL.visible, sv = SL.visible, M = [];
+  for (const e of CVL.list) if (!CVL.warm.has(e.vl)) { CVL.warm.add(e.vl); M.push(e); }
+  if (!M.length) return; const was = M.map(e => [e.o.material, e.o.visible]); M.forEach(e => { e.o.material = e.vl; e.o.visible = true; });
+  for (let c = 0; c < 4; c++) { PL.visible = !!(c & 1); SL.visible = !!(c & 2); for (const e of M) renderer.compile(e.o, camera, scene); }
+  PL.visible = pv; SL.visible = sv; M.forEach((e, i) => { e.o.material = was[i][0]; e.o.visible = was[i][1]; });
 }
 let seed = 12345; const rand = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
 
@@ -8299,7 +8328,7 @@ function batchBuild(B) {  // (re)build one batch from its live members
     if (!g.attributes.normal) g.computeVertexNormals();
     const n = g.attributes.position.count, c = new Float32Array(n * 3), src = g.attributes.color, mc = e.col;
     for (let i = 0; i < n; i++) { const r = src ? src.getX(i) : 1, gg = src ? src.getY(i) : 1, bb = src ? src.getZ(i) : 1; c[i * 3] = r * mc[0]; c[i * 3 + 1] = gg * mc[1]; c[i * 3 + 2] = bb * mc[2]; }
-    g.setAttribute('color', new THREE.BufferAttribute(c, 3)); g.applyMatrix4(e.rel); gs.push(g);
+    g.setAttribute('color', new THREE.BufferAttribute(c, 3)); g.applyMatrix4(e.rel); if (B.flatN) g.computeVertexNormals(); gs.push(g);   // v0.95 face normals for the vertex-lit twin (flat Lambert ignores them)
   }
   let v0 = 0; B.mem.forEach((e, i) => { e.s = v0; e.n = gs[i].attributes.position.count; v0 += e.n; });   // v0.48: where each member sits in the merged mesh
   const mg = gs.length > 1 ? mergeGeometries(gs) : null; for (const g of gs) g.dispose();
@@ -8329,10 +8358,10 @@ function batchStatic(root, cell, skip) {
     if (G.mem.length < 2) continue;
     const mesh = new THREE.Mesh(undefined, G.bm); mesh.renderOrder = G.o0.renderOrder; mesh.frustumCulled = G.o0.frustumCulled; mesh.userData.noCast = G.o0.userData.noCast; mesh.userData.noBatch = true;
     mesh.castShadow = G.o0.castShadow; mesh.receiveShadow = G.o0.receiveShadow; mesh.matrixAutoUpdate = false; root.add(mesh);
-    const B = { mesh, mem: G.mem, root };
-    for (const e of B.mem) e.o.layers.set(BATCH.LAYER); batchBuild(B); BATCH.list.push(B); n += B.mem.length;
+    const B = { mesh, mem: G.mem, root, flatN: !!G.bm.flatShading };
+    for (const e of B.mem) e.o.layers.set(BATCH.LAYER); batchBuild(B); BATCH.list.push(B); n += B.mem.length; cvlAdd(mesh, root === plane ? 'p' : 'w');
   }
-  return n;
+  cvlWarm(); CVL.p = CVL.w = null; cvlApply(); return n;
 }
 function batchChanged(B, e) {   // has code touched this member since it was merged?
   const o = e.o, m = o.material; if (o.parent !== e.par || m !== e.mat || o.geometry !== e.geo || o.geometry.attributes.position.version !== e.pv || o.layers.mask !== (1 << BATCH.LAYER)) return true;
@@ -8372,6 +8401,7 @@ const GFX_OPT = [   // key, label, values, value labels, note (shown small under
   ['fog', 'Haze', [0, 1, 2], ['LIGHT', 'NORMAL', 'THICK'], 'how far you can see'],
   ['wx', 'Weather', [0, 1], ['OFF', 'ON'], 'haze, cloud, mist, rain - no wind'],   // v0.75
   ['shadows', 'Shadows', [0, 1, 2], ['OFF', 'LOW', 'HIGH'], 'sun shadows round you'],
+  ['cvl', 'Cub + building light', [0, 1], ['PER-PIXEL', 'PER-VERTEX'], 'per-vertex: cheaper (per-pixel with shadows / lights on)'],   // v0.95
   ['grass', 'Grass', [0, 1, 2], ['OFF', 'LOW', 'HIGH'], 'tufts round your feet'],
   ['msaa', 'Anti-aliasing', [0, 1], ['OFF', 'MSAA'], 'applies after a reload'],
   ['dyn', 'Auto quality', [0, 1], ['OFF', 'ON'], 'VR: holds the rate - forest, shadows, then resolution'],
@@ -8401,9 +8431,9 @@ function gfxSet(k, v, quiet) {
   if (GQ.menu) gfxMenuSync();
 }
 const GFX_PRESET = {   // v0.48: one-poke presets (render scale takes effect next time you enter VR)
-  PERFORMANCE: { scale: 0.8, fov: 1, terr: 0, trees: 0.4, dist: 0.6, clouds: 0, fog: 1, shadows: 0, grass: 0, hz: 90, dyn: 1 },
-  BALANCED: { scale: GFX_DEF.scale, fov: 1, terr: 1, trees: 1, dist: 1, clouds: 1, fog: 1, shadows: 0, grass: 0, hz: 90, dyn: 1 },
-  QUALITY: { scale: 1.2, fov: 0.66, terr: 2, trees: 1, dist: 1.3, clouds: 2, fog: 1, shadows: 1, grass: 1, hz: 90, dyn: 1 } };   // v0.68.1; v0.93 all at 90 Hz (auto quality thins detail, then resolution, to hold it)
+  PERFORMANCE: { scale: 0.8, fov: 1, terr: 0, trees: 0.4, dist: 0.6, clouds: 0, fog: 1, shadows: 0, grass: 0, hz: 90, dyn: 1, cvl: 1 },
+  BALANCED: { scale: GFX_DEF.scale, fov: 1, terr: 1, trees: 1, dist: 1, clouds: 1, fog: 1, shadows: 0, grass: 0, hz: 90, dyn: 1, cvl: 1 },
+  QUALITY: { scale: 1.2, fov: 0.66, terr: 2, trees: 1, dist: 1.3, clouds: 2, fog: 1, shadows: 1, grass: 1, hz: 90, dyn: 1, cvl: 0 } };   // v0.68.1; v0.93 all at 90 Hz (auto quality thins detail, then resolution, to hold it)
 function gfxPreset(n) { for (const [k, v] of Object.entries(GFX_PRESET[n])) if (GFX[k] !== v) gfxSet(k, v, true); say(n + (renderer.xr.isPresenting && GFX.scale !== GQ.xrScale ? ' - RENDER SCALE AT NEXT VR START' : '')); sfx('click'); if (GQ.menu) gfxMenuSync(); }
 function gfxCycle(k, d = 1) { if (k === 'hx') { HX.cycle(); if (GQ.menu) gfxMenuSync(); return; } const o = GFX_OPT.find(r => r[0] === k), i = o[2].findIndex(v => Math.abs(v - GFX[k]) < 1e-6); gfxSet(k, o[2][((i < 0 ? 0 : i) + d + o[2].length) % o[2].length]); }
 function vlWant() { return GFX.terr < 2 && !LIGHTS.landing; }   // per-pixel lights (landing light) need the Lambert look; v0.85.1 shadows decide per tile (shNearUpdate)
@@ -8420,6 +8450,7 @@ function vlTick() {   // the vertex-lit uniforms follow the sun / moon and sky l
 }
 function gfxApply(k) {
   const all = !k;
+  if (all || k === 'cvl' || k === 'shadows') cvlApply();   // v0.95 before the shadow flags (they read the materials)
   if (all || k === 'terr' || k === 'shadows') { VL.key = ''; vlApply(); if (k === 'terr' && GFX.shadows) shPrewarm(); }
   if (all || k === 'ground') gsStart(GFX.ground);
   if (all || k === 'gtex') gtStart(GFX.gtex);   // v0.87 built and compiled over a few frames (gtTick), then swapped in   // v0.86 recoloured a slice per frame (gsTick)
@@ -8439,7 +8470,7 @@ function gfxApply(k) {
 }
 // ---- shadows: one directional shadow map that follows you (a tight "cascade": 28 m box LOW / 1024 px, 64 m HIGH / 2048 px) ----
 scene.add(sun.target);
-function shSolid(m) { return !!m && !m.transparent && !m.isMeshBasicMaterial && !m.isShaderMaterial && !m.isPointsMaterial && !m.isSpriteMaterial; }
+function shSolid(m) { return !!m && !m.transparent && (!m.isMeshBasicMaterial || !!m.userData.cvlOf) && !m.isShaderMaterial && !m.isPointsMaterial && !m.isSpriteMaterial; }
 function gfxShadowFlags() {   // every opaque mesh receives (v0.85.1: ground tiles / world batch cells only under the shadow box, see shNearUpdate); everything but the terrain, sky, water and see-through stuff casts
   const on = GFX.shadows > 0;
   scene.traverse(o => { if (!o.isMesh && !o.isInstancedMesh) return; const m = Array.isArray(o.material) ? o.material[0] : o.material; if (!m) return;
@@ -8736,7 +8767,7 @@ const SETP_ROW = i => ({ X: i < 10 ? 30 : 527, Y: 96 + (i % 10) * 48 });   // v0
 // v0.68.1 the MENU board: tabs along the top (RESUME, SAVE / LOAD, GRAPHICS, COMFORT, CONTROLS, AUDIO), big poke / point targets, CLOSE bottom right.
 // Poke with a fingertip or point either controller at it and pull the trigger. Desktop: the same board in a page overlay (Esc / F2), clicked with the mouse.
 const MENU_TABS = [['resume', 'RESUME'], ['save', 'SAVE / LOAD'], ['gfx', 'GRAPHICS'], ['comfort', 'COMFORT'], ['controls', 'CONTROLS'], ['audio', 'AUDIO']];
-const MENU_ROWS = { gfx: ['scale', 'fov', 'terr', 'ground', 'gtex', 'trees', 'forest', 'dist', 'clouds', 'fog', 'wx', 'shadows', 'grass', 'msaa', 'dyn', 'hz', 'fps', 'tod', 'glove'], comfort: ['vig', 'turn', 'stk', 'tips'], controls: ['hand', 'hx', 'wt'], audio: ['volM', 'volE', 'volA', 'volF'] };
+const MENU_ROWS = { gfx: ['scale', 'fov', 'terr', 'ground', 'gtex', 'trees', 'forest', 'dist', 'clouds', 'fog', 'wx', 'shadows', 'grass', 'msaa', 'dyn', 'hz', 'fps', 'tod', 'glove', 'cvl'], comfort: ['vig', 'turn', 'stk', 'tips'], controls: ['hand', 'hx', 'wt'], audio: ['volM', 'volE', 'volA', 'volF'] };
 const MENU_TAB = i => ({ X: 22 + i * 146, W: 140 });   // (v0.91.1 narrower: the version sits at the right of the tab row)
 const MENU_SLOT = n => 76 + (n - 1) * 128;   // a manual slot's box top (right column)
 const MENU_HELP = ['TRIGGER  fire / brake / next page', 'GRIP  grab (stick, throttle, knobs, cargo)', 'A / X  recentre + set height', 'B  reset flight (on the rifle: lever)', 'Y  climb in / out (left rifle: lever)',
@@ -8902,7 +8933,8 @@ gfxApply();
 { PL.visible = SL.visible = true; renderer.compile(scene, camera); PL.visible = SL.visible = false; }
 if (GFX.ground) gsRun(GFX.ground);   // v0.86 a chosen Ground style is in place before the first frame
 if (GFX.gtex) gtRun(GFX.gtex);   // v0.87 likewise a chosen Ground texture
-{ vlTick(); for (const f of [true, false]) for (let c = 0; c < 4; c++) { vlApply(f); PL.visible = !!(c & 1); SL.visible = !!(c & 2); renderer.compile(scene, camera); } PL.visible = SL.visible = false; VL.key = ''; vlApply(); }   // v0.48: both terrain looks x each panel-glow / landing-light combination compiled at load (no hitch when one comes on)   // v0.47 LIGHTS_WARM: precompile the lit-cockpit / landing-light variants
+for (const t of TOWN_MESH) cvlAdd(t.m, 'w');   // v0.95 the towns' / sites' merged meshes
+{ vlTick(); for (const f of [true, false]) for (let c = 0; c < 4; c++) { vlApply(f); cvlApply(f); PL.visible = !!(c & 1); SL.visible = !!(c & 2); renderer.compile(scene, camera); } PL.visible = SL.visible = false; VL.key = ''; vlApply(); CVL.p = CVL.w = null; cvlApply(); for (const e of CVL.list) CVL.warm.add(e.vl); }   // v0.48: both terrain looks x each panel-glow / landing-light combination compiled at load (no hitch when one comes on)   // v0.47 LIGHTS_WARM: precompile the lit-cockpit / landing-light variants
 { if (!GLOVE.gm[0]) gloveInit(); if (!MIST) wxMistBuild(); const W = [...GLOVE.gm, MIST.im, FLX.pts, FLX.rib, FLX.ring[0].m], vis = W.map(o => o.visible);   // v0.93 the gloves and the valley mist are made late (first hands / first mist): compiled here x each light combination, not on the first frame on foot or at the first rain front
   W.forEach(o => o.visible = true); for (let c = 0; c < 4; c++) { PL.visible = !!(c & 1); SL.visible = !!(c & 2); for (const o of W) renderer.compile(o, camera, scene); }
   PL.visible = SL.visible = false; W.forEach((o, i) => o.visible = vis[i]); }
@@ -8951,7 +8983,7 @@ renderer.setAnimationLoop(() => {
   if ((chunkT += dt) > 0.2) { chunkT = 0; updateChunks(); }
   hxTick(dt);                                // v0.24 haptics (engine / buffet / gear + queued pulses)
   if (xr || HANDS.force) { wtTick(dt); updateHands(dt); setpTick(); jbPoke(); ecoPoke(); upgPoke(); emgPoke(); }
-  vlTick(); batchTick(); if (GFX.shadows && FT.n % ((mode !== 'plane' || ac.vel[0] * ac.vel[0] + ac.vel[1] * ac.vel[1] + ac.vel[2] * ac.vel[2] > 0.1) ? DYN.sh : Math.max(2, DYN.sh)) === 0) renderer.shadowMap.needsUpdate = true;   // v0.47 static batches; shadow map at half rate   // v0.23 gloves (after the stick / knobs have their final pose); v0.45 wrist SETTINGS board
+  vlTick(); batchTick(); cvlApply(); if (GFX.shadows && FT.n % ((mode !== 'plane' || ac.vel[0] * ac.vel[0] + ac.vel[1] * ac.vel[1] + ac.vel[2] * ac.vel[2] > 0.1) ? DYN.sh : Math.max(2, DYN.sh)) === 0) renderer.shadowMap.needsUpdate = true;   // v0.47 static batches; shadow map at half rate   // v0.23 gloves (after the stick / knobs have their final pose); v0.45 wrist SETTINGS board
   if (DIRTY_TEX.size) { DIRTY_TEX.forEach(texInit); DIRTY_TEX.clear(); } binoRender();   // v0.53 the 7x view (only while raised); v0.81 the textures upload first
   if (xr || HANDS.force) wtApply(); renderer.render(scene, camera); wtRestore();   // v0.92 item weight: drawn weighed down, then back on the controller
   const cpu = performance.now() - t0;            // JS + draw submission (GPU time isn't visible from here)

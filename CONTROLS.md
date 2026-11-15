@@ -417,6 +417,8 @@ A customer stands at every job board. Walk up to them for a hello: their rep tie
 | Control labels | OFF / ON | VR: the name and state of the control by your hand |
 | Gloves | SAGE / BLACK / TAN | v0.49 flying-glove colours: sage Nomex back with tan leather palm (default), all black, or tan with brown leather |
 
+- **Cub + building light (v0.95)**, GRAPHICS tab, last row: PER-VERTEX (cheaper, the default) or PER-PIXEL. It goes per-pixel by itself with Shadows on, the landing light or torch on, or the panel glow lit (that one is the Cub only). Use it to A/B the GPU cost in the headset.
+
 ## Saving
 - Autosaves every 30 s, when you land and stop, and when you close the tab or take the headset off. It saves where the Cub is parked, the fuel, the time of day, and whether you were aboard or on foot (and where).
 - v0.50 also saves the wallet, the game clock, every board's jobs, every piece of cargo (on the ground where it lies, or in the Cub on its seat or in the bay) and the straps. It saves soon after you take, load or set down anything, and straight away when you get paid. A v0.45–v0.49 save still loads, with a fresh $150 wallet and new boards. v0.51 also saves the special cargo state (damage, freshness, how upset the animals are). v0.53 (save v53) also saves where the rifle is, its magazine, chamber and pouch, and your hunting jobs. v0.56 also saves every customer's rep and the Halvorsen unlock (an older save loads with everyone at 30).
