@@ -2543,6 +2543,7 @@ function updateFoot(dt) {
   camera.getWorldPosition(_w);
   _twp.x = _w.x; _twp.z = _w.z; if (townPush(_twp, 0.3)) { footRig.position.x += _twp.x - _w.x; footRig.position.z += _twp.z - _w.z; _w.x = _twp.x; _w.z = _twp.z; }   // v0.22 town walls
   _twp.x = _w.x; _twp.z = _w.z; if (solidPush(_twp, 0.3)) { footRig.position.x += _twp.x - _w.x; footRig.position.z += _twp.z - _w.z; _w.x = _twp.x; _w.z = _twp.z; }   // v0.34 fences / walls
+  footVista();   // v1.06.1 the landmark rocks
   FOOT.crouchT = clamp(FOOT.crouchT + (FOOT.crouchIn ? 1 : -1) * dt / CROUCH_TIME, 0, 1);
   const gY = groundY(_w.x, _w.z), cr = CROUCH_DROP * crouchK();
   if (FOOT.fy === undefined || Math.abs(footRig.position.y - (FOOT.fy + EYE - FOOT.cr)) > 0.3) { FOOT.fy = gY; FOOT.air = false; FOOT.jv = 0; }   // moved from outside (exit the Cub, a reset, a load): back on the ground
@@ -3765,7 +3766,10 @@ const CLOUDS = (() => {
   const upd = (t) => list.forEach((c, i) => {
     let x = c.x, z = c.z; if (!c.cap) { x = ((c.x + W.x * t + HALF) % (2 * HALF) + 2 * HALF) % (2 * HALF) - HALF; z = ((c.z + W.z * t + HALF) % (2 * HALF) + 2 * HALF) % (2 * HALF) - HALF; }
     else x += Math.sin(t * 0.01 + i) * 30;
-    _m4.compose(_v.set(x, c.y - (c.cap ? 0 : st.dy), z), _q.setFromAxisAngle(_up, c.ry), _s.set(c.sx, c.sy, c.sz)); im.setMatrixAt(i, _m4); });
+    let y = c.y - (c.cap ? 0 : st.dy);
+    if (!c.cap) { const R = 1.5 * Math.max(c.sx, c.sz); let h = groundY(x, z); for (let k = 0; k < 34; k++) { const rr = k < 12 ? R : k < 28 ? R * 0.68 : R * 0.35, b = k < 12 ? k * 0.5236 : k < 28 ? (k - 12) * 0.3927 : (k - 28) * 1.0472 + 0.26; h = Math.max(h, groundY(x + Math.cos(b) * rr, z + Math.sin(b) * rr)); } const fl = h + 0.28 * c.sy + 50;   // v1.06.1 the cloud's floor
+      c.fy = c.fy === undefined || fl > c.fy ? fl : c.fy + (fl - c.fy) * 0.1; y = Math.max(y, c.fy); }   // up at once, down slowly (no bobbing)
+    _m4.compose(_v.set(x, y, z), _q.setFromAxisAngle(_up, c.ry), _s.set(c.sx, c.sy, c.sz)); im.setMatrixAt(i, _m4); });
   const st = { dy: 0 };   // v0.75 the weather lowers the valley cloud deck
   upd(0); let T = 0, acc = 1;
   return { im, list, st, tick(dt) { T += dt; if ((acc += dt) > 0.5) { acc = 0; upd(T); im.instanceMatrix.needsUpdate = true; } } };
@@ -9576,6 +9580,13 @@ function sbDrawEnd() { const x = SB.x, W = 1024, H = 640, s = STORY.said; x.fill
   ch('THE BOARDS ARE FULL. FLY ON.', W / 2, 560, 'bold 40px Georgia, serif', '#f4f2ea', 'center'); ch('"YOU CAN STOP NOW. FLY THE VALLEY." - G.M.', W / 2, 604, 'italic 22px Georgia, serif', '#98a090', 'center');
   x.textAlign = 'left'; texDirty(SB.tex); }
 
+// ===================== v1.06.1 the vistas' rocks are solid on foot =====================
+const FVS = { k: null, n: 0 };
+function footVista() { let V; try { V = VISTA; } catch (e) { return; } if (!V || !V.hit || !V.prims.length) return;
+  const gy = groundY(_w.x, _w.z), hit = V.hit(_w.x, gy + 1.0, _w.z) || V.hit(_w.x, gy + 0.35, _w.z) || V.hit(_w.x, gy + 1.7, _w.z);
+  if (!hit) { FVS.k = FVS.k || [0, 0]; FVS.k[0] = _w.x; FVS.k[1] = _w.z; return; }
+  FVS.n++; if (!FVS.k || hyp(FVS.k[0] - _w.x, FVS.k[1] - _w.z) > 3) return;   // no clear spot close by (spawned inside): let them walk out
+  footRig.position.x += FVS.k[0] - _w.x; footRig.position.z += FVS.k[1] - _w.z; _w.x = FVS.k[0]; _w.z = FVS.k[1]; }
 // ================= v0.45 save: where the Cub is parked, fuel, time of day, on foot or aboard. New key - older (v0.44 and before) saves are left alone and ignored =================
 const SAVE_KEY = 'bushpilot-vr-blank-v1', NOSAVE = /[?&]nosave\b/.test(location.search);
 // ---- v0.75 weather, no wind: slow states that only change what you see and hear (fog distance + colour, cloud deck, light, valley mist, rain).

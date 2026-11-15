@@ -129,6 +129,7 @@ v0.44 latches: every window and the door are latched while shut. Squeeze the han
 | Find the Norseman (v1.06, story) | Once the cache is pitched: walk ~200 m up the ridge's west flank from the shelf following the red scraps, or fly over and stop the Cub within ~70 m. Within ~30 m on foot it's found (music swell, map note) | same |
 | Read Gordon's logbook / letter (v1.06) | On the mail sack by the Norseman's door: VR grip it, trigger turns the page; desktop look at it, E, then , and . to turn pages | same |
 | Voss at Walt's board / epilogue (v1.06) | With the letter read, walk up to Walt's board in the hangar: Voss's six lines, note 1147 written off (or $12,000 interest back). The board becomes the MACRAE AIR SERVICE epilogue; free flight carries on | same |
+| Walking into rocks / cabins (v1.06.1) | On foot, the landmark crags, rock towers and cabin walls stop you (knee, waist and head height). If you're ever stuck inside one, just walk out | same |
 
 ## On foot
 | | VR | Desktop |

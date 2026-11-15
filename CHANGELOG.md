@@ -2,6 +2,16 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v1.06.1 – no more cloud blob over the Hidden Lake; the landmark rocks and cabins are solid on foot
+
+- **The Hidden Lake white blob is fixed.** It was a valley cumulus. Those clouds drift at fixed heights (460–910 m), so over the high country a cloud ended up sitting inside the hills around the lake, and from the look-out you saw a flat white wall on the water.
+  - Each valley cloud now keeps its flat base at least 50 m above the highest ground under its whole footprint. That footprint is checked at 34 points: the centre plus rings at 0.35×, 0.68× and 1.5× its width, every half second.
+  - When the ground under a cloud rises, the cloud lifts straight away. When the ground drops, it settles back down slowly. Over the valleys nothing changes.
+  - Snow-cap clouds are unchanged. There are no new meshes or shaders, and the cost is about 3,000 height lookups a second.
+- **Solid on foot:** the landmark crags, rock towers and cabins (the same shapes the Cub already crashes into) now stop you when you walk into them, at knee, waist and head height.
+  - Open ground and the paths between them are unaffected. If you were ever standing inside one, you can still walk out.
+  - The Cub's crash collisions are unchanged.
+
 ## v1.06 – Act 3 and the finale: the Norseman CF-GMR on the north ice, Gordon's last logbook and letter, Voss at Walt's board, the MacRae Air Service epilogue
 
 - **The wreck** sits on the ridge's west flank at (-3820, -4870), about 200 m up from the shelf's south end and 330 m from the cowling.
