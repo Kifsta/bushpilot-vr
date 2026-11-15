@@ -2,6 +2,28 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.98 – real water: see-through rivers and lakes, depth colour, sky reflections, flow and rapids
+
+- **One new water shader for every river, creek and lake, in a single draw** (it was a flat Lambert sheet at 88 % opacity).
+  - **Depth colour and opacity:** clear in the shallows, so you see the bed, turning teal and then dark blue-green in deep water.
+  - **The shoreline fades out softly** where the depth reaches zero, with no hard edge.
+  - **Fresnel reflection of the sky:** the water mirrors the scene's sky colour at the horizon and the dome's zenith colour overhead, so it follows the day / night cycle and the weather greying. It is mirror-like at low angles and you see into it when you look down. There is a sun glint by day and a moon glint at night.
+  - **Ripples** from a 256 px tiling normal map (built at load, nothing downloaded), with a second, larger layer on FULL. They fade with distance so far water doesn't shimmer.
+  - **Rivers and creeks flow** north to south (creeks from their heads to their mouths), faster where the bed is steeper. The ripples move with the current (two-phase flow mapping, so no stretching on the bends).
+  - **Foam** on rapids, where the bed drops steeply.
+- **Lake beds are real and deeper.** The lakes keep their old 2.5 m shelf at the edge, then drop off to about 12 m in the middle. Under the water the ground is coloured wet sand at the edge, gravel and stones on the slope, and dark silt in the deep, in every Ground style.
+- **River beds:** the ground grid is 40 m, too coarse to dig an 18 m channel, so the river ribbon carries a depth profile across its width (about 2.2 m in the middle of the river, 0.75 m in creeks). It draws a stony bed (sand, gravel, rounded stones, a little refraction) seen through the water.
+- **Unchanged:** the water surface heights (lakes at the lake level − 0.2 m; the river ribbon as before; the float physics still reads the same water heights), floats, docks, the float deck, fishing, the water sound. The physics md5 is unchanged.
+- **New setting: Settings > GRAPHICS > Water**, SIMPLE or FULL (default). SIMPLE uses a plain bed colour and one ripple layer; the PERFORMANCE preset uses it.
+  - To make room, **FPS counter** moved from GRAPHICS to the end of the COMFORT tab.
+- **Cost:**
+  - Draws, CPU time and program count are the same as before (perf A/B below).
+  - The water mesh goes from ~7k to ~29k triangles.
+  - Per water pixel: up to four texture reads and about 70 ALU ops on FULL, two reads on SIMPLE.
+  - The program count stays at 165, and nothing compiles through a whole day.
+- New test **t98** (4 checks). t45 now finds the FPS counter on either tab. t97b's fight set-up now always sets the hook: it failed about one run in eight when the random 88 % strike missed.
+- **Shots:** `qa-v098/grid-v098.png` (v0.98) and `qa-v098/ab-v098.png` (v0.97 above v0.98): shore, shallows, river bank, low over the river, low over the lake, high above, sunset, night and rapids.
+
 ## v0.97 – realistic fishing: a tackle shop, a rod and reel you really cast and crank, five species, fights, the net
 
 - **Tackle shops.** The Cutler store has a full tackle counter, a rod rack on the wall and a TACKLE sign. Dry Fork has a small bench of stock.

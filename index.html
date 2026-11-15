@@ -19,7 +19,7 @@
 </script>
 </head>
 <body>
-<div id="info">BUSH PILOT VR <span id="ver">v0.97</span> - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
+<div id="info">BUSH PILOT VR <span id="ver">v0.98</span> - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
 You start on foot by the Cub at the cabin strip. Walk up to her and climb in (F / Y), then start her up off the checklist card (J).
 Desktop - flying: W/S or arrows pitch, A/D or arrows roll, Q/E rudder, Shift / Ctrl (or + / -) throttle, B brakes, \ parking brake, [ ] flaps, PgUp / PgDn trim,
   R reset to the strip (cold and dark), F climb out, M map, L landing light, Home recentre, mouse looks (click to capture).
@@ -266,7 +266,7 @@ function rawHeight(x, z) {   // the smooth height formula (mesh vertices sample 
     const t = smooth(hyp2(dx, dz) / MD_B);
     h = h * t + (MEADOW_H + 0.05 * Math.sin(x * 0.8 + z * 0.4) * Math.sin(z * 0.6)) * (1 - t);
   }
-  if (typeof LAKES !== 'undefined') for (const L of LAKES) { const d = hyp2(x - L.x, z - L.z); if (d < L.r + 500) h = Math.min(h, L.h - 2.5 * (1 - Math.min(1, d / L.r) ** 2) + Math.max(0, d - L.r) * 0.12); }
+  if (typeof LAKES !== 'undefined') for (const L of LAKES) { const d = hyp2(x - L.x, z - L.z); if (d < L.r + 500) { const u = Math.min(1, d / L.r); h = Math.min(h, L.h - 2.5 * (1 - u * u) - 9.5 * smooth((0.86 - u) / 0.6) + Math.max(0, d - L.r) * 0.12); } }   // v0.98 deeper: the old 2.5 m shelf, then a drop-off to ~12 m in the middle
   return h;
 }
 const PAD_H = baseHeight(PAD.x, PAD.z);
@@ -597,9 +597,9 @@ const hyp = (a, b, c = 0) => Math.sqrt(a * a + b * b + c * c);   // v0.59 Math.h
 
 // ======================= RENDERING =======================
 // v0.35 settings (persist in localStorage 'bp_gfx'; ?gfx=shadows:2,grass:1 overrides for testing). Defaults = the v0.34 look and cost.
-const BP_VERSION = 'v0.97';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
+const BP_VERSION = 'v0.98';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
 { const e = document.getElementById('ver'); if (e) e.textContent = BP_VERSION; }
-const GFX_DEF = { shadows: 0, scale: 1, fov: 1, dist: 1, trees: 1, grass: 0, clouds: 1, fog: 1, msaa: 1, hz: 90, vig: 0, turn: 0, fps: 0, tod: 11, stk: 1, tips: 1, terr: 1, dyn: 1, glove: 0, hand: 0, wt: 1, volM: 1, volE: 1, volA: 1, volF: 1, wx: 1, forest: 0, ground: 0, gtex: 0, cvl: 1, dayl: 48, flure: 0, fline: 8, fdrag: 4, fbob: 0, fsink: 0 };   // v0.68.1 dominant hand, volumes. v0.48 BALANCED: 90 % scale, 72 Hz, fast terrain shading, auto resolution; v0.49.1 the stick stays where you let go of it
+const GFX_DEF = { shadows: 0, scale: 1, fov: 1, dist: 1, trees: 1, grass: 0, clouds: 1, fog: 1, msaa: 1, hz: 90, vig: 0, turn: 0, fps: 0, tod: 11, stk: 1, tips: 1, terr: 1, dyn: 1, glove: 0, hand: 0, wt: 1, volM: 1, volE: 1, volA: 1, volF: 1, wx: 1, forest: 0, ground: 0, gtex: 0, cvl: 1, water: 1, dayl: 48, flure: 0, fline: 8, fdrag: 4, fbob: 0, fsink: 0 };   // v0.68.1 dominant hand, volumes. v0.48 BALANCED: 90 % scale, 72 Hz, fast terrain shading, auto resolution; v0.49.1 the stick stays where you let go of it
 const GFX = Object.assign({}, GFX_DEF);
 try { const o = JSON.parse(localStorage.getItem('bp_gfx') || '{}'); if ((o.v || 0) < 48) { if (o.scale === 1) delete o.scale; if (o.hz === 0) delete o.hz; }   // v0.48: saved copies of the old defaults (100 %, AUTO Hz) move to the new ones once
   if ((o.v || 0) < 49 && o.stk === 0) delete o.stk;
@@ -790,6 +790,7 @@ function splitTiles(geo, tile) {   // non-indexed triangle soup -> one geometry 
       else if (mountainMask(x, z) > 0.02 || nearMeadow(x, z, 120)) cc.setHSL(0.20, 0.40, 0.33 * j);   // upland meadow grass
       else { const f = Math.abs(Math.floor(x / 260) * 73856093 ^ Math.floor(z / 220) * 19349663) % pal.length;   // valley patchwork fields
         const hp = pal[f]; cc.setHSL(hp[0], hp[1], hp[2] * 1.1 * j); }
+      lakeBedCol(x, z, h, cc, j);   // v0.98 sand / stones / silt under the lakes
       for (let k = 0; k < 3; k++) col.set([cc.r, cc.g, cc.b], (i + k) * 3);
     }
     geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
@@ -865,6 +866,7 @@ function gsTick(budget = 3000) {   // recolour up to `budget` faces this frame; 
   if (GSTY.road) GSTY.road.color.setHex(GSTY.ROAD[J.st]);
   GSTY.cur = J.st; GSTY.job = null; GSTY.n++; if (GSTY.want !== GSTY.cur) gsStart(GSTY.want);
 }
+{ const f0 = gsFace; gsFace = (st, x, z, h, ny, cc) => lakeBedCol(x, z, h, cc, 0.92 + 0.16 * hash2(Math.floor(x), Math.floor(z))) || f0(st, x, z, h, ny, cc); }   // v0.98 the lake beds in every ground style
 function gsRun(st) { gsStart(st); while (GSTY.job) gsTick(1e9); }   // all at once (load time / tests)
 // ---- v0.87 Ground texture: five real tiling surface textures (self-generated, nothing downloaded), built on first use. One 512 px RGB detail tile per set: R = the surface
 // on green ground (grass / leaves), G = on warm ground (soil / gravel / straw), B = on grey ground (rock). The ground still takes ONE texture sample a pixel (the grain's);
@@ -2719,33 +2721,102 @@ function waterDist(x, z) {   // metres to the nearest water edge (<= 0 = in it),
 }
 const waterLevel = (x, z) => { const L = inLake(x, z); return L ? L.h - 0.2 : groundY(x, z) + 0.3; };
 WATERS.at = (x, z) => z < 2400 && z > -5900 && Math.abs(x - RIVER_X(z)) < 8.5 ? terrainHeight(x, z) + 0.3 : null;   // v0.90 floats: the main river (its ribbon: 9 m half width, 0.3 m over the bed)
+// ---- v0.98 water: semi-transparent, depth-coloured rivers + lakes in ONE draw (one ShaderMaterial, no lights, no new program per light state).
+// Lakes: a polar grid over the real (now deeper) lake bed; per-vertex depth = surface - terrain under it, so the shallows are clear (the sand / rock bed shows through),
+// the deep water dark, and the waterline fades out softly where the depth reaches 0. Rivers + creeks: a 7-vertex cross-section ribbon with a depth profile across it
+// (the ground grid is 40 m, too coarse to dig an 18 m channel), drawn with a procedural stony bed seen through the water; flow direction + speed per vertex
+// (two-phase flow-mapped ripples), foam where the bed is steep (rapids). Fresnel reflection of the day / night sky (scene background + dome zenith), sun or moon glint.
+// Surface heights are unchanged (lakes L.h - 0.2, river ribbon groundY + 0.7 / creeks + 0.45; the float physics still reads waterH / WATERS.at).
+function wtrNormTex() {   // 256 px tileable ripple normals (RGB) + foam noise (A): sums of integer-wavenumber sines (they tile exactly) and a wrapped value noise
+  const N = 256, d = new Uint8Array(N * N * 4); let sd = 0x5eed; const r = () => (sd = (sd * 16807) % 2147483647) / 2147483647;
+  const W = []; for (let i = 0; i < 14; i++) { const kx = Math.round((r() - 0.5) * 2 * (2 + i)), ky = Math.round((r() - 0.5) * 2 * (2 + i)) || 1; W.push([kx, ky, 1 / Math.hypot(kx, ky), r() * 6.283]); }
+  const G = 16, gv = []; for (let i = 0; i < G * G; i++) gv.push(r());
+  const vn = (u, v, g) => { const x = u * g, y = v * g, i = Math.floor(x), j = Math.floor(y), fx = x - i, fy = y - j, s = t => t * t * (3 - 2 * t), at = (a, b) => gv[((a % g + g) % g) * G + ((b % g + g) % g)];
+    const a = at(i, j), b = at(i + 1, j), c = at(i, j + 1), e = at(i + 1, j + 1); return a + (b - a) * s(fx) + (c - a) * s(fy) + (a - b - c + e) * s(fx) * s(fy); };
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) { const u = x / N, v = y / N; let dx = 0, dy = 0;
+    for (const [kx, ky, a, p] of W) { const c = Math.cos(6.283 * (kx * u + ky * v) + p) * a; dx += c * kx; dy += c * ky; }
+    const s = 0.045, nx = -dx * s, ny = -dy * s, l = Math.hypot(nx, ny, 1), o = (y * N + x) * 4;
+    d[o] = (nx / l * 0.5 + 0.5) * 255; d[o + 1] = (ny / l * 0.5 + 0.5) * 255; d[o + 2] = (1 / l * 0.5 + 0.5) * 255; d[o + 3] = clamp(0.62 * vn(u, v, 16) + 0.38 * vn(u, v, 8), 0, 1) * 255; }
+  const t = new THREE.DataTexture(d, N, N, THREE.RGBAFormat); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.magFilter = THREE.LinearFilter; t.minFilter = THREE.LinearMipmapLinearFilter; t.generateMipmaps = true; t.needsUpdate = true; return t; }
+function wtrBedTex() {   // 256 px tileable river bed: sand, gravel, rounded stones (drawn 9x for the wrap)
+  const c = document.createElement('canvas'); c.width = c.height = 256; const x = c.getContext('2d'); let sd = 0xbed5; const r = () => (sd = (sd * 16807) % 2147483647) / 2147483647;
+  x.fillStyle = '#9c8a68'; x.fillRect(0, 0, 256, 256);
+  for (let i = 0; i < 2600; i++) { const g = 110 + r() * 70; x.fillStyle = `rgba(${g + 20 | 0},${g + 8 | 0},${g - 18 | 0},0.35)`; x.fillRect(r() * 256, r() * 256, 1 + r() * 2, 1 + r() * 2); }
+  for (let i = 0; i < 70; i++) { const px = r() * 256, py = r() * 256, rr = 3 + r() * r() * 16, g = 70 + r() * 90, w = r() * 0.6 - 0.3, col = `rgb(${g + 10 | 0},${g + 4 | 0},${g - 6 | 0})`;
+    for (const ox of [-256, 0, 256]) for (const oy of [-256, 0, 256]) { x.fillStyle = 'rgba(40,32,22,0.35)'; x.beginPath(); x.ellipse(px + ox + 1.5, py + oy + 2, rr, rr * 0.75, w, 0, 7); x.fill();
+      x.fillStyle = col; x.beginPath(); x.ellipse(px + ox, py + oy, rr, rr * 0.75, w, 0, 7); x.fill(); x.fillStyle = 'rgba(255,250,235,0.18)'; x.beginPath(); x.ellipse(px + ox - rr * 0.25, py + oy - rr * 0.25, rr * 0.45, rr * 0.3, w, 0, 7); x.fill(); } }
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t; }
+const WTR_VS = `attribute float aD; attribute vec2 aF; attribute float aFm; attribute float aB;
+uniform float uT; varying vec3 vW; varying float vD, vFm, vB; varying vec2 vF;
+void main() { vec4 w = modelMatrix * vec4(position, 1.0); float k = clamp(aD * 2.0, 0.0, 1.0);
+  w.y += k * (0.035 * sin(w.x * 0.35 + uT * 1.7) + 0.03 * sin(w.z * 0.41 - uT * 1.3));
+  vW = w.xyz; vD = aD; vFm = aFm; vB = aB; vF = aF; gl_Position = projectionMatrix * viewMatrix * w; }`;
+const WTR_FS = `uniform sampler2D uN, uBed; uniform vec3 uSkyH, uSkyZ, uSun, uSunC, uDeep, uShal, fogColor; uniform float uT, uLit, uQ, fogNear, fogFar;
+varying vec3 vW; varying float vD, vFm, vB; varying vec2 vF;
+void main() {
+  vec3 E = cameraPosition - vW; float dist = length(E); vec3 V = E / dist; float d = vD;
+  float p0 = fract(uT * 0.22), p1 = fract(uT * 0.22 + 0.5), w0 = 1.0 - abs(1.0 - 2.0 * p0);
+  vec2 uv = vW.xz * 0.085;
+  vec4 s0 = texture2D(uN, uv - vF * (p0 * 1.6)); vec4 s1 = texture2D(uN, uv - vF * (p1 * 1.6) + 0.5);
+  vec4 sA = mix(s1, s0, w0); vec2 nn = sA.xy * 2.0 - 1.0;
+  if (uQ > 0.5) { vec2 n2 = texture2D(uN, vW.xz * 0.021 + vec2(uT * 0.0061, -uT * 0.0043)).xy * 2.0 - 1.0; nn = nn * 0.8 + n2 * 0.6; }
+  float att = 1.0 / (1.0 + dist * 0.006); vec3 N = normalize(vec3(nn.x * 0.55 * att, 1.0, nn.y * 0.55 * att));
+  float nv = max(dot(N, V), 0.0); float F = 0.02 + 0.98 * pow(1.0 - nv, 5.0); F = min(F, 0.85);
+  vec3 R = reflect(-V, N); vec3 sky = mix(uSkyH, uSkyZ, smoothstep(0.02, 0.6, R.y));
+  float sp = pow(max(dot(R, uSun), 0.0), 140.0);
+  vec3 body = mix(uShal, uDeep, smoothstep(0.2, 5.0, d)) * uLit;
+  float kd = 1.0 - exp(-max(d, 0.0) * 0.5);
+  vec3 under = body; float a = mix(0.3, 0.97, kd);
+  if (vB > 0.5) { vec3 bed = (uQ > 0.5 ? texture2D(uBed, vW.xz * 0.11 + N.xz * 0.05 * min(d, 2.0)).rgb : vec3(0.55, 0.49, 0.38)) * uLit;
+    bed *= exp(-max(d, 0.0) * vec3(0.55, 0.28, 0.2)); under = mix(bed, body, 1.0 - exp(-max(d, 0.0) * 0.7)); a = 1.0; }
+  vec3 col = mix(under, sky, F) + uSunC * sp;
+  float fm = vFm * smoothstep(0.5, 0.78, sA.a + 0.18 * vFm); col = mix(col, vec3(0.9, 0.93, 0.95) * uLit, fm);
+  a = max(max(a, F), fm) * smoothstep(0.0, 0.32, d);
+  col = mix(col, fogColor, smoothstep(fogNear, fogFar, dist));
+  gl_FragColor = vec4(col, a);
+#include <colorspace_fragment>
+}`;
 const WATER = (() => {
-  const U = { t: { value: 0 } };
-  const m = new THREE.MeshLambertMaterial({ color: 0x3f7896, emissive: 0x0d2230, flatShading: true, transparent: true, opacity: 0.88, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 });
-  m.onBeforeCompile = sh => { sh.uniforms.wT = U.t;
-    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nuniform float wT;').replace('#include <begin_vertex>',
-      '#include <begin_vertex>\nvec4 wp = modelMatrix * vec4(position, 1.0); transformed.y += 0.06 * sin(wp.x * 0.35 + wT * 1.7) + 0.05 * sin(wp.z * 0.41 - wT * 1.3);'); };
-  const pos = [];
-  const tri = (a, b, c) => pos.push(...a, ...b, ...c);
-  for (const w of WATERWAYS) { const P = w.pts;
-    for (let i = 0; i < P.length - 1; i++) {
-      const [ax, az] = P[i], [bx, bz] = P[i + 1]; if (inLake(ax, az) && inLake(bx, bz)) continue;
-      const nrm = j => { const p = P[Math.max(0, j - 1)], q = P[Math.min(P.length - 1, j + 1)], dx = q[0] - p[0], dz = q[1] - p[1], L = hyp(dx, dz) || 1; return [-dz / L * w.hw, dx / L * w.hw]; };   // shared cross-sections: no seams
-      const [nx, nz] = nrm(i), [mx, mz] = nrm(i + 1);
-      const v = (x, z) => [x, groundY(x, z) + (w.hw > 5 ? 0.7 : 0.45), z];
-      const a0 = v(ax - nx, az - nz), a1 = v(ax, az), a2 = v(ax + nx, az + nz), b0 = v(bx - mx, bz - mz), b1 = v(bx, bz), b2 = v(bx + mx, bz + mz);
-      tri(a0, a1, b0); tri(a1, b1, b0); tri(a1, a2, b1); tri(a2, b2, b1);   // wound to face up
-    } }
-  for (const L of LAKES) { const n = 20, R = L.r + 25;
-    for (let k = 0; k < n; k++) { const a0 = k / n * 6.283, a1 = (k + 1) / n * 6.283;
-      tri([L.x, L.h - 0.2, L.z], [L.x + Math.cos(a1) * R, L.h - 0.2, L.z + Math.sin(a1) * R], [L.x + Math.cos(a0) * R, L.h - 0.2, L.z + Math.sin(a0) * R]); } }
-  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.computeVertexNormals();
-  const mesh = new THREE.Mesh(g, m); mesh.renderOrder = 1; scene.add(mesh);
-  return { mesh, tris: pos.length / 9, tick(dt) { U.t.value += dt; } };
+  const U = THREE.UniformsUtils.merge([THREE.UniformsLib.fog, { uT: { value: 0 }, uN: { value: null }, uBed: { value: null }, uSkyH: { value: new THREE.Color() }, uSkyZ: { value: new THREE.Color() }, uSun: { value: new THREE.Vector3(0, 1, 0) },
+    uSunC: { value: new THREE.Color() }, uDeep: { value: new THREE.Color(0x0b2a36) }, uShal: { value: new THREE.Color(0x3d8a8a) }, uLit: { value: 1 }, uQ: { value: 1 } }]);
+  U.uN.value = wtrNormTex(); U.uBed.value = wtrBedTex();
+  const m = new THREE.ShaderMaterial({ uniforms: U, vertexShader: WTR_VS, fragmentShader: WTR_FS, transparent: true, depthWrite: true, fog: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 });
+  const pos = [], aD = [], aF = [], aFm = [], aB = [], idx = []; let nv = 0;
+  const tri = (a, b, c) => { const ax = pos[b * 3] - pos[a * 3], az = pos[b * 3 + 2] - pos[a * 3 + 2], bx = pos[c * 3] - pos[a * 3], bz = pos[c * 3 + 2] - pos[a * 3 + 2]; if (az * bx - ax * bz > 0) idx.push(a, b, c); else idx.push(a, c, b); };   // wound to face up (+y)
+  const vert = (x, y, z, d, fx, fz, fm, b) => { pos.push(x, y, z); aD.push(d); aF.push(fx, fz); aFm.push(fm); aB.push(b); return nv++; };
+  // rivers + creeks: 7 across (s = -1 .. 1), depth D (1 - s^2) - 0.12 (the edge fades out), flow along the polyline (north -> south; creeks head -> mouth)
+  const SS = [-1, -0.7, -0.38, 0, 0.38, 0.7, 1];
+  for (const w of WATERWAYS) { const P = w.pts, big = w.hw > 5, D = big ? 2.2 : 0.75, lift = big ? 0.7 : 0.45; let prev = null;
+    for (let i = 0; i < P.length; i++) { const [px, pz] = P[i], p = P[Math.max(0, i - 1)], q = P[Math.min(P.length - 1, i + 1)], dx = q[0] - p[0], dz = q[1] - p[1], L = hyp(dx, dz) || 1, tx = dx / L, tz = dz / L;
+      const h0 = groundY(p[0], p[1]), h1 = groundY(q[0], q[1]), slope = Math.max(0, (h0 - h1) / L), sp = (big ? 1.1 : 0.7) + clamp(slope * 30, 0, 2.2), fm = clamp((slope - 0.03) / 0.07, 0, 1) * (big ? 1 : 0.85);
+      const wet = inLake(px, pz); if (wet) { prev = null; continue; }
+      const row = SS.map(s => { const x = px - tz * w.hw * s, z = pz + tx * w.hw * s; return vert(x, groundY(x, z) + lift, z, D * (1 - s * s) - 0.12, tx * sp, tz * sp, fm * (1 - 0.6 * Math.abs(s)) + (Math.abs(s) > 0.6 ? 0.08 : 0), 1); });
+      if (prev) for (let k = 0; k < 6; k++) { const a0 = prev[k], a1 = prev[k + 1], b0 = row[k], b1 = row[k + 1]; tri(a0, b0, a1); tri(a1, b0, b1); }
+      prev = row; } }
+  // lakes: rings (coarse in the middle, 3 m apart through the shore band) x 96 spokes; depth from the real bed; triangles all above the bed's waterline + 0.5 m are dropped
+  for (const L of LAKES) { const S = 96, y = L.h - 0.2, R = [0, 0.18, 0.36, 0.5, 0.6, 0.68, 0.74]; for (let r = 0.78 * L.r; r < L.r + 9; r += 3) R.push(r / L.r); const base = nv;
+    for (const rr of R) for (let k = 0; k < S; k++) { const a = k / S * 6.283, x = L.x + Math.cos(a) * rr * L.r, z = L.z + Math.sin(a) * rr * L.r; vert(x, y, z, y - terrainHeight(x, z), 0, 0, 0, 0); }
+    for (let i = 0; i < R.length - 1; i++) for (let k = 0; k < S; k++) { const a = base + i * S + k, b = base + i * S + (k + 1) % S, c = a + S, e = b + S;
+      for (const t of [[a, c, b], [b, c, e]]) if (t.some(j => aD[j] > -0.5)) tri(...t); } }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('aD', new THREE.Float32BufferAttribute(aD, 1)); g.setAttribute('aF', new THREE.Float32BufferAttribute(aF, 2));
+  g.setAttribute('aFm', new THREE.Float32BufferAttribute(aFm, 1)); g.setAttribute('aB', new THREE.Float32BufferAttribute(aB, 1)); g.setIndex(idx); g.computeBoundingSphere();
+  const mesh = new THREE.Mesh(g, m); mesh.renderOrder = 1; mesh.frustumCulled = false; mesh.userData.noBatch = true; mesh.userData.noCast = true; scene.add(mesh);
+  return { mesh, U, tris: idx.length / 3, tick(dt) { U.uT.value = (U.uT.value + dt) % 3600; } };
 })();
+const WTR_C = new THREE.Color();
+function wtrLight() {   // per frame: the sky it mirrors, the sun / moon glint, how lit the water body is (matches the day / night cycle and the weather greying)
+  const U = WATER.U; U.uSkyH.value.copy(scene.background); U.uSkyZ.value.copy(SKYD.z).lerp(scene.background, 0.35); U.fogColor.value.copy(scene.fog.color); U.fogNear.value = scene.fog.near; U.fogFar.value = scene.fog.far;
+  const day = sunDir.y > -0.05; U.uSun.value.copy(day ? sunDir : moonDir); WTR_C.copy(sun.color).multiplyScalar(day ? 1.6 * sun.intensity : 1.2 * sun.intensity); U.uSunC.value.copy(WTR_C);
+  U.uLit.value = 0.1 + 0.9 * Math.min(1, hemi.intensity / 1.2); U.uQ.value = GFX.water === 0 ? 0 : 1; }
+// the lake beds' ground colour: wet sand at the edge, gravel + stones on the slope, dark silt in the deep (both the VALLEY build and the v0.86 ground styles call it)
+function lakeBedCol(x, z, h, cc, j) { for (const L of LAKES) { const dd = hyp(x - L.x, z - L.z); if (dd > L.r + 12) continue; const dep = L.h - 0.2 - h; if (dep < 0.15) return null;
+    const r = hash2(Math.floor(x / 7), Math.floor(z / 7));
+    if (dep < 1.3) return cc.setHSL(0.11, 0.32, 0.43 * j);
+    if (dep < 4.5) return r < 0.3 ? cc.setHSL(0.08, 0.06, 0.36 * j) : cc.setHSL(0.1, 0.24, 0.33 * j);
+    return cc.setHSL(0.13, 0.2, 0.2 * j); } return null; }
 const WTK = { t: 0 };
 function updateWater(dt) {   // river / lake animation, the water sound, and no floats on this Cub
-  WATER.tick(dt);
+  WATER.tick(dt); wtrLight();
   if ((WTK.t -= dt) <= 0) { WTK.t = 0.5; const pp = playerPos(), d = waterDist(pp.x, pp.z); AMB.water = clamp(1 - d / 70, 0, 1) * (mode === 'plane' && !ac.out.wow ? 0 : 1);
     if (mode === 'plane' && ac.out.wow && !ac.crashed && !ac.gk?.fl && inLake(ac.pos[0], ac.pos[2]) && acGS() > 1) crash(ac, 'Ran into the lake - no floats on this Cub'); }   // v0.90 (the amphibs: physics)
 }
@@ -8933,6 +9004,7 @@ const GFX_OPT = [   // key, label, values, value labels, note (shown small under
   ['msaa', 'Anti-aliasing', [0, 1], ['OFF', 'MSAA'], 'applies after a reload'],
   ['dyn', 'Auto quality', [0, 1], ['OFF', 'ON'], 'VR: holds the rate - forest, shadows, then resolution'],
   ['hz', 'Refresh rate', [0, 72, 90, 120], ['AUTO', '72 Hz', '90 Hz', '120 Hz'], 'Quest 3: 72 / 90 / 120'],
+  ['water', 'Water', [0, 1], ['SIMPLE', 'FULL'], 'full: stony river beds, finer ripples'],   // v0.98
   ['fps', 'FPS counter', [0, 1], ['OFF', 'ON'], 'fps, ms, draw calls'],
   ['hx', 'Haptics', null, null, 'controller buzz'],
   ['vig', 'Comfort vignette', [0, 1, 2], ['OFF', 'LIGHT', 'STRONG'], 'darkens edges as you move'],
@@ -8964,9 +9036,9 @@ function gfxSet(k, v, quiet) {
   if (GQ.menu) gfxMenuSync();
 }
 const GFX_PRESET = {   // v0.48: one-poke presets (render scale takes effect next time you enter VR)
-  PERFORMANCE: { scale: 0.8, fov: 1, terr: 0, trees: 0.4, dist: 0.6, clouds: 0, fog: 1, shadows: 0, grass: 0, hz: 90, dyn: 1, cvl: 1 },
-  BALANCED: { scale: GFX_DEF.scale, fov: 1, terr: 1, trees: 1, dist: 1, clouds: 1, fog: 1, shadows: 0, grass: 0, hz: 90, dyn: 1, cvl: 1 },
-  QUALITY: { scale: 1.2, fov: 0.66, terr: 2, trees: 1, dist: 1.3, clouds: 2, fog: 1, shadows: 1, grass: 1, hz: 90, dyn: 1, cvl: 0 } };   // v0.68.1; v0.93 all at 90 Hz (auto quality thins detail, then resolution, to hold it)
+  PERFORMANCE: { scale: 0.8, fov: 1, terr: 0, trees: 0.4, dist: 0.6, clouds: 0, fog: 1, shadows: 0, grass: 0, hz: 90, dyn: 1, cvl: 1, water: 0 },
+  BALANCED: { scale: GFX_DEF.scale, fov: 1, terr: 1, trees: 1, dist: 1, clouds: 1, fog: 1, shadows: 0, grass: 0, hz: 90, dyn: 1, cvl: 1, water: 1 },
+  QUALITY: { scale: 1.2, fov: 0.66, terr: 2, trees: 1, dist: 1.3, clouds: 2, fog: 1, shadows: 1, grass: 1, hz: 90, dyn: 1, cvl: 0, water: 1 } };   // v0.68.1; v0.93 all at 90 Hz (auto quality thins detail, then resolution, to hold it)
 function gfxPreset(n) { for (const [k, v] of Object.entries(GFX_PRESET[n])) if (GFX[k] !== v) gfxSet(k, v, true); say(n + (renderer.xr.isPresenting && GFX.scale !== GQ.xrScale ? ' - RENDER SCALE AT NEXT VR START' : '')); sfx('click'); if (GQ.menu) gfxMenuSync(); }
 function gfxCycle(k, d = 1) { if (k === 'hx') { HX.cycle(); if (GQ.menu) gfxMenuSync(); return; } const o = GFX_OPT.find(r => r[0] === k), i = o[2].findIndex(v => Math.abs(v - GFX[k]) < 1e-6); gfxSet(k, o[2][((i < 0 ? 0 : i) + d + o[2].length) % o[2].length]); }
 function vlWant() { return GFX.terr < 2 && !LIGHTS.landing; }   // per-pixel lights (landing light) need the Lambert look; v0.85.1 shadows decide per tile (shNearUpdate)
@@ -9300,7 +9372,7 @@ const SETP_ROW = i => ({ X: i < 10 ? 30 : 527, Y: 96 + (i % 10) * 48 });   // v0
 // v0.68.1 the MENU board: tabs along the top (RESUME, SAVE / LOAD, GRAPHICS, COMFORT, CONTROLS, AUDIO), big poke / point targets, CLOSE bottom right.
 // Poke with a fingertip or point either controller at it and pull the trigger. Desktop: the same board in a page overlay (Esc / F2), clicked with the mouse.
 const MENU_TABS = [['resume', 'RESUME'], ['save', 'SAVE / LOAD'], ['gfx', 'GRAPHICS'], ['comfort', 'COMFORT'], ['controls', 'CONTROLS'], ['audio', 'AUDIO']];
-const MENU_ROWS = { gfx: ['scale', 'fov', 'terr', 'ground', 'gtex', 'trees', 'forest', 'dist', 'clouds', 'fog', 'wx', 'shadows', 'grass', 'msaa', 'dyn', 'hz', 'fps', 'tod', 'dayl', 'cvl'], comfort: ['vig', 'turn', 'stk', 'tips'], controls: ['hand', 'hx', 'wt', 'glove', 'flure', 'fline', 'fdrag', 'fbob', 'fsink'], audio: ['volM', 'volE', 'volA', 'volF'] };
+const MENU_ROWS = { gfx: ['scale', 'fov', 'terr', 'ground', 'gtex', 'trees', 'forest', 'dist', 'clouds', 'fog', 'wx', 'shadows', 'grass', 'msaa', 'dyn', 'hz', 'water', 'tod', 'dayl', 'cvl'], comfort: ['vig', 'turn', 'stk', 'tips', 'fps'], controls: ['hand', 'hx', 'wt', 'glove', 'flure', 'fline', 'fdrag', 'fbob', 'fsink'], audio: ['volM', 'volE', 'volA', 'volF'] };
 const MENU_TAB = i => ({ X: 22 + i * 146, W: 140 });   // (v0.91.1 narrower: the version sits at the right of the tab row)
 const MENU_SLOT = n => 76 + (n - 1) * 128;   // a manual slot's box top (right column)
 const MENU_HELP = ['TRIGGER  fire / brake / next page', 'GRIP  grab (stick, throttle, knobs, cargo)', 'A / X  recentre + set height', 'B  reset flight (on the rifle: lever)', 'Y  climb in / out (left rifle: lever)',
