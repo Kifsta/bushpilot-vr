@@ -2,6 +2,12 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.93.2 – crisp signs and labels at a slant
+
+- **4x anisotropic filtering by default** (`THREE.Texture.DEFAULT_ANISOTROPY = 4`) for every texture that doesn't set its own. 87 textures were 1x before: the strip / bridge / town signs, building and board labels, placards and paper. Their text now stays readable at a slant instead of smearing. Textures that already chose a level keep it: the ground tiles (2x / 4x by Terrain shading), the 2D trees (4x), and the boards at 8x / 16x.
+- **Cost:** next to nothing on Quest 3. The textures are small (mostly 256 px), with no new memory and no new shaders.
+- Before / after: `qa-v0932/cmp-sign.png`, `crop-sign.png` (the BRIDGE LOAD LIMIT sign from 9 m to the side).
+
 ## v0.93.1 – less garbage per frame (physics md5 unchanged)
 
 - **The terrain height no longer makes garbage.** The flight model asks for the ground height many times a frame, through V8's `Math.hypot`, and that builtin boxes its arguments and result: about 0.5 KB per height.
