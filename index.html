@@ -19,7 +19,7 @@
 </script>
 </head>
 <body>
-<div id="info">BUSH PILOT VR <span id="ver">v1.00</span> - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
+<div id="info">BUSH PILOT VR <span id="ver">v1.00.1</span> - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
 You start on foot by the Cub at the cabin strip. Walk up to her and climb in (F / Y), then start her up off the checklist card (J).
 Desktop - flying: W/S or arrows pitch, A/D or arrows roll, Q/E rudder, Shift / Ctrl (or + / -) throttle, B brakes, \ parking brake, [ ] flaps, PgUp / PgDn trim,
   R reset to the strip (cold and dark), F climb out, M map, L landing light, Home recentre, mouse looks (click to capture).
@@ -597,7 +597,7 @@ const hyp = (a, b, c = 0) => Math.sqrt(a * a + b * b + c * c);   // v0.59 Math.h
 
 // ======================= RENDERING =======================
 // v0.35 settings (persist in localStorage 'bp_gfx'; ?gfx=shadows:2,grass:1 overrides for testing). Defaults = the v0.34 look and cost.
-const BP_VERSION = 'v1.00';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
+const BP_VERSION = 'v1.00.1';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
 { const e = document.getElementById('ver'); if (e) e.textContent = BP_VERSION; }
 const GFX_DEF = { shadows: 0, scale: 1, fov: 1, dist: 1, trees: 1, grass: 0, clouds: 1, fog: 1, msaa: 1, hz: 90, vig: 0, turn: 0, fps: 0, tod: 11, stk: 1, tips: 1, terr: 1, dyn: 1, glove: 0, hand: 0, wt: 1, volM: 1, volMu: 0.5, volE: 1, volA: 1, volF: 1, wx: 1, forest: 0, ground: 0, gtex: 0, cvl: 1, water: 1, dayl: 48, flure: 0, fline: 8, fdrag: 4, fbob: 0, fsink: 0 };   // v0.68.1 dominant hand, volumes. v0.48 BALANCED: 90 % scale, 72 Hz, fast terrain shading, auto resolution; v0.49.1 the stick stays where you let go of it
 const GFX = Object.assign({}, GFX_DEF);
@@ -7609,9 +7609,10 @@ function fRig() { const id = FLURE_IDS[GFX.flure] || 'spoon', L = FLURE[id], bob
   const lb = FISH.line['l' + GFX.fline] ? GFX.fline : [8, 4, 14].find(x => FISH.line['l' + x]) || 8;
   return { id, L, bob, snk, g, m: g / 1000, D: 0.6 * cd * 1.6e-4 / (g / 1000), sink: L.float && !snk ? 0 : L.sink + (snk ? 0.35 : 0), kind, R, lb, rate: lb * 4.448, drag: GFX.fdrag * 0.06 * lb * 4.448 }; }
 function fMatch(r) { return r.g < r.R.lo ? 0.55 + 0.45 * r.g / r.R.lo : r.g > r.R.hi ? Math.max(0.6, 1 - (r.g - r.R.hi) / r.R.hi) : 1; }   // a lure outside the rod's range casts worse
-function fWaterAt(x, z) { const h = waterH(x, z); if (h !== null) return terrainHeight(x, z) < h - 0.03 ? h : null; return waterDist(x, z) <= 0 ? groundY(x, z) + 0.3 : null; }   // lakes, the river, creeks
+function fWaterAt(x, z) { const R = fRiver(x, z); if (R) return groundY(x, z) + R.lift;   // v1.00.1 rivers + creeks: the drawn surface
+  const h = waterH(x, z); if (h !== null) return terrainHeight(x, z) < h - 0.03 ? h : null; return waterDist(x, z) <= 0 ? groundY(x, z) + 0.3 : null; }   // lakes, the river, creeks
 // fish depth (not drawn): the lakes shelve off to ~20 m in the middle, river pools ~1.8 m, creeks ~0.7 m
-function fDepthAt(x, z, surf) { const L = inLake(x, z); if (L) return Math.max(surf - terrainHeight(x, z), clamp(0.5 + 0.12 * (L.r - hyp(x - L.x, z - L.z)), 0.3, 30)); return WATERS.at(x, z) !== null ? 1.8 : 0.7; }   // river pools ~1.8 m, creeks ~0.7 m
+function fDepthAt(x, z, surf) { if (inLake(x, z)) return Math.max(0.3, surf - terrainHeight(x, z)); const R = fRiver(x, z); if (R) return Math.max(0.15, R.D * (1 - R.s * R.s) - 0.12); return WATERS.at(x, z) !== null ? 1.8 : 0.7; }   // v1.00.1 the real carved lake bed; the river's depth profile   // river pools ~1.8 m, creeks ~0.7 m
 // ---- the rod frame each frame: fist O, axis A (butt -> tip), D (down, square to A), X = D x A (right) ----
 const FRD = { O: GV3(0, 0, 0), A: GV3(0, 0, -1), D: GV3(0, -1, 0), X: GV3(1, 0, 0), def: GV3(0, 0, 0), bend: 0, ang: 0.6, whip: 0 };
 function fRodFrame(dt, vrOn) {
@@ -7645,7 +7646,7 @@ function fLineStep(dt) {
   for (let it = 0; it < 8; it++) { for (let i = 0; i < n - 1; i++) { const a = P[i], b = P[i + 1]; _fk1.subVectors(b, a); const d = _fk1.length(); if (d < 1e-6 || d <= seg) continue;
       const c = (d - seg) / d, wa = i === 0 ? 0 : 0.5, wb = i + 1 === n - 1 ? 0 : 0.5, s = wa + wb; if (!s) continue; a.addScaledVector(_fk1, c * wa / s); b.addScaledVector(_fk1, -c * wb / s); } }
   FISH.gTick = (FISH.gTick + 1) % 3;
-  for (let i = 1; i < n - 1; i++) { const p = P[i]; if (wet && p.y < surf && i > n * 0.3) { p.y = surf; O[i].y = surf; continue; }   // lies on the water (out toward the lure)
+  for (let i = 1; i < n - 1; i++) { const p = P[i]; if (wet && p.y < surf && i > n * 0.3) { p.y = surf; O[i].y = surf; if (FISH.flx || FISH.flz) { const k = 0.9 * dt * (i / n); p.x += FISH.flx * k; p.z += FISH.flz * k; O[i].x += FISH.flx * k; O[i].z += FISH.flz * k; } continue; }   // v1.00.1 the current bellies the line   // lies on the water (out toward the lure)
     if ((i + FISH.gTick) % 3 === 0) FLINE.gy[i] = groundY(p.x, p.z) + 0.01; if (p.y < FLINE.gy[i]) { p.y = FLINE.gy[i]; O[i].lerp(p, 0.6); } }
   const A = FLINE.a; for (let i = 0; i < n; i++) { A[i * 3] = P[i].x; A[i * 3 + 1] = P[i].y; A[i * 3 + 2] = P[i].z; } FLINE.l.geometry.attributes.position.needsUpdate = true; }
 FLINE.gy = new Float32Array(FISH.n).fill(-1e9); FISH.gTick = 0; FISH.surf = -1e9; FISH.end = null; FISH.lift = 0;
@@ -7669,7 +7670,7 @@ function fTake(g) {   // VR: the rod out of its tube
   FISH.rod = g ? 'vr' : 'desk'; FISH.hand = g || null; FISH.st = 'idle'; FISH.bail = false; FISH.pinch = false; FISH.rig = fRig(); FRD.ang = 0.55; FISH.T = 0;
   fRodFrame(0, !!g); fRodDraw(FISH.rig); fLineReset(0.45); sfx('pick'); if (g) HX.pulse(g, 0.4, 20, 'rod');
   say((FISH.kind === 'rodH' ? 'CASTING ROD' : 'SPINNING ROD') + ' - ' + FTK[FISH.rig.id][0].replace(/ \(.*/, '') + (FISH.rig.bob ? ' UNDER A BOBBER' : '') + ', ' + FISH.rig.lb + ' LB, DRAG ' + GFX.fdrag + (g ? ' - TRIGGER: OPEN THE BAIL + HOLD THE LINE, FLICK, LET GO' : ' - HOLD LMB, LET GO TO CAST, RMB REELS')); return true; }
-function fStow(why) { if (FISH.rod === 'pack') return; if (FISH.st === 'landed' && FISH.fish) fKeepOrRelease(); FISH.rod = 'pack'; FISH.hand = FISH.crankG = null; FISH.st = 'idle'; FISH.charging = false; FISH.fish = null; FISH.T = 0; FISH.ready = false;
+function fStow(why) { if (FISH.rod === 'pack') return; if (FISH.st === 'landed' && FISH.fish) fKeepOrRelease(); FISH.rod = 'pack'; FISH.hand = FISH.crankG = null; FISH.st = 'idle'; FISH.snag = null; FISH.charging = false; FISH.fish = null; FISH.T = 0; FISH.ready = false;
   FROD.m.visible = FREEL.m.visible = FLINE.l.visible = false; for (const k in FLM) FLM[k].visible = false; for (const k in FMESH) FMESH[k].visible = false; sfx('clack'); if (why) say(why); }
 function fishBoard() { FISH.deck = false; if (FISH.rod !== 'pack') fStow(FISH.st === 'idle' ? '' : 'LINE REELED IN, ROD IN ITS TUBE'); }
 // ---- each frame ----
@@ -7689,23 +7690,26 @@ function fLureStep(dt) {
   // on the water / the ground
   const inW = st !== 'ground', depth = FISH.depth, surf = FISH.surf;
   _fk1.subVectors(FISH.tip, lu); const d = _fk1.length(); let moved = 0;
+  if (inW && FISH.snag) { fSnagTick(Math.max(dt, 1e-4), r, d); return; }   // v1.00.1 snagged on the bottom
   if (FISH.bail) FISH.L = Math.min(100, Math.max(FISH.L, d));
   else if (d > FISH.L) { moved = d - FISH.L; lu.addScaledVector(_fk1, moved / d); }
   const sp = moved / Math.max(dt, 1e-3); FISH.spd = FISH.spd * 0.85 + sp * 0.15;
-  if (inW) { if (WATERS.at(lu.x, lu.z) !== null) lu.z -= 0.45 * dt;   // the river's current
+  FISH.flx = FISH.flz = 0;
+  if (inW) { const R = fRiver(lu.x, lu.z); if (R) { const k = r.bob || (r.L.float && !r.snk) ? 0.9 : 0.5; FISH.flx = R.tx * R.sp; FISH.flz = R.tz * R.sp; lu.x += FISH.flx * k * dt; lu.z += FISH.flz * k * dt; FISH.drift = R.sp * k; } else FISH.drift = 0;   // v1.00.1 the river's flow (the water shader's): the lure drifts, a tight line swings it downstream
     const bot = surf - depth + 0.04;
     if (r.bob) { lu.y = surf; FISH.end = null; FISH.dep = Math.min(GFX.fbob, depth - 0.1); }
     else { if (r.L.float && !r.snk) lu.y = surf - 0.005; else lu.y = clamp(lu.y - r.sink * dt + Math.min(0.5, 0.3 * FISH.spd) * dt * (FISH.spd > 0.05 ? 1 : 0), bot, surf - 0.02); FISH.dep = surf - lu.y; }
+    if (!r.bob && !(r.L.float && !r.snk) && lu.y <= bot + 0.003 && moved > 0 && !FISH.noSnag && Math.random() < dt * 0.35 * fSnagK() * (FISH.snagX || 1)) { FISH.snag = { x: lu.x, y: lu.y, z: lu.z, cd: 0.3, load: 0, tries: 0 }; FISH.stat.snags = (FISH.stat.snags || 0) + 1; sfx('tick'); if (FISH.hand) HX.pulse(FISH.hand, 0.6, 40, 'snag'); say('SNAGGED ON THE BOTTOM - ' + (FISH.rod === 'vr' ? 'JERK THE ROD UP' : 'CLICK (A SHARP LIFT)') + ' TO FREE IT; KEEP REELING AND IT BREAKS OFF'); }
     if (FISH.L <= 0.6 || (lu.y > surf + 0.05)) { fBackToTip(); return; }
     if (fWaterAt(lu.x, lu.z) === null && moved > 0) { FISH.st = 'ground'; } }
   else { lu.y = groundY(lu.x, lu.z) + 0.01; if (FISH.L <= 0.6) { fBackToTip(); return; } const w = fWaterAt(lu.x, lu.z); if (w !== null && w > lu.y) { FISH.st = 'water'; FISH.surf = w; FISH.depth = fDepthAt(lu.x, lu.z, w); } }
   FISH.T = d >= FISH.L - 0.02 && !FISH.bail ? (inW ? 0.12 + 1.1 * FISH.spd * FISH.spd : 0.6) : 0;
 }
-function fBackToTip() { FISH.st = 'idle'; FISH.L = 0.45; FISH.lv.set(0, 0, 0); FISH.spd = 0; FISH.retr = 0; FISH.lure.copy(FISH.tip).add(_fk1.set(0, -0.45, 0)); fLineReset(0.45); }
+function fBackToTip() { FISH.snag = null; FISH.st = 'idle'; FISH.L = 0.45; FISH.lv.set(0, 0, 0); FISH.spd = 0; FISH.retr = 0; FISH.lure.copy(FISH.tip).add(_fk1.set(0, -0.45, 0)); fLineReset(0.45); }
 function fLand() {   // the lure comes down: water (a plop) or the ground
   const lu = FISH.lure, w = fWaterAt(lu.x, lu.z);
   if (w !== null && lu.y <= w) { FISH.st = 'water'; FISH.wk = null; FISH.surf = w; FISH.depth = fDepthAt(lu.x, lu.z, w); lu.y = w; FISH.lv.set(0, 0, 0); FISH.spd = 0;
-    const dd = FISH.cast0 ? hyp(lu.x - FISH.cast0.x, lu.z - FISH.cast0.z) : 0; FISH.lastD = dd; FISH.maxD = Math.max(FISH.maxD, dd); sfx('splash', lu); FISH.plop = 0.6; return true; }
+    const dd = FISH.cast0 ? hyp(lu.x - FISH.cast0.x, lu.z - FISH.cast0.z) : 0; FISH.lastD = dd; FISH.maxD = Math.max(FISH.maxD, dd); sfx('splash', lu); FISH.plop = 0.6; { const g = FISH.rig ? FISH.rig.g : 8, fl = FISH.rig && FISH.rig.L.float && !FISH.rig.bob; fSplash(lu, w, fl ? 0.1 : Math.min(1, g / 14)); fSpook(lu.x, lu.z, fl ? 1.2 : 2 + g / 6); } return true; }   // v1.00.1 a plop: rings, droplets, fish bolt
   const gy = groundY(lu.x, lu.z); if (lu.y <= gy + 0.01) { lu.y = gy + 0.01; FISH.st = 'ground'; FISH.lv.set(0, 0, 0); FISH.lastD = FISH.cast0 ? hyp(lu.x - FISH.cast0.x, lu.z - FISH.cast0.z) : 0; sfx('leaf'); return true; }
   return false; }
 function fLureDraw(dt) {
@@ -7731,7 +7735,7 @@ function fDeskInput(dt) {
   if (FISH.charging) FISH.pow = Math.min(1, FISH.pow + dt / 0.8);
   if (FISH.desk.reel) fCrank(2 * Math.PI * (keys.ShiftLeft ? 2.6 : 1.6) * dt, dt); else fCrank(0, dt); }
 function fishTick(dt, vrOn) {
-  camera.getWorldPosition(_fT); fShopHint(_fT, vrOn); fWornTick(vrOn); fClockTick(dt); fOrderTick(); fDeckTick(); fNetTick(dt, vrOn);
+  camera.getWorldPosition(_fT); fShopHint(_fT, vrOn); fWornTick(vrOn); fClockTick(dt); fOrderTick(); fDeckTick(); fNetTick(dt, vrOn); fWaterFx(dt);
   if (FISH.rod === 'pack') { FROD.m.visible = FREEL.m.visible = FLINE.l.visible = false; return; }
   if (mode !== 'foot') { fishBoard(); return; }
   if (FISH.rod === 'vr' && !FISH.hand?.userData.src) { fStow(''); return; }
@@ -7813,14 +7817,14 @@ for (const [id, sp] of Object.entries(FSP)) { const [bk, be, st] = sp.c, slim = 
 function fLenM(f) { return Math.cbrt(f.kg * 1000 / FSP[f.sp].k) / 100; }
 // ---- bites ----
 function fBiteTick(dt) {
-  const r = FISH.rig, lu = FISH.lure; if (FISH.st !== 'water' || FISH.bail) { FISH.bobDip = 0; return; }
+  const r = FISH.rig, lu = FISH.lure; if (FISH.st !== 'water' || FISH.bail || FISH.snag) { FISH.bobDip = 0; return; }
   if (FISH.plop > 0) { FISH.plop -= dt; return; }   // the splash spooks them for a moment
   const wk = FISH.wk || (FISH.wk = fWaterKind(lu.x, lu.z)), dep = r.bob ? FISH.dep : FISH.dep, spk = fSpotK(lu.x, lu.z);
-  let tot = 0; const ks = FSP_IDS.map(id => { const k = fBiteK(FSP[id], r, wk, id === 'laker' ? Math.min(dep, FISH.depth) : dep, FISH.spd); tot += k; return k; }); FISH.keen = tot * spk;
+  let tot = 0; const ks = FSP_IDS.map(id => { const k = fBiteK(FSP[id], r, wk, id === 'laker' ? Math.min(dep, FISH.depth) : dep, FISH.spd) * fZoneK(id, FISH.depth, wk); tot += k; return k; });   // v1.00.1 x where it lives (the bottom depth) FISH.keen = tot * spk;
   if (Math.random() > FBITE * tot * spk * dt * (FISH.biteX || 1)) return;
   let u = Math.random() * tot, i = 0; while (i < ks.length - 1 && (u -= ks[i]) > 0) i++;
   const sp = FSP_IDS[i]; FISH.fish = { sp, kg: fRandKg(FSP[sp]), t: 0, win: r.bob ? 1.1 : 0.8, stam: 1, ph: 0, phT: 1 + Math.random() * 2, ang: (Math.random() - 0.5) * 1.2, v: GV3(0, 0, 0), over: 0, slackT: 0, jumpT: 0, out: 0 };
-  FISH.st = 'bite'; FISH.stat = FISH.stat || {}; FISH.stat.bites = (FISH.stat.bites || 0) + 1;
+  FISH.st = 'bite'; fRing(lu.x, FISH.surf, lu.z, 0.07, 1.2, 0.35); fAmbTake(); FISH.stat = FISH.stat || {}; FISH.stat.bites = (FISH.stat.bites || 0) + 1;
   if (FISH.hand) { HX.pulse(FISH.hand, 0.65, 40, 'bite'); } FISH.tw = 0.35; }
 function fStrike() {   // the hook set: a quick lift of the rod (desktop: LMB) inside the bite window
   if (FISH.st === 'bite') { const f = FISH.fish, r = FISH.rig, p = r.id === 'fly' || r.id === 'bait' ? 0.8 : 0.88;
@@ -7893,6 +7897,96 @@ function fFishDraw() {
   m.position.copy(FISH.lure).addScaledVector(_fk1.subVectors(FISH.lure, FISH.tip).normalize(), len * 0.35);
   _fk2.copy(f.v); _fk2.y *= 0.4; if (_fk2.lengthSq() < 0.01) _fk2.subVectors(FISH.lure, FISH.tip).setY(0);
   _fkM.lookAt(_fk3.set(0, 0, 0), _fk2.negate(), _ry); m.quaternion.setFromRotationMatrix(_fkM); if (f.stam < 0.12) m.rotateZ(1.3); }
+// ===================== v1.00.1 fishing x the v0.98 water: real depths, the current, snags, fish you can see, rings on the surface =====================
+// The lure, bobber and line now sit on the water you see (rivers + creeks: their drawn surface), sink to the real carved lake bed / the river's
+// depth profile, and drift with the river's flow (speed + direction from the same polyline the water shader flows along), so a cast swings
+// downstream. Lures dragged along a stony bottom can snag. Fish cruise the clear shallows near you (one instanced draw), follow a lure, take it,
+// and bolt from a splash. Bites, splashes, jumps and fight swirls ring the surface; a landed fish drips.
+// ---- the river / creek under a point: cross position s (-1 bank .. 0 middle .. 1 bank), flow direction + speed, drawn-surface lift, profile depth ----
+const FWW = { segs: [], grid: new Map(), C: 64, o: { s: 0, tx: 0, tz: 1, sp: 0, big: false, lift: 0.45, D: 0.75 } };
+for (const w of WATERWAYS) { const P = w.pts, big = w.hw > 5;
+  for (let i = 0; i + 1 < P.length; i++) { const [ax, az] = P[i], [bx, bz] = P[i + 1], L = hyp(bx - ax, bz - az) || 1, h0 = groundY(ax, az), h1 = groundY(bx, bz), slope = Math.max(0, (h0 - h1) / L);
+    const sg = [ax, az, bx, bz, w.hw, big, (big ? 1.1 : 0.7) + clamp(slope * 30, 0, 2.2), (bx - ax) / L, (bz - az) / L, L]; FWW.segs.push(sg);
+    const C = FWW.C, r = w.hw + 2; for (let gx = Math.floor((Math.min(ax, bx) - r) / C); gx <= Math.floor((Math.max(ax, bx) + r) / C); gx++) for (let gz = Math.floor((Math.min(az, bz) - r) / C); gz <= Math.floor((Math.max(az, bz) + r) / C); gz++) {
+      const k = gx * 4096 + gz; let a = FWW.grid.get(k); if (!a) FWW.grid.set(k, a = []); a.push(sg); } } }
+function fRiver(x, z) {   // null off the waterways (or inside a lake)
+  const a = FWW.grid.get(Math.floor(x / FWW.C) * 4096 + Math.floor(z / FWW.C)); if (!a || inLake(x, z)) return null; let best = null, bd = 1e9, bs = 0;
+  for (const g of a) { const t = clamp(((x - g[0]) * g[7] + (z - g[1]) * g[8]) / g[9], 0, 1), px = g[0] + (g[2] - g[0]) * t, pz = g[1] + (g[3] - g[1]) * t, d = hyp(x - px, z - pz);
+    if (d < g[4] && d / g[4] < bd) { bd = d / g[4]; best = g; bs = ((x - px) * -g[8] + (z - pz) * g[7]) < 0 ? -bd : bd; } }
+  if (!best) return null; const o = FWW.o; o.s = bs; o.tx = best[7]; o.tz = best[8]; o.sp = best[6] * (1 - 0.6 * bs * bs); o.big = best[5]; o.lift = best[5] ? 0.7 : 0.45; o.D = best[5] ? 2.2 : 0.75; return o; }
+// ---- rings on the surface: one instanced draw (bites, plops, swirls, drips) ----
+const FRING = { N: 24, i: 0, R: [] };
+{ const g = new THREE.RingGeometry(0.9, 1, 28).rotateX(-Math.PI / 2), m = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, polygonOffset: true, polygonOffsetFactor: -8, polygonOffsetUnits: -8 });
+  const im = new THREE.InstancedMesh(g, m, FRING.N); im.instanceMatrix.setUsage(THREE.DynamicDrawUsage); im.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(FRING.N * 3), 3); im.count = 0; im.frustumCulled = false; im.renderOrder = 3; im.userData.noBatch = true; im.userData.noCast = true; scene.add(im); FRING.im = im;
+  for (let i = 0; i < FRING.N; i++) FRING.R.push({ x: 0, y: 0, z: 0, r0: 0.1, t: 0, life: 0, a: 0 }); }
+function fRing(x, y, z, r0, life = 1.6, a = 0.5) { const R = FRING.R[FRING.i]; FRING.i = (FRING.i + 1) % FRING.N; R.x = x; R.y = y + 0.012; R.z = z; R.r0 = r0; R.t = 0; R.life = life; R.a = a; FRING.n = (FRING.n || 0) + 1; }
+const _frM = new THREE.Matrix4(), _frC = new THREE.Color();
+function fRingTick(dt) { const im = FRING.im; let n = 0;
+  for (const R of FRING.R) { if (R.life <= 0) continue; R.t += dt; const u = R.t / R.life; if (u >= 1) { R.life = 0; continue; } const r = R.r0 * (1 + 3.2 * Math.sqrt(u)), w = R.a * (1 - u) * (1 - u);
+    _frM.makeScale(r, 1, r).setPosition(R.x, R.y, R.z); im.setMatrixAt(n, _frM); im.setColorAt(n, _frC.setRGB(w, w, w)); n++; }
+  im.count = n; im.visible = n > 0; if (n) { im.instanceMatrix.needsUpdate = true; im.instanceColor.needsUpdate = true; } }
+function fSplash(p, surf, k) {   // a plop / jump: droplets (the shared spray particles) + two rings
+  for (let i = 0; i < Math.round(6 + 10 * k); i++) flxEmit(_fsP.set(p.x, surf + 0.02, p.z), 0, 0.8 + 1.4 * k, 0, 0.5 + 0.6 * k, 0.03, 0.09 + 0.08 * k, 0.55, 0.6, 9.8, 0.6, 1);
+  fRing(p.x, surf, p.z, 0.08 + 0.12 * k, 1.4 + k, 0.4); fRing(p.x, surf, p.z, 0.04 + 0.06 * k, 1.0 + 0.6 * k, 0.28); }
+const _fsP = GV3(0, 0, 0);
+// ---- fish you can see: up to 10 cruising the clear shallows near you (0.35 - 3 m deep), one instanced draw, gone past 35 m ----
+const FAMB = { N: 10, F: [], T: 0, im: null, seen: 0, spooks: 0, follow: 0 };
+{ const P = [['t', [0.07, 0.1], 0.32, 6, 0, 0, 0.0, 0x3e4a3a, Math.PI / 2], ['t', [0.1, 0.035], 0.42, 6, 0, 0, 0.37, 0x3e4a3a, Math.PI / 2], ['k', 0.07, 0.2, 6, 0, 0, -0.26, 0x48543e, -Math.PI / 2], ['b', 0.012, 0.15, 0.13, 0, 0, 0.64, 0x343e30], ['t', [0.055, 0.085], 0.3, 6, 0, -0.03, 0.02, 0x8a8e7a, Math.PI / 2]];
+  const gs = P.map(partGeo), g = mergeGeometries(gs); for (const x of gs) x.dispose();
+  const im = new THREE.InstancedMesh(g, DEER_IVM, FAMB.N); im.instanceMatrix.setUsage(THREE.DynamicDrawUsage); im.count = 0; im.frustumCulled = false; im.userData.noBatch = true; im.userData.noCast = true; im.visible = false; scene.add(im); FAMB.im = im;
+  for (let i = 0; i < FAMB.N; i++) FAMB.F.push({ on: false, x: 0, y: 0, z: 0, h: 0, sp: 0.25, len: 0.4, turn: 0, flee: 0, fol: 0, ph: Math.random() * 6, surf: 0, k: '' }); }
+function fAmbZone(x, z) {   // where a fish could be: { surf, depth, kind } in clear shallow water, or null
+  const w = fWaterAt(x, z); if (w === null) return null; const d = fDepthAt(x, z, w); if (d < 0.35 || d > 3) return null; return { surf: w, depth: d }; }
+function fAmbSpawn(F, px, pz) { for (let tr = 0; tr < 4; tr++) { const a = Math.random() * 6.283, r = 6 + Math.random() * 18, x = px + Math.cos(a) * r, z = pz + Math.sin(a) * r, Z = fAmbZone(x, z); if (!Z) continue;
+    const wk = fWaterKind(x, z), pick = wk === 'lake' ? (Z.depth > 2.2 ? 'laker' : Math.random() < 0.5 ? 'pike' : 'rainbow') : wk === 'river' ? (Math.random() < 0.4 ? 'salmon' : Math.random() < 0.6 ? 'grayling' : 'rainbow') : 'grayling';
+    F.on = true; F.x = x; F.z = z; F.surf = Z.surf; F.y = Z.surf - Math.min(Z.depth - 0.15, 0.25 + Math.random() * 0.5 * Z.depth); F.h = Math.random() * 6.283; F.sp = 0.15 + Math.random() * 0.25; F.flee = 0; F.fol = 0; F.k = pick;
+    F.len = pick === 'salmon' ? 0.55 + Math.random() * 0.2 : pick === 'pike' ? 0.5 + Math.random() * 0.3 : pick === 'laker' ? 0.5 + Math.random() * 0.25 : pick === 'grayling' ? 0.25 + Math.random() * 0.12 : 0.3 + Math.random() * 0.15; F.a = 0; FAMB.seen++; return true; } return false; }
+function fSpook(x, z, r) { let n = 0; for (const F of FAMB.F) if (F.on && F.flee <= 0 && hyp(F.x - x, F.z - z) < r) { F.flee = 1.6; F.h = Math.atan2(F.x - x, F.z - z); F.fol = 0; n++; } if (n) FAMB.spooks += n; return n; }
+const _faM = new THREE.Matrix4(), _faQ = new THREE.Quaternion(), _faS = GV3(1, 1, 1), _faP = GV3(0, 0, 0), _faE = new THREE.Euler();
+function fAmbTick(dt) {
+  const im = FAMB.im; camera.getWorldPosition(_faP); const px = _faP.x, pz = _faP.z;
+  if (mode !== 'foot' || waterDist(px, pz) > 45) { if (im.visible) { im.visible = false; im.count = 0; for (const F of FAMB.F) F.on = false; } return; }
+  if ((FAMB.T -= dt) <= 0) { FAMB.T = 0.7; for (const F of FAMB.F) { if (F.on && hyp(F.x - px, F.z - pz) > 35) F.on = false; } const free = FAMB.F.find(F => !F.on); if (free) fAmbSpawn(free, px, pz); }
+  // wading in spooks what's round your feet
+  const wet = fWaterAt(px, pz) !== null; if (wet && (FAMB.wadeT = (FAMB.wadeT || 0) - dt) <= 0) { FAMB.wadeT = 0.5; fSpook(px, pz, 4); }
+  const lu = FISH.lure, lureIn = FISH.rod !== 'pack' && FISH.st === 'water' && !FISH.snag, still = FISH.rig && (FISH.rig.id === 'bait' || FISH.rig.bob);
+  let n = 0;
+  for (const F of FAMB.F) { if (!F.on) continue; F.ph += dt * (2 + 6 * F.sp);
+    const rv = fRiver(F.x, F.z);
+    if (F.flee > 0) { F.flee -= dt; F.sp = 2.6; F.y -= dt * 0.5; if (F.flee <= 0) { F.on = false; FAMB.fled = (FAMB.fled || 0) + 1; continue; } }
+    else { const dl = lureIn ? hyp(lu.x - F.x, lu.z - F.z) : 1e9;
+      if (dl < 5 && (FISH.spd > 0.08 || still)) { if (!F.fol) FAMB.follow++; F.fol = 1; const want = Math.atan2(lu.x - F.x, lu.z - F.z); let d = want - F.h; d = Math.atan2(Math.sin(d), Math.cos(d)); F.h += clamp(d, -2.5 * dt, 2.5 * dt); F.sp = dl > 0.45 ? Math.min(0.9, 0.3 + FISH.spd) : 0.05; F.y += (Math.max(lu.y, F.surf - 2.5) - F.y) * Math.min(1, dt * 1.5); }
+      else { F.fol = 0; if ((F.turn -= dt) <= 0) { F.turn = 1.5 + Math.random() * 3; F.tH = rv ? Math.atan2(-rv.tx, -rv.tz) + (Math.random() - 0.5) * 0.8 : F.h + (Math.random() - 0.5) * 2.2; F.sp = rv ? 0.05 + Math.random() * 0.2 : 0.12 + Math.random() * 0.25; }   // in a river they hold facing upstream
+        if (F.tH !== undefined) { let d = F.tH - F.h; d = Math.atan2(Math.sin(d), Math.cos(d)); F.h += clamp(d, -0.8 * dt, 0.8 * dt); } } }
+    let nx = F.x + Math.sin(F.h) * F.sp * dt, nz = F.z + Math.cos(F.h) * F.sp * dt; if (rv && F.flee <= 0) { nx += rv.tx * rv.sp * 0.2 * dt; nz += rv.tz * rv.sp * 0.2 * dt; }
+    const Z = fAmbZone(nx, nz); if (Z) { F.x = nx; F.z = nz; F.surf = Z.surf; F.y = clamp(F.y, Z.surf - Z.depth + 0.12, Z.surf - 0.12); } else { F.h += Math.PI * (0.6 + Math.random() * 0.4); F.turn = 1; if (F.flee > 0) F.y -= 0.02; }
+    F.a = Math.min(1, F.a + dt * 1.5);
+    _faE.set(0, F.h + Math.PI + Math.sin(F.ph) * 0.12 * Math.min(1, F.sp + 0.2), 0); _faQ.setFromEuler(_faE); _faS.setScalar(F.len * (0.5 + 0.5 * F.a)); _faM.compose(_fsP.set(F.x, F.y, F.z), _faQ, _faS); im.setMatrixAt(n++, _faM); }
+  im.count = n; im.visible = n > 0; if (n) im.instanceMatrix.needsUpdate = true; }
+// the visible fish nearest the lure takes it (it's the one on the line now)
+function fAmbTake() { let best = null, bd = 3; for (const F of FAMB.F) if (F.on && F.flee <= 0) { const d = hyp(F.x - FISH.lure.x, F.z - FISH.lure.z); if (d < bd) { bd = d; best = F; } } if (best) { best.on = false; FAMB.took = (FAMB.took || 0) + 1; } return best; }
+// ---- snags: a sinking lure dragged along a stony bottom can catch ----
+function fZoneK(id, bd, wk) { if (wk !== 'lake') return 1; return id === 'laker' ? fBand(bd, 6, 60, 2) : id === 'pike' ? fBand(bd, 0.5, 4, 2) : id === 'grayling' ? fBand(bd, 0.1, 1.5, 1) : 1; }   // lake trout in the deep basins, pike + grayling in the shallows
+function fSnagK() { const lu = FISH.lure; if (fRiver(lu.x, lu.z)) return 1; const d = FISH.depth; return d > 1.3 && d < 4.5 ? 0.9 : 0.25; }   // river beds + the lakes' gravel slope are stony
+function fSnagTick(dt, r, d) {   // called from the lure step while snagged: the lure stays put; reeling only loads the rod; a sharp lift may free it; reel on and it breaks
+  const S = FISH.snag, lu = FISH.lure; lu.set(S.x, S.y, S.z); S.cd = Math.max(0, S.cd - dt);
+  const kr = r.R.full / (0.42 * r.R.len), kl = r.rate / (0.22 * Math.max(3, FISH.L)), k = 1 / (1 / kl + 1 / kr), st = d - FISH.L; let T = st > 0 ? st * k : 0; if (T > r.drag) { FISH.L = d - r.drag / k; T = r.drag; }   // the rod + line as one spring (as in a fight)
+  T = FISH.T + (T - FISH.T) * Math.min(1, dt * 8); FISH.T = T; FISH.spd = 0; if (T >= Math.min(r.drag, r.rate) * 0.85) S.load += dt; else S.load = Math.max(0, S.load - dt * 0.5);
+  const lift = FISH.rod === 'vr' ? fLiftVR() : FISH.lift > 0.9;
+  if (lift && S.cd <= 0) { S.cd = 0.7; S.tries++; FISH.lift = 0; if (Math.random() < (FISH.snagFree ?? 0.4)) { FISH.snag = null; lu.y += 0.25; FISH.T = 0; sfx('tick'); say('FREED IT - THE LURE CAME OFF THE BOTTOM'); FISH.stat.unsnag = (FISH.stat.unsnag || 0) + 1; return; } else { sfx('tick'); if (FISH.hand) HX.pulse(FISH.hand, 0.5, 30, 'snag'); } }
+  if (S.load > 3 || T > r.rate * 0.99) { FISH.snag = null; FISH.stat.snagLost = (FISH.stat.snagLost || 0) + 1; FISH.lures[r.id] = Math.max(0, (FISH.lures[r.id] || 0) - 1); FISH.L = 0.45; fBackToTip(); sfx('pop');
+    say('SNAP - LEFT IT ON THE BOTTOM: ' + FTK[r.id][0].replace(/ \(.*/, '') + ' GONE (' + (FISH.lures[r.id] || 0) + ' LEFT). RETRIEVE FASTER OR HIGHER OVER STONES'); }
+}
+// ---- each frame: rings, the visible fish, swirls in a fight, a landed fish dripping ----
+function fWaterFx(dt) {
+  fRingTick(dt); fAmbTick(dt);
+  const f = FISH.fish, lu = FISH.lure;
+  if (FISH.st === 'fight' && f) { const near = FISH.dep < 0.7; if (near && (FISH.swT = (FISH.swT || 0) - dt) <= 0) { FISH.swT = 0.22 + Math.random() * 0.3; fRing(lu.x, FISH.surf, lu.z, 0.1 + 0.05 * Math.min(3, f.kg) * (0.5 + f.stam), 1.3, 0.16 + 0.12 * f.stam); FISH.swirls = (FISH.swirls || 0) + 1; }
+    if (f.jumpT > 0 && !f.sp2) { f.sp2 = 1; fSplash(lu, FISH.surf, 0.9); fSpook(lu.x, lu.z, 6); } if (f.jumpT <= 0) f.sp2 = 0; }
+  if (FISH.st === 'landed' && f) { const p = FISH.landP, w = fWaterAt(p.x, p.z); if ((FISH.dripT = (FISH.dripT || 0) - dt) <= 0) { FISH.dripT = 0.06 + Math.random() * 0.1;
+      flxEmit(_fsP.set(p.x + (Math.random() - 0.5) * 0.2, p.y - 0.03, p.z + (Math.random() - 0.5) * 0.2), 0, -0.3, 0, 0.05, 0.012, 0.02, 0.45, 0.8, 9.8, 0.2, 1); FISH.drips = (FISH.drips || 0) + 1;
+      if (w !== null && p.y > w && p.y < w + 2.5 && Math.random() < 0.5) fRing(p.x + (Math.random() - 0.5) * 0.2, w, p.z + (Math.random() - 0.5) * 0.2, 0.03, 0.9, 0.35); } }
+}
 // ===================== v0.97.2 landing: the net (or your hand), keep or let go, the creel + cooler, selling, eating, the lodge's orders, docks + the float deck =====================
 const FKEEP = { creel: 6, cooler: 30, creelH: 8, coolerH: 36 };   // kg each holds, game hours the fish keep fresh
 const FNET = { m: null };

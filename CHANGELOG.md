@@ -2,6 +2,31 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v1.00.1 – fishing meets the new water: real depths, the current, snags, fish you can see, rings on the surface
+
+- **The rig sits on the water you see.** On rivers and creeks the lure, bobber and line used to float 0.4 m under the new drawn surface. Now they float on it: the river's surface is the ground + 0.7 m, creeks + 0.45 m, and lakes are unchanged. Float physics heights are untouched.
+- **Real depths.**
+  - Lakes use the real carved bed from v0.98: about 12 m in the middle, the 2.5 m shelf at the edge, and the gravel slope between.
+  - Rivers and creeks use the same depth profile the water shader draws: about 2.1 m mid-river, shallow at the banks; creeks about 0.6 m.
+  - Lures sink to that bottom, and a fish in a fight can't dive below it.
+- **Depth zones.** On a lake each species' bite rate is weighted by the bottom depth under the lure. Lake trout want the deep basin (6 m+). Pike want the shallows (0.5–4 m). Grayling want 0.1–1.5 m. Rainbows don't care. This is on top of v0.97's lure / speed / time / habitat keenness.
+- **The current.** The river's flow speed and direction now come from the same polylines the water shader flows along: faster mid-stream and on steeper reaches, slower at the banks.
+  - A floating rig (bobber, dry fly) drifts at about 90 % of the flow, a sinking lure at 50 %.
+  - With the bail closed, a cast across the river **swings downstream** on a tight line.
+  - The line lying on the water **bellies** downstream.
+- **Snags.** A sinking lure dragged along a stony bottom (the river bed, or the lakes' gravel slope at 1.3–4.5 m; sand and silt much less) can catch.
+  - The lure stops, reeling only loads the rod, and nothing bites.
+  - A sharp lift frees it about 40 % of the time (VR: jerk the rod up; desktop: click).
+  - Keep the rod loaded for 3 s and the line parts: the lure is left on the bottom.
+- **Fish you can see.** Up to 10 fish cruise the clear shallows (0.35–3 m deep) within about 25 m of you, under the semi-transparent surface and above the bed. They are low-poly, one instanced draw, and vanish past 35 m or when you aren't on foot by the water.
+  - The species fit the water: pike and rainbows on lake shelves, lake trout where it's deeper, grayling, rainbows and salmon in the river (holding facing upstream), grayling in creeks.
+  - They **turn and follow** a moving lure (or a still bait) within 5 m, and the nearest one **takes it** when you get a bite.
+  - They **bolt** from a lure's plop (a heavy spoon spooks them from about 3.5 m, a fly hardly at all), from a jumping fish, or when you wade in.
+- **Rings on the surface.** A plop or splash (droplets and two rings), a bite (a ring at the lure or bobber), fight swirls while the fish is within 0.7 m of the surface, and a jump (a splash). It's one instanced draw of up to 24 rings.
+- **A landed fish drips:** droplets fall from it, and little rings appear on the water under it.
+- The lure is visible under water through the new transparent surface.
+- New test **t1001** (9 checks). t97a–d pass unchanged. **Shots:** `qa-v1001/grid-v1001.png` (fish in the lake shallows, line drift across the river, a fight swirl, the lure in the current). Physics md5 unchanged.
+
 ## v1.00 – adaptive music and town trust
 
 - **A score that follows the flight.** It's procedural WebAudio built at load, with nothing downloaded: slow pads walk a modal chord loop (D major / lydian by day, B minor and E minor colours at night), with a soft bass, sparse pentatonic bells and a long cross-fed delay "hall".
