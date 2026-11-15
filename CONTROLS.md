@@ -126,6 +126,9 @@ v0.44 latches: every window and the door are latched while shut. Squeeze the han
 | Signature vistas (v1.04) | Fly to them: Oxbow Falls (W), Sentinel Fjord (W coast), Needle Eye Arch (SE, fly through the gap), the North Icefall (SE, above the icefield strip), the Hidden Lake (far SW); the northern lights on clear nights, looking north. Each is a discovery: journal, map, +$150 | same |
 | Act 2: the north ice (v1.05, story) | After the cowling + 6 clues: Pete calls - fit the wheel-skis (he puts in half: $1,300 on the hangar board), fly the search cache from the Home pad to Walt's ski shelf (orange wands + dye, ~½ km N of the cowling), land northbound uphill, set every piece down inside the wands. Engine off on the shelf the skis freeze in | same |
 | Pour the cache fuel (v1.05) | Park the Cub by the cache tent, engine off, stand at the cans (it pours by itself, ~10 gal) | same |
+| Find the Norseman (v1.06, story) | Once the cache is pitched: walk ~200 m up the ridge's west flank from the shelf following the red scraps, or fly over and stop the Cub within ~70 m. Within ~30 m on foot it's found (music swell, map note) | same |
+| Read Gordon's logbook / letter (v1.06) | On the mail sack by the Norseman's door: VR grip it, trigger turns the page; desktop look at it, E, then , and . to turn pages | same |
+| Voss at Walt's board / epilogue (v1.06) | With the letter read, walk up to Walt's board in the hangar: Voss's six lines, note 1147 written off (or $12,000 interest back). The board becomes the MACRAE AIR SERVICE epilogue; free flight carries on | same |
 
 ## On foot
 | | VR | Desktop |

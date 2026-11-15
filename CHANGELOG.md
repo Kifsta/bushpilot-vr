@@ -2,6 +2,42 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v1.06 – Act 3 and the finale: the Norseman CF-GMR on the north ice, Gordon's last logbook and letter, Voss at Walt's board, the MacRae Air Service epilogue
+
+- **The wreck** sits on the ridge's west flank at (-3820, -4870), about 200 m up from the shelf's south end and 330 m from the cowling.
+  - It shows up once the search cache is pitched (the end of Act 2). Before that there is nothing there to find.
+  - What's there: a silver Norseman, nose into the slope, half buried in drifts. The bare radial engine is showing (its red cowling is the one up on the ridge), the prop is bent, one wing is snapped with its outer half in the snow, it is still on its October skis, the cabin door hangs open, and the fin stands out of the drift lettered **CF-GMR** (also down the fuselage).
+  - A trail of red fabric scraps, a strut and a seat cushion leads up to it from the shelf.
+- **The reveal (Act 3):** walk within ~30 m, or stop the Cub within ~70 m.
+  - You get the story stinger and a 75 s **music swell**, a banner, the journal entry, and "NORSEMAN CF-GMR – found" on Walt's map (under the cowling note).
+  - Story jobs go back to normal pay from Act 3 on (the 1.6× pre-winter rate ends).
+- **On the mail sack by the door:** Gordon's logbook and a letter. Read them like Walt's logbook: VR grip it, trigger turns the page; desktop look at it, E, then , and . to turn pages.
+  - **The logbook, 2 spreads:**
+    - Oct 2: the mail and medicine run, then north on Harold Voss's charter ("note squared"). The engine went rough, he lost it over the ridge, tried for the snow shelf, and caught the crest (the cowling).
+    - Oct 3–5: a broken ankle, the radio dead, the flare fired on the clear night (Halvorsen's flare), the letter in the sack.
+    - The last page: "North ice."
+  - **The letter to Walt:** "You can stop now. Fly the valley." Harold Voss's card is pinned to it: *"CF-GMR note settled in full on this flight. – H.V."* Reading it starts another swell.
+- **Radio:**
+  - Pete: "I found him, Pete." / "Thirty years… bring the logbook home."
+  - Eleanor Voss: "Meet me at Walt's board."
+  - Check-in hints guide each step: walk up the flank, read what he left, take the letter to Voss, then "fly for fun for once".
+- **The resolution at Walt's board:** walk up to the board with the letter read. Voss is there, and six lines play: her father never recorded the settlement, and the bank rolled Gordon's note into Walt's.
+  - **Note still owed:** Valley Credit **writes off** what's left on note 1147. It is saved as `STORY.said.wo`, and `storyOwed()` subtracts it.
+  - **Already paid off:** she refunds **$12,000** of interest instead.
+  - Either way the story goes to act 4 with a final stinger and a 70 s swell, and the epilogue goes in the journal. The journal page now reads "THE END – MACRAE AIR SERVICE FLIES ON".
+- **The epilogue board:** Walt's chalkboard becomes the MACRAE AIR SERVICE board. It shows:
+  - Gordon – Walt – you;
+  - a chalk Norseman;
+  - "found on the north ice <date> – Gordon came home";
+  - note 1147 written off, or paid with interest back;
+  - "the hangar stays in the family";
+  - the season: days, jobs flown, clues, places found and % mapped;
+  - cash on hand;
+  - "THE BOARDS ARE FULL. FLY ON."
+- **Free flight continues:** the boards, jobs, weather and everything else carry on. Save and load keep the epilogue.
+- **Perf:** the wreck is 2 meshes (ITEM_VM vertex colours, plus a Lambert-map decal for the letters, the same program as Walt's boards), the trail is 1 mesh and the sack is 1 mesh. They are prewarmed at load: 0 new shader programs when it first comes into view (tested). The papers use the v0.99 readable-item pattern.
+- The physics block is unchanged (md5 identical). New test t106, 9 checks. t99 was updated on purpose: the wreck's papers are hidden readables until Act 3.
+
 ## v1.05 – Act 2: the north ice. Walt's ski shelf, the wheel-skis and the search cache
 
 - **When it starts:** once you have found the cowling (the glint) and have six clues on the corkboard. You get a journal line, the story stinger and a banner: "the north ice: Gordon's Norseman is up there". The story act goes to 2 (or stays 2 if the note or the snow already got it there).

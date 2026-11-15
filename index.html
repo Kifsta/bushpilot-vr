@@ -9021,7 +9021,7 @@ function emgFix() {   // after dlvLoad: a patient who was aboard is still aboard
 const STORY_NOTE = 40000, STORY_DAYS = 14, STORY_PAYX = 1.6, STORY_EXT_DAYS = 10, STORY_EXT_FEE = 2000, STORY_PAYS = [500, 1000, 5000];
 const STORY = { on: false, act: 1, paid: 0, fee: 0, gh: 0, ext: 0, snow: false, read: {}, log: [], pays: [], said: {}, held: null, heldG: null, page: 0, near: null, poke: [true, true], key: '', t: 0 };
 { const q = new URLSearchParams(location.search); STORY.want = q.has('story') ? true : q.has('free') || /[?&]nosave\b/.test(location.search) ? false : (() => { try { return localStorage.getItem('bp_newmode') !== 'free'; } catch (e) { return true; } })(); }
-const storyOwed = () => Math.max(0, STORY_NOTE + STORY.fee - STORY.paid);
+const storyOwed = () => Math.max(0, STORY_NOTE + STORY.fee - STORY.paid - (STORY.said.wo || 0));   // v1.06 wo: what Valley Credit wrote off
 const storyDay = () => 1 + Math.floor(STORY.gh / 24);
 const storyEnd = () => (STORY_DAYS + STORY.ext) * 24;   // game hours to the deadline (first snow, then the extension's end)
 const storyLeft = () => Math.max(0, Math.ceil((storyEnd() - STORY.gh) / 24));
@@ -9080,7 +9080,7 @@ function stDrawPhoto(x) { const W = 512, H = 640; stPaper(x, W, H, '#f2ecdc');  
 function stDrawLetter(x, W, H, y0 = 70) { stPaper(x, W, H); const L = ST_LETTER(); x.fillStyle = '#1e3a6a'; x.font = 'bold 30px Georgia, serif'; x.fillText(L[0], 30, y0); x.font = '18px Georgia, serif'; x.fillText(L[1], 30, y0 + 26);
   stLines(x, L.slice(3), 30, y0 + 70, 27, '20px Georgia, serif'); }
 // ---- the chalkboard ----
-function sbDraw() { const x = SB.x, W = 1024, H = 640; x.fillStyle = '#263028'; x.fillRect(0, 0, W, H); x.fillStyle = 'rgba(255,255,255,0.035)'; for (let i = 0; i < 60; i++) x.fillRect((i * 173) % W, (i * 89) % H, 140, 18);
+function sbDraw() { if (STORY.said.end) return sbDrawEnd(); const x = SB.x, W = 1024, H = 640; x.fillStyle = '#263028'; x.fillRect(0, 0, W, H); x.fillStyle = 'rgba(255,255,255,0.035)'; for (let i = 0; i < 60; i++) x.fillRect((i * 173) % W, (i * 89) % H, 140, 18);
   const ch = (t, X, Y, f, c = '#ecefe6', al = 'left') => { x.font = f; x.fillStyle = c; x.textAlign = al; x.fillText(t, X, Y); };
   ch('MACRAE AIR SERVICE', W / 2, 62, 'bold 46px Georgia, serif', '#f4f2ea', 'center');
   const owed = storyOwed(), left = storyLeft(), clk = GFX.dayl > 0;
@@ -9097,7 +9097,7 @@ function sbDraw() { const x = SB.x, W = 1024, H = 640; x.fillStyle = '#263028'; 
   const R = STORY.pays.slice(-3).reverse(); ch(R.length ? 'CHALKED: ' + R.map(p => p[0] + ' $' + p[1].toLocaleString('en-US')).join('   ') : 'NOTHING CHALKED YET - WALT\'S LAST: AUG 27 $400', 44, 570, 'italic 24px Georgia, serif', '#c8ccc0');
   ch('WALT\'S LOGBOOK AND A PHOTO ON THE DESK.  THE BANK\'S LETTER: YOUR CLIPBOARD, PAGE 5', 44, 612, '18px Georgia, serif', '#98a090');
   x.textAlign = 'left'; texDirty(SB.tex); }
-function sbKey() { return [STORY.paid, STORY.fee, storyLeft(), storyDay(), STORY.snow, STORY.ext, Math.round(DLV.cash), GFX.dayl > 0, renderer.xr.isPresenting, STORY.pays.length].join('|'); }
+function sbKey() { return [STORY.paid, STORY.fee, storyLeft(), storyDay(), STORY.snow, STORY.ext, Math.round(DLV.cash), GFX.dayl > 0, renderer.xr.isPresenting, STORY.pays.length, STORY.said.end ? 'E' + DLV.done + '/' + Object.keys(DISC.found).length + '/' + Math.round(FOG.pct * 100) : ''].join('|'); }
 function storyPay(i) { const v = STORY_PAYS[i], owed = storyOwed(); if (v === undefined || !STORY.on) return false;
   if (owed <= 0) { say('THE NOTE IS PAID - NOTHING MORE TO CHALK'); return true; }
   const a = Math.min(v, owed); if (DLV.cash < a) { say('NOT ENOUGH CASH FOR $' + a.toLocaleString('en-US') + ' - YOU HAVE ' + ecoMoney(DLV.cash) + '. FLY SOME JOBS'); sfx('tick'); return true; }
@@ -9119,7 +9119,7 @@ function storyTick(dt) {
     if (STORY.poke[i] && inP && _sbL.z < 0.012 && _sbL.z > -0.05) { STORY.poke[i] = false; if (v > 444 && v < 520) { const b = Math.floor((u - 44) / 290); if (b >= 0 && b < 3 && (u - 44) % 290 < 260) { storyPay(b); if (grips[i]) HX.pulse(grips[i], 0.4, 14, 'ui'); } } } }
   // held readables
   const H = STORY.held;
-  for (const it of SITEMS) { const held = it === H; it.m.visible = !held; it.pg.visible = held; }
+  for (const it of SITEMS) { const held = it === H; it.m.visible = !held && !it.off; it.pg.visible = held; }   // v1.06 off: not out yet (the wreck's papers)
   if (H) { if (H.drawn !== STORY.page + (renderer.xr.isPresenting ? 100 : 0)) { H.drawn = STORY.page + (renderer.xr.isPresenting ? 100 : 0); H.draw(H.P.x, STORY.page); texDirty(H.P.t); }
     if (STORY.heldG) { const g = STORY.heldG; g.updateWorldMatrix(true, false); g.getWorldPosition(_sbL); g.getWorldDirection(_sbD); H.pg.position.copy(_sbL).addScaledVector(_sbD, -0.09); H.pg.position.y += 0.05; H.pg.lookAt(_sbC);
       const gp = g.userData.src?.gamepad; if (gp && pressedEdge(gp, 0, 'stT') && H.pages > 1) { STORY.page = (STORY.page + 1) % H.pages; sfx('tick'); HX.pulse(g, 0.25, 10, 'ui'); } }
@@ -9128,7 +9128,7 @@ function storyTick(dt) {
   if (KB.page === 4 && (KB.g || KB.desk) && !STORY.read.letter) { STORY.read.letter = 1; storyLog('Valley Credit\'s letter: Walt\'s note, $40,000, due before the first snow.'); say('THE NOTE: $40,000 BEFORE THE FIRST SNOW. FLY THE VALLEY\'S JOBS - CHALK THE PAYMENTS ON WALT\'S BOARD IN THE HANGAR'); }
 }
 const _stQ = new THREE.Quaternion();
-function storyRead(H) { if (H.id === 'log' && STORY.page === H.pages - 1 && !STORY.read.log) { STORY.read.log = 1; storyLog('Walt\'s logbook, the last page: "Still looking. North ice."'); say('"STILL LOOKING. NORTH ICE." - WALT WAS SEARCHING FOR HIS FATHER, GORDON, TO THE END'); }
+function storyRead(H) { act3Read(H); if (H.id === 'log' && STORY.page === H.pages - 1 && !STORY.read.log) { STORY.read.log = 1; storyLog('Walt\'s logbook, the last page: "Still looking. North ice."'); say('"STILL LOOKING. NORTH ICE." - WALT WAS SEARCHING FOR HIS FATHER, GORDON, TO THE END'); }
   if (H.id === 'photo' && !STORY.read.photo) { STORY.read.photo = 1; storyLog('A photo: Gordon MacRae beside the Norseman, the last summer before it vanished.'); say('GORDON MACRAE, YOUR GRANDFATHER, AND THE NORSEMAN THAT NEVER CAME HOME'); } }
 function storyTake(it, g) { if (STORY.held) storyPut(); STORY.held = it; STORY.heldG = g || null; STORY.page = 0; it.drawn = -1; sfx('pick'); if (g) HX.pulse(g, 0.3, 15, 'pick'); return true; }
 function storyPut() { if (!STORY.held) return; STORY.held = null; STORY.heldG = null; sfx('tick'); }
@@ -9154,7 +9154,7 @@ function storySnow() { STORY.snow = true; STORY.act = Math.max(STORY.act, 2); co
 function storyKbPages() { KB_PAGES = STORY.on ? ['JOBS', 'W&B', 'CUB', 'PERF', 'NOTE', 'LOG'] : ['JOBS', 'W&B', 'CUB', 'PERF']; if (KB.page >= KB_PAGES.length) KB.page = 0; KB.key = ''; }
 function storyKbBody(x) { stDrawLetter(x, KB_W, KB_H, 76); x.fillStyle = '#7a3020'; x.font = 'bold 21px sans-serif'; x.fillText('OWED $' + storyOwed().toLocaleString('en-US') + ' - ' + (STORY.snow && !STORY.ext ? 'THE SNOW IS HERE' : storyLeft() + ' DAYS LEFT') + ' - PAID $' + STORY.paid.toLocaleString('en-US'), 22, KB_H - 18, KB_W - 44); }
 // ---- start, show, save ----
-function storyShow() { const on = STORY.on; SB.desk.visible = SB.m.visible = on; for (const it of SITEMS) it.m.visible = on; storyKbPages(); STORY.key = ''; if (typeof CB !== 'undefined') clueShow(); if (typeof A2 !== 'undefined') act2Show(); }
+function storyShow() { const on = STORY.on; SB.desk.visible = SB.m.visible = on; for (const it of SITEMS) it.m.visible = on; storyKbPages(); STORY.key = ''; if (typeof CB !== 'undefined') clueShow(); if (typeof A2 !== 'undefined') act2Show(); if (typeof A3 !== 'undefined') act3Show(); }
 function storyBegin() {   // a brand-new story game: up in Walt's hangar, a late-summer morning, the boards at story pay
   DISC.found = {}; DISC.n = 0; fogStart(); if (typeof A2 !== 'undefined') act2Reset(); STORY.on = true; STORY.act = 1; STORY.gh = 0; STORY.paid = 0; STORY.fee = 0; STORY.ext = 0; STORY.snow = false; storyShow();
   for (const S of DLV_STRIPS) DLV.offers[S.id] = []; DLV.seq = 1; dlvInit(false); for (const S of DLV_STRIPS) S.key = '';
@@ -9234,7 +9234,7 @@ function cbTick(dt) { if (!STORY.on) return; const G = clueGot(), k = G.map(c =>
   STORY.cl = Object.fromEntries(G.map(c => [c.id, 1])); STORY.clueN = n;
   if (n >= 6 && !STORY.said.north) { STORY.said.north = 1; storyLog('The corkboard says it plainly: everything points to the north ice.'); } }
 // ---- the journal: the clipboard's 6th page (newest first) ----
-function journalKbBody(x) { stPaper(x, KB_W, KB_H, '#f2ecd8'); x.fillStyle = '#2a2418'; x.font = 'bold 26px Georgia, serif'; x.textAlign = 'left'; x.fillText('JOURNAL', 22, 80);
+function journalKbBody(x) { stPaper(x, KB_W, KB_H, '#f2ecd8'); x.fillStyle = '#2a2418'; x.font = 'bold 26px Georgia, serif'; x.textAlign = 'left'; x.fillText('JOURNAL', 22, 80); if (STORY.said.end) { x.fillStyle = '#7a1c10'; x.font = 'bold 15px Georgia, serif'; x.textAlign = 'right'; x.fillText('THE END - MACRAE AIR SERVICE FLIES ON', KB_W - 22, 80); x.textAlign = 'left'; x.fillStyle = '#2a2418'; }
   x.font = '15px Georgia, serif'; x.fillStyle = '#6a5638'; x.fillText(storyDate() + ' (DAY ' + storyDay() + ') - CLUES ' + clueGot().length + '/' + CLUES.length + ' - FOUND ' + Object.keys(DISC.found).length, 22, 104);
   let y = 136; x.font = '15px Georgia, serif'; for (const e of STORY.log.slice().reverse()) { if (y > KB_H - 30) break; x.fillStyle = '#8a6a40'; x.fillText('DAY ' + e.d, 22, y); x.fillStyle = '#2a2418'; const W = e.t.split(' '); let l = '', n = 0;
     for (const s of W) { if (x.measureText(l + s).width > KB_W - 120 && l) { x.fillText(l, 92, y + n * 19); n++; l = ''; } l += s + ' '; } x.fillText(l, 92, y + n * 19); y += (n + 1) * 19 + 8; } }
@@ -9372,7 +9372,7 @@ function fogOverlay(x) {
   if (STORY.read.log || got.size) { const [ex, ey] = fogEdge(x, GLINT.x, GLINT.z); x.strokeStyle = PENC; x.lineWidth = 2.5; x.beginPath(); x.moveTo(ex, ey + 46); x.lineTo(ex, ey - 16); x.lineTo(ex - 7, ey - 4); x.moveTo(ex, ey - 16); x.lineTo(ex + 7, ey - 4); x.stroke();
     x.setLineDash([3, 4]); x.lineWidth = 1.2; x.beginPath(); x.moveTo(ex + 10, ey - 6); x.lineTo(ex + 160, ey - 6); x.stroke(); x.setLineDash([]); fogText(x, 'N. ICE - off the sheet, ~6 km NNW of home', ex + 300, ey - 6, 'bold 13px ' + HANDF, PENC, 0); fogText(x, '"glare all day" - W.', ex + 260, ey + 12, '12px ' + HANDF, PENC, 0);
     if (said.ghint && !said.glint) { x.strokeStyle = 'rgba(160,30,20,0.7)'; x.setLineDash([5, 4]); x.beginPath(); x.arc(ex, ey + 6, 22, 0, 6.283); x.stroke(); x.setLineDash([]); fogText(x, 'Dawson\'s flash?', ex - 70, ey + 40, '12px ' + HANDF, '#8a1a10', -0.05); }
-    if (said.glint) { fogIcon(x, 'x', ex, ey + 6); fogText(x, 'CF-G - red cowling!', ex - 78, ey + 40, 'bold 13px ' + HANDF, '#8a1a10', -0.05); if (said.r_a2) fogText(x, said.cache ? 'ski shelf ½ km N - cache in' : said.shelf ? 'ski shelf ½ km N - landed' : 'W.\'s ski shelf, wands, ½ km N', ex + 120, ey + 34, '12px ' + HANDF, PENC, -0.05); }
+    if (said.glint) { fogIcon(x, 'x', ex, ey + 6); fogText(x, 'CF-G - red cowling!', ex - 78, ey + 40, 'bold 13px ' + HANDF, '#8a1a10', -0.05); if (said.wreck) fogText(x, 'NORSEMAN CF-GMR - found, ' + (said.wreckD || '').toLowerCase(), ex + 120, ey + 52, 'bold 13px ' + HANDF, '#8a1a10', -0.03); if (said.r_a2) fogText(x, said.cache ? 'ski shelf ½ km N - cache in' : said.shelf ? 'ski shelf ½ km N - landed' : 'W.\'s ski shelf, wands, ½ km N', ex + 120, ey + 34, '12px ' + HANDF, PENC, -0.05); }
     for (const c of CLUES) { if (!c.id.startsWith('g_') || !got.has(c.id)) continue; const S = DLV_STRIPS.find(q => q.id === c.id.slice(2)); if (!S) continue; const px = fogU(S.pad[0]), py = fogV(S.pad[1]) - 12;
       x.strokeStyle = 'rgba(176,32,26,0.45)'; x.lineWidth = 1.5; x.beginPath(); x.moveTo(px, py); x.quadraticCurveTo((px + ex) / 2, (py + ey) / 2 + 40, ex, ey + 6); x.stroke(); fogPin(x, px, py); } }
   for (const id in DISC.found) { const D = DISC.found[id]; if (id.startsWith('north_')) continue; const [px, py, on] = fogEdge(x, D.x, D.z); fogIcon(x, D.i, px, py); fogText(x, (on ? '' : '^ ') + D.n.toLowerCase(), px, py + 16, '12px ' + HANDF, PENC, -0.02); }
@@ -9428,7 +9428,7 @@ const a2Its = () => DLV.items.filter(it => it.job === ST_JOBS[0].id);
 function a2Go() { if (STORY.said.cacheGo) return; STORY.said.cacheGo = 1; a2Spawn(); storyLog('Pete stacked a search cache on the Home pad: two cans of fuel, a tent, grub. Fly it to Walt\'s wands on the north shelf.'); saveSoon(); }
 function a2Spawn() { if (!a2Its().length) dlvSpawn(ST_JOBS[0]); }
 function act2Hint() { const s = STORY.said; if (!STORY.on || !s.a2) return null;
-  if (s.cache) return 'THE CACHE IS IN. WALK THE ICE BETWEEN THE SHELF AND THE COWLING, KID. GORDON\'S UP THERE SOMEWHERE.';
+  if (s.cache) return !s.wreck ? 'THE CACHE IS IN. WALK THE ICE BETWEEN THE SHELF AND THE COWLING, KID - UP THE RIDGE\'S WEST FLANK. GORDON\'S UP THERE SOMEWHERE.' : !s.glet ? 'READ WHAT HE LEFT YOU - THE LOGBOOK AND THE LETTER ON THE MAIL SACK BY THE DOOR.' : !s.end ? 'VOSS IS WAITING AT WALT\'S BOARD IN THE HANGAR. TAKE HER THE LETTER.' : 'THE BOARDS ARE FULL AND THE HANGAR\'S OURS. FLY FOR FUN FOR ONCE, KID.';
   if (!s.r_a2) return 'THE NORTH ICE - WALT STAKED A SKI SHELF HALF A K NORTH OF YOUR COWLING. ORANGE WANDS. YOU\'LL WANT SKIS AND A CACHE.';
   if (UPG.gk !== 'skis') return UPG.kown.skis ? 'FIT THE WHEEL-SKIS AT THE HANGAR BOARD BEFORE YOU GO NORTH. WHEELS SINK UP THERE.' : 'THE WHEEL-SKIS ARE ON THE HANGAR BOARD. I PUT IN HALF - ' + $o(A2.skiK.price) + ' TO YOU. THE CREW FITS THEM.';
   const its = a2Its(), aboard = its.filter(it => it.st === 'cargo').length;
@@ -9470,6 +9470,111 @@ function act2Tick(dt) {
 }
 function a2Pour(dt) { const s = STORY.said, d = Math.min(3 * dt, s.cacheL, FUEL_MAX - fuel); fuel += d; s.cacheL = Math.max(0, s.cacheL - d); if ((A2.ps = (A2.ps || 0) - dt) <= 0) { A2.ps = 0.15; sfx('pour'); }
   if (s.cacheL <= 0.01 || fuel >= FUEL_MAX - 0.01 || mode !== 'foot') { A2.pour = 0; A2.full = 0; s.cacheL = Math.round(s.cacheL * 10) / 10; say(s.cacheL > 0 ? 'TANKS FULL - ' + Math.round(s.cacheL / 3.785) + ' GAL LEFT IN THE CACHE' : 'THE CACHE CANS ARE EMPTY - THE TENT AND GRUB STAY'); saveSoon(); } }
+
+// ===================== v1.06 ACT 3: THE NORSEMAN - Gordon's wreck on the north ice, his last logbook + letter, Voss at Walt's board, the epilogue =====================
+// Once the search cache is pitched (Act 2), the wreck has melted out of the ridge's west flank, ~250 m above the shelf's south end: a silver Norseman,
+// nose into the slope, one wing snapped, the tail fin (CF-GMR) standing out of the drift. Walk up to it (or stop the Cub close by): the reveal (Act 3,
+// music swell, the journal, the map). On a mail sack by the cabin door: Gordon's logbook (his last entries) and a letter to Walt. Read the letter and
+// Eleanor Voss comes up to Walt's hangar: her father's card, pinned to it, settled the Norseman's note on that flight - the bank resolves note 1147
+// (written off, or the interest refunded if you already paid it). Act 4: the epilogue - Walt's chalkboard becomes the MACRAE AIR SERVICE board and
+// free flight goes on. All meshes are ITEM_VM (vertex colours) + one Lambert-map tail decal (the chalkboard's program): prewarmed at load.
+const WR = { x: -3820, z: -4870 }; WR.h = groundY(WR.x, WR.z);
+const A3 = { t: 0, sc: -1, st: 0, L: null };
+const A3_REFUND = 12000;
+{ const g = new THREE.Group(), P = [], b = (w, h, d, x, y, z, c, rx = 0, ry = 0, rz = 0) => P.push(['b', w, h, d, x, y, z, c, rx, ry, rz]), SIL = 0xb4b6b0, DK = 0x5a5c58, SNOW = 0xeef2f6;
+  // local frame: nose to -z, up the slope; the group is yawed nose-east and pitched up the 22-degree flank, then sunk
+  b(1.5, 1.6, 7.6, 0, 0.55, 0, SIL);   // fuselage
+  b(1.56, 0.16, 7.7, 0, 1.38, 0, 0x9a9c96);   // cabin roof line
+  b(1.2, 1.1, 3.4, 0, 0.45, 4.6, SIL, 0.12, 0, 0); b(0.9, 0.8, 2, 0, 0.5, 7.2, SIL, 0.2, 0, 0);   // tail cone
+  P.push(['c', 0.78, 0.55, 9, 0, 0.45, -4.05, DK, Math.PI / 2, 0, 0]);   // the bare radial (the red cowling is on the ridge)
+  for (let i = 0; i < 9; i++) { const a = i / 9 * 6.283; b(0.16, 0.16, 0.42, Math.cos(a) * 0.62, 0.45 + Math.sin(a) * 0.62, -4.3, 0x6a6a66); }   // cylinders
+  b(0.12, 1.9, 0.12, 0.6, 0.4, -4.45, 0x3a3a36, 0, 0, 0.5); b(0.12, 1.2, 0.12, -0.5, 0.2, -4.45, 0x3a3a36, 0, 0, -1.9);   // a bent prop
+  b(7.2, 0.22, 2.1, -4.3, 1.45, -1.2, SIL, 0, 0, -0.06); b(3.6, 0.22, 2.1, 2.4, 1.45, -1.2, SIL, 0, 0, 0.1);   // left wing whole, right wing snapped at mid-span ...
+  b(3.4, 0.22, 2.1, 6.4, 0.25, 0.4, SIL, 0.15, 0.5, 0.35);   // ... its outer half in the snow
+  b(3.6, 0.12, 1.3, 0, 0.75, 7.6, SIL);   // tailplane
+  b(0.14, 1.9, 1.5, 0, 1.75, 7.7, SIL, -0.1, 0, 0);   // the fin, standing out of the drift
+  b(1.1, 0.06, 0.9, 0.78, 0.6, -0.6, 0x1c1e22, 0, 0, 1.4);   // cabin door, hanging open (downhill side)
+  b(0.12, 0.1, 3.2, 0.9, -0.55, -1.2, 0x8a6a3a); b(0.12, 0.1, 3.2, -0.9, -0.55, -1.2, 0x8a6a3a);   // the skis (October, on the mail run)
+  for (const [x, y, z, r, sy] of [[0.4, 0.15, -3.6, 1.9, 0.5], [-1.6, 0.3, -2.4, 2.2, 0.45], [1.7, 0.2, 1.8, 1.8, 0.4], [-1.2, 0.2, 3.5, 2.1, 0.38], [0.9, 0.35, 5.6, 1.4, 0.45], [-5.5, 1.1, -0.8, 1.8, 0.4], [-2.4, 1.3, -1.6, 1.2, 0.35]]) P.push(['d', r, sy, 1.4, x, y, z, SNOW]);   // drifts
+  const m = new THREE.Mesh(mergeGeometries(P.map(partGeo)), ITEM_VM); m.castShadow = m.receiveShadow = true; m.userData.noBatch = true; g.add(m);
+  const c = document.createElement('canvas'); c.width = 256; c.height = 64; const x = c.getContext('2d'); x.fillStyle = '#b4b6b0'; x.fillRect(0, 0, 256, 64); x.fillStyle = '#1a1a1a'; x.font = 'bold 46px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('CF-GMR', 128, 34);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; const dm = new THREE.MeshLambertMaterial({ map: t });
+  for (const [px, ry] of [[0.077, Math.PI / 2], [-0.077, -Math.PI / 2]]) { const d = new THREE.Mesh(new THREE.PlaneGeometry(1.3, 0.32), dm); d.position.set(px, 1.9, 7.7); d.rotation.set(0, ry, 0.1); d.userData.noBatch = true; g.add(d); }   // the fin letters
+  for (const [px, ry] of [[0.76, Math.PI / 2], [-0.76, -Math.PI / 2]]) { const d = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 0.6), dm); d.position.set(px, 0.85, 2.4); d.rotation.set(0, ry, 0); d.userData.noBatch = true; g.add(d); }   // + down the fuselage
+  g.position.set(WR.x, WR.h - 0.75, WR.z); g.rotation.set(0, -Math.PI / 2, 0); g.rotateX(0.36); g.visible = false; scene.add(g); A3.g = g; }
+// a trail up from the shelf's south end: red fabric torn off the Norseman, a strut, a seat cushion (what Trapper Bill found a scrap of, years back)
+{ const P = [], x0 = SH_X + 30, z0 = SH_Z + SH_HL + 10, n = 7; for (let i = 1; i <= n; i++) { const f = i / (n + 1), x = x0 + (WR.x - x0) * f + Math.sin(i * 2.3) * 6, z = z0 + (WR.z - z0) * f + Math.cos(i * 1.7) * 6, y = groundY(x, z);
+    P.push(i === 3 ? ['c', 0.04, 1.6, 5, x, y + 0.1, z, 0x6a6a66, 1.4, i, 0.2] : i === 5 ? ['b', 0.5, 0.12, 0.45, x, y + 0.04, z, 0x5a3a28, 0.2, i, 0.1] : ['b', 1.6, 0.06, 1.0, x, y + 0.02, z, 0xa8281e, 0.25 * Math.sin(i), i * 0.9, 0.3 * Math.cos(i)]); }
+  A3.tr = new THREE.Mesh(mergeGeometries(P.map(partGeo)), ITEM_VM); A3.tr.userData.noBatch = true; A3.tr.visible = false; scene.add(A3.tr); }
+// the mail sack by the door, Gordon's logbook + the letter on it (readable: VR grip / desktop look + E)
+const WR_S = { x: WR.x - 1.2, z: WR.z + 2.8 }; WR_S.y = groundY(WR_S.x, WR_S.z);
+A3.sack = new THREE.Mesh(mergeGeometries([['b', 0.62, 0.46, 0.44, 0, 0.21, 0, 0x6e5a3a], ['b', 0.64, 0.06, 0.2, 0, 0.42, 0, 0x5a4a30], ['d', 0.7, 0.4, 1.3, 0.3, 0.0, 0.25, 0xeef2f6]].map(partGeo)), ITEM_VM); A3.sack.position.set(WR_S.x, WR_S.y, WR_S.z); A3.sack.castShadow = true; A3.sack.userData.noBatch = true; A3.sack.visible = false; scene.add(A3.sack);
+const ST_GLOG = [
+  ['NORSEMAN CF-GMR - G. MACRAE', '', 'OCT 02  HOME - DRY FORK  MAIL, MEDICINE', '        THEN NORTH FOR H. VOSS:', '        THE ICE PAST THE GLACIER.', '        HE PAYS IN FULL. NOTE SQUARED.', 'OCT 02  14:10 ENGINE ROUGH. MAGS?', '        14:25 LOST HER OVER THE RIDGE.', '        TRIED FOR THE SNOW SHELF.', '        CAUGHT THE CREST. COWLING GONE.'],
+  ['OCT 03  ANKLE BROKE. RADIO DEAD.', '        WEATHER CLOSED IN.', '        MAIL SACK DRY. MEDICINE OK.', 'OCT 04  CLEAR NIGHT. FIRED THE FLARE', '        SOUTH. SOMEBODY SAW IT, MAYBE.', '', 'OCT 05  COLD. WROTE TO WALT.', '        THE LETTER IS IN THE SACK.', '', '   Tell them I nearly made it.'],
+  ['To whoever finds this -', '', 'Get the medicine to Dry Fork', 'if it is any use still.', 'The mail is the valley\'s.', 'The letter is my boy\'s.', '', '      - Gordon MacRae'],
+  ['', '', '', '', '   North ice.', '', '', '   (the rest of the book is blank)']];
+const ST_GLET = () => ['Walt -', '', 'If this finds you, you kept looking. I knew you', 'would. You can stop now. Fly the valley.', '', 'Harold Voss and I shook on it at the Lodge: this', 'one trip squares the note on the Norseman. He', 'wrote it on the back of his card - it\'s pinned', 'here. Valley Credit owes us nothing and we owe', 'it nothing. Keep the hangar.', '', 'Tell your mother the mail went through in the', 'end. Look after Pete. Fly careful.', '', '                                  Your dad'];
+function stDrawGlog(x, pg) { const W = 1024, H = 640; stPaper(x, W, H, '#ddd2b4'); x.fillStyle = '#a89870'; x.fillRect(W / 2 - 3, 0, 6, H); x.strokeStyle = '#bcae88'; x.lineWidth = 1;
+  for (let y = 70; y < H - 20; y += 34) { x.beginPath(); x.moveTo(30, y); x.lineTo(W / 2 - 20, y); x.moveTo(W / 2 + 20, y); x.lineTo(W - 30, y); x.stroke(); }
+  x.fillStyle = 'rgba(110,80,40,0.10)'; x.beginPath(); x.arc(W * 0.78, H * 0.7, 120, 0, 6.283); x.fill();   // a water stain
+  const hand = pg === 1 ? 'italic 25px Georgia, serif' : 'bold 17px monospace'; stLines(x, ST_GLOG[pg * 2] || [], 40, 62, 34, hand, '#2a2a40'); stLines(x, ST_GLOG[pg * 2 + 1] || [], W / 2 + 34, 62, 34, pg === 1 ? 'italic 32px Georgia, serif' : hand, '#2a2a40');
+  x.fillStyle = '#7a6a50'; x.font = '16px Georgia, serif'; x.textAlign = 'center'; x.fillText(renderer.xr.isPresenting ? 'TRIGGER: TURN THE PAGE' : ', .  TURN THE PAGE   E  PUT IT DOWN', W / 2, 24); x.textAlign = 'left'; }
+function stDrawGlet(x) { const W = 768, H = 1024; stPaper(x, W, H, '#ece2c6'); x.fillStyle = '#1e2a50'; stLines(x, ST_GLET(), 48, 90, 46, 'italic 27px Georgia, serif', '#1e2a50');
+  x.save(); x.translate(470, 800); x.rotate(-0.06); x.fillStyle = '#f6f2e6'; x.fillRect(0, 0, 260, 150); x.strokeStyle = '#a09070'; x.strokeRect(0, 0, 260, 150); x.fillStyle = '#c03020'; x.beginPath(); x.arc(130, 6, 7, 0, 6.283); x.fill();
+  stLines(x, ['H. VOSS', 'VALLEY CREDIT, CUTLER', '', 'CF-GMR note settled', 'in full on this flight.', '              - H.V.'], 16, 32, 22, '17px Georgia, serif', '#2a2418'); x.restore();
+  x.fillStyle = '#7a6a50'; x.font = '16px Georgia, serif'; x.textAlign = 'center'; x.fillText(renderer.xr.isPresenting ? 'LET GO TO PUT IT DOWN' : 'E  PUT IT DOWN', W / 2, 30); x.textAlign = 'left'; }
+A3.log = stItem('glog', [WR_S.x - 0.08, WR_S.y + 0.47, WR_S.z - 0.06, 0.3], mergeGeometries([['b', 0.2, 0.035, 0.27, 0, 0, 0, 0x5a2a1e], ['b', 0.19, 0.028, 0.26, 0.006, 0.001, 0, 0xd8ccb0]].map(partGeo)), 0.62, 0.39, 1024, 640, 2, stDrawGlog);
+A3.let = stItem('glet', [WR_S.x + 0.14, WR_S.y + 0.46, WR_S.z + 0.08, -0.4], mergeGeometries([['b', 0.11, 0.006, 0.19, 0, 0, 0, 0xe8dcbc], ['b', 0.04, 0.007, 0.04, 0, 0.001, -0.05, 0xa02018]].map(partGeo)), 0.3, 0.4, 768, 1024, 1, x => stDrawGlet(x));
+A3.log.off = A3.let.off = true;
+{ const pv = PL.visible, sv = SL.visible; A3.g.visible = true; for (let c = 0; c < 4; c++) { PL.visible = !!(c & 1); SL.visible = !!(c & 2); renderer.compile(A3.g, camera, scene); } PL.visible = pv; SL.visible = sv; A3.g.visible = false; }   // prewarm (the same programs as the hangar's boards)
+function act3Show() { const on = !!(STORY.on && STORY.said.cache); A3.g.visible = A3.sack.visible = A3.tr.visible = on; A3.log.off = A3.let.off = !on; }
+function act3Read(H) { const s = STORY.said;
+  if (H.id === 'glog' && STORY.page === H.pages - 1 && !s.glog) { s.glog = 1; storyLog('Gordon\'s logbook: Oct 2 the engine quit over the ridge, he tried for the shelf and caught the crest. Oct 4 the flare. Oct 5, his last line: "North ice."'); say('GORDON\'S LAST ENTRY: "NORTH ICE." - HE SAT IT OUT THREE DAYS AND FIRED THE FLARE HALVORSEN SAW'); saveSoon(); }
+  if (H.id === 'glet' && !s.glet) { s.glet = 1; storyLog('Gordon\'s letter to Walt: Harold Voss settled the Norseman\'s note on that flight - his card is pinned to it. "Keep the hangar."'); musSwell('letter', 40); say('A LETTER TO WALT, AND HAROLD VOSS\'S CARD PINNED TO IT: "CF-GMR NOTE SETTLED IN FULL ON THIS FLIGHT." TAKE IT TO WALT\'S BOARD'); saveSoon(); } }
+RAD_CALLS.push(
+  { id: 'a3pete', ask: 1, k: () => !!STORY.said.wreck && hyp(ac.pos[0] - WR.x, ac.pos[2] - WR.z) > 300, L: () => [['PETE', 'CUB, HOME. YOU WERE ON THE GROUND UP THERE A LONG TIME, KID.'], ['YOU', 'I FOUND HIM, PETE. THE NORSEMAN. HE NEARLY MADE THE SHELF.'], ['PETE', '... THIRTY YEARS.'], ['PETE', 'WALT FLEW OVER THAT RIDGE A HUNDRED TIMES. BRING THE LOGBOOK HOME. I\'LL PUT THE COFFEE ON.']], then: () => storyLog('Told Pete. He was quiet a long time. "Bring the logbook home."') },
+  { id: 'a3voss', ask: 1, k: () => !!STORY.said.glet && !STORY.said.end, L: () => [['VOSS', 'VALLEY CREDIT FOR ' + PILOT + ' MACRAE. PETE TOLD ME WHAT YOU FOUND. WAS THERE ANYTHING... WRITTEN?'], ['YOU', 'A LETTER TO WALT. YOUR FATHER\'S CARD IS PINNED TO IT.'], ['VOSS', '... I\'M COMING UP ON THE MAIL PLANE. MEET ME AT WALT\'S BOARD IN THE HANGAR.']], then: () => storyLog('Eleanor Voss is coming up to Walt\'s hangar on the mail plane: "Meet me at Walt\'s board."') });
+// ---- Voss at Walt's board: the resolution ----
+function a3Scene() { const o = storyOwed(), paid = o <= 0, P = PILOT;
+  return [['ELEANOR VOSS IS WAITING BY WALT\'S BOARD, GORDON\'S LETTER IN HER HAND.', 0], ['VOSS: "THAT IS MY FATHER\'S HAND. \'CF-GMR NOTE SETTLED IN FULL ON THIS FLIGHT.\'"', 0],
+    ['VOSS: "HE NEVER WROTE IT IN THE BOOKS. THE BANK ROLLED GORDON\'S NOTE INTO WALT\'S, AND WALT PAID ON IT FOR THIRTY YEARS."', 0],
+    [paid ? 'VOSS: "AND YOU PAID IT OFF ANYWAY. VALLEY CREDIT OWES THIS FAMILY THE INTEREST: A CHEQUE FOR ' + $o(A3_REFUND) + '."' : 'VOSS: "NOTE 1147 IS WRITTEN OFF. THE ' + $o(o) + ' LEFT ON IT IS VALLEY CREDIT\'S TO CARRY, NOT YOURS."', 1],
+    ['VOSS: "THE HANGAR IS YOURS, ' + P + '. IT ALWAYS WAS. FLY THE VALLEY - AND THANK YOU FOR BRINGING HIM HOME."', 0],
+    ['THE END. MACRAE AIR SERVICE FLIES ON - THE BOARDS ARE FULL, THE SKY IS YOURS (FREE FLIGHT CONTINUES)', 2]]; }
+function a3Resolve() { const s = STORY.said, o = storyOwed(); if (s.end) return;
+  if (o > 0) { s.wo = o; storyLog('Valley Credit wrote off note 1147: the ' + $o(o) + ' still owed. Harold Voss had settled it on Gordon\'s last flight.'); }
+  else { s.refund = A3_REFUND; DLV.cash += A3_REFUND; storyLog('Eleanor Voss refunded thirty years of interest on a note Harold Voss had settled: ' + $o(A3_REFUND) + '.'); }
+  s.end = 1; s.endD = storyDate(); STORY.act = 4; musStinger('story'); musSwell('end', 70); STORY.key = ''; sbDraw(); KB.key = '';
+  storyLog('Epilogue: Gordon MacRae\'s Norseman found on the north ice. The note is settled, the hangar is ours. MacRae Air Service flies on.'); saveSoon(); }
+const _a3C = new THREE.Vector3();
+function act3Tick(dt) {
+  if (!STORY.on) return; const s = STORY.said;
+  if (A3.sc >= 0) { if ((A3.st -= dt) <= 0) { const L = A3.L[A3.sc]; if (!L) { A3.sc = -1; return; } say(L[0]); msgT = Math.max(msgT, 6.5); A3.st = 6.5; if (L[1] === 1) a3Resolve(); A3.sc++; } }
+  if ((A3.t -= dt) > 0) return; A3.t = 0.4; act3Show();
+  if (!s.cache) return;
+  if (!s.wreck) { camera.getWorldPosition(_a3C); const d = hyp(_a3C.x - WR.x, _a3C.z - WR.z);
+    if ((mode === 'foot' && d < 32) || (mode === 'plane' && ac.out && ac.out.wow > 0 && acGS() < 1 && d < 70)) {
+      s.wreck = 1; s.wreckD = storyDate(); STORY.act = Math.max(STORY.act, 3);
+      discoverLandmark('north_norseman', { name: 'The Norseman CF-GMR', x: WR.x, z: WR.z, note: 'Gordon MacRae\'s last flight', reward: 0, icon: 'x', quiet: true });
+      storyLog('Act 3 - the Norseman. CF-GMR, nose into the ridge under 30 years of snow, ' + storyDate() + '. A mail sack by the door.'); musStinger('story'); musSwell('reveal', 75);
+      say('THE NORSEMAN. CF-GMR, NOSE INTO THE RIDGE, THE FIN STANDING OUT OF THE SNOW. ON A MAIL SACK BY THE DOOR: A LOGBOOK, A LETTER'); msgT = Math.max(msgT, 8); saveSoon(); } }
+  if (s.glet && !s.end && A3.sc < 0 && STORY.near === SB && !STORY.held) { A3.L = a3Scene(); A3.sc = 0; A3.st = 0; }
+}
+// ---- the epilogue board ----
+function sbDrawEnd() { const x = SB.x, W = 1024, H = 640, s = STORY.said; x.fillStyle = '#263028'; x.fillRect(0, 0, W, H); x.fillStyle = 'rgba(255,255,255,0.035)'; for (let i = 0; i < 60; i++) x.fillRect((i * 173) % W, (i * 89) % H, 140, 18);
+  const ch = (t, X, Y, f, c = '#ecefe6', al = 'left') => { x.font = f; x.fillStyle = c; x.textAlign = al; x.fillText(t, X, Y); };
+  ch('MACRAE AIR SERVICE', W / 2, 66, 'bold 54px Georgia, serif', '#f4f2ea', 'center'); ch('GORDON  -  WALT  -  ' + PILOT, W / 2, 106, 'italic 28px Georgia, serif', '#c8ccc0', 'center');
+  x.strokeStyle = '#ecefe6'; x.lineWidth = 3; x.beginPath(); x.moveTo(120, 128); x.lineTo(904, 128); x.stroke();
+  // a chalk Norseman
+  x.strokeStyle = '#e8e8de'; x.lineWidth = 3; x.beginPath(); x.moveTo(730, 172); x.lineTo(930, 178); x.lineTo(960, 154); x.lineTo(964, 184); x.lineTo(910, 194); x.lineTo(750, 198); x.closePath(); x.moveTo(720, 158); x.lineTo(910, 158); x.moveTo(730, 172); x.lineTo(720, 198); x.stroke();
+  ch('NORSEMAN CF-GMR', 44, 186, 'bold 34px Georgia, serif', '#f0c8a0'); ch('FOUND ON THE NORTH ICE ' + (s.wreckD || '') + ' - GORDON CAME HOME', 44, 222, 'italic 24px Georgia, serif');
+  ch('NOTE 1147', 44, 290, 'bold 34px Georgia, serif', '#b8e0a0'); ch(s.wo ? 'WRITTEN OFF - ' + $o(s.wo) + ' VALLEY CREDIT\'S TO CARRY' : 'PAID IN FULL' + (s.refund ? ' + ' + $o(s.refund) + ' INTEREST BACK' : ''), 260, 290, 'italic 28px Georgia, serif', '#b8e0a0');
+  ch('THE HANGAR STAYS IN THE FAMILY', 44, 340, 'bold 30px Georgia, serif');
+  const n = Object.keys(DISC.found).length; ch('SEASON: ' + storyDay() + ' DAYS   ' + (DLV.done || 0) + ' JOBS FLOWN   ' + clueGot().length + '/' + CLUES.length + ' CLUES   ' + n + ' PLACES FOUND   MAP ' + Math.round(FOG.pct * 100) + '%', 44, 400, '23px Georgia, serif', '#c8ccc0');
+  ch('CASH ON HAND ' + ecoMoney(DLV.cash), 44, 440, '24px Georgia, serif', '#c8ccc0'); ch(storyDate() + '  (DAY ' + storyDay() + ')', 44, 476, '22px Georgia, serif', '#98a090');
+  ch('THE BOARDS ARE FULL. FLY ON.', W / 2, 560, 'bold 40px Georgia, serif', '#f4f2ea', 'center'); ch('"YOU CAN STOP NOW. FLY THE VALLEY." - G.M.', W / 2, 604, 'italic 22px Georgia, serif', '#98a090', 'center');
+  x.textAlign = 'left'; texDirty(SB.tex); }
 
 // ================= v0.45 save: where the Cub is parked, fuel, time of day, on foot or aboard. New key - older (v0.44 and before) saves are left alone and ignored =================
 const SAVE_KEY = 'bushpilot-vr-blank-v1', NOSAVE = /[?&]nosave\b/.test(location.search);
@@ -10584,7 +10689,7 @@ renderer.setAnimationLoop(() => {
   } else if ((crashTimer += dt) > 2.5) resetFlight();
 
   plane.position.fromArray(ac.pos); plane.quaternion.fromArray(ac.q);
-  dlvTick(dt); wbWarn(dt); huntTick(dt, xr || HANDS.force); fishTick(dt, xr || HANDS.force); storyTick(dt); cbTick(dt); glintTick(dt); act2Tick(dt); discTick(dt); radTick(dt); fogTick(dt); musTick(dt); trustTick(dt); dropTick(dt); ecoTick(dt); upgTick(dt); emgTick(dt);   // v0.53 rifle, deer, binoculars; v0.54 bundles in the air, the signal smoke   // v0.50 delivery: game clock, falling / loose cargo, job boards
+  dlvTick(dt); wbWarn(dt); huntTick(dt, xr || HANDS.force); fishTick(dt, xr || HANDS.force); storyTick(dt); cbTick(dt); glintTick(dt); act2Tick(dt); act3Tick(dt); discTick(dt); radTick(dt); fogTick(dt); musTick(dt); trustTick(dt); dropTick(dt); ecoTick(dt); upgTick(dt); emgTick(dt);   // v0.53 rifle, deer, binoculars; v0.54 bundles in the air, the signal smoke   // v0.50 delivery: game clock, falling / loose cargo, job boards
   GV.update(dt); kitTick(dt); flxTick(dt);   // v0.20 gear legs / tyres / tail wheel (v0.90 + the gear kits)
   updateMap(); updateCockpitV19(dt);
   propTick(dt, ENG.rpm);
