@@ -19,7 +19,7 @@
 </script>
 </head>
 <body>
-<div id="info">BUSH PILOT VR <span id="ver">v1.02</span> - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
+<div id="info">BUSH PILOT VR <span id="ver">v1.03</span> - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
 You start on foot by the Cub at the cabin strip. Walk up to her and climb in (F / Y), then start her up off the checklist card (J).
 Desktop - flying: W/S or arrows pitch, A/D or arrows roll, Q/E rudder, Shift / Ctrl (or + / -) throttle, B brakes, \ parking brake, [ ] flaps, PgUp / PgDn trim,
   R reset to the strip (cold and dark), F climb out, M map, L landing light, Home recentre, mouse looks (click to capture).
@@ -597,7 +597,7 @@ const hyp = (a, b, c = 0) => Math.sqrt(a * a + b * b + c * c);   // v0.59 Math.h
 
 // ======================= RENDERING =======================
 // v0.35 settings (persist in localStorage 'bp_gfx'; ?gfx=shadows:2,grass:1 overrides for testing). Defaults = the v0.34 look and cost.
-const BP_VERSION = 'v1.02';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
+const BP_VERSION = 'v1.03';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
 { const e = document.getElementById('ver'); if (e) e.textContent = BP_VERSION; }
 const GFX_DEF = { shadows: 0, scale: 1, fov: 1, dist: 1, trees: 1, grass: 0, clouds: 1, fog: 1, msaa: 1, hz: 90, vig: 0, turn: 0, fps: 0, tod: 11, stk: 1, tips: 1, terr: 1, dyn: 1, glove: 0, hand: 0, wt: 1, volM: 1, volMu: 0.5, volE: 1, volA: 1, volF: 1, wx: 1, forest: 0, ground: 0, gtex: 0, cvl: 1, water: 1, dayl: 48, flure: 0, fline: 8, fdrag: 4, fbob: 0, fsink: 0 };   // v0.68.1 dominant hand, volumes. v0.48 BALANCED: 90 % scale, 72 Hz, fast terrain shading, auto resolution; v0.49.1 the stick stays where you let go of it
 const GFX = Object.assign({}, GFX_DEF);
@@ -3924,9 +3924,9 @@ MAP.canvas = document.createElement('canvas'); MAP.canvas.width = MAP_W; MAP.can
   box(0.06, 0.02, 0.012, mat(0x777777), 0, 0.095, -0.004, MAP.clip);                                                                             // the clip
 }
 function mapJobs() {   // v0.51.1: job boards (gold square) + every active job's destination (its colour, ringed, numbered, a dashed line from the origin)
-  const A = dlvActive(), k = A.map(j => j.id + j.to + j.from + (j.hunt ? 'h' + j.hunt.got : '') + (j.drop ? 'd' + j.drop.res.length : '') + (j.emg ? 'e' + j.emg.seen + j.emg.got : '')).join() + '|' + DLV_STRIPS.map(S => S.found || S.lock ? (S.lock ? 2 : 1) : 0).join(''); if (k === MAP.key) return; MAP.key = k;
+  const A = dlvActive(), k = A.map(j => j.id + j.to + j.from + (j.hunt ? 'h' + j.hunt.got : '') + (j.drop ? 'd' + j.drop.res.length : '') + (j.emg ? 'e' + j.emg.seen + j.emg.got : '')).join() + '|' + DLV_STRIPS.map(S => S.found || S.lock ? (S.lock ? 2 : 1) : 0).join('') + fogKey(); if (k === MAP.key) return; MAP.key = k;
   const x = MAP.cx, X = wx => (wx + MAP_X) * MAP_PX, Z = wz => (wz + MAP_Z) * MAP_PX, F = "'Segoe Print','Bradley Hand','Comic Sans MS','Comic Neue',cursive";
-  x.drawImage(MAP.base, 0, 0); x.textBaseline = 'middle'; x.textAlign = 'center';
+  x.drawImage(fogBase(), 0, 0); x.textBaseline = 'middle'; x.textAlign = 'center';   // v1.03 story: the map as far as you've seen it
   for (const S of DLV_STRIPS) { if (!S.site || !S.found) continue; const B = S.B, sa = Math.sin(B.a), ca = Math.cos(B.a), p0x = X(B.x - sa * B.hl), p0y = Z(B.z - ca * B.hl), p1x = X(B.x + sa * B.hl), p1y = Z(B.z + ca * B.hl);   // v0.52
     x.lineCap = 'round'; x.lineJoin = 'round'; x.lineWidth = 6; x.strokeStyle = '#1e1810'; x.beginPath(); x.moveTo(p0x, p0y); x.lineTo(p1x, p1y); if (B.leg) x.lineTo(X(B.leg.x + Math.sin(B.leg.a) * B.leg.hl), Z(B.leg.z + Math.cos(B.leg.a) * B.leg.hl)); x.stroke(); x.lineWidth = 3; x.strokeStyle = B.type === 'short' || B.type === 'clearing' || B.type === 'dogleg' ? '#d9cfae' : '#c8a860'; x.stroke(); x.lineCap = 'butt';
     if (B.land != null) { const ux = -B.low * sa, uz = -B.low * ca, hx = X(B.x - ux * B.hl * 1.9), hy = Z(B.z - uz * B.hl * 1.9), tx = X(B.x + ux * B.hl * 0.4), ty = Z(B.z + uz * B.hl * 0.4), ang = Math.atan2(ty - hy, tx - hx);   // land uphill
@@ -9154,7 +9154,7 @@ function storyKbBody(x) { stDrawLetter(x, KB_W, KB_H, 76); x.fillStyle = '#7a302
 // ---- start, show, save ----
 function storyShow() { const on = STORY.on; SB.desk.visible = SB.m.visible = on; for (const it of SITEMS) it.m.visible = on; storyKbPages(); STORY.key = ''; if (typeof CB !== 'undefined') clueShow(); }
 function storyBegin() {   // a brand-new story game: up in Walt's hangar, a late-summer morning, the boards at story pay
-  DISC.found = {}; DISC.n = 0; STORY.on = true; STORY.act = 1; STORY.gh = 0; STORY.paid = 0; STORY.fee = 0; STORY.ext = 0; STORY.snow = false; storyShow();
+  DISC.found = {}; DISC.n = 0; fogStart(); STORY.on = true; STORY.act = 1; STORY.gh = 0; STORY.paid = 0; STORY.fee = 0; STORY.ext = 0; STORY.snow = false; storyShow();
   for (const S of DLV_STRIPS) DLV.offers[S.id] = []; DLV.seq = 1; dlvInit(false); for (const S of DLV_STRIPS) S.key = '';
   if (GFX.dayl > 0) DAY.h = 8.25; updateDay(0);
   const x = HANGAR.x - 1.6, z = HANGAR.z + 0.4; footRig.position.set(x, groundY(x, z) + EYE, z); footRig.rotation.set(0, Math.PI / 2, 0); bodyYaw = Math.PI / 2; lookYaw = lookPitch = 0;
@@ -9189,15 +9189,16 @@ const clueGot = () => CLUES.filter(c => c.k());
 const GLINT = { x: -3750, z: -4550 }; GLINT.h = terrainHeight(GLINT.x, GLINT.z);   // a snow shoulder ~1050 m, 5.9 km north-north-west of Home
 { const y = groundY(GLINT.x, GLINT.z), P = [['b', 1.6, 0.06, 0.55, 0, 0.03, 0, 0xa8281e], ['b', 1.2, 0.05, 0.08, 0.1, 0.07, 0.12, 0xd8d8d0]];   // a curved red cowling strip, a silver edge
   const m = new THREE.Mesh(mergeGeometries(P.map(partGeo)), ITEM_VM); m.position.set(GLINT.x, y + 0.02, GLINT.z); m.rotation.set(0.08, 0.7, 0.12); m.userData.noBatch = true; m.visible = false; scene.add(m); GLINT.m = m;
-  const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'), g = x.createRadialGradient(32, 32, 0, 32, 32, 32); g.addColorStop(0, 'rgba(255,255,250,1)'); g.addColorStop(0.15, 'rgba(255,250,230,0.8)'); g.addColorStop(1, 'rgba(255,240,200,0)'); x.fillStyle = g; x.fillRect(0, 0, 64, 64);
-  x.fillStyle = 'rgba(255,255,255,0.7)'; x.fillRect(0, 31, 64, 2); x.fillRect(31, 0, 2, 64);   // a four-point star
-  const t = new THREE.CanvasTexture(c); GLINT.sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, fog: false })); GLINT.sp.position.set(GLINT.x, y + 3, GLINT.z); GLINT.sp.visible = false; GLINT.sp.userData.noBatch = true; scene.add(GLINT.sp); }
+  const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'), g = x.createRadialGradient(32, 32, 0, 32, 32, 32); g.addColorStop(0, 'rgba(255,255,250,1)'); g.addColorStop(0.18, 'rgba(255,250,230,1)'); g.addColorStop(0.3, 'rgba(255,196,80,0.75)'); g.addColorStop(0.6, 'rgba(240,160,50,0.22)'); g.addColorStop(1, 'rgba(240,160,50,0)'); x.fillStyle = g; x.fillRect(0, 0, 64, 64);
+  for (const [w, al] of [[3, 0.55], [1.2, 1]]) { const lg = x.createLinearGradient(0, 0, 64, 0); lg.addColorStop(0, 'rgba(240,170,60,0)'); lg.addColorStop(0.5, 'rgba(255,236,190,' + al + ')'); lg.addColorStop(1, 'rgba(240,170,60,0)'); x.fillStyle = lg; x.fillRect(0, 32 - w, 64, 2 * w); x.save(); x.translate(32, 32); x.rotate(Math.PI / 2); x.translate(-32, -32); x.fillRect(0, 32 - w, 64, 2 * w); x.restore(); }   // v1.03 long sun-flash rays (it was lost on bright snow)
+  const t = new THREE.CanvasTexture(c); GLINT.sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, depthWrite: false, depthTest: false, transparent: true, fog: false })); GLINT.sp.renderOrder = 5; /* v1.03 normal blending: a gold halo reads on white snow (additive did not) */ GLINT.sp.position.set(GLINT.x, y + 6, GLINT.z); GLINT.sp.visible = false; GLINT.sp.userData.noBatch = true; scene.add(GLINT.sp); }
 const _glC = new THREE.Vector3();
 function glintTick(dt) {
   const on = STORY.on && !STORY.said.glint; GLINT.m.visible = STORY.on; if (!on) { GLINT.sp.visible = false; return; }
   camera.getWorldPosition(_glC); const d = hyp(_glC.x - GLINT.x, _glC.z - GLINT.z), agl = _glC.y - groundY(_glC.x, _glC.z), sun = typeof sunDir !== 'undefined' ? sunDir.y : 1;
   GLINT.t = (GLINT.t || 0) + dt; const fl = 0.5 + 0.5 * Math.sin(GLINT.t * 2.3) * Math.sin(GLINT.t * 0.7 + 1);   // it winks as you move
-  const vis = sun > 0.12 && d < 3500 && d > 60 && mode === 'plane'; GLINT.sp.visible = vis; if (vis) { const s = (8 + d * 0.012) * (0.4 + 0.9 * fl * fl); GLINT.sp.scale.set(s, s, 1); GLINT.sp.material.opacity = 0.35 + 0.65 * fl; }
+  if ((GLINT.lt = (GLINT.lt || 0) - dt) <= 0) { GLINT.lt = 0.4; GLINT.los = true; for (let i = 1; i < 16; i++) { const f = i / 16, px = _glC.x + (GLINT.x - _glC.x) * f, pz = _glC.z + (GLINT.z - _glC.z) * f, py = _glC.y + (GLINT.h + 6 - _glC.y) * f; if (terrainHeight(px, pz) > py + 1) { GLINT.los = false; break; } } }   // v1.03 line of sight over the ground (then it's drawn over the snow it sits in)
+  const vis = sun > 0.12 && d < 3500 && d > 60 && mode === 'plane' && GLINT.los; GLINT.sp.visible = vis; if (vis) { const s = (10 + d * 0.03) * (0.35 + 0.95 * fl * fl); GLINT.sp.scale.set(s, s, 1); GLINT.sp.material.opacity = 0.35 + 0.65 * fl; }
   if ((mode === 'plane' && d < 230 && agl < 380) || (mode === 'foot' && d < 18)) { STORY.said.glint = 1; STORY.cl && (STORY.cl.glint = 1); clueFound('glint', 'METAL ON THE NORTH ICE: A STRIP OF RED COWLING. PAINTED ON IT, "CF-G". THE NORSEMAN.'); discoverLandmark('north_ice_cowling', { name: 'The cowling on the north ice', x: GLINT.x, z: GLINT.z, note: 'red cowling, "CF-G"', reward: 0, icon: 'x', quiet: true }); }
 }
 // ---- Walt's corkboard (over his bench, back wall) ----
@@ -9239,9 +9240,10 @@ function journalKbBody(x) { stPaper(x, KB_W, KB_H, '#f2ecd8'); x.fillStyle = '#2
 // registerLandmark(id, { name, x, z, r = 250 (overflight radius, m), agl = 600 (max height over it to count), foot = 40, note, reward = 150 ($), rep: [stripId, +n], icon })
 // discoverLandmark(id, info?) -> true the first time: journal line, music stinger, the reward, a map sketch (v1.03); onDiscover(fn) for extra reactions.
 const DISC = { found: {}, reg: {}, hooks: [], t: 0, n: 0 };
-function registerLandmark(id, o = {}) { DISC.reg[id] = { id, name: o.name || id, x: +o.x, z: +o.z, r: o.r ?? 250, agl: o.agl ?? 600, foot: o.foot ?? 40, note: o.note || '', reward: o.reward ?? 150, rep: o.rep || null, icon: o.icon || 'star', quiet: !!o.quiet }; return DISC.reg[id]; }
+function registerLandmark(id, o = {}) { DISC.reg[id] = { id, name: o.name || id, x: +o.x, z: +o.z, r: o.r ?? 250, agl: o.agl ?? 600, foot: o.foot ?? 40, note: o.note || '', reward: o.reward ?? 150, rep: o.rep || null, icon: o.icon || 'star', quiet: !!o.quiet, story: !!o.story }; return DISC.reg[id]; }
 function onDiscover(fn) { DISC.hooks.push(fn); }
 function discoverLandmark(id, o = {}) {
+  if (typeof o === 'string') o = { name: o }; else if (!o || typeof o !== 'object') o = {};   // (id, 'Name') works too (the vistas module calls it that way)
   if (!id || DISC.found[id]) return false; const R = { ...(DISC.reg[id] || { id, name: id, reward: 150, icon: 'star' }), ...o }; playerPos();
   const x = isFinite(R.x) ? R.x : PP.x, z = isFinite(R.z) ? R.z : PP.z, rw = Math.max(0, R.reward ?? 150);
   DISC.found[id] = { n: R.name || id, x: Math.round(x), z: Math.round(z), d: STORY.on ? storyDay() : 0, i: R.icon || 'star', note: R.note || '' }; DISC.n++;
@@ -9252,7 +9254,7 @@ function discoverLandmark(id, o = {}) {
 window.discoverLandmark = discoverLandmark; window.registerLandmark = registerLandmark; window.onDiscover = onDiscover;
 const _dsC = new THREE.Vector3();
 function discTick(dt) { if ((DISC.t -= dt) > 0) return; DISC.t = 0.5; camera.getWorldPosition(_dsC); const agl = _dsC.y - groundY(_dsC.x, _dsC.z);
-  for (const id in DISC.reg) { if (DISC.found[id]) continue; const R = DISC.reg[id], d = hyp(_dsC.x - R.x, _dsC.z - R.z); if (mode === 'plane' ? d < R.r && agl < R.agl : d < R.foot) discoverLandmark(id); } }
+  for (const id in DISC.reg) { if (DISC.found[id]) continue; const R = DISC.reg[id]; if (R.story && !STORY.on) continue; const d = hyp(_dsC.x - R.x, _dsC.z - R.z); if (mode === 'plane' ? d < R.r && agl < R.agl : d < R.foot) discoverLandmark(id); } }
 function discSave() { return { f: DISC.found }; }
 function discLoad(d) { DISC.found = d && d.f && typeof d.f === 'object' ? Object.fromEntries(Object.entries(d.f).filter(([, v]) => v && isFinite(v.x) && isFinite(v.z))) : {}; DISC.n = Object.keys(DISC.found).length; }
 function clueShow() { const on = STORY.on; CB.fr.visible = CB.m.visible = on; CB.key = '#'; STORY.cl = null; CB.pend = ''; }
@@ -9320,6 +9322,78 @@ function radTick(dt) {
   say('RADIO - ' + radName(w) + ' CALLING THE MACRAE CUB - KEY THE MIC TO ANSWER (' + (renderer.xr.isPresenting ? 'GRAB THE HAND MIC, SQUEEZE THE TRIGGER' : 'HOLD \' TO TALK') + ')'); msgT = Math.max(msgT, 6); }
 function radDone(c) { STORY.said['r_' + c.id] = 1; RAD.n++; if (c.then) c.then(); saveSoon(); }
 
+// ===================== v1.03 THE MAP FILLS IN: Walt's paper map, fog of war, pins, Walt's + Gordon's notes, discoveries =====================
+// Story mode: Walt's map starts mostly blank paper - only the country round Home is drawn in. Everything you fly over (wider the higher you are) or walk
+// through gets inked in from the full hand-drawn map, with soft edges. On the revealed sheet: Walt's pencil notes (blue-grey), notes he copied off
+// Gordon's old sheet (faded brown ink, "G.M.") as the clues turn up, red pins where people told you things, the north ice off the top edge, and a
+// sketch for every discovery (discoverLandmark). Mapping 25 / 50 / 75 % of the sheet pays + goes in the journal. Free play keeps the whole map.
+const FOG = { on: false, W: 256, H: 192, t: 0, ct: 0, pt: 0, dirty: true, ver: 0, pct: 0, img: null };
+{ const mk = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
+  FOG.m = mk(FOG.W, FOG.H); FOG.mx = FOG.m.getContext('2d', { willReadFrequently: true }); FOG.cv = mk(MAP_W, MAP_H); FOG.cx = FOG.cv.getContext('2d'); FOG.tc = mk(MAP_W, MAP_H); FOG.tx = FOG.tc.getContext('2d');
+  FOG.paper = mk(MAP_W, MAP_H); const x = FOG.paper.getContext('2d'); let sd = 777; const r = () => ((sd = (sd * 16807) % 2147483647) / 2147483647);   // blank paper, its own seed
+  x.fillStyle = '#d9c79b'; x.fillRect(0, 0, MAP_W, MAP_H); let g = x.createRadialGradient(MAP_W / 2, MAP_H / 2, MAP_H * 0.25, MAP_W / 2, MAP_H / 2, MAP_W * 0.68);
+  g.addColorStop(0, 'rgba(255,248,225,0.35)'); g.addColorStop(1, 'rgba(110,75,35,0.45)'); x.fillStyle = g; x.fillRect(0, 0, MAP_W, MAP_H);
+  for (let i = 0; i < 2500; i++) { x.fillStyle = r() < 0.5 ? 'rgba(90,60,25,0.07)' : 'rgba(255,255,240,0.09)'; x.fillRect(r() * MAP_W, r() * MAP_H, 1 + r() * 3, 1); }
+  x.strokeStyle = 'rgba(90,70,40,0.12)'; x.lineWidth = 1; for (let i = 1; i < 10; i++) { x.beginPath(); x.moveTo(i * MAP_W / 10, 0); x.lineTo(i * MAP_W / 10, MAP_H); x.stroke(); } for (let i = 1; i < 8; i++) { x.beginPath(); x.moveTo(0, i * MAP_H / 8); x.lineTo(MAP_W, i * MAP_H / 8); x.stroke(); }   // the survey grid, 1 km
+  x.strokeStyle = 'rgba(110,70,30,0.25)'; x.lineWidth = 4; x.beginPath(); x.arc(860, 640, 46, 0.3, 5.9); x.stroke();
+  x.fillStyle = 'rgba(60,50,40,0.55)'; x.font = "bold 22px 'Segoe Print','Bradley Hand','Comic Sans MS','Comic Neue',cursive"; x.textAlign = 'center'; x.fillText('N', MAP_W - 40, 34); x.strokeStyle = 'rgba(60,50,40,0.55)'; x.lineWidth = 2.5;
+  x.beginPath(); x.moveTo(MAP_W - 40, 80); x.lineTo(MAP_W - 40, 44); x.lineTo(MAP_W - 47, 56); x.moveTo(MAP_W - 40, 44); x.lineTo(MAP_W - 33, 56); x.stroke(); }
+const FOG_PX = MAP_W / FOG.W, fogU = wx => (wx + MAP_X) * MAP_PX, fogV = wz => (wz + MAP_Z) * MAP_PX;
+function fogReveal(wx, wz, R) { const k = MAP_PX / FOG_PX, px = (wx + MAP_X) * k, py = (wz + MAP_Z) * k, r = Math.max(2, R * k); if (px < -r || py < -r || px > FOG.W + r || py > FOG.H + r) return;
+  const x = FOG.mx, g = x.createRadialGradient(px, py, 0, px, py, r); g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(0.6, 'rgba(255,255,255,0.95)'); g.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = g; x.beginPath(); x.arc(px, py, r, 0, 6.283); x.fill(); FOG.dirty = true; }
+function fogAt(wx, wz) { if (!FOG.img) return 0; const i = Math.floor((wx + MAP_X) * MAP_PX / FOG_PX), k = Math.floor((wz + MAP_Z) * MAP_PX / FOG_PX); if (i < 0 || k < 0 || i >= FOG.W || k >= FOG.H) return 0; return FOG.img[(k * FOG.W + i) * 4 + 3] / 255; }
+function fogPct() { const d = FOG.mx.getImageData(0, 0, FOG.W, FOG.H).data; FOG.img = d; let n = 0; for (let i = 3; i < d.length; i += 4) if (d[i] > 128) n++; FOG.pct = n / (FOG.W * FOG.H); return FOG.pct; }
+const fogKey = () => FOG.on ? '|F' + FOG.ver : '';
+function fogBase() { if (!FOG.on) return MAP.base; if (FOG.cver !== FOG.ver) fogComposite(); return FOG.cv; }
+// ---- what's written on it ----
+const HANDF = "'Segoe Print','Bradley Hand','Comic Sans MS','Comic Neue',cursive", INKF = "italic 'Georgia', 'Times New Roman', serif";
+const WALT_NOTES = [{ s: 'HOME', t: 'home - Pete, fuel, coffee', dx: 90, dy: 46 }, { s: 'RIDGE', t: 'pm: lift on the ridge, rotor on the lee side', dx: 40, dy: -46 }, { s: 'LODGE', t: 'Mrs A - flowers pay double', dx: 0, dy: 30 },
+  { s: 'DRYFORK', t: 'Mae - feed, fair prices', dx: 0, dy: 30 }, { s: 'HALV', t: 'Dr L - good coffee, bad strip', dx: 0, dy: 30 }, { s: 'NWSHORE', t: 'Bill - bring tobacco', dx: 0, dy: -28 }, { s: 'CREEK', t: 'Joe\'s claim - land short, gravel', dx: 0, dy: 30 },
+  { p: 'WRECK', t: 'not the Norseman. checked 3x', dx: 0, dy: 26 }, { p: 'LOOKOUT', t: '40 km on a clear day', dx: -50, dy: -32 }, { p: 'MINE', t: 'shut 1961 - shafts, stay out', dx: 0, dy: 26 }];
+const GORDON_NOTES = [{ c: 'g_DRYFORK', s: 'DRYFORK', t: 'north sheet - ask Mae  G.M.', dx: 0, dy: 48 }, { c: 'g_HOME', s: 'HOME', t: 'cache 2 cans at the turn?  G.M.', dx: -10, dy: 52 },
+  { c: 'g_RIDGE', s: 'RIDGE', t: 'over the ridge, then north  G.M.', dx: 30, dy: -66 }, { c: 'g_CREEK', s: 'CREEK', t: 'old cabin, hidden lake - where?  G.M.', dx: 0, dy: 48 }, { c: 'g_LODGE', s: 'LODGE', t: 'Tues - meet H. at the Lodge  G.M.', dx: 0, dy: 50 }];
+const fogXY = o => { if (o.s) { const S = DLV_STRIPS.find(q => q.id === o.s); return S ? [S.pad[0], S.pad[1]] : null; } if (o.p) { const P = PLACES.find(q => q.name === o.p); return P ? [P.x, P.z] : null; } return [o.x, o.z]; };
+function fogText(x, t, px, py, font, col, rot = 0) { x.save(); x.translate(px, py); x.rotate(rot); x.font = font; x.fillStyle = col; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(t, 0, 0); x.restore(); }
+function fogPin(x, px, py, col = '#b0201a') { x.fillStyle = 'rgba(0,0,0,0.3)'; x.beginPath(); x.arc(px + 2, py + 2, 5, 0, 6.283); x.fill(); x.fillStyle = col; x.beginPath(); x.arc(px, py, 5, 0, 6.283); x.fill(); x.fillStyle = 'rgba(255,255,255,0.6)'; x.beginPath(); x.arc(px - 1.5, py - 1.5, 1.6, 0, 6.283); x.fill(); }
+function fogIcon(x, k, px, py) { x.strokeStyle = '#3a3a44'; x.fillStyle = '#3a3a44'; x.lineWidth = 2; x.beginPath();
+  if (k === 'x') { x.strokeStyle = '#a01810'; x.lineWidth = 3.5; x.moveTo(px - 7, py - 7); x.lineTo(px + 7, py + 7); x.moveTo(px + 7, py - 7); x.lineTo(px - 7, py + 7); x.stroke(); return; }
+  if (k === 'peak') { x.moveTo(px - 10, py + 6); x.lineTo(px - 2, py - 8); x.lineTo(px + 2, py - 2); x.lineTo(px + 5, py - 6); x.lineTo(px + 11, py + 6); x.stroke(); return; }
+  if (k === 'lake') { x.ellipse(px, py, 10, 5, 0, 0, 6.283); x.stroke(); x.beginPath(); x.moveTo(px - 5, py); x.lineTo(px + 4, py); x.stroke(); return; }
+  for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? 3.5 : 8; i ? x.lineTo(px + Math.cos(a) * rr, py + Math.sin(a) * rr) : x.moveTo(px + Math.cos(a) * rr, py + Math.sin(a) * rr); } x.closePath(); x.stroke(); }   // a pencil star
+function fogEdge(x, wx, wz) { const px = clamp(fogU(wx), 30, MAP_W - 30), py = clamp(fogV(wz), 30, MAP_H - 30), on = px === fogU(wx) && py === fogV(wz); return [px, py, on]; }
+function fogOverlay(x) {
+  const PENC = 'rgba(58,70,88,0.85)', INK = 'rgba(110,62,28,0.8)', said = STORY.said, got = new Set(clueGot().map(c => c.id));
+  for (const n of WALT_NOTES) { const p = fogXY(n); if (!p || fogAt(p[0], p[1]) < 0.5) continue; fogText(x, n.t, fogU(p[0]) + n.dx, fogV(p[1]) + n.dy, '12px ' + HANDF, PENC, -0.03); }
+  for (const n of GORDON_NOTES) { const p = fogXY(n); if (!p || !got.has(n.c)) continue; fogText(x, n.t, fogU(p[0]) + n.dx, fogV(p[1]) + n.dy, '13px ' + INKF, INK, 0.04); }
+  // the north ice, off the top edge (Walt's log), and the pins that point at it
+  if (STORY.read.log || got.size) { const [ex, ey] = fogEdge(x, GLINT.x, GLINT.z); x.strokeStyle = PENC; x.lineWidth = 2.5; x.beginPath(); x.moveTo(ex, ey + 46); x.lineTo(ex, ey - 16); x.lineTo(ex - 7, ey - 4); x.moveTo(ex, ey - 16); x.lineTo(ex + 7, ey - 4); x.stroke();
+    x.setLineDash([3, 4]); x.lineWidth = 1.2; x.beginPath(); x.moveTo(ex + 10, ey - 6); x.lineTo(ex + 160, ey - 6); x.stroke(); x.setLineDash([]); fogText(x, 'N. ICE - off the sheet, ~6 km NNW of home', ex + 300, ey - 6, 'bold 13px ' + HANDF, PENC, 0); fogText(x, '"glare all day" - W.', ex + 260, ey + 12, '12px ' + HANDF, PENC, 0);
+    if (said.ghint && !said.glint) { x.strokeStyle = 'rgba(160,30,20,0.7)'; x.setLineDash([5, 4]); x.beginPath(); x.arc(ex, ey + 6, 22, 0, 6.283); x.stroke(); x.setLineDash([]); fogText(x, 'Dawson\'s flash?', ex - 70, ey + 40, '12px ' + HANDF, '#8a1a10', -0.05); }
+    if (said.glint) { fogIcon(x, 'x', ex, ey + 6); fogText(x, 'CF-G - red cowling!', ex - 78, ey + 40, 'bold 13px ' + HANDF, '#8a1a10', -0.05); }
+    for (const c of CLUES) { if (!c.id.startsWith('g_') || !got.has(c.id)) continue; const S = DLV_STRIPS.find(q => q.id === c.id.slice(2)); if (!S) continue; const px = fogU(S.pad[0]), py = fogV(S.pad[1]) - 12;
+      x.strokeStyle = 'rgba(176,32,26,0.45)'; x.lineWidth = 1.5; x.beginPath(); x.moveTo(px, py); x.quadraticCurveTo((px + ex) / 2, (py + ey) / 2 + 40, ex, ey + 6); x.stroke(); fogPin(x, px, py); } }
+  for (const id in DISC.found) { const D = DISC.found[id]; if (id === 'north_ice_cowling') continue; const [px, py, on] = fogEdge(x, D.x, D.z); fogIcon(x, D.i, px, py); fogText(x, (on ? '' : '^ ') + D.n.toLowerCase(), px, py + 16, '12px ' + HANDF, PENC, -0.02); }
+  x.fillStyle = 'rgba(58,70,88,0.8)'; x.font = '13px ' + HANDF; x.textAlign = 'right'; x.fillText('mapped ' + Math.round(FOG.pct * 100) + '%  -  found ' + DISC.n, MAP_W - 190, MAP_H - 14); x.textAlign = 'left'; }
+function fogComposite() { FOG.cver = FOG.ver; const x = FOG.cx, t = FOG.tx; x.globalCompositeOperation = 'source-over'; x.drawImage(FOG.paper, 0, 0);
+  t.globalCompositeOperation = 'source-over'; t.clearRect(0, 0, MAP_W, MAP_H); t.drawImage(MAP.base, 0, 0); t.globalCompositeOperation = 'destination-in'; t.imageSmoothingEnabled = true; t.drawImage(FOG.m, 0, 0, MAP_W, MAP_H); t.globalCompositeOperation = 'source-over';
+  x.drawImage(FOG.tc, 0, 0); fogOverlay(x); }
+// ---- discoveries the map knows about (story): every named place and lake away from Home; mapping milestones ----
+const FOG_MS = [[0.25, 250], [0.5, 400], [0.75, 600]];
+{ const home = DLV_STRIPS.find(S => S.id === 'HOME'), hx = home ? home.pad[0] : 0, hz = home ? home.pad[1] : 0;
+  for (const P of PLACES) if (P.poi && hyp(P.x - hx, P.z - hz) > 1000) registerLandmark('poi_' + P.name, { name: P.poi.replace(/^./, c => c.toUpperCase()), x: P.x, z: P.z, r: 220, agl: 350, foot: 60, reward: 60, story: true, icon: /lookout|mine/.test(P.poi) ? 'peak' : 'star', quiet: false });
+  for (const L of LAKES) registerLandmark('lake_' + L.name, { name: L.name.replace(/\B\w+/g, w => w.toLowerCase()), x: L.x, z: L.z, r: L.r + 120, agl: 500, foot: L.r + 30, reward: 40, story: true, icon: 'lake' }); }
+const _fgC = new THREE.Vector3();
+function fogStart() { FOG.mx.clearRect(0, 0, FOG.W, FOG.H); const S = DLV_STRIPS.find(q => q.id === 'HOME'); fogReveal(S ? S.pad[0] : HANGAR.x, S ? S.pad[1] : HANGAR.z, 1500); fogPct(); FOG.ver++; }
+function fogTick(dt) {
+  const on = !!STORY.on; if (on !== FOG.on) { FOG.on = on; MAP.key = ''; FOG.ver++; } if (!on) return;
+  if ((FOG.t -= dt) <= 0) { FOG.t = 1; camera.getWorldPosition(_fgC); const agl = _fgC.y - groundY(_fgC.x, _fgC.z); fogReveal(_fgC.x, _fgC.z, mode === 'plane' ? clamp(350 + 1.2 * agl, 350, 2200) : 250); }
+  if ((FOG.pt -= dt) <= 0 && FOG.dirty) { FOG.pt = 3; FOG.dirty = false; fogPct(); FOG.ver++; MAP.key = '';
+    for (const [p, rw] of FOG_MS) { const k = 'x' + Math.round(p * 100); if (FOG.pct >= p && !STORY.said[k]) { STORY.said[k] = 1; DLV.cash += rw; storyLog('Walt\'s map is ' + Math.round(p * 100) + ' % inked in.'); musStinger('discovery'); say('WALT\'S MAP: ' + Math.round(p * 100) + ' % OF THE SHEET MAPPED +$' + rw); saveSoon(); } } } }
+function fogSave() { return FOG.on ? FOG.m.toDataURL('image/png') : null; }
+function fogLoad(d) { FOG.mx.clearRect(0, 0, FOG.W, FOG.H); if (typeof d !== 'string' || !/^data:image\/png;base64,/.test(d)) { if (STORY.on) fogStart(); return; }
+  const im = new Image(); im.onload = () => { FOG.mx.clearRect(0, 0, FOG.W, FOG.H); FOG.mx.drawImage(im, 0, 0, FOG.W, FOG.H); fogPct(); FOG.ver++; MAP.key = ''; }; im.onerror = () => { if (STORY.on) fogStart(); }; im.src = d; }
+onDiscover((id, R) => { if (isFinite(R.x) && isFinite(R.z)) fogReveal(R.x, R.z, 350); FOG.ver++; });
+
 // ================= v0.45 save: where the Cub is parked, fuel, time of day, on foot or aboard. New key - older (v0.44 and before) saves are left alone and ignored =================
 const SAVE_KEY = 'bushpilot-vr-blank-v1', NOSAVE = /[?&]nosave\b/.test(location.search);
 // ---- v0.75 weather, no wind: slow states that only change what you see and hear (fog distance + colour, cloud deck, light, valley mist, rain).
@@ -9380,7 +9454,7 @@ function cubParked() { return !ac.crashed && acGS() < 1 && ac.gs.some(g => g.Fn 
 function saveGame(why) {
   if (NOSAVE || SV.off) return false;
   if (cubParked()) SV.cub = { p: ac.pos.map(r3), q: ac.q.map(v => Math.round(v * 1e6) / 1e6) };
-  const d = { v: 55, at: Date.now(), cub: SV.cub, fuel: r3(fuel), h: r3(DAY.h), mode, foot: mode === 'foot' ? [r3(footRig.position.x), r3(footRig.position.z), r3(bodyYaw)] : null, dlv: dlvSave(), hunt: huntSave(), eco: ecoSave(), upg: upgSave(), emg: emgSave(), fish: fishSave(), story: storySave(), disc: discSave(), wx: wxSave(), meta: { cash: DLV.cash, loc: svPlace() } };   // v0.68.1 meta: the menu's slot label. v0.55 + the Cub's log (tach, oil, wear, damage)   // v0.53 + rifle / ammo   // v0.50: + wallet, jobs, cargo, straps
+  const d = { v: 55, at: Date.now(), cub: SV.cub, fuel: r3(fuel), h: r3(DAY.h), mode, foot: mode === 'foot' ? [r3(footRig.position.x), r3(footRig.position.z), r3(bodyYaw)] : null, dlv: dlvSave(), hunt: huntSave(), eco: ecoSave(), upg: upgSave(), emg: emgSave(), fish: fishSave(), story: storySave(), disc: discSave(), fog: fogSave(), wx: wxSave(), meta: { cash: DLV.cash, loc: svPlace() } };   // v0.68.1 meta: the menu's slot label. v0.55 + the Cub's log (tach, oil, wear, damage)   // v0.53 + rifle / ammo   // v0.50: + wallet, jobs, cargo, straps
   try { localStorage.setItem(SAVE_KEY, JSON.stringify(d)); } catch (e) { return false; }
   SV.last = Date.now(); SV.n++; SV.why = why || ''; SV.t = 30; SV.due = -1; return true;
 }
@@ -9402,7 +9476,7 @@ function gameLoad() {
   if (d.mode === 'foot' && Array.isArray(d.foot) && d.foot.slice(0, 3).every(isFinite)) { exitPlane(); const [x, z, yaw] = d.foot; footRig.position.set(x, groundY(x, z) + EYE, z); footRig.rotation.set(0, yaw, 0); bodyYaw = yaw; }   // v0.59.1 checked (a damaged foot entry stopped the page loading)
   upgLoad(d.upg || null);   // v0.57 before the cargo (the pod)
   emgLoad(d.emg || null);   // v0.58 before the cargo (a patient aboard finds their job)
-  wxLoad(d.wx || null); dlvLoad(d.v >= 50 ? d.dlv : null); huntLoad(d.v >= 53 ? d.hunt : null); fishLoad(d.fish || null); storyLoad(d.story || null); discLoad(d.disc || null); dropLoadFix(); ecoLoad(d.v >= 55 ? d.eco : null); emgFix();   // v0.54 a save taken mid-drop: the last bundle down settles the job
+  wxLoad(d.wx || null); dlvLoad(d.v >= 50 ? d.dlv : null); huntLoad(d.v >= 53 ? d.hunt : null); fishLoad(d.fish || null); storyLoad(d.story || null); discLoad(d.disc || null); fogLoad(d.fog || null); dropLoadFix(); ecoLoad(d.v >= 55 ? d.eco : null); emgFix();   // v0.54 a save taken mid-drop: the last bundle down settles the job
   msgT = 0; SV.last = d.at || 0; return true;
 }
 MYS_SITES.clear();   // the whole world is built now: clear trees and rocks off the strips and sites
@@ -10083,7 +10157,7 @@ renderer.setAnimationLoop(() => {
   } else if ((crashTimer += dt) > 2.5) resetFlight();
 
   plane.position.fromArray(ac.pos); plane.quaternion.fromArray(ac.q);
-  dlvTick(dt); wbWarn(dt); huntTick(dt, xr || HANDS.force); fishTick(dt, xr || HANDS.force); storyTick(dt); cbTick(dt); glintTick(dt); discTick(dt); radTick(dt); musTick(dt); trustTick(dt); dropTick(dt); ecoTick(dt); upgTick(dt); emgTick(dt);   // v0.53 rifle, deer, binoculars; v0.54 bundles in the air, the signal smoke   // v0.50 delivery: game clock, falling / loose cargo, job boards
+  dlvTick(dt); wbWarn(dt); huntTick(dt, xr || HANDS.force); fishTick(dt, xr || HANDS.force); storyTick(dt); cbTick(dt); glintTick(dt); discTick(dt); radTick(dt); fogTick(dt); musTick(dt); trustTick(dt); dropTick(dt); ecoTick(dt); upgTick(dt); emgTick(dt);   // v0.53 rifle, deer, binoculars; v0.54 bundles in the air, the signal smoke   // v0.50 delivery: game clock, falling / loose cargo, job boards
   GV.update(dt); kitTick(dt); flxTick(dt);   // v0.20 gear legs / tyres / tail wheel (v0.90 + the gear kits)
   updateMap(); updateCockpitV19(dt);
   propTick(dt, ENG.rpm);

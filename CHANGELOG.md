@@ -2,6 +2,35 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v1.03 – Walt's map fills in as you fly: fog of war, pins, Walt's and Gordon's notes, discoveries
+
+- **The paper map starts mostly blank in story mode.**
+  - Only the country within about 1.5 km of Home is drawn. The rest is aged paper with a faint 1 km survey grid and a pencilled north arrow.
+  - Wherever you go, the full hand-drawn map is inked in with soft edges. In the Cub the inked radius is 350 m + 1.2 × your height above ground (up to 2.2 km); on foot it is 250 m.
+  - The mask is 256 × 192 (about 39 m a cell), updated every second. The map is recomposited at most every 3 s, and only while it is changing.
+  - Free play keeps the whole map.
+- **What's written on it:**
+  - **Walt's pencil notes** (blue-grey) appear as you reveal the places they are about. For example: "pm: lift on the ridge, rotor on the lee side", "Mrs A – flowers pay double", "not the Norseman. checked 3x" by the wreck, "shut 1961 – shafts, stay out" at the mine.
+  - **Gordon's notes** (faded brown ink, signed G.M., copied off his old sheet) appear as the matching clues turn up:
+    - "north sheet – ask Mae";
+    - "cache 2 cans at the turn?";
+    - "over the ridge, then north";
+    - "old cabin, hidden lake – where?";
+    - "Tues – meet H. at the Lodge".
+  - **Red pins** mark each town that told you something, strung to **the north ice**. The north ice is off the top edge of the sheet; Walt pencilled an arrow there: "N. ICE – off the sheet, ~6 km NNW of home", "glare all day". Dawson's radio report adds a dashed "Dawson's flash?" circle, and finding the cowling adds a red X and "CF-G – red cowling!".
+  - **Discoveries** are sketched where they are (a star, a peak, or a lake), or as an arrow on the edge if they are off the sheet.
+  - The map shows "mapped n % – found n" in the corner.
+- **Discovery rewards** (story mode):
+  - **Named places.** Every named place more than 1 km from Home (fire lookout, plane wreck, Silver King mine, Halvorsen station, …) is discovered by flying within 220 m below 350 m AGL, or walking within 60 m. Each pays +$60, goes in the journal, plays the stinger, and is sketched on the map.
+  - **Lakes.** The two lakes pay +$40 each.
+  - **Mapping milestones.** Inking in 25 / 50 / 75 % of the sheet pays $250 / $400 / $600, with a journal line and the stinger.
+- **The landmark hook.** `discoverLandmark(id, 'Name')` (the vistas module's form) now works as well as `discoverLandmark(id, {name, x, z, …})`. A discovery also inks in the 350 m around it. Landmarks registered with `story: true` are only auto-found in story mode.
+- **Saving.** The inked-in mask is saved as a small PNG (`fog`, under 40 KB). An older story save starts with just Home inked in.
+- Physics untouched (md5 identical). New test t103.
+- **The north-ice glint is easier to see.**
+  - Its sun flash is now a gold-haloed star with long rays, about 3× bigger at range. It used to be white and additive, and disappeared against bright snow.
+  - It is only drawn when there is a clear line of sight over the ground. When there is, it shows over the snow hollow it sits in.
+
 ## v1.02 – the story on the radio: calls over the hand mic
 
 - **People call you while you fly.** This is story mode only, in the Cub with the master switch on. Callers are Pete at Home, the towns, and Eleanor Voss at Valley Credit.

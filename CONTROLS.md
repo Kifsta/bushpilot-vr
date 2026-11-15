@@ -122,6 +122,7 @@ v0.44 latches: every window and the door are latched while shut. Squeeze the han
 | Journal (v1.01) | Clipboard page 6, LOG | Hold the clipboard up (N), . to page 6 |
 | The glint on the north ice (v1.01) | From the Cub by day, a winking flash on the snow ~6 km NNW of Home: fly within ~230 m, below ~380 m AGL | same |
 | Answer a radio call / call Home (v1.02) | Take the hand mic off its clip, squeeze that hand's trigger | Hold ' (quote) |
+| Walt's map fills in (v1.03, story) | Fly or walk: the paper map inks in round you (wider the higher you fly); named places + lakes found low overhead pay; 25 / 50 / 75 % mapped pays | same |
 
 ## On foot
 | | VR | Desktop |
