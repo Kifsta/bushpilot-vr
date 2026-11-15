@@ -123,6 +123,7 @@ v0.44 latches: every window and the door are latched while shut. Squeeze the han
 | The glint on the north ice (v1.01) | From the Cub by day, a winking flash on the snow ~6 km NNW of Home: fly within ~230 m, below ~380 m AGL | same |
 | Answer a radio call / call Home (v1.02) | Take the hand mic off its clip, squeeze that hand's trigger | Hold ' (quote) |
 | Walt's map fills in (v1.03, story) | Fly or walk: the paper map inks in round you (wider the higher you fly); named places + lakes found low overhead pay; 25 / 50 / 75 % mapped pays | same |
+| Signature vistas (v1.04) | Fly to them: Oxbow Falls (W), Sentinel Fjord (W coast), Needle Eye Arch (SE, fly through the gap), the North Icefall (SE, above the icefield strip), the Hidden Lake (far SW); the northern lights on clear nights, looking north. Each is a discovery: journal, map, +$150 | same |
 
 ## On foot
 | | VR | Desktop |

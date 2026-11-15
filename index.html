@@ -19,7 +19,7 @@
 </script>
 </head>
 <body>
-<div id="info">BUSH PILOT VR <span id="ver">v1.03</span> - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
+<div id="info">BUSH PILOT VR <span id="ver">v1.04</span> - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
 You start on foot by the Cub at the cabin strip. Walk up to her and climb in (F / Y), then start her up off the checklist card (J).
 Desktop - flying: W/S or arrows pitch, A/D or arrows roll, Q/E rudder, Shift / Ctrl (or + / -) throttle, B brakes, \ parking brake, [ ] flaps, PgUp / PgDn trim,
   R reset to the strip (cold and dark), F climb out, M map, L landing light, Home recentre, mouse looks (click to capture).
@@ -597,7 +597,7 @@ const hyp = (a, b, c = 0) => Math.sqrt(a * a + b * b + c * c);   // v0.59 Math.h
 
 // ======================= RENDERING =======================
 // v0.35 settings (persist in localStorage 'bp_gfx'; ?gfx=shadows:2,grass:1 overrides for testing). Defaults = the v0.34 look and cost.
-const BP_VERSION = 'v1.03';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
+const BP_VERSION = 'v1.04';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
 { const e = document.getElementById('ver'); if (e) e.textContent = BP_VERSION; }
 const GFX_DEF = { shadows: 0, scale: 1, fov: 1, dist: 1, trees: 1, grass: 0, clouds: 1, fog: 1, msaa: 1, hz: 90, vig: 0, turn: 0, fps: 0, tod: 11, stk: 1, tips: 1, terr: 1, dyn: 1, glove: 0, hand: 0, wt: 1, volM: 1, volMu: 0.5, volE: 1, volA: 1, volF: 1, wx: 1, forest: 0, ground: 0, gtex: 0, cvl: 1, water: 1, dayl: 48, flure: 0, fline: 8, fdrag: 4, fbob: 0, fsink: 0 };   // v0.68.1 dominant hand, volumes. v0.48 BALANCED: 90 % scale, 72 Hz, fast terrain shading, auto resolution; v0.49.1 the stick stays where you let go of it
 const GFX = Object.assign({}, GFX_DEF);
@@ -10134,6 +10134,356 @@ for (const t of TOWN_MESH) cvlAdd(t.m, 'w');   // v0.95 the towns' / sites' merg
 { if (!GLOVE.gm[0]) gloveInit(); if (!MIST) wxMistBuild(); const W = [...GLOVE.gm, MIST.im, FLX.pts, FLX.rib, FLX.ring[0].m, stars, moon, SUND.d, SUND.h, SKYD.m], vis = W.map(o => o.visible);   // v0.93 the gloves and the valley mist are made late (first hands / first mist): compiled here x each light combination, not on the first frame on foot or at the first rain front
   W.forEach(o => o.visible = true); for (let c = 0; c < 4; c++) { PL.visible = !!(c & 1); SL.visible = !!(c & 2); for (const o of W) renderer.compile(o, camera, scene); }
   PL.visible = SL.visible = false; W.forEach((o, i) => o.visible = vis[i]); }
+// >>> V2 VISTAS BEGIN (vistas.js via /workspace/v2-vistas/apply.py)
+// ===================== V2 VISTAS: signature landmarks - Oxbow Falls, the North Icefall, the Hidden Lake + trapper's ruin, Sentinel Fjord, Needle Eye Arch, the northern lights =====================
+// Look + game-side only: nothing in the physics block changes (the ground, waterH, the flight model; physics-test md5 unchanged). Own random stream (the world rand() is untouched).
+// Draw calls (all prewarmed at load, x each panel-glow / landing-light combination, so nothing compiles mid-flight):
+//   1 far mesh: every big rock / ice form, on the world batches' own vertex-coloured flat Lambert (batchMat) + its vertex-lit twin (cvlAdd) - no new program
+//   1 near-detail mesh per area (boulders, small seracs, the cabin, snags; shown inside VST_NEAR m, the areas are far apart so at most one at a time)
+//   1 lake mesh (the hidden lake + the fjord, on the v0.98 WATER material and uniforms - no new program)
+//   1 falls mesh (falling sheets, cascades, meltwater, spray mist billboards; own small shader)  +  1 aurora (own shader, only on clear nights)
+// Each landmark calls discoverLandmark(id, name) once, the first time you see it up close (in view, in range, a clear line of sight over the ground).
+const VST_NEAR = 1500;
+const VISTA = (() => {
+  let sd = 0x7157a; const R = () => { sd = (sd + 0x6D2B79F5) | 0; let t = Math.imul(sd ^ (sd >>> 15), 1 | sd); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  const V = { L: [], found: {}, hook: null, on: true, collide: true, waterPhys: false, aur: 0, clear: 1, t: 0, chk: 0, near: [], prims: [], tris: {}, ms: 0 };
+  const TH = terrainHeight, lerp = (a, b, t) => a + (b - a) * t;
+  const C3 = (hex) => { const c = new THREE.Color(hex); return [c.r, c.g, c.b]; };
+  // ---- builder: non-indexed flat triangles + vertex colours; each face turned to face away from an inside point (or up when none) ----
+  function mk() {
+    const P = [], C = [];
+    return { P, C, n: () => P.length / 9,
+      tri(a, b, c, col, ins, k = 1) {
+        const ux = b[0] - a[0], uy = b[1] - a[1], uz = b[2] - a[2], vx = c[0] - a[0], vy = c[1] - a[1], vz = c[2] - a[2];
+        const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+        let flip;
+        if (ins) { const mx = (a[0] + b[0] + c[0]) / 3 - ins[0], my = (a[1] + b[1] + c[1]) / 3 - ins[1], mz = (a[2] + b[2] + c[2]) / 3 - ins[2]; flip = nx * mx + ny * my + nz * mz < 0; } else flip = ny < 0;
+        if (flip) { const t = b; b = c; c = t; }
+        P.push(a[0], a[1], a[2], b[0], b[1], b[2], c[0], c[1], c[2]); const s = k * (0.92 + 0.16 * R()); for (let i = 0; i < 3; i++) C.push(col[0] * s, col[1] * s, col[2] * s); },
+      quad(a, b, c, d, col, ins, k) { this.tri(a, b, c, col, ins, k); this.tri(a, c, d, col, ins, k); },
+      geo() { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(C, 3)); g.computeVertexNormals(); g.computeBoundingSphere(); return g; } };
+  }
+  const FAR = mk(), NEAR = { sw: mk(), fj: mk(), se: mk() };
+  // ---- primitives ----
+  // pillar: a leaning, tapering n-sided rock column from y0 (buried) to y1, rings jittered; colour by height band; optional green top
+  function pillar(b, cx, cz, y0, y1, r0, r1, o = {}) {
+    const n = o.n || 7, m = o.rings || 5, lean = o.lean || [0, 0], ph = R() * 6.283, rings = [];
+    for (let k = 0; k <= m; k++) { const f = k / m, y = y0 + (y1 - y0) * f, r = lerp(r0, r1, f) * (k === m ? 0.9 : 0.86 + 0.28 * R()), ox = lean[0] * f * f + (R() - 0.5) * r * 0.15, oz = lean[1] * f * f + (R() - 0.5) * r * 0.15, ring = [];
+      for (let j = 0; j < n; j++) { const a = ph + j / n * 6.283 + (R() - 0.5) * 0.5, rr = r * (0.8 + 0.4 * R()); ring.push([cx + ox + Math.cos(a) * rr, y + (k && k < m ? (R() - 0.5) * (y1 - y0) / m * 0.3 : 0), cz + oz + Math.sin(a) * rr]); }
+      rings.push({ ring, c: [cx + ox, y, cz + oz] }); }
+    for (let k = 0; k < m; k++) { const A = rings[k], B = rings[k + 1], ins = [(A.c[0] + B.c[0]) / 2, (A.c[1] + B.c[1]) / 2, (A.c[2] + B.c[2]) / 2], col = o.col ? o.col((A.c[1] + B.c[1]) / 2) : C3(0x7d7468);
+      for (let j = 0; j < n; j++) { const j1 = (j + 1) % n; b.quad(A.ring[j], A.ring[j1], B.ring[j1], B.ring[j], col, ins); } }
+    const T = rings[m], top = [T.c[0], y1 + r1 * (o.peak ?? 0.35), T.c[2]], tc = o.top || (o.col ? o.col(y1) : C3(0x7d7468)), ins = [T.c[0], y1 - r1, T.c[2]];
+    for (let j = 0; j < n; j++) b.tri(T.ring[j], T.ring[(j + 1) % n], top, tc, ins);
+    return { cx, cz, y0, y1: y1 + r1 * (o.peak ?? 0.35), r: Math.min(r0, r1), top: T.c };
+  }
+  // boulder: a squashed, jittered octahedron-ish blob (8-12 faces) sunk a third into the ground
+  function boulder(b, x, z, s, col, y) {
+    const gy = y ?? TH(x, z), c = [x, gy + s * 0.3, z], n = 6, P = [], Q = [], ph = R() * 6.283;
+    for (let j = 0; j < n; j++) { const a = ph + j / n * 6.283, r = s * (0.75 + 0.35 * R()); P.push([x + Math.cos(a) * r, gy - s * 0.15, z + Math.sin(a) * r]); const a2 = a + 0.5, r2 = s * (0.5 + 0.3 * R()); Q.push([x + Math.cos(a2) * r2, gy + s * (0.55 + 0.25 * R()), z + Math.sin(a2) * r2]); }
+    const top = [x + (R() - 0.5) * s * 0.3, gy + s * (0.85 + 0.3 * R()), z + (R() - 0.5) * s * 0.3];
+    for (let j = 0; j < n; j++) { const j1 = (j + 1) % n; b.tri(P[j], P[j1], Q[j], col, c, 0.9); b.tri(P[j1], Q[j1], Q[j], col, c, 0.95); b.tri(Q[j], Q[j1], top, col, c, 1.08); }
+  }
+  // box (oriented): centre, half sizes, yaw; for logs / planks / ice blocks (rx, rz tilt)
+  function box(b, cx, cy, cz, hx, hy, hz, yaw, col, rx = 0, rz = 0, noBottom) {
+    const e = new THREE.Euler(rx, yaw, rz, 'YXZ'), q = new THREE.Quaternion().setFromEuler(e), v = new THREE.Vector3(), Pt = [];
+    for (const [sx, sy, sz] of [[-1, -1, -1], [1, -1, -1], [1, -1, 1], [-1, -1, 1], [-1, 1, -1], [1, 1, -1], [1, 1, 1], [-1, 1, 1]]) { v.set(sx * hx, sy * hy, sz * hz).applyQuaternion(q); Pt.push([cx + v.x, cy + v.y, cz + v.z]); }
+    const c = [cx, cy, cz], F = [[0, 1, 2, 3, 0.75], [4, 5, 6, 7, 1.08], [0, 1, 5, 4, 0.9], [1, 2, 6, 5, 1], [2, 3, 7, 6, 0.95], [3, 0, 4, 7, 0.85]];
+    for (const [a, bb, cc, d, k] of F) { if (noBottom && k === 0.75) continue; b.quad(Pt[a], Pt[bb], Pt[cc], Pt[d], col, c, k); }
+    return Pt;
+  }
+  // cliff step: a vertical rock band set into a slope. Local frame: origin O (the lip centre, on the ground), u = uphill, w = across.
+  // The front edge curves uphill at the sides (a horseshoe); the band's height H(w) tapers to nothing at +-W; behind the lip the ledge rises gently (slope sr) until it meets the slope.
+  function cliffStep(b, O, u, H0, W, o = {}) {
+    const wx = -u[1], wz = u[0], sr = o.sr ?? 0.2, curve = o.curve ?? 0.002, NW = o.nw || 18, DS = o.ds || 14, ND = o.nd || 30, pw = o.pw ?? 4, colF = o.colF || (() => C3(0x857d72)), colT = o.colT || C3(0x6b6a55);
+    const at = (d, w) => [O[0] + u[0] * d + wx * w, O[2] + u[1] * d + wz * w];
+    const Hs = s => H0 * Math.pow(Math.max(0, 1 - Math.pow(Math.abs(s), pw)), 0.6);   // flat across most of the band, rounding off at the ends
+    const fr = [], cols = [];
+    for (let i = 0; i <= NW; i++) { const s = -1 + 2 * i / NW, w = s * W, mid = i && i < NW, df = curve * w * w + (mid ? (R() - 0.5) * 8 : 0), [fx, fz] = at(df, w), g = TH(fx, fz), H = Math.max(0, Hs(s) + (mid ? (R() - 0.5) * 0.12 * H0 : 0)), top = g + H;
+      fr.push({ w, df, fx, fz, g, top, H, j: [0, (R() - 0.5) * 12, (R() - 0.5) * 12] }); }
+    for (let i = 0; i <= NW; i++) { const F = fr[i], col = [];
+      for (let k = 0; k <= ND; k++) { const d = F.df + k * DS, [x, z] = at(d, F.w + (k && i && i < NW ? (R() - 0.5) * 4 : 0)), g = TH(x, z), y = F.top + sr * k * DS + (k ? (R() - 0.5) * 2 : 0); col.push([x, y > g + 0.2 ? y : g - 0.9, z, y > g + 0.2]); }
+      cols.push(col); }
+    for (let i = 0; i < NW; i++) for (let k = 0; k < ND; k++) { const a = cols[i][k], bq = cols[i + 1][k], c = cols[i + 1][k + 1], d = cols[i][k + 1];
+      if (!(a[3] || bq[3] || c[3] || d[3])) continue; const P = p => [p[0], p[1], p[2]], kk = k ? 1 : 0.85;
+      b.tri(P(a), P(bq), P(c), k ? colT : colF(a[1]), null, kk); b.tri(P(a), P(c), P(d), k ? colT : colF(a[1]), null, kk); }
+    // the face: four rows (the lip, two jittered rows - chunky facets - and the foot buried 4 m); each column's rows step in / out on their own
+    for (let i = 0; i < NW; i++) { const A = fr[i], B = fr[i + 1]; if (A.H < 0.5 && B.H < 0.5) continue;
+      const row = (F, t, j) => { const y = lerp(F.top, F.g - 4, t), [x, z] = at(F.df + j, F.w); return [x, y, z]; };
+      const insF = [O[0] + u[0] * 300, (A.top + A.g) / 2, O[2] + u[1] * 300], R4 = F => [row(F, 0, 0), row(F, 0.3, F.j[1]), row(F, 0.65, F.j[2]), row(F, 1, 0)];
+      const ra = R4(A), rb = R4(B);
+      for (let r = 0; r < 3; r++) b.quad(ra[r], rb[r], rb[r + 1], ra[r + 1], colF((ra[r][1] + ra[r + 1][1]) / 2), insF, 1 - r * 0.06); }
+    return { O, u, W, fr, cols, sr, curve, top(x, z) { const dx = x - O[0], dz = z - O[2], d = dx * u[0] + dz * u[1], w = dx * wx + dz * wz; if (Math.abs(w) > W) return -1e9; const df = curve * w * w; if (d < df - 6) return -1e9;
+      const [fx, fz] = at(df, w), y = TH(fx, fz) + Hs(w / W) * 1.06 + sr * Math.max(0, d - df); return y > TH(x, z) ? y : -1e9; } };
+  }
+  // ---- water surfaces on the v0.98 WATER material: a grid over a flood-filled basin (only cells joined to the seed; outside the fill the depth is forced negative = soft shore) ----
+  const LK = { pos: [], aD: [], aF: [], aFm: [], aB: [], idx: [], nv: 0, list: [] };
+  function lake(id, sx, sz, lw, box, st) {
+    const [x0, z0, x1, z1] = box, NX = Math.round((x1 - x0) / st) + 1, NZ = Math.round((z1 - z0) / st) + 1, H = new Float32Array(NX * NZ), M = new Uint8Array(NX * NZ);
+    for (let k = 0; k < NZ; k++) for (let i = 0; i < NX; i++) H[k * NX + i] = TH(x0 + i * st, z0 + k * st);
+    const q = [Math.round((sx - x0) / st) + Math.round((sz - z0) / st) * NX]; M[q[0]] = 1;
+    while (q.length) { const c = q.pop(), i = c % NX, k = (c - i) / NX; for (const [di, dk] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const ii = i + di, kk = k + dk; if (ii < 0 || kk < 0 || ii >= NX || kk >= NZ) continue; const j = kk * NX + ii; if (!M[j] && H[j] < lw) { M[j] = 1; q.push(j); } } }
+    const base = LK.nv, V = new Int32Array(NX * NZ).fill(-1), y = lw - 0.2;   // surface 0.2 under the fill level, like the game's lakes (L.h - 0.2)
+    const near = (i, k) => { for (let dk = -1; dk <= 1; dk++) for (let di = -1; di <= 1; di++) { const ii = i + di, kk = k + dk; if (ii >= 0 && kk >= 0 && ii < NX && kk < NZ && M[kk * NX + ii]) return true; } return false; };
+    let n = 0, ax = 0, az = 0;
+    for (let k = 0; k < NZ; k++) for (let i = 0; i < NX; i++) if (near(i, k)) { const j = k * NX + i, d = M[j] ? y - H[j] : Math.min(y - H[j], -0.6);
+      V[j] = LK.nv++; LK.pos.push(x0 + i * st, y, z0 + k * st); LK.aD.push(d); LK.aF.push(0, 0); LK.aFm.push(0); LK.aB.push(0); if (M[j]) { n++; ax += x0 + i * st; az += z0 + k * st; } }
+    for (let k = 0; k < NZ - 1; k++) for (let i = 0; i < NX - 1; i++) { const a = V[k * NX + i], b = V[k * NX + i + 1], c = V[(k + 1) * NX + i], e = V[(k + 1) * NX + i + 1]; if (a < 0 || b < 0 || c < 0 || e < 0) continue;
+      if (Math.max(LK.aD[a - 0], LK.aD[b], LK.aD[c], LK.aD[e]) <= -0.5) continue; LK.idx.push(a, c, b, b, c, e); }
+    const L = { id, lw, y, x0, z0, st, NX, NZ, M, area: n * st * st, cx: ax / n, cz: az / n, verts: LK.nv - base,
+      wet(x, z) { const i = Math.round((x - x0) / st), k = Math.round((z - z0) / st); return i >= 0 && k >= 0 && i < NX && k < NZ && M[k * NX + i] === 1 && TH(x, z) < y; } };
+    LK.list.push(L); return L;
+  }
+  // ---- the falls shader geometry: sheets / cascades (kind 0) and mist billboards (kind 1) ----
+  const FL = { pos: [], uv: [], aW: [], aO: [], idx: [], nv: 0 };
+  function ribbon(pts, wid, speed) {   // pts [[x, y, z]...] down the flow; wid(i) half width; uv.x across 0..1, uv.y metres along
+    let acc = 0; const base = FL.nv;
+    for (let i = 0; i < pts.length; i++) { const p = pts[i], q = pts[Math.min(i + 1, pts.length - 1)], pp = pts[Math.max(i - 1, 0)], tx = q[0] - pp[0], tz = q[2] - pp[2], tl = hyp(tx, tz) || 1, nx = -tz / tl, nz = tx / tl, w = wid(i);
+      if (i) acc += hyp(p[0] - pts[i - 1][0], p[1] - pts[i - 1][1], p[2] - pts[i - 1][2]);
+      for (const s of [-1, 1]) { FL.pos.push(p[0] + nx * w * s, p[1], p[2] + nz * w * s); FL.uv.push(s < 0 ? 0 : 1, acc); FL.aW.push(0, speed(i), 0, 0); FL.aO.push(0, 0); FL.nv++; } }
+    for (let i = 0; i < pts.length - 1; i++) { const a = base + i * 2; FL.idx.push(a, a + 2, a + 1, a + 1, a + 2, a + 3); }
+    return acc;
+  }
+  function mist(x, y, z, n, spread, size, rate) {
+    for (let i = 0; i < n; i++) { const a = R() * 6.283, r = Math.sqrt(R()) * spread, px = x + Math.cos(a) * r, pz = z + Math.sin(a) * r, py = y + R() * size * 0.3, ph = R(), sz = size * (0.6 + 0.8 * R()), base = FL.nv;
+      for (const [ox, oy] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) { FL.pos.push(px, py, pz); FL.uv.push(0, 0); FL.aW.push(1, rate * (0.7 + 0.6 * R()), ph, sz); FL.aO.push(ox, oy); FL.nv++; }
+      FL.idx.push(base, base + 1, base + 2, base, base + 2, base + 3); }
+  }
+  const drape = (x0, z0, x1, z1, step, off) => { const L = hyp(x1 - x0, z1 - z0), n = Math.max(1, Math.ceil(L / step)), P = []; for (let i = 0; i <= n; i++) { const x = lerp(x0, x1, i / n), z = lerp(z0, z1, i / n); P.push([x, TH(x, z) + off, z]); } return P; };
+  const dpath = (pts, step, off) => { let P = []; for (let i = 0; i < pts.length - 1; i++) { const s = drape(pts[i][0], pts[i][1], pts[i + 1][0], pts[i + 1][1], step, off); P = P.concat(i ? s.slice(1) : s); } return P; };
+  const rockCol = (a, b, c) => y => { const t = (Math.sin(y * 0.23) + Math.sin(y * 0.071 + 1.3)) * 0.5; return t > 0.25 ? C3(a) : t < -0.25 ? C3(b) : C3(c); };   // strata bands
+  const clearZ = [];   // trees / bushes / rocks cleared off these: [x, z, r] circles + test functions
+
+  // ======================= 1. OXBOW FALLS: a 150 m plunge off a horseshoe rock band at the head of the Oxbow creek (west drainage), above OXBOW BAR =======================
+  { const head = [-4200, 2600], u = [-0.9889, 0.1483], t0 = 600, O = [head[0] + u[0] * t0, 0, head[1] + u[1] * t0]; O[1] = TH(O[0], O[2]);
+    const fallC = rockCol(0x8a8276, 0x787166, 0x958c7f);
+    const cs = cliffStep(FAR, O, u, 150, 230, { sr: 0.16, curve: 0.0022, nw: 18, ds: 14, nd: 30, pw: 3, colF: fallC, colT: C3(0x5f6a4a) });
+    // crags on the bowl walls: leaning rock towers, buried in the slope (they make the head of the drainage a canyon)
+    const wN = [-u[1], u[0]], flank = [];
+    for (let k = 0; k < 6; k++) { const sg = k % 2 ? 1 : -1, d = -40 - k * 70 - R() * 40, w = sg * (250 + R() * 110), x = O[0] + u[0] * d + wN[0] * w, z = O[2] + u[1] * d + wN[1] * w, g = TH(x, z), h = 28 + R() * 34, r = 17 + R() * 10;
+      const p = pillar(FAR, x, z, g - 10 - r, g + h, r, r * 0.45, { n: 7, rings: 4, col: fallC, lean: [wN[0] * sg * h * 0.2, wN[1] * sg * h * 0.2], peak: 0.3 }); flank.push({ x, z, top: p.y1, r, g }); }
+    // the water: upper cascade down the slope to the ledge, a channel across the ledge, the plunge, a lower cascade to the creek's head
+    const lipT = cs.fr[9].top, lip = [O[0], lipT, O[2]], base = [O[0] - u[0] * 6, O[1], O[2] - u[1] * 6];
+    const upTop = [O[0] + u[0] * 560, O[2] + u[1] * 560], ledgeEnd = (() => { for (let d = 10; d < 500; d += 5) { const x = O[0] + u[0] * d, z = O[2] + u[1] * d; if (cs.top(x, z) < -1e8) return d; } return 400; })();
+    const up = drape(upTop[0], upTop[1], O[0] + u[0] * ledgeEnd, O[2] + u[1] * ledgeEnd, 12, 1.2), ch = [];
+    for (let d = ledgeEnd; d >= 0; d -= 12) { const x = O[0] + u[0] * d, z = O[2] + u[1] * d; ch.push([x, Math.max(cs.top(x, z), TH(x, z)) + 0.5, z]); }
+    ch.push([lip[0] - u[0] * 1.5, lipT + 0.3, lip[2] - u[1] * 1.5]);
+    const PL = []; for (let i = 0; i <= 16; i++) { const f = i / 16, y = lerp(lipT + 0.3, O[1] - 2, f), off = 7 + 9 * Math.sin(f * Math.PI * 0.5); PL.push([O[0] - u[0] * off, y, O[2] - u[1] * off]); }   // free fall: clear of the face (it's jagged +-5 m)
+    ribbon(up.concat(ch.slice(1)), i => 4 + 2 * (i / (up.length + ch.length)), () => 5);
+    ribbon(PL, i => 7 + i * 0.75, i => 9 + i * 1.2);
+    const low = drape(base[0] - u[0] * 10, base[2] - u[1] * 10, head[0], head[1], 12, 0.9); ribbon(low, i => i < 4 ? 14 - i * 2 : 6, () => 4);
+    // foam pad + spray mist where it lands
+    mist(O[0] - u[0] * 18, O[1] + 2, O[2] - u[1] * 18, 90, 40, 26, 0.08); mist(O[0] - u[0] * 14, lipT * 0.35 + O[1] * 0.65, O[2] - u[1] * 14, 20, 14, 18, 0.12);
+    // near detail: boulders in the splash zone and down the cascade
+    for (let i = 0; i < 60; i++) { const d = -10 - R() * 260, w = (R() - 0.5) * 140 * (1 - d / 600), x = O[0] + u[0] * d + wN[0] * w, z = O[2] + u[1] * d + wN[1] * w; boulder(NEAR.sw, x, z, 1.2 + R() * R() * 6, C3(0x8a8378)); }
+    clearZ.push([O[0], O[2], 240], [O[0] + u[0] * 120, O[2] + u[1] * 120, 240], [O[0] - u[0] * 40, O[2] - u[1] * 40, 90], ...flank.map(f => [f.x, f.z, f.r + 6]));
+    V.L.push({ id: 'falls', name: 'OXBOW FALLS', x: base[0], y: (lipT + O[1]) / 2, z: base[2], R: 1300, area: 'sw', lip: lipT, foot: O[1], cliff: cs, flank, mistAt: [O[0], O[1], O[2]],
+      look: [O[0] - u[0] * 900, O[1] + 120, O[2] - u[1] * 900] });
+    V.prims.push({ t: 'hf', x: O[0], z: O[2], r: 600, f: cs.top, why: 'THE CLIFF AT OXBOW FALLS' }, ...flank.map(f => ({ t: 'cap', x: f.x, z: f.z, r: 150, a: [f.x, f.g - 5, f.z], b: [f.x, f.top, f.z], rad: f.r * 0.7, why: 'A CRAG AT OXBOW FALLS' }))); }
+
+  // ======================= 2. HIDDEN LAKE: a tarn behind the ridge south of Oxbow Falls; a trapper's cabin falling in on the east shore =======================
+  { const L = lake('hidden', -3900, 4600, 630.8, [-4260, 4220, -3560, 4940], 14);
+    // the ruin: log walls (stacked, some fallen), a sagging half roof, a stone chimney, a little dock gone to posts
+    const cx = -3684, cz = 4352, yaw = Math.atan2(-1, 0.08) + Math.PI / 2, ca = Math.cos(yaw), sa = Math.sin(yaw), W2 = 2.6, D2 = 3.4, b = NEAR.sw;
+    const at = (lx, lz) => [cx + lx * ca + lz * sa, cz - lx * sa + lz * ca];
+    let fl = -1e9; for (const [lx, lz] of [[-W2, -D2], [W2, -D2], [W2, D2], [-W2, D2]]) { const [x, z] = at(lx, lz); fl = Math.max(fl, TH(x, z)); }
+    fl += 0.25; let gmin = 1e9; for (const [lx, lz] of [[-W2, -D2], [W2, -D2], [W2, D2], [-W2, D2]]) { const [x, z] = at(lx, lz); gmin = Math.min(gmin, TH(x, z)); }
+    { const [x, z] = at(0, 0); box(b, x, (fl + gmin) / 2 - 0.6, z, W2 + 0.3, (fl - gmin) / 2 + 0.6, D2 + 0.3, yaw, C3(0x6e6a62)); }   // stone footing (the downhill side stands out of the slope)
+    const LOG = C3(0x5b4632), LOGD = C3(0x4a3a2a);
+    const wallH = [[2.2, 2.2], [1.4, 2.2], [0.8, 0.4], [2.2, 1.7]];   // front / right / back(lake side, collapsed) / left: height at each end
+    const walls = [[[-W2, -D2], [W2, -D2]], [[W2, -D2], [W2, D2]], [[W2, D2], [-W2, D2]], [[-W2, D2], [-W2, -D2]]];
+    walls.forEach(([a, c], wi) => { const len = hyp(c[0] - a[0], c[1] - a[1]), wy = Math.atan2(c[0] - a[0], c[1] - a[1]) + yaw;
+      for (let k = 0; k < 9; k++) { const y = fl + 0.15 + k * 0.27, hA = wallH[wi][0], hB = wallH[wi][1]; if (k * 0.27 > Math.max(hA, hB)) break;
+        const f0 = k * 0.27 > hA ? clamp((k * 0.27 - hA) / Math.max(0.01, hB - hA), 0, 1) : 0, f1 = k * 0.27 > hB ? clamp(1 - (k * 0.27 - hB) / Math.max(0.01, hA - hB), 0, 1) : 1; if (f1 - f0 < 0.15) continue;
+        const m = (f0 + f1) / 2, [x, z] = at(lerp(a[0], c[0], m), lerp(a[1], c[1], m)); box(b, x, y, z, 0.13, 0.13, (f1 - f0) * len / 2 + 0.25, wy, k % 2 ? LOG : LOGD); } });
+    { const [x, z] = at(0.2, -0.9); box(b, x, fl + 2.55, z, W2 + 0.5, 0.06, D2 * 0.62, yaw, C3(0x3f362c), 0.16, 0.42); }   // what's left of the roof: one slab, slid and tipped
+    { const [x, z] = at(-1.4, 1.8); box(b, x, fl + 0.5, z, 1.6, 0.06, 1.2, yaw + 0.4, C3(0x40372d), 0, 0.35); }   // a fallen roof piece inside
+    { const [x, z] = at(-W2 - 0.4, 0.6); box(b, x, fl + 1.6, z, 0.45, 1.8, 0.5, yaw, C3(0x7d776d)); box(b, x, fl + 3.6, z, 0.32, 0.4, 0.36, yaw + 0.3, C3(0x6c665c)); }   // chimney
+    for (let i = 0; i < 4; i++) { const [x, z] = at(lerp(-0.8, 0.8, i % 2), D2 + 4 + Math.floor(i / 2) * 3); const g = TH(x, z); box(b, x, g + 0.2, z, 0.1, 1.2, 0.1, R(), C3(0x4a3d2e), (R() - 0.5) * 0.3, (R() - 0.5) * 0.3); }   // dock posts
+    { const [x, z] = at(0, D2 + 4.2); box(b, x, TH(x, z) + 1.25, z, 0.9, 0.04, 0.6, yaw + 0.1, C3(0x5a4a38), 0.05, 0.12); }   // one surviving dock board
+    for (let i = 0; i < 7; i++) { const a = R() * 6.283, r = 12 + R() * 30, x = cx + Math.cos(a) * r, z = cz + Math.sin(a) * r; if (L.wet(x, z)) continue; const g = TH(x, z), h = 6 + R() * 8;
+      box(b, x, g + h / 2 - 0.3, z, 0.18, h / 2, 0.18, R(), C3(0x8a8378), (R() - 0.5) * 0.12, (R() - 0.5) * 0.12); }   // grey snags
+    for (let i = 0; i < 26; i++) { const a = R() * 6.283, rr = 1.02 + R() * 0.05; let x = L.cx, z = L.cz; for (let s = 0; s < 60; s++) { x += Math.cos(a) * 8; z += Math.sin(a) * 8; if (!L.wet(x, z)) break; } x += Math.cos(a) * 2 * rr; z += Math.sin(a) * 2 * rr; boulder(b, x, z, 0.8 + R() * 2.5, C3(0x7a756c)); }
+    // far: the cabin as a dark block so it doesn't vanish past the near range
+    { const [x, z] = at(0, 0); box(FAR, x, fl + 0.9, z, W2, 1.0, D2, yaw, C3(0x4c3e30)); }
+    clearZ.push({ f: (x, z) => L.wet(x, z) }, [cx, cz, 14]);
+    V.L.push({ id: 'hidden', name: 'HIDDEN LAKE', x: L.cx, y: L.y, z: L.cz, R: 1000, area: 'sw', lake: L, cabin: [cx, fl, cz], look: [-3900, 990, 3960] }); V.prims.push({ t: 'box', x: cx, z: cz, r: 30, y0: fl - 1, y1: fl + 3.2, hw: 3.5, why: 'THE TRAPPER CABIN' }); }
+
+  // ======================= 3. SENTINEL FJORD: the Pass 2 trough west of Goat Bench holds a deep finger of water behind a sill; sea-stack pillars stand in it =======================
+  { const L = lake('fjord', -4614, -1516, 297.6, [-5260, -1720, -4060, -1300], 16), b = FAR, fc = rockCol(0x857565, 0x6e6255, 0x948371), wy = L.y;
+    const ST = [[-4655, -1590, 108, 20], [-4560, -1440, 74, 16], [-4440, -1585, 58, 13], [-4895, -1575, 46, 11], [-4385, -1455, 38, 10], [-4730, -1460, 26, 8]];   // x, z, height over the water, base radius
+    const st = ST.map(([x, z, h, r]) => { const g = TH(x, z), p = pillar(b, x, z, g - 3, wy + h, r, r * 0.62, { n: 8, rings: 6, col: fc, lean: [(R() - 0.5) * r * 0.5, (R() - 0.5) * r * 0.5], top: C3(0x51703a), peak: 0.25 });
+      for (let k = 0; k < Math.round(h / 22); k++) { const a = R() * 6.283, rr = R() * r * 0.4; pillar(NEAR.fj, p.top[0] + Math.cos(a) * rr, p.top[2] + Math.sin(a) * rr, wy + h - 1, wy + h + 4 + R() * 5, 1.6, 0.05, { n: 5, rings: 1, col: () => C3(0x2f5a2c), top: C3(0x2f5a2c), peak: 0 }); }   // a few spruce on the green tops
+      for (let k = 0; k < 6; k++) { const a = R() * 6.283, rr = r * (1.1 + R() * 0.5); boulder(NEAR.fj, x + Math.cos(a) * rr, z + Math.sin(a) * rr, 1.5 + R() * 3, C3(0x7a6c5e), wy - 0.8 - R()); }
+      return { x, z, h, r, top: p.y1 }; });
+    clearZ.push({ f: (x, z) => L.wet(x, z) });
+    V.L.push({ id: 'fjord', name: 'SENTINEL FJORD', x: -4620, y: wy + 40, z: -1520, R: 1300, area: 'fj', lake: L, stacks: st, look: [-3900, wy + 160, -1380] });
+    for (const s of st) V.prims.push({ t: 'cap', x: s.x, z: s.z, r: 200, a: [s.x, wy - 5, s.z], b: [s.x, s.top, s.z], rad: s.r * 0.8, why: 'A SEA STACK' }); }
+
+  // ======================= 4. NEEDLE EYE ARCH: a natural arch across the floor of the east drainage, 80 m wide x 60 m clear - fly through it toward the icefall =======================
+  { const C = [3900, 2690], f = [0.7737, 0.6335], s = [-f[1], f[0]], S = 58, H = 74, dep = 28, b = FAR, ac = rockCol(0x9c7c62, 0x86684f, 0xa98d72);
+    const gA = TH(C[0] + s[0] * S, C[1] + s[1] * S), gB = TH(C[0] - s[0] * S, C[1] - s[1] * S), gC = TH(C[0], C[1]), base = Math.max(gA, gB, gC);
+    const N = 26, th0 = Math.PI + Math.asin(Math.min(0.95, (base - Math.min(gA, gB) + dep) / H)), th1 = -Math.asin(Math.min(0.95, (base - Math.min(gA, gB) + dep) / H)), spine = [];
+    for (let i = 0; i <= N; i++) { const th = lerp(th0, th1, i / N), X = S * Math.cos(th), Y = H * Math.sin(th), tx = -S * Math.sin(th), ty = H * Math.cos(th), tl = hyp(tx, ty), leg = 1 - Math.abs(Math.sin(th));
+      spine.push({ p: [C[0] + s[0] * X, base + Y, C[1] + s[1] * X], n: [-ty / tl, tx / tl], rt: 11 + 9 * leg * leg + (R() - 0.5) * 2, rd: 13 + 8 * leg + (R() - 0.5) * 2 }); }
+    const n = 9, rings = spine.map(sp => { const r = []; const nx = sp.n[0], ny = sp.n[1];   // ring in the plane of f (depth) and the in-plane normal
+      for (let j = 0; j < n; j++) { const a = j / n * 6.283 + 0.3, j1 = 0.85 + 0.3 * R(), dd = Math.cos(a) * sp.rd * j1, tt = Math.sin(a) * sp.rt * j1;
+        r.push([sp.p[0] + f[0] * dd + s[0] * nx * tt, sp.p[1] + ny * tt, sp.p[2] + f[1] * dd + s[1] * nx * tt]); } return r; });
+    for (let i = 0; i < N; i++) { const A = rings[i], B = rings[i + 1], ins = spine[i].p.map((v, k) => (v + spine[i + 1].p[k]) / 2), col = ac(ins[1]);
+      for (let j = 0; j < n; j++) b.quad(A[j], A[(j + 1) % n], B[(j + 1) % n], B[j], col, ins); }
+    // rubble at the feet (near), a few big blocks (far)
+    for (const sg of [1, -1]) { for (let k = 0; k < 3; k++) { const x = C[0] + s[0] * sg * (S + 14 + R() * 12) + f[0] * (R() - 0.5) * 40, z = C[1] + s[1] * sg * (S + 14 + R() * 12) + f[1] * (R() - 0.5) * 40; boulder(FAR, x, z, 5 + R() * 5, C3(0x8d725c)); }
+      for (let k = 0; k < 20; k++) { const x = C[0] + s[0] * sg * (S + 5 + R() * 40) + f[0] * (R() - 0.5) * 70, z = C[1] + s[1] * sg * (S + 5 + R() * 40) + f[1] * (R() - 0.5) * 70; boulder(NEAR.se, x, z, 0.8 + R() * 3, C3(0x95785f)); } }
+    clearZ.push([C[0] + s[0] * S, C[1] + s[1] * S, 45], [C[0] - s[0] * S, C[1] - s[1] * S, 45], [C[0], C[1], 30]);
+    // the clear opening, for the test + the report: inner edge of the spine at the crown and at mid-height
+    const inner = spine.map(sp => [sp.p[0] + s[0] * sp.n[0] * sp.rt, sp.p[1] + sp.n[1] * sp.rt, sp.p[2] + s[1] * sp.n[0] * sp.rt]);
+    V.L.push({ id: 'arch', name: 'NEEDLE EYE ARCH', x: C[0], y: base + H * 0.5, z: C[1], R: 900, area: 'se', base, S, H, f, s, spine, inner, look: [C[0] - f[0] * 700, base + 60, C[1] - f[1] * 700] });
+    for (let i = 0; i < N; i++) { const a = spine[i], c = spine[i + 1]; V.prims.push({ t: 'cap', x: C[0], z: C[1], r: 220, a: a.p, b: c.p, rad: Math.min(a.rt, a.rd) * 0.85, why: 'THE ROCK ARCH' }); } }
+
+  // ======================= 5. NORTH ICEFALL: the North Icefield spills off its plateau down the headwall of the east drainage - an ice tongue breaking into seracs, a blue ice cliff at the snout, meltwater below =======================
+  // Gordon's bench is 'past the icefield' (story): everything here stays north of z 5150 and west of the strip; the plateau south / east of the icefield strip is left clear.
+  { const path = [[5420, 5120], [5380, 4900], [5330, 4700], [5300, 4520], [5290, 4330], [5300, 4150], [5310, 4010]], b = FAR;
+    const ICE = C3(0xe9f1f6), ICEB = C3(0xa9cfe6), ICED = C3(0x6ea6cc), MOR = C3(0x6b6660);
+    const P = dpath(path, 24, 0), wd = i => { const f = i / (P.length - 1); return lerp(150, 85, f) * (1 + 0.12 * Math.sin(i * 0.9)); };
+    // tongue surface: 9 across, 2.5 m over the ground at the middle, 0.6 at the edges (its sides melt into the slope)
+    const rows = P.map((p, i) => { const q = P[Math.min(i + 1, P.length - 1)], pp = P[Math.max(i - 1, 0)], tx = q[0] - pp[0], tz = q[2] - pp[2], tl = hyp(tx, tz), nx = -tz / tl, nz = tx / tl, w = wd(i), r = [];
+      for (let j = 0; j <= 8; j++) { const sx = -1 + j / 4, x = p[0] + nx * w * sx, z = p[2] + nz * w * sx, e = 1 - sx * sx; r.push([x, TH(x, z) + 0.6 + 2.6 * e + (j % 8 ? (R() - 0.5) * 0.8 : 0), z]); } return { r, nx, nz, w, p }; });
+    for (let i = 0; i < rows.length - 1; i++) for (let j = 0; j < 8; j++) { const A = rows[i].r, B = rows[i + 1].r, edge = j === 0 || j === 7, col = edge ? MOR : (i + j) % 3 ? ICE : ICEB; b.quad(A[j], A[j + 1], B[j + 1], B[j], col, null); }
+    // transverse crevasses on the gentle top + seracs where it steepens
+    const sl = (x, z) => hyp(TH(x + 8, z) - TH(x - 8, z), TH(x, z + 8) - TH(x, z - 8)) / 16, cells = new Map(); let nS = 0;
+    for (let i = 1; i < rows.length - 1; i++) { const Rw = rows[i], p = Rw.p, g = sl(p[0], p[2]);
+      if (g < 0.45) { for (let c = 0; c < 2; c++) { const off = (R() - 0.5) * 14, w = Rw.w * (0.5 + 0.3 * R()), a0 = [p[0] - Rw.nx * w + Rw.nz * off, 0, p[2] - Rw.nz * w - Rw.nx * off], a1 = [p[0] + Rw.nx * w + Rw.nz * off, 0, p[2] + Rw.nz * w - Rw.nx * off];
+          const seg = drape(a0[0], a0[2], a1[0], a1[2], 12, 0); for (let k = 0; k < seg.length - 1; k++) { const e0 = 1 - ((k / (seg.length - 1)) * 2 - 1) ** 2, e1 = 1 - (((k + 1) / (seg.length - 1)) * 2 - 1) ** 2, y0 = seg[k][1] + 0.75 + 2.6 * e0, y1 = seg[k + 1][1] + 0.75 + 2.6 * e1;
+            b.quad([seg[k][0], y0, seg[k][2]], [seg[k + 1][0], y1, seg[k + 1][2]], [seg[k + 1][0] + Rw.nz * 2.2, y1, seg[k + 1][2] - Rw.nx * 2.2], [seg[k][0] + Rw.nz * 2.2, y0, seg[k][2] - Rw.nx * 2.2], ICED, null); } } }
+      const nb = Math.round(clamp((g - 0.35) * 40, 0, 26));
+      for (let k = 0; k < nb; k++) { const sx = (R() * 2 - 1) * 0.85, x = p[0] + Rw.nx * Rw.w * sx + Rw.nz * (R() - 0.5) * 24, z = p[2] + Rw.nz * Rw.w * sx - Rw.nx * (R() - 0.5) * 24, gg = TH(x, z), sz = 5 + R() * R() * 14, big = sz > 9;
+        const yaw = Math.atan2(Rw.nx, Rw.nz) + (R() - 0.5) * 0.8, tilt = Math.atan(g) * (0.5 + 0.4 * R()), top = gg + 1.8 + sz * 0.9;
+        if (!big && R() < 0.55) continue;
+        box(big ? b : NEAR.se, x, gg + sz * 0.25, z, sz * (0.35 + 0.25 * R()), sz * 0.7, sz * (0.3 + 0.2 * R()), yaw, R() < 0.35 ? ICEB : ICE, -tilt, (R() - 0.5) * 0.3, true); nS++;
+        const ck = Math.floor(x / 20) + ',' + Math.floor(z / 20); cells.set(ck, Math.max(cells.get(ck) || -1e9, top)); } }
+    // the snout: a blue ice cliff, then the meltwater down to the drainage's creek head (4800, 3400)
+    const L0 = rows[rows.length - 1]; { const p = L0.p, tx = p[0] - rows[rows.length - 2].p[0], tz = p[2] - rows[rows.length - 2].p[2], tl = hyp(tx, tz), fx = tx / tl, fz = tz / tl;
+      for (let j = 0; j < 8; j++) { const A = L0.r[j], B = L0.r[j + 1], gA = TH(A[0] + fx * 3, A[2] + fz * 3) - 3, gB = TH(B[0] + fx * 3, B[2] + fz * 3) - 3, hA = j === 0 ? 0 : 9 + R() * 6, hB = j === 7 ? 0 : 9 + R() * 6;
+        b.quad([A[0], A[1] + hA, A[2]], [B[0], B[1] + hB, B[2]], [B[0] + fx * 3, gB, B[2] + fz * 3], [A[0] + fx * 3, gA, A[2] + fz * 3], j % 2 ? ICEB : ICED, [p[0] - fx * 30, p[1], p[2] - fz * 30]); }
+      for (let j = 0; j < 8; j++) { const A = L0.r[j], B = L0.r[j + 1]; const hA = j === 0 ? 0 : 9, hB = j === 7 ? 0 : 9; b.quad(A, B, [B[0], B[1] + hB, B[2]], [A[0], A[1] + hA, A[2]], ICE, [p[0] + fx * 30, p[1] - 30, p[2] + fz * 30]); }
+      const melt = dpath([[p[0] + fx * 8, p[2] + fz * 8], [5180, 3780], [5000, 3560], [4800, 3400]], 12, 0.8); ribbon(melt, i => i < 3 ? 7 : 4.5, i => i < 30 ? 5 : 3);
+      mist(p[0] + fx * 10, TH(p[0] + fx * 10, p[2] + fz * 10) + 1, p[2] + fz * 10, 14, 20, 12, 0.07); }
+    clearZ.push({ f: (x, z) => { for (const Rw of rows) { if (hyp(x - Rw.p[0], z - Rw.p[2]) < Rw.w + 25) return true; } return false; } });
+    V.L.push({ id: 'icefall', name: 'NORTH ICEFALL', x: 5310, y: TH(5310, 4500) + 20, z: 4500, R: 1700, area: 'se', seracs: nS, rows: rows.length, keepClear: { note: 'Gordon bench: south / east of the icefield strip (x > 5300, z > 5450) left clear' }, look: [4700, TH(4700, 3500) + 250, 3500] });
+    V.prims.push({ t: 'cells', x: 5310, z: 4500, r: 900, cells, why: 'THE ICEFALL' }); }
+
+  // ---- meshes ----
+  const M = batchMat({ flatShading: true, side: THREE.FrontSide, fog: true });   // the world batches' look ('f0F'): same program
+  const mesh = (B, nm) => { const m = new THREE.Mesh(B.geo(), M); m.name = nm; m.userData.noBatch = true; m.matrixAutoUpdate = false; m.updateMatrix(); scene.add(m); cvlAdd(m, 'w'); return m; };
+  V.far = mesh(FAR, 'vistaFar'); V.far.castShadow = false; V.far.receiveShadow = true;
+  for (const k of Object.keys(NEAR)) { const m = mesh(NEAR[k], 'vistaNear_' + k); m.visible = false; m.receiveShadow = true; m.userData.area = k; V.near.push(m); }
+  V.tris.far = FAR.n(); for (const k of Object.keys(NEAR)) V.tris['near_' + k] = NEAR[k].n();
+  // lakes: the WATER material and its uniforms (one program for every water surface)
+  { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(LK.pos, 3)); g.setAttribute('aD', new THREE.Float32BufferAttribute(LK.aD, 1)); g.setAttribute('aF', new THREE.Float32BufferAttribute(LK.aF, 2));
+    g.setAttribute('aFm', new THREE.Float32BufferAttribute(LK.aFm, 1)); g.setAttribute('aB', new THREE.Float32BufferAttribute(LK.aB, 1)); g.setIndex(LK.idx); g.computeBoundingSphere();
+    V.lakes = new THREE.Mesh(g, WATER.mesh.material); V.lakes.name = 'vistaLakes'; V.lakes.renderOrder = 1; V.lakes.frustumCulled = false; V.lakes.userData.noBatch = true; V.lakes.userData.noCast = true; V.lakes.matrixAutoUpdate = false; scene.add(V.lakes); V.tris.lakes = LK.idx.length / 3; }
+  // falls + mist: own shader on the water's ripple / foam texture (uN alpha), lit + fogged like the water (shared uniform objects)
+  { const U = { uT: { value: 0 }, uN: WATER.U.uN, uLit: WATER.U.uLit, fogColor: WATER.U.fogColor, fogNear: WATER.U.fogNear, fogFar: WATER.U.fogFar };
+    const m = new THREE.ShaderMaterial({ uniforms: U, transparent: true, depthWrite: false, side: THREE.DoubleSide, fog: false,
+      vertexShader: `attribute vec4 aW; attribute vec2 aO; uniform float uT; varying vec2 vUv; varying float vK, vA, vD, vSp;
+void main() { vec3 p = position; vK = aW.x; vUv = uv; vA = 1.0; vSp = aW.y; vec4 mv;
+  if (aW.x > 0.5) { float ph = fract(uT * aW.y + aW.z), r = aW.z * 40.0; p += vec3(sin(r), 1.6, cos(r)) * ph * aW.w * vec3(0.7, 1.0, 0.7); mv = viewMatrix * modelMatrix * vec4(p, 1.0);
+    mv.xy += aO * aW.w * (0.45 + 0.9 * ph); vA = sin(ph * 3.14159); vUv = aO; }
+  else mv = viewMatrix * modelMatrix * vec4(p, 1.0);
+  vD = -mv.z; gl_Position = projectionMatrix * mv; }`,
+      fragmentShader: `uniform sampler2D uN; uniform float uT, uLit, fogNear, fogFar; uniform vec3 fogColor; varying vec2 vUv; varying float vK, vA, vD, vSp;
+void main() { float a; vec3 c;
+  if (vK > 0.5) { float r = length(vUv); a = (1.0 - smoothstep(0.1, 1.0, r)) * vA * 0.13; c = vec3(0.92, 0.95, 0.98); }
+  else { float n = texture2D(uN, vec2(vUv.x * 0.55 + 0.1, vUv.y * 0.011 - uT * vSp * 0.011)).a, n2 = texture2D(uN, vec2(vUv.x * 1.6 + 0.37, vUv.y * 0.027 - uT * vSp * 0.019)).a, s = n * 0.6 + n2 * 0.4;
+    a = smoothstep(0.0, 0.2, vUv.x) * smoothstep(1.0, 0.8, vUv.x) * clamp(0.3 + 1.2 * s, 0.0, 0.94); c = mix(vec3(0.55, 0.68, 0.74), vec3(0.95, 0.97, 1.0), smoothstep(0.3, 0.68, s)); }
+  c *= uLit; c = mix(c, fogColor, smoothstep(fogNear, fogFar, vD)); gl_FragColor = vec4(c, a);
+#include <colorspace_fragment>
+}` });
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(FL.pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(FL.uv, 2)); g.setAttribute('aW', new THREE.Float32BufferAttribute(FL.aW, 4));
+    g.setAttribute('aO', new THREE.Float32BufferAttribute(FL.aO, 2)); g.setIndex(FL.idx); g.computeBoundingSphere();
+    V.falls = new THREE.Mesh(g, m); V.falls.name = 'vistaFalls'; V.falls.renderOrder = 2; V.falls.frustumCulled = false; V.falls.userData.noBatch = true; V.falls.userData.noCast = true; V.falls.matrixAutoUpdate = false; scene.add(V.falls); V.FU = U; V.tris.falls = FL.idx.length / 3; }
+  // aurora: three curtains to the north, drawn at the far plane (only where the sky shows), additive; they fold and ripple, rays drift along them
+  { const pos = [], aA = [], idx = []; let nv = 0;
+    [[5200, 0.0, 1.05, 0.17, 0.62], [5600, -0.35, 0.8, 0.2, 0.55], [4900, 0.45, 0.7, 0.15, 0.5]].forEach(([r, az, span, e0, e1], ci) => {
+      for (let i = 0; i <= 72; i++) { const u = i / 72, a = az + (u - 0.5) * 2 * span + 0.12 * Math.sin(u * 7 + ci), rr = r * (1 + 0.08 * Math.sin(u * 5.3 + ci * 2)), x = Math.sin(a) * rr, z = -Math.cos(a) * rr;
+        for (const v of [0, 1]) { pos.push(x, rr * Math.tan(v ? e1 : e0), z); aA.push(u, v, ci); nv++; } }
+      const b0 = nv - 146; for (let i = 0; i < 72; i++) { const a = b0 + i * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); } });
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('aA', new THREE.Float32BufferAttribute(aA, 3)); g.setIndex(idx); g.computeBoundingSphere();
+    const U = { uT: { value: 0 }, uI: { value: 0 } };
+    const m = new THREE.ShaderMaterial({ uniforms: U, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, fog: false,
+      vertexShader: `attribute vec3 aA; uniform float uT; varying vec2 vA; varying float vC;
+void main() { vec3 p = position; float u = aA.x; float f = sin(u * 21.0 + uT * 0.19 + aA.z * 2.1) * 0.6 + sin(u * 53.0 - uT * 0.31 + aA.z) * 0.3 + sin(u * 7.0 + uT * 0.07) * 0.5;
+  p.xz += normalize(p.xz) * f * 240.0 * (0.6 + 0.4 * aA.y); vA = aA.xy; vC = aA.z; gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0); gl_Position.z = gl_Position.w * 0.99999; }`,
+      fragmentShader: `uniform float uT, uI; varying vec2 vA; varying float vC;
+float h1(float x) { return fract(sin(x * 127.1) * 43758.5453); }
+float n1(float x) { float i = floor(x), f = fract(x); f = f * f * (3.0 - 2.0 * f); return mix(h1(i), h1(i + 1.0), f); }
+void main() { float u = vA.x, v = vA.y; float rays = n1(u * 190.0 + uT * 0.9 + vC * 13.0) * 0.55 + n1(u * 63.0 - uT * 0.35 + vC * 5.0) * 0.45;
+  float band = smoothstep(0.0, 0.07, v) * (1.0 - smoothstep(0.18, 1.0, v)); float pulse = 0.65 + 0.35 * sin(uT * 0.45 + u * 8.0 + vC * 2.0);
+  float I = uI * band * smoothstep(0.0, 0.15, u) * smoothstep(1.0, 0.85, u) * (0.25 + 1.0 * rays * rays) * pulse;
+  vec3 c = mix(vec3(0.12, 1.0, 0.42), vec3(0.62, 0.22, 0.85), smoothstep(0.3, 0.95, v)); gl_FragColor = vec4(c * I * 0.85, 1.0);
+#include <colorspace_fragment>
+}` });
+    V.aurora = new THREE.Mesh(g, m); V.aurora.name = 'vistaAurora'; V.aurora.renderOrder = -1; V.aurora.frustumCulled = false; V.aurora.visible = false; V.aurora.userData.noBatch = true; V.aurora.userData.noCast = true; scene.add(V.aurora); V.AU = U; V.tris.aurora = idx.length / 3; }
+  // ---- trees / bushes / rocks off the landmarks (the same sweep MYS_SITES.clear does for the sites; wrapped so a re-run keeps them clear) ----
+  const off = (x, z) => clearZ.some(c => c.f ? c.f(x, z) : (x - c[0]) * (x - c[0]) + (z - c[1]) * (z - c[1]) < c[2] * c[2]);
+  function clearTrees() { let n = 0;
+    for (const k of CHUNKS) for (let i = 0; i < k.n; i++) if (k.full[i * 16 + 15] && off(k.xz[i * 3], k.xz[i * 3 + 2])) { k.full.fill(0, i * 16, i * 16 + 16); n++; }
+    scene.traverse(m => { if (!m.isInstancedMesh || CHUNKS.some(k => k.im === m)) return; const A = m.instanceMatrix.array; let hit = false;
+      for (let i = 0; i < m.count; i++) if (A[i * 16 + 15] && off(A[i * 16 + 12], A[i * 16 + 14])) { A.fill(0, i * 16, i * 16 + 16); hit = true; n++; } if (hit) m.instanceMatrix.needsUpdate = true; });
+    for (let i = TREES.length - 1; i >= 0; i--) if (off(TREES[i][0], TREES[i][2])) TREES.splice(i, 1);
+    return n; }
+  V.cleared = clearTrees(); { const c0 = MYS_SITES.clear; MYS_SITES.clear = () => { c0(); clearTrees(); }; }
+  // ---- the lakes for the floats (opt-in: VISTA.setWaterPhys(true) - then floats land on them and wheels flip on them, like the valley lakes; off by default = the flight model untouched) ----
+  const w0 = WATERS.at; V.setWaterPhys = on => { V.waterPhys = !!on; WATERS.at = on ? (x, z) => { for (const L of LK.list) if (L.wet(x, z)) return L.y; return w0 ? w0(x, z) : null; } : w0; };
+  V.lakeAt = (x, z) => { for (const L of LK.list) if (L.wet(x, z)) return L; return null; };
+  // ---- prewarm: every program here x each panel-glow / landing-light combination, both looks (Lambert + vertex-lit twin) ----
+  { const t = performance.now(), W = [V.far, ...V.near, V.lakes, V.falls, V.aurora], vis = W.map(o => o.visible); W.forEach(o => { o.visible = true; });
+    cvlWarm(); const pv = PL.visible, sv = SL.visible;
+    for (const f of [true, false]) { cvlApply(f); for (let c = 0; c < 4; c++) { PL.visible = !!(c & 1); SL.visible = !!(c & 2); for (const o of W) renderer.compile(o, camera, scene); } }
+    PL.visible = pv; SL.visible = sv; CVL.p = CVL.w = null; cvlApply(); W.forEach((o, i) => { o.visible = vis[i]; }); V.warmMs = performance.now() - t; }
+  // ---- discovery: in range, roughly in view, and the ground doesn't hide it ----
+  const _p = new THREE.Vector3(), _f = new THREE.Vector3();
+  function los(ax, ay, az, bx, by, bz) { for (let i = 1; i < 24; i++) { const t = i / 24, x = lerp(ax, bx, t), z = lerp(az, bz, t); if (TH(x, z) > lerp(ay, by, t) + 1) return false; } return true; }
+  V.sees = (L, p, fwd) => { const dx = L.x - p.x, dy = L.y - p.y, dz = L.z - p.z, d = hyp(dx, dy, dz); if (d > L.R) return false; if (fwd && (dx * fwd.x + dy * fwd.y + dz * fwd.z) / d < 0.6) return false; return los(p.x, p.y, p.z, L.x, L.y, L.z); };
+  V.stub = (id, o) => { if (typeof say === 'function') say('DISCOVERED: ' + String((o && o.name) || o || id).toUpperCase()); };   // same call shape as the v1.02 hook: discoverLandmark(id, { name, x, z, note })
+  V.calls = []; V.notes = { falls: 'a 150 m fall at the head of the west drainage', hidden: 'an old trapper cabin on the east shore', fjord: 'six sea stacks below Knife Saddle', arch: 'a natural arch you can fly through', icefall: 'the North Icefield spilling off its plateau', aurora: 'northern lights on a clear night' };
+  V.discover = (id, name) => { if (V.found[id]) return false; V.found[id] = performance.now(); const h = V.hook || (typeof window !== 'undefined' && window.discoverLandmark) || V.stub; const L = V.L.find(l => l.id === id), info = { name, x: L ? Math.round(L.x) : undefined, z: L ? Math.round(L.z) : undefined, note: V.notes[id] || '', icon: 'star' }; if (id === 'aurora') { delete info.x; delete info.z; } V.calls.push([id, name]); try { h(id, info); } catch (e) { console.warn('discoverLandmark', e); } return true; };
+  if (typeof window !== 'undefined' && typeof window.discoverLandmark !== 'function') { window.discoverLandmark = V.stub; V.stubbed = true; }
+  // ---- collision (game side, like the TALL TIMBER trees): the arch, the stacks, the falls' rock band, the seracs, the cabin ----
+  const _wl = [0, 0, 0];
+  function hitPt(P, px, py, pz) {
+    if (P.t === 'cap') { const ax = P.a[0], ay = P.a[1], az = P.a[2], bx = P.b[0] - ax, by = P.b[1] - ay, bz = P.b[2] - az, t = clamp(((px - ax) * bx + (py - ay) * by + (pz - az) * bz) / (bx * bx + by * by + bz * bz), 0, 1);
+      return hyp(px - ax - bx * t, py - ay - by * t, pz - az - bz * t) < P.rad; }
+    if (P.t === 'hf') return py < P.f(px, pz);
+    if (P.t === 'cells') { const y = P.cells.get(Math.floor(px / 20) + ',' + Math.floor(pz / 20)); return y !== undefined && py < y; }
+    if (P.t === 'box') return Math.abs(px - P.x) < P.hw && Math.abs(pz - P.z) < P.hw && py > P.y0 && py < P.y1;
+    return false; }
+  V.hit = (px, py, pz) => { for (const P of V.prims) { const dx = px - P.x, dz = pz - P.z; if (dx * dx + dz * dz > P.r * P.r) continue; if (hitPt(P, px, py, pz)) return P.why; } return null; };
+  function collide() { if (!V.collide || mode !== 'plane' || ac.crashed) return; const p = ac.pos; let near = false;
+    for (const P of V.prims) { const dx = p[0] - P.x, dz = p[2] - P.z; if (dx * dx + dz * dz < (P.r + 20) * (P.r + 20)) { near = true; break; } } if (!near) return;
+    for (const lx of [0, -5.3, 5.3]) { const o = lx ? qRot(ac.q, [lx, 0.9, 0]) : null; _wl[0] = p[0] + (o ? o[0] : 0); _wl[1] = p[1] + (o ? o[1] : 0); _wl[2] = p[2] + (o ? o[2] : 0);
+      const why = V.hit(_wl[0], _wl[1], _wl[2]); if (why) { crash(ac, 'Flew into ' + why.toLowerCase()); return; } } }
+  // ---- every frame ----
+  V.tick = dt => {
+    if (!V.on) { V.far.visible = V.lakes.visible = V.falls.visible = V.aurora.visible = false; for (const m of V.near) m.visible = false; return; }
+    const t0 = performance.now(); V.t += dt; V.FU.uT.value = (V.FU.uT.value + dt) % 3600; camera.getWorldPosition(_p);
+    V.far.visible = V.lakes.visible = true;
+    for (const m of V.near) { let dmin = 1e9; for (const L of V.L) if (L.area === m.userData.area) dmin = Math.min(dmin, hyp(_p.x - L.x, _p.z - L.z)); m.visible = dmin < VST_NEAR; }
+    let df = 1e9; for (const L of V.L) if (L.id === 'falls' || L.id === 'icefall') df = Math.min(df, hyp(_p.x - L.x, _p.z - L.z)); V.falls.visible = df < 6500;
+    // aurora: night x clear sky (the weather's grey / rain / mist, a rain front overhead); fades in over a few seconds
+    const E = WX.E || WX.P, clr = GFX.wx > 0 ? clamp(1 - E.grey / 0.3, 0, 1) * clamp(1 - E.rain * 2, 0, 1) * clamp(1 - E.mist, 0, 1) * clamp(1 - (FR.f || 0) * 2, 0, 1) : 1;
+    V.clear = clr; const want = clamp((TOD.night - 0.3) / 0.7, 0, 1) * clr * (V.forceAur ?? 1); V.aur += (want - V.aur) * Math.min(1, dt * 0.5); if (V.forceAur !== undefined) V.aur = want;
+    V.aurora.visible = V.aur > 0.01; if (V.aurora.visible) { V.aurora.position.copy(_p); V.aurora.updateMatrix(); V.AU.uT.value = (V.AU.uT.value + dt) % 3600; V.AU.uI.value = V.aur * V.aur; }
+    collide();
+    if ((V.chk -= dt) <= 0) { V.chk = 0.25; camera.getWorldDirection(_f);
+      for (const L of V.L) if (!V.found[L.id] && V.sees(L, _p, _f)) V.discover(L.id, L.name);
+      if (!V.found.aurora && V.aur > 0.5 && _f.z < -0.3 && _f.y > -0.35) V.discover('aurora', 'NORTHERN LIGHTS'); }
+    V.ms = performance.now() - t0; };
+  return V;
+})();
+function vistaTick(dt) { VISTA.tick(dt); }
+try { VISTA.hook = discoverLandmark; } catch (e) { /* declared later */ }
+// <<< V2 VISTAS END
 renderer.setAnimationLoop(() => {
   const t0 = performance.now(), rawDt = clock.getDelta(), dt = Math.min(rawDt, 0.05);
   const xr = renderer.xr.isPresenting;
@@ -10173,7 +10523,7 @@ renderer.setAnimationLoop(() => {
   fpsFrames++; fpsT += dt; instT += dt;
   if (fpsT >= 1) { fps = Math.round(fpsFrames / fpsT); fpsFrames = 0; fpsT = 0; }
   if (msgT > 0) { msgT -= dt; msgA += dt; }
-  tallTick(); fuelTick(dt); hoseTick(dt); fuelPumpTick(dt); saveTick(dt); CLOUDS.tick(dt); updateDay(dt); wxTick(dt); gfxTick(dt); updateWater(dt); townTick(dt); updateFalling(dt); updateAudio(dt);
+  tallTick(); fuelTick(dt); hoseTick(dt); fuelPumpTick(dt); saveTick(dt); CLOUDS.tick(dt); updateDay(dt); wxTick(dt); gfxTick(dt); updateWater(dt); vistaTick(dt); townTick(dt); updateFalling(dt); updateAudio(dt);
   panelUpdate(ac, dt); cmpWet(dt);
   if (instT > 0.1) { instT = 0; drawWrist(); }
   if ((chunkT += dt) > 0.2) { chunkT = 0; updateChunks(); }

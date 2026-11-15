@@ -2,6 +2,28 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v1.04 – signature vistas (by VR Dev 2): Oxbow Falls, the Hidden Lake, Sentinel Fjord, Needle Eye Arch, the North Icefall, the northern lights
+
+- **Five landmarks and the aurora** come from VR Dev 2's standalone vistas module (`/workspace/v2-vistas/vistas.js`). It is patched into index.html inline by its own `apply.py --repo`, between the `// >>> V2 VISTAS BEGIN` / `// <<< V2 VISTAS END` markers just before the animation loop, with `vistaTick(dt)` after the loop's first `updateWater(dt)`. The patch is idempotent: re-running it replaces the block.
+  - **Oxbow Falls**: a 150 m fall at the head of the west drainage, with cascades, meltwater and spray mist.
+  - **The Hidden Lake** and the trapper's ruined cabin, far south-west.
+  - **Sentinel Fjord**: a west-coast inlet with sea stacks. Fly into a stack and you crash.
+  - **Needle Eye Arch** (south-east): a rock arch you can fly through. The gap is about 80 m wide low down and 65 m clear height; the walls collide.
+  - **The North Icefall**: seracs above the North Icefield strip. The ground south and east of the strip is left clear for Gordon's story.
+  - **The northern lights**: clear nights only (not in overcast, rain, mist or under a front), looking north.
+- **Look and game side only.** The physics block is unchanged (md5 identical). Everything is prewarmed at load, so no shader compiles mid-flight. Cost: at most +5 draw calls in the worst view, about 17.7k triangles built, about 14.8k extra triangles drawn in the worst view.
+- **Discoveries go through the v1.01–v1.03 hook.** The module calls `discoverLandmark(id, {name, x, z, note})` the first time a landmark is properly seen: in view, in range, with a clear line of sight. The aurora is found at night looking north. Each one:
+  - goes in the journal;
+  - plays the discovery stinger;
+  - pays $150;
+  - is sketched on Walt's map, or drawn as an edge arrow when it is off the sheet: the falls, the Hidden Lake and the icefall are past the sheet's edges;
+  - inks in the map around it in story mode.
+- **Known caveats** (noted, not fixed yet):
+  - On foot you can walk through the landmark rocks.
+  - Clouds can park on the falls.
+  - Grass grows right to the lake edges.
+- New test t104 (the 6 discoveries x journal / map / reward). VR Dev 2's test/tvista.js passes on the integrated build.
+
 ## v1.03 – Walt's map fills in as you fly: fog of war, pins, Walt's and Gordon's notes, discoveries
 
 - **The paper map starts mostly blank in story mode.**
