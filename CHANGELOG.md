@@ -2,6 +2,17 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v1.07.3 – sun bloom and rays, water glitter, moonglow and twinkling stars
+
+- **Sun bloom:** a soft glow round the sun that grows when you look toward it, and at golden hour.
+  - It's drawn behind the ground, so ridges and clouds cut it off like the real thing. There's no post-processing pass.
+  - At midday it only shows when you look toward the sun, so it adds no fill the rest of the time.
+- **Sun rays:** with a low sun in a clear sky, faint rays fan out from behind the ridges. They turn slowly.
+- **Water glitter:** the small wavelets catch the sun (or the moon) and twinkle, close in. This is on the HIGH water setting only.
+- **Night sky:** the moon has a face (maria and craters) and a soft glow. The stars vary in size, with a few bright ones, and twinkle.
+- **Weather and auto quality:** the effects fade out under grey skies. The auto-quality governor switches the bloom, rays and moon glow off from its step 3, because they cost fill.
+- **Cost:** 1–2 extra draws, only while an effect is showing. All their programs compile at load.
+
 ## v1.07.2 – a breeze in the trees and grass (visual only)
 
 - **The trees and grass sway.** This is visual only: there's no gameplay wind, as before.
