@@ -46,6 +46,14 @@ MENU (Esc / F2 on desktop, the wrist MENU button in VR; poke, point + trigger, o
 import * as THREE from 'three';
 import { VRButton } from 'three/addons/webxr/VRButton.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+// v1.07 height fog + aerial perspective, in three's own fog chunks (compiled with every program at load: no new programs, no extra uniforms).
+// The haze is denser low down: along a sight line its strength follows the height half-way along it (eye + 0.5 of the rise), x1.15 on the valley floor to x0.55 over the peaks,
+// and the change fades out toward the far fog so the world's edge stays fully hidden. Costs one varying and a few ALU per pixel.
+const HFOG_GLSL = 'float hfogK(float d, float hm, float fn, float ff) { float r = clamp(exp((250.0 - hm) / 700.0), 0.55, 1.15); return min(1.0, smoothstep(fn, ff, d) * mix(r, 1.0, smoothstep(0.45 * ff, 0.75 * ff, d))); }';
+THREE.ShaderChunk.fog_pars_vertex = '#ifdef USE_FOG\n  varying float vFogDepth;\n  varying float vFogDy;\n#endif';
+THREE.ShaderChunk.fog_vertex = '#ifdef USE_FOG\n  vFogDepth = - mvPosition.z;\n  vFogDy = dot(viewMatrix[1].xyz, mvPosition.xyz);\n#endif';
+THREE.ShaderChunk.fog_pars_fragment = '#ifdef USE_FOG\n  uniform vec3 fogColor;\n  varying float vFogDepth;\n  varying float vFogDy;\n  #ifdef FOG_EXP2\n    uniform float fogDensity;\n  #else\n    uniform float fogNear;\n    uniform float fogFar;\n    ' + HFOG_GLSL + '\n  #endif\n#endif';
+THREE.ShaderChunk.fog_fragment = '#ifdef USE_FOG\n  #ifdef FOG_EXP2\n    float fogFactor = 1.0 - exp( - fogDensity * fogDensity * vFogDepth * vFogDepth );\n  #else\n    float fogFactor = hfogK(vFogDepth, cameraPosition.y + 0.5 * vFogDy, fogNear, fogFar);\n  #endif\n  gl_FragColor.rgb = mix( gl_FragColor.rgb, fogColor, fogFactor );\n#endif';
 THREE.Texture.DEFAULT_ANISOTROPY = 4;   // v0.93.2 every texture that doesn't set its own: 4x anisotropic (signs, placards, boards and labels stay crisp at a slant; next to free on Quest 3)
 
 // === PHYSICS START ===
@@ -599,7 +607,7 @@ const hyp = (a, b, c = 0) => Math.sqrt(a * a + b * b + c * c);   // v0.59 Math.h
 
 // ======================= RENDERING =======================
 // v0.35 settings (persist in localStorage 'bp_gfx'; ?gfx=shadows:2,grass:1 overrides for testing). Defaults = the v0.34 look and cost.
-const BP_VERSION = 'v1.04';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
+const BP_VERSION = 'v1.07';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
 { const e = document.getElementById('ver'); if (e) e.textContent = BP_VERSION; }
 const GFX_DEF = { shadows: 0, scale: 1, fov: 1, dist: 1, trees: 1, grass: 0, clouds: 1, fog: 1, msaa: 1, hz: 90, vig: 0, turn: 0, fps: 0, tod: 11, stk: 1, tips: 1, terr: 1, dyn: 1, glove: 0, hand: 0, wt: 1, volM: 1, volMu: 0.5, volE: 1, volA: 1, volF: 1, wx: 1, forest: 0, ground: 0, gtex: 0, cvl: 1, water: 1, dayl: 48, flure: 0, fline: 8, fdrag: 4, fbob: 0, fsink: 0 };   // v0.68.1 dominant hand, volumes. v0.48 BALANCED: 90 % scale, 72 Hz, fast terrain shading, auto resolution; v0.49.1 the stick stays where you let go of it
 const GFX = Object.assign({}, GFX_DEF);
@@ -2827,6 +2835,7 @@ void main() { vec4 w = modelMatrix * vec4(position, 1.0); float k = clamp(aD * 2
   vW = w.xyz; vD = aD; vFm = aFm; vB = aB; vF = aF; gl_Position = projectionMatrix * viewMatrix * w; }`;
 const WTR_FS = `uniform sampler2D uN, uBed; uniform vec3 uSkyH, uSkyZ, uSun, uSunC, uDeep, uShal, fogColor; uniform float uT, uLit, uQ, fogNear, fogFar;
 varying vec3 vW; varying float vD, vFm, vB; varying vec2 vF;
+${HFOG_GLSL}
 void main() {
   vec3 E = cameraPosition - vW; float dist = length(E); vec3 V = E / dist; float d = vD;
   float p0 = fract(uT * 0.22), p1 = fract(uT * 0.22 + 0.5), w0 = 1.0 - abs(1.0 - 2.0 * p0);
@@ -2846,7 +2855,7 @@ void main() {
   vec3 col = mix(under, sky, F) + uSunC * sp;
   float fm = vFm * smoothstep(0.5, 0.78, sA.a + 0.18 * vFm); col = mix(col, vec3(0.9, 0.93, 0.95) * uLit, fm);
   a = max(max(a, F), fm) * smoothstep(0.0, 0.32, d);
-  col = mix(col, fogColor, smoothstep(fogNear, fogFar, dist));
+  col = mix(col, fogColor, hfogK(dist, 0.5 * (cameraPosition.y + vW.y), fogNear, fogFar));
   gl_FragColor = vec4(col, a);
 #include <colorspace_fragment>
 }`;
@@ -4026,9 +4035,24 @@ mapStow('clip');
 
 // ================= v0.13 sky: sun, stars + moon, cockpit panel glow, landing light (v0.45: a fixed time of day - Settings > TIME OF DAY) =================
 const DAY = { h: GFX.tod };
-const SKY_DAY = new THREE.Color(SKY), SKY_GLOW = new THREE.Color(0xd98b62), SKY_NIGHT = new THREE.Color(0x0a1122), _skc = new THREE.Color();
-const HEMI_DAY = new THREE.Color(0xdfefff), HEMI_NIGHT = new THREE.Color(0x5a6a9a), SUN_LOW = new THREE.Color(0xffa060), SUN_HI = new THREE.Color(0xfff1dc), MOON_C = new THREE.Color(0x9fb3ff);
+const _skc = new THREE.Color();   // v1.07 the sky / light colours live in GRADE
+const SUN_LOW = new THREE.Color(0xffa060), MOON_C = new THREE.Color(0x9fb3ff);
 const sunDir = new THREE.Vector3(), moonDir = new THREE.Vector3();
+// v1.07 the day's colour script, keyed on the sun's height (sin of its elevation). Midday is the v1.06 look; the low sun gets a real golden hour (warm sun, cool blue
+// shadow light from the sky, warm bounce off the ground), sunset rose, a blue hour after it (the land goes blue, not black; clouds keep the afterglow) and moonlit night.
+// Columns: horizon / fog, zenith, hemi sky (the shadows), hemi ground (bounce), hemi intensity, sun colour, sun intensity, cloud colour, cloud glow (emissive).
+const GRADE = [
+  [-0.32, 0x0a1122, 0x03060f, 0x4e5e92, 0x141a28, 0.24, 0x9fb3ff, 0, 0x7a8296, 0x2a3038],
+  [-0.15, 0x26365e, 0x0c1434, 0x5a6aa8, 0x1e2232, 0.4, 0x9fb3ff, 0, 0x908aa8, 0x463c52],
+  [-0.06, 0x56628e, 0x1c2a5a, 0x6c7cbc, 0x2c2a36, 0.6, 0xff7a3a, 0, 0xc8a0b0, 0x6a4858],
+  [0.0, 0xc8907a, 0x34467e, 0x8890c4, 0x40342e, 0.66, 0xff7030, 0.45, 0xffb898, 0x8a5848],
+  [0.05, 0xe4a272, 0x4062a6, 0x9aa6d8, 0x5a4430, 0.8, 0xff8c44, 1.25, 0xffd0a8, 0x9a7060],
+  [0.12, 0xecc490, 0x4a7cc8, 0xa0b6e8, 0x6e5a36, 0.92, 0xffbe78, 2.3, 0xfff0e0, 0xa09c9c],
+  [0.22, 0xa9c8de, 0x4f86cf, 0xd8eaff, 0x56603a, 1.2, 0xfff1dc, 2.0, 0xffffff, 0xa0aab1],
+  [1.0, 0xa9c8de, 0x4f86cf, 0xd8eaff, 0x56603a, 1.2, 0xfff1dc, 2.0, 0xffffff, 0xa0aab1]];
+const GR = GRADE.map(r => r.map((v, i) => i === 0 || i === 5 || i === 7 ? v : new THREE.Color(v)));
+function grLerp(el, i, out) { let k = 0; while (k < GR.length - 2 && el > GR[k + 1][0]) k++; const A = GR[k], B = GR[k + 1], t = clamp((el - A[0]) / (B[0] - A[0]), 0, 1);
+  if (out) return out.copy(A[i]).lerp(B[i], t); return A[i] + (B[i] - A[i]) * t; }
 // stars (one draw call, no fog) + moon disc; both follow the camera
 const stars = (() => { const n = 700, p = new Float32Array(n * 3); let sd = 4242; const r = () => (sd = (sd * 16807) % 2147483647) / 2147483647;
   for (let i = 0; i < n; i++) { const a = r() * 6.283, y = 0.05 + 0.95 * r() ** 0.7, c = Math.sqrt(1 - y * y); p.set([Math.cos(a) * c * 7000, y * 7000, Math.sin(a) * c * 7000], i * 3); }
@@ -4088,16 +4112,13 @@ function updateDay(dt) {   // sun / sky / fog colour from the time of day, plus 
   const a = dayAngle(DAY.h), el = Math.sin(a);    // sunrise 06:00 east, sunset 19:00 west
   sunDir.set(Math.cos(a), Math.max(el, -1), 0.35).normalize();
   TOD.day = clamp((el + 0.05) / 0.25, 0, 1); TOD.night = 1 - clamp((el + 0.25) / 0.2, 0, 1); TOD.dusk = DAY.h > 12 ? (1 - TOD.day) * (1 - TOD.night) + TOD.night * 0.3 : 0;
-  const glow = (1 - TOD.day) * (1 - TOD.night);
-  if (el > -0.05) _skc.copy(SKY_GLOW).lerp(SKY_DAY, clamp((el + 0.05) / 0.25, 0, 1)); else _skc.copy(SKY_NIGHT).lerp(SKY_GLOW, clamp((el + 0.25) / 0.2, 0, 1));
-  scene.background.copy(_skc); scene.fog.color.copy(_skc);
-  SKYD.z.copy(SKYD.ZN).lerp(SKYD.ZK, clamp((el + 0.25) / 0.2, 0, 1)).lerp(SKYD.ZD, TOD.day); SKYD.k = 0.55 * (1 - TOD.day) * (1 - TOD.night) + 0.08 * TOD.day; SKYD.u.uS.value.copy(sunDir);   // v0.96 the dome
+  grLerp(el, 1, _skc); scene.background.copy(_skc); scene.fog.color.copy(_skc);   // v1.07 the colour script (GRADE)
+  grLerp(el, 2, SKYD.z); SKYD.k = 0.62 * (1 - TOD.day) * (1 - TOD.night) + 0.1 * TOD.day; SKYD.u.uS.value.copy(sunDir);   // v0.96 the dome
   camera.getWorldPosition(SKYD.m.position);
-  hemi.intensity = 0.2 + 1.0 * TOD.day + 0.15 * glow; hemi.color.copy(HEMI_NIGHT).lerp(HEMI_DAY, TOD.day);
-  if (el > -0.05) { sun.color.copy(SUN_LOW).lerp(SUN_HI, clamp(el / 0.3, 0, 1)); sun.intensity = 2.0 * clamp((el + 0.05) / 0.3, 0, 1); sun.position.copy(sunDir).multiplyScalar(500); }
-  else { moonDir.set(-sunDir.x, 0.15 - 0.85 * sunDir.y, -0.35).normalize(); sun.color.copy(MOON_C); sun.intensity = 0.35 * TOD.night; sun.position.copy(moonDir).multiplyScalar(500); }
-  CLOUDS.im.material.emissive.setRGB(0.35, 0.4, 0.44).multiplyScalar(0.12 + 0.88 * TOD.day);
-  CLOUDS.im.material.color.setRGB(1, 1, 1).lerp(SKY_GLOW, 0.45 * glow).multiplyScalar(0.25 + 0.75 * Math.max(TOD.day, glow));
+  hemi.intensity = grLerp(el, 5); grLerp(el, 3, hemi.color); grLerp(el, 4, hemi.groundColor);
+  if (el > -0.05) { grLerp(el, 6, sun.color); sun.intensity = grLerp(el, 7) * clamp((el + 0.05) / 0.05, 0, 1); sun.position.copy(sunDir).multiplyScalar(500); }
+  if (el <= -0.05 || sun.intensity < 0.45 * TOD.night) { moonDir.set(-sunDir.x, 0.15 - 0.85 * sunDir.y, -0.35).normalize(); sun.color.copy(MOON_C); sun.intensity = 0.45 * TOD.night; sun.position.copy(moonDir).multiplyScalar(500); }   // v1.07 a little more moonlight
+  grLerp(el, 8, CLOUDS.im.material.color); grLerp(el, 9, CLOUDS.im.material.emissive);
   camera.getWorldPosition(_a);
   stars.visible = moon.visible = TOD.night > 0.02;
   if (stars.visible) { stars.position.copy(_a); stars.rotation.y = DAY.h / 24 * 6.283; stars.material.opacity = TOD.night;   // v0.96 the sky turns through the night

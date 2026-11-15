@@ -2,6 +2,22 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v1.07 – light and air: a colour script for the whole day, and height fog
+
+- **The day's colour script.** The sky, haze, sky light, ground bounce, sun and clouds now follow one set of colours keyed to how high the sun is.
+  - Midday is unchanged: the same sky, the same sun (2.0) and the same sky light (1.2).
+  - **Golden hour** (sun below about 13°): the sun turns warm gold, and stronger (2.3) because it hits the ground at a slant. The shadow side gets a cool blue light from the sky and a warm bounce off the ground, and the haze goes honey-coloured.
+  - **Sunset:** a rose horizon, salmon-lit clouds, and the dome's glow round the sun.
+  - **Blue hour:** after sunset the land goes deep blue instead of black (sky light about 0.5), and the clouds keep a mauve afterglow.
+  - **Night:** a touch more moonlight (0.45, was 0.35) with a cool sky light. The moon, stars and aurora are as before.
+  - Every step is smooth: under 0.02 change per 15 game seconds.
+- **Height fog and aerial perspective:** the haze is thicker down in the valleys and thinner over the peaks, so from altitude the high country reads crisp and the valleys sit in haze.
+  - Along a sight line, the haze strength follows the height halfway along it: ×1.15 on the valley floor, down to ×0.55 over the summits.
+  - It fades back to the normal fog toward the far fog, so the edge of the world stays fully hidden.
+  - It's built into three.js's own fog code, so every material, and the water's own fog, gets it with no new shaders or settings. It costs one value passed to the pixel shader and a few sums per pixel.
+- **Perf** (desktop, 240 frames): CPU, draws, triangles and shader programs (177) are the same as v1.06.2, and no shaders compile during play.
+- The version shown in the menu was stuck at v1.04; it now reads v1.07.
+
 ## v1.06.2 – the cloud floor from v1.06.1 now costs nothing per frame
 
 - **Perf fix:** v1.06.1 kept the valley clouds off the hills by checking terrain heights around every cloud, twice a second. On the desktop perf run that cost about +1 ms CPU and +48 KB of garbage per frame.
