@@ -2,6 +2,34 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v1.01 – Walt's corkboard, ten clues, the glint on the north ice, the journal, and a hook for discoveries
+
+- **Walt's corkboard.** A cork board now hangs on the hangar's back wall over Walt's bench, next to his chalkboard. It only appears in story mode.
+  - It has ten card slots around a centre card: "NORSEMAN CF-GMR – G. MACRAE – LAST MAIL RUN – NEVER FOUND".
+  - Each clue you find is pinned up as a written card, tied to the centre card with red string. Unfound clues show as dashed "?" outlines.
+  - A count (CLUES n / 10) sits at the top, and the bottom line says where to ask next.
+- **The ten clues:**
+  - Walt's last log entry and the photo of Gordon with the Norseman, both from v0.99.
+  - What seven towns tell you once they TRUST you (from v1.00): Pete's extra fuel cans, Dawson's "turned north", the stranger at the Lodge, Mae's north survey sheet, the Halvorsen flare, Trapper Bill's red fabric, and Joe's question about the cabin on the hidden lake.
+  - The **glint on the north ice**:
+    - It is on a snow shoulder at about 1,050 m, roughly 5.9 km north-north-west of Home, past the top edge of the old paper map.
+    - From the Cub, with the sun up and within about 3.5 km, a star-shaped sun flash winks on the snow.
+    - Fly within about 230 m of it below about 380 m AGL (or walk within 18 m) and you find a strip of red cowling painted "CF-G".
+  - Each new clue is announced ("NEW CLUE PINNED ON WALT'S CORKBOARD … (n OF 10)"), a few seconds after the gossip line so it doesn't cover it, and goes in the journal.
+  - At six clues the journal notes that everything points to the north ice.
+- **The journal.** The clipboard has a 6th page, LOG, in story mode only. It lists your story log newest first, under the date, clues found, and discoveries.
+- **Discoveries (the landmark hook).** These work in both story and free play and are saved with the game (`disc`).
+  - `discoverLandmark(id, info)` runs the first time a place is found. It:
+    - writes a journal line;
+    - plays the discovery music stinger;
+    - pays a small reward (default $150, optionally plus town trust);
+    - shows "DISCOVERED: NAME +$n – SKETCHED ON YOUR MAP" (the sketch itself arrives in v1.03).
+    - It returns false if the place was already found.
+  - `registerLandmark(id, {name, x, z, r, agl, foot, note, reward, rep, icon})` marks a place to be found automatically when you fly within r (default 250 m) below agl (default 600 m), or walk within foot (default 40 m).
+  - `onDiscover(fn)` adds a callback.
+  - All three are on `window` for the vistas / landmarks module.
+- Physics untouched (md5 identical). New test t101; t99 updated on purpose (the story clipboard now has 6 pages).
+
 ## v1.00.1 – fishing meets the new water: real depths, the current, snags, fish you can see, rings on the surface
 
 - **The rig sits on the water you see.** On rivers and creeks the lure, bobber and line used to float 0.4 m under the new drawn surface. Now they float on it: the river's surface is the ground + 0.7 m, creeks + 0.45 m, and lakes are unchanged. Float physics heights are untouched.

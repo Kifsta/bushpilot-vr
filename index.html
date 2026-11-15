@@ -19,7 +19,7 @@
 </script>
 </head>
 <body>
-<div id="info">BUSH PILOT VR <span id="ver">v1.00.1</span> - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
+<div id="info">BUSH PILOT VR <span id="ver">v1.01</span> - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
 You start on foot by the Cub at the cabin strip. Walk up to her and climb in (F / Y), then start her up off the checklist card (J).
 Desktop - flying: W/S or arrows pitch, A/D or arrows roll, Q/E rudder, Shift / Ctrl (or + / -) throttle, B brakes, \ parking brake, [ ] flaps, PgUp / PgDn trim,
   R reset to the strip (cold and dark), F climb out, M map, L landing light, Home recentre, mouse looks (click to capture).
@@ -597,7 +597,7 @@ const hyp = (a, b, c = 0) => Math.sqrt(a * a + b * b + c * c);   // v0.59 Math.h
 
 // ======================= RENDERING =======================
 // v0.35 settings (persist in localStorage 'bp_gfx'; ?gfx=shadows:2,grass:1 overrides for testing). Defaults = the v0.34 look and cost.
-const BP_VERSION = 'v1.00.1';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
+const BP_VERSION = 'v1.01';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
 { const e = document.getElementById('ver'); if (e) e.textContent = BP_VERSION; }
 const GFX_DEF = { shadows: 0, scale: 1, fov: 1, dist: 1, trees: 1, grass: 0, clouds: 1, fog: 1, msaa: 1, hz: 90, vig: 0, turn: 0, fps: 0, tod: 11, stk: 1, tips: 1, terr: 1, dyn: 1, glove: 0, hand: 0, wt: 1, volM: 1, volMu: 0.5, volE: 1, volA: 1, volF: 1, wx: 1, forest: 0, ground: 0, gtex: 0, cvl: 1, water: 1, dayl: 48, flure: 0, fline: 8, fdrag: 4, fbob: 0, fsink: 0 };   // v0.68.1 dominant hand, volumes. v0.48 BALANCED: 90 % scale, 72 Hz, fast terrain shading, auto resolution; v0.49.1 the stick stays where you let go of it
 const GFX = Object.assign({}, GFX_DEF);
@@ -4461,7 +4461,7 @@ function kbLines() {   // the text, one entry per active job
 KB.page = 0; let KB_PAGES = ['JOBS', 'W&B', 'CUB', 'PERF'];   // v0.99 + NOTE (the bank's letter) in a story game
 function kbPage(d = 1) { KB.page = (KB.page + d + KB_PAGES.length) % KB_PAGES.length; KB.key = ''; kbDraw(); sfx('tick'); }
 function kbTabs(x) {   // the page tabs along the clip
-  const w = KB_PAGES.length > 4 ? 74 : 92; x.textBaseline = 'middle'; x.font = 'bold 17px sans-serif'; x.textAlign = 'center';
+  const w = KB_PAGES.length > 5 ? 62 : KB_PAGES.length > 4 ? 74 : 92; x.textBaseline = 'middle'; x.font = KB_PAGES.length > 5 ? 'bold 15px sans-serif' : 'bold 17px sans-serif'; x.textAlign = 'center';
   KB_PAGES.forEach((n, i) => { const X = 10 + i * (w + 4); x.fillStyle = i === KB.page ? '#2a3a5a' : '#d8d2c0'; x.fillRect(X, 4, w, 26); x.fillStyle = i === KB.page ? '#fff' : '#555'; x.fillText((i + 1) + ' ' + n, X + w / 2, 18); });
   x.textAlign = 'right'; x.fillStyle = '#777'; x.font = '14px sans-serif'; x.fillText(renderer.xr.isPresenting ? 'TRIGGER: NEXT' : ', . PAGES', KB_W - 10, 18); x.textAlign = 'left'; x.textBaseline = 'alphabetic';
 }
@@ -4497,6 +4497,7 @@ function kbBody(x) {   // pages 2-4 (page 1 is the jobs list below)
     line('FULL POWER AVAILABLE ' + Math.round(cap * 100) + '%', cap < 1 ? '#b8301e' : '#2a5a22', '20px'); line('BRAKING ' + Math.round(bk * 100) + '%', bk < 1 ? '#b8301e' : '#2a5a22', '20px');
     if (E.sink) line('LAST TOUCHDOWN ' + Math.round(E.sink * 196.85) + ' FPM', E.sink > (UPG.tyres ? 2.4 : 2.0) ? '#b8301e' : '#444', '20px');
     x.fillStyle = '#666'; x.font = '17px sans-serif'; x.fillText('SERVICE, OIL, TYRES + REPAIRS: THE HOME HANGAR BOARD', 22, KB_H - 16, KB_W - 44);
+  } else if (pg === 5) { journalKbBody(x); kbTabs(x);   // v1.01 the journal
   } else if (pg === 4) { storyKbBody(x); kbTabs(x);   // v0.99 the bank's letter
   } else if (pg === 3) {
     const D = kbPerfData(), V = D.V; x.fillText('PERFORMANCE', 22, 66); let y = 108; const line = (t, c = '#222', f = 'bold 22px') => { x.fillStyle = c; x.font = f + ' sans-serif'; x.fillText(t, 22, y, KB_W - 44); y += 31; };
@@ -4515,6 +4516,7 @@ function kbKey() {   // what each page shows, rounded so the canvas only redraws
   const E = ECO, P = WBS.plan, pg = KB.page;
   if (pg === 1) return WBS.key + '|' + (renderer.xr.isPresenting ? 1 : 0);
   if (pg === 2) return [E.hrs.toFixed(1), E.svc.toFixed(1), E.oil.toFixed(1), Math.round(E.tyre * 100), Math.round(E.brake * 100), Math.round(E.gear * 100), Math.round(E.eng * 100), E.seized, E.ldg, Math.round(E.sink * 196.85), renderer.xr.isPresenting].join('|');
+  if (pg === 5) return 'J' + STORY.log.length + '|' + storyDay() + '|' + DISC.n + '|' + clueGot().length;
   if (pg === 4) return 'N' + storyOwed() + '|' + storyLeft() + '|' + STORY.snow + '|' + renderer.xr.isPresenting;
   if (pg === 3) { const D = kbPerfData(); return [P.lb.toFixed(0), D.gal.toFixed(1), Math.floor(D.cru), Math.floor(D.cur), Math.round(D.curP * 100), renderer.xr.isPresenting, GFX.wx ? wxMetar() + wxTrend() : 0].join('|'); }
   return '';
@@ -9147,12 +9149,12 @@ function storySnow() { STORY.snow = true; STORY.act = Math.max(STORY.act, 2); co
   stItem('log', [X0 - 4.2, y0 + 0.02, Z0 + 0.2, 0.15], mergeGeometries([['b', 0.23, 0.035, 0.31, 0, 0, 0, 0x2a4a32], ['b', 0.215, 0.028, 0.3, 0.008, 0.001, 0, 0xe8dcc0]].map(partGeo)), 0.62, 0.39, 1024, 640, 2, stDrawLog);
   stItem('photo', [X0 - 4.3, y0 + 0.09, Z0 - 0.12, Math.PI / 2 - 0.35], mergeGeometries([['b', 0.012, 0.18, 0.14, 0, 0, 0, 0x3a2a1a], ['b', 0.004, 0.16, 0.12, 0.007, 0, 0, 0xd8ccb0]].map(partGeo)).rotateZ(-0.12), 0.26, 0.325, 512, 640, 1, (x) => stDrawPhoto(x)); }
 // ---- the clipboard's 5th page: the bank's letter ----
-function storyKbPages() { KB_PAGES = STORY.on ? ['JOBS', 'W&B', 'CUB', 'PERF', 'NOTE'] : ['JOBS', 'W&B', 'CUB', 'PERF']; if (KB.page >= KB_PAGES.length) KB.page = 0; KB.key = ''; }
+function storyKbPages() { KB_PAGES = STORY.on ? ['JOBS', 'W&B', 'CUB', 'PERF', 'NOTE', 'LOG'] : ['JOBS', 'W&B', 'CUB', 'PERF']; if (KB.page >= KB_PAGES.length) KB.page = 0; KB.key = ''; }
 function storyKbBody(x) { stDrawLetter(x, KB_W, KB_H, 76); x.fillStyle = '#7a3020'; x.font = 'bold 21px sans-serif'; x.fillText('OWED $' + storyOwed().toLocaleString('en-US') + ' - ' + (STORY.snow && !STORY.ext ? 'THE SNOW IS HERE' : storyLeft() + ' DAYS LEFT') + ' - PAID $' + STORY.paid.toLocaleString('en-US'), 22, KB_H - 18, KB_W - 44); }
 // ---- start, show, save ----
-function storyShow() { const on = STORY.on; SB.desk.visible = SB.m.visible = on; for (const it of SITEMS) it.m.visible = on; storyKbPages(); STORY.key = ''; }
+function storyShow() { const on = STORY.on; SB.desk.visible = SB.m.visible = on; for (const it of SITEMS) it.m.visible = on; storyKbPages(); STORY.key = ''; if (typeof CB !== 'undefined') clueShow(); }
 function storyBegin() {   // a brand-new story game: up in Walt's hangar, a late-summer morning, the boards at story pay
-  STORY.on = true; STORY.act = 1; STORY.gh = 0; STORY.paid = 0; STORY.fee = 0; STORY.ext = 0; STORY.snow = false; storyShow();
+  DISC.found = {}; DISC.n = 0; STORY.on = true; STORY.act = 1; STORY.gh = 0; STORY.paid = 0; STORY.fee = 0; STORY.ext = 0; STORY.snow = false; storyShow();
   for (const S of DLV_STRIPS) DLV.offers[S.id] = []; DLV.seq = 1; dlvInit(false); for (const S of DLV_STRIPS) S.key = '';
   if (GFX.dayl > 0) DAY.h = 8.25; updateDay(0);
   const x = HANGAR.x - 1.6, z = HANGAR.z + 0.4; footRig.position.set(x, groundY(x, z) + EYE, z); footRig.rotation.set(0, Math.PI / 2, 0); bodyYaw = Math.PI / 2; lookYaw = lookPitch = 0;
@@ -9164,6 +9166,96 @@ function storyLoad(d) {   // older saves (no story field) and free-play saves st
   if (!d || !d.on) { STORY.on = false; storyShow(); return; }
   STORY.on = true; STORY.act = n(d.act, 1, 4, 1) | 0; STORY.paid = n(d.paid, 0, 1e7, 0); STORY.fee = n(d.fee, 0, 1e6, 0); STORY.gh = n(d.gh, 0, 1e6, 0); STORY.ext = n(d.ext, 0, 100, 0); STORY.snow = !!d.snow;
   STORY.read = d.read && typeof d.read === 'object' ? d.read : {}; STORY.log = Array.isArray(d.log) ? d.log.filter(e => e && typeof e.t === 'string').slice(-60) : []; STORY.pays = Array.isArray(d.pays) ? d.pays.filter(p => Array.isArray(p) && isFinite(p[1])).slice(-40) : []; STORY.said = d.said && typeof d.said === 'object' ? d.said : {}; storyShow(); }
+
+// ===================== v1.01 CLUES: Walt's corkboard, the clues to Gordon's last flight, the journal, discoveries (the landmark hook) =====================
+// Ten clues: Walt's logbook + the photo, what seven towns remember once they TRUST you (v1.00 gossip), and a glint of metal on the north ice you can only
+// spot from the air (sun up, low and close). Each one is pinned on the corkboard over Walt's bench (red string to the middle card) and logged in the journal
+// (the clipboard's 6th page, LOG). discoverLandmark(id, info) / registerLandmark(id, info) are the hook for landmarks and vistas: journal + music stinger +
+// a small reward (+ v1.03: a sketch on the paper map). Clues with a pin carry a world position for the map.
+const CLUES = [
+  { id: 'log', t: 'WALT\'S LAST ENTRY', s: '"Still looking. North ice." Sep 1, the day he flew out.', k: () => !!STORY.read.log, hint: 'Walt\'s logbook is on his desk' },
+  { id: 'photo', t: 'THE NORSEMAN', s: 'Gordon beside the Norseman CF-GMR. Red cowling, silver wings.', k: () => !!STORY.read.photo, hint: 'the photo on Walt\'s desk' },
+  { id: 'g_HOME', t: 'EXTRA FUEL', s: 'Pete: full tanks and two extra cans - more than a mail run needs.', k: () => !!STORY.said.g_HOME, hint: 'Old Pete, once he trusts you' },
+  { id: 'g_RIDGE', t: 'TURNED NORTH', s: 'Dawson\'s father saw the Norseman turn north over the ridge, not west.', k: () => !!STORY.said.g_RIDGE, hint: 'the Ridge crew' },
+  { id: 'g_LODGE', t: 'THE STRANGER', s: 'Supper at the Lodge with a man in a good coat, paying cash. Talk of the ice.', k: () => !!STORY.said.g_LODGE, hint: 'Mrs Anders at the Lodge' },
+  { id: 'g_DRYFORK', t: 'THE NORTH SHEET', s: 'Gordon bought the north survey sheet at Dry Fork. Nobody else ever did.', k: () => !!STORY.said.g_DRYFORK, hint: 'Mae at the Dry Fork feed store' },
+  { id: 'g_HALV', t: 'A FLARE', s: 'Station log: a flare north of the glacier, two nights after he vanished.', k: () => !!STORY.said.g_HALV, hint: 'Halvorsen station (Dry Fork vouches for you first)', pin: 'flare' },
+  { id: 'g_NWSHORE', t: 'RED FABRIC', s: 'Trapper Bill found a red fabric scrap on the north ice, years back.', k: () => !!STORY.said.g_NWSHORE, hint: 'Trapper Bill on the NW shore', pin: 'ice' },
+  { id: 'g_CREEK', t: 'THE CABIN', s: 'Gordon asked Joe where the old cabin on the hidden lake was. Never said why.', k: () => !!STORY.said.g_CREEK, hint: 'Prospector Joe at the creek' },
+  { id: 'glint', t: 'A GLINT ON THE ICE', s: 'From the air: a strip of red cowling in the snow. Painted: "CF-G".', k: () => !!STORY.said.glint, hint: 'Walt\'s log: "glare all day" - fly low over the north ice with the sun up', pin: 'glint' }];
+const clueGot = () => CLUES.filter(c => c.k());
+// ---- the glint: the highest open ground in the far north (the north ice), a cowling strip + a sun flash you see from the air ----
+// the north ice: high snow in the far north (-z, past the old paper map's top edge), where Walt's searches ran out of fuel
+const GLINT = { x: -3750, z: -4550 }; GLINT.h = terrainHeight(GLINT.x, GLINT.z);   // a snow shoulder ~1050 m, 5.9 km north-north-west of Home
+{ const y = groundY(GLINT.x, GLINT.z), P = [['b', 1.6, 0.06, 0.55, 0, 0.03, 0, 0xa8281e], ['b', 1.2, 0.05, 0.08, 0.1, 0.07, 0.12, 0xd8d8d0]];   // a curved red cowling strip, a silver edge
+  const m = new THREE.Mesh(mergeGeometries(P.map(partGeo)), ITEM_VM); m.position.set(GLINT.x, y + 0.02, GLINT.z); m.rotation.set(0.08, 0.7, 0.12); m.userData.noBatch = true; m.visible = false; scene.add(m); GLINT.m = m;
+  const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'), g = x.createRadialGradient(32, 32, 0, 32, 32, 32); g.addColorStop(0, 'rgba(255,255,250,1)'); g.addColorStop(0.15, 'rgba(255,250,230,0.8)'); g.addColorStop(1, 'rgba(255,240,200,0)'); x.fillStyle = g; x.fillRect(0, 0, 64, 64);
+  x.fillStyle = 'rgba(255,255,255,0.7)'; x.fillRect(0, 31, 64, 2); x.fillRect(31, 0, 2, 64);   // a four-point star
+  const t = new THREE.CanvasTexture(c); GLINT.sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, fog: false })); GLINT.sp.position.set(GLINT.x, y + 3, GLINT.z); GLINT.sp.visible = false; GLINT.sp.userData.noBatch = true; scene.add(GLINT.sp); }
+const _glC = new THREE.Vector3();
+function glintTick(dt) {
+  const on = STORY.on && !STORY.said.glint; GLINT.m.visible = STORY.on; if (!on) { GLINT.sp.visible = false; return; }
+  camera.getWorldPosition(_glC); const d = hyp(_glC.x - GLINT.x, _glC.z - GLINT.z), agl = _glC.y - groundY(_glC.x, _glC.z), sun = typeof sunDir !== 'undefined' ? sunDir.y : 1;
+  GLINT.t = (GLINT.t || 0) + dt; const fl = 0.5 + 0.5 * Math.sin(GLINT.t * 2.3) * Math.sin(GLINT.t * 0.7 + 1);   // it winks as you move
+  const vis = sun > 0.12 && d < 3500 && d > 60 && mode === 'plane'; GLINT.sp.visible = vis; if (vis) { const s = (8 + d * 0.012) * (0.4 + 0.9 * fl * fl); GLINT.sp.scale.set(s, s, 1); GLINT.sp.material.opacity = 0.35 + 0.65 * fl; }
+  if ((mode === 'plane' && d < 230 && agl < 380) || (mode === 'foot' && d < 18)) { STORY.said.glint = 1; STORY.cl && (STORY.cl.glint = 1); clueFound('glint', 'METAL ON THE NORTH ICE: A STRIP OF RED COWLING. PAINTED ON IT, "CF-G". THE NORSEMAN.'); discoverLandmark('north_ice_cowling', { name: 'The cowling on the north ice', x: GLINT.x, z: GLINT.z, note: 'red cowling, "CF-G"', reward: 0, icon: 'x', quiet: true }); }
+}
+// ---- Walt's corkboard (over his bench, back wall) ----
+const CB = { X: HANGAR.x - 4.5, Z: HANGAR.z + 3.0, W: 1.6, H: 1.0, key: '' };
+{ const y0 = HANGAR.y, P = [['b', 0.05, CB.H + 0.1, CB.W + 0.1, CB.X - 0.01, y0 + 1.95, CB.Z, 0x6a4a2a]]; CB.fr = new THREE.Mesh(mergeGeometries(P.map(partGeo)), ITEM_VM); CB.fr.userData.noBatch = true; CB.fr.visible = false; scene.add(CB.fr);
+  const cv = document.createElement('canvas'); cv.width = 1024; cv.height = 640; CB.cv = cv; CB.x = cv.getContext('2d'); CB.tex = new THREE.CanvasTexture(cv); CB.tex.colorSpace = THREE.SRGBColorSpace; CB.tex.anisotropy = 4;
+  CB.m = new THREE.Mesh(new THREE.PlaneGeometry(CB.W, CB.H), new THREE.MeshLambertMaterial({ map: CB.tex })); CB.m.position.set(CB.X + 0.02, y0 + 1.95, CB.Z); CB.m.rotation.y = Math.PI / 2; CB.m.userData.noBatch = true; CB.m.visible = false; scene.add(CB.m); }
+const CB_SLOT = [[110, 120], [300, 95], [500, 110], [720, 95], [910, 125], [120, 470], [320, 505], [705, 500], [905, 470], [515, 545]];
+function cbWrap(x, t, X, Y, w, lh) { const W = t.split(' '); let l = '', n = 0; for (const s of W) { if (x.measureText(l + s).width > w && l) { x.fillText(l, X, Y + n * lh); n++; l = ''; } l += s + ' '; } x.fillText(l, X, Y + n * lh); }
+function cbDraw() {
+  const x = CB.x, W = 1024, H = 640; x.fillStyle = '#b08850'; x.fillRect(0, 0, W, H); for (let i = 0; i < 1400; i++) { x.fillStyle = i % 2 ? 'rgba(80,50,20,0.18)' : 'rgba(230,200,150,0.18)'; x.fillRect((i * 389) % W, (i * 241) % H, 2 + (i % 3), 2); }   // cork
+  const got = new Set(clueGot().map(c => c.id)), cx = 512, cy = 320;
+  // the middle card: the Norseman
+  x.save(); x.translate(cx, cy); x.rotate(-0.03); x.fillStyle = '#f2ead6'; x.fillRect(-150, -62, 300, 124); x.fillStyle = '#7a1c10'; x.font = 'bold 26px Georgia, serif'; x.textAlign = 'center'; x.fillText('NORSEMAN CF-GMR', 0, -22);
+  x.fillStyle = '#2a2418'; x.font = '18px Georgia, serif'; x.fillText('G. MACRAE - LAST MAIL RUN', 0, 8); x.fillText('NEVER FOUND', 0, 34); x.restore();
+  // red string from each found card to the middle
+  x.strokeStyle = '#b0201a'; x.lineWidth = 3; CLUES.forEach((c, i) => { if (!got.has(c.id)) return; const [sx, sy] = CB_SLOT[i]; x.beginPath(); x.moveTo(sx, sy - 40); x.quadraticCurveTo((sx + cx) / 2, (sy + cy) / 2 + 30, cx, cy - 58); x.stroke(); });
+  CLUES.forEach((c, i) => { const [sx, sy] = CB_SLOT[i], r = ((i * 37) % 9 - 4) * 0.012; x.save(); x.translate(sx, sy); x.rotate(r); x.textAlign = 'left';
+    if (got.has(c.id)) { x.fillStyle = 'rgba(0,0,0,0.25)'; x.fillRect(-82, -42, 170, 122); x.fillStyle = i < 2 ? '#e8dcc0' : c.id === 'glint' ? '#f4e6c8' : '#f6f0de'; x.fillRect(-86, -46, 170, 122);
+      x.fillStyle = '#7a1c10'; x.font = 'bold 15px Georgia, serif'; x.fillText(c.t, -78, -24); x.fillStyle = '#2a2418'; x.font = '13px Georgia, serif'; cbWrap(x, c.s, -78, -4, 156, 16); }
+    else { x.strokeStyle = 'rgba(60,40,20,0.35)'; x.lineWidth = 2; x.setLineDash([6, 5]); x.strokeRect(-86, -46, 170, 122); x.setLineDash([]); x.fillStyle = 'rgba(60,40,20,0.45)'; x.font = 'bold 40px Georgia, serif'; x.textAlign = 'center'; x.fillText('?', 0, 28); }
+    x.fillStyle = got.has(c.id) ? '#c02018' : '#806040'; x.beginPath(); x.arc(0, -40, 7, 0, 6.283); x.fill(); x.restore(); });   // the pin
+  x.textAlign = 'left'; x.fillStyle = '#2a1a0a'; x.font = 'bold 22px Georgia, serif'; x.fillText('CLUES ' + got.size + ' / ' + CLUES.length, 24, 34);
+  const nx = CLUES.find(c => !got.has(c.id)); x.font = 'italic 17px Georgia, serif'; x.fillText(nx ? 'Ask: ' + nx.hint : 'Everything points north.', 24, H - 18);
+  texDirty(CB.tex); }
+function clueFound(id, line) { const c = CLUES.find(q => q.id === id); if (!c) return; storyLog('Clue: ' + c.t.toLowerCase() + ' - ' + c.s); if (line) say(line); CB.key = ''; saveSoon(); }
+function cbTick(dt) { if (!STORY.on) return; const G = clueGot(), k = G.map(c => c.id).join(); if (CB.pend && (CB.pt -= dt) <= 0) { say(CB.pend); CB.pend = ''; }
+  if (k === CB.key) return; CB.key = k; cbDraw(); const n = G.length;
+  if (STORY.cl) { const nw = G.filter(c => !STORY.cl[c.id]); if (nw.length) { for (const c of nw) if (c.id !== 'glint') storyLog('Clue: ' + c.t.toLowerCase() + ' - ' + c.s);
+    CB.pend = 'NEW CLUE PINNED ON WALT\'S CORKBOARD: ' + nw[nw.length - 1].t + ' (' + n + ' OF ' + CLUES.length + ')'; CB.pt = nw.some(c => c.id.startsWith('g_')) ? 7 : 4; } }
+  STORY.cl = Object.fromEntries(G.map(c => [c.id, 1])); STORY.clueN = n;
+  if (n >= 6 && !STORY.said.north) { STORY.said.north = 1; storyLog('The corkboard says it plainly: everything points to the north ice.'); } }
+// ---- the journal: the clipboard's 6th page (newest first) ----
+function journalKbBody(x) { stPaper(x, KB_W, KB_H, '#f2ecd8'); x.fillStyle = '#2a2418'; x.font = 'bold 26px Georgia, serif'; x.textAlign = 'left'; x.fillText('JOURNAL', 22, 80);
+  x.font = '15px Georgia, serif'; x.fillStyle = '#6a5638'; x.fillText(storyDate() + ' (DAY ' + storyDay() + ') - CLUES ' + clueGot().length + '/' + CLUES.length + ' - FOUND ' + Object.keys(DISC.found).length, 22, 104);
+  let y = 136; x.font = '15px Georgia, serif'; for (const e of STORY.log.slice().reverse()) { if (y > KB_H - 30) break; x.fillStyle = '#8a6a40'; x.fillText('DAY ' + e.d, 22, y); x.fillStyle = '#2a2418'; const W = e.t.split(' '); let l = '', n = 0;
+    for (const s of W) { if (x.measureText(l + s).width > KB_W - 120 && l) { x.fillText(l, 92, y + n * 19); n++; l = ''; } l += s + ' '; } x.fillText(l, 92, y + n * 19); y += (n + 1) * 19 + 8; } }
+// ---- discoveries: the landmark hook (for the vistas module, and the v1.03 map's own places) ----
+// registerLandmark(id, { name, x, z, r = 250 (overflight radius, m), agl = 600 (max height over it to count), foot = 40, note, reward = 150 ($), rep: [stripId, +n], icon })
+// discoverLandmark(id, info?) -> true the first time: journal line, music stinger, the reward, a map sketch (v1.03); onDiscover(fn) for extra reactions.
+const DISC = { found: {}, reg: {}, hooks: [], t: 0, n: 0 };
+function registerLandmark(id, o = {}) { DISC.reg[id] = { id, name: o.name || id, x: +o.x, z: +o.z, r: o.r ?? 250, agl: o.agl ?? 600, foot: o.foot ?? 40, note: o.note || '', reward: o.reward ?? 150, rep: o.rep || null, icon: o.icon || 'star', quiet: !!o.quiet }; return DISC.reg[id]; }
+function onDiscover(fn) { DISC.hooks.push(fn); }
+function discoverLandmark(id, o = {}) {
+  if (!id || DISC.found[id]) return false; const R = { ...(DISC.reg[id] || { id, name: id, reward: 150, icon: 'star' }), ...o }; playerPos();
+  const x = isFinite(R.x) ? R.x : PP.x, z = isFinite(R.z) ? R.z : PP.z, rw = Math.max(0, R.reward ?? 150);
+  DISC.found[id] = { n: R.name || id, x: Math.round(x), z: Math.round(z), d: STORY.on ? storyDay() : 0, i: R.icon || 'star', note: R.note || '' }; DISC.n++;
+  if (rw) DLV.cash += rw; if (R.rep && DLV_STRIPS.some(S => S.id === R.rep[0])) repAdd(R.rep[0], R.rep[1]);
+  if (STORY.on) storyLog('Found ' + (R.name || id) + (R.note ? ' (' + R.note + ')' : '') + '.');
+  musStinger('discovery'); if (!R.quiet) say('DISCOVERED: ' + String(R.name || id).toUpperCase() + (rw ? ' +$' + rw : '') + ' - SKETCHED ON YOUR MAP');
+  MAP.key = ''; KB.key = ''; for (const f of DISC.hooks) { try { f(id, R); } catch (e) { console.warn('onDiscover', e); } } saveSoon(); return true; }
+window.discoverLandmark = discoverLandmark; window.registerLandmark = registerLandmark; window.onDiscover = onDiscover;
+const _dsC = new THREE.Vector3();
+function discTick(dt) { if ((DISC.t -= dt) > 0) return; DISC.t = 0.5; camera.getWorldPosition(_dsC); const agl = _dsC.y - groundY(_dsC.x, _dsC.z);
+  for (const id in DISC.reg) { if (DISC.found[id]) continue; const R = DISC.reg[id], d = hyp(_dsC.x - R.x, _dsC.z - R.z); if (mode === 'plane' ? d < R.r && agl < R.agl : d < R.foot) discoverLandmark(id); } }
+function discSave() { return { f: DISC.found }; }
+function discLoad(d) { DISC.found = d && d.f && typeof d.f === 'object' ? Object.fromEntries(Object.entries(d.f).filter(([, v]) => v && isFinite(v.x) && isFinite(v.z))) : {}; DISC.n = Object.keys(DISC.found).length; }
+function clueShow() { const on = STORY.on; CB.fr.visible = CB.m.visible = on; CB.key = '#'; STORY.cl = null; CB.pend = ''; }
 
 // ================= v0.45 save: where the Cub is parked, fuel, time of day, on foot or aboard. New key - older (v0.44 and before) saves are left alone and ignored =================
 const SAVE_KEY = 'bushpilot-vr-blank-v1', NOSAVE = /[?&]nosave\b/.test(location.search);
@@ -9225,7 +9317,7 @@ function cubParked() { return !ac.crashed && acGS() < 1 && ac.gs.some(g => g.Fn 
 function saveGame(why) {
   if (NOSAVE || SV.off) return false;
   if (cubParked()) SV.cub = { p: ac.pos.map(r3), q: ac.q.map(v => Math.round(v * 1e6) / 1e6) };
-  const d = { v: 55, at: Date.now(), cub: SV.cub, fuel: r3(fuel), h: r3(DAY.h), mode, foot: mode === 'foot' ? [r3(footRig.position.x), r3(footRig.position.z), r3(bodyYaw)] : null, dlv: dlvSave(), hunt: huntSave(), eco: ecoSave(), upg: upgSave(), emg: emgSave(), fish: fishSave(), story: storySave(), wx: wxSave(), meta: { cash: DLV.cash, loc: svPlace() } };   // v0.68.1 meta: the menu's slot label. v0.55 + the Cub's log (tach, oil, wear, damage)   // v0.53 + rifle / ammo   // v0.50: + wallet, jobs, cargo, straps
+  const d = { v: 55, at: Date.now(), cub: SV.cub, fuel: r3(fuel), h: r3(DAY.h), mode, foot: mode === 'foot' ? [r3(footRig.position.x), r3(footRig.position.z), r3(bodyYaw)] : null, dlv: dlvSave(), hunt: huntSave(), eco: ecoSave(), upg: upgSave(), emg: emgSave(), fish: fishSave(), story: storySave(), disc: discSave(), wx: wxSave(), meta: { cash: DLV.cash, loc: svPlace() } };   // v0.68.1 meta: the menu's slot label. v0.55 + the Cub's log (tach, oil, wear, damage)   // v0.53 + rifle / ammo   // v0.50: + wallet, jobs, cargo, straps
   try { localStorage.setItem(SAVE_KEY, JSON.stringify(d)); } catch (e) { return false; }
   SV.last = Date.now(); SV.n++; SV.why = why || ''; SV.t = 30; SV.due = -1; return true;
 }
@@ -9247,7 +9339,7 @@ function gameLoad() {
   if (d.mode === 'foot' && Array.isArray(d.foot) && d.foot.slice(0, 3).every(isFinite)) { exitPlane(); const [x, z, yaw] = d.foot; footRig.position.set(x, groundY(x, z) + EYE, z); footRig.rotation.set(0, yaw, 0); bodyYaw = yaw; }   // v0.59.1 checked (a damaged foot entry stopped the page loading)
   upgLoad(d.upg || null);   // v0.57 before the cargo (the pod)
   emgLoad(d.emg || null);   // v0.58 before the cargo (a patient aboard finds their job)
-  wxLoad(d.wx || null); dlvLoad(d.v >= 50 ? d.dlv : null); huntLoad(d.v >= 53 ? d.hunt : null); fishLoad(d.fish || null); storyLoad(d.story || null); dropLoadFix(); ecoLoad(d.v >= 55 ? d.eco : null); emgFix();   // v0.54 a save taken mid-drop: the last bundle down settles the job
+  wxLoad(d.wx || null); dlvLoad(d.v >= 50 ? d.dlv : null); huntLoad(d.v >= 53 ? d.hunt : null); fishLoad(d.fish || null); storyLoad(d.story || null); discLoad(d.disc || null); dropLoadFix(); ecoLoad(d.v >= 55 ? d.eco : null); emgFix();   // v0.54 a save taken mid-drop: the last bundle down settles the job
   msgT = 0; SV.last = d.at || 0; return true;
 }
 MYS_SITES.clear();   // the whole world is built now: clear trees and rocks off the strips and sites
@@ -9928,7 +10020,7 @@ renderer.setAnimationLoop(() => {
   } else if ((crashTimer += dt) > 2.5) resetFlight();
 
   plane.position.fromArray(ac.pos); plane.quaternion.fromArray(ac.q);
-  dlvTick(dt); wbWarn(dt); huntTick(dt, xr || HANDS.force); fishTick(dt, xr || HANDS.force); storyTick(dt); musTick(dt); trustTick(dt); dropTick(dt); ecoTick(dt); upgTick(dt); emgTick(dt);   // v0.53 rifle, deer, binoculars; v0.54 bundles in the air, the signal smoke   // v0.50 delivery: game clock, falling / loose cargo, job boards
+  dlvTick(dt); wbWarn(dt); huntTick(dt, xr || HANDS.force); fishTick(dt, xr || HANDS.force); storyTick(dt); cbTick(dt); glintTick(dt); discTick(dt); musTick(dt); trustTick(dt); dropTick(dt); ecoTick(dt); upgTick(dt); emgTick(dt);   // v0.53 rifle, deer, binoculars; v0.54 bundles in the air, the signal smoke   // v0.50 delivery: game clock, falling / loose cargo, job boards
   GV.update(dt); kitTick(dt); flxTick(dt);   // v0.20 gear legs / tyres / tail wheel (v0.90 + the gear kits)
   updateMap(); updateCockpitV19(dt);
   propTick(dt, ENG.rpm);

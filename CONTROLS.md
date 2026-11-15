@@ -118,6 +118,9 @@ v0.44 latches: every window and the door are latched while shut. Squeeze the han
 | Town trust (v1.00) | Walk up to a strip's board: its keeper greets you; fuel there is 5 / 10 / 15 % off at KNOWS YOU / TRUSTED / REGULAR | same |
 | Music (v1.00) | Settings > AUDIO > Music: OFF-100 % | same |
 | Free a snagged lure (v1.00.1) | Jerk the rod up sharply | Click (LMB) |
+| Walt's corkboard (v1.01) | Hangar back wall over his bench: the clues pinned up, red string, CLUES n / 10 | same |
+| Journal (v1.01) | Clipboard page 6, LOG | Hold the clipboard up (N), . to page 6 |
+| The glint on the north ice (v1.01) | From the Cub by day, a winking flash on the snow ~6 km NNW of Home: fly within ~230 m, below ~380 m AGL | same |
 
 ## On foot
 | | VR | Desktop |
