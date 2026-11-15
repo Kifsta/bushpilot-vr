@@ -132,6 +132,7 @@ v0.44 latches: every window and the door are latched while shut. Squeeze the han
 | Walking into rocks / cabins (v1.06.1) | On foot, the landmark crags, rock towers and cabin walls stop you (knee, waist and head height). If you're ever stuck inside one, just walk out | same |
 | Valley clouds over the hills (v1.06.1-2) | Nothing to press: valley cumulus lift clear of high ground (no more white wall at the Hidden Lake look-out) | same |
 | Time of day look (v1.07) | Settings > TIME OF DAY / day length as before: golden hour, sunset, blue hour and moonlight now have their own colours; the valleys hold the haze, the peaks stand clear | same |
+| Terrain look (v1.07.1) | Nothing to set: ragged snowline, banded rock and scree, varied forest stands, meadow patches and wet lake shores are part of every Ground style's VALLEY colours | same |
 
 ## On foot
 | | VR | Desktop |

@@ -607,7 +607,7 @@ const hyp = (a, b, c = 0) => Math.sqrt(a * a + b * b + c * c);   // v0.59 Math.h
 
 // ======================= RENDERING =======================
 // v0.35 settings (persist in localStorage 'bp_gfx'; ?gfx=shadows:2,grass:1 overrides for testing). Defaults = the v0.34 look and cost.
-const BP_VERSION = 'v1.07';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
+const BP_VERSION = 'v1.07.1';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
 { const e = document.getElementById('ver'); if (e) e.textContent = BP_VERSION; }
 const GFX_DEF = { shadows: 0, scale: 1, fov: 1, dist: 1, trees: 1, grass: 0, clouds: 1, fog: 1, msaa: 1, hz: 90, vig: 0, turn: 0, fps: 0, tod: 11, stk: 1, tips: 1, terr: 1, dyn: 1, glove: 0, hand: 0, wt: 1, volM: 1, volMu: 0.5, volE: 1, volA: 1, volF: 1, wx: 1, forest: 0, ground: 0, gtex: 0, cvl: 1, water: 1, dayl: 48, flure: 0, fline: 8, fdrag: 4, fbob: 0, fsink: 0 };   // v0.68.1 dominant hand, volumes. v0.48 BALANCED: 90 % scale, 72 Hz, fast terrain shading, auto resolution; v0.49.1 the stick stays where you let go of it
 const GFX = Object.assign({}, GFX_DEF);
@@ -794,13 +794,19 @@ function splitTiles(geo, tile) {   // non-indexed triangle soup -> one geometry 
       e2.set(q.getX(i + 2) - q.getX(i), q.getY(i + 2) - q.getY(i), q.getZ(i + 2) - q.getZ(i));
       const ny = Math.abs(n.crossVectors(e1, e2).normalize().y), j = 0.92 + 0.16 * rand();
       const snow = 930 + 110 * Math.sin(x * 0.0021 + z * 0.0013);
-      if (h > snow && ny > 0.55) cc.setRGB(0.93 * j, 0.95 * j, 0.98 * j);                    // snow
-      else if (ny < 0.74 || h > snow + 120) cc.setHSL(0.08, 0.06, 0.40 * j);                // grey rock faces
-      else if (ny < 0.93 || h > 130) cc.setHSL(0.30, 0.38, (h > 700 ? 0.21 : 0.17) * j);   // conifer forest slopes
-      else if (mountainMask(x, z) > 0.02 || nearMeadow(x, z, 120)) cc.setHSL(0.20, 0.40, 0.33 * j);   // upland meadow grass
+      // v1.07.1 terrain variety, all baked into the vertex colours at load (no runtime cost; the world's rand() stream is untouched - own value noise):
+      // ~150 m (nA) and ~50 m (nB) patches; a ragged snowline with snow streaks on the steep faces above it; banded, warmer / cooler rock and scree;
+      // forest stands that vary (yellow-green larch / aspen patches, darker spruce); meadow patches (drier, lusher, flowers); wet sand round the lakes.
+      const nA = vnoise(x * 0.0065, z * 0.0065), nB = vnoise(x * 0.021 + 17.3, z * 0.021 - 9.1), sl = snow - 75 * nB;
+      if (h > sl && ny > 0.55 - (h > snow + 80 && nB > 0.5 ? 0.12 : 0)) cc.setRGB(0.93 * j, 0.95 * j, 0.98 * j);   // snow
+      else if (ny < 0.74 || h > snow + 120) { if (ny > 0.69 && h < snow) cc.setHSL(0.09, 0.13, (0.35 + 0.05 * nB) * j);   // scree at the foot of the faces
+        else cc.setHSL(0.06 + 0.04 * nA, 0.05 + 0.06 * nB, (0.34 + 0.1 * nA + 0.035 * Math.sin(h * 0.045 + nB * 2)) * j); }   // banded rock
+      else if (ny < 0.93 || h > 130) cc.setHSL(0.31 - 0.07 * nA * nA, 0.34 + 0.14 * nB, (h > 700 ? 0.21 : 0.17) * (0.82 + 0.36 * nB) * (nA > 0.7 ? 1.15 : 1) * j);   // conifer forest slopes
+      else if (mountainMask(x, z) > 0.02 || nearMeadow(x, z, 120)) { if (nB > 0.8 && nA > 0.45) cc.setHSL(0.13, 0.5, 0.37 * j);   // flowers
+        else cc.setHSL(0.215 - 0.05 * nA, 0.36 + 0.1 * nB, 0.33 * (0.88 + 0.24 * nB) * j); }   // upland meadow grass
       else { const f = Math.abs(Math.floor(x / 260) * 73856093 ^ Math.floor(z / 220) * 19349663) % pal.length;   // valley patchwork fields
-        const hp = pal[f]; cc.setHSL(hp[0], hp[1], hp[2] * 1.1 * j); }
-      lakeBedCol(x, z, h, cc, j);   // v0.98 sand / stones / silt under the lakes
+        const hp = pal[f]; cc.setHSL(hp[0], hp[1], hp[2] * 1.1 * (0.94 + 0.12 * nB) * j); }
+      if (!lakeBedCol(x, z, h, cc, j)) lakeShoreCol(x, z, h, cc, j);   // v0.98 sand / stones / silt under the lakes; v1.07.1 a wet sand rim
       for (let k = 0; k < 3; k++) col.set([cc.r, cc.g, cc.b], (i + k) * 3);
     }
     geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
@@ -2897,6 +2903,8 @@ function lakeBedCol(x, z, h, cc, j) { for (const L of LAKES) { const dd = hyp(x 
     if (dep < 1.3) return cc.setHSL(0.11, 0.32, 0.43 * j);
     if (dep < 4.5) return r < 0.3 ? cc.setHSL(0.08, 0.06, 0.36 * j) : cc.setHSL(0.1, 0.24, 0.33 * j);
     return cc.setHSL(0.13, 0.2, 0.2 * j); } return null; }
+function lakeShoreCol(x, z, h, cc, j) { for (const L of LAKES) { const dd = hyp(x - L.x, z - L.z); if (dd > L.r + 14) continue; const up = h - (L.h - 0.2);   // v1.07.1 the wet sand rim just above the waterline
+    if (up < 0.9 && up > -0.2) return cc.setHSL(0.1, 0.26, (0.27 + 0.06 * clamp(up / 0.9, 0, 1)) * j); } return null; }
 const WTK = { t: 0 };
 function updateWater(dt) {   // river / lake animation, the water sound, and no floats on this Cub
   WATER.tick(dt); wtrLight();

@@ -2,6 +2,17 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v1.07.1 – terrain variety: rock, snowline, meadow patches, wet sand
+
+- **The ground has more variety.** It's all baked into the ground colours at load, so it costs nothing while you play. It uses its own noise, so the world's random sequence isn't touched: every tree, rock and height is exactly where it was (checked by a hash in t1071).
+  - **Snowline:** ragged instead of a clean contour, with snow streaks running down the steep faces above it.
+  - **Rock:** banded strata with warmer and cooler patches, and paler scree at the foot of the faces.
+  - **Forest slopes:** stands vary, from yellow-green larch and aspen patches to darker spruce.
+  - **Upland meadows:** drier and lusher patches, with the odd patch of yellow flowers.
+  - **Valley fields:** a gentle light and dark mottle inside each field.
+  - **Lakes:** a wet sand rim just above the waterline.
+- **Perf:** no change while you play; the ground's colours take a few ms longer to build at load.
+
 ## v1.07 – light and air: a colour script for the whole day, and height fog
 
 - **The day's colour script.** The sky, haze, sky light, ground bounce, sun and clouds now follow one set of colours keyed to how high the sun is.
