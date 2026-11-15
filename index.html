@@ -19,7 +19,7 @@
 </script>
 </head>
 <body>
-<div id="info">BUSH PILOT VR <span id="ver">v0.95</span> - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
+<div id="info">BUSH PILOT VR <span id="ver">v0.96</span> - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
 You start on foot by the Cub at the cabin strip. Walk up to her and climb in (F / Y), then start her up off the checklist card (J).
 Desktop - flying: W/S or arrows pitch, A/D or arrows roll, Q/E rudder, Shift / Ctrl (or + / -) throttle, B brakes, \ parking brake, [ ] flaps, PgUp / PgDn trim,
   R reset to the strip (cold and dark), F climb out, M map, L landing light, Home recentre, mouse looks (click to capture).
@@ -597,9 +597,9 @@ const hyp = (a, b, c = 0) => Math.sqrt(a * a + b * b + c * c);   // v0.59 Math.h
 
 // ======================= RENDERING =======================
 // v0.35 settings (persist in localStorage 'bp_gfx'; ?gfx=shadows:2,grass:1 overrides for testing). Defaults = the v0.34 look and cost.
-const BP_VERSION = 'v0.95';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
+const BP_VERSION = 'v0.96';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
 { const e = document.getElementById('ver'); if (e) e.textContent = BP_VERSION; }
-const GFX_DEF = { shadows: 0, scale: 1, fov: 1, dist: 1, trees: 1, grass: 0, clouds: 1, fog: 1, msaa: 1, hz: 90, vig: 0, turn: 0, fps: 0, tod: 11, stk: 1, tips: 1, terr: 1, dyn: 1, glove: 0, hand: 0, wt: 1, volM: 1, volE: 1, volA: 1, volF: 1, wx: 1, forest: 0, ground: 0, gtex: 0, cvl: 1 };   // v0.68.1 dominant hand, volumes. v0.48 BALANCED: 90 % scale, 72 Hz, fast terrain shading, auto resolution; v0.49.1 the stick stays where you let go of it
+const GFX_DEF = { shadows: 0, scale: 1, fov: 1, dist: 1, trees: 1, grass: 0, clouds: 1, fog: 1, msaa: 1, hz: 90, vig: 0, turn: 0, fps: 0, tod: 11, stk: 1, tips: 1, terr: 1, dyn: 1, glove: 0, hand: 0, wt: 1, volM: 1, volE: 1, volA: 1, volF: 1, wx: 1, forest: 0, ground: 0, gtex: 0, cvl: 1, dayl: 48 };   // v0.68.1 dominant hand, volumes. v0.48 BALANCED: 90 % scale, 72 Hz, fast terrain shading, auto resolution; v0.49.1 the stick stays where you let go of it
 const GFX = Object.assign({}, GFX_DEF);
 try { const o = JSON.parse(localStorage.getItem('bp_gfx') || '{}'); if ((o.v || 0) < 48) { if (o.scale === 1) delete o.scale; if (o.hz === 0) delete o.hz; }   // v0.48: saved copies of the old defaults (100 %, AUTO Hz) move to the new ones once
   if ((o.v || 0) < 49 && o.stk === 0) delete o.stk;
@@ -2483,7 +2483,7 @@ const hud = document.getElementById('hud'), cross = document.getElementById('cro
 function statusText() {
   const kt = (ac.out.V || 0) * 1.944, A = dlvActive(), nx = A.slice().sort((a, b) => (b.sp ? 1 : 0) - (a.sp ? 1 : 0) || dlvLeft(a) - dlvLeft(b))[0];   // v0.51: special cargo first (its meter shows)   // v0.50 wallet + the most urgent job
   return '$' + DLV.cash.toLocaleString('en-US') + (nx ? '  ' + A.length + ' JOB' + (A.length > 1 ? 'S' : '') + ' >' + dlvS(nx.to).name.replace(' STRIP', '') + (nx.sp ? dlvMeter(nx).replace(' - ', ' ').replace('DAMAGE', 'DMG') : nx.dl ? ' ' + Math.max(0, Math.ceil(dlvLeft(nx))) + 'M' : '') : '  NO JOBS') + '\n' + `FUEL ${(fuel / FUEL_MAX * 100).toFixed(0)}% ${(fuel / 3.785).toFixed(1)} GAL${UPG.tank ? ' +' + (UPG.aux / 3.785).toFixed(1) + ' AUX' : ''}${FUELP.on ? ' FILLING' : ''}\n` +
-    (mode === 'plane' ? `ENG ${ENG.running ? 'RUN ' + Math.round(ENG.rpm) : ENG.cranking ? 'CRANK' : 'OFF'}  ${Math.round(kt)} KT` : 'ON FOOT') + (ecoWarn() ? '\n' + ecoWarn() : '') + (msgT > 0 ? '\n' + msg : '') + (repLine() ? '\n' + repLine() : '');   // v0.55 maintenance warnings
+    (mode === 'plane' ? `ENG ${ENG.running ? 'RUN ' + Math.round(ENG.rpm) : ENG.cranking ? 'CRANK' : 'OFF'}  ${Math.round(kt)} KT` : 'ON FOOT') + '  ' + dayClock() + (ecoWarn() ? '\n' + ecoWarn() : '') + (msgT > 0 ? '\n' + msg : '') + (repLine() ? '\n' + repLine() : '');   // v0.55 maintenance warnings
 }
 let wristKey = '';
 function drawWrist() {   // v0.10: only re-uploads when something on it changed
@@ -3870,6 +3870,20 @@ const stars = (() => { const n = 700, p = new Float32Array(n * 3); let sd = 4242
   m.frustumCulled = false; m.visible = false; scene.add(m); return m; })();
 const moon = new THREE.Mesh(new THREE.CircleGeometry(150, 14), new THREE.MeshBasicMaterial({ color: 0xf2efe0, fog: false, transparent: true, opacity: 0, depthWrite: false }));
 moon.visible = false; scene.add(moon);
+const SUND = { hi: new THREE.Color(0xfff6dc) };   // v0.96 the sun's disc (it was only a light) and its halo; both drawn without fog, behind everything
+SUND.d = new THREE.Mesh(new THREE.CircleGeometry(95, 20), new THREE.MeshBasicMaterial({ color: 0xfff6dc, fog: false, transparent: true, opacity: 0, depthWrite: false }));
+SUND.h = new THREE.Mesh(new THREE.CircleGeometry(420, 24), new THREE.MeshBasicMaterial({ color: 0xffd8a0, fog: false, transparent: true, opacity: 0, depthWrite: false }));
+for (const m of [SUND.h, SUND.d]) { m.visible = false; m.renderOrder = -2; m.frustumCulled = false; m.userData.noBatch = true; scene.add(m); }
+// v0.96 sky dome: the fog colour up to ~13 deg (the far, fully hazed ridges still melt into it), darker / bluer overhead, and a warm glow round the low sun. Worked out per vertex
+// (48 x 24 dome: the gradient per vertex, only the sun's glow per pixel, a handful of ops): about the cost of the clear it covers.
+const SKYD = { z: new THREE.Color(), k: 0, ZD: new THREE.Color(0x4f86cf), ZK: new THREE.Color(0x34406e), ZN: new THREE.Color(0x03060f), G: new THREE.Color(0xff9a52) };
+SKYD.u = { uH: { value: new THREE.Color() }, uZ: { value: new THREE.Color() }, uS: { value: new THREE.Vector3(0, 1, 0) }, uG: { value: new THREE.Color() } };
+SKYD.m = new THREE.Mesh(new THREE.SphereGeometry(7000, 48, 24), new THREE.ShaderMaterial({ uniforms: SKYD.u, side: THREE.BackSide, depthWrite: false, depthTest: false, fog: false,
+  vertexShader: 'uniform vec3 uH, uZ; varying vec3 vC, vD;\nvoid main() { vec3 d = normalize(position); vD = d; vC = mix(uH, uZ, smoothstep(0.22, 0.85, max(d.y, 0.0)));\n  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+  fragmentShader: 'uniform vec3 uS, uG; varying vec3 vC, vD;\nvoid main() { vec3 d = normalize(vD); float s = max(dot(d, uS), 0.0); s *= s; s *= s;\n  gl_FragColor = vec4(vC + uG * s * (1.0 - 0.7 * max(d.y, 0.0)), 1.0);\n#include <colorspace_fragment>\n}' }));
+SKYD.m.renderOrder = -10;   // 7 km: inside the nearest far plane (7.3 km) - a 9 km dome lost a patch round the sun to far clipping
+ SKYD.m.frustumCulled = false; SKYD.m.userData.noBatch = true; SKYD.m.userData.noCast = true; scene.add(SKYD.m);
+SKYD.m.onBeforeRender = () => { SKYD.u.uH.value.copy(scene.background); SKYD.u.uZ.value.copy(SKYD.z); SKYD.u.uG.value.copy(SKYD.G).multiplyScalar(SKYD.k); };
 // max two dynamic lights, always in the scene (no shader recompiles): PL = lantern or cockpit panel glow, SL = torch or landing light
 const LIGHTS = { lit: false, torch: false, landing: false, pl: 2 };   // v0.43 pl: panel lights 0 off / 1 dim / 2 bright
 const PL = new THREE.PointLight(0xffc06a, 0, 16, 1.5); scene.add(PL);
@@ -3900,22 +3914,30 @@ const gearSw = new THREE.Group(); gearSw.position.copy(GEAR_SW); plane.add(gearS
 box(0.03, 0.02, 0.006, mat(0x1a2a4a), 0, 0, -0.004, gearSw); const gearTog = box(0.006, 0.006, 0.022, mat(0xd8d8d8), 0, 0, 0.008, gearSw); box(0.012, 0.012, 0.01, mat(0x2a5ad0), 0, 0, 0.02, gearTog);
 gearTog.rotation.x = 0.5;   // (down: as the landing light sits off)
 function gearSet(dn) { if (UPG.gk !== 'floats') return; ac.gdn = dn === undefined ? !ac.gdn : dn; sfx('click'); say(ac.gdn ? 'WHEELS DOWN - FOR LAND (NEVER ON THE WATER)' : 'WHEELS UP - FOR THE WATER (NEVER ON LAND)'); saveSoon(); }
-function updateDay(dt) {   // sun / sky / fog colour from the fixed time of day, plus the two dynamic lights
-  const a = (DAY.h - 6) / 13 * Math.PI, el = Math.sin(a);    // sunrise 06:00 east, sunset 19:00 west
+function dayAngle(h) { return h >= 6 && h <= 19 ? (h - 6) / 13 * Math.PI : Math.PI * (1 + (((h - 19) % 24 + 24) % 24) / 11); }   // v0.96 13 h of day (0..pi), 11 h of night (pi..2 pi): no jump at midnight
+function dayClock(h = DAY.h) { const m = Math.floor(((h % 24) + 24) % 24 * 60); return String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0'); }
+function updateDay(dt) {   // sun / sky / fog colour from the time of day, plus the two dynamic lights
+  if (GFX.dayl > 0 && dt > 0) DAY.h = (DAY.h + dt * 24 / (GFX.dayl * 60)) % 24;   // v0.96 the clock runs: a whole day + night in GFX.dayl real minutes
+  const a = dayAngle(DAY.h), el = Math.sin(a);    // sunrise 06:00 east, sunset 19:00 west
   sunDir.set(Math.cos(a), Math.max(el, -1), 0.35).normalize();
   TOD.day = clamp((el + 0.05) / 0.25, 0, 1); TOD.night = 1 - clamp((el + 0.25) / 0.2, 0, 1); TOD.dusk = DAY.h > 12 ? (1 - TOD.day) * (1 - TOD.night) + TOD.night * 0.3 : 0;
   const glow = (1 - TOD.day) * (1 - TOD.night);
   if (el > -0.05) _skc.copy(SKY_GLOW).lerp(SKY_DAY, clamp((el + 0.05) / 0.25, 0, 1)); else _skc.copy(SKY_NIGHT).lerp(SKY_GLOW, clamp((el + 0.25) / 0.2, 0, 1));
   scene.background.copy(_skc); scene.fog.color.copy(_skc);
+  SKYD.z.copy(SKYD.ZN).lerp(SKYD.ZK, clamp((el + 0.25) / 0.2, 0, 1)).lerp(SKYD.ZD, TOD.day); SKYD.k = 0.55 * (1 - TOD.day) * (1 - TOD.night) + 0.08 * TOD.day; SKYD.u.uS.value.copy(sunDir);   // v0.96 the dome
+  camera.getWorldPosition(SKYD.m.position);
   hemi.intensity = 0.2 + 1.0 * TOD.day + 0.15 * glow; hemi.color.copy(HEMI_NIGHT).lerp(HEMI_DAY, TOD.day);
   if (el > -0.05) { sun.color.copy(SUN_LOW).lerp(SUN_HI, clamp(el / 0.3, 0, 1)); sun.intensity = 2.0 * clamp((el + 0.05) / 0.3, 0, 1); sun.position.copy(sunDir).multiplyScalar(500); }
-  else { moonDir.set(-sunDir.x, 0.5 + 0.5 * TOD.night, -0.35).normalize(); sun.color.copy(MOON_C); sun.intensity = 0.35 * TOD.night; sun.position.copy(moonDir).multiplyScalar(500); }
+  else { moonDir.set(-sunDir.x, 0.15 - 0.85 * sunDir.y, -0.35).normalize(); sun.color.copy(MOON_C); sun.intensity = 0.35 * TOD.night; sun.position.copy(moonDir).multiplyScalar(500); }
   CLOUDS.im.material.emissive.setRGB(0.35, 0.4, 0.44).multiplyScalar(0.12 + 0.88 * TOD.day);
   CLOUDS.im.material.color.setRGB(1, 1, 1).lerp(SKY_GLOW, 0.45 * glow).multiplyScalar(0.25 + 0.75 * Math.max(TOD.day, glow));
   camera.getWorldPosition(_a);
   stars.visible = moon.visible = TOD.night > 0.02;
-  if (stars.visible) { stars.position.copy(_a); stars.material.opacity = TOD.night;
-    moonDir.set(-sunDir.x, 0.45, -0.5).normalize(); moon.position.copy(_a).addScaledVector(moonDir, 6500); moon.lookAt(_a); moon.material.opacity = TOD.night; }
+  if (stars.visible) { stars.position.copy(_a); stars.rotation.y = DAY.h / 24 * 6.283; stars.material.opacity = TOD.night;   // v0.96 the sky turns through the night
+    moonDir.set(-sunDir.x, 0.12 - 0.85 * sunDir.y, -0.5).normalize(); moon.position.copy(_a).addScaledVector(moonDir, 6500); moon.lookAt(_a); moon.material.opacity = TOD.night; }   // the moon rises opposite the sun
+  SUND.d.visible = SUND.h.visible = el > -0.08;   // v0.96 the sun disc + a soft halo (orange when low)
+  if (SUND.d.visible) { const lo = clamp(el / 0.35, 0, 1), f = clamp((el + 0.08) / 0.1, 0, 1); SUND.d.position.copy(_a).addScaledVector(sunDir, 6500); SUND.d.lookAt(_a); SUND.h.position.copy(SUND.d.position); SUND.h.quaternion.copy(SUND.d.quaternion);
+    SUND.d.material.color.copy(SUN_LOW).lerp(SUND.hi, lo); SUND.d.material.opacity = f; SUND.h.material.color.copy(SUN_LOW).lerp(SUND.hi, lo); SUND.h.material.opacity = f * (0.22 - 0.12 * lo); }
   // lights: panel glow (PANEL LT knob + master) and the landing light
   const dark = 1 - TOD.day;
   PL.intensity = 0; SL.intensity = 0;
@@ -8410,7 +8432,8 @@ const GFX_OPT = [   // key, label, values, value labels, note (shown small under
   ['hx', 'Haptics', null, null, 'controller buzz'],
   ['vig', 'Comfort vignette', [0, 1, 2], ['OFF', 'LIGHT', 'STRONG'], 'darkens edges as you move'],
   ['turn', 'Turning', [0, 1, 2], ['SNAP 30\u00b0', 'SNAP 45\u00b0', 'SMOOTH'], 'right stick'],
-  ['tod', 'Time of day', [8, 11, 14, 17, 19, 22], ['EARLY', 'MORNING', 'AFTERNOON', 'LATE', 'SUNSET', 'NIGHT'], 'fixed - the sun stays put'],
+  ['tod', 'Time of day', [8, 11, 14, 17, 19, 22], ['EARLY', 'MORNING', 'AFTERNOON', 'LATE', 'SUNSET', 'NIGHT'], 'sets the clock (it runs on unless FIXED)'],
+  ['dayl', 'Day length', [0, 24, 48, 96], ['FIXED', '24 MIN', '48 MIN', '96 MIN'], 'a full day + night, real minutes'],   // v0.96
   ['stk', 'Stick on release', [0, 1], ['CENTRES', 'STAYS'], 'VR: let go of the stick'],
   ['tips', 'Control labels', [0, 1], ['OFF', 'ON'], 'VR: name + state by your hand'],
   ['glove', 'Gloves', [0, 1, 2], ['SAGE', 'BLACK', 'TAN'], 'flying gloves'],
@@ -8701,7 +8724,7 @@ function wxTick(dt) {   // after updateDay (it sets the clear-sky colours and li
   const T = WX_S[WX.s], a = 1 - Math.exp(-dt / WX_TAU); for (const k of WX_K) WX.P[k] += (T[k] - WX.P[k]) * a;
   const on = GFX.wx > 0; for (const k of WX_K) WX.E[k] = on ? WX.P[k] : (k === 'vis' ? 1 : 0);
   const E = WX.E; frTick(dt, on && (!WX.forced || FR.force)); WX.vis = E.vis;   // v0.79 the rain fronts add their rain where they are
-  if (E.grey > 0.002) { _wxc.copy(WX_GREY).multiplyScalar(0.2 + 0.8 * Math.max(TOD.day, 0.3 * (1 - TOD.night))); scene.background.lerp(_wxc, E.grey); scene.fog.color.copy(scene.background); }
+  if (E.grey > 0.002) { _wxc.copy(WX_GREY).multiplyScalar(0.2 + 0.8 * Math.max(TOD.day, 0.3 * (1 - TOD.night))); scene.background.lerp(_wxc, E.grey); scene.fog.color.copy(scene.background); SKYD.z.lerp(_wxc, E.grey); SKYD.k *= 1 - E.grey; }
   if (E.dim > 0.002) { hemi.intensity *= 1 - E.dim * 0.7; sun.intensity *= 1 - E.dim; CLOUDS.im.material.color.multiplyScalar(1 - 0.35 * E.grey); CLOUDS.im.material.emissive.multiplyScalar(1 - 0.3 * E.grey); }
   CLOUDS.st.dy = E.low; wxMist(E.mist);
   RAIN.visible = E.rain > 0.03;
@@ -8767,7 +8790,7 @@ const SETP_ROW = i => ({ X: i < 10 ? 30 : 527, Y: 96 + (i % 10) * 48 });   // v0
 // v0.68.1 the MENU board: tabs along the top (RESUME, SAVE / LOAD, GRAPHICS, COMFORT, CONTROLS, AUDIO), big poke / point targets, CLOSE bottom right.
 // Poke with a fingertip or point either controller at it and pull the trigger. Desktop: the same board in a page overlay (Esc / F2), clicked with the mouse.
 const MENU_TABS = [['resume', 'RESUME'], ['save', 'SAVE / LOAD'], ['gfx', 'GRAPHICS'], ['comfort', 'COMFORT'], ['controls', 'CONTROLS'], ['audio', 'AUDIO']];
-const MENU_ROWS = { gfx: ['scale', 'fov', 'terr', 'ground', 'gtex', 'trees', 'forest', 'dist', 'clouds', 'fog', 'wx', 'shadows', 'grass', 'msaa', 'dyn', 'hz', 'fps', 'tod', 'glove', 'cvl'], comfort: ['vig', 'turn', 'stk', 'tips'], controls: ['hand', 'hx', 'wt'], audio: ['volM', 'volE', 'volA', 'volF'] };
+const MENU_ROWS = { gfx: ['scale', 'fov', 'terr', 'ground', 'gtex', 'trees', 'forest', 'dist', 'clouds', 'fog', 'wx', 'shadows', 'grass', 'msaa', 'dyn', 'hz', 'fps', 'tod', 'dayl', 'cvl'], comfort: ['vig', 'turn', 'stk', 'tips'], controls: ['hand', 'hx', 'wt', 'glove'], audio: ['volM', 'volE', 'volA', 'volF'] };
 const MENU_TAB = i => ({ X: 22 + i * 146, W: 140 });   // (v0.91.1 narrower: the version sits at the right of the tab row)
 const MENU_SLOT = n => 76 + (n - 1) * 128;   // a manual slot's box top (right column)
 const MENU_HELP = ['TRIGGER  fire / brake / next page', 'GRIP  grab (stick, throttle, knobs, cargo)', 'A / X  recentre + set height', 'B  reset flight (on the rifle: lever)', 'Y  climb in / out (left rifle: lever)',
@@ -8935,7 +8958,7 @@ if (GFX.ground) gsRun(GFX.ground);   // v0.86 a chosen Ground style is in place 
 if (GFX.gtex) gtRun(GFX.gtex);   // v0.87 likewise a chosen Ground texture
 for (const t of TOWN_MESH) cvlAdd(t.m, 'w');   // v0.95 the towns' / sites' merged meshes
 { vlTick(); for (const f of [true, false]) for (let c = 0; c < 4; c++) { vlApply(f); cvlApply(f); PL.visible = !!(c & 1); SL.visible = !!(c & 2); renderer.compile(scene, camera); } PL.visible = SL.visible = false; VL.key = ''; vlApply(); CVL.p = CVL.w = null; cvlApply(); for (const e of CVL.list) CVL.warm.add(e.vl); }   // v0.48: both terrain looks x each panel-glow / landing-light combination compiled at load (no hitch when one comes on)   // v0.47 LIGHTS_WARM: precompile the lit-cockpit / landing-light variants
-{ if (!GLOVE.gm[0]) gloveInit(); if (!MIST) wxMistBuild(); const W = [...GLOVE.gm, MIST.im, FLX.pts, FLX.rib, FLX.ring[0].m], vis = W.map(o => o.visible);   // v0.93 the gloves and the valley mist are made late (first hands / first mist): compiled here x each light combination, not on the first frame on foot or at the first rain front
+{ if (!GLOVE.gm[0]) gloveInit(); if (!MIST) wxMistBuild(); const W = [...GLOVE.gm, MIST.im, FLX.pts, FLX.rib, FLX.ring[0].m, stars, moon, SUND.d, SUND.h, SKYD.m], vis = W.map(o => o.visible);   // v0.93 the gloves and the valley mist are made late (first hands / first mist): compiled here x each light combination, not on the first frame on foot or at the first rain front
   W.forEach(o => o.visible = true); for (let c = 0; c < 4; c++) { PL.visible = !!(c & 1); SL.visible = !!(c & 2); for (const o of W) renderer.compile(o, camera, scene); }
   PL.visible = SL.visible = false; W.forEach((o, i) => o.visible = vis[i]); }
 renderer.setAnimationLoop(() => {

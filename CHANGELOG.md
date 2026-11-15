@@ -2,6 +2,28 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.96 – a full day and night: the clock runs, a sky that changes with the sun
+
+- **The clock runs.** New setting **Settings > GRAPHICS > Day length**: FIXED, 24 MIN, **48 MIN** (default) or 96 MIN for a whole day and night.
+  - At 48 MIN, one game hour takes 2 real minutes. The day (06:00–19:00) lasts 26 minutes and the night 22.
+  - **Time of day** now sets the clock, and the clock runs on from there unless Day length is FIXED. FIXED is the old behaviour.
+  - The save keeps the time, as before.
+- **The sun's path is smooth all round the clock:** 13 hours of day (sunrise 06:00 east, sunset 19:00 west) and 11 hours of night below the horizon.
+  - The old formula jumped at midnight; that never showed while the time was fixed.
+  - The moon rises opposite the sun and is high around midnight. Its light comes from where it is. The stars turn slowly through the night.
+- **A sky dome:**
+  - The fog colour up to about 13°, so the far hazed ridges still melt into it.
+  - Deeper blue overhead by day, and a dark indigo-to-near-black overhead at dusk and night.
+  - A warm glow around a low sun.
+  - The gradient is worked out per vertex (a 48 × 24 dome) and only the sun glow per pixel: one draw, a few ops per sky pixel. It's 7 km out, inside the nearest far plane; a 9 km dome lost a patch round the sun to far clipping.
+  - Weather greys it like the old sky colour.
+- **A sun disc** with a soft halo, orange when low and pale yellow high. It sets behind the hills (it is depth-tested).
+- **The time on the wrist** (line 3: `ENG RUN 2300  85 KT  14:05`).
+- **Gloves** moved from the GRAPHICS tab to CONTROLS to make room for Day length; no other row moved.
+- **Unchanged:** everything that already followed the time works with the moving clock. That covers the lights, the panel glow, the terrain's per-vertex light, shadows (re-aimed as the sun turns), birds by day, owls and crickets at night, and morning fog in the weather.
+- **Cost:** 3 draws (the dome, the sun and its halo; the moon and stars as before). There are no compiles through a whole day: the dome, sun, moon and stars are compiled at load, and t96 renders 48 times through 24 h with the same program count.
+- New test **t96** (7 checks). Shots: `qa-v096/grid-v096.png` (pre-dawn, dawn, morning, noon, late, sunset, dusk and night from the strip; sunrise, a low sun from 900 m and sunset, looking at the sun).
+
 ## v0.95 – simpler Cub and building light (per-vertex), with an A/B setting
 
 - **New setting: Settings > GRAPHICS > Cub + building light**, PER-VERTEX (default) or PER-PIXEL.

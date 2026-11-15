@@ -369,6 +369,8 @@ A customer stands at every job board. Walk up to them for a hello: their rep tie
 - Panel lights: the PANEL LT knob on the switch strip, far right (twist it, or press K). It needs the MASTER on.
 - Time of day is fixed, so there is no clock and no dusk to beat. Pick it in Settings → **Time of day** (EARLY / MORNING / AFTERNOON / LATE / SUNSET / NIGHT). A saved game keeps its time.
 
+- **Day and night (v0.96):** the clock runs. **Settings > Day length** is 24 / 48 (default) / 96 real minutes for a whole day and night, or FIXED. **Time of day** sets the clock. The time is on your wrist, after the speed.
+
 ## Menu (v0.68.1)
 - **Open it:** in VR, turn your watch wrist to your face and poke the gold MENU button. On desktop, press **Esc** (or **F2**); letting go of mouse-look with Esc opens it too. Close it with CLOSE, RESUME, MENU again, or Esc.
 - **Pointing:** poke the board with your dominant index finger, or point a controller at it (an orange dot shows where) and pull the trigger. The rifle doesn't fire while the menu is open. On desktop, click.
