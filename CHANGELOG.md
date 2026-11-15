@@ -2,6 +2,29 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.93 – 90 Hz by default; auto quality drops detail before sharpness; no shader compiles on foot or in mist
+
+- **Defaults are now 100 % render scale at 90 Hz** (were 90 % at 72 Hz). A saved copy of the old BALANCED defaults (90 % / 72 Hz) moves to the new ones once. A scale or rate you choose after v0.93 sticks.
+- **Presets:** all three now run at 90 Hz. PERFORMANCE is 80 % (was 70 %), BALANCED is 100 %, and QUALITY is 120 % (was 100 %).
+- **Auto resolution is now Auto quality** (Settings > GRAPHICS, default ON). When frames run over budget it gives up detail before sharpness. It has 6 steps (was 4):
+  1. forest 80 % and forest detail distance 85 %, with foveation HIGH;
+  2. forest 60 % / 70 %, and the shadow map refreshes every 2nd frame (with Shadows on);
+  3. only now the eye viewport shrinks: 90 %;
+  4. 80 %, with shadows every 3rd frame;
+  5. 70 %.
+  
+  It steps back up the same way as before. PERF line 3 shows the step, the view %, the forest % / distance %, and the shadow rate.
+- **No mid-flight shader compiles.** A tour of the game (on foot, cockpit, panel and landing lights, forest MIXED / 2D, town, rain front, rifle) used to compile 3 programs while playing:
+  - the gloves on the first frames you're on foot, and again when the panel / landing lights first came on;
+  - the valley mist at the first rain front.
+  
+  The gloves and the mist are now made and compiled at load, with every light combination. The tour now compiles 0.
+- Physics md5 unchanged.
+- Tests:
+  - new **t93**: gloves and mist made at load, no new programs with gloves / lights / mist, the shadow-rate rule, and the defaults;
+  - **t48** updated for the new defaults, presets and steps, plus the v0.93 migration;
+  - **t491** accepts the newer save version.
+
 ## v0.92.1 – 2D trees without the shimmer
 
 - **2D tree sprites (Trees MIXED / 2D ONLY)** no longer crawl and shimmer at their edges. There were two causes:
