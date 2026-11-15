@@ -319,6 +319,8 @@ Parts are sold on the **PARTS** board on the home hangar wall, next to the servi
   - You can't step out into deep water. Taxi in until the floats are on the sand (beach it) and wade ashore.
   - Three float sites come up as jobs once you own the floats: **East Lake Cove** (Fishing Lodge), **NW Lake West** (Canoe Outfitter) and **Caribou Reach** on the river (River Guides).
 - **Wheel-skis:** +55 lb and about 4 mph slower. The tyres poke through the skis: on hard ground you roll on the wheels as usual, and on snow you slide on the skis, with lower friction and no brakes, so plan the roll-out. Two ski strips come up as jobs once you own the skis: **North Icefield** (Glacier Survey, flat, 1040 m) and **West Glacier** (Heli-Ski Hut, 5% slope: land uphill).
+- **Water and snow effects (v0.94):** on the floats you get spray off the bows, a bow wake that spreads into a V, and a hiss of water that rises with speed. A water touchdown gives a splash and a ripple ring. On the skis you get snow puffs, ski tracks that stay for about 2.5 minutes, a hiss while sliding, and a soft whump on touchdown. These are looks and sound only.
+- **Float jobs (v0.94):** the float sites ask for lodge boat motors and groceries on ice, paddles and canoe repair kits, and river guides' coolers and raft spares. Lake hops between two float sites carry fresh fish on ice or guests' gear.
 - Every part's weight shows on the W&B card. With nothing fitted, the Cub flies exactly as stock.
 
 ## Townsfolk and emergencies (v0.58)

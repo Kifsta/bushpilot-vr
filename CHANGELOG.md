@@ -2,6 +2,35 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.94 – spray, wake and ripples on the floats; snow puffs and ski tracks; float jobs
+
+Looks and sounds only: nothing here feeds the physics (md5 unchanged), and nothing changes on the stock wheels.
+- **Floats on the water:**
+  - **Spray** comes off the forward-most wet point of each float, scaled by speed. It is heaviest through the hump (3–9 m/s), before she gets up on the step.
+  - A **bow wake** trails each float. The two arms spread out into a V as they age and fade over 5 s.
+  - **Touchdown on the water** (over 6 m/s): a burst of spray along both floats, a spreading **ripple ring**, and a splash sound. A harder sink rate gives a bigger burst.
+  - A rush-of-water **hiss** rises with speed. Tyre rumble is muted on the water.
+- **Skis on snow:**
+  - **Snow puffs** kick up off each ski, scaled by speed.
+  - **Ski tracks** stay in the snow for about 2.5 minutes, then fade.
+  - Touchdown on snow gives a puff burst and a soft **whump**.
+  - A high **hiss** while sliding. Tyre rumble is softer on snow.
+- **New float jobs** at the three float sites:
+  - **East Lake Cove (Fishing Lodge):** boat motor + fuel, kitchen groceries on ice.
+  - **NW Lake West (Canoe Outfitter):** paddles + dry bags, canoe repair kit.
+  - **Caribou Reach (River Guides):** coolers + first aid, raft pump + spares.
+  - **Lake hops between float sites:** fresh fish on ice, guests' gear.
+  - Each job's pick is fixed by its id, so it doesn't change on reload.
+- **How it's drawn:**
+  - All particles go into one pooled Points draw (256) on the existing smoke-sprite material, so there's no new shader.
+  - The wake and tracks are one pooled ribbon mesh (4 × 96 segments).
+  - There are 3 ring meshes, drawn only while they spread.
+  - No garbage per frame, and the meshes are prewarmed at load (no mid-flight compile).
+  - Nothing new is emitted when you are more than 600 m from the Cub.
+  - **Cost:** flxTick averages 0.035 ms; at most 5 extra draws while effects show, 0 otherwise.
+- **Fix:** the rifle's muzzle-flash sprite is compiled as soon as the rifle model loads. The GLB can land after the load-time prewarm, and one tour run caught a shader compile on the first shot. The tour now shows 0 mid-flight compiles over 3 runs, with 153 programs, all at load.
+- New test **t94** (11 checks). Shots: `qa-v094/grid-v094.png` (float side / rear / low front / above, touchdown side / high, ski side / rear / above).
+
 ## v0.93.2 – crisp signs and labels at a slant
 
 - **4x anisotropic filtering by default** (`THREE.Texture.DEFAULT_ANISOTROPY = 4`) for every texture that doesn't set its own. 87 textures were 1x before: the strip / bridge / town signs, building and board labels, placards and paper. Their text now stays readable at a slant instead of smearing. Textures that already chose a level keep it: the ground tiles (2x / 4x by Terrain shading), the 2D trees (4x), and the boards at 8x / 16x.

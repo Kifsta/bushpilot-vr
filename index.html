@@ -19,7 +19,7 @@
 </script>
 </head>
 <body>
-<div id="info">BUSH PILOT VR <span id="ver">v0.93.2</span> - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
+<div id="info">BUSH PILOT VR <span id="ver">v0.94</span> - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
 You start on foot by the Cub at the cabin strip. Walk up to her and climb in (F / Y), then start her up off the checklist card (J).
 Desktop - flying: W/S or arrows pitch, A/D or arrows roll, Q/E rudder, Shift / Ctrl (or + / -) throttle, B brakes, \ parking brake, [ ] flaps, PgUp / PgDn trim,
   R reset to the strip (cold and dark), F climb out, M map, L landing light, Home recentre, mouse looks (click to capture).
@@ -597,7 +597,7 @@ const hyp = (a, b, c = 0) => Math.sqrt(a * a + b * b + c * c);   // v0.59 Math.h
 
 // ======================= RENDERING =======================
 // v0.35 settings (persist in localStorage 'bp_gfx'; ?gfx=shadows:2,grass:1 overrides for testing). Defaults = the v0.34 look and cost.
-const BP_VERSION = 'v0.93.2';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
+const BP_VERSION = 'v0.94';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
 { const e = document.getElementById('ver'); if (e) e.textContent = BP_VERSION; }
 const GFX_DEF = { shadows: 0, scale: 1, fov: 1, dist: 1, trees: 1, grass: 0, clouds: 1, fog: 1, msaa: 1, hz: 90, vig: 0, turn: 0, fps: 0, tod: 11, stk: 1, tips: 1, terr: 1, dyn: 1, glove: 0, hand: 0, wt: 1, volM: 1, volE: 1, volA: 1, volF: 1, wx: 1, forest: 0, ground: 0, gtex: 0 };   // v0.68.1 dominant hand, volumes. v0.48 BALANCED: 90 % scale, 72 Hz, fast terrain shading, auto resolution; v0.49.1 the stick stays where you let go of it
 const GFX = Object.assign({}, GFX_DEF);
@@ -1941,6 +1941,8 @@ function audioGraph() {
   const cr = A.createOscillator(); cr.frequency.value = 4300; const crAM = gain(0), crL = A.createOscillator(); crL.type = 'square'; crL.frequency.value = 26;
   const crP = A.createOscillator(); crP.type = 'square'; crP.frequency.value = 1.7; const crPg = gain(0.5);
   crL.connect(crAM.gain); crP.connect(crPg).connect(crAM.gain); cr.connect(crAM); SND.crG = gain(0); crAM.connect(SND.crG).connect(SND.amb); cr.start(); crL.start(); crP.start();
+  SND.hissW = gain(0); loopNoise().connect(filt('bandpass', 950, 0.6)).connect(filt('lowpass', 2600, 0.5)).connect(SND.hissW).connect(SND.eng);   // v0.94 the floats' rush of water
+  SND.hissS = gain(0); loopNoise().connect(filt('highpass', 2600, 0.5)).connect(SND.hissS).connect(SND.eng);   // v0.94 skis hissing on snow
   SND.waterG = gain(0); const wf = filt('bandpass', 700, 0.9); loopNoise().connect(wf).connect(SND.waterG).connect(SND.amb);
   SND.rainG = gain(0); SND.rainLP = filt('lowpass', 7000, 0.5); loopNoise().connect(filt('highpass', 1400, 0.4)).connect(SND.rainLP).connect(SND.rainG).connect(SND.amb);   // v0.75 rain hiss (the weather sets it); v0.83 duller inside the cabin
   const noiseR = () => { const n = A.createBufferSource(); n.buffer = nb; n.loop = true; n.start(0, Math.random() * 1.9); return n; };   // v0.83 a loop from a random offset (not in step with the others)
@@ -2071,6 +2073,8 @@ function sfx(kind, pos, delay = 0) {
   else if (kind === 'owl') { for (const [at, len] of [[0, 0.35], [0.55, 0.18], [0.78, 0.5]]) tone('sine', 400, 360, len, 0.5, at); }
   else if (kind === 'clack') { burst(0.04, 1, 0.35, 'highpass', 1800); burst(0.05, 1, 0.4, 'bandpass', 1200, 0.14); }
   else if (kind === 'leaf') burst(0.15, 1, 0.25, 'highpass', 3500);
+  else if (kind === 'splash') { burst(0.7, 1, 0.55, 'lowpass', 900); burst(0.35, 1, 0.3, 'highpass', 2400, 0.03); burst(0.9, 1, 0.18, 'bandpass', 1500, 0.15); }   // v0.94 floats touching down
+  else if (kind === 'whump') { burst(0.45, 1, 0.5, 'lowpass', 300); burst(0.5, 1, 0.12, 'highpass', 3200, 0.05); }   // v0.94 skis onto snow
   else if (kind === 'tick') ping(1500, 0.035, 0.05);                                   // subtle hit confirm
   else if (kind === 'click') burst(0.03, 1, 0.25, 'highpass', 2500);
   else if (kind === 'clunk') { burst(0.05, 1, 0.5, 'lowpass', 700); ping(190, 0.07, 0.18, 0, 'triangle'); burst(0.018, 1, 0.28, 'bandpass', 2600); }   // v0.42 flap detent
@@ -2124,7 +2128,8 @@ function updateAudio(dt) {
   const inPlane = mode === 'plane', V = o.V || 0;
   SND.windBP.frequency.setTargetAtTime(250 + V * 22, t, 0.2);
   SND.windG.gain.setTargetAtTime(inPlane ? Math.min(0.2, (V / 48) ** 2 * 0.16) + WIN.open * Math.min(0.14, ((V + ENG.rpm / 2300 * 22) / 48) ** 2 * 0.22) : 0, t, 0.2);   // v0.19: louder with windows open (incl. prop wash)
-  SND.rumbG.gain.setTargetAtTime(inPlane && o.wow ? Math.min(1, V / 12) * 0.3 : 0, t, 0.05);
+  SND.rumbG.gain.setTargetAtTime(inPlane && o.wow && !FLX.wet ? Math.min(1, V / 12) * (FLX.snow ? 0.12 : 0.3) : 0, t, 0.05);   // v0.94 no tyre rumble on the water, softer on snow
+  { const k = clamp(1 - hyp(_lp.x - ac.pos[0], _lp.z - ac.pos[2]) / 150, 0, 1) * (inPlane ? 1 : 0.6); SND.hissW.gain.setTargetAtTime(FLX.wet ? k * Math.min(0.22, 0.03 + FLX.V / 22 * 0.19) : 0, t, 0.08); SND.hissS.gain.setTargetAtTime(FLX.snow ? k * Math.min(0.12, FLX.V / 30 * 0.12) : 0, t, 0.08); }
   const aStall = C.ALPHA_STALL - C.FLAP_DALPHA * Math.sin((o.flap || 0) * Math.PI / 180) / Math.sin(50 * Math.PI / 180);
   SND.hornG.gain.setTargetAtTime(inPlane && !o.wow && V > 5 && o.alpha > aStall - 0.035 ? 0.06 : 0, t, 0.03);   // horn ~2 deg before the break
   engAudio(dt, t, rpm, pn, inPlane);   // v0.83
@@ -5510,13 +5515,21 @@ function jbLocked(S) {   // the Halvorsen board before Dry Fork vouches for you
 }
 // ---- contracts ----
 function dlvRng(n) { let s = (n * 2654435761) >>> 0 || 1; return () => { s = (s + 0x6D2B79F5) | 0; let t = Math.imul(s ^ (s >>> 15), 1 | s); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+// v0.94 float work: the float sites' customers have their own jobs, and a float site's board offers lake hops to the others (its own seed: no other job changes)
+const FLOAT_J = { ELCOVE: [['LODGE BOAT MOTOR + FUEL', ['outboard', 'fuel']], ['LODGE KITCHEN: GROCERIES ON ICE', ['cooler', 'crate']]], NWWEST: [['PADDLES + DRY BAGS', ['bundle', 'sack']], ['CANOE REPAIR KIT', ['crate', 'parcel']]],
+  CARIBOU: [['RIVER GUIDES: COOLERS + FIRST AID', ['cooler', 'medkit']], ['RAFT PUMP + SPARES', ['crate', 'sack']]] };
+const FLOAT_HOP = [['LAKE HOP: FRESH FISH ON ICE', ['cooler', 'cooler']], ['LAKE HOP: GUESTS\' GEAR', ['bundle', 'bundle']]];
+function floatJob(id, fS, to) {
+  if (!to.B || to.B.kit !== 'floats' || !FLOAT_J[to.id]) return null; const r = dlvRng(id * 2246822519 + 17);
+  if (fS && fS.B && fS.B.kit === 'floats' && r() < 0.5) return FLOAT_HOP[Math.floor(r() * FLOAT_HOP.length)];
+  const L = FLOAT_J[to.id]; return L[Math.floor(r() * L.length)]; }
 function dlvGen(from, forceH) { return repShape(dlvGen0(from, forceH)); }   // v0.56 priced by rep
 function dlvGen0(from, forceH) {   // one offer from this strip (seeded by the running job number, so a save reloads the same board); forceH: heavy freight
   const id = DLV.seq++; { const rh = dlvRng(id * 49979687 + 11); if (!forceH && rh() < HUNT_P) return huntGen(id, from, rh); }   // v0.53
   { const ra = dlvRng(id * 86028121 + 5); if (!forceH && ra() < DROP_P) return dropGen(id, from, ra); }   // v0.54 airdrops
   const r = dlvRng(id * 7919 + 13), fS = dlvS(from), others = DLV_STRIPS.filter(S => S.id !== from && !S.lock && !(S.B && S.B.kit && !(UPG.kown && UPG.kown[S.B.kit]))), bush = others.filter(S => S.site), main = others.filter(S => !S.site);
   const pool = bush.length && r() < (fS && fS.site ? 0.25 : 0.5) ? bush : main, to = pool[Math.floor(r() * pool.length)], bx = to.site || (fS && fS.site) ? 1.2 + 0.2 * Math.max(to.B?.diff || 0, fS?.B?.diff || 0) : 1;   // v0.52 bush sites (v0.77 + the tricky ones' difficulty)
-  const pick = DLV_T[Math.floor(r() * DLV_T.length)], hk = to.B && to.B.hook, [title, kinds] = hk ? [hk.t, hk.k] : pick, items = dlvCapL(kinds.map(k => { const [a, b] = CARGO_K[k].lb; return { k, lb: Math.round(a + r() * (b - a)) }; }));
+  const pick = DLV_T[Math.floor(r() * DLV_T.length)], hk = to.B && to.B.hook, fj = !hk && floatJob(id, fS, to), [title, kinds] = hk ? [hk.t, hk.k] : fj || pick, items = dlvCapL(kinds.map(k => { const [a, b] = CARGO_K[k].lb; return { k, lb: Math.round(a + r() * (b - a)) }; }));
   const lb = items.reduce((s, i) => s + i.lb, 0), km = dlvKm(dlvS(from), to), dl = r() < 0.45 ? Math.ceil(6 + km * 1.5) : 0;
   const r2 = dlvRng(id * 104729 + 7), r3 = dlvRng(id * 15485863 + 3), spc = r2() < 0.35;
   if (forceH || (!spc && r3() < DLV_HP)) {   // v0.52 heavy freight: more per trip (and per km), deadlines rarer
@@ -6358,7 +6371,8 @@ function rflBuild44() {   // v0.84.4 the v0.44-full carbine (Neil's reference pr
   { const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'), gr = x.createRadialGradient(32, 32, 0, 32, 32, 32);   // muzzle flash: additive sprite, no light
     gr.addColorStop(0, 'rgba(255,250,220,1)'); gr.addColorStop(0.25, 'rgba(255,200,90,0.9)'); gr.addColorStop(1, 'rgba(255,120,20,0)'); x.fillStyle = gr; x.fillRect(0, 0, 64, 64);
     RFL.flash = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, fog: false }));
-    RFL.flash.scale.set(0.26, 0.26, 1); RFL.flash.position.set(0, 0, -0.07); RFL.flash.visible = false; RFL.flash.userData.noBatch = true; RFL.muzzle.add(RFL.flash); }
+    RFL.flash.scale.set(0.26, 0.26, 1); RFL.flash.position.set(0, 0, -0.07); RFL.flash.userData.noBatch = true; RFL.muzzle.add(RFL.flash);
+    { const pv = PL.visible, sv = SL.visible; for (let c = 0; c < 4; c++) { PL.visible = !!(c & 1); SL.visible = !!(c & 2); renderer.compile(RFL.flash, camera, scene); } PL.visible = pv; SL.visible = sv; RFL.flash.visible = false; } }   // v0.94 the GLB can land after the load-time prewarm: compile the flash now, not at the first shot
   RFL.feed = rndMesh(); RFL.feed.visible = false; g.add(RFL.feed);
   HUNT.rifleOk = true; HUNT.ms = Math.round(performance.now() - HUNT.t0); rflPut(RFL.place);
 }
@@ -6543,6 +6557,84 @@ const FX = {
                      emit(4, p, 0x420606, { v: _fv.set(d.x * 0.8, 0.2, d.z * 0.8), rnd: 0.4, s0: 0.05, s1: 0.13, life: 0.5, drag: 4, grav: 0.5 }); },
   smoke: (p, d) => puff(3, p, d, SMOKE.muzzle),
 };
+// ---- v0.94 float + ski effects (look and sound only: nothing here feeds the physics). Spray / snow puffs: one Points draw on the smoke sprite's material (no new shader);
+// bow wake + ski tracks: one ribbon mesh; touchdown ripples: 3 rings, drawn only while they spread. Everything is pooled: no garbage per frame.
+const FLX = { N: 256, SEG: 96, EM: 4, ring: [], prevWet: false, prevSnow: false, sink: 0, emAcc: [0, 0, 0, 0], last: [null, null, null, null], run: [0, 0, 0, 0], runN: 1, tT: 0, wakeT: -99, rT: 0, dirty: false, live: 0, n: { spray: 0, puff: 0, ring: 0, wake: 0, ski: 0, splash: 0 } };
+FLX.pos = new Float32Array(FLX.N * 3); FLX.col = new Float32Array(FLX.N * 4); FLX.size = new Float32Array(FLX.N);
+FLX.P = Array.from({ length: FLX.N }, () => ({ t: 0, life: 0, p: GV3(0, 0, 0), v: GV3(0, 0, 0), s0: 0, s1: 0, a: 0, g: 0, drag: 0, c: 1 })); FLX.i = 0;
+for (let i = 0; i < FLX.N; i++) FLX.pos[i * 3 + 1] = -1e4;
+{ const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(FLX.pos, 3).setUsage(THREE.DynamicDrawUsage)); g.setAttribute('color', new THREE.BufferAttribute(FLX.col, 4).setUsage(THREE.DynamicDrawUsage)); g.setAttribute('psize', new THREE.BufferAttribute(FLX.size, 1).setUsage(THREE.DynamicDrawUsage));
+  FLX.pts = new THREE.Points(g, smMat); FLX.pts.frustumCulled = false; FLX.pts.renderOrder = 5; FLX.pts.visible = false; FLX.pts.userData.noBatch = true; scene.add(FLX.pts); }
+// ribbon: per emitter (0 / 1 = left / right float wake, 2 / 3 = left / right ski) a ring of SEG points; each point draws the quad back to the one before it in its run
+FLX.S = Array.from({ length: FLX.EM * FLX.SEG }, () => ({ x: 0, y: 0, z: 0, ox: 0, oz: 0, sp: 0, t: -1, run: 0 })); FLX.si = [0, 0, 0, 0];
+{ const n = FLX.EM * FLX.SEG, g = new THREE.BufferGeometry(), idx = new Uint16Array(n * 6);
+  for (let k = 0; k < n; k++) { const b = k * 4; idx.set([b, b + 1, b + 2, b + 2, b + 1, b + 3], k * 6); }
+  FLX.rp = new Float32Array(n * 12); FLX.rc = new Float32Array(n * 16);
+  g.setAttribute('position', new THREE.BufferAttribute(FLX.rp, 3).setUsage(THREE.DynamicDrawUsage)); g.setAttribute('color', new THREE.BufferAttribute(FLX.rc, 4).setUsage(THREE.DynamicDrawUsage)); g.setIndex(new THREE.BufferAttribute(idx, 1));
+  const m = new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, depthWrite: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -8, polygonOffsetUnits: -8 });
+  FLX.rib = new THREE.Mesh(g, m); FLX.rib.frustumCulled = false; FLX.rib.renderOrder = 3; FLX.rib.visible = false; FLX.rib.userData.noBatch = true; FLX.rib.userData.noCast = true; scene.add(FLX.rib); }
+{ const rg = new THREE.RingGeometry(0.86, 1, 40).rotateX(-Math.PI / 2);
+  for (let i = 0; i < 3; i++) { const m = new THREE.Mesh(rg, new THREE.MeshBasicMaterial({ color: 0xe8f0f2, transparent: true, opacity: 0, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -8, polygonOffsetUnits: -8 }));
+    m.visible = false; m.frustumCulled = false; m.renderOrder = 3; m.userData.noBatch = true; m.userData.noCast = true; scene.add(m); FLX.ring.push({ m, t: 0, life: 0, r0: 2 }); } }
+const _flQ = new THREE.Quaternion(), _flP = GV3(0, 0, 0), _flF = GV3(0, 0, 0), _flS = GV3(0, 0, 0), _flC = GV3(0, 0, 0);
+function flxEmit(p, vx, vy, vz, rnd, s0, s1, life, a, g, drag, c) {   // one pooled particle (the oldest goes)
+  const q = FLX.P[FLX.i]; FLX.i = (FLX.i + 1) % FLX.N; q.t = 0; q.life = life * (0.75 + Math.random() * 0.5); q.p.copy(p);
+  q.v.set(vx + (Math.random() - 0.5) * 2 * rnd, vy + Math.random() * rnd, vz + (Math.random() - 0.5) * 2 * rnd); q.s0 = s0 * (0.7 + Math.random() * 0.6); q.s1 = s1 * (0.7 + Math.random() * 0.6); q.a = a; q.g = g; q.drag = drag; q.c = c;
+  FLX.live = 3; FLX.pts.visible = true; }
+function flxRing(x, y, z, r0) { let R = FLX.ring[0]; for (const o of FLX.ring) if (o.life <= 0 || o.t / o.life > R.t / R.life) R = o; R.t = 0; R.life = 3.2; R.r0 = r0; R.m.position.set(x, y + 0.13, z); R.m.visible = true; FLX.n.ring++; }
+function flxSeg(e, x, y, z, ox, oz, sp) {   // a new ribbon point for emitter e (joined to the last one while the run lasts)
+  const s = FLX.S[e * FLX.SEG + FLX.si[e]]; FLX.si[e] = (FLX.si[e] + 1) % FLX.SEG; s.x = x; s.y = y; s.z = z; s.ox = ox; s.oz = oz; s.sp = sp; s.t = FLX.tT; if (e < 2) FLX.wakeT = FLX.tT; s.run = FLX.run[e]; FLX.dirty = true; }
+function flxRibbon() {   // rebuild the ribbon (only while something on it is alive)
+  const P = FLX.rp, Cc = FLX.rc, T = FLX.tT; let any = false;
+  for (let e = 0; e < FLX.EM; e++) { const wake = e < 2, base = e * FLX.SEG, life = wake ? 5 : 150;
+    for (let k = 0; k < FLX.SEG; k++) { const i = base + k, s = FLX.S[i], pr = FLX.S[base + (k + FLX.SEG - 1) % FLX.SEG], o = i * 12, oc = i * 16;
+      const age = T - s.t, pa = T - pr.t; if (s.t < 0 || pr.t < 0 || pr.run !== s.run || age > life || pa > life || k === FLX.si[e] || pa < age) { P.fill(0, o, o + 12); Cc.fill(0, oc, oc + 16); continue; } any = true;
+      const seg = (q, ag, j) => { const w = wake ? 0.25 + ag * 0.32 : 0.15, d = wake ? q.sp * ag : 0, x = q.x + q.ox * d, z = q.z + q.oz * d;   // the wake spreads out sideways as it ages (the V); a ski track is a fixed groove
+        P[o + j * 6] = x - q.ox * w; P[o + j * 6 + 1] = q.y; P[o + j * 6 + 2] = z - q.oz * w; P[o + j * 6 + 3] = x + q.ox * w; P[o + j * 6 + 4] = q.y; P[o + j * 6 + 5] = z + q.oz * w;
+        const a = wake ? 0.55 * (1 - ag / life) * (1 - ag / life) * Math.min(1, ag * 4) : 0.5 * Math.min(1, 1.3 - ag / life); for (let v = 0; v < 2; v++) Cc.set(wake ? [0.93, 0.96, 0.97, a] : [0.5, 0.56, 0.68, a], oc + (j * 2 + v) * 4); };
+      seg(pr, pa, 0); seg(s, age, 1); } }
+  FLX.rib.geometry.attributes.position.needsUpdate = FLX.rib.geometry.attributes.color.needsUpdate = true; FLX.rib.visible = any; FLX.dirty = false; return any;
+}
+function flxTick(dt) {
+  if (!(dt > 0)) return; FLX.tT += dt; const K = ac.gk, V = hyp(ac.vel[0], ac.vel[2]), gp = playerPos(); let wetNow = false, snowNow = false;
+  const far = hyp(gp.x - ac.pos[0], gp.z - ac.pos[2]) > 600;   // nobody to see it: no new particles (the trails still end)
+  if (K && !ac.crashed && !far) { _flQ.fromArray(ac.q); _flF.set(0, 0, -1).applyQuaternion(_flQ); _flF.y = 0; const fl = _flF.length() || 1; _flF.multiplyScalar(1 / fl); _flS.set(-_flF.z, 0, _flF.x);   // heading flat, right
+    if (K.fl && ac.fw > 0) {   // floats on the water: spray off the forward-most wet keel point of each float, a wake from there, a rush of water
+      wetNow = true; const sink = FLX.sink;
+      for (let sd = -1; sd <= 1; sd += 2) { const e = sd < 0 ? 0 : 1; let wp = null, hw = 0;
+        for (let j = 0; j < K.Z.length; j++) { _flP.set(sd * K.X, K.Y[j], K.Z[j]).applyQuaternion(_flQ); _flP.x += ac.pos[0]; _flP.y += ac.pos[1]; _flP.z += ac.pos[2]; const h = waterH(_flP.x, _flP.z); if (h !== null && h > _flP.y - 0.02) { wp = _flP; hw = h; break; } }
+        if (!wp) { FLX.run[e] = FLX.runN++; continue; }
+        if (V > 1.2) { const n = Math.min(110, 7 * V) * dt * (V > 3 && V < 9 ? 1.6 : 1); FLX.emAcc[e] += n;   // heaviest through the hump, before she's up on the step
+          for (; FLX.emAcc[e] >= 1; FLX.emAcc[e]--) { const out = 0.6 + 0.12 * V, up = 0.4 + 0.1 * Math.min(V, 25); _flC.set(wp.x, hw + 0.05, wp.z);
+            flxEmit(_flC, _flS.x * sd * out + ac.vel[0] * 0.35, up, _flS.z * sd * out + ac.vel[2] * 0.35, 0.35 + 0.03 * V, 0.10, 0.34 + 0.012 * V, 0.75, 0.5, 9.8, 1.2, 1); FLX.n.spray++; } }
+        if (V > 0.8) { const L = FLX.last[e]; if (!L || hyp(wp.x - L[0], wp.z - L[1]) > 0.9) { flxSeg(e, wp.x, hw + 0.13, wp.z, _flS.x * sd, _flS.z * sd, Math.min(3, 0.28 * V)); FLX.last[e] = FLX.last[e] || [0, 0]; FLX.last[e][0] = wp.x; FLX.last[e][1] = wp.z; FLX.n.wake++; } }
+      }
+      if (!FLX.prevWet && V > 6) {   // touchdown on the water: a burst along both floats, a ring, a splash
+        const k = Math.min(1.6, 0.5 + sink * 0.6 + V / 40); _flC.set(ac.pos[0], (waterH(ac.pos[0], ac.pos[2]) ?? ac.pos[1] - 1.6), ac.pos[2]); flxRing(_flC.x, _flC.y, _flC.z, 2.5);
+        for (let i = 0; i < 46 * k; i++) { const sd = i & 1 ? 1 : -1, z = (Math.random() - 0.4) * 4; _flP.set(sd * K.X, 0, z).applyQuaternion(_flQ); _flP.x += ac.pos[0]; _flP.z += ac.pos[2]; _flP.y = _flC.y + 0.05;
+          flxEmit(_flP, _flS.x * sd * (1.5 + V * 0.08) + ac.vel[0] * 0.25, 1.3 + sink * 0.8, _flS.z * sd * (1.5 + V * 0.08) + ac.vel[2] * 0.25, 0.9, 0.14, 0.6, 0.9, 0.55, 9.8, 1.0, 1); }
+        sfx('splash', plane.position); FLX.n.splash++; }
+    } else if (K.ski) {   // skis on snow: puffs off the skis, tracks behind them, a hiss
+      for (let i = 0; i < 2; i++) { const g = C.GEAR[i], st = ac.gs[i], e = 2 + i; if (!g || !st || !(st.Fn > 0)) { FLX.run[e] = FLX.runN++; continue; }
+        _flP.set(g.p[0], g.p[1], g.p[2]).applyQuaternion(_flQ); _flP.x += ac.pos[0]; _flP.z += ac.pos[2]; const nrm = terrainNormal(_flP.x, _flP.z); if (!snowAt(_flP.x, _flP.z, nrm[1])) { FLX.run[e] = FLX.runN++; continue; }
+        snowNow = true; const gy = terrainHeight(_flP.x, _flP.z); _flP.y = gy + 0.05;
+        if (V > 2.5) { FLX.emAcc[e] += Math.min(60, 4 * V) * dt; for (; FLX.emAcc[e] >= 1; FLX.emAcc[e]--) { flxEmit(_flP, -_flF.x * V * 0.15 + (i ? 1 : -1) * _flS.x * 0.6, 0.6 + 0.03 * V, -_flF.z * V * 0.15 + (i ? 1 : -1) * _flS.z * 0.6, 0.45, 0.16, 0.8, 1.3, 0.38, 1.2, 1.6, 0); FLX.n.puff++; } }
+        if (V > 0.4) { const L = FLX.last[e]; if (!L || hyp(_flP.x - L[0], _flP.z - L[1]) > 0.7) { flxSeg(e, _flP.x, gy + 0.035, _flP.z, _flS.x, _flS.z, 0); FLX.last[e] = FLX.last[e] || [0, 0]; FLX.last[e][0] = _flP.x; FLX.last[e][1] = _flP.z; FLX.n.ski++; } } }
+      if (snowNow && !FLX.prevSnow && V > 6) { for (let i = 0; i < 30; i++) { _flP.set((Math.random() - 0.5) * 3, 0, (Math.random() - 0.3) * 2).applyQuaternion(_flQ); _flP.x += ac.pos[0]; _flP.z += ac.pos[2]; _flP.y = terrainHeight(_flP.x, _flP.z) + 0.1;
+          flxEmit(_flP, ac.vel[0] * 0.2, 0.9 + FLX.sink * 0.5, ac.vel[2] * 0.2, 1.0, 0.25, 1.1, 1.6, 0.42, 1.0, 1.4, 0); } sfx('whump', plane.position); FLX.n.whump = (FLX.n.whump || 0) + 1; }
+    }
+  }
+  if (!wetNow) { FLX.run[0] = FLX.runN++; FLX.run[1] = FLX.runN++; } if (!(K && K.ski) || !snowNow) { FLX.run[2] = FLX.runN++; FLX.run[3] = FLX.runN++; }
+  FLX.prevWet = wetNow; FLX.prevSnow = snowNow; FLX.sink = Math.max(0, -ac.vel[1]); FLX.V = V; FLX.wet = wetNow; FLX.snow = snowNow;
+  if (FLX.live > 0) { let any = false; camera.getWorldPosition(_se);   // the particles
+    for (let i = 0; i < FLX.N; i++) { const q = FLX.P[i]; if (q.life <= 0) continue; if ((q.t += dt) >= q.life) { q.life = 0; FLX.col[i * 4 + 3] = 0; FLX.pos[i * 3 + 1] = -1e4; continue; } any = true;
+      const u = q.t / q.life; q.v.multiplyScalar(Math.exp(-q.drag * dt)); q.v.y -= q.g * dt; q.p.addScaledVector(q.v, dt); const near = smooth01(clamp((q.p.distanceTo(_se) - 0.6) / 0.8, 0, 1));
+      FLX.pos[i * 3] = q.p.x; FLX.pos[i * 3 + 1] = q.p.y; FLX.pos[i * 3 + 2] = q.p.z; const c = q.c ? 0.9 : 0.97; FLX.col[i * 4] = c; FLX.col[i * 4 + 1] = q.c ? 0.94 : 0.97; FLX.col[i * 4 + 2] = q.c ? 0.96 : 0.99;
+      FLX.col[i * 4 + 3] = q.a * Math.min(1, q.t * 14) * (1 - u) * near; FLX.size[i] = q.s0 + (q.s1 - q.s0) * Math.sqrt(u); }
+    const G = FLX.pts.geometry.attributes; G.position.needsUpdate = G.color.needsUpdate = G.psize.needsUpdate = true; if (!any && --FLX.live <= 0) FLX.pts.visible = false; }
+  for (const R of FLX.ring) if (R.life > 0) { R.t += dt; const u = R.t / R.life; if (u >= 1) { R.life = 0; R.m.visible = false; continue; } const r = R.r0 + 7 * Math.sqrt(u) * R.r0 / 2.5; R.m.scale.set(r, 1, r); R.m.material.opacity = 0.55 * (1 - u) * (1 - u); }
+  if (FLX.dirty || FLX.tT - FLX.wakeT < 5.5 || (FLX.rib.visible && (FLX.rT += dt) > 0.5)) { FLX.rT = 0; flxRibbon(); }   // the wake moves every frame; ski tracks only fade (twice a second)
+}
 // ---- ballistics: fixed 1/240 s steps, each step's segment tested against the ground, the forest, the cabin and the deer ----
 const TRH = { m: null, C: 16 };
 function treeHash() {   // every forest instance once (trunk / crown as a cylinder from its geometry's bounds), on the first shot
@@ -8811,7 +8903,7 @@ gfxApply();
 if (GFX.ground) gsRun(GFX.ground);   // v0.86 a chosen Ground style is in place before the first frame
 if (GFX.gtex) gtRun(GFX.gtex);   // v0.87 likewise a chosen Ground texture
 { vlTick(); for (const f of [true, false]) for (let c = 0; c < 4; c++) { vlApply(f); PL.visible = !!(c & 1); SL.visible = !!(c & 2); renderer.compile(scene, camera); } PL.visible = SL.visible = false; VL.key = ''; vlApply(); }   // v0.48: both terrain looks x each panel-glow / landing-light combination compiled at load (no hitch when one comes on)   // v0.47 LIGHTS_WARM: precompile the lit-cockpit / landing-light variants
-{ if (!GLOVE.gm[0]) gloveInit(); if (!MIST) wxMistBuild(); const W = [...GLOVE.gm, MIST.im], vis = W.map(o => o.visible);   // v0.93 the gloves and the valley mist are made late (first hands / first mist): compiled here x each light combination, not on the first frame on foot or at the first rain front
+{ if (!GLOVE.gm[0]) gloveInit(); if (!MIST) wxMistBuild(); const W = [...GLOVE.gm, MIST.im, FLX.pts, FLX.rib, FLX.ring[0].m], vis = W.map(o => o.visible);   // v0.93 the gloves and the valley mist are made late (first hands / first mist): compiled here x each light combination, not on the first frame on foot or at the first rain front
   W.forEach(o => o.visible = true); for (let c = 0; c < 4; c++) { PL.visible = !!(c & 1); SL.visible = !!(c & 2); for (const o of W) renderer.compile(o, camera, scene); }
   PL.visible = SL.visible = false; W.forEach((o, i) => o.visible = vis[i]); }
 renderer.setAnimationLoop(() => {
@@ -8838,7 +8930,7 @@ renderer.setAnimationLoop(() => {
 
   plane.position.fromArray(ac.pos); plane.quaternion.fromArray(ac.q);
   dlvTick(dt); wbWarn(dt); huntTick(dt, xr || HANDS.force); dropTick(dt); ecoTick(dt); upgTick(dt); emgTick(dt);   // v0.53 rifle, deer, binoculars; v0.54 bundles in the air, the signal smoke   // v0.50 delivery: game clock, falling / loose cargo, job boards
-  GV.update(dt); kitTick(dt);   // v0.20 gear legs / tyres / tail wheel (v0.90 + the gear kits)
+  GV.update(dt); kitTick(dt); flxTick(dt);   // v0.20 gear legs / tyres / tail wheel (v0.90 + the gear kits)
   updateMap(); updateCockpitV19(dt);
   propTick(dt, ENG.rpm);
   stick.rotation.set(ctl.elev * STICK_MAX, 0, -ctl.ail * STICK_MAX);
