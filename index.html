@@ -607,7 +607,7 @@ const hyp = (a, b, c = 0) => Math.sqrt(a * a + b * b + c * c);   // v0.59 Math.h
 
 // ======================= RENDERING =======================
 // v0.35 settings (persist in localStorage 'bp_gfx'; ?gfx=shadows:2,grass:1 overrides for testing). Defaults = the v0.34 look and cost.
-const BP_VERSION = 'v1.07.1';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
+const BP_VERSION = 'v1.07.2';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
 { const e = document.getElementById('ver'); if (e) e.textContent = BP_VERSION; }
 const GFX_DEF = { shadows: 0, scale: 1, fov: 1, dist: 1, trees: 1, grass: 0, clouds: 1, fog: 1, msaa: 1, hz: 90, vig: 0, turn: 0, fps: 0, tod: 11, stk: 1, tips: 1, terr: 1, dyn: 1, glove: 0, hand: 0, wt: 1, volM: 1, volMu: 0.5, volE: 1, volA: 1, volF: 1, wx: 1, forest: 0, ground: 0, gtex: 0, cvl: 1, water: 1, dayl: 48, flure: 0, fline: 8, fdrag: 4, fbob: 0, fsink: 0 };   // v0.68.1 dominant hand, volumes. v0.48 BALANCED: 90 % scale, 72 Hz, fast terrain shading, auto resolution; v0.49.1 the stick stays where you let go of it
 const GFX = Object.assign({}, GFX_DEF);
@@ -638,6 +638,20 @@ const hemi = new THREE.HemisphereLight(0xdfefff, 0x56603a, 1.2); scene.add(hemi)
 const sun = new THREE.DirectionalLight(0xfff1dc, 2.0); sun.position.set(300, 500, 200); scene.add(sun);
 
 const mat = c => new THREE.MeshLambertMaterial({ color: c, flatShading: true });
+// v1.07.2 a breeze in the trees and grass: visual only (no gameplay wind). Each instance sways from its own base, the top most (weight^2), with a slow gust wave rolling
+// across the valley. A few ALU per vertex in the shaders the trees already use; one program per tree look (all swaying trees share it), compiled at load.
+const SWAY = { t: { value: 0 }, k: { value: 1 } };
+const SWAY_GLSL = `#ifdef USE_INSTANCING
+  { vec3 swP = vec3(modelMatrix * instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0)); float swW = clamp((position.y - uSwB) / uSwH, 0.0, 1.0); swW *= swW;
+    float swT = uSwT * uSwF + swP.x * 0.043 + swP.z * 0.061, swG = 0.55 + 0.45 * sin(uSwT * 0.23 + swP.x * 0.0041 - swP.z * 0.0027);
+    transformed.xz += vec2(sin(swT) + 0.35 * sin(swT * 2.7 + 1.3), 0.55 * cos(swT * 0.83 + 0.4)) * (uSwA * uSwK * swG * swW); }
+#endif`;
+function swayMat(m, h, a, b, f = 1.25) {   // h: the shape's local height from its base b; a: the sway at the top (local units); f: how fast
+  m.userData.sw = { uSwH: { value: h }, uSwA: { value: a }, uSwB: { value: b }, uSwF: { value: f } };
+  const ob = m.onBeforeCompile, ok = m.customProgramCacheKey;
+  m.onBeforeCompile = (sh, r) => { ob.call(m, sh, r); Object.assign(sh.uniforms, m.userData.sw, { uSwT: SWAY.t, uSwK: SWAY.k });
+    sh.vertexShader = 'uniform float uSwT, uSwK, uSwH, uSwA, uSwB, uSwF;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n' + SWAY_GLSL); };
+  m.customProgramCacheKey = () => ok.call(m) + '|sw1072'; return m; }
 // ---- v0.48 vertex-lit look for the biggest fill, the ground: MeshBasic + hemisphere + sun per vertex, the same maths as Lambert ----
 // (diffuse / pi * (hemi(n) + sun * n.l)); flat faces come from face normals on non-indexed geometry. No per-pixel lights: the landing light / shadows switch back to Lambert.
 const VL = { vlS: { value: new THREE.Color() }, vlG: { value: new THREE.Color() }, vlC: { value: new THREE.Color() }, vlD: { value: new THREE.Vector3(0, 1, 0) }, key: '', by: new Map() };
@@ -1141,7 +1155,7 @@ const HOLLOW = { x: -430, z: -20 };
     TREES.push([x, groundY(x, z), z, 0.6 + r() * 0.7]); }
 }
 instanced(new THREE.CylinderGeometry(0.25, 0.35, 3, 5), mat(0x4a3520), TREES.map(([x, y, z, sc]) => [x, y + 1.5 * sc, z, 0, sc, sc, sc]), { far: 3000, tree: 1 });   // strip trees (distance-culled in v0.10)
-instanced(new THREE.ConeGeometry(2.2, 7, 6), mat(0x2f5a2c), TREES.map(([x, y, z, sc]) => [x, y + 6 * sc, z, 0, sc, sc, sc]), { lod: 4000, tree: 1 });
+instanced(new THREE.ConeGeometry(2.2, 7, 6), swayMat(mat(0x2f5a2c), 7, 0.07, -3.5), TREES.map(([x, y, z, sc]) => [x, y + 6 * sc, z, 0, sc, sc, sc]), { lod: 4000, tree: 1 });
 const onStrip = (x, z, m = 0) => Math.abs(x) < 16 + m && z > -315 - m && z < 25 + m;
 const nearStrip = (rMax, rMin = 25) => { const a = rand() * Math.PI * 2, d = rMin + rMax * Math.pow(rand(), 1.8); return [Math.cos(a) * d, Math.sin(a) * d - 145]; };
 const ROAD_NS = [[780, -2600], [760, -1200], [800, -300], [780, 80], [740, 900], [820, 2200]];
@@ -2785,7 +2799,7 @@ function partGeo(p) {   // [kind, a, b, c, x, y, z, col, rx, ry, rz]
     const ny = terrainNormal(x, z)[1]; if (ny < 0.74 || ny > 0.985) continue;
     const s = 1.6 + rand() * 1.4; con.push([x, h + 4.5 * s, z, rand() * 6, s, s * (1.1 + rand() * 0.5), s]);
   }
-  instanced(new THREE.ConeGeometry(2.2, 9, 5, 1, true), mat(0x23452b), con, { lod: 4000, tree: 1 }); FOREST2.con = con;   // v0.88 2D ONLY draws these as sprites
+  instanced(new THREE.ConeGeometry(2.2, 9, 5, 1, true), swayMat(mat(0x23452b), 9, 0.08, -4.5), con, { lod: 4000, tree: 1 }); FOREST2.con = con;   // v0.88 2D ONLY draws these as sprites
 }
 // ---- v0.14 water: main river (north valley -> south gorge), creeks down the side drainages, two lakes (dug into the terrain in rawHeight) ----
 const RIVER_X = z => -60 + 40 * Math.sin(z * 0.004) + 25 * Math.sin(z * 0.013) - 120 * smooth(clamp((z + 700) / 400, 0, 1));
@@ -3058,7 +3072,7 @@ const LODGE = { x: -380, z: -2440, a: 1.83, hl: 140, hw: 10 };   // backcountry 
       const ty = groundY(tx, tz), s = 0.8 + POI_R() * 0.6, c = hue < 0.2 ? 2 : (POI_R() < 0.5 ? 0 : 1);
       dec[c].push([tx, ty + 4.2 * s, tz, POI_R() * 6, 2.6 * s, 2.3 * s, 2.6 * s]); trunks.push([tx, ty + 1.6 * s, tz, 0, s, s, s]); gr.n++; } }
   const crown = new THREE.IcosahedronGeometry(1, 0);
-  instanced(crown, mat(0x4f7a32), dec[0], { lod: 2500, tree: 1 }); instanced(crown, mat(0x6f8a2e), dec[1], { lod: 2500, tree: 1 }); instanced(crown, mat(0xb08a2a), dec[2], { lod: 2500, tree: 1 });
+  instanced(crown, swayMat(mat(0x4f7a32), 2, 0.045, -1, 1.5), dec[0], { lod: 2500, tree: 1 }); instanced(crown, swayMat(mat(0x6f8a2e), 2, 0.045, -1, 1.5), dec[1], { lod: 2500, tree: 1 }); instanced(crown, swayMat(mat(0xb08a2a), 2, 0.045, -1, 1.5), dec[2], { lod: 2500, tree: 1 });
   instanced(new THREE.BoxGeometry(0.35, 3.2, 0.35), mat(0x4a3520), trunks, { lod: 2500, tree: 1 });
   const con2 = [];
   for (let i = 0; i < 60000 && con2.length < 2400; i++) {
@@ -3071,7 +3085,7 @@ const LODGE = { x: -380, z: -2440, a: 1.83, hl: 140, hw: 10 };   // backcountry 
   }
   { const w = POIS.find(p => p.name === 'WRECK'); for (let k = 0; k < 28; k++) { const a = POI_R() * 6.283, r = 14 + POI_R() * 45, x = w.x + Math.cos(a) * r, z = w.z + Math.sin(a) * r, h = groundY(x, z), s = 1.2 + POI_R() * 1.2;
     con2.push([x, h + 4.5 * s, z, POI_R() * 6, s, s * 1.3, s]); } }   // the wreck came down into a stand of timber
-  instanced(new THREE.ConeGeometry(2.2, 9, 5, 1, true), mat(0x2a5030), con2, { lod: 4000, tree: 1 });
+  instanced(new THREE.ConeGeometry(2.2, 9, 5, 1, true), swayMat(mat(0x2a5030), 9, 0.08, -4.5), con2, { lod: 4000, tree: 1 });
   // v0.78 FOREST: DENSE - 2D tree sprites far out (cross-quads, alpha-tested, one 4-cell atlas, 4 instanced draw calls); the 3D trees stay as they are near the camera. Own RNG: the world's rand() stream is untouched
   { let sd = 0x78f0e; const r = () => (sd = (sd * 16807) % 2147483647) / 2147483647, cv = document.createElement('canvas'); cv.width = cv.height = 512; const g = cv.getContext('2d');
     const poly = (c, P) => { g.fillStyle = c; g.beginPath(); P.forEach(([a, b], i) => i ? g.lineTo(a, b) : g.moveTo(a, b)); g.closePath(); g.fill(); };
@@ -3084,7 +3098,7 @@ const LODGE = { x: -380, z: -2440, a: 1.83, hl: 140, hw: 10 };   // backcountry 
       const P = []; for (let q = 0; q < 6; q++) P.push([ox + 116 + Math.cos(q * 1.047) * 48, oy + 96 + Math.sin(q * 1.047) * 42]); poly(lt, P); };
     conifer(0, 0, '#284d2e', '#1b3822', 4); conifer(256, 0, '#2d5532', '#1f3f26', 5); decid(0, 256, '#55803a', '#3f6430', 7); decid(256, 256, '#6f8a34', '#556c28', 6);
     const tex = sprAtlas(cv); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;   // v0.92.1 own mip chain (no dark fringe, no cell bleed), 4x anisotropic
-    const sm = sprMat({ map: tex, alphaTest: 0.45, side: THREE.DoubleSide });   // v0.88 sprMat: per-tree fade by distance (no popping)   // v0.81 vertex-lit: every sprite normal is up, so per-vertex light = per-pixel light (Lambert maths, cheaper fill)
+    const sm = swayMat(sprMat({ map: tex, alphaTest: 0.45, side: THREE.DoubleSide }), 1, 0.014, 0);   // v0.88 sprMat: per-tree fade by distance (no popping)   // v0.81 vertex-lit: every sprite normal is up, so per-vertex light = per-pixel light (Lambert maths, cheaper fill)
     const cell = c => { const u0 = (c % 2) * 0.5, v0 = c < 2 ? 0.5 : 0, P = [], U = [], N = [];   // two crossed upright quads, normals up (lit like the ground, no dark edge-on side)
       for (const a of [0, Math.PI / 2]) { const ca = Math.cos(a) * 0.5, sa = Math.sin(a) * 0.5;
         P.push(-ca, 0, -sa, ca, 0, sa, ca, 1, sa, -ca, 0, -sa, ca, 1, sa, -ca, 1, -sa); U.push(u0, v0, u0 + 0.5, v0, u0 + 0.5, v0 + 0.5, u0, v0, u0 + 0.5, v0 + 0.5, u0, v0 + 0.5); for (let k = 0; k < 6; k++) N.push(0, 1, 0); }
@@ -4116,7 +4130,8 @@ function gearSet(dn) { if (UPG.gk !== 'floats') return; ac.gdn = dn === undefine
 function dayAngle(h) { return h >= 6 && h <= 19 ? (h - 6) / 13 * Math.PI : Math.PI * (1 + (((h - 19) % 24 + 24) % 24) / 11); }   // v0.96 13 h of day (0..pi), 11 h of night (pi..2 pi): no jump at midnight
 function dayClock(h = DAY.h) { const m = Math.floor(((h % 24) + 24) % 24 * 60); return String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0'); }
 function updateDay(dt) {   // sun / sky / fog colour from the time of day, plus the two dynamic lights
-  if (GFX.dayl > 0 && dt > 0) DAY.h = (DAY.h + dt * 24 / (GFX.dayl * 60)) % 24;   // v0.96 the clock runs: a whole day + night in GFX.dayl real minutes
+  if (GFX.dayl > 0 && dt > 0) DAY.h = (DAY.h + dt * 24 / (GFX.dayl * 60)) % 24;
+  if (dt > 0) SWAY.t.value = (SWAY.t.value + Math.min(dt, 0.1)) % 2400;   // v1.07.2 the breeze   // v0.96 the clock runs: a whole day + night in GFX.dayl real minutes
   const a = dayAngle(DAY.h), el = Math.sin(a);    // sunrise 06:00 east, sunset 19:00 west
   sunDir.set(Math.cos(a), Math.max(el, -1), 0.35).normalize();
   TOD.day = clamp((el + 0.05) / 0.25, 0, 1); TOD.night = 1 - clamp((el + 0.25) / 0.2, 0, 1); TOD.dusk = DAY.h > 12 ? (1 - TOD.day) * (1 - TOD.night) + TOD.night * 0.3 : 0;
@@ -10024,7 +10039,7 @@ function grassInit() {
     P.push(ox - w * ca, 0, oz - w * sa, ox + w * ca, 0, oz + w * sa, ox + lean * Math.cos(a + 1.57) , h, oz + lean * Math.sin(a + 1.57)); C.push(0.62, 0.62, 0.62, 0.62, 0.62, 0.62, 1.18, 1.2, 1.05); }
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(C, 3));
   g.setAttribute('normal', new THREE.Float32BufferAttribute(new Array(P.length / 3).fill([0, 1, 0]).flat(), 3));   // lit like the ground under it (no dark back faces)
-  GRASS.im = new THREE.InstancedMesh(g, new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide }), GRASS.MAX);
+  GRASS.im = new THREE.InstancedMesh(g, swayMat(new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide }), 0.3, 0.045, 0, 2.6), GRASS.MAX);
   GRASS.im.setColorAt(0, _grc.set(1, 1, 1));
   GRASS.im.count = 0; GRASS.im.frustumCulled = false; GRASS.im.instanceMatrix.setUsage(THREE.DynamicDrawUsage); GRASS.im.instanceColor.setUsage(THREE.DynamicDrawUsage); GRASS.im.userData.noCast = true; scene.add(GRASS.im);
 }
@@ -10366,6 +10381,8 @@ for (const o of TERR_M) { o.updateMatrix(); o.matrixAutoUpdate = false; }   // v
 for (const t of TOWN_MESH) t.m.traverse(o => { o.updateMatrix(); o.matrixAutoUpdate = false; });
 gfxApply();
 { PL.visible = SL.visible = true; renderer.compile(scene, camera); PL.visible = SL.visible = false; }
+{ const pv = PL.visible, sv = SL.visible, seen = new Set(); for (const k of CHUNKS) { const m = k.im.material; if (!m.userData.sw || seen.has(m)) continue; seen.add(m); const v = k.im.visible; k.im.visible = true;   // v1.07.2
+    for (let c = 0; c < 4; c++) { PL.visible = !!(c & 1); SL.visible = !!(c & 2); renderer.compile(k.im, camera, scene); } k.im.visible = v; } PL.visible = pv; SL.visible = sv; }
 if (GFX.ground) gsRun(GFX.ground);   // v0.86 a chosen Ground style is in place before the first frame
 if (GFX.gtex) gtRun(GFX.gtex);   // v0.87 likewise a chosen Ground texture
 for (const t of TOWN_MESH) cvlAdd(t.m, 'w');   // v0.95 the towns' / sites' merged meshes

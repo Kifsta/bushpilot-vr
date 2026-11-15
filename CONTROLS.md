@@ -133,6 +133,7 @@ v0.44 latches: every window and the door are latched while shut. Squeeze the han
 | Valley clouds over the hills (v1.06.1-2) | Nothing to press: valley cumulus lift clear of high ground (no more white wall at the Hidden Lake look-out) | same |
 | Time of day look (v1.07) | Settings > TIME OF DAY / day length as before: golden hour, sunset, blue hour and moonlight now have their own colours; the valleys hold the haze, the peaks stand clear | same |
 | Terrain look (v1.07.1) | Nothing to set: ragged snowline, banded rock and scree, varied forest stands, meadow patches and wet lake shores are part of every Ground style's VALLEY colours | same |
+| Trees and grass sway (v1.07.2) | Nothing to press: the trees, sprite forest and grass move gently in a rolling breeze (visual only, no gameplay wind) | same |
 
 ## On foot
 | | VR | Desktop |

@@ -2,6 +2,14 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v1.07.2 – a breeze in the trees and grass (visual only)
+
+- **The trees and grass sway.** This is visual only: there's no gameplay wind, as before.
+  - What moves: the strip conifers, the forest cones, the grove crowns, the distant sprite forest and the grass blades (when the grass setting is on).
+  - Each tree sways from its base, with the top moving most: about 10–15 cm on a full-grown tree, and a few cm at the tip of a grass blade.
+  - A slow gust wave rolls across the valley, and neighbouring trees move out of step.
+- **Cost:** a few sums per tree vertex, in the shaders the trees already use. All swaying trees share one program per lighting combination, compiled at load, including tree groups that aren't in view yet. No shaders compile during play.
+
 ## v1.07.1 – terrain variety: rock, snowline, meadow patches, wet sand
 
 - **The ground has more variety.** It's all baked into the ground colours at load, so it costs nothing while you play. It uses its own noise, so the world's random sequence isn't touched: every tree, rock and height is exactly where it was (checked by a hash in t1071).
