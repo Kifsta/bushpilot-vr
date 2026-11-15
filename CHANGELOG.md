@@ -2,6 +2,29 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v1.02 – the story on the radio: calls over the hand mic
+
+- **People call you while you fly.** This is story mode only, in the Cub with the master switch on. Callers are Pete at Home, the towns, and Eleanor Voss at Valley Credit.
+  - Each call opens with the squelch and "… CALLING THE MACRAE CUB – KEY THE MIC TO ANSWER".
+  - **Key the hand mic** to take it: in VR, take the handset off its clip and squeeze that hand's trigger; on desktop, hold **'** (quote).
+  - The conversation then plays line by line, your replies included. Each line has a subtitle and a radio-voice burble (a band-passed buzz that "talks" in syllables, plus hiss, pitched per speaker), and the music ducks under it.
+  - If nobody answers, the call rings again at 12 s. At 30 s it becomes a **missed call** ("KEY THE MIC TO CALL BACK"); calling back plays it.
+  - If the master goes off or you leave the Cub mid-call, the call is cut and kept as a missed call.
+- **The calls**, each once per story:
+  - Pete's hello on your first flight (read the logbook).
+  - A word when your first payment lands.
+  - At 3 clues, Pete on Walt asking the same questions.
+  - At 4 clues, **Dawson's flash on the north ice**: north-north-west of Home, about 6 km, the high shoulder. It goes in the journal and the v1.03 map.
+  - After you find the cowling, Pete on "Gordon's ship. Thirty years."
+  - When a town first TRUSTS you, it calls you over.
+  - Halfway to the snow, the debt check.
+  - Voss two days out.
+  - The first snow.
+  - Voss when the note is paid in full.
+- **Call Home.** Key the mic with nothing waiting and Pete reads you the day, the days to the snow and what you owe, then nudges you toward the next clue you haven't found. Free play gets a plain radio check. Calls are limited to one every 45 s.
+- The trigger of the hand holding the mic no longer brakes (same as the clipboard hand).
+- Physics untouched (md5 identical). New test t102.
+
 ## v1.01 – Walt's corkboard, ten clues, the glint on the north ice, the journal, and a hook for discoveries
 
 - **Walt's corkboard.** A cork board now hangs on the hangar's back wall over Walt's bench, next to his chalkboard. It only appears in story mode.

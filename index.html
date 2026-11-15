@@ -19,7 +19,7 @@
 </script>
 </head>
 <body>
-<div id="info">BUSH PILOT VR <span id="ver">v1.01</span> - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
+<div id="info">BUSH PILOT VR <span id="ver">v1.02</span> - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
 You start on foot by the Cub at the cabin strip. Walk up to her and climb in (F / Y), then start her up off the checklist card (J).
 Desktop - flying: W/S or arrows pitch, A/D or arrows roll, Q/E rudder, Shift / Ctrl (or + / -) throttle, B brakes, \ parking brake, [ ] flaps, PgUp / PgDn trim,
   R reset to the strip (cold and dark), F climb out, M map, L landing light, Home recentre, mouse looks (click to capture).
@@ -597,7 +597,7 @@ const hyp = (a, b, c = 0) => Math.sqrt(a * a + b * b + c * c);   // v0.59 Math.h
 
 // ======================= RENDERING =======================
 // v0.35 settings (persist in localStorage 'bp_gfx'; ?gfx=shadows:2,grass:1 overrides for testing). Defaults = the v0.34 look and cost.
-const BP_VERSION = 'v1.01';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
+const BP_VERSION = 'v1.02';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
 { const e = document.getElementById('ver'); if (e) e.textContent = BP_VERSION; }
 const GFX_DEF = { shadows: 0, scale: 1, fov: 1, dist: 1, trees: 1, grass: 0, clouds: 1, fog: 1, msaa: 1, hz: 90, vig: 0, turn: 0, fps: 0, tod: 11, stk: 1, tips: 1, terr: 1, dyn: 1, glove: 0, hand: 0, wt: 1, volM: 1, volMu: 0.5, volE: 1, volA: 1, volF: 1, wx: 1, forest: 0, ground: 0, gtex: 0, cvl: 1, water: 1, dayl: 48, flure: 0, fline: 8, fdrag: 4, fbob: 0, fsink: 0 };   // v0.68.1 dominant hand, volumes. v0.48 BALANCED: 90 % scale, 72 Hz, fast terrain shading, auto resolution; v0.49.1 the stick stays where you let go of it
 const GFX = Object.assign({}, GFX_DEF);
@@ -2476,7 +2476,7 @@ function xrInput(dt) {
       if (tk !== vr.thrTick) { vr.thrTick = tk; hap(g, tk === 0 || tk === 10 ? 0.4 : 0.1, tk === 0 || tk === 10 ? 16 : 6); if (tk === 0 || tk === 10) sfx('tick'); }
       ctl.throttle = th;
     }
-    rudA[right ? 1 : 0] = gp.axes[2] || 0; trg[right ? 1 : 0] = KB.g === g ? 0 : gp.buttons[0]?.value || 0;   // v0.64 the trigger of a hand holding the clipboard turns its page, it doesn't brake
+    rudA[right ? 1 : 0] = gp.axes[2] || 0; trg[right ? 1 : 0] = KB.g === g || MIC.g === g ? 0 : gp.buttons[0]?.value || 0;   // v0.64 the trigger of a hand holding the clipboard turns its page, it doesn't brake
     if (right) { if (pressedEdge(gp, 4, 'A')) recenter(); if (pressedEdge(gp, 5, 'B')) resetFlight(); }
     else { if (pressedEdge(gp, 4, 'X')) recenter(); if (pressedEdge(gp, 5, 'Y')) exitPlane(); }
   }
@@ -9257,6 +9257,69 @@ function discSave() { return { f: DISC.found }; }
 function discLoad(d) { DISC.found = d && d.f && typeof d.f === 'object' ? Object.fromEntries(Object.entries(d.f).filter(([, v]) => v && isFinite(v.x) && isFinite(v.z))) : {}; DISC.n = Object.keys(DISC.found).length; }
 function clueShow() { const on = STORY.on; CB.fr.visible = CB.m.visible = on; CB.key = '#'; STORY.cl = null; CB.pend = ''; }
 
+// ===================== v1.02 RADIO: the story over the Cub's hand mic =====================
+// People call you while you fly (master on, in the Cub): Pete at Home, the towns, Eleanor Voss at the credit union. A call opens with the squelch and a
+// "KEY THE MIC TO ANSWER". Key the hand mic to take it (VR: grab the handset off its clip + squeeze the trigger; desktop: ' (quote)), and the talk plays
+// line by line: subtitles + a radio-voice burble per speaker, the music ducks. Leave it 30 s and it's a missed call: key the mic to call back.
+// Key the mic with nothing waiting and you call Home: Pete reads you the days, the debt, and nudges you toward a clue you haven't found.
+const RAD = { cur: null, i: 0, t: 0, ring: null, ringT: 0, miss: null, gap: 20, chk: 0, ptt: false, kd: false, back: 0, n: 0 };
+const RAD_VOX = { PETE: [98, 0.85], VOSS: [205, 1.15], YOU: [138, 1], DAWSON: [88, 0.8], MAE: [215, 1.05], ANDERS: [225, 1], LINDQVIST: [165, 1.1], BILL: [82, 0.75], JOE: [112, 0.9] };
+const radWho = w => RAD_VOX[w] ? w : Object.keys(RAD_VOX).find(k => w.includes(k)) || 'PETE';
+const radName = w => ({ PETE: 'OLD PETE (HOME)', VOSS: 'E. VOSS (VALLEY CREDIT)', YOU: 'YOU' })[w] || w;
+const $o = n => '$' + Math.round(n).toLocaleString('en-US');
+const RAD_CALLS = [
+  { id: 'hello', ask: 1, k: () => ac.pos[1] - groundY(ac.pos[0], ac.pos[2]) > 60, L: () => [['PETE', 'HOME TO WALT\'S CUB. THAT YOU UP THERE, ' + PILOT + '?'], ['YOU', 'HOME, CUB. UP AND FLYING.'], ['PETE', 'SOUNDS LIKE HIS OLD BIRD. FLY THE BOARDS, KID - AND READ HIS LOGBOOK IF YOU HAVEN\'T. IT\'S ON THE DESK.']] },
+  { id: 'pay1', k: () => STORY.paid > 0, L: () => [['PETE', 'MAIL PLANE SAYS VOSS GOT A PAYMENT OFF YOU. FIRST ONE ON TIME SINCE WALT WAS YOUR AGE.']] },
+  { id: 'clue3', ask: 1, k: () => clueGot().length >= 3, L: () => [['PETE', 'CUB, HOME. YOU\'VE BEEN ASKING AROUND ABOUT GORDON.'], ['YOU', 'SOMEBODY HAS TO.'], ['PETE', 'WALT ASKED THE SAME QUESTIONS EVERY FALL. FOLK TALK ONCE THEY TRUST YOU. AND WATCH THE NORTH ICE WHEN THE SUN\'S ON IT.']] },
+  { id: 'ghint', ask: 1, k: () => clueGot().length >= 4 && !STORY.said.glint && !!STORY.read.log, L: () => [['DAWSON', 'RIDGE TO THE MACRAE CUB. SAW A FLASH UP ON THE NORTH ICE THIS MORNING. SUN ON SOMETHING.'], ['YOU', 'WHERE, EXACTLY?'], ['DAWSON', 'NORTH-NORTH-WEST OF HOME, SIX K OR SO. THE HIGH SHOULDER. FLY IT LOW WITH THE SUN UP.']], then: () => { STORY.said.ghint = 1; storyLog('Dawson saw a flash on the north ice: north-north-west of Home, about 6 km, the high shoulder.'); } },
+  { id: 'glint', ask: 1, k: () => !!STORY.said.glint && hyp(ac.pos[0] - GLINT.x, ac.pos[2] - GLINT.z) > 800, L: () => [['PETE', 'CUB, HOME. YOU WENT QUIET UP NORTH. ALL GOOD?'], ['YOU', 'FOUND SOMETHING ON THE ICE. RED COWLING. PAINTED CF-G.'], ['PETE', '... SAY AGAIN?'], ['YOU', 'CF-G. THE NORSEMAN.'], ['PETE', 'GORDON\'S SHIP. THIRTY YEARS. DON\'T YOU LAND UP THERE ON WHEELS, YOU HEAR? COME HOME. WE\'LL TALK.']], then: () => storyLog('Told Pete about the cowling. He went quiet, then: "Gordon\'s ship. Thirty years."') },
+  { id: 'trust', k: () => !!radTrusted(), L: () => { const S = radTrusted(), w = (TRUST_GOSSIP[S.id] || 'THE KEEPER:').split(':')[0]; return [[w, S.name.replace(' STRIP', '') + ' TO THE MACRAE CUB. COME BY THE BOARD NEXT TIME YOU\'RE DOWN THIS WAY. GOT SOMETHING TO TELL YOU ABOUT YOUR GRANDFATHER.']]; } },
+  { id: 'half', k: () => storyLeft() <= 7 && !STORY.snow, L: () => { const o = storyOwed(); return [['PETE', 'HALFWAY TO THE SNOW. YOU STILL OWE ' + $o(o) + '. ' + (STORY.paid >= 20000 ? 'YOU\'RE AHEAD OF WHERE WALT EVER WAS.' : 'THE LODGE PAYS WELL FOR FLOWERS, AND THE HOSPITAL RUNS PAY BEST.')]]; } },
+  { id: 'last2', ask: 1, k: () => storyLeft() <= 2 && storyOwed() > 0 && !STORY.snow, L: () => [['VOSS', 'VALLEY CREDIT FOR ' + PILOT + ' MACRAE. ELEANOR VOSS. NOTE 1147 COMES DUE WITH THE SNOW: ' + $o(storyOwed()) + '.'], ['YOU', 'I\'M WORKING ON IT.'], ['VOSS', 'WALT ALWAYS SAID THAT TOO. HE USUALLY WAS. HALF BY THE SNOW AND I CAN GIVE YOU MORE TIME.']] },
+  { id: 'snow', k: () => STORY.snow, L: () => [['PETE', 'FIRST FLAKES ON THE RIDGE. THE SEASON\'S TURNED. ' + (storyOwed() > 0 ? 'VOSS WILL BE CALLING.' : 'AND THE HANGAR\'S YOURS. WALT WOULD\'VE LIKED THAT.')]] },
+  { id: 'paid', ask: 1, k: () => storyOwed() <= 0, L: () => [['VOSS', 'VALLEY CREDIT FOR ' + PILOT + ' MACRAE. NOTE 1147 IS PAID IN FULL. THE HANGAR IS YOURS.'], ['YOU', 'THANK YOU, MS VOSS.'], ['VOSS', 'DON\'T THANK ME. WALT WOULD HAVE... WELL. FLY CAREFUL UP THERE.']], then: () => storyLog('Eleanor Voss, on the radio: note 1147 is paid in full. The hangar is ours.') }];
+function radTrusted() { return DLV_STRIPS.find(S => TRUST_GOSSIP[S.id] && repOf(S.id) >= 55 && !STORY.said['g_' + S.id]); }
+// ---- the radio voice: a band-passed buzz that talks in syllables, plus hiss ----
+function radVoice(who, dur) { SND.n.voice = (SND.n.voice || 0) + 1; if (!SND.ok) return; const A = actx, t = A.currentTime, [f0, sp] = RAD_VOX[who] || RAD_VOX.PETE;
+  const o = A.createOscillator(), b = A.createBiquadFilter(), b2 = A.createBiquadFilter(), g = A.createGain(), out = A.createGain(); o.type = 'sawtooth'; b.type = 'bandpass'; b.frequency.value = 1300; b.Q.value = 1.6; b2.type = 'highpass'; b2.frequency.value = 380; out.gain.value = 0.16;
+  o.connect(b).connect(b2).connect(g).connect(out).connect(SND.fx); g.gain.setValueAtTime(0, t);
+  let at = 0.05; while (at < dur - 0.1) { const len = (0.07 + Math.random() * 0.13) / sp, f = f0 * (0.85 + Math.random() * 0.4) * (1 - 0.12 * at / dur);
+    o.frequency.setValueAtTime(f, t + at); o.frequency.linearRampToValueAtTime(f * (0.9 + Math.random() * 0.2), t + at + len); b.frequency.setValueAtTime(900 + Math.random() * 1200, t + at);
+    g.gain.linearRampToValueAtTime(0.6 + Math.random() * 0.4, t + at + 0.02); g.gain.linearRampToValueAtTime(0.05, t + at + len); at += len + (Math.random() < 0.18 ? 0.16 : 0.025); }
+  g.gain.linearRampToValueAtTime(0, t + dur); o.start(t); o.stop(t + dur + 0.05);
+  const n = A.createBufferSource(), nb = A.createBiquadFilter(), ng = A.createGain(); n.buffer = SND.noise; nb.type = 'bandpass'; nb.frequency.value = 2400; nb.Q.value = 0.8; ng.gain.value = 0.035; n.connect(nb).connect(ng).connect(SND.fx); n.start(t, Math.random(), dur); }
+const radDur = t => clamp(1.6 + t.length * 0.055, 2.6, 8);
+function radOn() { return mode === 'plane' && ENG.master; }
+function radPlay(c) { RAD.cur = c; RAD.L = c.L(); RAD.i = -1; RAD.t = 0.35; RAD.ring = null; RAD.miss = null; sfx('static'); }
+function radPtt() {   // the mic was keyed (a press)
+  if (mode !== 'plane') return false; sfx('click'); if (!ENG.master) { say('THE RADIO IS DEAD - MASTER SWITCH ON (O)'); return false; }
+  if (RAD.cur) return false;
+  if (RAD.ring) { radPlay(RAD.ring); return true; }
+  if (RAD.miss) { const c = RAD.miss; RAD.cur = c; RAD.L = [['YOU', (radWho(c.L()[0][0]) === 'VOSS' ? 'VALLEY CREDIT' : 'HOME') + ', MACRAE CUB. MISSED YOUR CALL.'], ...c.L().filter((l, i) => !(i === 1 && l[0] === 'YOU'))]; RAD.i = -1; RAD.t = 0.35; RAD.miss = null; sfx('static'); return true; }
+  if (RAD.chk > 0) { say('RADIO - (STATIC) ... HOME\'S NOT ANSWERING. TRY AGAIN IN A MINUTE'); return true; }
+  RAD.chk = 45; RAD.cur = { id: 'checkin' }; RAD.i = -1; RAD.t = 0.35; sfx('static'); RAD.L = radCheckIn(); return true; }
+function radCheckIn() {
+  const L = [['YOU', 'HOME, MACRAE CUB. CHECKING IN.']]; if (!STORY.on) { L.push(['PETE', 'READ YOU FIVE BY FIVE, ' + PILOT + '. BOARDS ARE FULL. FLY SAFE.']); return L; }
+  const o = storyOwed(); L.push(['PETE', o > 0 ? 'READ YOU. DAY ' + storyDay() + ', ' + (STORY.snow ? 'SNOW\'S HERE' : storyLeft() + ' DAYS TO THE SNOW') + ', AND YOU OWE ' + $o(o) + '.' : 'READ YOU. THE NOTE\'S PAID. FLY FOR FUN FOR ONCE.']);
+  const nx = CLUES.find(c => !c.k()); if (nx) L.push(['PETE', nx.id === 'glint' ? (STORY.said.ghint ? 'DAWSON\'S FLASH ON THE NORTH ICE - NORTH-NORTH-WEST, THE HIGH SHOULDER. GO LOW WITH THE SUN UP.' : 'WALT\'S LOG SAYS GLARE ON THE NORTH ICE ALL DAY. THE SUN FINDS THINGS UP THERE.') : nx.id.startsWith('g_') ? 'ABOUT GORDON - TRY ' + nx.hint.toUpperCase() + '. THEY TALK ONCE THEY TRUST YOU.' : 'AND READ ' + nx.hint.toUpperCase() + '.']);
+  else L.push(['PETE', 'WALT\'S BOARD IS FULL. EVERYTHING POINTS NORTH.']); return L; }
+function radKey(e, down) { if (e.code !== 'Quote' || e.repeat) return; RAD.kd = down; if (down && mode === 'plane') e.preventDefault && e.preventDefault(); }
+addEventListener('keydown', e => radKey(e, true)); addEventListener('keyup', e => radKey(e, false));
+function radTick(dt) {
+  const g = MIC.g, tv = g ? g.userData.src?.gamepad?.buttons[0]?.value || 0 : 0, p = RAD.kd || tv > 0.6;   // VR: the trigger of the hand holding the mic; desktop: '
+  if (p && !RAD.ptt) radPtt(); RAD.ptt = p; RAD.chk = Math.max(0, RAD.chk - dt);
+  if (RAD.cur) { if (!radOn()) { RAD.miss = RAD.cur.id === 'checkin' ? null : RAD.cur.ask ? RAD.cur : null; if (RAD.cur.id !== 'checkin' && !RAD.cur.ask) radDone(RAD.cur); RAD.cur = null; return; }   // engine/master off or out of the Cub: cut off
+    if ((RAD.t -= dt) > 0) return; RAD.i++; if (RAD.i >= RAD.L.length) { sfx('static'); const c = RAD.cur; RAD.cur = null; RAD.gap = 40; if (c.id !== 'checkin') radDone(c); return; }
+    const [w, tx] = RAD.L[RAD.i], d = radDur(tx); say('RADIO - ' + radName(w) + ': "' + tx + '"'); msgT = Math.max(msgT, d + 0.4); RAD.t = d + 0.5; radVoice(radWho(w), d); return; }
+  if (RAD.ring) { if (!radOn()) { RAD.miss = RAD.ring; RAD.ring = null; return; } RAD.ringT += dt; if (RAD.ringT > 12 && RAD.ringT - dt <= 12) { sfx('static'); say('RADIO - ' + radName(radWho(RAD.ring.L()[0][0])) + ' CALLING ... (KEY THE MIC TO ANSWER)'); }
+    if (RAD.ringT > 30) { RAD.miss = RAD.ring; RAD.ring = null; RAD.gap = 60; say('MISSED CALL FROM ' + radName(radWho(RAD.miss.L()[0][0])) + ' - KEY THE MIC TO CALL BACK'); } return; }
+  if (!STORY.on || !radOn() || (RAD.gap -= dt) > 0 || (typeof EMG !== 'undefined' && EMG.call)) return; RAD.gap = 3;
+  const c = RAD_CALLS.find(c => !STORY.said['r_' + c.id] && (!RAD.miss || RAD.miss.id !== c.id) && c.k()); if (!c) return;
+  if (!c.ask) { radPlay(c); return; }
+  RAD.ring = c; RAD.ringT = 0; sfx('static'); const w = radWho(c.L()[0][0]);
+  say('RADIO - ' + radName(w) + ' CALLING THE MACRAE CUB - KEY THE MIC TO ANSWER (' + (renderer.xr.isPresenting ? 'GRAB THE HAND MIC, SQUEEZE THE TRIGGER' : 'HOLD \' TO TALK') + ')'); msgT = Math.max(msgT, 6); }
+function radDone(c) { STORY.said['r_' + c.id] = 1; RAD.n++; if (c.then) c.then(); saveSoon(); }
+
 // ================= v0.45 save: where the Cub is parked, fuel, time of day, on foot or aboard. New key - older (v0.44 and before) saves are left alone and ignored =================
 const SAVE_KEY = 'bushpilot-vr-blank-v1', NOSAVE = /[?&]nosave\b/.test(location.search);
 // ---- v0.75 weather, no wind: slow states that only change what you see and hear (fog distance + colour, cloud deck, light, valley mist, rain).
@@ -10020,7 +10083,7 @@ renderer.setAnimationLoop(() => {
   } else if ((crashTimer += dt) > 2.5) resetFlight();
 
   plane.position.fromArray(ac.pos); plane.quaternion.fromArray(ac.q);
-  dlvTick(dt); wbWarn(dt); huntTick(dt, xr || HANDS.force); fishTick(dt, xr || HANDS.force); storyTick(dt); cbTick(dt); glintTick(dt); discTick(dt); musTick(dt); trustTick(dt); dropTick(dt); ecoTick(dt); upgTick(dt); emgTick(dt);   // v0.53 rifle, deer, binoculars; v0.54 bundles in the air, the signal smoke   // v0.50 delivery: game clock, falling / loose cargo, job boards
+  dlvTick(dt); wbWarn(dt); huntTick(dt, xr || HANDS.force); fishTick(dt, xr || HANDS.force); storyTick(dt); cbTick(dt); glintTick(dt); discTick(dt); radTick(dt); musTick(dt); trustTick(dt); dropTick(dt); ecoTick(dt); upgTick(dt); emgTick(dt);   // v0.53 rifle, deer, binoculars; v0.54 bundles in the air, the signal smoke   // v0.50 delivery: game clock, falling / loose cargo, job boards
   GV.update(dt); kitTick(dt); flxTick(dt);   // v0.20 gear legs / tyres / tail wheel (v0.90 + the gear kits)
   updateMap(); updateCockpitV19(dt);
   propTick(dt, ENG.rpm);
