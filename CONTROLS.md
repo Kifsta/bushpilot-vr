@@ -398,7 +398,7 @@ A customer stands at every job board. Walk up to them for a hello: their rep tie
 | Foveation | OFF / LOW / MEDIUM / HIGH | Quest fixed foveation |
 | Draw distance | NEAR / MEDIUM / NORMAL / FAR | chunks, rocks, trees and haze |
 | Tree density (v0.88: was "Trees"; v0.78: was "Forest") | OFF / SPARSE / MEDIUM / FULL | how many trees |
-| Trees (v0.88: was v0.78 "Forest" NORMAL / DENSE) | 3D ONLY / MIXED / 2D ONLY | **3D ONLY** (default) is the old NORMAL. **MIXED** is the old DENSE: 3D trees near you plus ~50k flat 2D trees past about 270–500 m. **2D ONLY**: every tree is 2D and about 1.5x denser, for fewer draw calls (23 vs 31) and about the same triangles. v0.88: close 2D trees fade smoothly by distance and no longer pop when you walk, turn or fly low. |
+| Trees (v0.88: was v0.78 "Forest" NORMAL / DENSE) | 3D ONLY / MIXED / 2D ONLY | **3D ONLY** (default) is the old NORMAL. **MIXED** is the old DENSE: 3D trees near you plus ~50k flat 2D trees past about 270–500 m. **2D ONLY**: every tree is 2D and about 1.5x denser, for fewer draw calls (23 vs 31) and about the same triangles. v0.88: close 2D trees fade smoothly by distance and no longer pop when you walk, turn or fly low. v0.92.1: their edges no longer shimmer (clean mips; with Anti-aliasing MSAA they use alpha to coverage). |
 | Grass | OFF / LOW / HIGH | instanced tufts around you |
 | Clouds | OFF / NORMAL / HIGH | HIGH adds a second drifting layer |
 | Haze | LIGHT / NORMAL / THICK | fog distance |

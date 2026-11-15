@@ -2,6 +2,30 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.92.1 – 2D trees without the shimmer
+
+- **2D tree sprites (Trees MIXED / 2D ONLY)** no longer crawl and shimmer at their edges. There were two causes:
+  - **A dark fringe in the mips.** The atlas canvas stores black under its empty texels. The GPU-built mips averaged that black into every tree edge, and bilinear filtering pulled it in, so every edge had a dark rim that flickered as you moved.
+  - **A hard one-pixel alpha cut** that stair-stepped.
+- **The fix:**
+  - **sprAtlas** builds the atlas's own mip chain at load. Each level is a 2 x 2 box of the one above, in premultiplied linear light. The colour is grown 2 texels out under alpha 0. The four 256 px cells sit on 256 px boundaries, so a level never mixes two trees, with no bleed between cells.
+  - **With Anti-aliasing MSAA (the default), alpha to coverage.** The alpha cut is spread over one pixel (fwidth) and MSAA turns it into coverage, so edges are antialiased like geometry. With MSAA OFF it's the old alpha test, on the cleaner mips.
+  - **4x anisotropic filtering** (was 2x).
+  - The v0.88 distance fade, the mip-aware alpha boost and the cut are unchanged.
+- **Measured** (headless, 1280 x 720, MSAA 4x, 2D ONLY; mean colour change per pixel when the view turns 0.02°, the trees' share once the no-sprite baseline is taken off):
+  - near: 0.76 -> 0.32;
+  - mid: 1.51 -> 0.76;
+  - far: 1.76 -> 0.94.
+  - So about half the shimmer is gone. Pixels flipping hard (> 60 levels) went 0.31 / 0.59 / 0.72 % -> 0.26 / 0.26 / 0.29 %.
+  - Distant conifers look a touch lighter, because the black rim is gone.
+- **Cost:** nothing per frame on Quest 3. Alpha to coverage is resolved on-chip with the MSAA that is already on. It adds one fwidth per sprite fragment, and 4x anisotropy on one 512 px texture. One-off: about 0.1 s at load to build the mips (desktop). Texture memory is the same as before.
+- Test **t921**:
+  - the 10-level chain, trilinear, 4x;
+  - no black under empty edge texels (levels 0 and 3);
+  - nothing on the cell seams down to level 4;
+  - A2C on with MSAA and off without it;
+  - a clean console.
+
 ## v0.92 – item weight
 
 - **What you carry has weight (VR).** A held item now trails your controller on a critically damped spring, so a heavier item follows more slowly, and it sags by its weight. Your glove is drawn on it the whole time.

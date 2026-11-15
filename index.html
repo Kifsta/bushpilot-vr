@@ -19,7 +19,7 @@
 </script>
 </head>
 <body>
-<div id="info">BUSH PILOT VR <span id="ver">v0.92</span> - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
+<div id="info">BUSH PILOT VR <span id="ver">v0.92.1</span> - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
 You start on foot by the Cub at the cabin strip. Walk up to her and climb in (F / Y), then start her up off the checklist card (J).
 Desktop - flying: W/S or arrows pitch, A/D or arrows roll, Q/E rudder, Shift / Ctrl (or + / -) throttle, B brakes, \ parking brake, [ ] flaps, PgUp / PgDn trim,
   R reset to the strip (cold and dark), F climb out, M map, L landing light, Home recentre, mouse looks (click to capture).
@@ -581,7 +581,7 @@ const hyp = (a, b, c = 0) => Math.sqrt(a * a + b * b + c * c);   // v0.59 Math.h
 
 // ======================= RENDERING =======================
 // v0.35 settings (persist in localStorage 'bp_gfx'; ?gfx=shadows:2,grass:1 overrides for testing). Defaults = the v0.34 look and cost.
-const BP_VERSION = 'v0.92';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
+const BP_VERSION = 'v0.92.1';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
 { const e = document.getElementById('ver'); if (e) e.textContent = BP_VERSION; }
 const GFX_DEF = { shadows: 0, scale: 0.9, fov: 1, dist: 1, trees: 1, grass: 0, clouds: 1, fog: 1, msaa: 1, hz: 72, vig: 0, turn: 0, fps: 0, tod: 11, stk: 1, tips: 1, terr: 1, dyn: 1, glove: 0, hand: 0, wt: 1, volM: 1, volE: 1, volA: 1, volF: 1, wx: 1, forest: 0, ground: 0, gtex: 0 };   // v0.68.1 dominant hand, volumes. v0.48 BALANCED: 90 % scale, 72 Hz, fast terrain shading, auto resolution; v0.49.1 the stick stays where you let go of it
 const GFX = Object.assign({}, GFX_DEF);
@@ -1028,6 +1028,22 @@ function sprChunk(k, FM, TD, D, R) {   // v0.88 the sprite forest: upload a SUPE
   k.ok = ok < 0 ? Math.max(c, k.ok) : ok; k.im.count = c; k.im.visible = c > 0;
   if (c) { if (M.addUpdateRange) { M.clearUpdateRanges(); M.addUpdateRange(0, c * 16); } M.needsUpdate = true; } return c;
 }
+function sprAtlas(cv) {   // v0.92.1 the tree atlas with its own mip chain: each level a 2 x 2 box of the one above in premultiplied linear light (the canvas's empty texels are black, which darkened
+  // every mip edge: the dark fringe that crawled), then the colour grown 2 texels out under alpha 0 so bilinear never pulls black in. Cells are 256 px on 256 px boundaries, so a box level never mixes two trees
+  const W = cv.width, im = cv.getContext('2d').getImageData(0, 0, W, W).data, L = [], lin = new Float32Array(256), P0 = new Float32Array(W * W * 4);
+  for (let i = 0; i < 256; i++) lin[i] = Math.pow(i / 255, 2.2); const gam = new Uint8Array(4096); for (let i = 0; i < 4096; i++) gam[i] = Math.round(255 * Math.pow(i / 4095, 1 / 2.2));
+  for (let y = 0; y < W; y++) for (let x = 0; x < W; x++) { const s = ((W - 1 - y) * W + x) * 4, d = (y * W + x) * 4, a = im[s + 3] / 255; for (let c = 0; c < 3; c++) P0[d + c] = lin[im[s + c]] * a; P0[d + 3] = a; }   // GL row order (flipY)
+  let P = P0, n = W;
+  for (;;) { const D = new Uint8Array(n * n * 4);
+    for (let i = 0; i < n * n * 4; i += 4) { const a = P[i + 3]; if (a > 1e-5) for (let c = 0; c < 3; c++) D[i + c] = gam[Math.min(4095, P[i + c] / a * 4095 + 0.5 | 0)]; D[i + 3] = Math.round(255 * Math.min(1, a)); }
+    for (let pass = 0; pass < 2; pass++) { const F = D.slice(); for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) { const i = (y * n + x) * 4; if (F[i + 3] || F[i] + F[i + 1] + F[i + 2]) continue;   // empty: the mean of its coloured neighbours
+      let r = 0, g = 0, bl = 0, k = 0; for (let v = -1; v <= 1; v++) for (let u = -1; u <= 1; u++) { const xx = x + u, yy = y + v; if (xx < 0 || yy < 0 || xx >= n || yy >= n) continue; const j = (yy * n + xx) * 4; if (F[j + 3] || F[j] + F[j + 1] + F[j + 2]) { r += F[j]; g += F[j + 1]; bl += F[j + 2]; k++; } }
+      if (k) { D[i] = r / k; D[i + 1] = g / k; D[i + 2] = bl / k; } } }
+    L.push({ data: D, width: n, height: n }); if (n === 1) break;
+    const m = n >> 1, Q = new Float32Array(m * m * 4); for (let y = 0; y < m; y++) for (let x = 0; x < m; x++) for (let c = 0; c < 4; c++) { const a = ((2 * y) * n + 2 * x) * 4 + c, b2 = a + n * 4; Q[(y * m + x) * 4 + c] = (P[a] + P[a + 4] + P[b2] + P[b2 + 4]) / 4; }
+    P = Q; n = m; }
+  const t = new THREE.DataTexture(L[0].data, W, W); t.mipmaps = L; t.generateMipmaps = false; t.minFilter = THREE.LinearMipmapLinearFilter; t.magFilter = THREE.LinearFilter; t.needsUpdate = true; return t;
+}
 function sprMat(o) {   // v0.88 the sprite material: vertex-lit (vlMat) + each tree's visibility drawn per vertex from its own distance (near ring, far thinning, auto-res density), faded by eroding its alpha; mip-scaled alpha so far trees keep their silhouette
   const m = vlMat(o), ob = m.onBeforeCompile; m.onBeforeCompile = sh => { ob(sh); Object.assign(sh.uniforms, FOREST2.u);
     sh.vertexShader = 'uniform float sprNear, sprL, sprTD;\nvarying float vSpF;\n' + sh.vertexShader.replace('#include <fog_vertex>', `#include <fog_vertex>
@@ -1037,9 +1053,16 @@ function sprMat(o) {   // v0.88 the sprite material: vertex-lit (vlMat) + each t
     float f = 1.0; if (sprNear > 0.0) { float nn = sprNear * (0.7 + 0.6 * h1); f = smoothstep(nn - 30.0, nn + 30.0, d); }
     float q = mix(1.0, 0.3333, smoothstep(sprL * 0.9, sprL * 1.1, d)); q = mix(q, 0.1667, smoothstep(sprL * 1.8, sprL * 2.2, d)); q *= mix(1.0, sprTD, smoothstep(900.0, 1100.0, d)); if (determinant(mat3(instanceMatrix)) < 0.0) q *= 1.0 - smoothstep(sprL * 0.9, sprL * 1.1, d);   // 2D ONLY density extras: out to the far-thinning range
     f *= clamp((q - h2) / 0.05, 0.0, 1.0); vSpF = f; if (f <= 0.0) gl_Position = vec4(0.0, 0.0, -2.0, 1.0); }`);
-    sh.fragmentShader = 'varying float vSpF;\n' + sh.fragmentShader.replace('#include <alphatest_fragment>', `{ vec2 tx = vMapUv * 512.0, ddx = dFdx(tx), ddy = dFdy(tx); float ml = max(0.0, 0.5 * log2(max(dot(ddx, ddx), dot(ddy, ddy)))); diffuseColor.a *= 1.0 + 0.25 * ml;
-    if (diffuseColor.a < mix(1.01 + 0.25 * ml, alphaTest, vSpF)) discard; }`); };
-  m.customProgramCacheKey = () => 'spr88'; return m;
+    sh.fragmentShader = 'varying float vSpF;\n' + sh.fragmentShader.replace('#include <alphatest_fragment>', `float sprA = 1.0; { vec2 tx = vMapUv * 512.0, ddx = dFdx(tx), ddy = dFdy(tx); float ml = max(0.0, 0.5 * log2(max(dot(ddx, ddx), dot(ddy, ddy)))); diffuseColor.a *= 1.0 + 0.25 * ml;
+    float cut = mix(1.01 + 0.25 * ml, alphaTest, vSpF);
+#ifdef SPR_A2C
+    sprA = clamp((diffuseColor.a - cut) / max(fwidth(diffuseColor.a), 1e-4) + 0.5, 0.0, 1.0); if (sprA <= 0.0) discard;   // v0.92.1 alpha to coverage: the cut edge spread over one pixel, MSAA turns it into coverage (no stair-step crawl)
+#else
+    if (diffuseColor.a < cut) discard;
+#endif
+    }`).replace('#include <opaque_fragment>', '#include <opaque_fragment>\n  gl_FragColor.a = sprA;'); };
+  if (GFX.msaa) { m.alphaToCoverage = true; m.defines = Object.assign(m.defines || {}, { SPR_A2C: '' }); }   // v0.92.1 (Anti-aliasing applies at load, like the MSAA itself)
+  m.customProgramCacheKey = () => 'spr921' + (GFX.msaa ? 'a' : ''); return m;
 }
 // v0.37 the Hollow: a stand of timber west of the river where a new game wakes you, plus alders along both banks (own RNG - the world's rand() stream is untouched)
 const HOLLOW = { x: -430, z: -20 };
@@ -2845,7 +2868,7 @@ const LODGE = { x: -380, z: -2440, a: 1.83, hl: 140, hw: 10 };   // backcountry 
         for (let q = 0; q < 6; q++) P.push([cx + Math.cos(q * 1.047 + a) * rr, cy + Math.sin(q * 1.047 + a) * rr * 0.9]); poly(Math.cos(a) < 0.2 ? lt : dk, P); }
       const P = []; for (let q = 0; q < 6; q++) P.push([ox + 116 + Math.cos(q * 1.047) * 48, oy + 96 + Math.sin(q * 1.047) * 42]); poly(lt, P); };
     conifer(0, 0, '#284d2e', '#1b3822', 4); conifer(256, 0, '#2d5532', '#1f3f26', 5); decid(0, 256, '#55803a', '#3f6430', 7); decid(256, 256, '#6f8a34', '#556c28', 6);
-    const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 2;   // v0.81 never seen close (they're hidden inside 380 m)
+    const tex = sprAtlas(cv); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;   // v0.92.1 own mip chain (no dark fringe, no cell bleed), 4x anisotropic
     const sm = sprMat({ map: tex, alphaTest: 0.45, side: THREE.DoubleSide });   // v0.88 sprMat: per-tree fade by distance (no popping)   // v0.81 vertex-lit: every sprite normal is up, so per-vertex light = per-pixel light (Lambert maths, cheaper fill)
     const cell = c => { const u0 = (c % 2) * 0.5, v0 = c < 2 ? 0.5 : 0, P = [], U = [], N = [];   // two crossed upright quads, normals up (lit like the ground, no dark edge-on side)
       for (const a of [0, Math.PI / 2]) { const ca = Math.cos(a) * 0.5, sa = Math.sin(a) * 0.5;
