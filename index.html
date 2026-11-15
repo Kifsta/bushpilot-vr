@@ -19,7 +19,7 @@
 </script>
 </head>
 <body>
-<div id="info">BUSH PILOT VR <span id="ver">v0.98</span> - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
+<div id="info">BUSH PILOT VR <span id="ver">v0.99</span> - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
 You start on foot by the Cub at the cabin strip. Walk up to her and climb in (F / Y), then start her up off the checklist card (J).
 Desktop - flying: W/S or arrows pitch, A/D or arrows roll, Q/E rudder, Shift / Ctrl (or + / -) throttle, B brakes, \ parking brake, [ ] flaps, PgUp / PgDn trim,
   R reset to the strip (cold and dark), F climb out, M map, L landing light, Home recentre, mouse looks (click to capture).
@@ -597,7 +597,7 @@ const hyp = (a, b, c = 0) => Math.sqrt(a * a + b * b + c * c);   // v0.59 Math.h
 
 // ======================= RENDERING =======================
 // v0.35 settings (persist in localStorage 'bp_gfx'; ?gfx=shadows:2,grass:1 overrides for testing). Defaults = the v0.34 look and cost.
-const BP_VERSION = 'v0.98';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
+const BP_VERSION = 'v0.99';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
 { const e = document.getElementById('ver'); if (e) e.textContent = BP_VERSION; }
 const GFX_DEF = { shadows: 0, scale: 1, fov: 1, dist: 1, trees: 1, grass: 0, clouds: 1, fog: 1, msaa: 1, hz: 90, vig: 0, turn: 0, fps: 0, tod: 11, stk: 1, tips: 1, terr: 1, dyn: 1, glove: 0, hand: 0, wt: 1, volM: 1, volE: 1, volA: 1, volF: 1, wx: 1, forest: 0, ground: 0, gtex: 0, cvl: 1, water: 1, dayl: 48, flure: 0, fline: 8, fdrag: 4, fbob: 0, fsink: 0 };   // v0.68.1 dominant hand, volumes. v0.48 BALANCED: 90 % scale, 72 Hz, fast terrain shading, auto resolution; v0.49.1 the stick stays where you let go of it
 const GFX = Object.assign({}, GFX_DEF);
@@ -2240,6 +2240,7 @@ renderer.xr.addEventListener('sessionend', () => { xrOffset.position.set(0, 0, 0
 
 function handGrab(g) {   // on foot: the map (ground / cockpit holder / other edge) or the pump nozzle at a filler cap
   g.getWorldPosition(_a);
+  if (storyGrab(g, _a)) return;   // v0.99 Walt's logbook / the photo
   if (mapGrab(g, _a)) return;
   if (fuelGrab(g, _a)) return;
   if (fishGrab(g, _a)) return;   // v0.97 a tackle item, the rod off your pack, the reel's crank, the net
@@ -2252,7 +2253,7 @@ function handRelease(g) {       // called every frame the grip is up: keep it ch
   const hs = HX.st(g); if (hs.armed) { hs.armed = false; if (MAP.g === g || FUELP.g === g) HX.pulse(g, 0.15, 12, 'release'); }
   upgRelease(g);   // v0.57
   dlvRelease(g);   // v0.50 let go of cargo   // v0.24 let-go tap, once per squeeze
-  mapRelease(g); fuelRelease(g); huntRelease(g); fishRelease(g);
+  mapRelease(g); fuelRelease(g); huntRelease(g); fishRelease(g); storyRelease(g);
 }
 
 // desktop
@@ -2260,6 +2261,7 @@ const keys = {};
 addEventListener('keydown', e => {
   keys[e.code] = true;
   if (e.repeat) return;
+  if (storyKey(e)) return;   // v0.99 E a logbook / photo, 1-3 at Walt's board
   if (dropKey(e)) return;   // v0.54 G: push a bundle out of the open door
   if (fishKey(e)) return;   // v0.97 Q rod, - / = drag, E net / keep / buy
   if (huntKey(e)) return;   // v0.53 T rifle, X lever, Z load / buy ammo, V binoculars, hold E over a carcass
@@ -4387,10 +4389,10 @@ function kbLines() {   // the text, one entry per active job
 }
 // v0.64 clipboard pages: JOBS (the manifest), W&B, CUB (damage / maintenance), PERF (fuel, endurance, V-speeds at this weight). VR: trigger of the hand holding it = next page;
 // desktop: , and . while it is held up (N)
-KB.page = 0; const KB_PAGES = ['JOBS', 'W&B', 'CUB', 'PERF'];
+KB.page = 0; let KB_PAGES = ['JOBS', 'W&B', 'CUB', 'PERF'];   // v0.99 + NOTE (the bank's letter) in a story game
 function kbPage(d = 1) { KB.page = (KB.page + d + KB_PAGES.length) % KB_PAGES.length; KB.key = ''; kbDraw(); sfx('tick'); }
 function kbTabs(x) {   // the page tabs along the clip
-  const w = 92; x.textBaseline = 'middle'; x.font = 'bold 17px sans-serif'; x.textAlign = 'center';
+  const w = KB_PAGES.length > 4 ? 74 : 92; x.textBaseline = 'middle'; x.font = 'bold 17px sans-serif'; x.textAlign = 'center';
   KB_PAGES.forEach((n, i) => { const X = 10 + i * (w + 4); x.fillStyle = i === KB.page ? '#2a3a5a' : '#d8d2c0'; x.fillRect(X, 4, w, 26); x.fillStyle = i === KB.page ? '#fff' : '#555'; x.fillText((i + 1) + ' ' + n, X + w / 2, 18); });
   x.textAlign = 'right'; x.fillStyle = '#777'; x.font = '14px sans-serif'; x.fillText(renderer.xr.isPresenting ? 'TRIGGER: NEXT' : ', . PAGES', KB_W - 10, 18); x.textAlign = 'left'; x.textBaseline = 'alphabetic';
 }
@@ -4426,6 +4428,7 @@ function kbBody(x) {   // pages 2-4 (page 1 is the jobs list below)
     line('FULL POWER AVAILABLE ' + Math.round(cap * 100) + '%', cap < 1 ? '#b8301e' : '#2a5a22', '20px'); line('BRAKING ' + Math.round(bk * 100) + '%', bk < 1 ? '#b8301e' : '#2a5a22', '20px');
     if (E.sink) line('LAST TOUCHDOWN ' + Math.round(E.sink * 196.85) + ' FPM', E.sink > (UPG.tyres ? 2.4 : 2.0) ? '#b8301e' : '#444', '20px');
     x.fillStyle = '#666'; x.font = '17px sans-serif'; x.fillText('SERVICE, OIL, TYRES + REPAIRS: THE HOME HANGAR BOARD', 22, KB_H - 16, KB_W - 44);
+  } else if (pg === 4) { storyKbBody(x); kbTabs(x);   // v0.99 the bank's letter
   } else if (pg === 3) {
     const D = kbPerfData(), V = D.V; x.fillText('PERFORMANCE', 22, 66); let y = 108; const line = (t, c = '#222', f = 'bold 22px') => { x.fillStyle = c; x.font = f + ' sans-serif'; x.fillText(t, 22, y, KB_W - 44); y += 31; };
     line('WEIGHT ' + D.P.lb.toFixed(0) + ' LB' + (D.P.over ? ' - OVER GROSS' : ''), D.P.over ? '#b8301e' : '#222');
@@ -4443,6 +4446,7 @@ function kbKey() {   // what each page shows, rounded so the canvas only redraws
   const E = ECO, P = WBS.plan, pg = KB.page;
   if (pg === 1) return WBS.key + '|' + (renderer.xr.isPresenting ? 1 : 0);
   if (pg === 2) return [E.hrs.toFixed(1), E.svc.toFixed(1), E.oil.toFixed(1), Math.round(E.tyre * 100), Math.round(E.brake * 100), Math.round(E.gear * 100), Math.round(E.eng * 100), E.seized, E.ldg, Math.round(E.sink * 196.85), renderer.xr.isPresenting].join('|');
+  if (pg === 4) return 'N' + storyOwed() + '|' + storyLeft() + '|' + STORY.snow + '|' + renderer.xr.isPresenting;
   if (pg === 3) { const D = kbPerfData(); return [P.lb.toFixed(0), D.gal.toFixed(1), Math.floor(D.cru), Math.floor(D.cur), Math.round(D.curP * 100), renderer.xr.isPresenting, GFX.wx ? wxMetar() + wxTrend() : 0].join('|'); }
   return '';
 }
@@ -5647,7 +5651,7 @@ function floatJob(id, fS, to) {
   if (!to.B || to.B.kit !== 'floats' || !FLOAT_J[to.id]) return null; const r = dlvRng(id * 2246822519 + 17);
   if (fS && fS.B && fS.B.kit === 'floats' && r() < 0.5) return FLOAT_HOP[Math.floor(r() * FLOAT_HOP.length)];
   const L = FLOAT_J[to.id]; return L[Math.floor(r() * L.length)]; }
-function dlvGen(from, forceH) { return repShape(dlvGen0(from, forceH)); }   // v0.56 priced by rep
+function dlvGen(from, forceH) { const j = repShape(dlvGen0(from, forceH)); let k = 1; try { k = STORY.on && STORY.act < 3 ? STORY_PAYX : 1; } catch (e) { } if (j && k !== 1) j.pay = Math.round(j.pay * k); return j; }   // v0.99 story jobs pay x1.6   // v0.56 priced by rep
 function dlvGen0(from, forceH) {   // one offer from this strip (seeded by the running job number, so a save reloads the same board); forceH: heavy freight
   const id = DLV.seq++; { const rh = dlvRng(id * 49979687 + 11); if (!forceH && rh() < HUNT_P) return huntGen(id, from, rh); }   // v0.53
   { const ra = dlvRng(id * 86028121 + 5); if (!forceH && ra() < DROP_P) return dropGen(id, from, ra); }   // v0.54 airdrops
@@ -8807,6 +8811,162 @@ function emgFix() {   // after dlvLoad: a patient who was aboard is still aboard
   const j = emgActive(); if (!j) return; if (j.emg.got && !DLV.items.some(it => it.job === j.id && it.k === 'patient' && it.st === 'cargo')) { j.emg.got = 0; j.items = j.items.filter(i => j.emg.t === 'med' || i.k !== 'patient'); }
   emgVis(j);
 }
+// ===================== v0.99 STORY: Save the family airline - the opening in Walt's hangar, the bank's note, the chalkboard, the season clock =====================
+// A new game is a STORY game (menu NEW STORY; NEW FREE PLAY is the old sandbox). Old saves load as free play, untouched. ?story forces it on, ?free off (tests: ?nosave = free play).
+// The note: $40,000 to Valley Credit, due before the first snow (day 15 at the default 48-minute day: 14 game days of season). Payments are chalked on Walt's board in the hangar
+// (VR: poke a PAY box; desktop: 1 / 2 / 3 within 3 m of it). Story jobs pay x1.6 (the valley stocks up before winter). Missing the snow doesn't end anything: Voss grants a
+// winter extension (free if half is paid and two towns vouch for you, otherwise with a $2,000 fee) - the story never soft-locks.
+const STORY_NOTE = 40000, STORY_DAYS = 14, STORY_PAYX = 1.6, STORY_EXT_DAYS = 10, STORY_EXT_FEE = 2000, STORY_PAYS = [500, 1000, 5000];
+const STORY = { on: false, act: 1, paid: 0, fee: 0, gh: 0, ext: 0, snow: false, read: {}, log: [], pays: [], said: {}, held: null, heldG: null, page: 0, near: null, poke: [true, true], key: '', t: 0 };
+{ const q = new URLSearchParams(location.search); STORY.want = q.has('story') ? true : q.has('free') || /[?&]nosave\b/.test(location.search) ? false : (() => { try { return localStorage.getItem('bp_newmode') !== 'free'; } catch (e) { return true; } })(); }
+const storyOwed = () => Math.max(0, STORY_NOTE + STORY.fee - STORY.paid);
+const storyDay = () => 1 + Math.floor(STORY.gh / 24);
+const storyEnd = () => (STORY_DAYS + STORY.ext) * 24;   // game hours to the deadline (first snow, then the extension's end)
+const storyLeft = () => Math.max(0, Math.ceil((storyEnd() - STORY.gh) / 24));
+function storyDate(gh = STORY.gh) { const d = Math.floor(gh / 24), M = ['SEP', 'OCT', 'NOV', 'DEC'], dim = [30, 31, 30, 31]; let m = 0, dd = d + 1; while (m < 3 && dd > dim[m]) { dd -= dim[m]; m++; } return M[m] + ' ' + dd; }
+function storyLog(t) { if (STORY.log.some(e => e.t === t)) return; STORY.log.push({ t, d: storyDay() }); if (STORY.log.length > 60) STORY.log.shift(); }
+// ---- the hangar dressing: Walt's desk under his chalkboard on the back wall, the logbook + the photo on it ----
+const SB = { X: HANGAR.x - 4.52, Z: HANGAR.z + 0.35, W: 1.7, H: 1.06 };
+{ const X0 = HANGAR.x, Z0 = HANGAR.z, y0 = HANGAR.y, P = [], b = (w, h, d, x, y, z, c) => P.push(['b', w, h, d, x, y, z, c]);
+  b(0.66, 0.05, 1.3, X0 - 4.18, y0 + 0.79, Z0 + 0.35, 0x5a3a20);   // desk top
+  for (const [dx, dz] of [[-0.28, -0.6], [0.28, -0.6], [-0.28, 0.6], [0.28, 0.6]]) b(0.05, 0.77, 0.05, X0 - 4.18 + dx, y0 + 0.39, Z0 + 0.35 + dz, 0x4a3018);
+  b(0.62, 0.16, 0.5, X0 - 4.18, y0 + 0.66, Z0 + 0.72, 0x4e3420);   // a drawer box
+  b(0.06, 1.18, SB.W + 0.12, SB.X + 0.01, y0 + 1.82, SB.Z, 0x6a4a2a);   // the chalkboard's frame (the slate sits on it)
+  b(0.1, 0.05, SB.W, SB.X + 0.07, y0 + 1.26, SB.Z, 0x6a4a2a);   // chalk ledge
+  b(0.025, 0.02, 0.07, SB.X + 0.07, y0 + 1.295, SB.Z - 0.5, 0xf4f2ea); b(0.025, 0.02, 0.05, SB.X + 0.07, y0 + 1.295, SB.Z - 0.38, 0xe8e0a0);   // chalk sticks
+  P.push(['c', 0.045, 0.1, 8, X0 - 4.02, y0 + 0.87, Z0 + 0.92, 0xd8d0c0]);   // a mug
+  const g = mergeGeometries(P.map(partGeo)); SB.desk = new THREE.Mesh(g, ITEM_VM); SB.desk.castShadow = SB.desk.receiveShadow = true; SB.desk.visible = false; scene.add(SB.desk);
+  const cv = document.createElement('canvas'); cv.width = 1024; cv.height = 640; SB.cv = cv; SB.x = cv.getContext('2d'); SB.tex = new THREE.CanvasTexture(cv); SB.tex.colorSpace = THREE.SRGBColorSpace; SB.tex.anisotropy = 4;
+  SB.m = new THREE.Mesh(new THREE.PlaneGeometry(SB.W, SB.H), new THREE.MeshLambertMaterial({ map: SB.tex })); SB.m.position.set(SB.X + 0.045, y0 + 1.82, SB.Z); SB.m.rotation.y = Math.PI / 2; SB.m.userData.noBatch = true; SB.m.visible = false; scene.add(SB.m); }
+// readable things: a mesh on the desk (rest pose), a canvas page shown while you hold it (VR: grip it, trigger turns the page; desktop: look at it + E, , . pages, E puts it down)
+function stPage(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return { c, x: c.getContext('2d'), t }; }
+const SITEMS = [];
+function stItem(id, rest, geo, pw, ph, cw, chh, pages, draw) {   // rest: [x, y, z, ry] world; pw x ph: the held page (m); draw(x, page)
+  const m = new THREE.Mesh(geo, ITEM_VM); m.position.set(rest[0], rest[1], rest[2]); m.rotation.y = rest[3]; m.castShadow = true; m.userData.noBatch = true; m.visible = false; scene.add(m);
+  const P = stPage(cw, chh), pg = new THREE.Mesh(new THREE.PlaneGeometry(pw, ph), new THREE.MeshBasicMaterial({ map: P.t, color: 0xe8e8e8 })); pg.visible = false; pg.userData.noBatch = true; scene.add(pg);
+  const it = { id, m, pg, P, pages, draw, rest, drawn: -1 }; SITEMS.push(it); return it; }
+// ---- the texts ----
+const ST_LETTER = () => ['VALLEY CREDIT UNION', 'MAIN STREET, CUTLER', '', 'TO: ' + PILOT + ' MACRAE, HOME STRIP', 'RE: WALTER MACRAE - NOTE 1147', '',
+  'We were sorry to hear of your uncle\'s passing.', 'Walt flew for this valley longer than this', 'office has kept books.', '',
+  'His note with us stands at $40,000. Under its', 'terms the balance falls due before the first', 'snow closes the strips - about two weeks.', '',
+  'Pay as you can. Chalk each payment on Walt\'s', 'board in the hangar; the mail run brings it', 'to me. If the hangar is to stay in the family,', 'the season is yours to fly.', '', '- Eleanor Voss, Loans'];
+const ST_LOG = [
+  ['MACRAE AIR SERVICE', 'PILOT\'S LOG - W. MACRAE', '', 'MAY 12  HOME - RIDGE   NAILS       1.2', 'MAY 19  LODGE  FLOWERS, WEDDING   0.9', 'JUN 03  DRY FORK  FEED            1.4', 'JUN 30  SEARCH - N. ICEFIELD     2.6', '        NOTHING. GLARE ALL DAY.', 'JUL 08  CREEK BAR  JOE\'S PUMP     1.1', 'JUL 22  SEARCH - W. GLACIER      3.1', '        CLOUD ON THE BENCHES.'],
+  ['AUG 02  V.C. PAYMENT  $600 - SHORT', 'AUG 09  RANGER STN  SAR, HIKERS  2.2', 'AUG 14  SEARCH - N. ICEFIELD     2.9', '        PAST THE MAIN ICE THIS TIME.', '        FUEL SAYS TURN. TURNED.', 'AUG 20  PETE SAYS I\'M A FOOL.', '        PETE IS RIGHT.', 'AUG 27  V.C. PAYMENT  $400 - SHORT'],
+  ['Dad went out on the last mail run of the', 'season, thirty years back, in the Norseman.', 'Mail, medicine for Dry Fork, a mayday', 'nobody could fix. The search flew a week', 'and quit at the main icefield in the snow.', '', 'I never did. Every fall, after the season,', 'I take the Cub north and look a little', 'further. The bank thinks it\'s the fuel.', 'It\'s the fuel.'],
+  ['SEP 01  WX CLEAR TO THE NORTH.', '        ONE MORE LOOK BEFORE THE SNOW.', '', '', '', '        Still looking.', '        North ice.']];
+// ---- drawing ----
+function stPaper(x, w, h, col = '#efe6cf') { x.fillStyle = col; x.fillRect(0, 0, w, h); x.fillStyle = 'rgba(120,90,40,0.06)'; for (let i = 0; i < 40; i++) x.fillRect((i * 97) % w, (i * 53) % h, 60, 2); }
+function stLines(x, L, X, Y, dy, font, col = '#2a2418') { x.font = font; x.fillStyle = col; x.textAlign = 'left'; L.forEach((t, i) => x.fillText(t, X, Y + i * dy)); }
+function stDrawLog(x, pg) { const W = 1024, H = 640; stPaper(x, W, H, '#e9dfc2'); x.fillStyle = '#b8a888'; x.fillRect(W / 2 - 3, 0, 6, H); x.strokeStyle = '#c8b898'; x.lineWidth = 1;
+  for (let y = 70; y < H - 20; y += 34) { x.beginPath(); x.moveTo(30, y); x.lineTo(W / 2 - 20, y); x.moveTo(W / 2 + 20, y); x.lineTo(W - 30, y); x.stroke(); }
+  const L = ST_LOG[pg * 2] || [], R = ST_LOG[pg * 2 + 1] || [], hand = pg === 1 ? 'italic 24px Georgia, serif' : '19px monospace';
+  stLines(x, L, 40, 62, 34, pg === 1 ? 'italic 24px Georgia, serif' : 'bold 19px monospace', '#2a2a40'); stLines(x, R, W / 2 + 34, 62, 34, pg === 1 ? 'italic 30px Georgia, serif' : hand, '#2a2a40');
+  x.fillStyle = '#7a6a50'; x.font = '16px Georgia, serif'; x.textAlign = 'center'; x.fillText((pg * 2 + 1) + '', W / 4, H - 14); x.fillText((pg * 2 + 2) + '', W * 3 / 4, H - 14);
+  x.fillText(renderer.xr.isPresenting ? 'TRIGGER: TURN THE PAGE' : ', .  TURN THE PAGE   E  PUT IT DOWN', W / 2, 24); x.textAlign = 'left'; }
+function stDrawPhoto(x) { const W = 512, H = 640; stPaper(x, W, H, '#f2ecdc');   // a faded black-and-white print in a white border: the valley, a Norseman on floats at a dock, a man beside it
+  const g = x.createLinearGradient(0, 40, 0, 460); g.addColorStop(0, '#cfc3a8'); g.addColorStop(1, '#a89878'); x.fillStyle = g; x.fillRect(36, 36, W - 72, 430);
+  x.fillStyle = '#8a7c62'; x.beginPath(); x.moveTo(36, 260); for (let i = 0; i <= 20; i++) x.lineTo(36 + i * (W - 72) / 20, 230 - 70 * Math.abs(Math.sin(i * 0.9 + 1)) - 30 * Math.sin(i * 2.3)); x.lineTo(W - 36, 300); x.lineTo(36, 300); x.fill();   // the range
+  x.fillStyle = '#b8ab90'; x.fillRect(36, 300, W - 72, 166); x.fillStyle = '#6a5c46'; x.fillRect(36, 380, W - 72, 10);   // lake + dock
+  x.fillStyle = '#4a3e30'; x.fillRect(150, 300, 250, 22); x.fillRect(140, 292, 280, 8);   // wing
+  x.beginPath(); x.moveTo(170, 322); x.lineTo(380, 326); x.lineTo(440, 318); x.lineTo(445, 300); x.lineTo(430, 336); x.lineTo(200, 350); x.lineTo(165, 342); x.fill();   // fuselage + tail
+  x.fillRect(158, 322, 16, 22); x.fillRect(150, 318, 6, 30); x.fillStyle = '#5a4e3c'; x.fillRect(180, 358, 220, 9); x.fillRect(200, 344, 5, 16); x.fillRect(330, 344, 5, 16);   // nose, prop, float + struts
+  x.fillStyle = '#2e261c'; x.fillRect(95, 320, 18, 56); x.beginPath(); x.arc(104, 312, 10, 0, 7); x.fill(); x.fillRect(86, 300, 36, 6);   // the man, hat
+  x.fillStyle = 'rgba(255,250,230,0.25)'; for (let i = 0; i < 300; i++) x.fillRect(36 + Math.random() * (W - 72), 36 + Math.random() * 430, 2, 2);
+  x.strokeStyle = 'rgba(80,60,30,0.35)'; x.lineWidth = 3; x.beginPath(); x.moveTo(W - 120, 36); x.lineTo(W - 36, 120); x.stroke();   // a crease
+  stLines(x, ['GORDON + THE NORSEMAN', 'HOME STRIP DOCK, THE LAST SUMMER'], 40, 520, 40, 'italic 28px Georgia, serif', '#3a3020'); }
+function stDrawLetter(x, W, H, y0 = 70) { stPaper(x, W, H); const L = ST_LETTER(); x.fillStyle = '#1e3a6a'; x.font = 'bold 30px Georgia, serif'; x.fillText(L[0], 30, y0); x.font = '18px Georgia, serif'; x.fillText(L[1], 30, y0 + 26);
+  stLines(x, L.slice(3), 30, y0 + 70, 27, '20px Georgia, serif'); }
+// ---- the chalkboard ----
+function sbDraw() { const x = SB.x, W = 1024, H = 640; x.fillStyle = '#263028'; x.fillRect(0, 0, W, H); x.fillStyle = 'rgba(255,255,255,0.035)'; for (let i = 0; i < 60; i++) x.fillRect((i * 173) % W, (i * 89) % H, 140, 18);
+  const ch = (t, X, Y, f, c = '#ecefe6', al = 'left') => { x.font = f; x.fillStyle = c; x.textAlign = al; x.fillText(t, X, Y); };
+  ch('MACRAE AIR SERVICE', W / 2, 62, 'bold 46px Georgia, serif', '#f4f2ea', 'center');
+  const owed = storyOwed(), left = storyLeft(), clk = GFX.dayl > 0;
+  ch('VALLEY CREDIT NOTE', 44, 132, 'italic 34px Georgia, serif'); ch('$' + (STORY_NOTE + STORY.fee).toLocaleString('en-US'), 640, 132, 'bold 36px Georgia, serif');
+  ch('PAID', 44, 184, 'italic 34px Georgia, serif'); ch('$' + STORY.paid.toLocaleString('en-US'), 640, 184, 'bold 36px Georgia, serif', '#b8e0a0');
+  x.strokeStyle = '#ecefe6'; x.lineWidth = 3; x.beginPath(); x.moveTo(44, 204); x.lineTo(900, 204); x.stroke();
+  ch(owed > 0 ? 'STILL OWED' : 'PAID IN FULL', 44, 250, 'bold 38px Georgia, serif', owed > 0 ? '#f0c8a0' : '#b8e0a0'); if (owed > 0) ch('$' + owed.toLocaleString('en-US'), 640, 250, 'bold 40px Georgia, serif', '#f0c8a0');
+  x.fillStyle = '#3a4a3c'; x.fillRect(44, 272, 856, 22); x.fillStyle = '#b8e0a0'; x.fillRect(44, 272, 856 * clamp(STORY.paid / (STORY_NOTE + STORY.fee), 0, 1), 22);
+  const dl = STORY.snow ? (STORY.ext ? 'WINTER EXTENSION: ' + left + ' DAYS LEFT' : 'THE SNOW IS HERE') : 'FIRST SNOW IN ~' + left + ' DAYS';
+  ch(owed > 0 ? dl : 'THE HANGAR STAYS', 44, 344, 'bold 34px Georgia, serif', left <= 3 && owed > 0 ? '#f0a090' : '#ecefe6'); ch(storyDate() + '  (DAY ' + storyDay() + ')' + (clk ? '' : ' - CLOCK STOPPED: DAY LENGTH FIXED'), 44, 380, '22px Georgia, serif', '#c8ccc0');
+  ch('CASH ON HAND ' + ecoMoney(DLV.cash), 44, 418, '24px Georgia, serif', '#c8ccc0');
+  STORY_PAYS.forEach((v, i) => { const X = 44 + i * 290, can = DLV.cash >= v && owed > 0; x.strokeStyle = can ? '#f4f2ea' : '#6a7468'; x.lineWidth = 4; x.strokeRect(X, 444, 260, 76);
+    ch('PAY $' + v.toLocaleString('en-US'), X + 130, 484, 'bold 32px Georgia, serif', can ? '#f4f2ea' : '#6a7468', 'center'); ch(renderer.xr.isPresenting ? 'POKE' : 'KEY ' + (i + 1), X + 130, 510, '17px Georgia, serif', '#a8b0a0', 'center'); });
+  const R = STORY.pays.slice(-3).reverse(); ch(R.length ? 'CHALKED: ' + R.map(p => p[0] + ' $' + p[1].toLocaleString('en-US')).join('   ') : 'NOTHING CHALKED YET - WALT\'S LAST: AUG 27 $400', 44, 570, 'italic 24px Georgia, serif', '#c8ccc0');
+  ch('WALT\'S LOGBOOK AND A PHOTO ON THE DESK.  THE BANK\'S LETTER: YOUR CLIPBOARD, PAGE 5', 44, 612, '18px Georgia, serif', '#98a090');
+  x.textAlign = 'left'; texDirty(SB.tex); }
+function sbKey() { return [STORY.paid, STORY.fee, storyLeft(), storyDay(), STORY.snow, STORY.ext, Math.round(DLV.cash), GFX.dayl > 0, renderer.xr.isPresenting, STORY.pays.length].join('|'); }
+function storyPay(i) { const v = STORY_PAYS[i], owed = storyOwed(); if (v === undefined || !STORY.on) return false;
+  if (owed <= 0) { say('THE NOTE IS PAID - NOTHING MORE TO CHALK'); return true; }
+  const a = Math.min(v, owed); if (DLV.cash < a) { say('NOT ENOUGH CASH FOR $' + a.toLocaleString('en-US') + ' - YOU HAVE ' + ecoMoney(DLV.cash) + '. FLY SOME JOBS'); sfx('tick'); return true; }
+  DLV.cash -= a; STORY.paid += a; STORY.pays.push([storyDate(), a]); if (STORY.pays.length > 40) STORY.pays.shift(); sfx('click'); STORY.key = sbKey(); sbDraw();
+  const o = storyOwed(); say(o > 0 ? 'CHALKED $' + a.toLocaleString('en-US') + ' - $' + o.toLocaleString('en-US') + ' STILL OWED, ' + storyLeft() + ' DAYS TO ' + (STORY.ext ? 'THE EXTENSION\'S END' : 'THE FIRST SNOW') : 'PAID IN FULL. THE HANGAR STAYS MACRAE AIR SERVICE');
+  if (o <= 0) { storyLog('The note to Valley Credit is paid in full (' + storyDate() + ').'); STORY.act = Math.max(STORY.act, 2); } saveSoon(); return true; }
+// ---- every frame ----
+const _sbL = new THREE.Vector3(), _sbC = new THREE.Vector3(), _sbD = new THREE.Vector3();
+function storyTick(dt) {
+  if (!STORY.on) return;
+  if (GFX.dayl > 0 && dt > 0 && dt < 1) STORY.gh += dt * 24 / (GFX.dayl * 60);
+  if (!STORY.snow && STORY.gh >= STORY_DAYS * 24) storySnow();
+  else if (STORY.snow && STORY.ext && storyOwed() > 0 && STORY.gh >= storyEnd() && !STORY.said.extEnd) { STORY.said.extEnd = 1; say('VOSS: THE EXTENSION HAS RUN OUT, ' + PILOT + '. I WON\'T TAKE THE HANGAR WHILE YOU\'RE STILL FLYING - BUT PAY WHAT YOU CAN.'); }
+  if ((STORY.t -= dt) <= 0) { STORY.t = 0.5; const k = sbKey(); if (k !== STORY.key) { STORY.key = k; sbDraw(); } }
+  camera.getWorldPosition(_sbC); const dB = hyp(_sbC.x - SB.X, _sbC.z - SB.Z); STORY.near = mode === 'foot' && dB < 3 ? SB : null;
+  if (STORY.near && !STORY.said.board) { STORY.said.board = 1; say('WALT\'S BOARD - THE NOTE, WHAT\'S PAID, THE DAYS TO THE SNOW. ' + (renderer.xr.isPresenting ? 'POKE A PAY BOX' : 'KEYS 1-3 PAY')); }
+  if (STORY.near && HANDS.st.length) for (let i = 0; i < 2; i++) { const st = HANDS.st[i]; if (!st.vis) continue; SB.m.worldToLocal(_sbL.copy(st.tip)); const u = (_sbL.x / SB.W + 0.5) * 1024, v = (0.5 - _sbL.y / SB.H) * 640, inP = u >= 0 && u <= 1024 && v >= 0 && v <= 640;
+    if (!STORY.poke[i] && (!inP || _sbL.z > 0.04)) STORY.poke[i] = true;
+    if (STORY.poke[i] && inP && _sbL.z < 0.012 && _sbL.z > -0.05) { STORY.poke[i] = false; if (v > 444 && v < 520) { const b = Math.floor((u - 44) / 290); if (b >= 0 && b < 3 && (u - 44) % 290 < 260) { storyPay(b); if (grips[i]) HX.pulse(grips[i], 0.4, 14, 'ui'); } } } }
+  // held readables
+  const H = STORY.held;
+  for (const it of SITEMS) { const held = it === H; it.m.visible = !held; it.pg.visible = held; }
+  if (H) { if (H.drawn !== STORY.page + (renderer.xr.isPresenting ? 100 : 0)) { H.drawn = STORY.page + (renderer.xr.isPresenting ? 100 : 0); H.draw(H.P.x, STORY.page); texDirty(H.P.t); }
+    if (STORY.heldG) { const g = STORY.heldG; g.updateWorldMatrix(true, false); g.getWorldPosition(_sbL); g.getWorldDirection(_sbD); H.pg.position.copy(_sbL).addScaledVector(_sbD, -0.09); H.pg.position.y += 0.05; H.pg.lookAt(_sbC);
+      const gp = g.userData.src?.gamepad; if (gp && pressedEdge(gp, 0, 'stT') && H.pages > 1) { STORY.page = (STORY.page + 1) % H.pages; sfx('tick'); HX.pulse(g, 0.25, 10, 'ui'); } }
+    else { camera.getWorldDirection(_sbD); H.pg.position.copy(_sbC).addScaledVector(_sbD, 0.42); H.pg.position.y -= 0.03; H.pg.quaternion.copy(camera.getWorldQuaternion(_stQ)); if (hyp(_sbC.x - H.rest[0], _sbC.z - H.rest[2]) > 4) storyPut(); }
+    storyRead(H); }
+  if (KB.page === 4 && (KB.g || KB.desk) && !STORY.read.letter) { STORY.read.letter = 1; storyLog('Valley Credit\'s letter: Walt\'s note, $40,000, due before the first snow.'); say('THE NOTE: $40,000 BEFORE THE FIRST SNOW. FLY THE VALLEY\'S JOBS - CHALK THE PAYMENTS ON WALT\'S BOARD IN THE HANGAR'); }
+}
+const _stQ = new THREE.Quaternion();
+function storyRead(H) { if (H.id === 'log' && STORY.page === H.pages - 1 && !STORY.read.log) { STORY.read.log = 1; storyLog('Walt\'s logbook, the last page: "Still looking. North ice."'); say('"STILL LOOKING. NORTH ICE." - WALT WAS SEARCHING FOR HIS FATHER, GORDON, TO THE END'); }
+  if (H.id === 'photo' && !STORY.read.photo) { STORY.read.photo = 1; storyLog('A photo: Gordon MacRae beside the Norseman, the last summer before it vanished.'); say('GORDON MACRAE, YOUR GRANDFATHER, AND THE NORSEMAN THAT NEVER CAME HOME'); } }
+function storyTake(it, g) { if (STORY.held) storyPut(); STORY.held = it; STORY.heldG = g || null; STORY.page = 0; it.drawn = -1; sfx('pick'); if (g) HX.pulse(g, 0.3, 15, 'pick'); return true; }
+function storyPut() { if (!STORY.held) return; STORY.held = null; STORY.heldG = null; sfx('tick'); }
+function storyGrab(g, p) { if (!STORY.on || mode !== 'foot') return false; for (const it of SITEMS) if (it.m.visible && p.distanceTo(it.m.position) < 0.16) return storyTake(it, g); return false; }
+function storyRelease(g) { if (STORY.heldG === g) storyPut(); }
+function storyKey(e) { if (!STORY.on || mode !== 'foot') return false;
+  if (STORY.held && !STORY.heldG) { if (e.code === 'KeyE') { storyPut(); return true; } if ((e.code === 'Comma' || e.code === 'Period') && STORY.held.pages > 1) { STORY.page = (STORY.page + (e.code === 'Period' ? 1 : -1) + STORY.held.pages) % STORY.held.pages; sfx('tick'); return true; } }
+  if (e.code === 'KeyE') { camera.getWorldPosition(_sbC); camera.getWorldDirection(_sbD); for (const it of SITEMS) { if (!it.m.visible) continue; _sbL.copy(it.m.position).sub(_sbC); const d = _sbL.length(); if (d < 2.2 && _sbL.normalize().dot(_sbD) > 0.93) return storyTake(it, null); } }
+  if (STORY.near && !KB.desk) { const m = /^Digit([1-3])$/.exec(e.code); if (m) return storyPay(+m[1] - 1); }
+  return false; }
+// ---- the first snow (Act 2 starts: the extension rule; the snow itself is v1.02's) ----
+function storySnow() { STORY.snow = true; STORY.act = Math.max(STORY.act, 2); const o = storyOwed(); storyLog('The first snow, ' + storyDate() + '.');
+  if (o <= 0) { say('THE FIRST SNOW - AND THE NOTE IS ALREADY PAID. THE VALLEY NEEDS ITS WINTER PILOT'); saveSoon(); return; }
+  const vouch = Object.values(DLV.rep || {}).filter(v => v >= 55).length, half = STORY.paid >= STORY_NOTE / 2; STORY.ext = STORY_EXT_DAYS;
+  if (half && vouch >= 2) say('VOSS: THE SNOW BEAT YOU, BUT YOU\'VE PAID HALF AND THE TOWNS VOUCH FOR YOU. ' + STORY_EXT_DAYS + ' MORE DAYS, NO FEE.');
+  else { STORY.fee += STORY_EXT_FEE; say('VOSS: THE NOTE IS LATE. I CAN GIVE YOU ' + STORY_EXT_DAYS + ' MORE DAYS WITH A $' + STORY_EXT_FEE.toLocaleString('en-US') + ' FEE. ' + (half ? 'GET THE TOWNS TO VOUCH FOR YOU' : 'PAY IT DOWN, ' + PILOT) + '.'); }
+  storyLog('Voss granted a winter extension of ' + STORY_EXT_DAYS + ' days' + (STORY.fee ? ' (+$' + STORY.fee + ' fee)' : '') + '.'); STORY.key = ''; saveSoon(); }
+// ---- the props ----
+{ const X0 = HANGAR.x, Z0 = HANGAR.z, y0 = HANGAR.y + 0.815;
+  stItem('log', [X0 - 4.2, y0 + 0.02, Z0 + 0.2, 0.15], mergeGeometries([['b', 0.23, 0.035, 0.31, 0, 0, 0, 0x2a4a32], ['b', 0.215, 0.028, 0.3, 0.008, 0.001, 0, 0xe8dcc0]].map(partGeo)), 0.62, 0.39, 1024, 640, 2, stDrawLog);
+  stItem('photo', [X0 - 4.3, y0 + 0.09, Z0 - 0.12, Math.PI / 2 - 0.35], mergeGeometries([['b', 0.012, 0.18, 0.14, 0, 0, 0, 0x3a2a1a], ['b', 0.004, 0.16, 0.12, 0.007, 0, 0, 0xd8ccb0]].map(partGeo)).rotateZ(-0.12), 0.26, 0.325, 512, 640, 1, (x) => stDrawPhoto(x)); }
+// ---- the clipboard's 5th page: the bank's letter ----
+function storyKbPages() { KB_PAGES = STORY.on ? ['JOBS', 'W&B', 'CUB', 'PERF', 'NOTE'] : ['JOBS', 'W&B', 'CUB', 'PERF']; if (KB.page >= KB_PAGES.length) KB.page = 0; KB.key = ''; }
+function storyKbBody(x) { stDrawLetter(x, KB_W, KB_H, 76); x.fillStyle = '#7a3020'; x.font = 'bold 21px sans-serif'; x.fillText('OWED $' + storyOwed().toLocaleString('en-US') + ' - ' + (STORY.snow && !STORY.ext ? 'THE SNOW IS HERE' : storyLeft() + ' DAYS LEFT') + ' - PAID $' + STORY.paid.toLocaleString('en-US'), 22, KB_H - 18, KB_W - 44); }
+// ---- start, show, save ----
+function storyShow() { const on = STORY.on; SB.desk.visible = SB.m.visible = on; for (const it of SITEMS) it.m.visible = on; storyKbPages(); STORY.key = ''; }
+function storyBegin() {   // a brand-new story game: up in Walt's hangar, a late-summer morning, the boards at story pay
+  STORY.on = true; STORY.act = 1; STORY.gh = 0; STORY.paid = 0; STORY.fee = 0; STORY.ext = 0; STORY.snow = false; storyShow();
+  for (const S of DLV_STRIPS) DLV.offers[S.id] = []; DLV.seq = 1; dlvInit(false); for (const S of DLV_STRIPS) S.key = '';
+  if (GFX.dayl > 0) DAY.h = 8.25; updateDay(0);
+  const x = HANGAR.x - 1.6, z = HANGAR.z + 0.4; footRig.position.set(x, groundY(x, z) + EYE, z); footRig.rotation.set(0, Math.PI / 2, 0); bodyYaw = Math.PI / 2; lookYaw = lookPitch = 0;
+  KB.page = 4; storyLog('Walt\'s hangar, Home Strip. The Cub, the debt, and a search he never finished.');
+  say('WALT\'S HANGAR, HOME STRIP. HIS LOGBOOK AND A PHOTO ARE ON THE DESK; THE BANK\'S LETTER IS ON YOUR CLIPBOARD IN THE CUB'); saveSoon(); }
+function storySave() { return STORY.on ? { on: 1, act: STORY.act, paid: STORY.paid, fee: STORY.fee, gh: Math.round(STORY.gh * 1000) / 1000, ext: STORY.ext, snow: STORY.snow ? 1 : 0, read: STORY.read, log: STORY.log, pays: STORY.pays, said: STORY.said } : { on: 0 }; }
+function storyLoad(d) {   // older saves (no story field) and free-play saves stay free play
+  const n = (v, a, b, def) => isFinite(+v) && v !== null ? clamp(+v, a, b) : def;
+  if (!d || !d.on) { STORY.on = false; storyShow(); return; }
+  STORY.on = true; STORY.act = n(d.act, 1, 4, 1) | 0; STORY.paid = n(d.paid, 0, 1e7, 0); STORY.fee = n(d.fee, 0, 1e6, 0); STORY.gh = n(d.gh, 0, 1e6, 0); STORY.ext = n(d.ext, 0, 100, 0); STORY.snow = !!d.snow;
+  STORY.read = d.read && typeof d.read === 'object' ? d.read : {}; STORY.log = Array.isArray(d.log) ? d.log.filter(e => e && typeof e.t === 'string').slice(-60) : []; STORY.pays = Array.isArray(d.pays) ? d.pays.filter(p => Array.isArray(p) && isFinite(p[1])).slice(-40) : []; STORY.said = d.said && typeof d.said === 'object' ? d.said : {}; storyShow(); }
+
 // ================= v0.45 save: where the Cub is parked, fuel, time of day, on foot or aboard. New key - older (v0.44 and before) saves are left alone and ignored =================
 const SAVE_KEY = 'bushpilot-vr-blank-v1', NOSAVE = /[?&]nosave\b/.test(location.search);
 // ---- v0.75 weather, no wind: slow states that only change what you see and hear (fog distance + colour, cloud deck, light, valley mist, rain).
@@ -8867,7 +9027,7 @@ function cubParked() { return !ac.crashed && acGS() < 1 && ac.gs.some(g => g.Fn 
 function saveGame(why) {
   if (NOSAVE || SV.off) return false;
   if (cubParked()) SV.cub = { p: ac.pos.map(r3), q: ac.q.map(v => Math.round(v * 1e6) / 1e6) };
-  const d = { v: 55, at: Date.now(), cub: SV.cub, fuel: r3(fuel), h: r3(DAY.h), mode, foot: mode === 'foot' ? [r3(footRig.position.x), r3(footRig.position.z), r3(bodyYaw)] : null, dlv: dlvSave(), hunt: huntSave(), eco: ecoSave(), upg: upgSave(), emg: emgSave(), fish: fishSave(), wx: wxSave(), meta: { cash: DLV.cash, loc: svPlace() } };   // v0.68.1 meta: the menu's slot label. v0.55 + the Cub's log (tach, oil, wear, damage)   // v0.53 + rifle / ammo   // v0.50: + wallet, jobs, cargo, straps
+  const d = { v: 55, at: Date.now(), cub: SV.cub, fuel: r3(fuel), h: r3(DAY.h), mode, foot: mode === 'foot' ? [r3(footRig.position.x), r3(footRig.position.z), r3(bodyYaw)] : null, dlv: dlvSave(), hunt: huntSave(), eco: ecoSave(), upg: upgSave(), emg: emgSave(), fish: fishSave(), story: storySave(), wx: wxSave(), meta: { cash: DLV.cash, loc: svPlace() } };   // v0.68.1 meta: the menu's slot label. v0.55 + the Cub's log (tach, oil, wear, damage)   // v0.53 + rifle / ammo   // v0.50: + wallet, jobs, cargo, straps
   try { localStorage.setItem(SAVE_KEY, JSON.stringify(d)); } catch (e) { return false; }
   SV.last = Date.now(); SV.n++; SV.why = why || ''; SV.t = 30; SV.due = -1; return true;
 }
@@ -8889,13 +9049,14 @@ function gameLoad() {
   if (d.mode === 'foot' && Array.isArray(d.foot) && d.foot.slice(0, 3).every(isFinite)) { exitPlane(); const [x, z, yaw] = d.foot; footRig.position.set(x, groundY(x, z) + EYE, z); footRig.rotation.set(0, yaw, 0); bodyYaw = yaw; }   // v0.59.1 checked (a damaged foot entry stopped the page loading)
   upgLoad(d.upg || null);   // v0.57 before the cargo (the pod)
   emgLoad(d.emg || null);   // v0.58 before the cargo (a patient aboard finds their job)
-  wxLoad(d.wx || null); dlvLoad(d.v >= 50 ? d.dlv : null); huntLoad(d.v >= 53 ? d.hunt : null); fishLoad(d.fish || null); dropLoadFix(); ecoLoad(d.v >= 55 ? d.eco : null); emgFix();   // v0.54 a save taken mid-drop: the last bundle down settles the job
+  wxLoad(d.wx || null); dlvLoad(d.v >= 50 ? d.dlv : null); huntLoad(d.v >= 53 ? d.hunt : null); fishLoad(d.fish || null); storyLoad(d.story || null); dropLoadFix(); ecoLoad(d.v >= 55 ? d.eco : null); emgFix();   // v0.54 a save taken mid-drop: the last bundle down settles the job
   msgT = 0; SV.last = d.at || 0; return true;
 }
 MYS_SITES.clear();   // the whole world is built now: clear trees and rocks off the strips and sites
 let SV_BAD = false;
-const SV_HAD = (() => { try { return gameLoad(); } catch (e) { SV_BAD = true; try { upgLoad(null); emgLoad(null); dlvLoad(null); huntLoad(null); ecoLoad(null); fishLoad(null); } catch (e2) { } return false; } })();   // v0.59.1 a save that can't be read starts a new game instead of a page that never loads
-if (!SV_HAD && !/[?&]plane\b/.test(location.search)) { exitPlane(); msgT = 0; }   // v0.45: a new game starts on foot beside the Cub at the cabin strip (?plane = in the seat)
+const SV_HAD = (() => { try { return gameLoad(); } catch (e) { SV_BAD = true; try { upgLoad(null); emgLoad(null); dlvLoad(null); huntLoad(null); ecoLoad(null); fishLoad(null); storyLoad(null); } catch (e2) { } return false; } })();   // v0.59.1 a save that can't be read starts a new game instead of a page that never loads
+if (!SV_HAD && !/[?&]plane\b/.test(location.search)) { exitPlane(); msgT = 0; }
+if (!SV_HAD && STORY.want && !/[?&]plane\b/.test(location.search)) storyBegin(); else if (!SV_HAD) storyShow();   // v0.99 a new game is the story (menu: NEW FREE PLAY for the sandbox)   // v0.45: a new game starts on foot beside the Cub at the cabin strip (?plane = in the seat)
 if (SV_BAD) say('THE SAVE COULD NOT BE READ - A NEW GAME');
 addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') saveGame('hidden'); });   // tab closed / headset off: save
 addEventListener('pagehide', () => saveGame('hidden'));
@@ -9406,7 +9567,9 @@ function setpDraw() {
     setpBtn(x, 30, 84, 440, 64, 'SAVE NOW', SETP.lit === 'save:now'); setpBtn(x, 30, 168, 440, 64, 'LOAD LAST SAVE', SETP.lit === 'save:load');
     x.fillStyle = '#2e2418'; x.font = 'bold 18px Georgia, serif'; x.fillText('AUTOSAVE', 30, 262); x.font = '17px Georgia, serif'; x.fillStyle = '#5a4630'; x.fillText(A ? A.txt : 'none yet', 30, 286, 440);
     x.font = '15px Georgia, serif'; x.fillStyle = '#6a5638'; ['Saves itself every 30 s, after each job step,', 'on landing and when you take the headset off.', 'Loading restarts the page: press ENTER VR again.'].forEach((l, i) => x.fillText(l, 30, 318 + i * 22));
-    setpBtn(x, 30, 470, 440, 64, cf && SETP.conf.k === 'new' ? 'POKE AGAIN: START OVER' : 'NEW GAME', SETP.lit === 'new', cf && SETP.conf.k === 'new' ? '#9a2a1a' : '#5a4630');
+    setpBtn(x, 30, 470, 215, 64, cf && SETP.conf.k === 'new' ? 'AGAIN: START' : 'NEW STORY', SETP.lit === 'new', cf && SETP.conf.k === 'new' ? '#9a2a1a' : '#5a4630');   // v0.99
+    setpBtn(x, 255, 470, 215, 64, cf && SETP.conf.k === 'new:free' ? 'AGAIN: START' : 'NEW FREE PLAY', SETP.lit === 'new:free', cf && SETP.conf.k === 'new:free' ? '#9a2a1a' : '#5a4630');
+    x.font = '14px Georgia, serif'; x.fillStyle = '#6a5638'; x.fillText(STORY.on ? 'THIS GAME: STORY - DAY ' + storyDay() + ', $' + storyOwed().toLocaleString('en-US') + ' OWED' : 'THIS GAME: FREE PLAY (NO STORY)', 30, 552, 440);
     for (let n = 1; n <= 3; n++) { const Y0 = MENU_SLOT(n), I = svInfo(svSlotKey(n)), cl = cf && SETP.conf.k === 'load:' + n;
       x.fillStyle = '#e2d4ae'; x.fillRect(520, Y0, 474, 118); x.strokeStyle = '#5a4630'; x.lineWidth = 2; x.strokeRect(520, Y0, 474, 118);
       x.fillStyle = '#2e2418'; x.font = 'bold 20px Georgia, serif'; x.fillText('SLOT ' + n, 534, Y0 + 28); x.font = '16px Georgia, serif'; x.fillStyle = '#5a4630'; x.fillText(I ? I.txt : 'EMPTY', 620, Y0 + 28, 360);
@@ -9426,7 +9589,7 @@ function setpHit(u, v) {   // canvas px -> a GFX_OPT row index, a button id, 'ta
   if (v > 10 && v < 62) { for (let i = 0; i < MENU_TABS.length; i++) { const { X, W } = MENU_TAB(i); if (u > X && u < X + W) return 'tab:' + MENU_TABS[i][0]; } return null; }
   const T = SETP.tab, inB = (X, Y, W, H) => u > X && u < X + W && v > Y && v < Y + H;
   if (T === 'gfx' && v > 580 && v < 624) { if (u > 30 && u < 244) return 'PERFORMANCE'; if (u > 262 && u < 476) return 'BALANCED'; if (u > 494 && u < 708) return 'QUALITY'; }
-  if (T === 'save') { if (inB(30, 84, 440, 64)) return 'save:now'; if (inB(30, 168, 440, 64)) return 'save:load'; if (inB(30, 470, 440, 64)) return 'new';
+  if (T === 'save') { if (inB(30, 84, 440, 64)) return 'save:now'; if (inB(30, 168, 440, 64)) return 'save:load'; if (inB(30, 470, 215, 64)) return 'new'; if (inB(255, 470, 215, 64)) return 'new:free';
     for (let n = 1; n <= 3; n++) { const Y0 = MENU_SLOT(n); if (inB(534, Y0 + 50, 210, 56)) return 'slot:' + n; if (inB(770, Y0 + 50, 210, 56)) return 'load:' + n; } return null; }
   if (T === 'comfort' && inB(30, 300, 440, 64)) return 'recentre';
   if (T === 'resume') return inB(262, 200, 500, 120) ? 'close' : null;
@@ -9449,7 +9612,7 @@ function setpPoke(r) {
   if (r === 'recentre') { SETP.lit = r; recenter(); say('RECENTRED - VIEW AND HEIGHT SET'); sfx('click'); setpDraw(); return; }
   if (r === 'save:now') { SETP.lit = r; say(saveGame('manual') ? 'GAME SAVED - ' + svPlace() : NOSAVE ? 'SAVING IS OFF (?nosave)' : 'COULD NOT SAVE'); sfx('click'); setpDraw(); return; }
   if (r === 'save:load') { if (!svInfo(SAVE_KEY)) { say('NO SAVE YET'); return; } SV.off = true; say('LOADING THE LAST SAVE'); SV_RELOAD(); return; }
-  if (r === 'new') { if (!setpConfirm('new')) { setpDraw(); return; } try { localStorage.removeItem(SAVE_KEY); } catch (e) { } SV.off = true; say('A NEW GAME'); SV_RELOAD(); return; }
+  if (r === 'new' || r === 'new:free') { if (!setpConfirm(r)) { setpDraw(); return; } try { localStorage.removeItem(SAVE_KEY); localStorage.setItem('bp_newmode', r === 'new' ? 'story' : 'free'); } catch (e) { } SV.off = true; say(r === 'new' ? 'A NEW STORY' : 'A NEW FREE-PLAY GAME'); SV_RELOAD(); return; }
   if (typeof r === 'string' && r.startsWith('slot:')) { const n = +r.slice(5); SETP.lit = r; if (svInfo(svSlotKey(n)) && !setpConfirm(r)) { setpDraw(); return; }
     if (!saveGame('manual')) say(NOSAVE ? 'SAVING IS OFF (?nosave)' : 'COULD NOT SAVE'); else { try { localStorage.setItem(svSlotKey(n), localStorage.getItem(SAVE_KEY)); say('SAVED TO SLOT ' + n + ' - ' + svPlace()); } catch (e) { say('COULD NOT SAVE'); } }
     sfx('click'); setpDraw(); return; }
@@ -9566,7 +9729,7 @@ renderer.setAnimationLoop(() => {
   } else if ((crashTimer += dt) > 2.5) resetFlight();
 
   plane.position.fromArray(ac.pos); plane.quaternion.fromArray(ac.q);
-  dlvTick(dt); wbWarn(dt); huntTick(dt, xr || HANDS.force); fishTick(dt, xr || HANDS.force); dropTick(dt); ecoTick(dt); upgTick(dt); emgTick(dt);   // v0.53 rifle, deer, binoculars; v0.54 bundles in the air, the signal smoke   // v0.50 delivery: game clock, falling / loose cargo, job boards
+  dlvTick(dt); wbWarn(dt); huntTick(dt, xr || HANDS.force); fishTick(dt, xr || HANDS.force); storyTick(dt); dropTick(dt); ecoTick(dt); upgTick(dt); emgTick(dt);   // v0.53 rifle, deer, binoculars; v0.54 bundles in the air, the signal smoke   // v0.50 delivery: game clock, falling / loose cargo, job boards
   GV.update(dt); kitTick(dt); flxTick(dt);   // v0.20 gear legs / tyres / tail wheel (v0.90 + the gear kits)
   updateMap(); updateCockpitV19(dt);
   propTick(dt, ENG.rpm);

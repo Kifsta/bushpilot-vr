@@ -2,6 +2,20 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.99 – the story begins: Walt's hangar, the bank's note, the debt tracker
+
+- **A new game is now the story** (the first chapter of the campaign outline). You wake on foot in Walt MacRae's hangar facing his chalkboard. **The bank's letter** is on your clipboard (new 5th page, NOTE): Valley Credit holds a **$40,000 note** on MacRae Air Service and wants it **before the first snow, 14 game days away** (Sep 1 to Sep 14).
+- **Walt's chalkboard** (the hangar's back wall, over his desk): the note, what's paid, a progress bar, the days to the snow, the date, your cash, three **PAY $500 / $1,000 / $5,000** boxes, and the last payments chalked up. VR: poke a box with a fingertip. Desktop: stand near the board and press 1, 2 or 3.
+- **Walt's desk:** his **logbook** (two spreads, his last entries; the last line reads "Still looking. North ice.") and a **photo** of your grandfather Gordon beside the Norseman that never came home. VR: grip to pick it up, trigger turns the page, let go puts it back. Desktop: look at it and press E, then , and . to turn pages; E again puts it down (or walk 4 m away).
+- **Story jobs pay ×1.6** (the same seeded jobs as free play), roughly $2,400 per real hour, so the note is reachable in a few evenings.
+- **First snow, never a game over.** At the snow Eleanor Voss grants a **10-day winter extension**: free if you've paid half and two towns know you (reputation 55+), otherwise with a **$2,000 fee**. When the extension runs out she says so and lets you keep paying. (The snow itself, and Act 2, come later.)
+- **Free play stays.** Settings > SAVE / LOAD now has **NEW STORY** and **NEW FREE PLAY** (poke twice to confirm); the line under them says which kind this game is. The choice is remembered for later new games.
+- **Old saves load as free play**, unchanged. Story progress (paid, payments, the clock, extension, fee, what you've read, a short story log) is saved with the game (save v55, new `story` field; older readers ignore it).
+- The game clock only moves the story days when the day / night cycle is on (Settings > day length); with it off the board says the clock is stopped.
+- Tests and `?nosave` sessions stay free play; `?story` forces a story game, `?free` a free one.
+- New test **t99** (11 checks). **Shots:** `qa-v099/grid-v099.png` (opening view, the letter, the logbook, the photo, the board after payments, the hangar) and `qa-v099/menu.png`.
+- Physics md5 unchanged.
+
 ## v0.98 – real water: see-through rivers and lakes, depth colour, sky reflections, flow and rapids
 
 - **One new water shader for every river, creek and lake, in a single draw** (it was a flat Lambert sheet at 88 % opacity).

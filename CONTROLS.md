@@ -108,6 +108,14 @@ v0.24 haptics: you feel the engine (rpm, rough running, cranking), stall buffet,
 
 v0.44 latches: every window and the door are latched while shut. Squeeze the handle and roll your wrist about 35° until the latch clacks free, then move it. Shut it and let go, and the latch drops back in. The desktop keys work the latch for you.
 
+## Story (v0.99)
+| | VR | Desktop |
+|---|---|---|
+| Read the bank's letter | Clipboard page 5, NOTE | Hold the clipboard up (N), . to page 5 |
+| Pay on Walt's board (hangar back wall) | Poke PAY $500 / $1,000 / $5,000 with a fingertip | Stand near the board: 1 / 2 / 3 |
+| Walt's logbook, the photo (his desk) | Grip to pick up, trigger turns the page, let go puts it back | Look at it + E; , / . turn pages; E puts it down |
+| New story / new free play | Settings > SAVE / LOAD: NEW STORY or NEW FREE PLAY, poke twice | same, click twice |
+
 ## On foot
 | | VR | Desktop |
 |---|---|---|
