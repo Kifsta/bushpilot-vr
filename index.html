@@ -19,7 +19,7 @@
 </script>
 </head>
 <body>
-<div id="info">BUSH PILOT VR <span id="ver">v0.96</span> - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
+<div id="info">BUSH PILOT VR <span id="ver">v0.97</span> - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
 You start on foot by the Cub at the cabin strip. Walk up to her and climb in (F / Y), then start her up off the checklist card (J).
 Desktop - flying: W/S or arrows pitch, A/D or arrows roll, Q/E rudder, Shift / Ctrl (or + / -) throttle, B brakes, \ parking brake, [ ] flaps, PgUp / PgDn trim,
   R reset to the strip (cold and dark), F climb out, M map, L landing light, Home recentre, mouse looks (click to capture).
@@ -597,9 +597,9 @@ const hyp = (a, b, c = 0) => Math.sqrt(a * a + b * b + c * c);   // v0.59 Math.h
 
 // ======================= RENDERING =======================
 // v0.35 settings (persist in localStorage 'bp_gfx'; ?gfx=shadows:2,grass:1 overrides for testing). Defaults = the v0.34 look and cost.
-const BP_VERSION = 'v0.96';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
+const BP_VERSION = 'v0.97';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
 { const e = document.getElementById('ver'); if (e) e.textContent = BP_VERSION; }
-const GFX_DEF = { shadows: 0, scale: 1, fov: 1, dist: 1, trees: 1, grass: 0, clouds: 1, fog: 1, msaa: 1, hz: 90, vig: 0, turn: 0, fps: 0, tod: 11, stk: 1, tips: 1, terr: 1, dyn: 1, glove: 0, hand: 0, wt: 1, volM: 1, volE: 1, volA: 1, volF: 1, wx: 1, forest: 0, ground: 0, gtex: 0, cvl: 1, dayl: 48 };   // v0.68.1 dominant hand, volumes. v0.48 BALANCED: 90 % scale, 72 Hz, fast terrain shading, auto resolution; v0.49.1 the stick stays where you let go of it
+const GFX_DEF = { shadows: 0, scale: 1, fov: 1, dist: 1, trees: 1, grass: 0, clouds: 1, fog: 1, msaa: 1, hz: 90, vig: 0, turn: 0, fps: 0, tod: 11, stk: 1, tips: 1, terr: 1, dyn: 1, glove: 0, hand: 0, wt: 1, volM: 1, volE: 1, volA: 1, volF: 1, wx: 1, forest: 0, ground: 0, gtex: 0, cvl: 1, dayl: 48, flure: 0, fline: 8, fdrag: 4, fbob: 0, fsink: 0 };   // v0.68.1 dominant hand, volumes. v0.48 BALANCED: 90 % scale, 72 Hz, fast terrain shading, auto resolution; v0.49.1 the stick stays where you let go of it
 const GFX = Object.assign({}, GFX_DEF);
 try { const o = JSON.parse(localStorage.getItem('bp_gfx') || '{}'); if ((o.v || 0) < 48) { if (o.scale === 1) delete o.scale; if (o.hz === 0) delete o.hz; }   // v0.48: saved copies of the old defaults (100 %, AUTO Hz) move to the new ones once
   if ((o.v || 0) < 49 && o.stk === 0) delete o.stk;
@@ -2220,12 +2220,12 @@ function resetFuel() {
 function exitPlane() {
   if (!(acGS() < 1 && ctl.throttle < 0.05 && !ac.crashed)) { say('STOP + IDLE TO EXIT'); return; }
   const s = qRot(ac.q, [2.2, 0, -0.3]), f = qRot(ac.q, [0, 0, -1]), yaw = Math.atan2(-f[0], -f[2]);
-  const x = ac.pos[0] + s[0], z = ac.pos[2] + s[2];
-  { const hw = waterH(x, z); if (hw !== null && hw - groundY(x, z) > 0.6) { say('TOO DEEP TO STEP OUT - TAXI IN AND BEACH IT (THE FLOATS ON THE SAND), OR TIE UP IN THE SHALLOWS'); return; } }   // v0.90 floats: wade ashore, don't swim
+  let x = ac.pos[0] + s[0], z = ac.pos[2] + s[2], deck = null;
+  { const hw = waterH(x, z); if (hw !== null && hw - groundY(x, z) > 0.6 && (deck = fDeckExit())) { x = deck[0]; z = deck[2]; } else if (hw !== null && hw - groundY(x, z) > 0.6) { say('TOO DEEP TO STEP OUT - TAXI IN AND BEACH IT (THE FLOATS ON THE SAND), OR TIE UP IN THE SHALLOWS'); return; } }   // v0.90 floats: wade ashore, don't swim
   footRig.position.set(x, groundY(x, z) + EYE, z); footRig.rotation.set(0, yaw, 0);   // (v0.90.1 restored: v0.90 lost this line, so you got out where you last stood)
   footRig.add(xrOffset); mode = 'foot'; lookYaw = lookPitch = 0; needRecenter = renderer.xr.isPresenting ? 2 : 0;
   ctl.elev = ctl.ail = ctl.rud = 0;
-  bodyYaw = yaw; huntExit();   // v0.53 binoculars in the holster on your left hip
+  bodyYaw = yaw; huntExit(); if (deck) say('ON THE FLOAT - WALK IT BOW TO STERN, FISH OFF IT; Y / F CLIMBS BACK IN');   // v0.53 binoculars in the holster on your left hip
   if (ENG.running) { ENG.running = false; say('ENGINE SHUT DOWN'); } ENG.starterVR = false; CKH.clear(); cardHome(); kbHome(); micRelease();   // v0.19
 }
 function board() {
@@ -2240,6 +2240,7 @@ function handGrab(g) {   // on foot: the map (ground / cockpit holder / other ed
   g.getWorldPosition(_a);
   if (mapGrab(g, _a)) return;
   if (fuelGrab(g, _a)) return;
+  if (fishGrab(g, _a)) return;   // v0.97 a tackle item, the rod off your pack, the reel's crank, the net
   if (huntGrab(g, _a)) return;   // v0.53 rifle (rack / ground / back, lever, forend), the belt pouch, ammo box, binoculars, a carcass
   if (cargoGrab(_a)) return;   // v0.77.13 the cargo door from outside
   if (upgGrab(g, _a)) return;   // v0.57 a part off the hangar floor, or a bolt head to twist
@@ -2249,7 +2250,7 @@ function handRelease(g) {       // called every frame the grip is up: keep it ch
   const hs = HX.st(g); if (hs.armed) { hs.armed = false; if (MAP.g === g || FUELP.g === g) HX.pulse(g, 0.15, 12, 'release'); }
   upgRelease(g);   // v0.57
   dlvRelease(g);   // v0.50 let go of cargo   // v0.24 let-go tap, once per squeeze
-  mapRelease(g); fuelRelease(g); huntRelease(g);
+  mapRelease(g); fuelRelease(g); huntRelease(g); fishRelease(g);
 }
 
 // desktop
@@ -2258,6 +2259,7 @@ addEventListener('keydown', e => {
   keys[e.code] = true;
   if (e.repeat) return;
   if (dropKey(e)) return;   // v0.54 G: push a bundle out of the open door
+  if (fishKey(e)) return;   // v0.97 Q rod, - / = drag, E net / keep / buy
   if (huntKey(e)) return;   // v0.53 T rifle, X lever, Z load / buy ammo, V binoculars, hold E over a carcass
   if (engKey(e)) return;     // v0.19 cockpit keys (U O Y H I P K J, 1-5 windows / doors; Space = starter, held)
   if (emgKey(e)) return;   // v0.58 C takes a call-out by COM radio; 4 at a red EMERGENCY sign
@@ -2447,7 +2449,7 @@ function footXR(dt) {
 // v0.10: crouch (right stick down / C) and a small hop (right stick up / Space). Real crouching still works: it's head tracking on top.
 const CROUCH_DROP = 0.5, CROUCH_TIME = 0.15, JUMP_H = 0.4, CROUCH_WALK = 0.5;
 const crouchK = () => smooth01(FOOT.crouchT);
-const crouchWalk = () => (1 - (1 - CROUCH_WALK) * crouchK()) * dlvWalkK();   // v0.52: x0.5 with a heavy piece
+const crouchWalk = () => (1 - (1 - CROUCH_WALK) * crouchK()) * dlvWalkK() * fishWalkK();   // v0.52: x0.5 with a heavy piece
 function jump() { if (mode !== 'foot' || FOOT.air || FOOT.jv !== 0) return; FOOT.air = true; FOOT.jv = Math.sqrt(2 * 9.81 * (cubNear() ? STAND.jumpH : JUMP_H)); }   // grounded only: no double jump (v0.72: a bit higher by the Cub)
 // v0.72 standing on the Cub to reach the wing caps: a step on each main-gear leg, then the tyre top. Walk into them and you step up (45 cm at most, eased); walk off and you drop.
 const STAND = { up: 0.45, rate: 2.6, jumpH: 0.55, near: 3.2, S: [] }, _stV = new THREE.Vector3(0, 0, 0), _stW = new THREE.Vector3(0, 0, 0);
@@ -2459,7 +2461,7 @@ function footSupport(x, z, fy) {   // the highest thing you can stand on here: t
   let sup = groundY(x, z), on = '';
   if (cubNear()) { plane.updateMatrixWorld(); for (const S of STAND.S) { plane.worldToLocal(_stV.set(x, fy, z)); if (hyp(_stV.x - S.c.x, _stV.z - S.c.z) > S.r) continue;
     const top = plane.localToWorld(_stW.set(_stV.x, S.c.y, _stV.z)).y; if (top > sup && top <= fy + STAND.up) { sup = top; on = S.k; } } }
-  FOOT.on = on; return sup;
+  FOOT.on = on; return fDeckSupport(x, z, sup);   // v0.97.2 the float deck
 }
 const _twp = { x: 0, z: 0 };
 function updateFoot(dt) {
@@ -3007,7 +3009,7 @@ const TOWN_MESH = [];
     // ---- kits ----
     const K = {
       store(s, lz, zn) { const o = frame(s, lz, 10, 13); shell(o, 4.2, PAL.cream, 0, { win: [-3, 3], sideWin: [-2, 2] }); facade(o, 4.2, PAL.cream, PAL.red); porch(o);
-        shelf(o, -3.8, -1, 4, Math.PI / 2); shelf(o, 3.8, -1, 4, -Math.PI / 2); shelf(o, 0, -3, 4); counter(o, 2.2, 3.4, 3);
+        shelf(o, -3.8, -1, 4, Math.PI / 2); shelf(o, 3.8, -1, 4, -Math.PI / 2); shelf(o, 0, -3, 4); counter(o, 2.2, 3.4, 3); T.store = o;   // v0.97 the tackle counter goes in Cutler's
         return o; },
       diner(s, lz, zn) { const o = frame(s, lz, 12, 8); shell(o, 3.4, PAL.teal, 0, { win: [-4, -1.5, 3.6], dx: 1.2, ceil: PAL.white }); facade(o, 3.4, PAL.white, PAL.red);
         counter(o, 0, -1.6, 8, PAL.white); for (let k = -3; k <= 3; k++) GEO(CYL, PAL.red, o, k * 1.1, 0.4, -0.7, 0.2, 0.8, 0.2);
@@ -4956,7 +4958,7 @@ function handTargets(i, g, st) {                 // decide pose + world matrix f
   } else if (paperHandK(g)) { gripOn(st, paperHandK(g), right ? 1 : -1); st.mode = 'ck'; }   // v0.77.3 the map held on foot: its corner pinch
   else if (HOSE.held === g && HOSE.noz.visible) { gripOn(st, 'noz', right ? 1 : -1); st.mode = 'ck'; st.jx = 0.35 * trig; }   // v0.77.7 the nozzle's pistol grip, the index on the lever
   else if (huntHandK(g) || binoHandK(g)) { const hk = huntHandK(g) || binoHandK(g); gripOn(st, hk, right ? 1 : -1); st.mode = 'ck'; st.jx = hk === 'rgrip' ? 0.3 * trig : 0; }   // v0.67 the trigger finger squeezes   // v0.53 rifle grips, v0.65 binoculars
-  else if (FUELP.g === g || huntHold(g)) { st.tc[0] = st.tc[1] = st.tc[2] = st.tc[3] = 0.6; st.tth = 0.3; st.ttw = 0.5; st.mode = 'hold';
+  else if (FUELP.g === g || huntHold(g) || fishHold(g)) { st.tc[0] = st.tc[1] = st.tc[2] = st.tc[3] = 0.6; st.tth = 0.3; st.ttw = 0.5; st.mode = 'hold';
     const rk = RFL.round.has(g) && !DROP.held.has(g) && BINO.g !== g && BINO.g2 !== g ? plRoundKey(g) : null, L = rk && POSE_LAB[rk];   // v0.87.1 a round in Neil's Pose Lab hold: its per-joint fingers
     if (L) { st.plJ = L.J || null; if (L.w) st.W.multiply(plW(rk, _plWM)); } }
   return right;
@@ -7314,10 +7316,513 @@ function huntPlaneGrab(g, sq, edge) {   // in the seat (VR): the binoculars from
   if (BINO.g === g || BINO.g2 === g) { if (!sq) binoRelease(g); return true; }
   if (!edge || (BINO.place !== 'cub' && BINO.place !== 'hand')) return false; g.getWorldPosition(_hpg); return binoGrab(g, _hpg);
 }
-function huntBoard() {   // climbing in: a rifle you carry goes in the Cub's rack, the binoculars in their holder
+function huntBoard() { fishBoard();   // climbing in: a rifle you carry goes in the Cub's rack, the binoculars in their holder
   if (rflHas() || (RFL.place === 'ground' && RFL.gp && hyp(RFL.gp[0] - ac.pos[0], RFL.gp[2] - ac.pos[2]) < 4)) { for (const m of RFL.round.values()) { m.removeFromParent(); RFL.spare++; } RFL.round.clear(); rflPut('cub'); }
   if (BINO.desk) binoDesk(false); binoPut('cub'); DEER.dress = null;
 }
+// ===================== v0.97 fishing: tackle shops, rod + spinning reel, casting, a verlet line =====================
+// Gear is bought at the TACKLE counter in the Cutler store (all of it) or the small rack beside the Dry Fork hardware counter. It's yours for good (saved):
+// the rod rides in a tube on your pack (reach behind your right hip), the net hangs behind your left hip, the creel on your right side. What's tied on
+// (lure / bait, line, drag, bobber, sinker) is set in the menu (CONTROLS tab). Casting is physical: the lure leaves the rod tip at the tip's speed (scaled
+// by how well its weight suits the rod), flies with air drag, the line pays out behind it as a 24-node verlet chain (one draw) that sags and lies on the water.
+const FTK = {   // the catalogue: id -> [name, $, kind, extra]. 'n' = how many in a pack (lures and bait get used up)
+  rodL: ['LIGHT SPINNING ROD 2.0 M', 45, 'rod', { len: 2.0, lo: 2, hi: 12, full: 14 }],   // lure range g, full bend N
+  rodH: ['CASTING ROD 2.3 M (HEAVY)', 80, 'rod', { len: 2.3, lo: 7, hi: 35, full: 34 }],
+  reel: ['SPINNING REEL, ADJUSTABLE DRAG', 35, 'reel'],
+  l4: ['LINE 4 LB (100 M)', 6, 'line', { lb: 4 }], l8: ['LINE 8 LB (100 M)', 7, 'line', { lb: 8 }], l14: ['LINE 14 LB (100 M)', 9, 'line', { lb: 14 }],
+  spoon: ['SPOON 10 G (2)', 7, 'lure', { n: 2 }], spinner: ['INLINE SPINNER 6 G (2)', 7, 'lure', { n: 2 }], plastic: ['SOFT PLASTIC ON A JIG 7 G (3)', 5, 'lure', { n: 3 }],
+  fly: ['DRY FLY (3)', 5, 'lure', { n: 3 }], bait: ['HOOKS + WORMS (6)', 4, 'lure', { n: 6 }], sinker: ['SPLIT-SHOT SINKERS', 2, 'term'], bobber: ['BOBBERS', 3, 'term'],
+  net: ['LANDING NET', 25, 'net'], creel: ['WICKER CREEL (6 KG)', 18, 'creel'], cooler: ['COOLER FOR THE CUB (30 KG)', 40, 'cooler'],
+};
+const FLURE = { spoon: { g: 10, sink: 0.55, cd: 0.9 }, spinner: { g: 6, sink: 0.45, cd: 1.0 }, plastic: { g: 7, sink: 0.32, cd: 1.1 }, fly: { g: 0.4, sink: 0, cd: 5, float: true }, bait: { g: 1, sink: 0.12, cd: 1.4 } };
+const FLURE_IDS = ['spoon', 'spinner', 'plastic', 'fly', 'bait'];
+const FISH = { own: {}, lures: {}, line: {}, rod: 'pack', hand: null, crankG: null, netG: null, kind: 'rodL', st: 'idle', bail: false, pinch: false,
+  L: 0, tipV: GV3(0, 0, 0), tip: GV3(0, 0, 0), tip0: GV3(0, 0, 0), lure: GV3(0, 0, 0), lv: GV3(0, 0, 0), crank: 0, crankA: null, turns: 0, retr: 0, T: 0, slack: 0,
+  pow: 0, charging: false, desk: { reel: false, lmb: false }, shop: [], hint: '', w: null, bob: GV3(0, 0, 0), dep: 0, wet: false, landed: 0, casts: 0, maxD: 0, food: 80, creel: [], cooler: [], n: 24, stat: {}, deck: false };
+// ---- the rod: a tapered 4-sided blank that bends (rebuilt each frame from its tip deflection), the cork grip, the reel under it with its crank ----
+const FROD = (() => { const N = 10, G = new THREE.BufferGeometry(), P = new Float32Array(N * 4 * 3), C = new Float32Array(N * 4 * 3), I = [];
+  for (let i = 0; i < N; i++) for (let k = 0; k < 4; k++) { const c = i < 2 ? [0.62, 0.48, 0.32] : [0.16, 0.2, 0.26]; C.set(c, (i * 4 + k) * 3); }
+  for (let i = 0; i < N - 1; i++) for (let k = 0; k < 4; k++) { const a = i * 4 + k, b = i * 4 + (k + 1) % 4, c = a + 4, d = b + 4; I.push(a, c, b, b, c, d); }
+  G.setAttribute('position', new THREE.BufferAttribute(P, 3)); G.setAttribute('color', new THREE.BufferAttribute(C, 3)); G.setIndex(I);
+  const m = new THREE.Mesh(G, ITEM_VM); m.frustumCulled = false; m.userData.noBatch = true; m.visible = false; scene.add(m); return { m, N, P, G }; })();
+const FREEL = (() => { const P = [['c', 0.024, 0.03, 10, 0, 0, 0, 0x2a2e33, 0, 0, Math.PI / 2], ['c', 0.02, 0.036, 10, 0.0, 0, -0.03, 0x8a9098, Math.PI / 2], ['b', 0.006, 0.07, 0.012, 0, 0.04, 0, 0x2a2e33],
+    ['r', 0.026, 0.002, 10, 0, 0, -0.05, 0xc0c4c8, Math.PI / 2]];   // body, spool (along the rod), stem up to the rod, the bail wire
+  const gs = P.map(partGeo), g = mergeGeometries(gs); for (const x of gs) x.dispose(); const m = new THREE.Mesh(g, ITEM_VM); m.userData.noBatch = true; m.visible = false; scene.add(m);
+  const ck = new THREE.Group(); m.add(ck); const cg = [['b', 0.004, 0.06, 0.006, 0, 0.03, 0, 0x2a2e33], ['c', 0.008, 0.022, 8, 0.012, 0.06, 0, 0xd8b070, 0, 0, Math.PI / 2]].map(partGeo);
+  const cm = new THREE.Mesh(mergeGeometries(cg), ITEM_VM); cm.userData.noBatch = true; ck.add(cm); for (const x of cg) x.dispose(); return { m, ck }; })();   // the crank arm turns about the reel's x
+const FLINE = (() => { const n = FISH.n, g = new THREE.BufferGeometry(), a = new Float32Array(n * 3); g.setAttribute('position', new THREE.BufferAttribute(a, 3));
+  const l = new THREE.Line(g, new THREE.LineBasicMaterial({ color: 0xdfe6e8 })); l.frustumCulled = false; l.userData.noBatch = true; l.visible = false; scene.add(l);
+  return { l, a, p: Array.from({ length: n }, () => GV3(0, 0, 0)), o: Array.from({ length: n }, () => GV3(0, 0, 0)) }; })();
+const FLM = {};   // lure meshes
+{ const D = { spoon: [['b', 0.016, 0.003, 0.045, 0, 0, 0, 0xd8d4c8], ['b', 0.012, 0.0032, 0.02, 0, 0.0002, 0.008, 0xc03020]], spinner: [['b', 0.004, 0.004, 0.035, 0, 0, 0, 0x404040], ['b', 0.014, 0.002, 0.02, 0, 0.004, -0.01, 0xd8c060], ['c', 0.004, 0.008, 6, 0, 0, 0.012, 0xc03020, Math.PI / 2]],
+    plastic: [['c', 0.005, 0.05, 6, 0, 0, 0, 0x5a7a3a, Math.PI / 2], ['c', 0.006, 0.008, 6, 0, 0, -0.026, 0xb0b0b0, Math.PI / 2]], fly: [['c', 0.002, 0.012, 5, 0, 0, 0, 0x6a4a2a, Math.PI / 2], ['b', 0.014, 0.012, 0.002, 0, 0.006, 0, 0xc8c0a8]],
+    bait: [['c', 0.003, 0.03, 5, 0, 0, 0, 0xb06a6a, Math.PI / 2], ['r', 0.006, 0.0008, 6, 0, 0, -0.016, 0xa0a0a0]], bobber: [['d', 0.022, 1, 1, 0, 0.011, 0, 0xe8e8e0], ['d', 0.0221, 0.5, 1, 0, 0.0, 0, 0xd02020]] };
+  for (const [k, P] of Object.entries(D)) { const gs = P.map(partGeo), m = new THREE.Mesh(mergeGeometries(gs), ITEM_VM); for (const x of gs) x.dispose(); m.userData.noBatch = true; m.visible = false; scene.add(m); FLM[k] = m; } }
+// ---- what you wear on foot (VR): the rod tube on the pack, the net behind your left hip, the creel on your right side (head-yaw frame, like the pouch) ----
+const F_ROD_OFF = GV3(0.22, -0.58, 0.2), F_NET_OFF = GV3(-0.22, -0.6, 0.2), F_CREEL_OFF = GV3(0.3, -0.78, 0.02), _fkQ = new THREE.Quaternion(), _fk1 = GV3(0, 0, 0), _fk2 = GV3(0, 0, 0), _fk3 = GV3(0, 0, 0), _fkM = new THREE.Matrix4();
+function fWorn(off, out) { camera.getWorldPosition(out); _fkQ.setFromAxisAngle(_ry, headYaw()); return out.add(_fk3.copy(off).applyQuaternion(_fkQ)); }
+const FWORN = (() => { const mk = P => { const gs = P.map(partGeo), m = new THREE.Mesh(mergeGeometries(gs), ITEM_VM); for (const x of gs) x.dispose(); m.userData.noBatch = true; m.visible = false; scene.add(m); return m; };
+  return { tube: mk([['c', 0.03, 0.9, 8, 0, 0.3, 0, 0x4a5a3a], ['c', 0.034, 0.05, 8, 0, 0.75, 0, 0x2a2a2a], ['c', 0.012, 0.25, 6, 0, -0.27, 0, 0xb08a5a]]),   // tube up the pack, the rod butt below it
+    net: mk([['r', 0.17, 0.008, 12, 0, 0.32, 0, 0x6a5030], ['c', 0.012, 0.45, 6, 0, 0, 0, 0x6a5030], ['k', 0.16, 0.22, 8, 0, 0.21, 0, 0x8a8a70, Math.PI]]),
+    creel: mk([['b', 0.26, 0.18, 0.14, 0, 0, 0, 0xb0905a], ['b', 0.27, 0.02, 0.15, 0, 0.09, 0, 0x6a4a2a], ['b', 0.02, 0.3, 0.01, -0.1, 0.22, 0, 0x4a3420]]) }; })();
+// ---- the shops: Cutler's store has the full TACKLE counter (+ a rod rack on the wall); Dry Fork's hangar a short bench of basics ----
+const FSHOP_ALL = ['rodL', 'rodH', 'reel', 'l4', 'l8', 'l14', 'spoon', 'spinner', 'plastic', 'fly', 'bait', 'sinker', 'bobber', 'net', 'creel', 'cooler'], FSHOP_DF = ['rodL', 'reel', 'l8', 'spoon', 'spinner', 'bait', 'bobber', 'creel'];
+function fItemGeo(id) { const k = FTK[id][2];
+  const P = k === 'rod' ? [['c', 0.006, 1.0, 6, 0, 0.5, 0, id === 'rodH' ? 0x2a3a5a : 0x3a4a2a], ['c', 0.013, 0.22, 6, 0, 0.11, 0, 0xb08a5a]]
+    : k === 'reel' ? [['c', 0.03, 0.04, 10, 0, 0.03, 0, 0x2a2e33, 0, 0, Math.PI / 2], ['b', 0.07, 0.01, 0.05, 0, 0.005, 0, 0x6a4a2a]]
+    : k === 'line' ? [['c', 0.03, 0.025, 10, 0, 0.0125, 0, id === 'l4' ? 0x9ad0e0 : id === 'l8' ? 0x58a8c8 : 0x2a6a9a], ['c', 0.034, 0.003, 10, 0, 0.026, 0, 0x202020]]
+    : k === 'net' ? [['r', 0.12, 0.006, 10, 0, 0.01, 0, 0x6a5030], ['c', 0.01, 0.3, 6, 0.27, 0.01, 0, 0x6a5030, 0, 0, Math.PI / 2]]
+    : k === 'creel' ? [['b', 0.24, 0.16, 0.13, 0, 0.08, 0, 0xb0905a], ['b', 0.25, 0.02, 0.14, 0, 0.165, 0, 0x6a4a2a]]
+    : k === 'cooler' ? [['b', 0.4, 0.28, 0.26, 0, 0.14, 0, 0xd8d8d0], ['b', 0.41, 0.05, 0.27, 0, 0.3, 0, 0x2a5a9a]]
+    : [['b', 0.07, 0.012, 0.1, 0, 0.006, 0, 0xe0d8c0], ['b', 0.05, 0.014, 0.05, 0, 0.007, 0.012, id === 'spoon' ? 0xd8d4c8 : id === 'spinner' ? 0xd8c060 : id === 'plastic' ? 0x5a7a3a : id === 'fly' ? 0x8a6a3a : id === 'bait' ? 0x7a4a3a : id === 'sinker' ? 0x707070 : 0xd02020]];   // a card with the thing on it
+  const gs = P.map(partGeo), g = mergeGeometries(gs); for (const x of gs) x.dispose(); return g; }
+function fSign(lines, w, h) { const cv = document.createElement('canvas'); cv.width = 512; cv.height = Math.round(512 * h / w); const x = cv.getContext('2d');
+  x.fillStyle = '#e8dcb8'; x.fillRect(0, 0, cv.width, cv.height); x.strokeStyle = '#5a4630'; x.lineWidth = 8; x.strokeRect(4, 4, cv.width - 8, cv.height - 8); x.fillStyle = '#3a2a1a'; x.textAlign = 'center';
+  let y = 0; for (const [t, px] of lines) { y += px * 1.18; x.font = 'bold ' + px + 'px serif'; x.fillText(t, cv.width / 2, y); }
+  const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; return new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map: t, color: 0xd8d8d8 })); }
+function fShopBuild(o, ids, at, name) {   // at(i) -> [lx, ly, lz] on the counter / rack (shop frame o: +z toward the room's front)
+  const c = Math.cos(o.a), s = Math.sin(o.a), L = (lx, ly, lz) => GV3(o.x + lx * c + lz * s, o.y + ly, o.z - lx * s + lz * c), G = new THREE.Group(); G.userData.noBatch = true; scene.add(G);
+  const S = { name, G, items: [], at: null };
+  ids.forEach((id, i) => { const [lx, ly, lz, ry = 0, up] = at(i, id), m = new THREE.Mesh(fItemGeo(id), ITEM_VM); m.userData.noBatch = true; m.position.copy(L(lx, ly, lz)); m.rotation.set(up ? 0 : 0, o.a + ry, up ? 0.12 : 0); G.add(m);
+    S.items.push({ id, m, p: m.position.clone().add(GV3(0, FTK[id][2] === 'rod' ? 0.6 : 0.04, 0)) }); });
+  S.at = S.items.reduce((a, it) => a.add(it.p), GV3(0, 0, 0)).multiplyScalar(1 / S.items.length); FISH.shop.push(S); return { S, L }; }
+{ const T = TOWNS.find(t => t.name === 'CUTLER'), o = T && T.store;   // the full counter: front left of the store, rods racked on the left wall
+  if (o) { const rods = FSHOP_ALL.filter(id => FTK[id][2] === 'rod'), rest = FSHOP_ALL.filter(id => FTK[id][2] !== 'rod');
+    const { S, L } = fShopBuild(o, FSHOP_ALL, (i, id) => { if (FTK[id][2] === 'rod') { const j = rods.indexOf(id); return [-4.72, 0.15, 4.3 + j * 0.5, 0, 1]; } const j = rest.indexOf(id); return [-3.45 + (j % 7) * 0.37, 1.0, 3.2 + Math.floor(j / 7) * 0.32]; }, 'CUTLER');
+    const cm = mat(0x6e5236); for (const [w, h, d, lx, ly, lz] of [[2.7, 0.95, 0.9, -2.35, 0.475, 3.5], [2.8, 0.05, 1.0, -2.35, 0.975, 3.5], [0.12, 2.2, 1.4, -4.88, 1.1, 4.55]]) { const b = box(w, h, d, cm, 0, 0, 0, scene); b.position.copy(L(lx, ly, lz)); b.rotation.y = o.a; }
+    const sg = fSign([['TACKLE', 70], ['RODS - REELS - LINE - LURES', 30], ['NETS - CREELS - COOLERS', 30], ['VR: GRAB AN ITEM TO BUY IT', 26], ['DESKTOP: LOOK AT IT, E', 26]], 1.4, 0.8); sg.position.copy(L(-2.35, 2.25, 4.1)); sg.rotation.y = o.a; sg.userData.noBatch = true; S.G.add(sg); S.sign = sg; } }
+{ const o = DFSTORE.o;   // Dry Fork: the basics on a bench beside the hardware counter
+  const { S, L } = fShopBuild(o, FSHOP_DF, (i, id) => FTK[id][2] === 'rod' ? [5.3, 1.17, 3.1, Math.PI / 2] : [5.25, 1.17, 3.45 + (i - 1) * 0.16 * 1.2, Math.PI / 2], 'DRY FORK');
+  const cm = mat(0x6e5236); for (const [w, h, d, lx, ly, lz] of [[0.7, 1.05, 1.6, 5.4, 0.6, 3.9], [0.8, 0.05, 1.7, 5.4, 1.125, 3.9]]) { const b = box(w, h, d, cm, 0, 0, 0, scene); b.position.copy(L(lx, ly, lz)); b.rotation.y = o.a; }
+  const sg = fSign([['TACKLE', 70], ['THE BASICS', 34], ['MORE AT CUTLER', 30]], 1.0, 0.5); sg.position.copy(L(6.82, 2.75, 3.9)); sg.rotation.y = o.a - Math.PI / 2; sg.userData.noBatch = true; S.G.add(sg); }
+function fHas(id) { return !!FISH.own[id]; }
+function fBuy(id, g) {
+  const [nm, pr, k, x] = FTK[id], cons = k === 'lure', have = cons ? (FISH.lures[id] || 0) : k === 'line' ? (FISH.line[id] ? 1 : 0) : FISH.own[id] ? 1 : 0;
+  if (!cons && k !== 'term' && have) { say('YOU ALREADY HAVE THE ' + nm); if (g) HX.pulse(g, 0.2, 10, 'ui'); return false; }
+  if (k === 'term' && FISH.own[id]) { say('YOU HAVE ' + nm + ' ALREADY (PLENTY)'); return false; }
+  if (cons && have >= 12) { say('YOUR TACKLE BOX IS FULL OF THOSE (' + have + ')'); return false; }
+  if (DLV.cash < pr) { say('NOT ENOUGH CASH - ' + nm + ' IS $' + pr + ' (WALLET $' + DLV.cash + ')'); if (g) HX.pulse(g, 0.2, 10, 'ui'); return false; }
+  DLV.cash -= pr; sfx('cash'); if (g) HX.pulse(g, 0.5, 25, 'buy');
+  if (cons) FISH.lures[id] = have + x.n; else if (k === 'line') { FISH.line[id] = 1; FISH.own[id] = 1; } else FISH.own[id] = 1;
+  if (k === 'rod' && (!fHas(FISH.kind) || id === 'rodH')) FISH.kind = id;
+  if (k === 'line' && !FISH.line['l' + GFX.fline]) gfxSet('fline', x.lb, true);
+  if (k === 'lure' && !(FISH.lures[FLURE_IDS[GFX.flure]] > 0)) gfxSet('flure', FLURE_IDS.indexOf(id), true);
+  say('BOUGHT: ' + nm + ' -$' + pr + ' (WALLET $' + DLV.cash + ')' + (fReady() ? '' : ' - STILL NEED: ' + fNeed())); saveSoon(); for (const S of DLV_STRIPS) S.key = ''; return true;
+}
+function fNeed() { const n = []; if (!fHas('rodL') && !fHas('rodH')) n.push('A ROD'); if (!fHas('reel')) n.push('A REEL'); if (!Object.keys(FISH.line).length) n.push('LINE'); if (!FLURE_IDS.some(k => FISH.lures[k] > 0)) n.push('A LURE OR BAIT'); return n.join(', '); }
+function fReady() { return !fNeed(); }
+function fShopNear(p, r) { for (const S of FISH.shop) if (p.distanceTo(S.at) < r) return S; return null; }
+function fShopGrab(g, p) { const S = fShopNear(p, 3); if (!S) return false; let best = null, bd = 0.14;
+  for (const it of S.items) { const d = FTK[it.id][2] === 'rod' ? fSegD(p, it.m.position, _fk1.copy(it.m.position).add(_fk2.set(0, 1.2, 0))) : p.distanceTo(it.p); if (d < bd) { bd = d; best = it; } }
+  if (!best) return false; fBuy(best.id, g); return true; }
+function fSegD(p, a, b) { _fk3.subVectors(b, a); const t = clamp(_fk2.subVectors(p, a).dot(_fk3) / _fk3.lengthSq(), 0, 1); return _fk2.copy(a).addScaledVector(_fk3, t).distanceTo(p); }
+function fShopDesk() {   // desktop E: the item under the crosshair (within 8 deg, 3 m)
+  camera.getWorldPosition(_fk1); const S = fShopNear(_fk1, 4); if (!S || mode !== 'foot') return false; camera.getWorldDirection(_fk2); let best = null, ba = 0.14;
+  for (const it of S.items) { _fk3.subVectors(it.p, _fk1); const d = _fk3.length(); if (d > 3.2) continue; const a = Math.acos(clamp(_fk3.dot(_fk2) / d, -1, 1)); if (a < ba) { ba = a; best = it; } }
+  if (!best) { say('TACKLE: LOOK AT AN ITEM AND PRESS E TO BUY IT'); return true; } fBuy(best.id, null); return true; }
+function fShopHint(p, vrOn) { const S = mode === 'foot' ? fShopNear(p, 2.8) : null, k = S ? S.name : '';
+  for (const s of FISH.shop) s.G.visible = p.distanceTo(s.at) < 300;
+  if (k && k !== FISH.hint) say('TACKLE (' + k + '): ' + (vrOn ? 'GRAB AN ITEM TO BUY IT' : 'LOOK AT AN ITEM, E TO BUY') + ' - WALLET $' + DLV.cash + (fReady() ? '' : ' - YOU NEED ' + fNeed()));
+  FISH.hint = k; }
+// ---- the rig: what's tied on, how much it weighs, how it casts ----
+function fRig() { const id = FLURE_IDS[GFX.flure] || 'spoon', L = FLURE[id], bob = GFX.fbob > 0 && fHas('bobber'), snk = GFX.fsink > 0 && fHas('sinker') && !L.float;
+  const g = L.g + (snk ? 5 : 0) + (bob ? 6 : 0), cd = bob ? 1.6 : L.cd, kind = fHas(FISH.kind) ? FISH.kind : fHas('rodH') ? 'rodH' : 'rodL', R = FTK[kind][3];
+  const lb = FISH.line['l' + GFX.fline] ? GFX.fline : [8, 4, 14].find(x => FISH.line['l' + x]) || 8;
+  return { id, L, bob, snk, g, m: g / 1000, D: 0.6 * cd * 1.6e-4 / (g / 1000), sink: L.float && !snk ? 0 : L.sink + (snk ? 0.35 : 0), kind, R, lb, rate: lb * 4.448, drag: GFX.fdrag * 0.06 * lb * 4.448 }; }
+function fMatch(r) { return r.g < r.R.lo ? 0.55 + 0.45 * r.g / r.R.lo : r.g > r.R.hi ? Math.max(0.6, 1 - (r.g - r.R.hi) / r.R.hi) : 1; }   // a lure outside the rod's range casts worse
+function fWaterAt(x, z) { const h = waterH(x, z); if (h !== null) return terrainHeight(x, z) < h - 0.03 ? h : null; return waterDist(x, z) <= 0 ? groundY(x, z) + 0.3 : null; }   // lakes, the river, creeks
+// fish depth (not drawn): the lakes shelve off to ~20 m in the middle, river pools ~1.8 m, creeks ~0.7 m
+function fDepthAt(x, z, surf) { const L = inLake(x, z); if (L) return Math.max(surf - terrainHeight(x, z), clamp(0.5 + 0.12 * (L.r - hyp(x - L.x, z - L.z)), 0.3, 30)); return WATERS.at(x, z) !== null ? 1.8 : 0.7; }   // river pools ~1.8 m, creeks ~0.7 m
+// ---- the rod frame each frame: fist O, axis A (butt -> tip), D (down, square to A), X = D x A (right) ----
+const FRD = { O: GV3(0, 0, 0), A: GV3(0, 0, -1), D: GV3(0, -1, 0), X: GV3(1, 0, 0), def: GV3(0, 0, 0), bend: 0, ang: 0.6, whip: 0 };
+function fRodFrame(dt, vrOn) {
+  if (FISH.rod === 'vr') { const g = FISH.hand; g.updateWorldMatrix(true, false); _fkM.multiplyMatrices(g.matrixWorld, HOFF); FRD.O.set(0, -0.04, 0).applyMatrix4(_fkM); FRD.A.set(0, 0, -1).transformDirection(_fkM); }
+  else { camera.updateWorldMatrix(true, false); FRD.O.set(0.24, -0.3, -0.32).applyMatrix4(camera.matrixWorld);
+    const tgt = FISH.charging ? 0.6 + 1.25 * FISH.pow : FISH.st === 'fight' ? 0.85 + 0.4 * FISH.lift : 0.55; FRD.ang += (tgt - FRD.ang) * Math.min(1, dt * (FRD.whip > 0 ? 40 : 12)); FRD.whip = Math.max(0, FRD.whip - dt);
+    camera.getWorldDirection(_fk1); _fk2.set(-_fk1.z, 0, _fk1.x).normalize(); FRD.A.copy(_fk1).applyAxisAngle(_fk2, FRD.ang).normalize(); }
+  FRD.D.set(0, -1, 0).addScaledVector(FRD.A, FRD.A.y).normalize(); FRD.X.crossVectors(FRD.D, FRD.A).normalize(); }
+function fRodDraw(r) {   // the blank, bent toward the line by the pull on it
+  const N = FROD.N, P = FROD.P, len = r.R.len, s0 = -0.28;
+  FRD.def.set(0, 0, 0); if (FISH.st !== 'idle' && FISH.st !== 'fly' && FISH.T > 0.05) { _fk1.subVectors(FLINE.p[1], FISH.tip); const l = _fk1.length(); if (l > 1e-4) { _fk1.multiplyScalar(1 / l); _fk1.addScaledVector(FRD.A, -_fk1.dot(FRD.A)); FRD.bend = Math.min(1.3, FISH.T / r.R.full); FRD.def.copy(_fk1).multiplyScalar(0.42 * len * FRD.bend); } } else FRD.bend = 0;
+  for (let i = 0; i < N; i++) { const t = i / (N - 1), al = s0 + t * (len - s0 + s0), u = Math.max(0, al) / (len + s0), f = u * u * (3 - u) / 2, rr = i < 2 ? 0.012 : 0.0085 - 0.0068 * t;
+    _fk1.copy(FRD.O).addScaledVector(FRD.A, al).addScaledVector(FRD.def, f);
+    if (i === N - 1) FISH.tip.copy(_fk1);
+    for (let k = 0; k < 4; k++) { const a = k * Math.PI / 2 + Math.PI / 4, cx = Math.cos(a) * rr, cy = Math.sin(a) * rr, j = (i * 4 + k) * 3;
+      P[j] = _fk1.x + FRD.X.x * cx + FRD.D.x * cy; P[j + 1] = _fk1.y + FRD.X.y * cx + FRD.D.y * cy; P[j + 2] = _fk1.z + FRD.X.z * cx + FRD.D.z * cy; } }
+  FROD.G.attributes.position.needsUpdate = true; FROD.G.computeBoundingSphere();
+  // the reel hangs under the grip, its crank on the other hand's side
+  const RM = FREEL.m; RM.position.copy(FRD.O).addScaledVector(FRD.D, 0.055).addScaledVector(FRD.A, 0.02);
+  _fkM.makeBasis(FRD.X, _fk2.copy(FRD.D).negate(), _fk3.copy(FRD.A).negate()); RM.quaternion.setFromRotationMatrix(_fkM);
+  FREEL.ck.position.set(-0.03 * fHandS(), 0, 0); FREEL.ck.rotation.x = -FISH.crank; FREEL.ck.scale.x = fHandS(); }
+function fHandS() { return FISH.rod === 'vr' && FISH.hand?.userData.src?.handedness === 'left' ? -1 : 1; }   // +1: rod in the right hand, crank on the left
+function fKnob(out) { FREEL.m.updateMatrixWorld(true); return FREEL.ck.children[0].localToWorld(out.set(0.012, 0.06, 0)); }
+// ---- the line: node 0 at the rod tip, the last node the lure (or the bobber); rest length FISH.L ----
+function fLineReset(drop) { const P = FLINE.p, O = FLINE.o, n = FISH.n; FISH.L = drop; for (let i = 0; i < n; i++) { P[i].copy(FISH.tip).addScaledVector(_fk1.set(0, -1, 0), drop * i / (n - 1)); O[i].copy(P[i]); } FISH.lure.copy(P[n - 1]); FISH.lv.set(0, 0, 0); }
+function fLineStep(dt) {
+  const P = FLINE.p, O = FLINE.o, n = FISH.n, seg = Math.max(0.005, FISH.L / (n - 1)), surf = FISH.surf, wet = FISH.st === 'water' || FISH.st === 'fight' || FISH.st === 'bite', g = 9.81 * dt * dt;
+  for (let i = 1; i < n - 1; i++) { const p = P[i], o = O[i], inW = wet && p.y <= surf + 0.002, k = inW ? 0.82 : 0.985;
+    const vx = (p.x - o.x) * k, vy = (p.y - o.y) * k, vz = (p.z - o.z) * k; o.copy(p); p.x += vx; p.y += vy - (inW ? 0 : g * 0.6); p.z += vz; }
+  P[0].copy(FISH.tip); P[n - 1].copy(FISH.end || FISH.lure);
+  for (let it = 0; it < 8; it++) { for (let i = 0; i < n - 1; i++) { const a = P[i], b = P[i + 1]; _fk1.subVectors(b, a); const d = _fk1.length(); if (d < 1e-6 || d <= seg) continue;
+      const c = (d - seg) / d, wa = i === 0 ? 0 : 0.5, wb = i + 1 === n - 1 ? 0 : 0.5, s = wa + wb; if (!s) continue; a.addScaledVector(_fk1, c * wa / s); b.addScaledVector(_fk1, -c * wb / s); } }
+  FISH.gTick = (FISH.gTick + 1) % 3;
+  for (let i = 1; i < n - 1; i++) { const p = P[i]; if (wet && p.y < surf && i > n * 0.3) { p.y = surf; O[i].y = surf; continue; }   // lies on the water (out toward the lure)
+    if ((i + FISH.gTick) % 3 === 0) FLINE.gy[i] = groundY(p.x, p.z) + 0.01; if (p.y < FLINE.gy[i]) { p.y = FLINE.gy[i]; O[i].lerp(p, 0.6); } }
+  const A = FLINE.a; for (let i = 0; i < n; i++) { A[i * 3] = P[i].x; A[i * 3 + 1] = P[i].y; A[i * 3 + 2] = P[i].z; } FLINE.l.geometry.attributes.position.needsUpdate = true; }
+FLINE.gy = new Float32Array(FISH.n).fill(-1e9); FISH.gTick = 0; FISH.surf = -1e9; FISH.end = null; FISH.lift = 0;
+// ---- casting, the bail, the crank ----
+function fBail(open) { if (FISH.bail === open) return; FISH.bail = open; sfx('click'); if (FISH.hand) HX.pulse(FISH.hand, 0.25, 12, 'bail'); }
+function fCast(v) {   // let go of the line: the lure leaves with v (m/s, world)
+  const r = FISH.rig = fRig(); if (FISH.lures[r.id] <= 0) { say('NO ' + FTK[r.id][0].replace(/ \(.*/, '') + ' LEFT - TIE ON SOMETHING ELSE (MENU > CONTROLS) OR BUY MORE'); return false; }
+  FISH.lv.copy(v).multiplyScalar(fMatch(r)); if (FISH.lv.length() > 34) FISH.lv.setLength(34); FISH.lure.copy(FISH.tip); FISH.st = 'fly'; FISH.casts++; FISH.cast0 = FISH.tip.clone(); FISH.end = null;
+  FISH.bail = true; FISH.pinch = false; sfx('pour'); return true; }
+function fCrank(dA, dt) {   // dA radians of crank (forward > 0); the first forward turn closes the bail
+  if (dA <= 0) { FISH.retr *= Math.max(0, 1 - dt * 6); return; }
+  if (FISH.bail) { fBail(false); return; }
+  FISH.crank += dA; const want = dA / (2 * Math.PI) * 0.78;   // 5.2:1, ~0.78 m a turn
+  const tick = Math.floor(FISH.crank / (Math.PI / 3)); if (tick !== FISH.ctk) { FISH.ctk = tick; if (FISH.crankG) HX.pulse(FISH.crankG, 0.06, 6, 'crank'); }
+  if (FISH.st === 'idle' || FISH.st === 'fly') return;
+  const slip = FISH.T >= FISH.rig.drag * 0.98;   // at the drag the spool slips: cranking just twists line
+  if (!slip) FISH.L = Math.max(0.45, FISH.L - want);
+  FISH.retr = FISH.retr * 0.7 + (slip ? 0 : want / Math.max(dt, 1e-3)) * 0.3; }
+function fTake(g) {   // VR: the rod out of its tube
+  if (!fHas('reel') || (!fHas('rodL') && !fHas('rodH'))) { say('YOU NEED ' + fNeed() + ' - THE TACKLE COUNTER IN CUTLER (OR THE BENCH IN THE DRY FORK HANGAR)'); return false; }
+  FISH.rod = g ? 'vr' : 'desk'; FISH.hand = g || null; FISH.st = 'idle'; FISH.bail = false; FISH.pinch = false; FISH.rig = fRig(); FRD.ang = 0.55; FISH.T = 0;
+  fRodFrame(0, !!g); fRodDraw(FISH.rig); fLineReset(0.45); sfx('pick'); if (g) HX.pulse(g, 0.4, 20, 'rod');
+  say((FISH.kind === 'rodH' ? 'CASTING ROD' : 'SPINNING ROD') + ' - ' + FTK[FISH.rig.id][0].replace(/ \(.*/, '') + (FISH.rig.bob ? ' UNDER A BOBBER' : '') + ', ' + FISH.rig.lb + ' LB, DRAG ' + GFX.fdrag + (g ? ' - TRIGGER: OPEN THE BAIL + HOLD THE LINE, FLICK, LET GO' : ' - HOLD LMB, LET GO TO CAST, RMB REELS')); return true; }
+function fStow(why) { if (FISH.rod === 'pack') return; if (FISH.st === 'landed' && FISH.fish) fKeepOrRelease(); FISH.rod = 'pack'; FISH.hand = FISH.crankG = null; FISH.st = 'idle'; FISH.charging = false; FISH.fish = null; FISH.T = 0; FISH.ready = false;
+  FROD.m.visible = FREEL.m.visible = FLINE.l.visible = false; for (const k in FLM) FLM[k].visible = false; for (const k in FMESH) FMESH[k].visible = false; sfx('clack'); if (why) say(why); }
+function fishBoard() { FISH.deck = false; if (FISH.rod !== 'pack') fStow(FISH.st === 'idle' ? '' : 'LINE REELED IN, ROD IN ITS TUBE'); }
+// ---- each frame ----
+const _fT = GV3(0, 0, 0), _fW = GV3(0, 0, 0);
+function fLureStep(dt) {
+  const r = FISH.rig, lu = FISH.lure, v = FISH.lv, st = FISH.st; FISH.end = null;
+  if (st === 'idle') {   // dangling under the tip (a pendulum); bail open + line let go: it drops
+    v.y -= 9.81 * dt; v.multiplyScalar(1 - Math.min(1, dt * 0.8)); lu.addScaledVector(v, dt); _fk1.subVectors(lu, FISH.tip); const d = _fk1.length();
+    if (FISH.bail && !FISH.pinch) { FISH.L = Math.min(100, Math.max(FISH.L, d)); }
+    else if (d > FISH.L) { _fk1.multiplyScalar(1 / d); lu.copy(FISH.tip).addScaledVector(_fk1, FISH.L); const vo = v.dot(_fk1); if (vo > 0) v.addScaledVector(_fk1, -vo); }
+    fLand(); FISH.T = 0; return; }
+  if (st === 'fly') { const s = v.length(); v.y -= 9.81 * dt; if (s > 1e-3) v.addScaledVector(v, -(r.D * s + (0.8 + 0.015 * FISH.L) / s) * dt); lu.addScaledVector(v, dt);
+    const d = lu.distanceTo(FISH.tip); if (FISH.pinch || FISH.L >= 99.5) { if (d > FISH.L) { _fk1.subVectors(lu, FISH.tip).multiplyScalar(1 / d); lu.copy(FISH.tip).addScaledVector(_fk1, FISH.L); const vo = v.dot(_fk1); if (vo > 0) v.addScaledVector(_fk1, -vo); } }
+    else FISH.L = Math.min(100, Math.max(FISH.L, d * 1.003));
+    fLand(); FISH.T = 0; return; }
+  if (st === 'fight' || st === 'landed') return;   // v0.97.1 the fish moves the lure now
+  // on the water / the ground
+  const inW = st !== 'ground', depth = FISH.depth, surf = FISH.surf;
+  _fk1.subVectors(FISH.tip, lu); const d = _fk1.length(); let moved = 0;
+  if (FISH.bail) FISH.L = Math.min(100, Math.max(FISH.L, d));
+  else if (d > FISH.L) { moved = d - FISH.L; lu.addScaledVector(_fk1, moved / d); }
+  const sp = moved / Math.max(dt, 1e-3); FISH.spd = FISH.spd * 0.85 + sp * 0.15;
+  if (inW) { if (WATERS.at(lu.x, lu.z) !== null) lu.z -= 0.45 * dt;   // the river's current
+    const bot = surf - depth + 0.04;
+    if (r.bob) { lu.y = surf; FISH.end = null; FISH.dep = Math.min(GFX.fbob, depth - 0.1); }
+    else { if (r.L.float && !r.snk) lu.y = surf - 0.005; else lu.y = clamp(lu.y - r.sink * dt + Math.min(0.5, 0.3 * FISH.spd) * dt * (FISH.spd > 0.05 ? 1 : 0), bot, surf - 0.02); FISH.dep = surf - lu.y; }
+    if (FISH.L <= 0.6 || (lu.y > surf + 0.05)) { fBackToTip(); return; }
+    if (fWaterAt(lu.x, lu.z) === null && moved > 0) { FISH.st = 'ground'; } }
+  else { lu.y = groundY(lu.x, lu.z) + 0.01; if (FISH.L <= 0.6) { fBackToTip(); return; } const w = fWaterAt(lu.x, lu.z); if (w !== null && w > lu.y) { FISH.st = 'water'; FISH.surf = w; FISH.depth = fDepthAt(lu.x, lu.z, w); } }
+  FISH.T = d >= FISH.L - 0.02 && !FISH.bail ? (inW ? 0.12 + 1.1 * FISH.spd * FISH.spd : 0.6) : 0;
+}
+function fBackToTip() { FISH.st = 'idle'; FISH.L = 0.45; FISH.lv.set(0, 0, 0); FISH.spd = 0; FISH.retr = 0; FISH.lure.copy(FISH.tip).add(_fk1.set(0, -0.45, 0)); fLineReset(0.45); }
+function fLand() {   // the lure comes down: water (a plop) or the ground
+  const lu = FISH.lure, w = fWaterAt(lu.x, lu.z);
+  if (w !== null && lu.y <= w) { FISH.st = 'water'; FISH.wk = null; FISH.surf = w; FISH.depth = fDepthAt(lu.x, lu.z, w); lu.y = w; FISH.lv.set(0, 0, 0); FISH.spd = 0;
+    const dd = FISH.cast0 ? hyp(lu.x - FISH.cast0.x, lu.z - FISH.cast0.z) : 0; FISH.lastD = dd; FISH.maxD = Math.max(FISH.maxD, dd); sfx('splash', lu); FISH.plop = 0.6; return true; }
+  const gy = groundY(lu.x, lu.z); if (lu.y <= gy + 0.01) { lu.y = gy + 0.01; FISH.st = 'ground'; FISH.lv.set(0, 0, 0); FISH.lastD = FISH.cast0 ? hyp(lu.x - FISH.cast0.x, lu.z - FISH.cast0.z) : 0; sfx('leaf'); return true; }
+  return false; }
+function fLureDraw(dt) {
+  const r = FISH.rig, id = r.id; for (const k in FLM) FLM[k].visible = false; const m = FLM[id]; m.visible = true; FISH.act = (FISH.act || 0) + dt * (3 + 5 * FISH.spd);
+  if (r.bob && FISH.st !== 'idle' && FISH.st !== 'fly') { const b = FLM.bobber; b.visible = true; b.position.copy(FISH.lure); b.position.y += FISH.bobDip || 0; m.position.copy(FISH.lure); m.position.y -= FISH.dep; }
+  else { m.position.copy(FISH.lure); if (r.bob && FISH.st === 'idle') { const b = FLM.bobber; b.visible = true; b.position.copy(FISH.lure).add(_fk1.set(0, 0.3, 0)); } }
+  _fk1.subVectors(FISH.tip, m.position); if (_fk1.lengthSq() > 1e-6) { _fkM.lookAt(_fk1.set(0, 0, 0), _fk2.subVectors(m.position, FISH.tip), _ry); m.quaternion.setFromRotationMatrix(_fkM); }
+  const a = FISH.spd > 0.05 ? (id === 'spoon' ? 0.5 * Math.min(1, FISH.spd) * Math.sin(FISH.act * 2) : id === 'spinner' ? FISH.act * 6 : id === 'plastic' ? 0.25 * Math.sin(FISH.act) : 0) : 0;
+  m.rotateZ(a); FISH.spinOut = id === 'spoon' && FISH.spd > 1.6; }
+function fVRInput(dt) {
+  const g = FISH.hand, gp = g?.userData.src?.gamepad; if (!gp) return;
+  const tv = gp.buttons[0]?.value || 0;
+  if (tv > 0.6 && !FISH.trg) { FISH.trg = true; if (FISH.st === 'idle') { fBail(true); FISH.pinch = true; } else if (FISH.st === 'fly') FISH.pinch = true; }   // finger on the line (and in flight: feather it to a stop)
+  else if (tv < 0.3 && FISH.trg) { FISH.trg = false; if (FISH.pinch) { FISH.pinch = false; const s = FISH.tipV.length(); if (FISH.st === 'idle' && s > 2.5) fCast(fLaunchV(FISH.tipV, _fk1)); } }
+  const cg = FISH.crankG; if (cg) { cg.getWorldPosition(_fW); FREEL.m.updateMatrixWorld(true); FREEL.m.worldToLocal(_fW); const ph = Math.atan2(-_fW.z, _fW.y);
+    if (FISH.crankA !== null) { let dA = ph - FISH.crankA; if (dA > Math.PI) dA -= 2 * Math.PI; if (dA < -Math.PI) dA += 2 * Math.PI; fCrank(dA, dt); } else fCrank(0, dt); FISH.crankA = ph; }
+  else fCrank(0, dt); }
+// the lure hangs on its drop and swings over the tip as the rod unloads: it leaves ~60 deg above the tip's own path. Let go at about one o'clock
+// (the tip still moving forward-down) and it flies ~30 deg up; early (rod upright) it lobs high; late it slaps the water close in.
+function fLaunchV(tv, out) { const s = tv.length() * 1.1; let hx = tv.x, hz = tv.z, h = hyp(hx, hz); if (h < 0.3) { hx = FRD.A.x; hz = FRD.A.z; h = hyp(hx, hz) || 1; }
+  const e = Math.min(1.4, Math.atan2(tv.y, hyp(tv.x, tv.z)) + 1.05), c = Math.cos(e) * s / h; return out.set(hx * c, Math.sin(e) * s, hz * c); }
+function fDeskInput(dt) {
+  if (FISH.charging) FISH.pow = Math.min(1, FISH.pow + dt / 0.8);
+  if (FISH.desk.reel) fCrank(2 * Math.PI * (keys.ShiftLeft ? 2.6 : 1.6) * dt, dt); else fCrank(0, dt); }
+function fishTick(dt, vrOn) {
+  camera.getWorldPosition(_fT); fShopHint(_fT, vrOn); fWornTick(vrOn); fClockTick(dt); fOrderTick(); fDeckTick(); fNetTick(dt, vrOn);
+  if (FISH.rod === 'pack') { FROD.m.visible = FREEL.m.visible = FLINE.l.visible = false; return; }
+  if (mode !== 'foot') { fishBoard(); return; }
+  if (FISH.rod === 'vr' && !FISH.hand?.userData.src) { fStow(''); return; }
+  const r = FISH.rig || (FISH.rig = fRig()); fRodFrame(dt, vrOn); fRodDraw(r);
+  if (dt > 0) { FISH.tipV.lerp(_fk2.subVectors(FISH.tip, FISH.tipP || FISH.tip).multiplyScalar(1 / dt), 0.6); } FISH.tipP = (FISH.tipP || GV3(0, 0, 0)).copy(FISH.tip);
+  if (FISH.rod === 'vr') fVRInput(dt); else fDeskInput(dt);
+  fLureStep(dt); if (typeof fFishStep === 'function') fFishStep(dt);
+  fLineStep(dt); fLureDraw(dt); if (typeof fFishDraw === 'function') fFishDraw(); FROD.m.visible = FREEL.m.visible = FLINE.l.visible = true; }
+function fWornTick(vrOn) { const W = FWORN, on = vrOn && mode === 'foot';
+  W.tube.visible = on && (fHas('rodL') || fHas('rodH')); W.net.visible = on && fHas('net') && FISH.netG === null; W.creel.visible = on && fHas('creel');
+  if (W.tube.visible) { fWorn(F_ROD_OFF, W.tube.position); W.tube.rotation.set(0, headYaw(), 0.18); }
+  if (W.net.visible) { fWorn(F_NET_OFF, W.net.position); W.net.rotation.set(0.3, headYaw(), -0.2); }
+  if (W.creel.visible) { fWorn(F_CREEL_OFF, W.creel.position); W.creel.rotation.set(0, headYaw() + Math.PI / 2, 0); } }
+// ---- hands, keys, mouse ----
+function fishGrab(g, p) { if (mode !== 'foot') return false;
+  if (fScaleGrab(g, p) || fShopGrab(g, p)) return true;
+  if (FISH.rod === 'vr' && g !== FISH.hand) { if (p.distanceTo(fKnob(_fk1)) < 0.12 || p.distanceTo(FREEL.m.position) < 0.1) { FISH.crankG = g; FISH.crankA = null; HX.pulse(g, 0.2, 10, 'crank'); return true; } }
+  if (typeof fNetGrab === 'function' && fNetGrab(g, p)) return true;
+  if (FISH.rod === 'pack' && (fHas('rodL') || fHas('rodH')) && p.distanceTo(fWorn(F_ROD_OFF, _fk1)) < 0.15) return fTake(g) || true;
+  return false; }
+function fishRelease(g) { if (FISH.crankG === g) { FISH.crankG = null; FISH.crankA = null; } if (FISH.rod === 'vr' && FISH.hand === g) fStow(FISH.st === 'idle' ? '' : 'ROD BACK IN ITS TUBE - LINE REELED IN'); if (typeof fNetRelease === 'function') fNetRelease(g); }
+function fishHold(g) { return (FISH.rod === 'vr' && FISH.hand === g) || FISH.crankG === g || FISH.netG === g; }
+function fishKey(e) { if (mode !== 'foot') return false;
+  if (e.code === 'KeyT' && FISH.rod === 'desk') { fStow(''); return false; }   // the rifle instead: the rod goes away first
+  if (e.code === 'KeyQ') { if (typeof fDeskQ === 'function' && fDeskQ()) return true;
+    if (FISH.rod === 'desk') { fStow(FISH.st === 'idle' ? 'ROD AWAY (Q)' : 'LINE REELED IN, ROD AWAY (Q)'); return true; }
+    if (RFL.place === 'desk') { say('SLING THE RIFLE FIRST (T)'); return true; } if (DLV.desk) { say('HANDS FULL - SET THE CARGO DOWN FIRST (E)'); return true; }
+    fTake(null); return true; }
+  if ((e.code === 'Minus' || e.code === 'Equal') && FISH.rod !== 'pack') { const v = clamp(GFX.fdrag + (e.code === 'Equal' ? 1 : -1), 1, 10); gfxSet('fdrag', v, true); if (FISH.rig) FISH.rig = fRig(); say('DRAG ' + v + ' - SLIPS AT ' + (FISH.rig.drag).toFixed(1) + ' N (' + FISH.rig.lb + ' LB LINE BREAKS AT ' + FISH.rig.rate.toFixed(0) + ' N)'); sfx('tick'); return true; }
+  if (e.code === 'KeyH' && fDeskH()) return true;
+  if (e.code === 'KeyE' && typeof fDeskE === 'function' && fDeskE()) return true;
+  if (e.code === 'KeyE' && fShopDesk()) return true;
+  return false; }
+function fishMouse(e, down) { if (FISH.rod !== 'desk' || mode !== 'foot') return false;
+  if (e.button === 0) { if (down) { if (FISH.st === 'idle') { FISH.charging = true; FISH.pow = 0; fBail(true); } else if (typeof fStrike === 'function') fStrike(); }
+    else if (FISH.charging) { FISH.charging = false; camera.getWorldDirection(_fk1); _fk2.set(-_fk1.z, 0, _fk1.x).normalize(); _fk1.applyAxisAngle(_fk2, 0.38).normalize(); FRD.whip = 0.15; FRD.ang = 0.2; fCast(_fk1.multiplyScalar(9 + 17 * FISH.pow)); } return true; }
+  if (e.button === 2) { FISH.desk.reel = down; return true; } return false; }
+addEventListener('mousedown', e => { if (!renderer.xr.isPresenting && document.pointerLockElement === renderer.domElement) fishMouse(e, true); });
+addEventListener('mouseup', e => { if (!renderer.xr.isPresenting) fishMouse(e, false); });
+// ---- save ----
+function fishSave() { return { own: { ...FISH.own }, lu: { ...FISH.lures }, ln: { ...FISH.line }, k: FISH.kind, food: Math.round(FISH.food), cr: FISH.creel.map(f => [f.sp, r3(f.kg), r3(f.t)]), co: FISH.cooler.map(f => [f.sp, r3(f.kg), r3(f.t)]), stat: FISH.stat || {}, ord: FORD.o, clk: r3(FISH.clock) }; }
+function fishLoad(d) { FISH.own = {}; if (!FORD.o) fOrderNew(); FISH.lures = {}; FISH.line = {}; FISH.kind = 'rodL'; FISH.food = 80; FISH.creel = []; FISH.cooler = []; FISH.stat = {}; fStow('');
+  if (!d || typeof d !== 'object') return; const ok = o => o && typeof o === 'object' ? o : {};
+  for (const [k, v] of Object.entries(ok(d.own))) if (FTK[k] && v) FISH.own[k] = 1; for (const [k, v] of Object.entries(ok(d.lu))) if (FTK[k] && isFinite(v)) FISH.lures[k] = clamp(v | 0, 0, 20);
+  for (const [k, v] of Object.entries(ok(d.ln))) if (FTK[k] && v) FISH.line[k] = 1; if (FTK[d.k]) FISH.kind = d.k; if (isFinite(d.food)) FISH.food = clamp(+d.food, 0, 100);
+  const fl = a => Array.isArray(a) ? a.filter(f => Array.isArray(f) && typeof f[0] === 'string' && isFinite(f[1]) && isFinite(f[2])).map(f => ({ sp: f[0], kg: +f[1], t: +f[2] })) : [];
+  FISH.creel = fl(d.cr); FISH.cooler = fl(d.co); FISH.stat = ok(d.stat); if (isFinite(d.clk)) FISH.clock = +d.clk;
+  const o = d.ord; if (o && (o.sp === 'any' || FSP[o.sp]) && o.n > 0 && o.n < 9 && isFinite(o.pay) && isFinite(o.kg)) { FORD.o = { sp: o.sp, n: o.n | 0, kg: +o.kg, pay: o.pay | 0 }; fOrderDraw(); } }
+// ===================== v0.97.1 the fish: five species, where and when they bite, the strike, the fight =====================
+// Each species: weight (min / median / max kg), where it lives (lake / river / creek), its depth band (m), what it takes, the retrieve speed it likes (m/s),
+// how much better it bites at dawn + dusk, how hard it pulls (x 0.28 g x its weight) and how it fights.
+const FSP = {
+  rainbow: { nm: 'RAINBOW TROUT', w: [0.25, 0.7, 3.5], hab: { lake: 1, river: 0.7, creek: 1 }, dep: [0.3, 4], lure: { spinner: 1, spoon: 0.7, fly: 1, bait: 0.9, plastic: 0.4 }, spd: [0.25, 0.9], dawn: 2.4, night: 0.3, pull: 1.3, style: 'jump', tire: 1.2, $: 6, c: [0x5a6a4a, 0xd8d4cc, 0xd07a86], k: 0.0115 },
+  laker: { nm: 'LAKE TROUT', w: [1, 3, 12], hab: { lake: 1 }, dep: [5, 40], lure: { spoon: 1, plastic: 0.7, bait: 0.5, spinner: 0.3 }, spd: [0.2, 0.7], dawn: 1.6, night: 0.5, pull: 1.0, style: 'deep', tire: 0.6, $: 5, c: [0x4a5650, 0xd0d0c4, 0x8a9a8a], k: 0.0105 },
+  grayling: { nm: 'ARCTIC GRAYLING', w: [0.15, 0.45, 1.3], hab: { creek: 1, river: 0.8, lake: 0.15 }, dep: [0.1, 1.5], lure: { fly: 1, spinner: 0.7, bait: 0.5, plastic: 0.2 }, spd: [0.2, 0.7], dawn: 2.0, night: 0.2, pull: 0.9, style: 'dart', tire: 1.5, $: 8, c: [0x5a5a6a, 0xc8c4c8, 0x7a5a8a], k: 0.0095 },
+  pike: { nm: 'NORTHERN PIKE', w: [0.8, 2.5, 10], hab: { lake: 1, river: 0.3 }, dep: [0.5, 4], lure: { spoon: 1, spinner: 0.9, plastic: 1, bait: 0.4 }, spd: [0.4, 1.4], dawn: 1.5, night: 0.4, pull: 1.5, style: 'shake', tire: 0.9, $: 4, c: [0x4a5a2a, 0xd8d8b0, 0xc8c890], k: 0.006 },
+  salmon: { nm: 'RIVER SALMON', w: [2, 4.5, 14], hab: { river: 1 }, dep: [0.4, 2.5], lure: { spinner: 1, spoon: 0.9, bait: 0.6, plastic: 0.4 }, spd: [0.3, 1.1], dawn: 2.2, night: 0.4, pull: 1.8, style: 'run', tire: 0.55, $: 9, c: [0x3a4a5a, 0xe0e0e4, 0xb0b8c0], k: 0.012 },
+};
+const FSP_IDS = Object.keys(FSP), FBITE = 1 / 40;   // base: one bite every ~40 s with everything right
+const FSPOTS = [];   // { x, z, r, k, nm }: docks + the salmon run at the fish camp bar bite better
+{ const b = BUSH.find(s => s.id === 'FISHBAR'); if (b) FSPOTS.push({ x: b.x, z: b.z, r: 160, k: 1.8, nm: 'THE SALMON RUN AT FISH CAMP BAR' }); }
+function fWaterKind(x, z) { return inLake(x, z) ? 'lake' : WATERS.at(x, z) !== null ? 'river' : 'creek'; }
+function fTimeK(sp) { const h = DAY.h; return (h >= 5 && h < 8.5) || (h >= 18 && h < 21) ? sp.dawn : h >= 21 || h < 5 ? sp.night : h >= 11 && h < 15 ? 0.6 : 1; }
+function fBand(v, lo, hi, w) { return v >= lo && v <= hi ? 1 : Math.exp(-(v < lo ? lo - v : v - hi) / w); }
+function fBiteK(sp, r, wk, dep, spd) {   // 0..~2.4: how keen this species is on this lure, here, now
+  const hab = sp.hab[wk] || 0; if (!hab) return 0; const lu = sp.lure[r.id] || 0; if (!lu) return 0;
+  const still = r.id === 'bait' || r.id === 'fly' || r.bob, mv = still ? (spd < 0.15 ? 1 : spd < 0.5 ? 0.6 : 0.25) : spd < 0.08 ? (r.id === 'plastic' ? 0.5 : 0.25) : fBand(spd, sp.spd[0], sp.spd[1], 0.3);
+  return hab * lu * mv * fBand(dep, sp.dep[0], sp.dep[1], 1.2) * fTimeK(sp) * (FISH.spinOut ? 0.2 : 1); }
+function fSpotK(x, z) { let k = 1; for (const s of FSPOTS) if (hyp(x - s.x, z - s.z) < s.r) k = Math.max(k, s.k); return k; }
+function fRandKg(sp) { const u = Math.random() + Math.random() + Math.random() - 1.5; return clamp(sp.w[1] * Math.exp(u * 0.9), sp.w[0], sp.w[2]); }   // ~lognormal round the median
+const _fA = GV3(0, 0, 0), _fB = GV3(0, 0, 0);
+// ---- the fish mesh: low poly (about 90 triangles), one per species, scaled to its length ----
+const FMESH = {};
+for (const [id, sp] of Object.entries(FSP)) { const [bk, be, st] = sp.c, slim = id === 'pike' ? 0.7 : id === 'grayling' ? 0.85 : 1;
+  const P = [['t', [0.075 * slim, 0.11 * slim], 0.32, 6, 0, 0, 0.0, bk, Math.PI / 2], ['t', [0.11 * slim, 0.04 * slim], 0.42, 6, 0, 0, 0.37, bk, Math.PI / 2], ['k', 0.075 * slim, 0.2, 6, 0, 0, -0.26, bk, -Math.PI / 2],
+    ['b', 0.012, 0.16, 0.14, 0, 0, 0.64, bk], ['b', 0.008, id === 'grayling' ? 0.14 : 0.06, id === 'grayling' ? 0.22 : 0.1, 0, 0.1 * slim, 0.05, bk], ['t', [0.06 * slim, 0.09 * slim], 0.3, 6, 0, -0.035 * slim, 0.02, be, Math.PI / 2],
+    ['b', 0.115 * slim * 2, 0.025, 0.5, 0, 0.005, 0.12, st]];
+  const gs = P.map(partGeo), m = new THREE.Mesh(mergeGeometries(gs), ITEM_VM); for (const x of gs) x.dispose(); m.userData.noBatch = true; m.visible = false; scene.add(m); FMESH[id] = m; }   // 1 m long (head at -z)
+function fLenM(f) { return Math.cbrt(f.kg * 1000 / FSP[f.sp].k) / 100; }
+// ---- bites ----
+function fBiteTick(dt) {
+  const r = FISH.rig, lu = FISH.lure; if (FISH.st !== 'water' || FISH.bail) { FISH.bobDip = 0; return; }
+  if (FISH.plop > 0) { FISH.plop -= dt; return; }   // the splash spooks them for a moment
+  const wk = FISH.wk || (FISH.wk = fWaterKind(lu.x, lu.z)), dep = r.bob ? FISH.dep : FISH.dep, spk = fSpotK(lu.x, lu.z);
+  let tot = 0; const ks = FSP_IDS.map(id => { const k = fBiteK(FSP[id], r, wk, id === 'laker' ? Math.min(dep, FISH.depth) : dep, FISH.spd); tot += k; return k; }); FISH.keen = tot * spk;
+  if (Math.random() > FBITE * tot * spk * dt * (FISH.biteX || 1)) return;
+  let u = Math.random() * tot, i = 0; while (i < ks.length - 1 && (u -= ks[i]) > 0) i++;
+  const sp = FSP_IDS[i]; FISH.fish = { sp, kg: fRandKg(FSP[sp]), t: 0, win: r.bob ? 1.1 : 0.8, stam: 1, ph: 0, phT: 1 + Math.random() * 2, ang: (Math.random() - 0.5) * 1.2, v: GV3(0, 0, 0), over: 0, slackT: 0, jumpT: 0, out: 0 };
+  FISH.st = 'bite'; FISH.stat = FISH.stat || {}; FISH.stat.bites = (FISH.stat.bites || 0) + 1;
+  if (FISH.hand) { HX.pulse(FISH.hand, 0.65, 40, 'bite'); } FISH.tw = 0.35; }
+function fStrike() {   // the hook set: a quick lift of the rod (desktop: LMB) inside the bite window
+  if (FISH.st === 'bite') { const f = FISH.fish, r = FISH.rig, p = r.id === 'fly' || r.id === 'bait' ? 0.8 : 0.88;
+    if (Math.random() < p) { FISH.st = 'fight'; FISH.ready = false; f.t = 0; f.v.set(0, 0, 0); sfx('thock'); if (FISH.hand) HX.pulse(FISH.hand, 0.9, 60, 'hook'); say('FISH ON! - KEEP THE ROD UP, REEL WHEN IT RESTS, LET THE DRAG WORK'); }
+    else { fMiss('MISSED IT - IT SPAT THE HOOK'); } return true; }
+  if (FISH.st === 'water') { FISH.lift = 1; return false; }
+  return false; }
+function fMiss(why) { const r = FISH.rig; if (r.id === 'bait' && Math.random() < 0.4) { FISH.lures.bait = Math.max(0, (FISH.lures.bait || 0) - 1); why += ' (AND TOOK THE WORM' + (FISH.lures.bait ? '' : ' - NO WORMS LEFT') + ')'; }
+  FISH.st = 'water'; FISH.fish = null; FISH.bobDip = 0; FISH.plop = 2; say(why); }
+function fLose(why, lure) { const r = FISH.rig, f = FISH.fish; FISH.fish = null; FISH.ready = false; FISH.T = 0; FISH.stat.lost = (FISH.stat.lost || 0) + 1;
+  if (lure) { FISH.lures[r.id] = Math.max(0, (FISH.lures[r.id] || 0) - 1); FISH.L = 0.45; fBackToTip(); sfx('pop'); say(why + ' - LURE GONE (' + (FISH.lures[r.id] || 0) + ' LEFT)'); }
+  else { FISH.st = 'water'; FISH.plop = 3; say(why); } void f; }
+// ---- the fight ----
+function fFightStep(dt) {
+  const f = FISH.fish, sp = FSP[f.sp], r = FISH.rig, lu = FISH.lure, surf = FISH.surf, depth = FISH.depth; f.t += dt;
+  camera.getWorldPosition(_fA); _fB.set(lu.x - _fA.x, 0, lu.z - _fA.z); const away = _fB.length(); if (away > 1e-3) _fB.multiplyScalar(1 / away);
+  // what the fish wants: its style's phases
+  if ((f.phT -= dt) <= 0) { const S = sp.style;
+    f.ph = S === 'run' ? (f.ph ? 0 : 1) : S === 'deep' ? (Math.random() < 0.5 ? 1 : 0) : S === 'dart' ? 2 : S === 'shake' ? (Math.random() < 0.4 ? 3 : Math.random() < 0.5 ? 1 : 0) : Math.random() < 0.3 ? 4 : Math.random() < 0.6 ? 1 : 0;
+    f.phT = f.ph === 1 ? 2 + Math.random() * (S === 'run' ? 5 : 3) : f.ph === 2 ? 0.5 + Math.random() * 0.4 : f.ph === 3 ? 1.5 : f.ph === 4 ? 0.7 : 1.5 + Math.random() * 3; f.ang = (Math.random() - 0.5) * (f.ph === 2 ? 2.4 : 1.4);
+    if (f.ph === 4 && f.stam > 0.3 && lu.y > surf - 1.5) { f.jumpT = 0.7; f.v.y = 3 + Math.random() * 1.5; sfx('splash', lu); } }
+  const tired = f.stam < 0.12, mult = tired ? 0.08 : f.ph === 1 ? 1.6 : f.ph === 2 ? 1.2 : f.ph === 3 ? 1 + 0.6 * Math.sin(f.t * 32) : f.ph === 4 ? 0.3 : 0.45;
+  const F = 0.28 * f.kg * 9.81 * sp.pull * (0.3 + 0.7 * f.stam) * mult, ca = Math.cos(f.ang), sa = Math.sin(f.ang);
+  const fx = (_fB.x * ca - _fB.z * sa) * F, fz = (_fB.x * sa + _fB.z * ca) * F;
+  const want = tired ? surf - 0.06 : sp.style === 'deep' ? surf - depth + 0.5 : surf - clamp((sp.dep[0] + sp.dep[1]) / 2, 0.2, depth - 0.2);
+  const m = f.kg * 1.5, cw = f.kg * 2.0, n = 4, h = dt / n; let T = 0;
+  for (let s = 0; s < n; s++) {
+    _fk1.subVectors(FISH.tip, lu); const D = _fk1.length(), dir = D > 1e-4 ? _fk1.multiplyScalar(1 / D) : _fk1.set(0, 1, 0);
+    const sinA = Math.sqrt(Math.max(0, 1 - Math.pow(dir.dot(FRD.A), 2))), kr = r.R.full / (0.42 * r.R.len) / Math.max(0.15, sinA), kl = r.rate / (0.22 * Math.max(3, FISH.L)), k = 1 / (1 / kl + 1 / kr);
+    let st = D - FISH.L; T = st > 0 ? st * k : 0;
+    if (T > r.drag) { const dl = st - r.drag / k; FISH.L += dl; FISH.slip = (FISH.slip || 0) + dl; T = r.drag; }   // the drag gives line
+    const air = f.jumpT > 0; f.jumpT = Math.max(0, f.jumpT - h);
+    const ax = (fx * (air ? 0 : 1) + T * dir.x - cw * f.v.x * (air ? 0.05 : 1)) / m, az = (fz * (air ? 0 : 1) + T * dir.z - cw * f.v.z * (air ? 0.05 : 1)) / m;
+    const ay = air || lu.y > surf ? -9.81 + T * dir.y / m : (T * dir.y + (want - lu.y) * f.kg * 6 - cw * 1.5 * f.v.y) / m;
+    f.v.x += ax * h; f.v.y += ay * h; f.v.z += az * h; lu.addScaledVector(f.v, h);
+    if (!air && !FISH.beached && lu.y < surf - depth + 0.08) { lu.y = surf - depth + 0.08; f.v.y = Math.max(0, f.v.y); }
+    if (!air && lu.y > surf && f.v.y > 0 && f.jumpT <= 0) { lu.y = Math.min(lu.y, surf); if (f.v.y > 0) f.v.y *= 0.3; }
+    if (f.jumpT <= 0 && lu.y < surf && f.out) { f.out = 0; } }
+  if (lu.y > surf + 0.1 && !f.out) { f.out = 1; }
+  const dry = fWaterAt(lu.x, lu.z) === null; FISH.beached = false;
+  if (dry && tired) { lu.y = groundY(lu.x, lu.z) + 0.04; f.v.set(0, 0, 0); FISH.beached = true; }   // played out and dragged up the shallows: it lies there
+  else if (dry) { lu.x -= f.v.x * dt * 1.2; lu.z -= f.v.z * dt * 1.2; f.v.x *= -0.3; f.v.z *= -0.3; }   // hits the shore: turns back
+  if (FISH.L < 1.2) FISH.L = 1.2;
+  if (FISH.L > 100) { fLose('SPOOLED - IT TOOK ALL 100 M OF LINE', true); return; }   // the fish stops at the rod tip-top
+  FISH.T = T; FISH.dep = Math.max(0, surf - lu.y); FISH.spd = f.v.length();
+  f.stam = Math.max(0, f.stam - dt * (0.006 + 0.022 * T / (f.kg * 9.81)) * sp.tire * (f.ph === 1 ? 1.6 : 1));
+  // break, pull out, bite off
+  if (T > r.rate * 0.995) { f.over += dt; if (f.over > 0.25) { fLose('SNAP! THE ' + r.lb + ' LB LINE BROKE (' + T.toFixed(0) + ' N) - LOOSEN THE DRAG (-) OR GIVE IT LINE', true); return; } } else f.over = Math.max(0, f.over - dt * 2);
+  if (T < 0.3) { f.slackT += dt; if (f.slackT > (f.jumpT > 0 || f.out ? 0.6 : 1.2) && Math.random() < dt * 2) { fLose('SLACK LINE - THE HOOK PULLED OUT', false); return; } } else f.slackT = Math.max(0, f.slackT - dt * 3);
+  if (f.sp === 'pike' && r.lb < 14 && f.ph === 3 && Math.random() < dt * 0.05) { fLose('THE PIKE BIT THROUGH THE ' + r.lb + ' LB LINE (TEETH: USE 14 LB)', true); return; }
+  FISH.ready = tired && (FISH.beached ? away < 8 : away < 3.2 && lu.y > surf - 0.3);
+  if (tired && !f.saidT) { f.saidT = 1; say((FISH.fish.kg > 3 || fHas('net') ? 'IT\'S ON ITS SIDE - BRING IT IN AND NET IT' : 'IT\'S ON ITS SIDE - BRING IT IN, GRAB IT') + ' (' + FSP[f.sp].nm + ')'); }
+  // haptics + the drag's clicks
+  if ((FISH.hzT = (FISH.hzT || 0) - dt) <= 0) { FISH.hzT = 0.08; if (FISH.hand) HX.pulse(FISH.hand, 0.1 + 0.5 * Math.min(1, T / r.rate), 30, 'fight'); }
+  if (FISH.slip > 0.04) { FISH.slip = 0; sfx('tick'); if (FISH.crankG) HX.pulse(FISH.crankG, 0.15, 8, 'drag'); }
+}
+function fFishStep(dt) {
+  if (FISH.st === 'water') { fBiteTick(dt); FISH.lift = Math.max(0, FISH.lift - dt * 3); return; }
+  if (FISH.st === 'bite') { const f = FISH.fish; f.t += dt; FISH.bobDip = FISH.rig.bob ? -0.07 * Math.abs(Math.sin(f.t * 14)) : 0; FISH.tw = Math.max(0, (FISH.tw || 0) - dt);
+    FISH.T = 0.8 + 2.5 * Math.abs(Math.sin(f.t * 18)) * (f.t < 0.5 ? 1 : 0.4);   // the twitch you see at the tip
+    if (FISH.hand && (FISH.bzT = (FISH.bzT || 0) - dt) <= 0) { FISH.bzT = 0.22; HX.pulse(FISH.hand, 0.55, 35, 'bite'); }
+    if (FISH.rod === 'vr' && fLiftVR()) { fStrike(); return; }
+    if (f.t > f.win) { if (FISH.rig.bob && FISH.rig.id === 'bait' && Math.random() < 0.15) { FISH.st = 'fight'; FISH.ready = false; f.t = 0; say('IT TOOK THE BAIT AND HOOKED ITSELF - FISH ON!'); } else fMiss('IT LET GO - LIFT THE ROD SHARPLY WHEN THE ' + (FISH.rig.bob ? 'BOBBER DIPS' : 'TIP TWITCHES')); } return; }
+  if (FISH.st === 'fight') fFightStep(dt); }
+function fLiftVR() { return FISH.tipV.y > 1.6 || FISH.tipV.dot(_fk1.subVectors(FISH.tip, FISH.lure).setY(0).normalize()) > 2.0; }   // a sharp lift / sweep away from the fish
+function fFishDraw() {
+  for (const k in FMESH) FMESH[k].visible = false; const f = FISH.fish; if (!f || (FISH.st !== 'fight' && FISH.st !== 'landed')) return;
+  const m = FMESH[f.sp], len = fLenM(f); m.visible = true; m.scale.setScalar(len);
+  if (FISH.st === 'landed') { m.position.copy(FISH.landP); m.quaternion.copy(FISH.landQ); return; }
+  m.position.copy(FISH.lure).addScaledVector(_fk1.subVectors(FISH.lure, FISH.tip).normalize(), len * 0.35);
+  _fk2.copy(f.v); _fk2.y *= 0.4; if (_fk2.lengthSq() < 0.01) _fk2.subVectors(FISH.lure, FISH.tip).setY(0);
+  _fkM.lookAt(_fk3.set(0, 0, 0), _fk2.negate(), _ry); m.quaternion.setFromRotationMatrix(_fkM); if (f.stam < 0.12) m.rotateZ(1.3); }
+// ===================== v0.97.2 landing: the net (or your hand), keep or let go, the creel + cooler, selling, eating, the lodge's orders, docks + the float deck =====================
+const FKEEP = { creel: 6, cooler: 30, creelH: 8, coolerH: 36 };   // kg each holds, game hours the fish keep fresh
+const FNET = { m: null };
+{ const P = [['c', 0.012, 0.55, 6, 0, 0, 0.28, 0x6a5030, Math.PI / 2], ['r', 0.19, 0.008, 12, 0, 0, -0.18, 0x6a5030], ['k', 0.18, 0.22, 8, 0, -0.11, -0.18, 0x8a8a70, Math.PI]];   // the handle along +z (to your fist), the hoop out at -z, its bag hanging under it
+  const gs = P.map(partGeo), m = new THREE.Mesh(mergeGeometries(gs), ITEM_VM); for (const x of gs) x.dispose(); m.userData.noBatch = true; m.visible = false; scene.add(m); FNET.m = m; }
+FISH.netG = null; FISH.held = null; FISH.landP = GV3(0, 0, 0); FISH.landQ = new THREE.Quaternion(); FISH.clock = 0; FISH.hPrev = null; FISH.eatT = 0;
+function fHoop(out) { return FNET.m.localToWorld(out.set(0, -0.06, -0.18)); }
+function fNetGrab(g, p) {
+  if (FISH.st === 'landed' && FISH.held === null && FISH.netG === null && FISH.landP.distanceTo(p) < 0.25) { FISH.held = g; sfx('flesh'); HX.pulse(g, 0.4, 25, 'fish'); return true; }   // take a landed fish out of the net / off the ground
+  if (fHas('net') && FISH.netG === null && p.distanceTo(fWorn(F_NET_OFF, _fk1)) < 0.15) { FISH.netG = g; sfx('pick'); HX.pulse(g, 0.3, 15, 'net'); return true; }
+  if (FISH.st === 'fight' && FISH.ready && g !== FISH.hand && FISH.netG === null && p.distanceTo(FISH.lure) < 0.3) {   // no net: lip it
+    if (FISH.fish.kg > 3 && !FISH.beached) { say('TOO BIG TO LIFT BY HAND (' + FISH.fish.kg.toFixed(1) + ' KG) - NET IT'); HX.pulse(g, 0.2, 10, 'ui'); return true; } fLanded('hand', g); return true; }
+  return false; }
+function fNetRelease(g) { if (FISH.netG === g) { FISH.netG = null; if (FISH.st === 'landed' && FISH.held === null) fRelease('LET THE NET GO - THE FISH SLIPPED BACK IN'); }
+  if (FISH.held === g) { FISH.held = null; if (FISH.st === 'landed') { if (FISH.landHow === 'hand' || FISH.netG === null) fKeepOrRelease(); } } }
+function fNetTick(dt, vrOn) { const m = FNET.m; m.visible = false;
+  if (FISH.netG && FISH.netG.userData.src) { const g = FISH.netG; g.updateWorldMatrix(true, false); _fkM.multiplyMatrices(g.matrixWorld, HOFF); _fkM.decompose(m.position, m.quaternion, _fk3); m.translateZ(-0.38); m.visible = true;
+    if (FISH.st === 'fight' && FISH.ready && fHoop(_fk1).distanceTo(FISH.lure) < 0.4) fLanded('net', g); }
+  else if (FISH.netG) FISH.netG = null;
+  if (FISH.st !== 'landed') return;
+  // where the landed fish is: in the hoop, in a hand, or lying by you (desktop)
+  if (FISH.held && FISH.held.userData.src) { const g = FISH.held; g.updateWorldMatrix(true, false); _fkM.multiplyMatrices(g.matrixWorld, HOFF); _fkM.decompose(FISH.landP, FISH.landQ, _fk3); FISH.landQ.multiply(_fkQ.setFromAxisAngle(_rx, Math.PI / 2)); }
+  else if (FISH.netG) { fHoop(FISH.landP); FISH.landQ.copy(FNET.m.quaternion).multiply(_fkQ.setFromAxisAngle(_ry, Math.PI / 2)); }
+  if (vrOn && (FISH.held || FISH.netG)) {   // gestures: to the creel = keep, down into the water = let go, up to your mouth = eat
+    const p = FISH.landP, cp = fWorn(F_CREEL_OFF, _fk2), w = fWaterAt(p.x, p.z);
+    if (p.distanceTo(cp) < 0.3) { fKeep(); return; }
+    if (w === null || p.y > w + 0.3) FISH.lifted = true;   // out of the water first: then dipping it back lets it go
+    if (FISH.lifted && w !== null && p.y < w + 0.08) { fRelease(); return; }
+    camera.getWorldPosition(_fk3); if (p.distanceTo(_fk3) < 0.22) { if ((FISH.eatT += dt) > 1.2) { fEat(FISH.fish); fClearLanded(); } } else FISH.eatT = 0; } }
+function fLanded(how, g) { const f = FISH.fish; FISH.st = 'landed'; FISH.lifted = false; FISH.landHow = how; FISH.T = 0; FISH.ready = false; if (how === 'hand') FISH.held = g;
+  FISH.stat.landed = (FISH.stat.landed || 0) + 1; FISH.stat.best = Math.max(FISH.stat.best || 0, f.kg); FISH.stat[f.sp] = (FISH.stat[f.sp] || 0) + 1;
+  if (!g) { camera.getWorldPosition(_fk1); camera.getWorldDirection(_fk2); _fk2.y = 0; _fk2.normalize(); FISH.landP.copy(_fk1).addScaledVector(_fk2, 0.7); FISH.landP.y -= 0.45; FISH.landQ.setFromAxisAngle(_ry, headYaw() + Math.PI / 2); }
+  sfx('flesh'); if (g) HX.pulse(g, 0.6, 40, 'landed');
+  say('LANDED: ' + FSP[f.sp].nm + ' ' + f.kg.toFixed(2) + ' KG (' + Math.round(fLenM(f) * 100) + ' CM) - ' + (g ? 'TO THE CREEL ON YOUR HIP = KEEP, DIP IT IN THE WATER = LET GO, TO YOUR MOUTH = EAT' : 'E KEEP, Q LET GO, H EAT')); }
+function fClearLanded() { FISH.ready = false; FISH.fish = null; FISH.held = null; FISH.st = 'idle'; FISH.eatT = 0; fBackToTip(); }
+function fCubNear(r = 6) { return hyp(ac.pos[0] - playerPos()[0], ac.pos[2] - playerPos()[2]) < r && !ac.crashed; }
+function fKg(a) { return a.reduce((s, f) => s + f.kg, 0); }
+function fKeep() { const f = FISH.fish; if (!f) return;
+  const cool = fHas('cooler') && fCubNear(), box = cool ? FISH.cooler : fHas('creel') ? FISH.creel : null, cap = cool ? FKEEP.cooler : FKEEP.creel;
+  if (!box) { say('NO CREEL TO PUT IT IN (THE TACKLE SHOP HAS THEM) - EAT IT (H) OR LET IT GO (Q)'); return false; }
+  if (fKg(box) + f.kg > cap) { say((cool ? 'THE COOLER' : 'YOUR CREEL') + ' IS FULL (' + fKg(box).toFixed(1) + ' / ' + cap + ' KG) - LET IT GO OR EAT IT'); return false; }
+  box.push({ sp: f.sp, kg: f.kg, t: FISH.clock }); sfx('pick'); say('KEPT: ' + FSP[f.sp].nm + ' ' + f.kg.toFixed(2) + ' KG IN ' + (cool ? 'THE COOLER' : 'YOUR CREEL') + ' (' + fKg(box).toFixed(1) + ' / ' + cap + ' KG)'); fClearLanded(); saveSoon(); return true; }
+function fRelease(why) { const f = FISH.fish; if (!f) return; sfx('splash', FISH.landP); FISH.stat.released = (FISH.stat.released || 0) + 1; say(why || ('LET GO: THE ' + FSP[f.sp].nm + ' SWIMS OFF')); fClearLanded(); }
+function fKeepOrRelease() { if (!fKeep()) fRelease(); }
+// ---- hunger: it runs down over the day (empty in ~20 game hours); eat a fish to fill up. Below 10 % you walk slower ----
+function fEat(f) { if (!f) return false; const was = FISH.food; FISH.food = Math.min(100, FISH.food + f.kg * 40); sfx('crunch'); FISH.stat.eaten = (FISH.stat.eaten || 0) + 1;
+  say('COOKED AND ATE THE ' + FSP[f.sp].nm + ' (' + f.kg.toFixed(1) + ' KG) - FOOD ' + Math.round(was) + ' > ' + Math.round(FISH.food) + ' %'); FISH.hungry = 0; saveSoon(); return true; }
+function fEatKept() { const all = [...FISH.creel.map(f => [FISH.creel, f]), ...(fCubNear() ? FISH.cooler.map(f => [FISH.cooler, f]) : [])].sort((a, b) => a[1].kg - b[1].kg);
+  if (!all.length) { say('NOTHING TO EAT - CATCH A FISH (FOOD ' + Math.round(FISH.food) + ' %)'); return false; } const [box, f] = all[0]; box.splice(box.indexOf(f), 1); return fEat(f); }
+function fishWalkK() { return mode === 'foot' && FISH.food < 10 ? 0.75 : 1; }
+function fClockTick(dt) { const h = DAY.h; if (FISH.hPrev !== null) { let d = h - FISH.hPrev; if (d < -12) d += 24; if (d > 0 && d < 2) { FISH.clock += d; FISH.food = Math.max(0, FISH.food - d * 5); } } FISH.hPrev = h;
+  const lv = FISH.food < 10 ? 2 : FISH.food < 30 ? 1 : 0; if (lv > (FISH.hungry || 0)) say(lv === 2 ? 'YOU\'RE STARVING (FOOD ' + Math.round(FISH.food) + ' %) - YOU WALK SLOWER. EAT A FISH (H)' : 'GETTING HUNGRY (FOOD ' + Math.round(FISH.food) + ' %) - A FISH WOULD DO (H EATS ONE FROM YOUR CREEL)'); FISH.hungry = lv;
+  if ((FISH.spoilT = (FISH.spoilT || 0) - dt) <= 0) { FISH.spoilT = 2; for (const [box, hrs, nm] of [[FISH.creel, FKEEP.creelH, 'CREEL'], [FISH.cooler, FKEEP.coolerH, 'COOLER']]) { const bad = box.filter(f => FISH.clock - f.t > hrs); if (bad.length) { for (const f of bad) box.splice(box.indexOf(f), 1); say(bad.length + ' FISH IN YOUR ' + nm + ' WENT OFF - THROWN OUT (KEEP THEM ' + hrs + ' H AT MOST' + (nm === 'CREEL' ? ', OR IN THE CUB\'S COOLER' : '') + ')'); } } }
+  if (mode === 'plane' && fHas('cooler') && FISH.creel.length) { let n = 0; while (FISH.creel.length && fKg(FISH.cooler) + FISH.creel[0].kg <= FKEEP.cooler) { FISH.cooler.push(FISH.creel.shift()); n++; } if (n) say(n + ' FISH FROM YOUR CREEL INTO THE COOLER'); } }
+// ---- selling: the tackle counters buy fresh fish by the kilo (Cutler pays full, Dry Fork 80 %); the cooler sells too if the Cub is parked close ----
+function fSell(S) { const boxes = [FISH.creel]; if (hyp(ac.pos[0] - S.at.x, ac.pos[2] - S.at.z) < 150) boxes.push(FISH.cooler); let $ = 0, kg = 0, n = 0; const k = S.name === 'CUTLER' ? 1 : 0.8;
+  for (const b of boxes) { for (const f of b) { $ += f.kg * FSP[f.sp].$ * k; kg += f.kg; n++; } b.length = 0; }
+  if (!n) { say('THE SCALE: NO FISH TO SELL (' + (S.name === 'CUTLER' ? 'FULL PRICE HERE' : '80 % HERE') + ': TROUT $6, LAKER $5, GRAYLING $8, PIKE $4, SALMON $9 A KG)'); return false; }
+  $ = Math.round($); DLV.cash += $; sfx('cash'); FISH.stat.sold = (FISH.stat.sold || 0) + $; say('SOLD ' + n + ' FISH, ' + kg.toFixed(1) + ' KG: +$' + $ + ' (WALLET $' + DLV.cash + ')'); saveSoon(); for (const s of DLV_STRIPS) s.key = ''; return true; }
+// ---- the lodge wants fresh fish: an order on a sign by its board; walk up with the fish in your creel (or the Cub's cooler parked close) ----
+const FORD = { o: null, sign: null, cv: null, at: null };
+function fOrderNew() { const pool = [['rainbow', 3, 0], ['any', 4, 0], ['laker', 1, 2.5], ['grayling', 4, 0], ['pike', 2, 0], ['salmon', 1, 3], ['rainbow', 2, 1]], [sp, n, kg] = pool[Math.floor(Math.random() * pool.length)];
+  FORD.o = { sp, n, kg, pay: Math.round((sp === 'any' ? 12 : FSP[sp].$ * 2.4) * Math.max(n * 0.8, kg * n || n) + 40) }; fOrderDraw(); }
+function fOrderText(o) { return (o.n > 1 ? o.n + ' ' : 'A ') + (o.sp === 'any' ? 'FRESH FISH, ANY KIND' : FSP[o.sp].nm + (o.n > 1 ? 'S' : '')) + (o.kg ? ' OF ' + o.kg + ' KG+' : ''); }
+function fOrderDraw() { if (!FORD.cv) return; const x = FORD.cv.getContext('2d'), o = FORD.o; x.fillStyle = '#e8dcb8'; x.fillRect(0, 0, 512, 256); x.strokeStyle = '#5a4630'; x.lineWidth = 8; x.strokeRect(4, 4, 504, 248); x.fillStyle = '#3a2a1a'; x.textAlign = 'center';
+  x.font = 'bold 46px serif'; x.fillText('FRESH FISH WANTED', 256, 58); x.font = 'bold 30px serif'; const t = o ? fOrderText(o) : '-'; x.fillText(t.length > 30 ? t.slice(0, t.lastIndexOf(' ', 30)) : t, 256, 112); if (t.length > 30) x.fillText(t.slice(t.lastIndexOf(' ', 30) + 1), 256, 148);
+  x.font = 'bold 34px serif'; x.fillText(o ? 'PAYS $' + o.pay : '', 256, 196); x.font = '24px serif'; x.fillText('- MRS ANDERS, THE LODGE', 256, 236); FORD.sign.material.map.needsUpdate = true; }
+{ const S = DLV_STRIPS.find(s => s.id === 'LODGE'); if (S) { const [bx, bz, ry] = S.board, cv = document.createElement('canvas'); cv.width = 512; cv.height = 256; const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace;
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(1.0, 0.5), new THREE.MeshBasicMaterial({ map: t, color: 0xd8d8d8 })), ox = Math.cos(ry) * 1.9, oz = -Math.sin(ry) * 1.9;
+    m.position.set(bx + ox, groundY(bx + ox, bz + oz) + 1.5, bz + oz); m.rotation.y = ry; m.userData.noBatch = true; scene.add(m); const post = box(0.08, 1.3, 0.08, mat(0x6e5236), m.position.x, m.position.y - 0.85, m.position.z, scene); void post;
+    FORD.sign = m; FORD.cv = cv; FORD.at = m.position.clone(); } }
+function fOrderTick() { if (!FORD.at || !FORD.o || mode !== 'foot') return; camera.getWorldPosition(_fk1); const near = _fk1.distanceTo(FORD.at) < 6; if (!near) { FORD.said = false; return; }
+  const o = FORD.o, boxes = [FISH.creel, ...(fCubNear(150) && hyp(ac.pos[0] - FORD.at.x, ac.pos[2] - FORD.at.z) < 150 ? [FISH.cooler] : [])], pick = [];
+  for (const b of boxes) for (const f of b) if ((o.sp === 'any' || f.sp === o.sp) && f.kg >= o.kg && pick.length < o.n) pick.push([b, f]);
+  if (pick.length < o.n) { if (!FORD.said) { FORD.said = true; say('MRS ANDERS WANTS ' + fOrderText(o) + ' - $' + o.pay + ' (YOU HAVE ' + pick.length + ')'); } return; }
+  for (const [b, f] of pick) b.splice(b.indexOf(f), 1); DLV.cash += o.pay; sfx('cash'); FISH.stat.orders = (FISH.stat.orders || 0) + 1; say('MRS ANDERS TAKES THE FISH: +$' + o.pay + ' (WALLET $' + DLV.cash + ') - "COME BACK TOMORROW, I\'LL WANT MORE"'); fOrderNew(); saveSoon(); }
+// ---- docks: two on the lakes (walkable decks out over the drop-off; fish hold there) ----
+const FDOCK = [];
+for (const [id, len] of [['ESHORE', 14], ['NWSHORE', 12]]) { const s = BUSH.find(b => b.id === id); if (!s) continue; const L = inLake(s.x, s.z) || LAKES.reduce((a, b) => hyp(s.x - a.x, s.z - a.z) - a.r < hyp(s.x - b.x, s.z - b.z) - b.r ? a : b);
+  const ux = (s.x - L.x), uz = (s.z - L.z), ul = hyp(ux, uz), dx = -ux / ul, dz = -uz / ul, wl = L.h - 0.2, y = wl + 0.55, a = Math.atan2(dx, dz);
+  let r0 = L.r + 4; while (r0 > 10 && terrainHeight(L.x - dx * r0, L.z - dz * r0) > wl + 0.25) r0 -= 1;   // the dock starts at the waterline, runs out to ~1 m of water and on by 'len'
+  let r1 = r0; while (r1 > 10 && terrainHeight(L.x - dx * r1, L.z - dz * r1) > wl - 1) r1 -= 1; r0 += 2;
+  const sx = L.x - dx * r0, sz = L.z - dz * r0, d = { x0: sx, z0: sz, dx, dz, len: r0 - r1 + len, hw: 0.9, y, a }; FDOCK.push(d); FSPOTS.push({ x: sx + dx * d.len, z: sz + dz * d.len, r: 45, k: 1.6, nm: 'THE ' + L.name + ' DOCK' });
+  const wm = mat(0x7a6040), pm = mat(0x4a3a2a), G = new THREE.Group(); G.position.set(sx, 0, sz); G.rotation.y = a; scene.add(G);
+  box(1.8, 0.08, d.len, wm, 0, y - 0.04, d.len / 2, G); for (let k = 0; k <= d.len; k += 3) for (const px of [-0.85, 0.85]) { const gx = sx + dx * k, gz = sz + dz * k, gy = Math.min(terrainHeight(gx, gz), y - 0.3); box(0.14, y - gy + 0.3, 0.14, pm, px, (y + gy) / 2 - 0.1, k, G); } }
+{ const g1 = groundY; groundY = (x, z) => { const h = g1(x, z); for (const d of FDOCK) { const rx = x - d.x0, rz = z - d.z0, al = rx * d.dx + rz * d.dz; if (al < 0 || al > d.len) continue; if (Math.abs(rx * d.dz - rz * d.dx) > d.hw) continue; if (d.y > h) return d.y; } return h; }; }
+// ---- the float deck: out of a floatplane on deep water you step onto the right float (walk it bow to stern; Y / F climbs back in) ----
+const FDECK = { x: 1.1, y: -0.98, z0: -2.3, z1: 1.7, hw: 0.2 };
+function fDeckExit(x, z) {   // exitPlane, deep water: true = stepped onto the float
+  if (!ac.gk?.fl) return false; const p = qRot(ac.q, [FDECK.x, FDECK.y, -0.3]); FISH.deck = true; return [ac.pos[0] + p[0], ac.pos[1] + p[1], ac.pos[2] + p[2]]; }
+function fDeckSupport(x, z, sup) { if (!FISH.deck) return sup; if (mode !== 'foot') { FISH.deck = false; return sup; }
+  plane.updateMatrixWorld(); const l = plane.worldToLocal(_fk1.set(x, 0, z)); return plane.localToWorld(_fk2.set(FDECK.x, FDECK.y, clamp(l.z, FDECK.z0, FDECK.z1))).y; }
+function fDeckTick() { if (!FISH.deck) return; if (mode !== 'foot') { FISH.deck = false; return; }
+  camera.getWorldPosition(_fk1); plane.updateMatrixWorld(); const l = plane.worldToLocal(_fk2.copy(_fk1)); const cx = clamp(l.x, FDECK.x - FDECK.hw, FDECK.x + FDECK.hw), cz = clamp(l.z, FDECK.z0, FDECK.z1);
+  if (cx !== l.x || cz !== l.z) { const w = plane.localToWorld(_fk3.set(cx, l.y, cz)); footRig.position.x += w.x - _fk1.x; footRig.position.z += w.z - _fk1.z; } }
+// ---- desktop keys ----
+function fDeskE() { if (FISH.st === 'landed') { fKeepOrRelease(); return true; }
+  if (FISH.st === 'fight' && FISH.ready) { const big = FISH.fish.kg > 3 && !FISH.beached; if (big && !fHas('net')) { say('TOO BIG TO LIFT BY HAND (' + FISH.fish.kg.toFixed(1) + ' KG) - YOU NEED A NET'); return true; } fLanded(FISH.beached ? 'beach' : fHas('net') ? 'net' : 'hand', null); return true; }
+  if (FISH.st === 'fight') { say('NOT READY - TIRE IT OUT FIRST (' + FSP[FISH.fish.sp].nm + ')'); return true; }
+  camera.getWorldPosition(_fk1); for (const S of FISH.shop) if (S.scale && _fk1.distanceTo(S.scale) < 1.6) { camera.getWorldDirection(_fk2); _fk3.subVectors(S.scale, _fk1).normalize(); if (_fk3.dot(_fk2) > 0.9) return fSell(S); }
+  return false; }
+function fDeskQ() { if (FISH.st === 'landed') { fRelease(); return true; } return false; }
+function fDeskH() { if (FISH.st === 'landed') { fEat(FISH.fish); fClearLanded(); return true; } if (mode !== 'foot') return false; return fEatKept(); }
+// the hanging scales at the counters (VR: grab it to sell; desktop: look at it, E)
+for (const S of FISH.shop) { const it = S.items[0], g = mergeGeometries([['c', 0.06, 0.03, 10, 0, 0, 0, 0xd8d8d0, Math.PI / 2], ['b', 0.01, 0.25, 0.01, 0, 0.14, 0, 0x404040], ['c', 0.11, 0.012, 10, 0, -0.16, 0, 0xa0a0a0]].map(partGeo));
+  const m = new THREE.Mesh(g, ITEM_VM); m.userData.noBatch = true; const L = S.name === 'CUTLER' ? [-1.2, 1.55, 3.0] : [5.3, 1.65, 4.6], o = S.name === 'CUTLER' ? TOWNS.find(t => t.name === 'CUTLER').store : DFSTORE.o, c = Math.cos(o.a), sn = Math.sin(o.a);
+  m.position.set(o.x + L[0] * c + L[2] * sn, o.y + L[1], o.z - L[0] * sn + L[2] * c); m.rotation.y = o.a; S.G.add(m); S.scale = m.position.clone().add(GV3(0, -0.1, 0)); void it; }
+function fScaleGrab(g, p) { for (const S of FISH.shop) if (S.scale && p.distanceTo(S.scale) < 0.18) { fSell(S); HX.pulse(g, 0.4, 20, 'sell'); return true; } return false; }
+fOrderNew();
 function huntExit() { binoPut('hip'); }
 function huntTick(dt, vrOn) { rflTick(dt, vrOn); deerTick(dt); binoTick(dt, vrOn); }
 function huntSave() { return { rp: RFL.place === 'desk' || RFL.place === 'vr' ? 'back' : RFL.place, gp: RFL.place === 'ground' ? RFL.gp.map(r3) : undefined, gry: RFL.place === 'ground' ? r3(RFL.gry) : undefined,
@@ -8291,7 +8796,7 @@ function cubParked() { return !ac.crashed && acGS() < 1 && ac.gs.some(g => g.Fn 
 function saveGame(why) {
   if (NOSAVE || SV.off) return false;
   if (cubParked()) SV.cub = { p: ac.pos.map(r3), q: ac.q.map(v => Math.round(v * 1e6) / 1e6) };
-  const d = { v: 55, at: Date.now(), cub: SV.cub, fuel: r3(fuel), h: r3(DAY.h), mode, foot: mode === 'foot' ? [r3(footRig.position.x), r3(footRig.position.z), r3(bodyYaw)] : null, dlv: dlvSave(), hunt: huntSave(), eco: ecoSave(), upg: upgSave(), emg: emgSave(), wx: wxSave(), meta: { cash: DLV.cash, loc: svPlace() } };   // v0.68.1 meta: the menu's slot label. v0.55 + the Cub's log (tach, oil, wear, damage)   // v0.53 + rifle / ammo   // v0.50: + wallet, jobs, cargo, straps
+  const d = { v: 55, at: Date.now(), cub: SV.cub, fuel: r3(fuel), h: r3(DAY.h), mode, foot: mode === 'foot' ? [r3(footRig.position.x), r3(footRig.position.z), r3(bodyYaw)] : null, dlv: dlvSave(), hunt: huntSave(), eco: ecoSave(), upg: upgSave(), emg: emgSave(), fish: fishSave(), wx: wxSave(), meta: { cash: DLV.cash, loc: svPlace() } };   // v0.68.1 meta: the menu's slot label. v0.55 + the Cub's log (tach, oil, wear, damage)   // v0.53 + rifle / ammo   // v0.50: + wallet, jobs, cargo, straps
   try { localStorage.setItem(SAVE_KEY, JSON.stringify(d)); } catch (e) { return false; }
   SV.last = Date.now(); SV.n++; SV.why = why || ''; SV.t = 30; SV.due = -1; return true;
 }
@@ -8313,12 +8818,12 @@ function gameLoad() {
   if (d.mode === 'foot' && Array.isArray(d.foot) && d.foot.slice(0, 3).every(isFinite)) { exitPlane(); const [x, z, yaw] = d.foot; footRig.position.set(x, groundY(x, z) + EYE, z); footRig.rotation.set(0, yaw, 0); bodyYaw = yaw; }   // v0.59.1 checked (a damaged foot entry stopped the page loading)
   upgLoad(d.upg || null);   // v0.57 before the cargo (the pod)
   emgLoad(d.emg || null);   // v0.58 before the cargo (a patient aboard finds their job)
-  wxLoad(d.wx || null); dlvLoad(d.v >= 50 ? d.dlv : null); huntLoad(d.v >= 53 ? d.hunt : null); dropLoadFix(); ecoLoad(d.v >= 55 ? d.eco : null); emgFix();   // v0.54 a save taken mid-drop: the last bundle down settles the job
+  wxLoad(d.wx || null); dlvLoad(d.v >= 50 ? d.dlv : null); huntLoad(d.v >= 53 ? d.hunt : null); fishLoad(d.fish || null); dropLoadFix(); ecoLoad(d.v >= 55 ? d.eco : null); emgFix();   // v0.54 a save taken mid-drop: the last bundle down settles the job
   msgT = 0; SV.last = d.at || 0; return true;
 }
 MYS_SITES.clear();   // the whole world is built now: clear trees and rocks off the strips and sites
 let SV_BAD = false;
-const SV_HAD = (() => { try { return gameLoad(); } catch (e) { SV_BAD = true; try { upgLoad(null); emgLoad(null); dlvLoad(null); huntLoad(null); ecoLoad(null); } catch (e2) { } return false; } })();   // v0.59.1 a save that can't be read starts a new game instead of a page that never loads
+const SV_HAD = (() => { try { return gameLoad(); } catch (e) { SV_BAD = true; try { upgLoad(null); emgLoad(null); dlvLoad(null); huntLoad(null); ecoLoad(null); fishLoad(null); } catch (e2) { } return false; } })();   // v0.59.1 a save that can't be read starts a new game instead of a page that never loads
 if (!SV_HAD && !/[?&]plane\b/.test(location.search)) { exitPlane(); msgT = 0; }   // v0.45: a new game starts on foot beside the Cub at the cabin strip (?plane = in the seat)
 if (SV_BAD) say('THE SAVE COULD NOT BE READ - A NEW GAME');
 addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') saveGame('hidden'); });   // tab closed / headset off: save
@@ -8438,6 +8943,11 @@ const GFX_OPT = [   // key, label, values, value labels, note (shown small under
   ['tips', 'Control labels', [0, 1], ['OFF', 'ON'], 'VR: name + state by your hand'],
   ['glove', 'Gloves', [0, 1, 2], ['SAGE', 'BLACK', 'TAN'], 'flying gloves'],
   ['hand', 'Dominant hand', [0, 1], ['RIGHT', 'LEFT'], 'the watch goes on the other wrist'],   // v0.68.1
+  ['flure', 'Fishing: tied on', [0, 1, 2, 3, 4], ['SPOON', 'SPINNER', 'SOFT PLASTIC', 'DRY FLY', 'WORM + HOOK'], 'lure or bait (buy at a TACKLE counter)'],   // v0.97
+  ['fline', 'Fishing: line', [4, 8, 14], ['4 LB', '8 LB', '14 LB'], 'the spool on your reel'],
+  ['fdrag', 'Fishing: drag', [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'], 'line slips off the reel over this pull (- / =)'],
+  ['fbob', 'Fishing: bobber', [0, 0.5, 1, 2, 3], ['OFF', '0.5 M', '1 M', '2 M', '3 M'], 'hang the bait / lure this deep'],
+  ['fsink', 'Fishing: sinker', [0, 1], ['OFF', 'ON'], 'split shot: casts further, sinks faster'],
   ['wt', 'Item weight', [0, 1], ['OFF', 'ON'], 'VR: heavy things lag + sag'],   // v0.92
   ['volM', 'Master volume', [0, 0.25, 0.5, 0.75, 1], ['OFF', '25%', '50%', '75%', '100%'], 'everything'],
   ['volE', 'Engine + flight', [0, 0.25, 0.5, 0.75, 1], ['OFF', '25%', '50%', '75%', '100%'], 'engine, starter, prop wash, tyres'],
@@ -8790,7 +9300,7 @@ const SETP_ROW = i => ({ X: i < 10 ? 30 : 527, Y: 96 + (i % 10) * 48 });   // v0
 // v0.68.1 the MENU board: tabs along the top (RESUME, SAVE / LOAD, GRAPHICS, COMFORT, CONTROLS, AUDIO), big poke / point targets, CLOSE bottom right.
 // Poke with a fingertip or point either controller at it and pull the trigger. Desktop: the same board in a page overlay (Esc / F2), clicked with the mouse.
 const MENU_TABS = [['resume', 'RESUME'], ['save', 'SAVE / LOAD'], ['gfx', 'GRAPHICS'], ['comfort', 'COMFORT'], ['controls', 'CONTROLS'], ['audio', 'AUDIO']];
-const MENU_ROWS = { gfx: ['scale', 'fov', 'terr', 'ground', 'gtex', 'trees', 'forest', 'dist', 'clouds', 'fog', 'wx', 'shadows', 'grass', 'msaa', 'dyn', 'hz', 'fps', 'tod', 'dayl', 'cvl'], comfort: ['vig', 'turn', 'stk', 'tips'], controls: ['hand', 'hx', 'wt', 'glove'], audio: ['volM', 'volE', 'volA', 'volF'] };
+const MENU_ROWS = { gfx: ['scale', 'fov', 'terr', 'ground', 'gtex', 'trees', 'forest', 'dist', 'clouds', 'fog', 'wx', 'shadows', 'grass', 'msaa', 'dyn', 'hz', 'fps', 'tod', 'dayl', 'cvl'], comfort: ['vig', 'turn', 'stk', 'tips'], controls: ['hand', 'hx', 'wt', 'glove', 'flure', 'fline', 'fdrag', 'fbob', 'fsink'], audio: ['volM', 'volE', 'volA', 'volF'] };
 const MENU_TAB = i => ({ X: 22 + i * 146, W: 140 });   // (v0.91.1 narrower: the version sits at the right of the tab row)
 const MENU_SLOT = n => 76 + (n - 1) * 128;   // a manual slot's box top (right column)
 const MENU_HELP = ['TRIGGER  fire / brake / next page', 'GRIP  grab (stick, throttle, knobs, cargo)', 'A / X  recentre + set height', 'B  reset flight (on the rifle: lever)', 'Y  climb in / out (left rifle: lever)',
@@ -8984,7 +9494,7 @@ renderer.setAnimationLoop(() => {
   } else if ((crashTimer += dt) > 2.5) resetFlight();
 
   plane.position.fromArray(ac.pos); plane.quaternion.fromArray(ac.q);
-  dlvTick(dt); wbWarn(dt); huntTick(dt, xr || HANDS.force); dropTick(dt); ecoTick(dt); upgTick(dt); emgTick(dt);   // v0.53 rifle, deer, binoculars; v0.54 bundles in the air, the signal smoke   // v0.50 delivery: game clock, falling / loose cargo, job boards
+  dlvTick(dt); wbWarn(dt); huntTick(dt, xr || HANDS.force); fishTick(dt, xr || HANDS.force); dropTick(dt); ecoTick(dt); upgTick(dt); emgTick(dt);   // v0.53 rifle, deer, binoculars; v0.54 bundles in the air, the signal smoke   // v0.50 delivery: game clock, falling / loose cargo, job boards
   GV.update(dt); kitTick(dt); flxTick(dt);   // v0.20 gear legs / tyres / tail wheel (v0.90 + the gear kits)
   updateMap(); updateCockpitV19(dt);
   propTick(dt, ENG.rpm);

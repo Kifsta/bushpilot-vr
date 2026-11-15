@@ -237,6 +237,47 @@ Some board offers are **airdrop jobs** (blue AIRDROP badge): people at a place w
 - The job pays when the last bundle is down: the job's pay × the average over all its bundles of (accuracy × condition). It's half pay if late. You can't cancel once a bundle is out.
 - With the door shut (or only half open) G says to open it; in VR a bundle you let go inside the cabin settles back in.
 
+## Fishing (v0.97)
+
+Buy a rod, reel, line and lures at a tackle shop. The **Cutler** store has the full counter and a rod rack; **Dry Fork** has a small bench. In VR, touch an item to buy it; on desktop, look at it and press **E**. The rod rides behind your right hip, the net behind your left hip, and the creel on your pack.
+
+| | VR (Quest) | Desktop |
+|---|---|---|
+| Take / put away the rod | Grip behind your right hip / let go of the rod | **Q** (**T** puts it away for the rifle) |
+| Cast | Hold the trigger (bail open, line pinned), flick the rod forward and let go of the trigger around one o'clock. Distance comes from tip speed and lure weight | Hold **LMB** to charge (0.8 s), release |
+| Reel | Grip the reel knob with your other hand and crank it in circles (0.78 m per turn) | Hold **RMB** (1.6 turns/s; **Shift** 2.6) |
+| Drag | Settings > CONTROLS > Fishing: drag | **−** / **=** |
+| Set the hook | Lift the rod sharply when the bobber dips or the tip twitches (haptic tap) | **LMB** |
+| Net / land | Grip the net behind your left hip and scoop the fish once it's tired and close. Fish of 3 kg or less can be lipped by hand | **E** when it says ready |
+| Keep | Take it from the net and put it in the creel on your pack | **E** |
+| Release | Lift it out, then dip it back in the water | **Q** |
+| Eat | Hold it to your mouth for 1.2 s | **H** (also eats a kept fish) |
+| Sell | Grip the hanging scales at a shop counter | Look at the scales, **E** |
+
+- **Rigging** (Settings > CONTROLS > Fishing rows):
+  - Tied on: spoon, spinner, soft plastic, dry fly, bait.
+  - Line: 4 / 8 / 14 lb.
+  - Drag: 1–10.
+  - Bobber and sinker: on or off.
+  - A bare fly barely casts; put a bobber on it.
+- **Species and where to find them:**
+  - **Rainbow trout:** lakes, rivers, creeks; shallow. Spinners and flies.
+  - **Lake trout:** deep lake water, far from shore. Spoons.
+  - **Arctic grayling:** creeks and rivers. Flies.
+  - **Northern pike:** lake shallows. Spoons, spinners and plastics; use 14 lb line or it bites through.
+  - **River salmon:** rivers, best at the Fish Camp Bar run.
+- **Time and spots:** dawn and dusk bite best. The docks and the salmon run bite better.
+- **The fight:**
+  - Keep the rod up and let the drag work. Reel when the fish rests.
+  - Too much tension for more than a quarter second breaks the line. Slack lets the hook pull out.
+- **Keeping fish:** they stay fresh 8 game hours in the creel (6 kg) or 36 in the cooler (30 kg). When you fly, the creel goes into the cooler. Cutler pays full price at the scales; Dry Fork pays 80 %.
+- **Lodge orders:** the FISH WANTED sign beside the LODGE board. Bring the fish within 6 m of the sign.
+- **Hunger** drops 5 per game hour. Eat fish to restore it (+40 per kg). Below 10 % you walk slower.
+- **Where to stand:**
+  - The shore.
+  - The docks on East Lake and NW Lake.
+  - The **float deck:** step out of a floatplane on deep water onto the right float. Walk it bow to stern and fish off it. **Y / F** climbs back in.
+
 ## Reputation (v0.56)
 Every customer remembers you: the town or crew at each strip, each bush camp's customer and each airdrop party. Each has a rep from 0 to 100, and everyone starts at **30 (NEW)**.
 

@@ -2,6 +2,50 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v0.97 – realistic fishing: a tackle shop, a rod and reel you really cast and crank, five species, fights, the net
+
+- **Tackle shops.** The Cutler store has a full tackle counter, a rod rack on the wall and a TACKLE sign. Dry Fork has a small bench of stock.
+  - Prices: light spinning rod (2.0 m) $45, heavier casting rod (2.3 m) $80, reel with adjustable drag $35.
+  - Line: 4 / 8 / 14 lb for $6 / $7 / $9.
+  - Lures: spoon ×2 $7, spinner ×2 $7, soft plastic ×3 $5, dry fly ×3 $5, bait hooks + worms ×6 $4.
+  - Terminal tackle and keeping: sinker $2, bobber $3, landing net $25, creel (6 kg) $18, cooler (30 kg) $40.
+  - VR: touch an item to buy it. Desktop: look at it and press E. Everything you own is kept in the save.
+- **Worn gear.** The rod rides in a tube behind the right hip, the net behind the left hip, and the creel on the pack.
+- **The rod and reel (VR).**
+  - Hold the rod in one hand. The trigger opens the bail and pins the line; flick the rod and let go to cast.
+  - The cast follows the rod-tip speed and the lure's weight. A spoon goes about 32 m. A bare dry fly only goes about 2 m, but about 25 m on a bobber.
+  - Crank the knob in a circle with the other hand: 0.78 m of line per turn. The drag slips at its setting.
+  - The **line** is a 24-node verlet rope. It sags in flight, settles on the water and lies on the ground.
+  - **Lures:** each has its own sink rate. Retrieve speed changes the action: slow, a spoon wobbles and a plastic drags the bottom; fast, a spinner spins. A bobber holds the bait at its depth.
+- **Species**, each with its own habitat, lure choice, retrieve speed, size and fight:
+  - **Rainbow trout:** lakes, rivers, creeks; 0.3–4 m deep. Likes spinners and flies. Jumps.
+  - **Lake trout:** lakes only, 5–40 m deep, up to 12 kg. Likes spoons. Fights deep and heavy.
+  - **Arctic grayling:** creeks and rivers. Takes flies. Darts.
+  - **Northern pike:** weedy lake shallows. Takes spoons, spinners and plastics. Head-shakes, and can **bite through line under 14 lb**.
+  - **River salmon:** rivers, up to 14 kg. Long runs.
+  - **Bite rate:** dawn and dusk are best (×1.5–2.4), midday is slower, night is poor.
+  - **Spots:** the salmon run at Fish Camp Bar (×1.8) and the new docks (×1.6).
+  - **Lake depth:** the lakes model a fish depth that grows with distance from shore (0.5 m at the edge up to 30 m).
+- **Bites and fights.**
+  - A bite shows as a bobber dip or a rod-tip twitch, with a haptic tap on the rod hand. Set the hook with a lift (VR) or LMB (desktop).
+  - The fight is a spring model: the fish's pull, line stretch in series with the rod's bend, and the drag slipping. The rod bends with the load.
+  - **The line breaks** if tension stays over its rating (lb × 4.45 N) for more than 0.25 s. **The hook pulls out** if the line goes slack.
+  - A fish that takes all 100 m of line is gone.
+  - When it tires it comes in. A tired fish in the shallows beaches itself.
+- **Landing and after.**
+  - Net it, or lip a fish of 3 kg or less by hand.
+  - Then choose:
+    - **Keep it:** hand to the creel, or desktop E.
+    - **Release it:** dip it back in the water, or Q.
+    - **Eat it:** hold it to your mouth for 1.2 s, or H. Eating restores **hunger** (+40 per kg).
+  - **Selling:** fish keep fresh for 8 h in the creel or 36 h in the cooler. Sell them at the hanging scales in the shops: Cutler pays full price, Dry Fork 80%.
+  - **Hunger** drops 5 per game hour. Below 10% you walk slower.
+  - **Lodge orders:** a FISH WANTED sign beside the LODGE board asks for a species, count and size. Deliver within 6 m of it to get paid.
+- **Where to fish.** From shore, from the new docks on East Lake and NW Lake, or from the **float deck**. Step out of a floatplane on deep water and you stand on the right float, 0.44 m above the water; Y / F climbs back in.
+- **Settings > CONTROLS** gets fishing rows: tied on, line, drag, bobber, sinker.
+- **Cost:** everything is built from vertex-coloured parts in the existing item material, so there are no new shader programs. tour97 shows 165 programs and 0 new compiles. Perf numbers are in the release notes for this version.
+- New tests **t97a** (casting, 7 checks), **t97b** (bites, fights, landing, keep/sell/eat, orders, docks, save; 11 checks), **t97c** (simulated VR: cast, crank, haptics, lift strike, net, creel, stow; 8 checks) and **t97d** (float deck and shots; 5 checks). Shots: `qa-v097/grid-v097.png` (shop, cast arc, bent rod, fight POV, landed fish, dock, float deck).
+
 ## v0.96 – a full day and night: the clock runs, a sky that changes with the sun
 
 - **The clock runs.** New setting **Settings > GRAPHICS > Day length**: FIXED, 24 MIN, **48 MIN** (default) or 96 MIN for a whole day and night.
