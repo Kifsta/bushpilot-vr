@@ -19,7 +19,7 @@
 </script>
 </head>
 <body>
-<div id="info">BUSH PILOT VR <span id="ver">v0.99</span> - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
+<div id="info">BUSH PILOT VR <span id="ver">v1.00</span> - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
 You start on foot by the Cub at the cabin strip. Walk up to her and climb in (F / Y), then start her up off the checklist card (J).
 Desktop - flying: W/S or arrows pitch, A/D or arrows roll, Q/E rudder, Shift / Ctrl (or + / -) throttle, B brakes, \ parking brake, [ ] flaps, PgUp / PgDn trim,
   R reset to the strip (cold and dark), F climb out, M map, L landing light, Home recentre, mouse looks (click to capture).
@@ -597,9 +597,9 @@ const hyp = (a, b, c = 0) => Math.sqrt(a * a + b * b + c * c);   // v0.59 Math.h
 
 // ======================= RENDERING =======================
 // v0.35 settings (persist in localStorage 'bp_gfx'; ?gfx=shadows:2,grass:1 overrides for testing). Defaults = the v0.34 look and cost.
-const BP_VERSION = 'v0.99';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
+const BP_VERSION = 'v1.00';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
 { const e = document.getElementById('ver'); if (e) e.textContent = BP_VERSION; }
-const GFX_DEF = { shadows: 0, scale: 1, fov: 1, dist: 1, trees: 1, grass: 0, clouds: 1, fog: 1, msaa: 1, hz: 90, vig: 0, turn: 0, fps: 0, tod: 11, stk: 1, tips: 1, terr: 1, dyn: 1, glove: 0, hand: 0, wt: 1, volM: 1, volE: 1, volA: 1, volF: 1, wx: 1, forest: 0, ground: 0, gtex: 0, cvl: 1, water: 1, dayl: 48, flure: 0, fline: 8, fdrag: 4, fbob: 0, fsink: 0 };   // v0.68.1 dominant hand, volumes. v0.48 BALANCED: 90 % scale, 72 Hz, fast terrain shading, auto resolution; v0.49.1 the stick stays where you let go of it
+const GFX_DEF = { shadows: 0, scale: 1, fov: 1, dist: 1, trees: 1, grass: 0, clouds: 1, fog: 1, msaa: 1, hz: 90, vig: 0, turn: 0, fps: 0, tod: 11, stk: 1, tips: 1, terr: 1, dyn: 1, glove: 0, hand: 0, wt: 1, volM: 1, volMu: 0.5, volE: 1, volA: 1, volF: 1, wx: 1, forest: 0, ground: 0, gtex: 0, cvl: 1, water: 1, dayl: 48, flure: 0, fline: 8, fdrag: 4, fbob: 0, fsink: 0 };   // v0.68.1 dominant hand, volumes. v0.48 BALANCED: 90 % scale, 72 Hz, fast terrain shading, auto resolution; v0.49.1 the stick stays where you let go of it
 const GFX = Object.assign({}, GFX_DEF);
 try { const o = JSON.parse(localStorage.getItem('bp_gfx') || '{}'); if ((o.v || 0) < 48) { if (o.scale === 1) delete o.scale; if (o.hz === 0) delete o.hz; }   // v0.48: saved copies of the old defaults (100 %, AUTO Hz) move to the new ones once
   if ((o.v || 0) < 49 && o.stk === 0) delete o.stk;
@@ -1987,6 +1987,75 @@ function sndVol() { if (!SND.ok || !SND.amb) return; SND.master.gain.value = 0.8
 function mkPanner(ref, roll) {
   const p = actx.createPanner(); p.panningModel = 'equalpower'; p.distanceModel = 'inverse'; p.refDistance = ref; p.rolloffFactor = roll; p.maxDistance = 2000; return p;
 }
+// ================= v1.00 ADAPTIVE MUSIC: a procedural ambient score (WebAudio, nothing downloaded) =================
+// Slow pads on a modal chord walk (D lydian / B aeolian at night), a soft bass, sparse bell notes, a long feedback-delay "hall".
+// Intensity: quiet while you work (cargo, fuel, fishing, the engine on the ground), a gentle bed on foot and in cruise; it SWELLS at
+// scenic moments (first takeoff of a session, cresting a ridge, sunrise / sunset in the open, a landmark, a story beat) and ducks under
+// the COM radio's call-outs and under spoken story lines. Settings > AUDIO > Music (OFF stops it: nothing is scheduled).
+const MUS = { ok: false, I: 0.2, tgt: 0.2, sw: 0, swT: 0, duck: 1, nextC: 0, nextB: 0, ci: 0, set: 'day', took: false, crest: { lo: 1e9, t: 0 }, sunSaid: -1, last: '', n: 0, st: [], beat: -1, sb: 0, swK: '' };
+const MUS_DAY = [[50, 57, 64, 69, 73], [47, 54, 62, 66, 71], [43, 50, 57, 62, 66], [45, 52, 59, 64, 68], [52, 59, 64, 68, 71], [43, 50, 59, 66, 69]];   // Dmaj9, Bm9, Gmaj7#11, A(add9), E9sus, Gmaj9
+const MUS_NIGHT = [[47, 54, 62, 66, 69], [43, 50, 59, 62, 66], [40, 47, 55, 59, 62], [45, 52, 57, 64, 67]];   // Bm11, Gmaj7, Em9, Am9
+const MUS_PENT = [62, 64, 66, 69, 71, 74, 76, 78, 81, 83];   // D major pentatonic (bells)
+const musHz = n => 440 * Math.pow(2, (n - 69) / 12);
+function musInit() {
+  if (MUS.ok || !SND.ok || !actx) return; const A = actx; MUS.ok = true;
+  const g = v => { const x = A.createGain(); x.gain.value = v; return x; };
+  MUS.out = g(0); MUS.out.connect(SND.master);                       // the music bus (Settings > AUDIO > Music x intensity x duck)
+  MUS.lp = A.createBiquadFilter(); MUS.lp.type = 'lowpass'; MUS.lp.frequency.value = 900; MUS.lp.Q.value = 0.4; MUS.lp.connect(MUS.out);
+  MUS.dry = g(0.75); MUS.dry.connect(MUS.lp); MUS.wet = g(0.55); MUS.wet.connect(MUS.lp);
+  const d1 = A.createDelay(2), d2 = A.createDelay(2), f1 = g(0.52), f2 = g(0.48), dl = A.createBiquadFilter(); d1.delayTime.value = 0.43; d2.delayTime.value = 0.71; dl.type = 'lowpass'; dl.frequency.value = 2200;
+  MUS.bus = g(1); MUS.bus.connect(MUS.dry); MUS.bus.connect(dl); dl.connect(d1); dl.connect(d2); d1.connect(f1).connect(d2); d2.connect(f2).connect(d1); d1.connect(MUS.wet); d2.connect(MUS.wet);   // cross-fed delays: a soft hall
+  MUS.nextC = A.currentTime + 0.5; MUS.nextB = A.currentTime + 4;
+}
+function musVoice(f, t0, dur, peak, type, det) {   // one pad / bass voice: slow attack, long release
+  const A = actx, o = A.createOscillator(), e = A.createGain(); o.type = type; o.frequency.value = f; o.detune.value = det;
+  e.gain.setValueAtTime(0, t0); e.gain.linearRampToValueAtTime(peak, t0 + dur * 0.35); e.gain.setValueAtTime(peak, t0 + dur * 0.62); e.gain.linearRampToValueAtTime(0, t0 + dur * 1.25);
+  o.connect(e).connect(MUS.bus); o.start(t0); o.stop(t0 + dur * 1.3); MUS.n++; o.onended = () => { MUS.n--; e.disconnect(); };
+}
+function musBell(n, t0, peak) {   // a soft bell: sine + a quiet octave partial, fast attack, long decay
+  const A = actx, f = musHz(n);
+  for (const [k, p, dc] of [[1, 1, 3.2], [2.0, 0.22, 1.4], [3.01, 0.06, 0.7]]) { const o = A.createOscillator(), e = A.createGain(); o.frequency.value = f * k;
+    e.gain.setValueAtTime(0, t0); e.gain.linearRampToValueAtTime(peak * p, t0 + 0.012); e.gain.exponentialRampToValueAtTime(0.0001, t0 + dc); o.connect(e).connect(MUS.bus); o.start(t0); o.stop(t0 + dc + 0.05); MUS.n++; o.onended = () => { MUS.n--; e.disconnect(); }; }
+}
+function musChord(t0) {   // the next chord of the walk (day or night palette), 9 s, voiced as a pad + a bass note
+  const P = MUS.set === 'night' ? MUS_NIGHT : MUS_DAY; MUS.ci = (MUS.ci + 1 + (Math.random() < 0.3 ? 1 : 0)) % P.length; const C = P[MUS.ci], dur = 9;
+  for (let i = 1; i < C.length; i++) { musVoice(musHz(C[i]), t0, dur, 0.06, 'sine', -6); musVoice(musHz(C[i]), t0 + 0.05, dur, 0.035, 'triangle', 7); }
+  musVoice(musHz(C[0] - 12), t0, dur, 0.04, 'sine', 0); MUS.last = MUS.set + MUS.ci; return dur;
+}
+function musStinger(kind) {   // a discovery / story beat: a rising bell figure over the pad, and a swell
+  if (!MUS.ok || GFX.volMu <= 0) { MUS.st.push(kind); return; } const t0 = actx.currentTime + 0.05, run = kind === 'story' ? [62, 69, 74, 78, 81] : [69, 74, 76, 81];
+  run.forEach((n, i) => musBell(n, t0 + i * 0.18, 0.11)); MUS.st.push(kind); if (MUS.st.length > 20) MUS.st.shift(); musSwell(kind, 30);
+}
+function musSwell(kind, sec) { MUS.sw = Math.max(MUS.sw, sec); MUS.swK = kind; }
+const _muC = new THREE.Vector3();
+function musTick(dt) {
+  if (!SND.ok) return; if (!MUS.ok) musInit(); if (!MUS.ok) return;
+  const A = actx, t = A.currentTime, on = GFX.volMu > 0;
+  // context: what you are doing sets the base level
+  camera.getWorldPosition(_muC); const gy = groundY(_muC.x, _muC.z), agl = _muC.y - gy, fly = mode === 'plane' && agl > 12;
+  const work = FUELP.on || (mode === 'plane' && !fly && ENG.running) || !!FISH.fish || DLV.held.size > 0;
+  let base = work ? 0.08 : fly ? 0.32 : 0.22;
+  // swells: the first takeoff each session, a ridge crest (the ground falls away > 250 m within ~25 s while flying), sunrise / sunset in the open
+  if (fly && !MUS.took) { MUS.took = true; musSwell('takeoff', 40); }
+  if (fly) { const c = MUS.crest; c.t += dt; if (agl < c.lo) { c.lo = agl; c.t = 0; } if (c.t > 25) { c.lo = agl; c.t = 0; } if (agl - c.lo > 250 && c.lo < 160) { musSwell('crest', 35); c.lo = 1e9; c.t = 0; } } else MUS.crest.lo = 1e9;
+  if (GFX.dayl > 0 && (fly || mode === 'foot')) { const h = DAY.h, k = h > 5.5 && h < 7 ? 1 : h > 18 && h < 19.6 ? 2 : 0; if (k && MUS.sunSaid !== k) { MUS.sunSaid = k; musSwell(k === 1 ? 'sunrise' : 'sunset', 50); } if (!k) MUS.sunSaid = 0; }
+  if (MUS.sw > 0) { MUS.sw -= dt; base = Math.max(base, MUS.sw > 6 ? 0.85 : 0.85 * MUS.sw / 6 + base * (1 - MUS.sw / 6)); }
+  MUS.tgt = base; MUS.I += (MUS.tgt - MUS.I) * Math.min(1, dt / (MUS.tgt > MUS.I ? 4 : 7));
+  MUS.set = TOD.night > 0.55 ? 'night' : 'day';
+  // story beats (the letter, the logbook's last page, the photo, the first snow, paid in full, a town's memory of Gordon): a stinger each
+  if (STORY.on) { const b = Object.keys(STORY.read).length + (STORY.snow ? 1 : 0) + (storyOwed() <= 0 ? 1 : 0) + Object.keys(STORY.said).filter(k => k.startsWith('g_')).length;
+    if (MUS.beat < 0) { MUS.beat = b; if (!MUS.sb) { MUS.sb = 1; musSwell('story', 40); } } else if (b > MUS.beat) { MUS.beat = b; musStinger('story'); } } else MUS.beat = -1;
+  // ducking: the COM radio call-out (unanswered), a story line on screen
+  const dk = EMG.call && UPG.radio ? 0.35 : 1, dk2 = msgT > 0 && msgA === 0 && /^(RADIO|VOSS|WALT|THE NOTE|GORDON)|\| [A-Z .]+: "/.test(msg) ? 0.5 : 1; MUS.duck += (Math.min(dk, dk2) - MUS.duck) * Math.min(1, dt * 1.5);
+  const mask = mode === 'plane' && ENG.running ? 1.6 : 1;   // over the engine it needs a little more
+  MUS.out.gain.setTargetAtTime(on ? GFX.volMu * (0.05 + 0.3 * MUS.I) * MUS.duck * mask : 0, t, 0.6);
+  MUS.lp.frequency.setTargetAtTime(900 + 2600 * MUS.I, t, 1.5);
+  if (!on) { MUS.nextC = t + 0.5; MUS.nextB = t + 3; return; }   // OFF: nothing scheduled
+  if (t > MUS.nextC - 0.25) MUS.nextC = Math.max(MUS.nextC, t) + musChord(Math.max(MUS.nextC, t)) * 0.92;
+  if (t > MUS.nextB) { const dens = 0.15 + 0.85 * MUS.I; if (Math.random() < dens) { const n = MUS_PENT[Math.floor(Math.random() * (MUS.set === 'night' ? 6 : MUS_PENT.length))]; musBell(n, t + 0.05, 0.03 + 0.05 * MUS.I); if (MUS.I > 0.6 && Math.random() < 0.5) musBell(n + (Math.random() < 0.5 ? 5 : 7), t + 0.4, 0.03); }
+    MUS.nextB = t + (MUS.I > 0.6 ? 1.1 : 2.6) + Math.random() * (MUS.I > 0.6 ? 1.6 : 4); }
+}
+
 function setPos(p, v) { if (p.positionX) { p.positionX.value = v.x; p.positionY.value = v.y; p.positionZ.value = v.z; } else p.setPosition(v.x, v.y, v.z); }
 const _sv = new THREE.Vector3();
 // one-shots. pos (optional THREE.Vector3) = positional
@@ -2546,7 +2615,7 @@ function fuelDesk() {   // desktop G: start / stop the pump when you stand by a 
   for (let i = 0; i < 2; i++) { capW(i, _fpA); const d = hyp(_fpA.x - _fpB.x, _fpA.z - _fpB.z); if (d < bd) { bd = d; c = i; } }
   if (c < 0) { say('STAND BY A WING FILLER CAP TO REFUEL'); return; }
   if (!pumpNear()) { say(ENG.running ? 'SHUT THE ENGINE DOWN TO REFUEL' : 'NO FUEL HERE - RED DRUMS AT HOME, RIDGE, LODGE + DRY FORK'); return; }
-  FUELP.cap = c; FUELP.on = true; FUELP.vr = false; FUELP.fullSaid = false; sfx('click'); say('REFUELLING - $' + FUELP.st.price.toFixed(2) + '/GAL (G TO STOP)');
+  FUELP.cap = c; FUELP.on = true; FUELP.vr = false; FUELP.fullSaid = false; sfx('click'); say('REFUELLING - $' + fuelPx(FUELP.st).toFixed(2) + '/GAL (G TO STOP)');
 }
 function fuelPumpTick(dt) {
   if (!FUELP.on) return;
@@ -2595,7 +2664,7 @@ function hoseIn(c) {   // the nozzle reaches a cap
   if (FUELP.on && FUELP.cap === c) { FUELP.g = HOSE.held; return; }
   if (FUELP.on) fuelStop();
   FUELP.on = true; FUELP.vr = true; FUELP.cap = c; FUELP.g = HOSE.held; FUELP.fullSaid = false; sfx('click'); if (HOSE.held) HX.pulse(HOSE.held, 0.35, 20, 'fuel');
-  say('NOZZLE IN - SQUEEZE THE TRIGGER TO PUMP - $' + FUELP.st.price.toFixed(2) + '/GAL');
+  say('NOZZLE IN - SQUEEZE THE TRIGGER TO PUMP - $' + fuelPx(FUELP.st).toFixed(2) + '/GAL');
 }
 function hoseReset(F) { HOSE.held = null; HOSE.inCap = -1; HOSE.rest = 'hook'; HOSE.calm = 0; if (!F) return; hoseOut(F, _hsA); hoseHook(F, _hsB);
   for (let i = 0; i <= HOSE.N; i++) { const t = i / HOSE.N; HOSE.P[i].lerpVectors(_hsA, _hsB, t); HOSE.P[i].y -= Math.sin(t * Math.PI) * 0.35; HOSE.Q[i].copy(HOSE.P[i]); } HOSE.E.copy(_hsB); }
@@ -3865,7 +3934,7 @@ function mapJobs() {   // v0.51.1: job boards (gold square) + every active job's
     const lb = B.lab || [X(B.cx) > X(B.x) ? 14 : -14, 0, X(B.cx) > X(B.x) ? 'left' : 'right'], ox = X(B.x) + lb[0], oy = Z(B.z) + lb[1]; x.textAlign = lb[2]; x.fillStyle = '#1e1810'; x.font = 'bold 13px ' + F; x.fillText(S.name.toLowerCase(), ox, oy - 8);
     x.font = '11px ' + F; x.fillText(B.cust.toLowerCase() + ' - ' + BUSH_T[B.type].toLowerCase() + ' ' + B.len + 'm' + (B.land != null ? ' 1-way' : ''), ox, oy + 6); x.textAlign = 'center'; }
   for (const S of DLV_STRIPS) { if ((S.site && !S.found) || S.lock) continue; const px = X(S.pad[0]), py = Z(S.pad[1]); x.fillStyle = '#e0a020'; x.strokeStyle = '#1e1810'; x.lineWidth = 1.5; x.fillRect(px - 5, py - 5, 10, 10); x.strokeRect(px - 5, py - 5, 10, 10);
-    x.font = 'bold 12px ' + F; x.fillStyle = '#5a3a10'; x.fillText('JOBS', px, py + 14); const fs = FUEL_ST.find(f => f.id === S.id); if (fs) { x.fillStyle = '#9a2a1a'; x.fillText('fuel $' + fs.price.toFixed(2), px, py + 27); } }   // v0.55
+    x.font = 'bold 12px ' + F; x.fillStyle = '#5a3a10'; x.fillText('JOBS', px, py + 14); const fs = FUEL_ST.find(f => f.id === S.id); if (fs) { x.fillStyle = '#9a2a1a'; x.fillText('fuel $' + fuelPx(fs).toFixed(2), px, py + 27); } }   // v0.55
   for (const j of A) { if (!j.hunt || j.hunt.got) continue; const H = DEER_HERDS[j.hunt.h], hx = X(H.x0 ?? H.x), hy = Z(H.z0 ?? H.z);   // v0.53 the hunting area
     x.fillStyle = 'rgba(224,112,16,0.16)'; x.strokeStyle = '#c05a08'; x.lineWidth = 2.5; x.setLineDash([6, 4]); x.beginPath(); x.arc(hx, hy, HUNT_R * MAP_PX, 0, 6.283); x.fill(); x.stroke(); x.setLineDash([]);
     x.fillStyle = '#8a3a04'; x.font = 'bold 13px ' + F; x.fillText('DEER - ' + H.name.toLowerCase(), hx, hy + HUNT_R * MAP_PX + 11);
@@ -5630,6 +5699,41 @@ function repLine() {   // the wrist / HUD line: the board you're at, or the cust
   if (mode === 'foot' && DLV.nearS && DLV.nearD < 40) { const S = DLV.nearS; if (S.lock) return 'HALV CLOSED: DRYFORK ' + repOf('DRYFORK') + '/' + REP_UNL; const v = repOf(S.id); return 'REP ' + S.name.replace(' STRIP', '') + ' ' + v + ' ' + repTier(v)[1]; }
   const A = dlvActive(); if (mode !== 'plane' || !A.length) return ''; const j = A.slice().sort((a, b) => (b.sp ? 1 : 0) - (a.sp ? 1 : 0) || dlvLeft(a) - dlvLeft(b))[0], k = repKey(j), v = repOf(k), nm = (j.drop ? DROPS[j.drop.s].name : dlvS(k).name).replace(' STRIP', ''); return 'REP ' + nm.slice(0, 12) + ' ' + v + ' ' + repTier(v)[1];
 }
+// ================= v1.00 TOWN TRUST: the valley warms to you (built on the v0.56 rep) =================
+// Walk up to a strip's board and its keeper greets you by how they feel about you: wary while you're new (a MacRae again?),
+// warm once they know you. Trust buys a fuel discount at that strip's red drum (KNOWS YOU 5 %, TRUSTED 10 %, REGULAR 15 %),
+// and in a story game, once a town TRUSTS you, its keeper tells you what they remember of Gordon's last flight (logged; v1.01 pins them on Walt's corkboard).
+const TRUST = { at: '', away: 0, heard: {}, last: null };
+const TRUST_DISC = v => v >= 75 ? 0.15 : v >= 55 ? 0.10 : v >= 35 ? 0.05 : 0;   // KNOWS YOU / TRUSTED / REGULAR
+const fuelPx = F => Math.round(F.price * (1 - TRUST_DISC(repOf(F.id))) * 100) / 100;   // $/gal at that strip's drum, after the trust discount
+const TRUST_GOSSIP = {
+  HOME: 'OLD PETE: "GORDON TOPPED UP HERE THE MORNING HE WENT. FULL TANKS AND TWO EXTRA CANS - MORE THAN A MAIL RUN NEEDS."',
+  RIDGE: 'FOREMAN DAWSON: "MY OLD MAN SAW THE NORSEMAN TURN NORTH OVER THE RIDGE THAT DAY. NOT WEST TO THE COAST LIKE THE PAPERS SAID."',
+  LODGE: 'MRS ANDERS: "HE HAD SUPPER HERE WITH A STRANGER, A MAN IN A GOOD COAT WHO PAID IN CASH. THEY TALKED ABOUT THE ICE ALL EVENING."',
+  DRYFORK: 'MAE: "GORDON BOUGHT A SURVEY MAP OFF MY DAD. THE NORTH SHEET, THE ONE NOBODY EVER ASKED FOR."',
+  HALV: 'DR LINDQVIST: "OUR FIRST STATION LOG HAS A NOTE - A FLARE SEEN NORTH OF THE GLACIER, TWO NIGHTS AFTER HE VANISHED. NOBODY FOLLOWED IT UP."',
+  NWSHORE: 'TRAPPER BILL: "FOUND A RED FABRIC SCRAP ON THE NORTH ICE YEARS BACK. KEPT IT IN THE CABIN. COULD BE NOTHING."',
+  CREEK: 'PROSPECTOR JOE: "GORDON STAKED NOTHING, BUT HE ASKED ME WHERE THE OLD CABIN ON THE HIDDEN LAKE WAS. NEVER SAID WHY."' };
+function trustGreet(S) {
+  const v = repOf(S.id), tier = repTier(v)[1], who = REP_NAME[S.id] || repWho(S.id), st = typeof STORY !== 'undefined' && STORY.on;
+  const line = tier === 'UNHAPPY' ? who + ' DOESN\'T LOOK UP. "BOARD\'S THERE. DON\'T BE LATE THIS TIME."'
+    : tier === 'NEW' ? who + ' SIZES YOU UP. ' + (st ? '"ANOTHER MACRAE, EH? WALT WAS A GOOD MAN. WE\'LL SEE ABOUT YOU."' : '"NEW FACE. LET\'S SEE IF YOU\'RE ON TIME."')
+    : tier === 'KNOWS YOU' ? who + ' NODS. "' + PILOT + '. FUEL\'S 5 % OFF FOR YOU NOW."'
+    : tier === 'TRUSTED' ? who + ' WAVES YOU OVER. "' + PILOT + '! 10 % OFF THE FUEL' + (st && TRUST_GOSSIP[S.id] && !STORY.said['g_' + S.id] ? ' - AND I\'VE GOT SOMETHING FOR YOU."' : ' FOR YOU."')
+    : who + ' HAS THE COFFEE ON. "' + PILOT + ' - THE BEST PILOT THIS VALLEY\'S HAD SINCE GORDON. 15 % OFF, ALWAYS."';
+  TRUST.last = { id: S.id, tier };
+  if (st && v >= 55 && TRUST_GOSSIP[S.id] && !STORY.said['g_' + S.id]) {   // TRUSTED and up: what they remember of Gordon
+    STORY.said['g_' + S.id] = 1; TRUST.heard[S.id] = 1; const g = TRUST_GOSSIP[S.id]; storyLog('Heard at ' + S.name.replace(' STRIP', '') + ': ' + g.replace(/^[^:]+: /, '').replace(/"/g, ''));
+    say(line + ' | ' + g); musStinger('clue'); saveSoon(); return; }
+  say(line);
+}
+function trustTick(dt) {
+  if (mode !== 'foot') { TRUST.away += dt; if (TRUST.away > 20) TRUST.at = ''; return; }
+  const S = DLV.nearS, d = DLV.nearD;
+  if (S && d < 14 && !S.lock) { TRUST.away = 0; if (TRUST.at !== S.id) { TRUST.at = S.id; trustGreet(S); } }
+  else if (!S || d > 150) { TRUST.away += dt; if (TRUST.away > 8) TRUST.at = ''; }
+}
+
 function jbLocked(S) {   // the Halvorsen board before Dry Fork vouches for you
   const x = S.cx, v = repOf('DRYFORK');
   x.fillStyle = '#2f3a48'; x.fillRect(0, 0, JB_W, JB_H); x.fillStyle = '#e8ecef'; x.fillRect(8, 8, JB_W - 16, JB_H - 16); x.textAlign = 'left';
@@ -8103,7 +8207,7 @@ function ecoDraw(F) {
   const B = F.B, x = B.cx, E = ECO, W = SVB_W; x.fillStyle = '#f2ead6'; x.fillRect(0, 0, W, SVB_H); x.strokeStyle = '#5a3a20'; x.lineWidth = 8; x.strokeRect(4, 4, W - 8, SVB_H - 8);
   x.textBaseline = 'alphabetic'; x.textAlign = 'left'; x.fillStyle = '#222'; x.font = 'bold 26px sans-serif'; x.fillText(B.home ? 'HOME HANGAR - SERVICE' : F.S.name + ' - FUEL + OIL', 18, 38);
   x.textAlign = 'right'; x.fillStyle = DLV.cash < 0 ? '#b8301e' : '#1e6a2a'; x.fillText(ecoMoney(DLV.cash), W - 18, 38); x.textAlign = 'left';
-  x.fillStyle = '#333'; ecoFit(x, 'AVGAS $' + F.price.toFixed(2) + '/GAL AT THE RED DRUM' + (B.home ? ' (ALWAYS 12 GAL ON ACCOUNT)' : ''), 18, 64, W - 36, 17, 1);
+  x.fillStyle = '#333'; ecoFit(x, 'AVGAS $' + fuelPx(F).toFixed(2) + '/GAL AT THE RED DRUM' + (TRUST_DISC(repOf(F.id)) ? ' (' + Math.round(TRUST_DISC(repOf(F.id)) * 100) + '% OFF FOR YOU)' : '') + (B.home ? ' (ALWAYS 12 GAL ON ACCOUNT)' : ''), 18, 64, W - 36, 17, 1);
   ecoFit(x, 'TACH ' + E.hrs.toFixed(1) + ' HRS - 100-HOUR ' + (E.svc > 100 ? 'OVERDUE ' + (E.svc - 100).toFixed(1) : 'DUE IN ' + (100 - E.svc).toFixed(1)) + ' - LANDINGS ' + E.ldg, 18, 86, W - 36, 16);
   ecoFit(x, 'OIL ' + E.oil.toFixed(1) + '/' + ECO_OILMAX + ' QT   TYRES ' + Math.round(E.tyre * 100) + '%   BRAKES ' + Math.round(E.brake * 100) + '%   GEAR DMG ' + Math.round(E.gear * 100) + '%   ENGINE DMG ' + Math.round(E.eng * 100) + '%', 18, 106, W - 36, 16);
   x.fillStyle = DLV.cash < 0 ? '#b8301e' : '#555'; ecoFit(x, B.home ? (DLV.cash < 0 ? 'ON ACCOUNT: YOU OWE ' + ecoMoney(-DLV.cash) + ' (LIMIT $' + ECO_CREDIT + ') - JOB PAY CLEARS IT' : 'HANGAR ACCOUNT: UP TO $' + ECO_CREDIT + ' ON CREDIT') : 'CASH ONLY - REPAIRS + SERVICE AT THE HOME HANGAR', 18, 126, W - 36, 16);
@@ -8129,7 +8233,7 @@ function ecoDo(F, i) {   // a row on a service board
 }
 // ---- paying for fuel as it flows (called by the pump) ----
 function ecoFuelAllow(dl) {   // litres wanted this frame -> litres you get (charged)
-  const F = FUELP.st || FUEL_ST[0], c = dl / 3.785 * F.price, home = F.id === 'HOME';
+  const F = FUELP.st || FUEL_ST[0], c = dl / 3.785 * fuelPx(F), home = F.id === 'HOME';
   if (DLV.cash - ECO.frac - c < (home ? -ECO_CREDIT : 0)) { if (!(home && fuel < ECO_SAFE)) { ECO.why = home ? 'ACCOUNT LIMIT REACHED - FLY A JOB' : 'OUT OF CASH (THE HOME DRUM GIVES CREDIT)'; return 0; } ECO.acct = true; }   // the safety net: home never leaves you without enough to reach a job
   ECO.frac += c; const w = Math.floor(ECO.frac); DLV.cash -= w; ECO.frac -= w; DLV.spent = (DLV.spent || 0) + c; ECO.fill += c; ECO.fillL += dl; return dl;   // the wallet stays in whole dollars
 }
@@ -8176,8 +8280,8 @@ function ecoTick(dt) {
   playerPos(); let nb = null, nd = 1e9; for (const F of FUEL_ST) { const d = hyp(PP.x - F.b[0], PP.z - F.b[1]); if (d < nd) { nd = d; nb = F; } }
   E.near = nd < 60 ? nb : null; E.nearD = nd;
   if ((E.bT = (E.bT || 0) - dt) <= 0) { E.bT = 0.5; for (const F of FUEL_ST) { const near = hyp(PP.x - F.b[0], PP.z - F.b[1]) < 300; F.B.m.visible = near; if (!near) continue;
-      const k = [Math.round(DLV.cash), E.oil.toFixed(1), E.svc.toFixed(1), E.tyre.toFixed(2), E.brake.toFixed(2), E.gear.toFixed(2), E.eng.toFixed(2), E.seized, E.ldg].join(); if (k !== F.B.key) { F.B.key = k; ecoDraw(F); } } }
-  if (mode === 'foot' && nd < 5 && E.hint !== nb) { E.hint = nb; say((nb.B.home ? 'HANGAR SERVICE BOARD' : nb.S.name + ' FUEL $' + nb.price.toFixed(2) + '/GAL') + ' - POKE A PRICE' + (renderer.xr.isPresenting ? '' : ' (DESKTOP ' + (nb.B.rows.length > 1 ? '1-' + nb.B.rows.length : '1') + ')')); } else if (nd > 10) E.hint = null;
+      const k = [Math.round(DLV.cash), E.oil.toFixed(1), E.svc.toFixed(1), E.tyre.toFixed(2), E.brake.toFixed(2), E.gear.toFixed(2), E.eng.toFixed(2), E.seized, E.ldg, repOf(F.id)].join(); if (k !== F.B.key) { F.B.key = k; ecoDraw(F); } } }
+  if (mode === 'foot' && nd < 5 && E.hint !== nb) { E.hint = nb; say((nb.B.home ? 'HANGAR SERVICE BOARD' : nb.S.name + ' FUEL $' + fuelPx(nb).toFixed(2) + '/GAL') + ' - POKE A PRICE' + (renderer.xr.isPresenting ? '' : ' (DESKTOP ' + (nb.B.rows.length > 1 ? '1-' + nb.B.rows.length : '1') + ')')); } else if (nd > 10) E.hint = null;
   E.ms = performance.now() - t0;
 }
 function ecoKey(e) { if (mode !== 'foot' || !ECO.near || ECO.nearD > 5 || DLV.nearD < 5) return false; const m = /^Digit([1-4])$/.exec(e.code); if (!m) return false; return ecoDo(ECO.near, +m[1] - 1); }
@@ -9186,6 +9290,7 @@ const GFX_OPT = [   // key, label, values, value labels, note (shown small under
   ['volE', 'Engine + flight', [0, 0.25, 0.5, 0.75, 1], ['OFF', '25%', '50%', '75%', '100%'], 'engine, starter, prop wash, tyres'],
   ['volA', 'Ambient', [0, 0.25, 0.5, 0.75, 1], ['OFF', '25%', '50%', '75%', '100%'], 'wind, crickets, water'],
   ['volF', 'Effects', [0, 0.25, 0.5, 0.75, 1], ['OFF', '25%', '50%', '75%', '100%'], 'clicks, rifle, cargo, stall horn'],
+  ['volMu', 'Music', [0, 0.25, 0.5, 0.75, 1], ['OFF', '25%', '50%', '75%', '100%'], 'v1.00 the score: swells at views, quiet while you work'],
 ];
 const GQ = { sig: '', xrRates: null, fogK: -1, fogV: -1, fpsT: 0, menu: null, shadowT: 0 };
 function gfxLabel(k) { if (k === 'hx') return HX.gain ? Math.round(HX.gain * 100) + '%' : 'OFF'; const o = GFX_OPT.find(r => r[0] === k), i = o[2].findIndex(v => Math.abs(v - GFX[k]) < 1e-6); return i >= 0 ? o[3][i] : String(GFX[k]); }
@@ -9533,7 +9638,7 @@ const SETP_ROW = i => ({ X: i < 10 ? 30 : 527, Y: 96 + (i % 10) * 48 });   // v0
 // v0.68.1 the MENU board: tabs along the top (RESUME, SAVE / LOAD, GRAPHICS, COMFORT, CONTROLS, AUDIO), big poke / point targets, CLOSE bottom right.
 // Poke with a fingertip or point either controller at it and pull the trigger. Desktop: the same board in a page overlay (Esc / F2), clicked with the mouse.
 const MENU_TABS = [['resume', 'RESUME'], ['save', 'SAVE / LOAD'], ['gfx', 'GRAPHICS'], ['comfort', 'COMFORT'], ['controls', 'CONTROLS'], ['audio', 'AUDIO']];
-const MENU_ROWS = { gfx: ['scale', 'fov', 'terr', 'ground', 'gtex', 'trees', 'forest', 'dist', 'clouds', 'fog', 'wx', 'shadows', 'grass', 'msaa', 'dyn', 'hz', 'water', 'tod', 'dayl', 'cvl'], comfort: ['vig', 'turn', 'stk', 'tips', 'fps'], controls: ['hand', 'hx', 'wt', 'glove', 'flure', 'fline', 'fdrag', 'fbob', 'fsink'], audio: ['volM', 'volE', 'volA', 'volF'] };
+const MENU_ROWS = { gfx: ['scale', 'fov', 'terr', 'ground', 'gtex', 'trees', 'forest', 'dist', 'clouds', 'fog', 'wx', 'shadows', 'grass', 'msaa', 'dyn', 'hz', 'water', 'tod', 'dayl', 'cvl'], comfort: ['vig', 'turn', 'stk', 'tips', 'fps'], controls: ['hand', 'hx', 'wt', 'glove', 'flure', 'fline', 'fdrag', 'fbob', 'fsink'], audio: ['volM', 'volE', 'volA', 'volF', 'volMu'] };
 const MENU_TAB = i => ({ X: 22 + i * 146, W: 140 });   // (v0.91.1 narrower: the version sits at the right of the tab row)
 const MENU_SLOT = n => 76 + (n - 1) * 128;   // a manual slot's box top (right column)
 const MENU_HELP = ['TRIGGER  fire / brake / next page', 'GRIP  grab (stick, throttle, knobs, cargo)', 'A / X  recentre + set height', 'B  reset flight (on the rifle: lever)', 'Y  climb in / out (left rifle: lever)',
@@ -9729,7 +9834,7 @@ renderer.setAnimationLoop(() => {
   } else if ((crashTimer += dt) > 2.5) resetFlight();
 
   plane.position.fromArray(ac.pos); plane.quaternion.fromArray(ac.q);
-  dlvTick(dt); wbWarn(dt); huntTick(dt, xr || HANDS.force); fishTick(dt, xr || HANDS.force); storyTick(dt); dropTick(dt); ecoTick(dt); upgTick(dt); emgTick(dt);   // v0.53 rifle, deer, binoculars; v0.54 bundles in the air, the signal smoke   // v0.50 delivery: game clock, falling / loose cargo, job boards
+  dlvTick(dt); wbWarn(dt); huntTick(dt, xr || HANDS.force); fishTick(dt, xr || HANDS.force); storyTick(dt); musTick(dt); trustTick(dt); dropTick(dt); ecoTick(dt); upgTick(dt); emgTick(dt);   // v0.53 rifle, deer, binoculars; v0.54 bundles in the air, the signal smoke   // v0.50 delivery: game clock, falling / loose cargo, job boards
   GV.update(dt); kitTick(dt); flxTick(dt);   // v0.20 gear legs / tyres / tail wheel (v0.90 + the gear kits)
   updateMap(); updateCockpitV19(dt);
   propTick(dt, ENG.rpm);

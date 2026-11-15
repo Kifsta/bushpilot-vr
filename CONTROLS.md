@@ -115,6 +115,8 @@ v0.44 latches: every window and the door are latched while shut. Squeeze the han
 | Pay on Walt's board (hangar back wall) | Poke PAY $500 / $1,000 / $5,000 with a fingertip | Stand near the board: 1 / 2 / 3 |
 | Walt's logbook, the photo (his desk) | Grip to pick up, trigger turns the page, let go puts it back | Look at it + E; , / . turn pages; E puts it down |
 | New story / new free play | Settings > SAVE / LOAD: NEW STORY or NEW FREE PLAY, poke twice | same, click twice |
+| Town trust (v1.00) | Walk up to a strip's board: its keeper greets you; fuel there is 5 / 10 / 15 % off at KNOWS YOU / TRUSTED / REGULAR | same |
+| Music (v1.00) | Settings > AUDIO > Music: OFF-100 % | same |
 
 ## On foot
 | | VR | Desktop |

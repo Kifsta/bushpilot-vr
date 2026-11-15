@@ -2,6 +2,22 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v1.00 – adaptive music and town trust
+
+- **A score that follows the flight.** It's procedural WebAudio built at load, with nothing downloaded: slow pads walk a modal chord loop (D major / lydian by day, B minor and E minor colours at night), with a soft bass, sparse pentatonic bells and a long cross-fed delay "hall".
+  - **Quiet while you work:** refuelling, carrying cargo, fishing, the engine running on the ground.
+  - **A gentle bed** on foot and in cruise.
+  - **It swells** at scenic moments: your first takeoff of a session, cresting a ridge (the ground falls away more than 250 m within about 25 s), sunrise and sunset when you're outside or flying, and story beats. Then it fades back over about a minute.
+  - **Stingers:** a rising bell figure for each story beat (the letter, the logbook's last page, the photo, the first snow, the note paid in full, a town telling you about Gordon).
+  - **Ducking:** it drops to about a third under an incoming COM-radio call-out, and to half while a radio or story line is on screen.
+  - **Over a running engine** it plays a little louder, so it isn't masked.
+- **New setting: Settings > AUDIO > Music**, OFF / 25 / 50 (default) / 75 / 100 %. OFF schedules nothing at all.
+- **Town trust** builds on the v0.56 reputation:
+  - **Greetings:** walk up to a strip's board and its keeper greets you by how they feel about you. UNHAPPY: "board's there, don't be late". NEW: wary ("Another MacRae, eh? Walt was a good man. We'll see about you." in a story game). KNOWS YOU: a nod. TRUSTED: a wave. REGULAR: "the coffee's on".
+  - **Fuel discount at that strip's red drum:** 5 % at KNOWS YOU (35+), 10 % at TRUSTED (55+), 15 % at REGULAR (75+). It shows on the fuel board ("10% OFF FOR YOU"), at the nozzle and on the paper map, and the pump charges it.
+  - **Story: the valley remembers Gordon.** Once a town TRUSTS you, its keeper tells you one thing about his last flight. This works at the home strip, Ridge, the Lodge, Dry Fork, Halvorsen, the NW shore and the creek. Each one is logged in the story log, and v1.01 pins them on Walt's corkboard.
+- New test **t100** (8 checks). Sample of the score (45 s, with a swell at 12 s): `qa-v100/score-sample.mp3`. Physics md5 unchanged.
+
 ## v0.99 – the story begins: Walt's hangar, the bank's note, the debt tracker
 
 - **A new game is now the story** (the first chapter of the campaign outline). You wake on foot in Walt MacRae's hangar facing his chalkboard. **The bank's letter** is on your clipboard (new 5th page, NOTE): Valley Credit holds a **$40,000 note** on MacRae Air Service and wants it **before the first snow, 14 game days away** (Sep 1 to Sep 14).
