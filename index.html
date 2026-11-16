@@ -636,7 +636,7 @@ const hyp = (a, b, c = 0) => Math.sqrt(a * a + b * b + c * c);   // v0.59 Math.h
 
 // ======================= RENDERING =======================
 // v0.35 settings (persist in localStorage 'bp_gfx'; ?gfx=shadows:2,grass:1 overrides for testing). Defaults = the v0.34 look and cost.
-const BP_VERSION = 'v1.10.8';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
+const BP_VERSION = 'v1.10.9';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
 { const e = document.getElementById('ver'); if (e) e.textContent = BP_VERSION; } window.__bpVer = BP_VERSION; bootLog('game module running ' + BP_VERSION + ' (three r' + THREE.REVISION + ')' + (/[?&]safe(=|&|$)/.test(location.search) ? ' - SAFE MODE: default graphics, no shadows / ULTRA / life / vistas / music' : ''));
 const GFX_DEF = { shadows: 0, scale: 1, fov: 1, dist: 1, trees: 1, grass: 0, clouds: 1, fog: 1, msaa: 1, hz: 90, vig: 0, turn: 0, fps: 0, tod: 11, stk: 1, tips: 1, terr: 1, dyn: 1, glove: 0, hand: 0, wt: 1, volM: 1, volMu: 0.5, volE: 1, volA: 1, volF: 1, wx: 1, forest: 0, ground: 0, gtex: 0, cvl: 1, water: 1, dayl: 48, flure: 0, fline: 8, fdrag: 4, fbob: 0, fsink: 0, ultra: 0 };   // v0.68.1 dominant hand, volumes. v0.48 BALANCED: 90 % scale, 72 Hz, fast terrain shading, auto resolution; v0.49.1 the stick stays where you let go of it
 const GFX = Object.assign({}, GFX_DEF);
@@ -7779,6 +7779,32 @@ function fSign(lines, w, h) { const cv = document.createElement('canvas'); cv.wi
   x.fillStyle = '#e8dcb8'; x.fillRect(0, 0, cv.width, cv.height); x.strokeStyle = '#5a4630'; x.lineWidth = 8; x.strokeRect(4, 4, cv.width - 8, cv.height - 8); x.fillStyle = '#3a2a1a'; x.textAlign = 'center';
   let y = 0; for (const [t, px] of lines) { y += px * 1.18; x.font = 'bold ' + px + 'px serif'; x.fillText(t, cv.width / 2, y); }
   const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; return new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map: t, color: 0xd8d8d8 })); }
+// v1.10.9 price tags: a little tent card in front of every item (both faces readable), its name, price and what you already have; all of a shop's cards are one mesh
+// on one 1024 x 512 canvas (16 slots of 256 x 128, the same unlit textured material as the shop signs: no new shader), redrawn only when you walk up or buy
+function fTagsBuild(S, o, place) {
+  const cv = document.createElement('canvas'); cv.width = 1024; cv.height = 512; const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace;
+  const n = S.items.length, P = new Float32Array(n * 36), U = new Float32Array(n * 24), q = new THREE.Quaternion(), v = GV3(0, 0, 0), c = Math.cos(o.a), sn = Math.sin(o.a);
+  S.items.forEach((it, i) => { const [lx, ly, lz, ry, k = 1] = place(i, it.id), w = 0.15 * k, h = 0.085 * k, ln = 0.32, hc = h * Math.cos(ln), hs = h * Math.sin(ln);
+    const ctr = GV3(o.x + lx * c + lz * sn, o.y + ly, o.z - lx * sn + lz * c); q.setFromAxisAngle(_ry, o.a + ry);
+    const col = i % 4, row = i >> 2, u0 = col / 4 + 0.002, u1 = (col + 1) / 4 - 0.002, v1 = 1 - row / 4 - 0.004, v0 = 1 - (row + 1) / 4 + 0.004;
+    const F = [[-w / 2, 0, hs], [w / 2, 0, hs], [w / 2, hc, 0], [-w / 2, hc, 0]], B = [[w / 2, 0, -hs], [-w / 2, 0, -hs], [-w / 2, hc, 0], [w / 2, hc, 0]], UV = [[u0, v0], [u1, v0], [u1, v1], [u0, v1]];
+    let pi = i * 36, ui = i * 24; for (const Q of [F, B]) for (const j of [0, 1, 2, 0, 2, 3]) { v.fromArray(Q[j]).applyQuaternion(q).add(ctr); P[pi++] = v.x; P[pi++] = v.y; P[pi++] = v.z; U[ui++] = UV[j][0]; U[ui++] = UV[j][1]; } });
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(P, 3)); g.setAttribute('uv', new THREE.BufferAttribute(U, 2)); g.computeBoundingSphere();
+  const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ map: tex, color: 0xd8d8d8 })); m.userData.noBatch = true; m.name = 'tags ' + S.name; S.G.add(m); S.tags = { cv, tex, m, key: '' }; fTagsDraw(S); }
+function fTagsDraw(S) { const T = S.tags; if (!T) return; const key = S.items.map(it => fTagState(it.id)).join('|'); if (key === T.key) return; T.key = key; const x = T.cv.getContext('2d');
+  x.fillStyle = '#2a2018'; x.fillRect(0, 0, 1024, 512);
+  S.items.forEach((it, i) => { const X = (i % 4) * 256, Y = (i >> 2) * 128, [nm, pr] = FTK[it.id], st = fTagState(it.id), own = st === 'OWNED' || st === 'HAVE ONE';
+    x.fillStyle = own ? '#dfe8cf' : '#f4ecd0'; x.fillRect(X + 4, Y + 4, 248, 120); x.strokeStyle = '#5a4630'; x.lineWidth = 4; x.strokeRect(X + 6, Y + 6, 244, 116);
+    const t = nm.replace(/\s*\(.*\)$/, '').replace(/(\d) (M|LB|G|KG)\b/g, '$1\u00a0$2'), sub = (nm.match(/\((.*)\)$/) || [])[1] || '', words = t.split(' '); let l1 = t, l2 = '';
+    x.textAlign = 'center'; x.fillStyle = '#2a1e12'; x.font = 'bold 26px sans-serif';
+    if (x.measureText(t).width > 232) { let a = ''; for (const wd of words) { if (x.measureText(a + (a ? ' ' : '') + wd).width > 232) break; a += (a ? ' ' : '') + wd; } l1 = a || words[0]; l2 = t.slice(l1.length).trim(); }
+    const fit = (str, px, y) => { let f = px; do x.font = 'bold ' + f + 'px sans-serif'; while (x.measureText(str).width > 236 && --f > 12); x.fillText(str, X + 128, Y + y); };
+    fit(l1, 26, 34); if (l2) fit(l2, 26, 60);
+    x.fillStyle = '#a42a1e'; x.font = 'bold 40px sans-serif'; x.textAlign = 'left'; x.fillText('$' + pr, X + 16, Y + 110);
+    x.textAlign = 'right'; x.font = 'bold 19px sans-serif'; x.fillStyle = own ? '#2a6a2a' : '#5a4630'; x.fillText(st || sub, X + 242, Y + 108); });
+  T.tex.needsUpdate = true; }
+function fTagState(id) { const k = FTK[id][2], x = FTK[id][3]; if (k === 'lure') { const h = FISH.lures[id] || 0; return h ? 'HAVE ' + h : 'PACK OF ' + x.n; } if (k === 'term') return FISH.own[id] ? 'HAVE ONE' : '';
+  if (k === 'line') return FISH.line[id] ? 'OWNED' : ''; return FISH.own[id] ? 'OWNED' : ''; }
 function fShopBuild(o, ids, at, name) {   // at(i) -> [lx, ly, lz] on the counter / rack (shop frame o: +z toward the room's front)
   const c = Math.cos(o.a), s = Math.sin(o.a), L = (lx, ly, lz) => GV3(o.x + lx * c + lz * s, o.y + ly, o.z - lx * s + lz * c), G = new THREE.Group(); G.userData.noBatch = true; scene.add(G);
   const S = { name, G, items: [], at: null };
@@ -7789,10 +7815,12 @@ function fShopBuild(o, ids, at, name) {   // at(i) -> [lx, ly, lz] on the counte
   if (o) { const rods = FSHOP_ALL.filter(id => FTK[id][2] === 'rod'), rest = FSHOP_ALL.filter(id => FTK[id][2] !== 'rod');
     const { S, L } = fShopBuild(o, FSHOP_ALL, (i, id) => { if (FTK[id][2] === 'rod') { const j = rods.indexOf(id); return [-4.72, 0.15, 4.3 + j * 0.5, 0, 1]; } const j = rest.indexOf(id); return [-3.45 + (j % 7) * 0.37, 1.0, 3.2 + Math.floor(j / 7) * 0.32]; }, 'CUTLER');
     const cm = mat(0x6e5236); for (const [w, h, d, lx, ly, lz] of [[2.7, 0.95, 0.9, -2.35, 0.475, 3.5], [2.8, 0.05, 1.0, -2.35, 0.975, 3.5], [0.12, 2.2, 1.4, -4.88, 1.1, 4.55]]) { const b = box(w, h, d, cm, 0, 0, 0, scene); b.position.copy(L(lx, ly, lz)); b.rotation.y = o.a; }
+    fTagsBuild(S, o, (i, id) => { if (FTK[id][2] === 'rod') { const j = rods.indexOf(id); return [-4.62, 1.05, 4.3 + j * 0.5, Math.PI / 2, 1.35]; } const j = rest.indexOf(id); return [-3.45 + (j % 7) * 0.37, 1.0, 3.2 + Math.floor(j / 7) * 0.32 + 0.1, 0, 1]; });   // v1.10.9 price tags
     const sg = fSign([['TACKLE', 70], ['RODS - REELS - LINE - LURES', 30], ['NETS - CREELS - COOLERS', 30], ['VR: GRAB AN ITEM TO BUY IT', 26], ['DESKTOP: LOOK AT IT, E', 26]], 1.4, 0.8); sg.position.copy(L(-2.35, 2.25, 4.1)); sg.rotation.y = o.a; sg.userData.noBatch = true; S.G.add(sg); S.sign = sg; } }
 { const o = DFSTORE.o;   // Dry Fork: the basics on a bench beside the hardware counter
   const { S, L } = fShopBuild(o, FSHOP_DF, (i, id) => FTK[id][2] === 'rod' ? [5.3, 1.17, 3.1, Math.PI / 2] : [5.25, 1.17, 3.45 + (i - 1) * 0.16 * 1.2, Math.PI / 2], 'DRY FORK');
   const cm = mat(0x6e5236); for (const [w, h, d, lx, ly, lz] of [[0.7, 1.05, 1.6, 5.4, 0.6, 3.9], [0.8, 0.05, 1.7, 5.4, 1.125, 3.9]]) { const b = box(w, h, d, cm, 0, 0, 0, scene); b.position.copy(L(lx, ly, lz)); b.rotation.y = o.a; }
+  fTagsBuild(S, o, (i, id) => FTK[id][2] === 'rod' ? [5.12, 1.17, 3.1 - 0.1, Math.PI / 2, 1] : [5.12, 1.17, 3.45 + (i - 1) * 0.16 * 1.2, Math.PI / 2, 0.95]);   // v1.10.9 price tags (customer side of the bench)
   const sg = fSign([['TACKLE', 70], ['THE BASICS', 34], ['MORE AT CUTLER', 30]], 1.0, 0.5); sg.position.copy(L(6.82, 2.75, 3.9)); sg.rotation.y = o.a - Math.PI / 2; sg.userData.noBatch = true; S.G.add(sg); }
 function fHas(id) { return !!FISH.own[id]; }
 function fBuy(id, g) {
@@ -7806,6 +7834,7 @@ function fBuy(id, g) {
   if (k === 'rod' && (!fHas(FISH.kind) || id === 'rodH')) FISH.kind = id;
   if (k === 'line' && !FISH.line['l' + GFX.fline]) gfxSet('fline', x.lb, true);
   if (k === 'lure' && !(FISH.lures[FLURE_IDS[GFX.flure]] > 0)) gfxSet('flure', FLURE_IDS.indexOf(id), true);
+  for (const S of FISH.shop) fTagsDraw(S);   // v1.10.9
   say('BOUGHT: ' + nm + ' -$' + pr + ' (WALLET $' + DLV.cash + ')' + (fReady() ? '' : ' - STILL NEED: ' + fNeed())); saveSoon(); for (const S of DLV_STRIPS) S.key = ''; return true;
 }
 function fNeed() { const n = []; if (!fHas('rodL') && !fHas('rodH')) n.push('A ROD'); if (!fHas('reel')) n.push('A REEL'); if (!Object.keys(FISH.line).length) n.push('LINE'); if (!FLURE_IDS.some(k => FISH.lures[k] > 0)) n.push('A LURE OR BAIT'); return n.join(', '); }
@@ -7821,6 +7850,7 @@ function fShopDesk() {   // desktop E: the item under the crosshair (within 8 de
   if (!best) { say('TACKLE: LOOK AT AN ITEM AND PRESS E TO BUY IT'); return true; } fBuy(best.id, null); return true; }
 function fShopHint(p, vrOn) { const S = mode === 'foot' ? fShopNear(p, 2.8) : null, k = S ? S.name : '';
   for (const s of FISH.shop) s.G.visible = p.distanceTo(s.at) < 300;
+  if (S && k !== FISH.hint) fTagsDraw(S);   // v1.10.9 walking up (a load may have changed what you own)
   if (k && k !== FISH.hint) say('TACKLE (' + k + '): ' + (vrOn ? 'GRAB AN ITEM TO BUY IT' : 'LOOK AT AN ITEM, E TO BUY') + ' - WALLET $' + DLV.cash + (fReady() ? '' : ' - YOU NEED ' + fNeed()));
   FISH.hint = k; }
 // ---- the rig: what's tied on, how much it weighs, how it casts ----

@@ -2,6 +2,12 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v1.10.9 – price tags in the tackle shops
+
+- **Shop labels (Neil):** every item in the Cutler tackle shop and on the Dry Fork bench now has a small tent card in front of it with its name and price in large type, plus the pack size or line length. The rods on the Cutler rack have cards above them. A card goes green when you own the item (OWNED, or HAVE n for lures) and updates as soon as you buy. The cards are readable from where you stand in VR, about 1 m away.
+- **Cheap:** each shop draws all of its cards from one 1024x512 canvas as a single mesh, with the same unlit textured material as the shop signs, so no new shader and one extra draw per shop. The canvas only redraws when you walk up or buy something.
+- The fuel boards, the upgrade board and the hardware counter already had prices.
+
 ## v1.10.8 – casting and the retrieve: no more lure stuck at the surface
 
 - **Stuck lure (Neil):** reeled in close, a lure was held at the water surface under the rod tip. The rod tip is 1.5-3.5 m above the water, so the line could never get short enough to bring the lure to the tip. The drag slipped and the lure sat there for good. In the headless sim every lure, bait and the bobber rig got stuck this way. Now, once the lure is under the tip, it comes up out of the water with a little splash and hangs on the line, and reeling on brings it up to the tip, ready to cast.
