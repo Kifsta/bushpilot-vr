@@ -607,7 +607,7 @@ const hyp = (a, b, c = 0) => Math.sqrt(a * a + b * b + c * c);   // v0.59 Math.h
 
 // ======================= RENDERING =======================
 // v0.35 settings (persist in localStorage 'bp_gfx'; ?gfx=shadows:2,grass:1 overrides for testing). Defaults = the v0.34 look and cost.
-const BP_VERSION = 'v1.07.3';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
+const BP_VERSION = 'v1.08';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
 { const e = document.getElementById('ver'); if (e) e.textContent = BP_VERSION; }
 const GFX_DEF = { shadows: 0, scale: 1, fov: 1, dist: 1, trees: 1, grass: 0, clouds: 1, fog: 1, msaa: 1, hz: 90, vig: 0, turn: 0, fps: 0, tod: 11, stk: 1, tips: 1, terr: 1, dyn: 1, glove: 0, hand: 0, wt: 1, volM: 1, volMu: 0.5, volE: 1, volA: 1, volF: 1, wx: 1, forest: 0, ground: 0, gtex: 0, cvl: 1, water: 1, dayl: 48, flure: 0, fline: 8, fdrag: 4, fbob: 0, fsink: 0 };   // v0.68.1 dominant hand, volumes. v0.48 BALANCED: 90 % scale, 72 Hz, fast terrain shading, auto resolution; v0.49.1 the stick stays where you let go of it
 const GFX = Object.assign({}, GFX_DEF);
@@ -640,7 +640,7 @@ const sun = new THREE.DirectionalLight(0xfff1dc, 2.0); sun.position.set(300, 500
 const mat = c => new THREE.MeshLambertMaterial({ color: c, flatShading: true });
 // v1.07.2 a breeze in the trees and grass: visual only (no gameplay wind). Each instance sways from its own base, the top most (weight^2), with a slow gust wave rolling
 // across the valley. A few ALU per vertex in the shaders the trees already use; one program per tree look (all swaying trees share it), compiled at load.
-const SWAY = { t: { value: 0 }, k: { value: 1 } };
+const SWAY = { t: { value: 0 }, k: { value: 1 }, w: 0 };   // v1.08 w: the breeze (0 calm .. 1 a front) shared with the ambient life (LIFE.wind)
 const SWAY_GLSL = `#ifdef USE_INSTANCING
   { vec3 swP = vec3(modelMatrix * instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0)); float swW = clamp((position.y - uSwB) / uSwH, 0.0, 1.0); swW *= swW;
     float swT = uSwT * uSwF + swP.x * 0.043 + swP.z * 0.061, swG = 0.55 + 0.45 * sin(uSwT * 0.23 + swP.x * 0.0041 - swP.z * 0.0027);
@@ -4170,7 +4170,9 @@ function dayAngle(h) { return h >= 6 && h <= 19 ? (h - 6) / 13 * Math.PI : Math.
 function dayClock(h = DAY.h) { const m = Math.floor(((h % 24) + 24) % 24 * 60); return String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0'); }
 function updateDay(dt) {   // sun / sky / fog colour from the time of day, plus the two dynamic lights
   if (GFX.dayl > 0 && dt > 0) DAY.h = (DAY.h + dt * 24 / (GFX.dayl * 60)) % 24;
-  if (dt > 0) SWAY.t.value = (SWAY.t.value + Math.min(dt, 0.1)) % 2400;   // v1.07.2 the breeze   // v0.96 the clock runs: a whole day + night in GFX.dayl real minutes
+  if (dt > 0) { SWAY.t.value = (SWAY.t.value + Math.min(dt, 0.1)) % 2400;   // v1.07.2 the breeze
+    const W = WX.E || WX.P, on = GFX.wx > 0, f = on ? (FR.f || 0) : 0, w = on && W ? clamp(W.grey * 0.7 + clamp(W.rain + f, 0, 1) * 0.6 + f * 0.5, 0, 1) : 0;   // v1.08 no wind in the sim: overcast / rain / fronts stand in for it (the same rule the life used)
+    SWAY.w += (w - SWAY.w) * Math.min(1, dt * 0.4); SWAY.k.value = 1 + 1.6 * SWAY.w; }   // the trees lean harder in a front; calm = the v1.07.2 sway   // v0.96 the clock runs: a whole day + night in GFX.dayl real minutes
   const a = dayAngle(DAY.h), el = Math.sin(a);    // sunrise 06:00 east, sunset 19:00 west
   sunDir.set(Math.cos(a), Math.max(el, -1), 0.35).normalize();
   TOD.day = clamp((el + 0.05) / 0.25, 0, 1); TOD.night = 1 - clamp((el + 0.25) / 0.2, 0, 1); TOD.dusk = DAY.h > 12 ? (1 - TOD.day) * (1 - TOD.night) + TOD.night * 0.3 : 0;
@@ -10781,6 +10783,501 @@ void main() { float u = vA.x, v = vA.y; float rays = n1(u * 190.0 + uT * 0.9 + v
 function vistaTick(dt) { VISTA.tick(dt); }
 try { VISTA.hook = discoverLandmark; } catch (e) { /* declared later */ }
 // <<< V2 VISTAS END
+// >>> V2 LIFE BEGIN (life.js via /workspace/v2-life/apply.py)
+// ===================== V2 AMBIENT LIFE: birds, raptors, waterfowl, fish, smoke, insects, fireflies, motes, leaves, spindrift, dawn mist =====================
+// Look only: nothing here touches the Cub, the physics, the world rand() or any gameplay state. Two draw calls at most, whatever you look at:
+//  1) LIFE.crit - one InstancedMesh (Lambert, flat, vertex colours) holding every creature / chimney / fire-ring stone; each instance picks its shape
+//     out of one small atlas geometry in the vertex shader (the other shapes collapse off-screen) and flaps its wings there.
+//  2) LIFE.fx - one Points draw for every soft thing: smoke, mist, splashes + rings on the water, fireflies, embers, motes, snow sparkle, spindrift.
+// Everything is pooled in typed arrays built at load: the per-frame tick allocates nothing (test/garbage.js checks it with the heap sampler).
+// Tied to the clock (DAY.h / TOD) and the weather (WX.E rain / grey / mist, FR rain fronts); Settings > COMFORT > Ambient life OFF / LOW / FULL;
+// auto quality (DYN.lvl) drops it to LOW at level 2 and OFF at level 4.
+const LIFE = (() => {
+  const L = { on: true, tier: 2, t: 0, ms: 0, warmMs: 0, n: { crit: 0, fx: 0 }, wind: -1, frozen: false };
+  const TAU = 6.283185307;
+  const SEED = new Int32Array([0x5eed1e]); const rnd = () => { let x = SEED[0]; x ^= x << 13; x ^= x >>> 17; x ^= x << 5; SEED[0] = x; return (x >>> 0) / 4294967296; };   // own stream: the world rand() is never called
+  const rr = (a, b) => a + (b - a) * rnd();
+  // the tick's random numbers come from a table (refilled half at a time) read inline: a call returning a double can box it (garbage)
+  const RT = new Float64Array(4096); let ri = 0, rHalf = 0; for (let i = 0; i < 4096; i++) RT[i] = rnd();
+  const rtFill = h => { for (let i = h * 2048, e = i + 2048; i < e; i++) RT[i] = rnd(); };
+  const hash = (i) => { let h = (i * 2654435761) >>> 0; h ^= h >>> 15; h = Math.imul(h, 2246822519) >>> 0; h ^= h >>> 13; return (h >>> 0) / 4294967296; };
+  // ground height with no garbage: terrainHeight's own triangles (same vertices, read through vertHc once, then from our cache), args + result through a scratch array
+  const QH = new Float64Array(3), VCX = new Int32Array(4096).fill(-2147483648), VCZ = new Int32Array(4096), VCV = new Float64Array(4096);
+  const vq = (X, Z) => { const h = (Math.imul(X, 73856093) ^ Math.imul(Z, 19349663)) >>> 20; if (VCX[h] !== X || VCZ[h] !== Z) { VCX[h] = X; VCZ[h] = Z; VCV[h] = vertHc(X, Z); } return h; };
+  let THOK = true;
+  function thQ() { const x = QH[0], z = QH[1]; if (!THOK) { QH[2] = terrainHeight(x, z); return; } const c = Math.abs(x) <= T_IN && Math.abs(z) <= T_IN ? T_C1 : T_C2;
+    const fx = (x + T_OUT) / c, fz = (z + T_OUT) / c, ix = Math.floor(fx), iz = Math.floor(fz), u = fx - ix, v = fz - iz, X = ix * c - T_OUT, Z = iz * c - T_OUT;
+    const ha = VCV[vq(X, Z)], hb = VCV[vq(X, Z + c)], hd = VCV[vq(X + c, Z)];
+    if (u + v <= 1) { QH[2] = ha + u * (hd - ha) + v * (hb - ha); return; }
+    const hc = VCV[vq(X + c, Z + c)]; QH[2] = hc + (1 - u) * (hb - hc) + (1 - v) * (hd - hc); }
+  L.thQ = (x, z) => { QH[0] = x; QH[1] = z; thQ(); return QH[2]; };   // (tests: must equal terrainHeight)
+  { let worst = 0; for (let k = 0; k < 96; k++) { const x = (hash(k) - 0.5) * 11800, z = (hash(k + 500) - 0.5) * 11800; worst = Math.max(worst, Math.abs(L.thQ(x, z) - terrainHeight(x, z))); } THOK = worst < 1e-6; L.thOK = THOK; }   // if terrainHeight ever changes shape, fall back to it
+  const TH = terrainHeight, snowAt = (x, z) => 930 + 110 * Math.sin(x * 0.0021 + z * 0.0013);
+  const SQ = new Float64Array(1);   // smoothstep scratch (the tick inlines sm / bell through it: no boxed doubles)
+  const GZ = { x: (WR.x + GLINT.x + SH_X) / 3, z: (WR.z + GLINT.z + SH_Z) / 3, r: 750 };   // Gordon's wreck, the glint and the shelf strip: nothing of ours in here
+
+  // ---------------- palette (linear rgb, via THREE.Color so it matches the Lambert colours) ----------------
+  const PAL_HEX = [0x2b2a28, 0x4a3a2c, 0xf2efe6, 0x8a7a66, 0x1f5a2a, 0x7d7468, 0x161616, 0x8f6a3e, 0xd9822b, 0xe8d24a, 0xf4f1e8, 0x3b6fb6, 0x2e8f8a, 0x2f4f46,
+    0xd9a62b, 0xc8642a, 0x9e2f1f, 0x9aa83a, 0x7a5530, 0x9aa7a2, 0x56646a, 0x8e4f3a, 0x777370, 0x3a2e26, 0x5a3c22, 0x6b6660, 0x2a2420, 0x5e5a52];
+  const P = { bird: 0, eagleB: 1, white: 2, duck: 3, drakeG: 4, goose: 5, black: 6, henB: 7, orange: 8, yellow: 9, cream: 10, blue: 11, teal: 12, dteal: 13,
+    lgold: 14, lorange: 15, lred: 16, lgreen: 17, lbrown: 18, fish: 19, fishD: 20, brick: 21, stone: 22, soot: 23, log: 24, rock: 25, char: 26, stoneD: 27 };
+  const PALC = new Float32Array(PAL_HEX.length * 3); { const c = new THREE.Color(); PAL_HEX.forEach((h, i) => { c.setHex(h); PALC[i * 3] = c.r; PALC[i * 3 + 1] = c.g; PALC[i * 3 + 2] = c.b; }); }
+
+  // ---------------- 1. the creature atlas: one geometry, shapes picked per instance ----------------
+  const SH = { bird: 0, eagle: 1, duck: 2, duckF: 3, fly: 4, drag: 5, leaf: 6, fish: 7, box: 8 };
+  const GP = [], GC = [], GS = [], GW = [], GA = [];   // position, colour (grey shade or fixed rgb), shape id, wing weight, accent (0 body x instance colour, 1 accent colour, 2 fixed colour)
+  const tri = (s, a, b, c, shade, w = [0, 0, 0], acc = 0, rgb = null) => { for (const [k, v] of [a, b, c].entries()) { GP.push(v[0], v[1], v[2]); if (rgb) GC.push(rgb[0], rgb[1], rgb[2]); else GC.push(shade, shade, shade); GS.push(s); GW.push(w[k]); GA.push(acc); } };
+  const quad = (s, a, b, c, d, shade, w, acc, rgb) => { tri(s, a, b, c, shade, w ? [w[0], w[1], w[2]] : undefined, acc, rgb); tri(s, a, c, d, shade, w ? [w[0], w[2], w[3]] : undefined, acc, rgb); };
+  const lin = h => { const c = new THREE.Color(h); return [c.r, c.g, c.b]; };
+  { // songbird: forward -z, span 0.36 m, swept wings, a notched tail (7 tris)
+    const n = [0, 0, -0.11], t = [0, 0, 0.08], l = [-0.025, 0, 0], r = [0.025, 0, 0], tp = [0, 0.028, -0.01], bt = [0, -0.02, -0.01];
+    tri(0, n, r, tp, 1); tri(0, n, tp, l, 1); tri(0, tp, r, t, 0.9); tri(0, l, tp, t, 0.9); tri(0, n, bt, r, 0.7); tri(0, n, l, bt, 0.7);
+    tri(0, [-0.02, 0.005, -0.035], [-0.02, 0.005, 0.03], [-0.19, 0.0, 0.05], 1, [0, 0, 1]); tri(0, [0.02, 0.005, -0.035], [0.19, 0.0, 0.05], [0.02, 0.005, 0.03], 1, [0, 1, 0]);
+    tri(0, [0, 0.004, 0.06], [-0.04, 0, 0.14], [0.04, 0, 0.14], 0.85); }
+  { // eagle / hawk: span 2 m, broad wings + fingered tips, white head + tail on the accent colour (12 tris)
+    const n = [0, 0, -0.46], h0 = [-0.06, 0, -0.26], h1 = [0.06, 0, -0.26], tp = [0, 0.09, -0.14], t = [0, 0.01, 0.28], l = [-0.09, 0, -0.08], r = [0.09, 0, -0.08], bt = [0, -0.07, -0.12];
+    tri(1, n, h1, tp, 1, undefined, 1); tri(1, n, tp, h0, 1, undefined, 1); tri(1, n, h0, bt, 0.8, undefined, 1); tri(1, n, bt, h1, 0.8, undefined, 1);
+    tri(1, [0, 0, -0.5], [-0.018, -0.02, -0.44], [0.018, -0.02, -0.44], 1, undefined, 2, lin(0xe0b030));   // beak
+    tri(1, h1, r, tp, 1); tri(1, h0, tp, l, 1); tri(1, tp, r, t, 0.9); tri(1, l, tp, t, 0.9);
+    for (const s of [-1, 1]) { const A = [s * 0.07, 0.02, -0.16], B = [s * 0.07, 0.02, 0.14], C = [s * 0.92, 0.05, 0.1], D = [s * 0.96, 0.05, -0.06], E = [s * 1.04, 0.06, 0.03];
+      if (s < 0) { quad(1, A, B, C, D, 1, [0, 0, 1, 1]); tri(1, D, C, E, 0.9, [1, 1, 1]); } else { quad(1, A, D, C, B, 1, [0, 1, 1, 0]); tri(1, D, E, C, 0.9, [1, 1, 1]); } }
+    tri(1, [0, 0.01, 0.22], [-0.13, 0.0, 0.47], [0.13, 0.0, 0.47], 1, undefined, 1); }
+  { // duck / goose on the water: a rounded body (a six-point waist, a back ridge, the tail cocked up), a short thick neck + a round head on the accent colour, the bill fixed (30 tris); waterline at y = 0
+    const R = [[0, 0.13, -0.22], [-0.13, 0.12, -0.1], [-0.12, 0.13, 0.12], [0, 0.2, 0.27], [0.12, 0.13, 0.12], [0.13, 0.12, -0.1]], T = [0, 0.26, 0.0], B = [0, -0.06, 0];
+    for (let i = 0; i < 6; i++) { const j = (i + 1) % 6; tri(2, R[i], T, R[j], i === 2 || i === 3 ? 0.8 : 1); tri(2, R[i], R[j], B, 0.78); }
+    const n1 = [-0.05, 0.13, -0.14], n2 = [0.05, 0.13, -0.14], n3 = [0, 0.12, -0.24], m1 = [-0.04, 0.25, -0.17], m2 = [0.04, 0.25, -0.17], m3 = [0, 0.25, -0.23];
+    quad(2, n1, n2, m2, m1, 0.85, undefined, 1); quad(2, n2, n3, m3, m2, 0.95, undefined, 1); quad(2, n3, n1, m1, m3, 0.95, undefined, 1);
+    const hc = [0, 0.29, -0.2], hl = [-0.055, 0.29, -0.19], hr = [0.055, 0.29, -0.19], hf = [0, 0.29, -0.26], hb = [0, 0.3, -0.13], ht = [0, 0.35, -0.19], hd = [0, 0.235, -0.2];
+    for (const [a, b] of [[hl, hf], [hf, hr], [hr, hb], [hb, hl]]) { tri(2, a, b, ht, 1, undefined, 1); tri(2, b, a, hd, 0.8, undefined, 1); } void hc;
+    const bk = [0, 0.27, -0.34], y0 = lin(0xd8a020); tri(2, [-0.025, 0.285, -0.245], [0, 0.262, -0.25], bk, 1, undefined, 2, y0); tri(2, [0.025, 0.285, -0.245], bk, [0, 0.262, -0.25], 1, undefined, 2, y0); }
+  { // duck / goose in the air: a spindle body + neck forward, flapping wings (span 0.9 m), head on the accent colour (12 tris)
+    const n = [0, 0.02, -0.42], hd = [0, 0.04, -0.3], l = [-0.06, 0, -0.04], r = [0.06, 0, -0.04], tp = [0, 0.06, -0.04], bt = [0, -0.05, -0.04], t = [0, 0.01, 0.24];
+    tri(3, n, r, tp, 1, undefined, 1); tri(3, n, tp, l, 1, undefined, 1); tri(3, n, bt, r, 0.8, undefined, 1); tri(3, n, l, bt, 0.8, undefined, 1);
+    tri(3, tp, r, t, 0.95); tri(3, l, tp, t, 0.95); tri(3, bt, t, r, 0.75); tri(3, l, t, bt, 0.75);
+    tri(3, [0, 0.02, -0.5], [-0.02, 0.01, -0.41], [0.02, 0.01, -0.41], 1, undefined, 2, lin(0xd8a020)); void hd;
+    tri(3, [-0.05, 0.02, -0.12], [-0.05, 0.02, 0.06], [-0.46, 0.0, 0.08], 1, [0, 0, 1]); tri(3, [0.05, 0.02, -0.12], [0.46, 0.0, 0.08], [0.05, 0.02, 0.06], 1, [0, 1, 0]);
+    tri(3, [-0.2, 0.012, -0.06], [-0.2, 0.012, 0.07], [-0.46, 0.0, 0.08], 0.85, [0.4, 0.4, 1], 1); }
+  { // butterfly: fore + hind wings each side on the instance colour, dark margins on the accent (6 tris), span 0.1 m
+    const b0 = [0, 0, -0.022], b1 = [0, 0, 0.022];
+    for (const s of [-1, 1]) { const F = [s * 0.05, 0, -0.03], M = [s * 0.045, 0, 0.0], H = [s * 0.035, 0, 0.03];
+      if (s < 0) { tri(4, b0, M, F, 1, [0, 1, 1]); tri(4, b0, b1, M, 0.9, [0, 0, 1]); tri(4, b1, H, M, 1, [0, 1, 1]); } else { tri(4, b0, F, M, 1, [0, 1, 1]); tri(4, b0, M, b1, 0.9, [0, 1, 0]); tri(4, b1, M, H, 1, [0, 1, 1]); } }
+    tri(4, [0, 0.004, -0.024], [-0.003, 0, 0.024], [0.003, 0, 0.024], 1, undefined, 1); }
+  { // dragonfly: a long thin body (accent) + four glassy wings (fixed colour), 0.08 m (6 tris)
+    tri(5, [0, 0.003, -0.03], [-0.004, 0, -0.01], [0.004, 0, -0.01], 1, undefined, 1); tri(5, [-0.0025, 0, -0.012], [0, 0.002, 0.05], [0.0025, 0, -0.012], 1, undefined, 1);
+    const gw = lin(0xc8dce4);
+    for (const s of [-1, 1]) { tri(5, [0, 0.002, -0.018], [s * 0.05, 0.002, -0.022], [s * 0.05, 0.002, -0.012], 1, [0, 1, 1], 2, gw); tri(5, [0, 0.002, -0.006], [s * 0.045, 0.002, -0.004], [s * 0.045, 0.002, 0.004], 1, [0, 1, 1], 2, gw); } }
+  { // leaf: a diamond with a fold (2 tris), 0.07 m
+    tri(6, [0, 0, -0.035], [-0.022, 0.004, 0.0], [0, 0, 0.035], 1); tri(6, [0, 0, -0.035], [0, 0, 0.035], [0.022, 0.004, 0.0], 0.85); }
+  { // fish: side profile (silver body, darker back on the accent), 0.4 m (5 tris)
+    const n = [0, 0, -0.2], up = [0, 0.05, -0.03], dn = [0, -0.045, -0.03], t0 = [0, 0, 0.14];
+    tri(7, n, up, t0, 0.9, undefined, 1); tri(7, n, t0, dn, 1); tri(7, t0, [0, 0.06, 0.21], [0, -0.06, 0.21], 0.85, undefined, 1); tri(7, [-0.012, 0, -0.08], [0.012, 0, -0.08], up, 0.8, undefined, 1); tri(7, [-0.012, 0, -0.08], dn, [0.012, 0, -0.08], 1); }
+  { // box: unit cube, y 0..1, no bottom; the top on the accent colour (soot on a chimney) (10 tris)
+    const v = (x, y, z) => [x - 0.5, y, z - 0.5];
+    quad(8, v(0, 0, 1), v(1, 0, 1), v(1, 1, 1), v(0, 1, 1), 1); quad(8, v(1, 0, 0), v(0, 0, 0), v(0, 1, 0), v(1, 1, 0), 0.9);
+    quad(8, v(0, 0, 0), v(0, 0, 1), v(0, 1, 1), v(0, 1, 0), 0.8); quad(8, v(1, 0, 1), v(1, 0, 0), v(1, 1, 0), v(1, 1, 1), 0.95);
+    quad(8, v(0, 1, 1), v(1, 1, 1), v(1, 1, 0), v(0, 1, 0), 1, undefined, 1); }
+  const NI = 320, CG = new THREE.InstancedBufferGeometry();
+  CG.setAttribute('position', new THREE.Float32BufferAttribute(GP, 3)); CG.setAttribute('color', new THREE.Float32BufferAttribute(GC, 3));
+  CG.setAttribute('aShp', new THREE.Float32BufferAttribute(GS, 1)); CG.setAttribute('aWing', new THREE.Float32BufferAttribute(GW, 1)); CG.setAttribute('aAcc', new THREE.Float32BufferAttribute(GA, 1));
+  L.atlasTris = GP.length / 9;
+  const IA = new Float32Array(NI * 4), IC2 = new Float32Array(NI * 3);
+  CG.setAttribute('iA', new THREE.InstancedBufferAttribute(IA, 4).setUsage(THREE.DynamicDrawUsage)); CG.setAttribute('iC2', new THREE.InstancedBufferAttribute(IC2, 3).setUsage(THREE.DynamicDrawUsage));
+  const CM = new THREE.MeshLambertMaterial({ color: 0xffffff, vertexColors: true, flatShading: true, side: THREE.DoubleSide });
+  CM.onBeforeCompile = sh => {
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute float aShp; attribute float aWing; attribute float aAcc; attribute vec4 iA; attribute vec3 iC2; varying float vLifeK;')
+      .replace('#include <color_vertex>', 'vColor = vec3(color); if (aAcc < 0.5) vColor *= instanceColor.rgb; else if (aAcc < 1.5) vColor *= iC2;')
+      .replace('#include <begin_vertex>', 'vec3 transformed = vec3(position); vLifeK = 1.0 - step(0.5, abs(aShp - iA.x));\nif (aWing > 0.0) { float th = aWing * (iA.z * sin(iA.y) + iA.w); float c = cos(th), s = sin(th); transformed.y += abs(transformed.x) * s; transformed.x *= c; }')
+      .replace('#include <project_vertex>', '#include <project_vertex>\nif (vLifeK < 0.5) gl_Position = vec4(0.0, 0.0, 2.0, 1.0);');
+  };
+  CM.customProgramCacheKey = () => 'v2life-crit';
+  const crit = new THREE.InstancedMesh(CG, CM, NI); crit.count = 0; crit.frustumCulled = false; crit.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  crit.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(NI * 3), 3).setUsage(THREE.DynamicDrawUsage);
+  crit.userData.noBatch = true; crit.userData.noCast = true; crit.name = 'LIFE.crit'; scene.add(crit); L.crit = crit;
+  const IM = crit.instanceMatrix.array, ICL = crit.instanceColor.array; let ni = 0;
+  // one instance: position, yaw (0 = nose north / -z), pitch (+ nose up), roll (+ right wing up), scale x / y / z, shape, wing phase / amplitude / dihedral, colours
+  // arguments go through a scratch Float64Array: a non-inlined call with double arguments boxes each one (garbage); a typed-array write never does
+  const QI = new Float64Array(15), QE = new Float64Array(18);
+  const QI0 = new Float64Array([0, 0, 0, 0, 0, 0, 1, -1, -1, 0, 0, 0, 0, 0, 0]); QI.set(QI0);   // instQ defaults: no pitch / roll, scale 1, sy = sz = sx unless set; reset after every call
+  function instQ() { const x = QI[0], y = QI[1], z = QI[2], yaw = QI[3], pitch = QI[4], roll = QI[5], sx = QI[6], sy = QI[7] < 0 ? sx : QI[7], sz = QI[8] < 0 ? sx : QI[8], shp = QI[9], ph = QI[10], amp = QI[11], dih = QI[12], c1 = QI[13] | 0, c2 = QI[14] | 0; QI.set(QI0);
+    if (ni >= NI) return; const cy = Math.cos(yaw), sy0 = Math.sin(yaw), cx = Math.cos(pitch), sx0 = Math.sin(pitch), cz = Math.cos(roll), sz0 = Math.sin(roll), o = ni * 16;
+    IM[o] = (cy * cz + sy0 * sx0 * sz0) * sx; IM[o + 1] = cx * sz0 * sx; IM[o + 2] = (-sy0 * cz + cy * sx0 * sz0) * sx; IM[o + 3] = 0;
+    IM[o + 4] = (-cy * sz0 + sy0 * sx0 * cz) * sy; IM[o + 5] = cx * cz * sy; IM[o + 6] = (sy0 * sz0 + cy * sx0 * cz) * sy; IM[o + 7] = 0;
+    IM[o + 8] = sy0 * cx * sz; IM[o + 9] = -sx0 * sz; IM[o + 10] = cy * cx * sz; IM[o + 11] = 0; IM[o + 12] = x; IM[o + 13] = y; IM[o + 14] = z; IM[o + 15] = 1;
+    const a = ni * 4; IA[a] = shp; IA[a + 1] = ph; IA[a + 2] = amp; IA[a + 3] = dih;
+    const c = ni * 3; ICL[c] = PALC[c1 * 3]; ICL[c + 1] = PALC[c1 * 3 + 1]; ICL[c + 2] = PALC[c1 * 3 + 2]; IC2[c] = PALC[c2 * 3]; IC2[c + 1] = PALC[c2 * 3 + 1]; IC2[c + 2] = PALC[c2 * 3 + 2]; ni++;
+  }
+
+  // ---------------- 2. the soft stuff: one Points draw (pool + a compacted GPU copy) ----------------
+  const NP = 1400, K = { puff: 0, glow: 1, spark: 2, ring: 3 };
+  const pX = new Float32Array(NP), pY = new Float32Array(NP), pZ = new Float32Array(NP), vX = new Float32Array(NP), vY = new Float32Array(NP), vZ = new Float32Array(NP);
+  const pAge = new Float32Array(NP), pLife = new Float32Array(NP), pS0 = new Float32Array(NP), pS1 = new Float32Array(NP), pA = new Float32Array(NP), pR = new Float32Array(NP), pG = new Float32Array(NP), pB = new Float32Array(NP);
+  const pK = new Uint8Array(NP), pSys = new Uint8Array(NP), pF = new Float32Array(NP), pQ = new Float32Array(NP), pW = new Float32Array(NP);   // style, owner system, flag / phase / extra
+  const SYS = { smoke: 1, fire: 2, ember: 3, mist: 4, splash: 5, ring: 6, firefly: 7, mote: 8, spark: 9, drift: 10, glowf: 11 }, SYSN = 12, sysN = new Int32Array(SYSN);
+  let pHint = 0, pLive = 0;
+  function emitQ() { const sys = QE[0] | 0, k = QE[1] | 0, x = QE[2], y = QE[3], z = QE[4], vx = QE[5], vy = QE[6], vz = QE[7], life = QE[8], s0 = QE[9], s1 = QE[10], a = QE[11], r = QE[12], g = QE[13], b = QE[14], f = QE[15], q = QE[16], w = QE[17]; QE.fill(0);
+    if (pLive >= NP) return -1;
+    for (let n = 0; n < NP; n++) { const i = (pHint + n) % NP; if (pSys[i]) continue; pHint = (i + 1) % NP;
+      pX[i] = x; pY[i] = y; pZ[i] = z; vX[i] = vx; vY[i] = vy; vZ[i] = vz; pAge[i] = 0; pLife[i] = life; pS0[i] = s0; pS1[i] = s1; pA[i] = a; pR[i] = r; pG[i] = g; pB[i] = b; pK[i] = k; pSys[i] = sys; pF[i] = f; pQ[i] = q; pW[i] = w; sysN[sys]++; pLive++; return i; }
+    return -1;
+  }
+  const kill = i => { sysN[pSys[i]]--; pSys[i] = 0; pLive--; };
+  const FG = new THREE.BufferGeometry(), FPOS = new Float32Array(NP * 3), FCOL = new Float32Array(NP * 4), FSZ = new Float32Array(NP), FK = new Float32Array(NP);
+  FG.setAttribute('position', new THREE.BufferAttribute(FPOS, 3).setUsage(THREE.DynamicDrawUsage)); FG.setAttribute('aC', new THREE.BufferAttribute(FCOL, 4).setUsage(THREE.DynamicDrawUsage));
+  FG.setAttribute('aS', new THREE.BufferAttribute(FSZ, 1).setUsage(THREE.DynamicDrawUsage)); FG.setAttribute('aK', new THREE.BufferAttribute(FK, 1).setUsage(THREE.DynamicDrawUsage)); FG.setDrawRange(0, 0);
+  const FU = { uH: { value: 400 }, uFN: { value: 100 }, uFF: { value: 3000 }, uFC: { value: scene.fog.color }, uL: { value: new THREE.Vector3(1, 1, 1) } };
+  const FM = new THREE.ShaderMaterial({ uniforms: FU, transparent: true, depthWrite: false, blending: THREE.CustomBlending, blendSrc: THREE.OneFactor, blendDst: THREE.OneMinusSrcAlphaFactor,
+    vertexShader: `attribute vec4 aC; attribute float aS; attribute float aK; uniform float uH, uFN, uFF; varying vec4 vC; varying float vK; varying float vF; varying vec2 vUp; varying float vSq;
+void main() { vec4 mv = modelViewMatrix * vec4(position, 1.0); gl_Position = projectionMatrix * mv; float d = max(0.3, -mv.z); float px = aS * uH * projectionMatrix[1][1] / d;
+  vC = aC; vK = aK; vF = smoothstep(uFN, uFF, d); vUp = vec2(0.0, 1.0); vSq = 1.0;
+  if (aK > 0.5 && aK < 2.5 && px < 2.0) { vC.a *= max(px, 0.25) / 2.0; px = 2.0; }
+  if (aK < 0.5) { vC.a *= smoothstep(0.6, 3.0, d); px = min(px, 700.0); }
+  if (aK > 2.5) { vec4 c1 = projectionMatrix * (modelViewMatrix * vec4(position + vec3(0.0, 0.02 * d, 0.0), 1.0)); vec2 dd = (c1.xy / c1.w - gl_Position.xy / gl_Position.w) * vec2(projectionMatrix[1][1] / projectionMatrix[0][0], 1.0);
+    vUp = dd / max(length(dd), 1e-6); vec3 up = (viewMatrix * vec4(0.0, 1.0, 0.0, 0.0)).xyz; vSq = max(abs(dot(normalize(mv.xyz), up)), 0.04); }
+  gl_PointSize = px; }`,
+    fragmentShader: `uniform vec3 uFC, uL; varying vec4 vC; varying float vK; varying float vF; varying vec2 vUp; varying float vSq;
+void main() { vec2 q = vec2(gl_PointCoord.x * 2.0 - 1.0, 1.0 - gl_PointCoord.y * 2.0); float a; vec3 c = vC.rgb; float add = 0.0;
+  if (vK < 0.5) { float r = dot(q, q); a = 1.0 - smoothstep(0.1, 1.0, r); c *= uL; }
+  else if (vK < 1.5) { float r = dot(q, q); a = exp(-r * 5.0) * (1.0 - smoothstep(0.7, 1.0, r)); add = 1.0; }
+  else if (vK < 2.5) { float r = dot(q, q); float s = max(0.0, 1.0 - abs(q.x) * 7.0) * max(0.0, 1.0 - abs(q.y)) + max(0.0, 1.0 - abs(q.y) * 7.0) * max(0.0, 1.0 - abs(q.x)); a = max(exp(-r * 18.0), s * 0.85); add = 1.0; }
+  else { vec2 n = vec2(-vUp.y, vUp.x); float u = dot(q, n), v = dot(q, vUp) / vSq; float r = length(vec2(u, v)); a = smoothstep(0.66, 0.82, r) * (1.0 - smoothstep(0.86, 1.0, r)); c *= uL; }
+  a *= vC.a; if (add > 0.5) a *= 1.0 - vF; else c = mix(c, uFC, vF);
+  if (a < 0.003) discard;
+  c = linearToOutputTexel(vec4(c, 1.0)).rgb;
+  gl_FragColor = vec4(c * a, a * (1.0 - add));
+}` });
+  const fx = new THREE.Points(FG, FM); fx.frustumCulled = false; fx.renderOrder = 6; fx.userData.noBatch = true; fx.userData.noCast = true; fx.name = 'LIFE.fx'; scene.add(fx); L.fx = fx;
+
+  // ---------------- sites (built once, here) ----------------
+  // a floor grid round a site: max ground (+ canopy) per 80 m cell over +-400 m, so a bird is kept clear of the terrain with one array read
+  const FGN = 11, FGC = 80, FGH = FGN * FGC / 2;
+  function floorGrid(cx, cz, extra) { const g = new Float32Array(FGN * FGN);
+    for (let i = 0; i < FGN; i++) for (let j = 0; j < FGN; j++) { let m = -1e9; for (let a = 0; a < 3; a++) for (let b = 0; b < 3; b++) { const x = cx - FGH + (i + (a + 0.5) / 3) * FGC, z = cz - FGH + (j + (b + 0.5) / 3) * FGC; m = Math.max(m, TH(x, z)); }
+      g[i * FGN + j] = m + extra; } return g; }
+  const floorAt = (S, x, z) => { const i = clamp(Math.floor((x - S.x + FGH) / FGC), 0, FGN - 1), j = clamp(Math.floor((z - S.z + FGH) / FGC), 0, FGN - 1); return S.fg[i * FGN + j]; };
+  const QF = new Float64Array(2);   // floor lookup with no garbage: QF = (x, z), returns the cell index (a small int)
+  const fIdx = S => { let i = Math.floor((QF[0] - S.x + FGH) / FGC), j = Math.floor((QF[1] - S.z + FGH) / FGC); i = i < 0 ? 0 : i > FGN - 1 ? FGN - 1 : i; j = j < 0 ? 0 : j > FGN - 1 ? FGN - 1 : j; return i * FGN + j; };
+  const hasV = typeof VISTA !== 'undefined' && VISTA && VISTA.L;
+  const vlake = id => { if (!hasV) return null; const l = VISTA.L.find(q => q.id === id); if (!l) return null; const w = VISTA.lakeAt(l.x, l.z); return w ? { x: l.x, z: l.z, y: w.y, w } : null; };
+  // waters: the two real lakes (circles) + the vista lakes (decorative, irregular: we keep a list of points well inside them)
+  const WAT = [];
+  for (const Lk of LAKES) { const pts = []; for (let k = 0; k < 40; k++) { const a = rnd() * TAU, d = Math.sqrt(rnd()) * Lk.r * 0.78; pts.push(Lk.x + Math.cos(a) * d, Lk.z + Math.sin(a) * d); }
+    WAT.push({ name: Lk.name, x: Lk.x, z: Lk.z, r: Lk.r, y: Lk.h - 0.2, real: true, pts: new Float32Array(pts) }); }
+  for (const id of ['hidden', 'fjord']) { const v = vlake(id); if (!v) continue; const pts = [];
+    for (let k = 0; k < 4000 && pts.length < 80; k++) { const x = v.x + rr(-420, 420), z = v.z + rr(-420, 420); let ok = true; for (const [dx, dz] of [[0, 0], [16, 0], [-16, 0], [0, 16], [0, -16], [11, 11], [-11, -11], [11, -11], [-11, 11]]) { const w = VISTA.lakeAt(x + dx, z + dz); if (!w || w !== v.w) { ok = false; break; } } if (ok) pts.push(x, z); }
+    if (pts.length >= 8) WAT.push({ name: id, x: v.x, z: v.z, r: 300, y: v.y, real: false, vista: true, pts: new Float32Array(pts) }); }
+  // the river: sample points down its ribbon (x = RIVER_X(z), surface = bed + 0.3) for fish + morning mist
+  const RIV = []; for (let z = 2350; z > -5850; z -= 25) { const x = RIVER_X(z); RIV.push(x, TH(x, z) + 0.3, z); } const RIVP = new Float32Array(RIV), RIVN = RIV.length / 3;
+
+  // songbird flocks: over the lakes, over the valley groves (TREES) and over forest slopes
+  const FLK = [];
+  const addFlock = (x, z, alt, n, kind) => { const S = { x, z, kind, alt, n, ph: rnd() * 100, A: rr(70, 130), w1: rr(0.018, 0.03), w2: rr(0.015, 0.028), wb: rr(0.42, 0.6) * (rnd() < 0.5 ? -1 : 1), spread: rr(0.8, 1.3),
+    sc: 0, st: -999, dx: 0, dz: 0, cool: 0, birds: new Float32Array(n * 6), dir: new Float32Array(n * 3), fg: null };
+    for (let i = 0; i < n; i++) { const b = S.birds; b[i * 6] = rnd() * TAU; b[i * 6 + 1] = rr(8, 30); b[i * 6 + 2] = rr(-6, 6); b[i * 6 + 3] = rnd() * TAU; b[i * 6 + 4] = rr(0.85, 1.15); b[i * 6 + 5] = rnd(); }
+    S.fg = floorGrid(x, z, kind === 'forest' ? 30 : 14); S.base = Math.max(alt, floorAt(S, x, z) + 10); FLK.push(S); };
+  for (const W of WAT) addFlock(W.x, W.z, W.y + rr(22, 40), 16 + Math.floor(rnd() * 6), 'lake');
+  { const cell = new Map(); for (const t of TREES) { const k = Math.floor(t[0] / 300) + ',' + Math.floor(t[2] / 300); const c = cell.get(k) || [0, 0, 0]; c[0]++; c[1] += t[0]; c[2] += t[2]; cell.set(k, c); }
+    const cs = [...cell.values()].filter(c => c[0] >= 10).sort((a, b) => b[0] - a[0]), took = [];
+    for (const c of cs) { const x = c[1] / c[0], z = c[2] / c[0]; if (took.some(q => hyp(q[0] - x, q[1] - z) < 900)) continue; took.push([x, z]); addFlock(x, z, TH(x, z) + rr(30, 50), 14 + Math.floor(rnd() * 8), 'grove'); if (took.length >= 5) break; } }
+  { const took = []; for (let k = 0; k < 900 && took.length < 6; k++) { const a = rnd() * TAU, d = rr(900, 3600), x = Math.cos(a) * d, z = Math.sin(a) * d, h = TH(x, z);
+      if (h < 160 || h > 620 || h > snowAt(x, z) - 150) continue; const s = hyp(TH(x + 30, z) - TH(x - 30, z), TH(x, z + 30) - TH(x, z - 30)) / 60; if (s > 0.55) continue;
+      if (took.some(q => hyp(q[0] - x, q[1] - z) < 1300) || FLK.some(q => hyp(q.x - x, q.z - z) < 900)) continue; took.push([x, z]); addFlock(x, z, h + rr(45, 70), 12 + Math.floor(rnd() * 8), 'forest'); } }
+
+  // raptors: thermals off the ridges (local high points 650-1250 m, inside the map), one or two birds each, Gordon's zone left out
+  const RAP = [];
+  { const C = []; for (let x = -4800; x <= 4800; x += 300) for (let z = -4800; z <= 4800; z += 300) { const h = TH(x, z); if (h < 650 || h > 1250) continue; let top = true;
+      for (const [dx, dz] of [[300, 0], [-300, 0], [0, 300], [0, -300], [212, 212], [-212, -212], [212, -212], [-212, 212]]) if (TH(x + dx, z + dz) > h) { top = false; break; } if (top) C.push([x, z, h, hyp(x, z)]); }
+    C.sort((a, b) => a[3] - b[3]);
+    for (const [x, z, h] of C) { if (RAP.length >= 8) break; if (RAP.some(q => hyp(q.x - x, q.z - z) < 1400) || hyp(x - GZ.x, z - GZ.z) < GZ.r + 400) continue;
+      const n = rnd() < 0.4 ? 2 : 1, S = { x, z, h, n, ph: rnd() * 100, r: rr(55, 95), v: rr(10, 12.5), alt: rr(110, 220), hawk: rnd() < 0.4, fg: null }; S.fg = floorGrid(x, z, 45); RAP.push(S); } }
+
+  // waterfowl: mallards on every lake, geese on the real ones; they sit at the lake's own level
+  const FOWL = [];
+  for (const W of WAT) { const kinds = W.real ? ['duck', 'goose'] : ['duck'];
+    for (const kind of kinds) { const n = kind === 'goose' ? 5 + Math.floor(rnd() * 3) : 6 + Math.floor(rnd() * 4), k = Math.floor(rnd() * (W.pts.length / 2)), G = { W, kind, n, x: W.pts[k * 2], z: W.pts[k * 2 + 1], st: 0, t0: 0, hx: 0, hz: 0, cx: 0, cz: 0, R: 170, dirn: 1, cool: 0, fg: null, ph: rnd() * 100, b: new Float32Array(n * 4) };
+      for (let i = 0; i < n; i++) { G.b[i * 4] = rr(-7, 7); G.b[i * 4 + 1] = rr(-7, 7); G.b[i * 4 + 2] = rnd() * TAU; G.b[i * 4 + 3] = rnd() < 0.5 ? 1 : 0; }
+      G.fg = floorGrid(G.x, G.z, 12); FOWL.push(G); } }
+
+  // smoke: town houses + shacks (a chimney / stovepipe of ours on the ridge), farmhouses (a ridge chimney), the bush camps' own stovepipes + chimneys, three campfires
+  const SMK = [], CHIM = [], RING = [];
+  const addSmoke = (x, y, z, kind, s) => SMK.push({ x, y, z, kind, s, acc: rnd(), seed: SMK.length * 7 + 3, p: hash(SMK.length * 7 + 3) });
+  for (const T of TOWNS) { const sa = Math.sin(T.a), ca = Math.cos(T.a);
+    for (const e of T.layout.b) { const [k, s, lz] = e; if (k !== 'house' && k !== 'shack') continue;
+      const b = (T.bld || []).find(q => { const dx = q.x - T.x, dz = q.z - T.z, al = dx * sa + dz * ca, ac2 = dx * ca - dz * sa; return Math.abs(al - lz) < 0.6 && Math.sign(ac2) === s; }); if (!b) continue;
+      const c = Math.cos(b.a), sn = Math.sin(b.a), W = (lx, lzz) => [b.x + lx * c + lzz * sn, b.z - lx * sn + lzz * c];
+      if (k === 'house') { const ridge = b.y + 2.9 + 0.18 + 2, [x, z] = W(b.hw * 0.45, 0); CHIM.push([x, ridge - 0.6, z, b.a, 0.62, 1.6, 0.62, P.brick, P.soot]); addSmoke(x, ridge + 1.05, z, 0, 1); }
+      else { const ridge = b.y + 2.8 + 1.6, [x, z] = W(-b.hw * 0.4, 0); CHIM.push([x, ridge - 0.5, z, b.a, 0.22, 1.4, 0.22, P.soot, P.soot]); addSmoke(x, ridge + 0.92, z, 1, 0.8); } } }
+  for (const [fx, fz] of FARMS) { const y = groundY(fx, fz); CHIM.push([fx, y + 6.9, fz, 0, 0.8, 1.7, 0.8, P.stone, P.soot]); addSmoke(fx, y + 8.65, fz, 0, 1.1); }
+  const CAMP = { 'PROSPECTOR CAMP': [['t', 0, -2], ['f', 3.2, 2.2]], 'FISH CAMP': [['t', -3.5, -2.5], ['c', 2.5, -2.4, 3.9]], 'TRAPPER CABIN': [['c', -1.8, -3, 3.8]], 'CANOE OUTFITTER': [['t', 6, -1]],
+    'RIVER GUIDES': [['t', -2, -2], ['t', 2.4, -2.6]], 'GLACIER SURVEY': [['t', -2, -2], ['t', 2.2, -2.4]], 'ELK CAMP': [['t', -3, -2.5], ['t', 1.5, -3.2], ['f', -0.5, 1.2]], 'RAFT GUIDES': [['t', -3, -2.5], ['t', 1.2, -3.2]],
+    'TIMBER CRUISERS': [['t', -2.5, -2.5], ['t', 1.5, -2.8]], 'HOMESTEAD': [['c', 2.0, -4.2, 3.6]], 'SURVEY CAMP': [['t', -2.2, -2.5], ['t', 1.6, -2.6]], 'CANYON GEOLOGISTS': [['t', -2.4, -2.6], ['t', 1.8, -2.8]], 'GOAT COUNTERS': [['t', 0, -2.6]] };
+  const FIRES = [];
+  for (const B of BUSH) { const list = CAMP[B.cust]; if (!list || !isFinite(B.cx)) continue; const c = Math.cos(B.ry), s = Math.sin(B.ry), W = (lx, lz) => [B.cx + lx * c + lz * s, B.cz - lx * s + lz * c];
+    for (const [k, a, b2, top] of list) { if (k === 't') { const [x, z] = W(a + 0.6, b2 - 0.8); addSmoke(x, groundY(x, z) + 3.2, z, 1, 0.7); } else if (k === 'c') { const [x, z] = W(a, b2); addSmoke(x, groundY(x, z) + top + 0.05, z, 2, 1); }
+      else { const [x, z] = W(a, b2); FIRES.push({ x, y: groundY(x, z), z, name: B.cust, ring: false }); } } }
+  { const v = hasV ? VISTA.L.find(q => q.id === 'hidden') : null;   // a fresh fire ring by the hidden-lake ruin: somebody camps there now (Prospector Joe's 'old cabin on the hidden lake')
+    if (v) { const x = -3671, z = 4338, w = VISTA.lakeAt(x, z); if (!w && !VISTA.hit(x, groundY(x, z) + 1, z)) FIRES.push({ x, y: groundY(x, z), z, name: 'HIDDEN LAKE', ring: true }); } }
+  for (const F of FIRES) { addSmoke(F.x, F.y + 0.35, F.z, 3, 1.4); F.si = SMK.length - 1;
+    if (F.ring) { for (let k = 0; k < 9; k++) { const a = k / 9 * TAU, x = F.x + Math.cos(a) * 0.62, z = F.z + Math.sin(a) * 0.62; RING.push([x, groundY(x, z) - 0.06, z, a, rr(0.24, 0.32), rr(0.16, 0.22), rr(0.2, 0.28), P.stone, P.stoneD]); }
+      for (const a of [0.4, 2.0]) RING.push([F.x, F.y - 0.02, F.z, a, 0.13, 0.13, 0.95, P.log, P.char]);
+      RING.push([F.x + 1.9, groundY(F.x + 1.9, F.z + 0.6) - 0.08, F.z + 0.6, 1.2, 0.34, 0.34, 1.7, P.log, P.log]); } }
+
+  // valley groves (TREES) hashed in 60 m cells, for the falling leaves
+  const TG = new Map(); for (let i = 0; i < TREES.length; i++) { const t = TREES[i], k = Math.floor(t[0] / 60) * 4096 + Math.floor(t[2] / 60); let a = TG.get(k); if (!a) TG.set(k, a = []); a.push(i); }
+  const TGK = new Map(); for (const [k, a] of TG) TGK.set(k, new Int32Array(a));
+
+  // ---------------- per-frame state (all preallocated) ----------------
+  const cp = new THREE.Vector3(), cf = new THREE.Vector3(), dsz = new THREE.Vector2();
+  const E = { day: 1, night: 0, dusk: 0, h: 12, rain: 0, grey: 0, mist: 0, wind: 0, wx: 0.6, wz: 0.2, dawn: 0, eve: 0, agl: 0, pg: 0, pspd: 0, foot: false };
+  const BUG = { n: 26, x: new Float32Array(26), y: new Float32Array(26), z: new Float32Array(26), k: new Uint8Array(26), on: new Uint8Array(26), ph: new Float32Array(26), t0: new Float32Array(26), c: new Uint8Array(26), tx: new Float32Array(26), tz: new Float32Array(26), ty: new Float32Array(26), ox: new Float32Array(26), oz: new Float32Array(26), oy: new Float32Array(26) };
+  const LF = { n: 40, x: new Float32Array(40), y: new Float32Array(40), z: new Float32Array(40), g: new Float32Array(40), on: new Uint8Array(40), ph: new Float32Array(40), sp: new Float32Array(40), c: new Uint8Array(40), rest: new Float32Array(40), vy: new Float32Array(40) };
+  const JMP = { n: 4, x: new Float32Array(4), y: new Float32Array(4), z: new Float32Array(4), yaw: new Float32Array(4), t: new Float32Array(4), on: new Uint8Array(4), next: 3 };
+  let lastShadow = -1; const TMR = new Float64Array(2);   /* [shadow check, ground probe] timers: a double in a closure variable would box on every write */ L.racc = 0; L.lacc = 0; for (const W of WAT) W.macc = 0;
+  const BUGC = new Uint8Array([P.orange, P.yellow, P.cream, P.blue, P.orange]);
+
+  // ---------------- helpers ----------------
+  const lightL = () => { const hi = hemi.intensity, si = sun.intensity; FU.uL.value.set(clamp(0.5 * hi * hemi.color.r + 0.28 * si * sun.color.r, 0.012, 1.25), clamp(0.5 * hi * hemi.color.g + 0.28 * si * sun.color.g, 0.014, 1.25), clamp(0.5 * hi * hemi.color.b + 0.28 * si * sun.color.b, 0.02, 1.25)); };
+  const tierK = () => (L.tier >= 2 ? 1 : 0.5);
+
+  function envTick(dt) {
+    E.day = TOD.day; E.night = TOD.night; E.dusk = TOD.dusk; E.h = DAY.h;
+    const W = WX.E || WX.P, on = GFX.wx > 0; E.rain = on ? Math.min(Math.max(W.rain + (FR.f || 0), 0), 1) : 0; E.grey = on ? W.grey : 0; E.mist = on ? W.mist : 0;
+    E.wind = (typeof L.wind === 'number' && L.wind >= 0) ? L.wind : Math.min(Math.max(E.grey * 0.7 + E.rain * 0.6 + (on ? (FR.f || 0) * 0.5 : 0), 0), 1);   // no wind in the sim: overcast / rain / fronts stand in for it (LIFE.wind overrides)
+    const a = E.h * 0.26 + 0.7, ws = 0.5 + 2.5 * E.wind; E.wx = Math.cos(a) * ws; E.wz = Math.sin(a) * ws;   // the drift turns slowly through the day (valley breeze)
+    E.dawn = ((SQ[0] = Math.min(Math.max((E.h - 4.9) / (6.0 - 4.9), 0), 1), SQ[0] * SQ[0] * (3 - 2 * SQ[0])) * (1 - (SQ[0] = Math.min(Math.max((E.h - 7.6) / (9.3 - 7.6), 0), 1), SQ[0] * SQ[0] * (3 - 2 * SQ[0])))) * (1 - (SQ[0] = Math.min(Math.max((E.rain - 0.3) / (0.7 - 0.3), 0), 1), SQ[0] * SQ[0] * (3 - 2 * SQ[0]))); E.eve = ((SQ[0] = Math.min(Math.max((E.h - 18.6) / (19.4 - 18.6), 0), 1), SQ[0] * SQ[0] * (3 - 2 * SQ[0])) * (1 - (SQ[0] = Math.min(Math.max((E.h - 21.8) / (23.2 - 21.8), 0), 1), SQ[0] * SQ[0] * (3 - 2 * SQ[0]))));
+    E.foot = mode !== 'plane'; E.pspd = mode === 'plane' ? Math.sqrt(ac.vel[0] * ac.vel[0] + ac.vel[1] * ac.vel[1] + ac.vel[2] * ac.vel[2]) : 0;
+    if ((TMR[1] -= dt) <= 0) { TMR[1] = 0.25; E.pg = (QH[0] = cp.x, QH[1] = cp.z, thQ(), QH[2]); } E.agl = cp.y - E.pg;
+  }
+
+  // ---------------- flocks ----------------
+  function flocksTick(dt) {
+    const t = L.t, act = E.day * (1 - 0.6 * E.rain) * (1 - 0.4 * E.wind), R2 = (L.tier >= 2 ? 1500 : 1000) ** 2, px = ac.pos[0], py = ac.pos[1], pz = ac.pos[2];
+    if (act < 0.08) return;
+    for (let f = 0; f < FLK.length; f++) { const S = FLK[f];
+      const T = t + S.ph, cx = S.x + S.A * Math.sin(S.w1 * T), cz = S.z + S.A * Math.sin(S.w2 * T + 1.3), cy = S.base + 8 * Math.sin(0.05 * T), vcx = S.A * S.w1 * Math.cos(S.w1 * T), vcz = S.A * S.w2 * Math.cos(S.w2 * T + 1.3);
+      if (((cx - cp.x) * (cx - cp.x) + (cz - cp.z) * (cz - cp.z)) > R2) continue;
+      // the Cub passing low scatters them (and they come back together over half a minute)
+      if (!E.foot && S.sc === 0 && t > S.cool && E.pspd > 12 && Math.sqrt((px - cx) * (px - cx) + (pz - cz) * (pz - cz)) < 170 && py - cy < 140 && py - cy > -90) {
+        S.sc = 1; S.st = t; const dl = Math.max(1, Math.sqrt((cx - px) * (cx - px) + (cz - pz) * (cz - pz))); S.dx = (cx - px) / dl; S.dz = (cz - pz) / dl;
+        for (let i = 0; i < S.n; i++) { const b = S.birds, a = b[i * 6] + S.wb * T, ex = Math.cos(a) + S.dx * 0.8 + (b[i * 6 + 5] - 0.5) * 0.8, ez = Math.sin(a) + S.dz * 0.8 + (hash(i + f * 97) - 0.5) * 0.8, ey = 0.45 + b[i * 6 + 5] * 0.6, el = Math.sqrt(ex * ex + ey * ey + ez * ez); S.dir[i * 3] = ex / el; S.dir[i * 3 + 1] = ey / el; S.dir[i * 3 + 2] = ez / el; } }
+      let D = 0, Dv = 0; if (S.sc) { const u = t - S.st; if (u < 10) { D = 140 * (1 - Math.exp(-u / 1.8)); Dv = 140 / 1.8 * Math.exp(-u / 1.8); } else { const e = Math.exp(-(u - 10) / 6); D = 140 * e; Dv = -140 / 6 * e; if (u > 40) { S.sc = 0; S.cool = t + 15; } } }
+      const n = Math.max(3, Math.round(S.n * act * tierK())), sx = 1 + 0.5 * Math.sin(0.07 * T), sz = 1 - 0.35 * Math.sin(0.07 * T), far = Math.sqrt(((cx - cp.x) * (cx - cp.x) + (cz - cp.z) * (cz - cp.z))), sc = Math.min(Math.max(far / 200, 1.3), 3.2);
+      for (let i = 0; i < n; i++) { const b = S.birds, o = i * 6, w = S.wb * b[o + 4], a = b[o] + w * T, r = b[o + 1] * S.spread;
+        let x = cx + Math.cos(a) * r * sx, z = cz + Math.sin(a) * r * sz, y = cy + b[o + 2] + 4 * Math.sin(0.9 * T + b[o + 3]);
+        let vx = vcx - Math.sin(a) * r * sx * w, vz = vcz + Math.cos(a) * r * sz * w, vy = 3.6 * Math.cos(0.9 * T + b[o + 3]);
+        if (D > 0) { x += S.dir[i * 3] * D; y += S.dir[i * 3 + 1] * D; z += S.dir[i * 3 + 2] * D; vx += S.dir[i * 3] * Dv; vy += S.dir[i * 3 + 1] * Dv; vz += S.dir[i * 3 + 2] * Dv; }
+        const fl = S.fg[(QF[0] = x, QF[1] = z, fIdx(S))]; if (y < fl) y = fl;
+        const hs = Math.sqrt(vx * vx + vz * vz) + 0.01, yaw = Math.atan2(-vx, -vz), pitch = Math.min(Math.max(Math.atan2(vy, hs), -0.6), 0.6), roll = -0.45 * Math.sign(w) * (D > 0 ? 0.3 : 1);
+        const bound = Math.sin(0.8 * T + b[o + 3] * 3) > -0.25 || D > 0, amp = bound ? 0.85 : 0.05, dih = bound ? 0 : -0.55;
+        (QI[0] = x, QI[1] = y, QI[2] = z, QI[3] = yaw, QI[4] = pitch, QI[5] = roll, QI[6] = sc, QI[9] = SH.bird, QI[10] = T * (D > 0 ? 17 : 13) + b[o + 3] * 7, QI[11] = amp, QI[12] = dih, QI[13] = P.bird, QI[14] = P.bird, instQ()); } }
+  }
+  // ---------------- raptors ----------------
+  function raptorsTick() {
+    const act = (SQ[0] = Math.min(Math.max((E.day - 0.35) / (0.8 - 0.35), 0), 1), SQ[0] * SQ[0] * (3 - 2 * SQ[0])) * ((SQ[0] = Math.min(Math.max((E.h - 8.3) / (9.8 - 8.3), 0), 1), SQ[0] * SQ[0] * (3 - 2 * SQ[0])) * (1 - (SQ[0] = Math.min(Math.max((E.h - 17.2) / (18.6 - 17.2), 0), 1), SQ[0] * SQ[0] * (3 - 2 * SQ[0])))) * (1 - (SQ[0] = Math.min(Math.max((E.rain - 0.15) / (0.5 - 0.15), 0), 1), SQ[0] * SQ[0] * (3 - 2 * SQ[0]))); if (act < 0.05) return;
+    const R2 = (L.tier >= 2 ? 2600 : 1600) ** 2, t = L.t;
+    for (let k = 0; k < RAP.length; k++) { const S = RAP[k]; if (((S.x - cp.x) * (S.x - cp.x) + (S.z - cp.z) * (S.z - cp.z)) > R2) continue;
+      for (let j = 0; j < S.n; j++) { const T = t + S.ph + j * 37, drift = (T * 0.6) % 500, tx = S.x + E.wx * drift * 0.4 + j * 30, tz = S.z + E.wz * drift * 0.4, r = S.r * (1 + 0.2 * j), w = S.v / r * (j ? -1 : 1), a = w * T;
+        const x = tx + Math.cos(a) * r, z = tz + Math.sin(a) * r, yb = S.h + S.alt + 40 * Math.sin(0.012 * T) + j * 25, fl = S.fg[(QF[0] = x, QF[1] = z, fIdx(S))], y = Math.max(yb, fl);
+        const vx = -Math.sin(a) * r * w, vz = Math.cos(a) * r * w, yaw = Math.atan2(-vx, -vz), flap = Math.sin(T * 0.21) > 0.93, sc = Math.min(Math.max(Math.sqrt(((x - cp.x) * (x - cp.x) + (z - cp.z) * (z - cp.z))) / 900, 1), 2.2);
+        (QI[0] = x, QI[1] = y, QI[2] = z, QI[3] = yaw, QI[4] = 0.03, QI[5] = w > 0 ? -0.32 : 0.32, QI[6] = sc, QI[9] = SH.eagle, QI[10] = T * 6, QI[11] = flap ? 0.55 : 0.02, QI[12] = 0.14, QI[13] = S.hawk ? P.henB : P.eagleB, QI[14] = S.hawk ? P.cream : P.white, instQ()); } }
+  }
+  // ---------------- waterfowl ----------------
+  function fowlTick(dt) {
+    const t = L.t, R2 = (L.tier >= 2 ? 1300 : 800) ** 2, px = ac.pos[0], py = ac.pos[1], pz = ac.pos[2];
+    for (let g = 0; g < FOWL.length; g++) { const G = FOWL[g], W = G.W; if (((G.x - cp.x) * (G.x - cp.x) + (G.z - cp.z) * (G.z - cp.z)) > R2) continue;
+      if (G.st === 0 && t > G.cool) {   // flush: the Cub low over them, or you walking up to the shore
+        const dp = Math.sqrt((px - G.x) * (px - G.x) + (pz - G.z) * (pz - G.z)), dc = Math.sqrt(((G.x - cp.x) * (G.x - cp.x) + (G.z - cp.z) * (G.z - cp.z)));
+        if ((!E.foot && dp < 230 && py - W.y < 160) || (E.foot && dc < 38)) { G.st = 1; G.t0 = t; const tx = E.foot ? cp.x : px, tz = E.foot ? cp.z : pz, dl = Math.max(1, Math.sqrt((G.x - tx) * (G.x - tx) + (G.z - tz) * (G.z - tz))); G.hx = (G.x - tx) / dl; G.hz = (G.z - tz) / dl; G.dirn = RT[++ri & 4095] < 0.5 ? 1 : -1;
+          G.cx = G.x - G.hz * G.R * G.dirn; G.cz = G.z + G.hx * G.R * G.dirn; } }
+      const goose = G.kind === 'goose', s = goose ? 1.75 : 1, n = Math.max(2, Math.round(G.n * tierK())), c1 = goose ? P.goose : P.duck;
+      if (G.st === 0) { for (let i = 0; i < n; i++) { const b = G.b, o = i * 4, T = t * 0.05 + b[o + 2], x = G.x + b[o] + 2.5 * Math.sin(T), z = G.z + b[o + 1] + 2.5 * Math.cos(T * 0.8), yaw = Math.atan2(-(Math.cos(T) * 2.5), -(-Math.sin(T * 0.8) * 2)) ;
+          (QI[0] = x, QI[1] = W.y + 0.01 * Math.sin(t * 1.7 + i), QI[2] = z, QI[3] = yaw, QI[5] = 0.03 * Math.sin(t * 1.3 + i), QI[6] = s, QI[9] = SH.duck, QI[13] = c1, QI[14] = goose ? P.black : (b[o + 3] ? P.drakeG : P.henB), instQ()); } continue; }
+      // flying: a run along the water, a climbing circuit round a circle tangent to the flush point, back down to the same spot
+      const v = goose ? 13 : 15, per = TAU * G.R / v;
+      let alive = 0;
+      for (let i = 0; i < n; i++) { const b = G.b, o = i * 4, u = t - G.t0 - i * 0.45; if (u < 0) { (QI[0] = G.x + b[o], QI[1] = W.y, QI[2] = G.z + b[o + 1], QI[3] = Math.atan2(-G.hx, -G.hz), QI[6] = s, QI[9] = SH.duck, QI[13] = c1, QI[14] = goose ? P.black : (b[o + 3] ? P.drakeG : P.henB), instQ()); alive++; continue; }
+        if (u > per + 4) continue; alive++;
+        const a0 = Math.atan2(G.z - G.cz, G.x - G.cx), a = a0 + G.dirn * u * v / G.R * (u < 3 ? u / 6 : 1) - (u < 3 ? 0 : G.dirn * 1.5 * v / G.R), lat = b[o] * 0.4;
+        const x = G.cx + Math.cos(a) * (G.R + lat), z = G.cz + Math.sin(a) * (G.R + lat), f = u / per, prof = u < 3 ? u * 0.8 : Math.min(42, 2.4 + (u - 3) * 4.5) * (1 - (SQ[0] = Math.min(Math.max((f - 0.72) / (1 - 0.72), 0), 1), SQ[0] * SQ[0] * (3 - 2 * SQ[0]))), y = Math.max(W.y + prof * (f > 0.98 ? 0 : 1), f < 0.85 ? G.fg[(QF[0] = x, QF[1] = z, fIdx(G))] - 6 : -1e9);
+        const vx = -Math.sin(a) * G.dirn, vz = Math.cos(a) * G.dirn, yaw = Math.atan2(-vx, -vz), land = f > 0.97;
+        (QI[0] = x, QI[1] = Math.max(y, W.y), QI[2] = z, QI[3] = yaw, QI[4] = land ? 0 : 0.08, QI[5] = -0.25 * G.dirn, QI[6] = s, QI[9] = land ? SH.duck : SH.duckF, QI[10] = (t - G.t0) * (goose ? 9 : 12) + i, QI[11] = land ? 0 : 0.9, QI[13] = c1, QI[14] = goose ? P.black : (b[o + 3] ? P.drakeG : P.henB), instQ());
+        if (u > 0 && u <= dt) (QS[0] = G.x + b[o], QS[1] = W.y, QS[2] = G.z + b[o + 1], QS[3] = 6, QS[4] = 0.6, splashQ()); }
+      if (t - G.t0 > per + 4 + n * 0.45 || !alive) { G.st = 0; G.cool = t + 25; } }
+  }
+  // ---------------- fish jumping (real water only: the two lakes + the river; the vista lakes too once VISTA.setWaterPhys(true)) ----------------
+  const QS = new Float64Array(5);   // (QS[0] = x, QS[1] = y, QS[2] = z, QS[3] = n, QS[4] = size, splashQ()) through a scratch array (no boxed arguments)
+  function splashQ() { const x = QS[0], y = QS[1], z = QS[2], n = QS[3], s = QS[4]; const k = tierK(); for (let i = 0; i < Math.round(n * k); i++) { const a = RT[++ri & 4095] * TAU, sp = (0.6 + 1.2 * RT[++ri & 4095]) * s; (QE[0] = SYS.splash, QE[1] = K.puff, QE[2] = x, QE[3] = y + 0.05, QE[4] = z, QE[5] = Math.cos(a) * sp, QE[6] = (1.8 + 1.6 * RT[++ri & 4095]) * s, QE[7] = Math.sin(a) * sp, QE[8] = 0.9, QE[9] = 0.07, QE[10] = 0.12, QE[11] = 0.75, QE[12] = 0.93, QE[13] = 0.96, QE[14] = 1, QE[15] = y, emitQ()); }
+    (QE[0] = SYS.ring, QE[1] = K.ring, QE[2] = x, QE[3] = y + 0.02, QE[4] = z, QE[8] = 2.6, QE[9] = 0.5 * s, QE[10] = 4.2 * s, QE[11] = 0.55, QE[12] = 0.9, QE[13] = 0.95, QE[14] = 1, emitQ()); }
+  function fishTickL(dt) {
+    const t = L.t, rate = (0.35 + 1.4 * Math.max(E.dawn, E.eve, E.dusk) + 0.4 * E.rain) * (1 - 0.8 * E.night) * tierK();
+    if ((JMP.next -= dt * rate) <= 0) { JMP.next = (2.5 + 4.5 * RT[++ri & 4095]);
+      for (let tries = 0; tries < 6; tries++) { let x = 0, y = 0, z = 0, ok = false;
+        const pick = RT[++ri & 4095]; if (pick < 0.55) { for (let w = 0; w < WAT.length; w++) { const W = WAT[w]; if (!W.real && !(hasV && VISTA.waterPhys)) continue; if (((W.x - cp.x) * (W.x - cp.x) + (W.z - cp.z) * (W.z - cp.z)) > (W.r + 260) ** 2) continue; const k = Math.floor(RT[++ri & 4095] * W.pts.length / 2); x = W.pts[k * 2] + (-6 + 12 * RT[++ri & 4095]); z = W.pts[k * 2 + 1] + (-6 + 12 * RT[++ri & 4095]); y = W.y; ok = true; break; } }
+        else { const zz = cp.z + (-240 + 480 * RT[++ri & 4095]), k = Math.round((2350 - zz) / 25); if (k >= 0 && k < RIVN) { x = RIVP[k * 3] + (-5 + 10 * RT[++ri & 4095]); y = RIVP[k * 3 + 1]; z = RIVP[k * 3 + 2]; ok = true; } }
+        if (!ok) continue; const d = Math.sqrt(((x - cp.x) * (x - cp.x) + (z - cp.z) * (z - cp.z))); if (d < 12 || d > 260) continue;
+        for (let j = 0; j < JMP.n; j++) if (!JMP.on[j]) { JMP.on[j] = 1; JMP.x[j] = x; JMP.y[j] = y; JMP.z[j] = z; JMP.yaw[j] = RT[++ri & 4095] * TAU; JMP.t[j] = 0; (QS[0] = x, QS[1] = y, QS[2] = z, QS[3] = 7, QS[4] = 0.8, splashQ()); break; }
+        break; } }
+    for (let j = 0; j < JMP.n; j++) { if (!JMP.on[j]) continue; JMP.t[j] += dt; const u = JMP.t[j] / 0.85; if (u >= 1) { JMP.on[j] = 0; const fx = JMP.x[j] - Math.sin(JMP.yaw[j]) * 1.3, fz = JMP.z[j] - Math.cos(JMP.yaw[j]) * 1.3; (QS[0] = fx, QS[1] = JMP.y[j], QS[2] = fz, QS[3] = 9, QS[4] = 1, splashQ()); continue; }
+      const fx = JMP.x[j] - Math.sin(JMP.yaw[j]) * 1.3 * u, fz = JMP.z[j] - Math.cos(JMP.yaw[j]) * 1.3 * u, fy = JMP.y[j] - 0.15 + 4 * 0.85 * u * (1 - u), pitch = Math.atan2(4 * 0.85 * (1 - 2 * u), 1.3) * 0.9;
+      (QI[0] = fx, QI[1] = fy, QI[2] = fz, QI[3] = JMP.yaw[j], QI[4] = pitch, QI[5] = 0.25 * Math.sin(t * 20), QI[9] = SH.fish, QI[13] = P.fish, QI[14] = P.fishD, instQ()); }
+  }
+  // ---------------- smoke: chimneys, stovepipes, campfires ----------------
+  // how lit each smoke source is this hour (fires, stoves, chimneys keep their own schedules), once a frame into LS: no per-source calls, no garbage
+  let LS = null;
+  function litAll() { if (!LS || LS.length !== SMK.length) LS = new Float64Array(SMK.length);
+    const h = E.h, m = ((SQ[0] = Math.min(Math.max((h - 5.2) / (6.2 - 5.2), 0), 1), SQ[0] * SQ[0] * (3 - 2 * SQ[0])) * (1 - (SQ[0] = Math.min(Math.max((h - 9.5) / (11 - 9.5), 0), 1), SQ[0] * SQ[0] * (3 - 2 * SQ[0])))), ev = ((SQ[0] = Math.min(Math.max((h - 16.5) / (18 - 16.5), 0), 1), SQ[0] * SQ[0] * (3 - 2 * SQ[0])) * (1 - (SQ[0] = Math.min(Math.max((h - 23) / (24.5 - 23), 0), 1), SQ[0] * SQ[0] * (3 - 2 * SQ[0])))), nt = h < 5.5 || h > 23;
+    for (let s = 0; s < SMK.length; s++) { const S = SMK[s], p = S.p;
+      LS[s] = S.kind === 3 ? Math.max(m * 0.9, ev, nt ? 0.75 : 0, 0.3) : S.kind === 1 ? (p < 0.75 ? Math.max(m, ev * 0.9, nt ? 0.35 : 0, p < 0.2 ? 0.6 : 0) : 0) : Math.max(p < 0.85 ? m : 0, p < 0.9 ? ev : 0, p < 0.45 ? 0.7 : 0, nt && p < 0.5 ? 0.6 : 0); } }
+  function smokeTick(dt) {
+    litAll();
+    const R = L.tier >= 2 ? 2200 : 1300, R2 = R * R, k = tierK(), wx = E.wx, wz = E.wz;
+    for (let s = 0; s < SMK.length; s++) { const S = SMK[s], d2 = ((S.x - cp.x) * (S.x - cp.x) + (S.z - cp.z) * (S.z - cp.z)); if (d2 > R2) continue; const l = LS[s]; if (l < 0.05) continue;
+      const d = Math.sqrt(d2), far = d > 700 ? 1.9 : d > 300 ? 1.35 : 1, fire = S.kind === 3, iv = (fire ? 0.22 : 0.42) * far / k / (0.4 + 0.6 * l);
+      if ((S.acc += dt / iv) >= 1) { S.acc -= 1; if (S.acc > 1) S.acc = 0; const life = (fire ? 14 : 13) * (0.8 + 0.4 * RT[++ri & 4095]) * (far > 1.5 ? 0.85 : 1), g = fire ? 0.86 : S.kind === 1 ? 0.62 : 0.74;
+        (QE[0] = SYS.smoke, QE[1] = K.puff, QE[2] = S.x + (-0.1 + 0.2 * RT[++ri & 4095]), QE[3] = S.y, QE[4] = S.z + (-0.1 + 0.2 * RT[++ri & 4095]), QE[5] = (-0.15 + 0.3 * RT[++ri & 4095]), QE[6] = (fire ? 2.0 : 1.7) * (0.8 + 0.4 * RT[++ri & 4095]), QE[7] = (-0.15 + 0.3 * RT[++ri & 4095]), QE[8] = life, QE[9] = (fire ? 0.6 : 0.4) * S.s * far, QE[10] = (fire ? 9 : 7.5) * S.s * far, QE[11] = 0.36 * (0.6 + 0.4 * l), QE[12] = g, QE[13] = g * 0.99, QE[14] = g * 1.02, emitQ()); }
+      }
+    // campfire glow + embers (dusk / night / early morning)
+    const dark = 1 - E.day;
+    for (let f = 0; f < FIRES.length; f++) { const F = FIRES[f]; if (((F.x - cp.x) * (F.x - cp.x) + (F.z - cp.z) * (F.z - cp.z)) > (L.tier >= 2 ? 1200 : 700) ** 2) continue; const l = LS[F.si]; if (l < 0.05) continue;
+      if (dark > 0.25 && sysN[SYS.glowf] < FIRES.length * 2 && RT[++ri & 4095] < dt * 8) (QE[0] = SYS.glowf, QE[1] = K.glow, QE[2] = F.x + (-0.15 + 0.3 * RT[++ri & 4095]), QE[3] = F.y + 0.3, QE[4] = F.z + (-0.15 + 0.3 * RT[++ri & 4095]), QE[8] = 0.35, QE[9] = 1.1, QE[10] = 1.3, QE[11] = 0.55 * dark * l, QE[12] = 1.0, QE[13] = 0.45, QE[14] = 0.12, emitQ());
+      if (dark > 0.2 && RT[++ri & 4095] < dt * 9 * k) (QE[0] = SYS.ember, QE[1] = K.glow, QE[2] = F.x + (-0.25 + 0.5 * RT[++ri & 4095]), QE[3] = F.y + 0.3, QE[4] = F.z + (-0.25 + 0.5 * RT[++ri & 4095]), QE[5] = (-0.3 + 0.6 * RT[++ri & 4095]) + wx * 0.2, QE[6] = (1.2 + 1.4 * RT[++ri & 4095]), QE[7] = (-0.3 + 0.6 * RT[++ri & 4095]) + wz * 0.2, QE[8] = (0.8 + 1 * RT[++ri & 4095]), QE[9] = 0.035, QE[10] = 0.02, QE[11] = 0.9 * dark, QE[12] = 1.0, QE[13] = 0.55, QE[14] = 0.15, QE[16] = RT[++ri & 4095] * 6, emitQ()); }
+  }
+  // ---------------- dawn mist off the water ----------------
+  function mistTick(dt) {
+    const f = Math.max(E.dawn * (1 - (SQ[0] = Math.min(Math.max((E.wind - 0.2) / (0.6 - 0.2), 0), 1), SQ[0] * SQ[0] * (3 - 2 * SQ[0]))), E.mist * 0.5) * tierK(); if (f < 0.04) return;
+    const R2 = (L.tier >= 2 ? 1800 : 1100) ** 2;
+    for (let w = 0; w < WAT.length; w++) { const W = WAT[w]; if (((W.x - cp.x) * (W.x - cp.x) + (W.z - cp.z) * (W.z - cp.z)) > R2) continue; W.macc += dt * f * (W.real ? 1.6 : 1.3);
+      while (W.macc >= 1) { W.macc -= 1; const k = Math.floor(RT[++ri & 4095] * W.pts.length / 2); (QE[0] = SYS.mist, QE[1] = K.puff, QE[2] = W.pts[k * 2] + (-8 + 16 * RT[++ri & 4095]), QE[3] = W.y + 0.4, QE[4] = W.pts[k * 2 + 1] + (-8 + 16 * RT[++ri & 4095]), QE[5] = E.wx * 0.15, QE[6] = (0.1 + 0.12 * RT[++ri & 4095]), QE[7] = E.wz * 0.15, QE[8] = (18 + 8 * RT[++ri & 4095]), QE[9] = (3 + 2 * RT[++ri & 4095]), QE[10] = (10 + 6 * RT[++ri & 4095]), QE[11] = 0.13 * f + 0.04, QE[12] = 0.97, QE[13] = 0.97, QE[14] = 0.98, emitQ()); } }
+    // the river too (its morning fog), near you only
+    if (RIVN && (QM[0] = cp.x, QM[1] = cp.z, rvdQ(), QR[0]) < 900) { L.racc += dt * f * 1.2; while (L.racc >= 1) { L.racc -= 1; const zz = cp.z + (-500 + 1000 * RT[++ri & 4095]), kk = Math.round((2350 - zz) / 25); if (kk < 0 || kk >= RIVN) continue;
+      (QE[0] = SYS.mist, QE[1] = K.puff, QE[2] = RIVP[kk * 3] + (-4 + 8 * RT[++ri & 4095]), QE[3] = RIVP[kk * 3 + 1] + 0.3, QE[4] = RIVP[kk * 3 + 2], QE[5] = E.wx * 0.12, QE[6] = (0.08 + 0.1 * RT[++ri & 4095]), QE[7] = E.wz * 0.12, QE[8] = (14 + 6 * RT[++ri & 4095]), QE[9] = (2.5 + 1.5 * RT[++ri & 4095]), QE[10] = (7 + 4 * RT[++ri & 4095]), QE[11] = 0.12 * f + 0.03, QE[12] = 0.97, QE[13] = 0.97, QE[14] = 0.98, emitQ()); } }
+  }
+  // ---------------- close-up life (only while you're near the ground): insects, fireflies, motes, leaves, snow sparkle + spindrift ----------------
+  // spawn-site tests; arguments through QM (x, z, h), no garbage: is this flat open ground below the forest line, off the water? / is this a lake shore or a river bank?
+  const QM = new Float64Array(3);
+  const QR = new Float64Array(1), rvdQ = () => { const f = (2350 - QM[1]) / 25, i = Math.floor(f); if (i < 0 || i >= RIVN - 1) { QR[0] = 1e9; return; } const t = f - i; QR[0] = Math.abs(QM[0] - (RIVP[i * 3] + (RIVP[i * 3 + 3] - RIVP[i * 3]) * t)); };   // distance off the river line into QR[0]
+  const meadowQ = () => { const x = QM[0], z = QM[1], h = QM[2]; if (h > 140 || h < -30) return false; QH[0] = x + 6; QH[1] = z; thQ(); let s = Math.abs(QH[2] - h); QH[0] = x; QH[1] = z + 6; thQ(); s += Math.abs(QH[2] - h); if (s > 0.9) return false;
+    for (let i = 0; i < WAT.length; i++) { const W = WAT[i]; if (W.real && (x - W.x) * (x - W.x) + (z - W.z) * (z - W.z) < (W.r + 6) * (W.r + 6)) return false; } rvdQ(); return QR[0] > 12; };
+  const nearWaterQ = () => { const x = QM[0], z = QM[1]; for (let i = 0; i < WAT.length; i++) { const W = WAT[i]; if (!W.real) continue; const d = Math.sqrt((x - W.x) * (x - W.x) + (z - W.z) * (z - W.z)) - W.r; if (d > -4 && d < 28) return true; } rvdQ(); const r = QR[0]; return r > 6 && r < 30; };
+  function bugsTick(dt) {
+    const t = L.t, low = E.agl < 35 && E.pspd < 25, want = low ? (SQ[0] = Math.min(Math.max((E.day - 0.45) / (0.85 - 0.45), 0), 1), SQ[0] * SQ[0] * (3 - 2 * SQ[0])) * (1 - (SQ[0] = Math.min(Math.max((E.rain - 0.05) / (0.25 - 0.05), 0), 1), SQ[0] * SQ[0] * (3 - 2 * SQ[0]))) * (1 - 0.85 * E.wind) * ((SQ[0] = Math.min(Math.max((E.h - 7.5) / (9.5 - 7.5), 0), 1), SQ[0] * SQ[0] * (3 - 2 * SQ[0])) * (1 - (SQ[0] = Math.min(Math.max((E.h - 17.5) / (19 - 17.5), 0), 1), SQ[0] * SQ[0] * (3 - 2 * SQ[0])))) : 0, nB = Math.round(16 * want * tierK()), nD = Math.round(10 * want * tierK());
+    let cB = 0, cD = 0, att = 0; for (let i = 0; i < BUG.n; i++) if (BUG.on[i]) { if (BUG.k[i] === SH.fly) cB++; else cD++; }
+    for (let i = 0; i < BUG.n; i++) { if (BUG.on[i]) { if (((BUG.x[i] - cp.x) * (BUG.x[i] - cp.x) + (BUG.z[i] - cp.z) * (BUG.z[i] - cp.z)) > 55 * 55 || (BUG.k[i] === SH.fly ? cB > nB : cD > nD)) { BUG.on[i] = 0; if (BUG.k[i] === SH.fly) cB--; else cD--; } continue; }
+      if ((cB >= nB && cD >= nD) || att++ >= 2) break; const dragon = cB >= nB; const a = RT[++ri & 4095] * TAU, d = (5 + 29 * RT[++ri & 4095]), x = cp.x + Math.cos(a) * d, z = cp.z + Math.sin(a) * d, h = (QH[0] = x, QH[1] = z, thQ(), QH[2]);
+      QM[0] = x; QM[1] = z; QM[2] = h; if (dragon ? !nearWaterQ() : !meadowQ()) continue;
+      BUG.on[i] = 1; BUG.k[i] = dragon ? SH.drag : SH.fly; BUG.x[i] = x; BUG.z[i] = z; BUG.y[i] = h; BUG.ph[i] = RT[++ri & 4095] * 100; BUG.t0[i] = t; BUG.c[i] = dragon ? (RT[++ri & 4095] < 0.5 ? P.blue : P.teal) : BUGC[Math.floor(RT[++ri & 4095] * 5)];
+      BUG.ox[i] = x; BUG.oz[i] = z; BUG.oy[i] = h + (0.5 + 0.7 * RT[++ri & 4095]); BUG.tx[i] = x; BUG.tz[i] = z; BUG.ty[i] = BUG.oy[i]; if (dragon) cD++; else cB++; }
+    for (let i = 0; i < BUG.n; i++) { if (!BUG.on[i]) continue; const T = t + BUG.ph[i];
+      if (BUG.k[i] === SH.fly) { const x = BUG.x[i] + 2.6 * Math.sin(T * 0.37) + 1.1 * Math.sin(T * 1.3), z = BUG.z[i] + 2.6 * Math.sin(T * 0.29 + 1) + 1.1 * Math.cos(T * 1.1), y = BUG.y[i] + 0.7 + 0.45 * Math.sin(T * 0.9) + 0.15 * Math.sin(T * 5.3);
+        const vx = 2.6 * 0.37 * Math.cos(T * 0.37) + 1.43 * Math.cos(T * 1.3), vz = 2.6 * 0.29 * Math.cos(T * 0.29 + 1) - 1.21 * Math.sin(T * 1.1);
+        (QI[0] = x, QI[1] = y, QI[2] = z, QI[3] = Math.atan2(-vx, -vz), QI[4] = 0.15, QI[6] = 2.2, QI[9] = SH.fly, QI[10] = T * 55, QI[11] = 1.05, QI[12] = 0.45, QI[13] = BUG.c[i], QI[14] = P.black, instQ()); }
+      else { // hover, then dart to a new spot
+        if (t - BUG.t0[i] > 1.2 + hash(i + Math.floor(T)) * 2) { BUG.t0[i] = t; BUG.ox[i] = BUG.tx[i]; BUG.oz[i] = BUG.tz[i]; BUG.oy[i] = BUG.ty[i]; BUG.tx[i] = BUG.x[i] + (-6 + 12 * RT[++ri & 4095]); BUG.tz[i] = BUG.z[i] + (-6 + 12 * RT[++ri & 4095]); BUG.ty[i] = BUG.y[i] + (0.4 + 1 * RT[++ri & 4095]); }
+        const u = (SQ[0] = Math.min(Math.max(((t - BUG.t0[i]) - 0) / (0.35 - 0), 0), 1), SQ[0] * SQ[0] * (3 - 2 * SQ[0])), x = BUG.ox[i] + (BUG.tx[i] - BUG.ox[i]) * u + 0.05 * Math.sin(T * 9), z = BUG.oz[i] + (BUG.tz[i] - BUG.oz[i]) * u, y = BUG.oy[i] + (BUG.ty[i] - BUG.oy[i]) * u + 0.04 * Math.sin(T * 7);
+        (QI[0] = x, QI[1] = y, QI[2] = z, QI[3] = Math.atan2(-(BUG.tx[i] - BUG.ox[i]), -(BUG.tz[i] - BUG.oz[i])), QI[6] = 1.8, QI[9] = SH.drag, QI[10] = T * 150, QI[11] = 0.22, QI[12] = 0.05, QI[13] = BUG.c[i], QI[14] = BUG.c[i] === P.blue ? P.blue : P.dteal, instQ()); } }
+  }
+  function nightBugsTick(dt) {   // fireflies: warm evenings, low over the valley floor and the forest edge
+    const want = E.agl < 60 && E.pspd < 30 ? Math.max(E.eve, E.night * ((SQ[0] = Math.min(Math.max((E.h - 18) / (20 - 18), 0), 1), SQ[0] * SQ[0] * (3 - 2 * SQ[0])) * (1 - (SQ[0] = Math.min(Math.max((E.h - 23.4) / (24.5 - 23.4), 0), 1), SQ[0] * SQ[0] * (3 - 2 * SQ[0]))))) * (1 - (SQ[0] = Math.min(Math.max((E.rain - 0.05) / (0.3 - 0.05), 0), 1), SQ[0] * SQ[0] * (3 - 2 * SQ[0]))) * (1 - 0.8 * E.wind) * (E.pg < 420 ? 1 : 0) : 0, n = Math.round(90 * want * tierK());
+    let tries = 0; while (sysN[SYS.firefly] < n && tries++ < 3) { const a = RT[++ri & 4095] * TAU, d = (2.5 + 27.5 * RT[++ri & 4095]), x = cp.x + Math.cos(a) * d, z = cp.z + Math.sin(a) * d, h = (QH[0] = x, QH[1] = z, thQ(), QH[2]); if (Math.abs(h - E.pg) > 25) continue;
+      (QE[0] = SYS.firefly, QE[1] = K.glow, QE[2] = x, QE[3] = h + (0.3 + 2.1 * RT[++ri & 4095]), QE[4] = z, QE[5] = (-0.25 + 0.5 * RT[++ri & 4095]), QE[6] = (-0.05 + 0.1 * RT[++ri & 4095]), QE[7] = (-0.25 + 0.5 * RT[++ri & 4095]), QE[8] = (14 + 12 * RT[++ri & 4095]), QE[9] = 0.2, QE[10] = 0.2, QE[11] = 1, QE[12] = 0.78, QE[13] = 1.0, QE[14] = 0.32, QE[15] = h, QE[16] = RT[++ri & 4095] * 50, QE[17] = (2.2 + 1.4 * RT[++ri & 4095]), emitQ()); }
+    void dt;
+  }
+  function motesTick() {   // pollen + dust motes: lit when you look toward the sun, round you while you're on the ground
+    const gz = (cp.x - GZ.x) ** 2 + (cp.z - GZ.z) ** 2 < (GZ.r + 20) ** 2, want = E.agl < 25 && E.pspd < 8 && E.pg < 800 && !gz ? (SQ[0] = Math.min(Math.max((E.day - 0.4) / (0.9 - 0.4), 0), 1), SQ[0] * SQ[0] * (3 - 2 * SQ[0])) * (1 - (SQ[0] = Math.min(Math.max((E.rain - 0.05) / (0.3 - 0.05), 0), 1), SQ[0] * SQ[0] * (3 - 2 * SQ[0]))) * (1 - 0.5 * E.wind) : 0, n = Math.round(70 * want * tierK());
+    if ((gz || E.pg >= 800) && sysN[SYS.mote] > 0) for (let i = 0; i < NP; i++) if (pSys[i] === SYS.mote) kill(i);
+    let tries = 0; while (sysN[SYS.mote] < n && tries++ < 4) { const x = cp.x + (-7 + 14 * RT[++ri & 4095]), z = cp.z + (-7 + 14 * RT[++ri & 4095]), y = cp.y + (-1.4 + 4 * RT[++ri & 4095]); (QE[0] = SYS.mote, QE[1] = K.glow, QE[2] = x, QE[3] = y, QE[4] = z, QE[5] = (-0.08 + 0.16 * RT[++ri & 4095]), QE[6] = (-0.03 + 0.08 * RT[++ri & 4095]), QE[7] = (-0.08 + 0.16 * RT[++ri & 4095]), QE[8] = (10 + 12 * RT[++ri & 4095]), QE[9] = (0.04 + 0.03 * RT[++ri & 4095]), QE[11] = 1, QE[12] = 1.0, QE[13] = 0.95, QE[14] = 0.8, QE[16] = RT[++ri & 4095] * 50, emitQ()); }
+  }
+  function leavesTick(dt) {   // falling leaves round the valley groves (TREES) and along the forest edge
+    const low = E.agl < 70 && E.pspd < 40, rate = low ? (1.6 + 4 * E.wind) * (1 - 0.6 * E.rain) * tierK() : 0, t = L.t;
+    L.lacc += dt * rate;
+    while (L.lacc >= 1) { L.lacc -= 1; let i = 0; for (; i < LF.n; i++) if (!LF.on[i]) break; if (i >= LF.n) break;
+      // a grove tree within 45 m, or a forest-edge point (the slope class change at ~130 m) near you
+      const cx = Math.floor(cp.x / 60), cz = Math.floor(cp.z / 60); let tx = 0, tz = 0, ty = 0, ts = 0, found = false;
+      for (let k = 0; k < 4 && !found; k++) { const a = TGK.get((cx + Math.floor(RT[++ri & 4095] * 3) - 1) * 4096 + cz + Math.floor(RT[++ri & 4095] * 3) - 1); if (!a) continue; const tr = TREES[a[Math.floor(RT[++ri & 4095] * a.length)]]; if ((tr[0] - cp.x) ** 2 + (tr[2] - cp.z) ** 2 > 2500) continue; tx = tr[0]; tz = tr[2]; ty = tr[1]; ts = tr[3]; found = true; }
+      if (!found) { const a = RT[++ri & 4095] * TAU, d = (6 + 34 * RT[++ri & 4095]), x = cp.x + Math.cos(a) * d, z = cp.z + Math.sin(a) * d, h = (QH[0] = x, QH[1] = z, thQ(), QH[2]); if (h < 115 || h > 175 || h > (930 + 110 * Math.sin(x * 0.0021 + z * 0.0013))) continue; tx = x; tz = z; ty = h; ts = 1.1; found = true; }
+      const a = RT[++ri & 4095] * TAU, r = (0.5 + 2.1 * RT[++ri & 4095]) * ts, x = tx + Math.cos(a) * r, z = tz + Math.sin(a) * r;
+      LF.on[i] = 1; LF.x[i] = x; LF.z[i] = z; LF.y[i] = ty + (4 + 5 * RT[++ri & 4095]) * ts; LF.g[i] = ty + 0.02; LF.ph[i] = RT[++ri & 4095] * 100; LF.sp[i] = (2 + 4 * RT[++ri & 4095]) * (RT[++ri & 4095] < 0.5 ? -1 : 1); LF.c[i] = P.lgold + Math.floor(RT[++ri & 4095] * 5); LF.rest[i] = 0; LF.vy[i] = (0.6 + 0.5 * RT[++ri & 4095]); }
+    for (let i = 0; i < LF.n; i++) { if (!LF.on[i]) continue; const T = t + LF.ph[i];
+      if (LF.rest[i] > 0) { LF.rest[i] -= dt; if (LF.rest[i] <= 0 || ((LF.x[i] - cp.x) * (LF.x[i] - cp.x) + (LF.z[i] - cp.z) * (LF.z[i] - cp.z)) > 90 * 90) { LF.on[i] = 0; continue; } (QI[0] = LF.x[i], QI[1] = LF.g[i] + 0.04, QI[2] = LF.z[i], QI[3] = LF.ph[i], QI[6] = 2.2, QI[9] = SH.leaf, QI[13] = LF.c[i], QI[14] = LF.c[i], instQ()); continue; }
+      LF.y[i] -= LF.vy[i] * dt * (1 + 0.5 * Math.sin(T * 2.1)); LF.x[i] += (E.wx * 0.5 + 0.9 * Math.cos(T * 1.7)) * dt; LF.z[i] += (E.wz * 0.5 + 0.6 * Math.sin(T * 1.3)) * dt;
+      if (LF.y[i] <= LF.g[i]) { LF.rest[i] = 5; continue; }
+      (QI[0] = LF.x[i], QI[1] = LF.y[i], QI[2] = LF.z[i], QI[3] = T * LF.sp[i] * 0.3, QI[4] = 0.9 * Math.sin(T * 1.7), QI[5] = 1.1 * Math.sin(T * 2.3), QI[6] = 2.2, QI[9] = SH.leaf, QI[13] = LF.c[i], QI[14] = LF.c[i], instQ()); }
+  }
+  function snowTick(dt) {   // sparkle on the snow in the sun (and the moon), spindrift blowing over the high snow; never round Gordon's wreck
+    const gz = Math.sqrt((cp.x - GZ.x) * (cp.x - GZ.x) + (cp.z - GZ.z) * (cp.z - GZ.z)) < GZ.r + 150, sn = (930 + 110 * Math.sin(cp.x * 0.0021 + cp.z * 0.0013)), high = E.pg > sn - 40 && E.agl < 260 && !gz; if (!high) return;
+    const k = tierK(), nS = Math.round(80 * k * Math.max((SQ[0] = Math.min(Math.max((E.day - 0.2) / (0.7 - 0.2), 0), 1), SQ[0] * SQ[0] * (3 - 2 * SQ[0])), 0.35 * E.night) * (1 - E.rain)), nD = Math.round(110 * k * (0.35 + 0.65 * E.wind) * (1 - 0.5 * E.rain));
+    let tries = 0; while (sysN[SYS.spark] < nS && tries++ < 4) { const a = RT[++ri & 4095] * TAU, d = (4 + 86 * RT[++ri & 4095]), x = cp.x + Math.cos(a) * d, z = cp.z + Math.sin(a) * d, h = (QH[0] = x, QH[1] = z, thQ(), QH[2]); if (h < (930 + 110 * Math.sin(x * 0.0021 + z * 0.0013)) || Math.sqrt((x - GZ.x) * (x - GZ.x) + (z - GZ.z) * (z - GZ.z)) < GZ.r) continue;
+      (QE[0] = SYS.spark, QE[1] = K.spark, QE[2] = x, QE[3] = h + 0.06, QE[4] = z, QE[8] = (3 + 5 * RT[++ri & 4095]), QE[9] = (0.12 + 0.14 * RT[++ri & 4095]), QE[11] = 1, QE[12] = 1, QE[13] = 0.98, QE[14] = 0.92, QE[16] = RT[++ri & 4095] * 50, emitQ()); }
+    const ws = Math.max(4, Math.sqrt(E.wx * E.wx + E.wz * E.wz) * 2.6), ux = E.wx / (Math.sqrt(E.wx * E.wx + E.wz * E.wz) + 1e-3), uz = E.wz / (Math.sqrt(E.wx * E.wx + E.wz * E.wz) + 1e-3);
+    tries = 0; while (sysN[SYS.drift] < nD && tries++ < 3) { const a = RT[++ri & 4095] * TAU, d = (10 + 110 * RT[++ri & 4095]), x0 = cp.x + Math.cos(a) * d - ux * 30, z0 = cp.z + Math.sin(a) * d - uz * 30, h0 = (QH[0] = x0, QH[1] = z0, thQ(), QH[2]); if (h0 < (930 + 110 * Math.sin(x0 * 0.0021 + z0 * 0.0013)) || Math.sqrt((x0 - GZ.x) * (x0 - GZ.x) + (z0 - GZ.z) * (z0 - GZ.z)) < GZ.r) continue;
+      const life = (2.5 + 2 * RT[++ri & 4095]), h1 = (QH[0] = x0 + ux * ws * life, QH[1] = z0 + uz * ws * life, thQ(), QH[2]); (QE[0] = SYS.drift, QE[1] = K.puff, QE[2] = x0, QE[3] = h0 + 0.15, QE[4] = z0, QE[5] = ux * ws, QE[7] = uz * ws, QE[8] = life, QE[9] = (0.25 + 0.25 * RT[++ri & 4095]), QE[10] = (1 + 1.2 * RT[++ri & 4095]), QE[11] = 0.16, QE[12] = 0.97, QE[13] = 0.98, QE[14] = 1, QE[15] = h0, QE[16] = h1, QE[17] = (0.1 + 1.3 * RT[++ri & 4095]), emitQ()); }
+    void dt;
+  }
+  // ---------------- particle update + compaction to the GPU copy ----------------
+  function fxTick(dt) {
+    let n = 0; const t = L.t, sdx = sunDir.x, sdy = sunDir.y, sdz = sunDir.z, dayK = E.day;
+    for (let i = 0; i < NP; i++) { const s = pSys[i]; if (!s) continue; pAge[i] += dt; const age = pAge[i], u = age / pLife[i]; if (u >= 1) { kill(i); continue; }
+      let a = pA[i], size = pS0[i] + (pS1[i] - pS0[i]) * u, r = pR[i], g = pG[i], b = pB[i];
+      if (s === SYS.smoke) { const up = Math.exp(-age / 5); pY[i] += (vY[i] * up + 0.35) * dt; const wk = Math.min(1, age / 2.5); pX[i] += (vX[i] + E.wx * wk) * dt; pZ[i] += (vZ[i] + E.wz * wk) * dt; a *= Math.min(1, age * 1.6) * (1 - u) * (1 - u); }
+      else if (s === SYS.mist) { pY[i] += vY[i] * dt; pX[i] += vX[i] * dt; pZ[i] += vZ[i] * dt; a *= Math.min(1, age / 4) * (1 - u) * (1 - u); }
+      else if (s === SYS.splash) { vY[i] -= 9.8 * dt; pX[i] += vX[i] * dt; pY[i] += vY[i] * dt; pZ[i] += vZ[i] * dt; if (pY[i] < pF[i] && vY[i] < 0) { kill(i); continue; } }
+      else if (s === SYS.ring) { a *= (1 - u) * (1 - u); }
+      else if (s === SYS.ember) { pX[i] += vX[i] * dt; pY[i] += vY[i] * dt; pZ[i] += vZ[i] * dt; vY[i] *= 1 - dt * 0.8; a *= (1 - u) * (0.55 + 0.45 * Math.sin(t * 23 + pQ[i])); size = pS0[i]; }
+      else if (s === SYS.glowf) { a *= Math.sin(u * Math.PI) * (0.75 + 0.25 * Math.sin(t * 17 + i)); }
+      else if (s === SYS.firefly) { pX[i] += (vX[i] + 0.25 * Math.sin(t * 0.7 + pQ[i])) * dt; pZ[i] += (vZ[i] + 0.25 * Math.cos(t * 0.6 + pQ[i])) * dt; pY[i] += 0.12 * Math.sin(t * 0.9 + pQ[i]) * dt;
+        const bl = Math.sin(t * pW[i] + pQ[i]); a *= bl > 0.7 ? (bl - 0.7) / 0.3 : 0; a *= Math.min(1, age) * Math.min(1, (pLife[i] - age)); if (((pX[i] - cp.x) * (pX[i] - cp.x) + (pZ[i] - cp.z) * (pZ[i] - cp.z)) > 60 * 60) { kill(i); continue; } }
+      else if (s === SYS.mote) { pX[i] += (vX[i] + 0.06 * Math.sin(t * 0.5 + pQ[i])) * dt; pY[i] += (vY[i] + 0.04 * Math.sin(t * 0.7 + pQ[i] * 2)) * dt; pZ[i] += (vZ[i] + 0.06 * Math.cos(t * 0.4 + pQ[i])) * dt;
+        let dx = pX[i] - cp.x, dy = pY[i] - cp.y, dz = pZ[i] - cp.z; if (dx > 10) pX[i] -= 20; else if (dx < -10) pX[i] += 20; if (dz > 10) pZ[i] -= 20; else if (dz < -10) pZ[i] += 20; if (dy > 3.5) pY[i] -= 5.5; else if (dy < -2) pY[i] += 5.5;
+        dx = pX[i] - cp.x; dy = pY[i] - cp.y; dz = pZ[i] - cp.z; const dl = Math.sqrt(dx * dx + dy * dy + dz * dz) + 1e-3, fw = (dx * sdx + dy * sdy + dz * sdz) / dl; a *= (0.12 + 0.88 * Math.pow(Math.max(0, fw), 3)) * dayK * Math.min(1, age) * Math.min(1, pLife[i] - age) * (sdy > 0 ? 1 : 0); }
+      else if (s === SYS.spark) { const tw = Math.sin(t * 3.1 + pQ[i] * 9), fl = tw > 0.6 ? (tw - 0.6) * 2.5 : 0; a *= fl * Math.sin(u * Math.PI) * (dayK > 0.2 ? 1 : 0.3); }
+      else if (s === SYS.drift) { pX[i] += vX[i] * dt; pZ[i] += vZ[i] * dt; pY[i] = pF[i] + (pQ[i] - pF[i]) * u + 0.15 + pW[i] * Math.sin(u * Math.PI); a *= Math.sin(u * Math.PI); }
+      if (a < 0.002) continue;
+      const o = n * 3; FPOS[o] = pX[i]; FPOS[o + 1] = pY[i]; FPOS[o + 2] = pZ[i]; const c = n * 4; FCOL[c] = r; FCOL[c + 1] = g; FCOL[c + 2] = b; FCOL[c + 3] = a; FSZ[n] = size; FK[n] = pK[i]; n++; }
+    FG.setDrawRange(0, n); const A = FG.attributes; A.position.needsUpdate = A.aC.needsUpdate = A.aS.needsUpdate = A.aK.needsUpdate = true; fx.visible = n > 0; L.n.fx = n;
+  }
+
+  // ---------------- the tick ----------------
+  L.tick = dt => {
+    const on = L.on && GFX.life > 0; let tier = on ? GFX.life : 0; if (DYN.lvl >= 4) tier = 0; else if (DYN.lvl >= 2) tier = Math.min(tier, 1); L.tier = tier;
+    if (!tier) { if (crit.visible || fx.visible) { crit.visible = fx.visible = false; crit.count = 0; for (let i = 0; i < NP; i++) if (pSys[i]) kill(i); FG.setDrawRange(0, 0); } L.n.crit = L.n.fx = 0; return; }
+    const t0 = performance.now(); if (!L.frozen) L.t += dt; camera.getWorldPosition(cp); camera.getWorldDirection(cf);
+    if ((TMR[0] -= dt) <= 0) { TMR[0] = 1; const s = (renderer.shadowMap.enabled ? 1 : 0) + 2 * renderer.shadowMap.type; if (lastShadow >= 0 && s !== lastShadow) L.prewarm(); lastShadow = s; }
+    ri &= 4095; if ((ri >> 11) !== rHalf) { rtFill(rHalf); rHalf = ri >> 11; }   // ri wraps here; reads mask it
+    envTick(dt); lightL(); FU.uFN.value = scene.fog.near; FU.uFF.value = scene.fog.far; FU.uH.value = renderer.getDrawingBufferSize(dsz).y * 0.5;
+    ni = 0;
+    for (let i = 0; i < CHIM.length; i++) { const c = CHIM[i]; if (((c[0] - cp.x) * (c[0] - cp.x) + (c[2] - cp.z) * (c[2] - cp.z)) < 1500 * 1500) (QI[0] = c[0], QI[1] = c[1], QI[2] = c[2], QI[3] = c[3], QI[6] = c[4], QI[7] = c[5], QI[8] = c[6], QI[9] = SH.box, QI[13] = c[7], QI[14] = c[8], instQ()); }
+    for (let i = 0; i < RING.length; i++) { const c = RING[i]; if (((c[0] - cp.x) * (c[0] - cp.x) + (c[2] - cp.z) * (c[2] - cp.z)) < 500 * 500) (QI[0] = c[0], QI[1] = c[1], QI[2] = c[2], QI[3] = c[3], QI[6] = c[4], QI[7] = c[5], QI[8] = c[6], QI[9] = SH.box, QI[13] = c[7], QI[14] = c[8], instQ()); }
+    if (E.day >= 0.08) flocksTick(dt); if (E.day >= 0.35 && E.h > 8.2 && E.h < 18.7) raptorsTick();   // gated here: a sub-tick that only returns early can sit unoptimised (boxing)
+    fowlTick(dt); fishTickL(dt); bugsTick(dt); leavesTick(dt);
+    smokeTick(dt); if (E.dawn >= 0.04 || E.mist >= 0.08) mistTick(dt); if (E.eve > 0 || (E.night > 0 && E.h > 18)) nightBugsTick(dt); if (E.day > 0.4 || sysN[SYS.mote] > 0) motesTick(); if (E.pg > 760) snowTick(dt); fxTick(dt);
+    crit.count = ni; crit.visible = ni > 0; if (ni) { crit.instanceMatrix.needsUpdate = true; crit.instanceColor.needsUpdate = true; CG.attributes.iA.needsUpdate = true; CG.attributes.iC2.needsUpdate = true; }
+    L.n.crit = ni; L.ms = performance.now() - t0;
+  };
+  // counts for the tests (allocates: not for the frame loop)
+  L.count = () => { const o = { crit: L.n.crit, fx: L.n.fx }; for (const k in SYS) o[k] = sysN[SYS[k]]; const by = {}; for (let i = 0; i < ni; i++) { const s = IA[i * 4]; by[s] = (by[s] || 0) + 1; } o.shapes = by; return o; };
+  L.SH = SH; L.FOWL = FOWL; L.FLK = FLK; L.RAP = RAP; L.SMK = SMK; L.FIRES = FIRES; L.WAT = WAT; L.CHIM = CHIM; L.RING = RING; L.GZ = GZ;
+  L.JMP = JMP; L.pool = { pX, pY, pZ, pSys, pK };
+  L.instAt = i => [IM[i * 16 + 12], IM[i * 16 + 13], IM[i * 16 + 14], IA[i * 4]];
+  L.clear = () => { for (let i = 0; i < NP; i++) if (pSys[i]) kill(i); BUG.on.fill(0); LF.on.fill(0); JMP.on.fill(0); for (const G of FOWL) { G.st = 0; G.cool = 0; } for (const S of FLK) { S.sc = 0; S.cool = 0; } };
+  L.jump = (x, y, z) => { JMP.on[0] = 1; JMP.x[0] = x; JMP.y[0] = y; JMP.z[0] = z; JMP.yaw[0] = 0.6; JMP.t[0] = 0; (QS[0] = x, QS[1] = y, QS[2] = z, QS[3] = 7, QS[4] = 0.8, splashQ()); };   // (tests / screenshots)
+  // ---------------- prewarm: both programs, each panel-glow / landing-light combination ----------------
+  L.prewarm = () => { const t = performance.now(), pv = PL.visible, sv = SL.visible, cv = crit.visible, fv = fx.visible, cc = crit.count; crit.visible = fx.visible = true; crit.count = 1;
+    for (let c = 0; c < 4; c++) { PL.visible = !!(c & 1); SL.visible = !!(c & 2); renderer.compile(crit, camera, scene); renderer.compile(fx, camera, scene); }
+    PL.visible = pv; SL.visible = sv; crit.visible = cv; fx.visible = fv; crit.count = cc; L.warmMs = performance.now() - t; };
+  L.prewarm(); crit.visible = fx.visible = false;
+  // type feedback for every particle branch before V8 optimises fxTick (a branch first met later deopts it, and unoptimised code boxes doubles = garbage)
+  for (let k = 1; k < SYSN; k++) for (let j = 0; j < 8; j++) { QE.fill(0); QE[0] = k; QE[2] = (hash(j * 13 + k) - 0.5) * 160; QE[3] = (hash(j * 7 + k * 3) - 0.5) * 12; QE[4] = (hash(j * 5 + k * 11) - 0.5) * 160; QE[5] = QE[7] = 0.5; QE[6] = j & 1 ? 2 : -2;
+    QE[8] = 0.3 + j * 0.4; QE[9] = QE[10] = 0.5; QE[11] = 1; QE[15] = j & 1 ? -1 : 1; QE[16] = j; QE[17] = 1 + j; emitQ(); }
+  { const sd = sunDir.clone(); for (let f = 0; f < 120; f++) { sunDir.y = f & 1 ? 0.5 : -0.5; fxTick(1 / 30); } sunDir.copy(sd); } for (let i = 0; i < NP; i++) if (pSys[i]) kill(i); FG.setDrawRange(0, 0); fx.visible = false;
+  // ---------------- the setting: Settings > COMFORT > Ambient life (OFF / LOW / FULL); PERFORMANCE preset = LOW ----------------
+  if (!('life' in GFX_DEF)) { GFX_DEF.life = 2; GFX.life = 2; try { const o = JSON.parse(localStorage.getItem('bp_gfx') || '{}'); if (typeof o.life === 'number' && isFinite(o.life)) GFX.life = Math.min(Math.max(Math.round(o.life), 0), 2); } catch (e) { /* no storage */ }
+    try { const q = new URLSearchParams(location.search).get('gfx'); if (q) for (const kv of q.split(',')) { const [k, v] = kv.split(':'); if (k === 'life' && isFinite(+v)) GFX.life = Math.min(Math.max(Math.round(+v), 0), 2); } } catch (e) { /* no url */ } }
+  if (!GFX_OPT.some(o => o[0] === 'life')) { const i = GFX_OPT.findIndex(o => o[0] === 'fps'); GFX_OPT.splice(i < 0 ? GFX_OPT.length : i, 0, ['life', 'Ambient life', [0, 1, 2], ['OFF', 'LOW', 'FULL'], 'birds, smoke, insects, mist (auto quality thins it)']); }
+  if (MENU_ROWS.comfort && !MENU_ROWS.comfort.includes('life')) MENU_ROWS.comfort.push('life');
+  if (GFX_PRESET.PERFORMANCE) GFX_PRESET.PERFORMANCE.life = 1; if (GFX_PRESET.BALANCED) GFX_PRESET.BALANCED.life = 2; if (GFX_PRESET.QUALITY) GFX_PRESET.QUALITY.life = 2;
+  return L;
+})();
+function lifeTick(dt) { LIFE.tick(dt); }
+// <<< V2 LIFE END
 renderer.setAnimationLoop(() => {
   const t0 = performance.now(), rawDt = clock.getDelta(), dt = Math.min(rawDt, 0.05);
   const xr = renderer.xr.isPresenting;
@@ -10820,7 +11317,7 @@ renderer.setAnimationLoop(() => {
   fpsFrames++; fpsT += dt; instT += dt;
   if (fpsT >= 1) { fps = Math.round(fpsFrames / fpsT); fpsFrames = 0; fpsT = 0; }
   if (msgT > 0) { msgT -= dt; msgA += dt; }
-  tallTick(); fuelTick(dt); hoseTick(dt); fuelPumpTick(dt); saveTick(dt); CLOUDS.tick(dt); updateDay(dt); wxTick(dt); gfxTick(dt); updateWater(dt); vistaTick(dt); townTick(dt); updateFalling(dt); updateAudio(dt);
+  tallTick(); fuelTick(dt); hoseTick(dt); fuelPumpTick(dt); saveTick(dt); CLOUDS.tick(dt); updateDay(dt); wxTick(dt); gfxTick(dt); updateWater(dt); vistaTick(dt); lifeTick(dt); LIFE.wind = SWAY.w; townTick(dt); updateFalling(dt); updateAudio(dt);
   panelUpdate(ac, dt); cmpWet(dt);
   if (instT > 0.1) { instT = 0; drawWrist(); }
   if ((chunkT += dt) > 0.2) { chunkT = 0; updateChunks(); }

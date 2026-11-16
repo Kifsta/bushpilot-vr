@@ -2,6 +2,19 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v1.08 – ambient life (VR Dev 2's module), and one breeze for trees and life
+
+- **The valley is alive.** VR Dev 2's ambient-life module (from /workspace/v2-life, applied unchanged by its own apply.py):
+  - flocks of small birds, raptors circling the ridges, ducks and geese on the lakes (they flush when you walk up or the Cub passes low), fish jumping;
+  - smoke from 18 chimneys and 3 campfires;
+  - butterflies and dragonflies by day, fireflies at dusk, sun motes, falling leaves;
+  - dawn mist on the lakes, snow sparkle and spindrift up high.
+  - It follows the clock and the weather (rain grounds the insects, fronts stir the leaves), and keeps clear of the Gordon wreck site.
+- **Setting:** Settings > COMFORT > Ambient life FULL / LOW / OFF (FULL by default; the PERFORMANCE preset picks LOW). Auto quality drops it to LOW at step 2 and OFF at step 4.
+- **One breeze:** the tree and grass sway from v1.07.2 now leans harder under overcast skies, in rain and as a front comes through, and the same breeze drives the drifting smoke, leaves and motes (LIFE.wind). In clear weather the sway is exactly as before. There's still no gameplay wind.
+- **Cost:** at most 2 extra draws whatever you look at (one instanced mesh for every creature, one points draw for every soft effect). It allocates nothing per frame, and its programs compile at load.
+- **Known, left as is:** a goose looks a bit boat-like up close, and the spindrift is subtle.
+
 ## v1.07.3 – sun bloom and rays, water glitter, moonglow and twinkling stars
 
 - **Sun bloom:** a soft glow round the sun that grows when you look toward it, and at golden hour.

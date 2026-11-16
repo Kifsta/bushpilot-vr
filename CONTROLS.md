@@ -135,6 +135,7 @@ v0.44 latches: every window and the door are latched while shut. Squeeze the han
 | Terrain look (v1.07.1) | Nothing to set: ragged snowline, banded rock and scree, varied forest stands, meadow patches and wet lake shores are part of every Ground style's VALLEY colours | same |
 | Trees and grass sway (v1.07.2) | Nothing to press: the trees, sprite forest and grass move gently in a rolling breeze (visual only, no gameplay wind) | same |
 | Water sparkle, sun glow, night sky (v1.07.3) | Nothing to press: sun glitter on lakes and rivers, a soft sun glow and low-sun rays when you look toward it, a moon with maria and a halo, twinkling stars. Glow and rays switch off when auto-quality drops to its lower levels | same |
+| Ambient life (v1.08) | Settings > COMFORT > Ambient life FULL / LOW / OFF: birds, waterfowl, fish jumps, chimney and campfire smoke, insects, fireflies, leaves, mist. Auto quality thins it. Trees sway harder in overcast, rain and fronts | same |
 
 ## On foot
 | | VR | Desktop |
