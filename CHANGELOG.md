@@ -2,6 +2,10 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v1.10.3 – PC Link: XR-compatible context, desktop view paused while VR starts
+
+- Neil's logs: Link still took 55 s to grant the session with no optional features at all (`?xrf=`), while the WebXR sample entered at once. The WebGL context is now created XR-compatible (as the samples do), and the desktop render loop pauses from the XR request until the session is granted or refused, so the GPU isn't drawing the full world at 3440×1440 while Link starts.
+
 ## v1.10.2 – PC Link: Enter VR no longer waits 55 s
 
 - **Fixed (Neil, Edge + Quest Link):** Link took 55 s to grant the VR session while the WebXR sample entered at once. three r160's VRButton asks for the optional features `local-floor bounded-floor hand-tracking layers`; on PC (not the Quest browser), `layers` and `bounded-floor` are now dropped from the request. The Quest browser keeps the full list. The boot log prints the features requested.
