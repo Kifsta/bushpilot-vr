@@ -2,6 +2,19 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v1.11.0 – a backpack you pull over your shoulder, with the things inside it (Ghosts of Tabor style)
+
+- **On your back from the start:** a small canvas rucksack rides on your back (on the IK body's chest frame, so it moves with you). In the mirror and in third person you see it; in your own view it is not drawn while it is on your back, so nothing gets in the way.
+- **Pull it over (VR, on foot):** reach over your shoulder with either hand and squeeze grip. You get a tick in the hand when you are in reach, and the pack swings off your back into that hand by its top handle. If the rifle is slung, the left side of your back is the pack's and the right side is the rifle's: the pack comes over your left shoulder and the rifle over your right (or behind your neck), as before.
+- **Put it back on, or drop it:** let go with the pack by your shoulder and it goes back on. Let go anywhere else and it drops, falls and lands upright on the ground with its open top toward you. Grab its handle to pick it up again.
+- **What's inside:** while you hold the pack in front of you (or it stands on the ground), it is open and the things are physically inside it as small models: tarp, rope, first-aid kit, canteen, sheath knife, flashlight and two pieces of jerky (a new game, or an older save, starts with this kit). Reach in with the other hand (or either hand when it is on the ground) and squeeze to take one out. Let go of it inside the opening to put it back. Let go anywhere else and it falls to the ground, where you can pick it up.
+- **Room and weight:** the pack holds 14 L. A thing that does not fit stays out (**NO ROOM IN THE PACK**) and drops. Its weight never blocks you: past 30 lb you get a **HEAVY** warning. The pack (3 lb empty) and everything in it, plus a thing in your hand, count in the W&B as weight you carry, so the OVER GROSS warning works as before. A pack left on the ground does not count. A held pack or item weighs on that hand like the other items do.
+- **Canteen and jerky:** raise the canteen to your mouth for a drink, and the jerky to eat it (one less in the pack).
+- **Desktop:** **I** sets the pack down open in front of you (it lists what's inside), and puts it back on when you are within 2.5 m.
+- **Boarding** with the pack or a thing in your hand puts the thing back in and the pack on your back.
+- **Save:** where the pack is (on you, or on the ground where you left it), what's inside, and the things lying on the ground are saved and loaded with the game.
+- **Cost:** the pack is 1 draw; its contents are one batched draw, only while it is open; things on the ground share one more. A thing in your hand is 1 draw while held. All of them use the existing item material, so there is no new shader program. The pack makes no garbage per frame. The physics checksum is unchanged.
+
 ## v1.10.12 – your own body: arms, torso and legs under the gloves (IK), by VR Dev 2
 
 - **A full body (VR Dev 2's IK body):** you now have shoulders, sleeves, a waxed-canvas jacket, trousers and boots, which follow your headset and the two gloves. The arms are solved by IK each frame. The elbows pick a natural down-and-out bend and stay clear of the torso, the cockpit walls, the held rifle and the rod. The sleeves tuck into the gauntlets. The torso hangs from your head with a lagged body yaw, and the legs walk, crouch, kneel and jump with you on foot. The gloves themselves are unchanged and exactly where they were.
