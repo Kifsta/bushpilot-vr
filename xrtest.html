@@ -1,6 +1,7 @@
 <!doctype html><html><head><meta charset="utf-8"><title>Bush Pilot VR - XR entry test</title>
 <script type="importmap">{ "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js", "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/" } }</script>
 <style>body{margin:0;background:#123;color:#fff;font:16px monospace}#log{position:fixed;top:0;left:0;padding:10px;white-space:pre;z-index:9}button.go{position:fixed;bottom:80px;left:20px;font-size:22px;padding:12px}</style></head><body><div id="log"></div>
+<script>try{if(window.XRSession&&!/OculusBrowser|Quest/i.test(navigator.userAgent)&&!new URLSearchParams(location.search).has('xrlayers')){var _g=Object.getOwnPropertyDescriptor(XRSession.prototype,'renderState').get;Object.defineProperty(XRSession.prototype,'renderState',{configurable:true,get:function(){var r=_g.call(this);return{baseLayer:r.baseLayer,depthNear:r.depthNear,depthFar:r.depthFar,inlineVerticalFieldOfView:r.inlineVerticalFieldOfView,layers:undefined};}});}}catch(e){}</script>
 <script type="module">
 const P = new URLSearchParams(location.search), mode = P.has('raw') ? 'raw' : (P.has('msaa') ? 'three+msaa' : 'three');
 const t0 = performance.now(), logEl = document.getElementById('log');
