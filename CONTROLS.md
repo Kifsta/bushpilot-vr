@@ -146,6 +146,7 @@ v0.44 latches: every window and the door are latched while shut. Squeeze the han
 | Casting (v1.10.8) | VR: trigger opens the bail and holds the line; flick the rod forward and let go during or just after the flick (the peak of the flick counts). Reel a lure in under the tip and it lifts out and reels up to the tip. Desktop unchanged | same |
 | Tackle shop price tags | Walk up to a shop counter or rod rack: each item has a card with its name and price (green when owned) |
 | Z-fighting fix (v1.10.10) | Nothing to press: far ice, cloud joins, roads and tree bases no longer flicker; binoculars hide inside 10 cm of the eyes |
+| Local roads (v1.10.11) | Gravel roads to the sawmill, lodge, ranger station, Halvorsen station + East Lake; dirt 2-tracks to farms, cabins, camps and the mines; dashed / dotted on the paper map. Mountain, glacier and story sites stay fly-in |
 
 ## On foot
 | | VR | Desktop |

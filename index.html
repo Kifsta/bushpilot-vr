@@ -636,7 +636,7 @@ const hyp = (a, b, c = 0) => Math.sqrt(a * a + b * b + c * c);   // v0.59 Math.h
 
 // ======================= RENDERING =======================
 // v0.35 settings (persist in localStorage 'bp_gfx'; ?gfx=shadows:2,grass:1 overrides for testing). Defaults = the v0.34 look and cost.
-const BP_VERSION = 'v1.10.10';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
+const BP_VERSION = 'v1.10.11';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
 { const e = document.getElementById('ver'); if (e) e.textContent = BP_VERSION; } window.__bpVer = BP_VERSION; bootLog('game module running ' + BP_VERSION + ' (three r' + THREE.REVISION + ')' + (/[?&]safe(=|&|$)/.test(location.search) ? ' - SAFE MODE: default graphics, no shadows / ULTRA / life / vistas / music' : ''));
 const GFX_DEF = { shadows: 0, scale: 1, fov: 1, dist: 1, trees: 1, grass: 0, clouds: 1, fog: 1, msaa: 1, hz: 90, vig: 0, turn: 0, fps: 0, tod: 11, stk: 1, tips: 1, terr: 1, dyn: 1, glove: 0, hand: 0, wt: 1, volM: 1, volMu: 0.5, volE: 1, volA: 1, volF: 1, wx: 1, forest: 0, ground: 0, gtex: 0, cvl: 1, water: 1, dayl: 48, flure: 0, fline: 8, fdrag: 4, fbob: 0, fsink: 0, ultra: 0 };   // v0.68.1 dominant hand, volumes. v0.48 BALANCED: 90 % scale, 72 Hz, fast terrain shading, auto resolution; v0.49.1 the stick stays where you let go of it
 const GFX = Object.assign({}, GFX_DEF);
@@ -1222,6 +1222,21 @@ const TOWNS = [
 const inTown = (x, z, m = 0) => { for (const t of TOWNS) if (Math.abs(x - t.x) < t.r + m && Math.abs(z - t.z) < t.r + m && hyp(x - t.x, z - t.z) < t.r + m) return true; return false; };
 const DRYFORK_STRIP = { x: 3250, z: 50, a: 0, hl: 150, hw: 10 };   // 300 x 20 m mown strip east of Dry Fork, runs N-S (~2.7 m of rise end to end)
 ROADS.push([[2600, 120], [2690, 30], [2740, 0], [2800, 0], [2900, 0], [3050, 5], [3238, 15]], [[780, -2600], [840, -2550], [900, -2500], [960, -2450]]);   // spurs to Dry Fork (+ its strip) and Hollis
+// v1.10.11 local roads: gravel roads to the sawmill, lodge, ranger station, Halvorsen station + East Lake; dirt 2-tracks to farms, cabins, camps, the mines. Routed on the real ground (<= 8 % gravel, <= 14 % tracks,
+// switchbacks on the mine roads), no lake, no river crossing, never across a strip. Drawn into the road mesh (no new draw), on the paper map; trees / bushes / fence posts on them are cleared after the world is built.
+// f: a ford (the hunt-cabin track wades the NW lake creek, 6 m wide). ROADS itself is unchanged (the forest / farm placement reads it: same world). ROAD_CH: the church road's line off the creek mouth (it ran 40 m down the creek bed), for the ribbon + the map.
+const ROADS2 = [{"n":"SAWMILL ROAD","c":"g","p":[[40,-1240],[41,-1221],[52,-1195],[59,-1186],[75,-1172],[98,-1164],[168,-1159],[182,-1156],[205,-1148],[215,-1138],[225,-1122],[245,-1078],[258,-1056],[272,-1039],[290,-1025],[328,-1005],[342,-995],[365,-975],[408,-948],[480,-910],[541,-885],[562,-880],[578,-880],[596,-884],[645,-902],[720,-944],[735,-955],[760,-980]]},{"n":"LODGE ROAD","c":"g","p":[[-360,-2360],[-362,-2339],[-385,-2290],[-392,-2268],[-400,-2215],[-399,-2160],[-392,-2125],[-384,-2101],[-380,-2038],[-389,-2001],[-406,-1954],[-432,-1895],[-468,-1825],[-494,-1762],[-511,-1708],[-520,-1660],[-520,-1620],[-518,-1585],[-512,-1555],[-505,-1530],[-488,-1491],[-482,-1474],[-480,-1442],[-488,-1409],[-505,-1370],[-512,-1339],[-518,-1296],[-520,-1178],[-522,-1124],[-528,-1081],[-535,-1050],[-558,-1010],[-572,-990],[-628,-930],[-655,-890],[-672,-852],[-680,-825],[-678,-802],[-648,-728],[-642,-702],[-638,-618],[-632,-592],[-625,-570],[-615,-550],[-608,-525],[-602,-495],[-600,-420],[-596,-382],[-589,-348],[-578,-315],[-551,-258],[-544,-232],[-540,-210],[-540,-190],[-536,-169],[-529,-146],[-502,-98],[-491,-72],[-484,-48],[-480,-22],[-481,24],[-488,55],[-496,76],[-500,118],[-489,155],[-462,202],[-444,245],[-440,262],[-440,300]]},{"n":"RANGER STATION ROAD","c":"g","p":[[-1480,-1000],[-1446,-1016],[-1428,-1020],[-1402,-1009],[-1358,-982],[-1315,-964],[-1298,-960],[-1266,-962],[-1230,-975],[-1192,-995],[-1178,-1005],[-1142,-1035],[-1090,-1065],[-1068,-1072],[-1015,-1080],[-958,-1078],[-932,-1072],[-910,-1065],[-890,-1055],[-862,-1048],[-828,-1042],[-735,-1040],[-692,-1038],[-658,-1032],[-630,-1025],[-580,-1000]]},{"n":"HALVORSEN ROAD","c":"g","p":[[2400,-2820],[2362,-2820],[2341,-2825],[2314,-2835],[2240,-2870],[2179,-2895],[2158,-2900],[2142,-2900],[2121,-2895],[2094,-2885],[2020,-2850],[1966,-2821],[1948,-2808],[1821,-2741],[1419,-2540],[1292,-2480],[1281,-2479],[1244,-2464],[1202,-2460],[1169,-2468],[1111,-2492],[1094,-2498],[1062,-2500],[1029,-2492],[960,-2460]]},{"n":"EAST LAKE ROAD","c":"g","p":[[1320,-1400],[1319,-1349],[1316,-1336],[1308,-1315],[1282,-1284],[1238,-1238],[1199,-1209],[1146,-1176],[1080,-1140],[1000,-1100],[932,-1070],[878,-1050],[835,-1040],[760,-1040]]},{"n":"BOATHOUSE TRACK","c":"t","p":[[1800,-1300],[1762,-1275],[1749,-1269],[1736,-1266],[1725,-1268],[1706,-1276],[1688,-1280],[1655,-1268],[1638,-1264],[1612,-1261],[1540,-1260],[1500,-1265],[1460,-1275],[1420,-1290],[1320,-1340]]},{"n":"FISHING LODGE TRACK","c":"t","p":[[1520,-1740],[1432,-1652],[1402,-1619],[1378,-1586],[1358,-1555],[1342,-1525],[1324,-1472],[1320,-1450],[1320,-1400]]},{"n":"RANCH LANE","c":"t","p":[[1200,2000],[1019,2001],[965,2008],[946,2018],[928,2032],[914,2054],[895,2090],[871,2122],[858,2135],[820,2160]]},{"n":"RANCH STRIP TRACK","c":"t","p":[[1300,2260],[1316,2242],[1320,2228],[1312,2218],[1295,2208],[1284,2196],[1258,2155],[1224,2080],[1216,2035],[1200,2000]]},{"n":"HOMESTEAD TRACK","c":"t","p":[[640,3020],[640,2995],[642,2982],[665,2930],[672,2908],[678,2882],[680,2825],[688,2772],[695,2750],[705,2730],[712,2698],[718,2652],[720,2525],[726,2460],[739,2400],[758,2345],[814,2229],[820,2212],[820,2200]]},{"n":"BEE YARD TRACK","c":"t","p":[[1080,720],[1068,732],[1054,735],[990,712],[970,708],[948,708],[922,712],[895,722],[838,749],[812,756],[790,760],[740,760]]},{"n":"TRAPPER CABIN TRACK","c":"t","p":[[-960,2620],[-960,2570],[-955,2545],[-945,2515],[-910,2440],[-895,2400],[-885,2360],[-880,2320],[-880,2280],[-884,2222],[-888,2205],[-892,2195],[-899,2149],[-900,2000]]},{"n":"HUNT CABIN TRACK","c":"t","p":[[-1300,2840],[-1250,2840],[-1220,2832],[-1180,2818],[-1070,2765],[-991,2720],[-972,2705],[-964,2684],[-960,2658],[-960,2620]],"f":[[-1196,2824]]},{"n":"CANOE OUTFITTER TRACK","c":"t","p":[[-1400,2600],[-1319,2750],[-1306,2780],[-1300,2802],[-1300,2840]]},{"n":"FISH CAMP TRACK","c":"t","p":[[-60,2140],[-48,2128],[-26,2114],[26,2088],[48,2080],[61,2082],[130,2112],[150,2118],[190,2120],[230,2112],[270,2095],[311,2088],[374,2082],[562,2080],[646,2078],[709,2072],[750,2065],[800,2040]]},{"n":"CHURCH LANE","c":"t","p":[[-500,680],[-521,661],[-600,620]]},{"n":"ELEVATOR SPUR","c":"t","p":[[2480,220],[2512,154],[2520,132],[2520,120]]},{"n":"HANGAR TRACK","c":"t","p":[[3260,100],[3235,88],[3228,80],[3222,70],[3220,58],[3220,20]]},{"n":"ELK CAMP TRACK","c":"t","p":[[-2320,-1160],[-2260,-1190],[-2210,-1200],[-2150,-1200],[-2110,-1195],[-2090,-1185],[-2075,-1180],[-2065,-1180],[-2055,-1185],[-2045,-1195],[-2050,-1220],[-2070,-1260],[-2095,-1295],[-2125,-1325],[-2145,-1350],[-2155,-1370],[-2165,-1385],[-2175,-1395],[-2190,-1405],[-2210,-1415],[-2235,-1435],[-2265,-1465],[-2300,-1490],[-2340,-1510],[-2340,-1520],[-2300,-1520],[-2170,-1465],[-1950,-1355],[-1885,-1345],[-1975,-1435],[-1990,-1465],[-1930,-1435],[-1895,-1415],[-1885,-1405],[-1840,-1380],[-1760,-1340],[-1700,-1320],[-1660,-1320],[-1630,-1315],[-1610,-1305],[-1595,-1295],[-1585,-1285],[-1580,-1220],[-1580,-1100],[-1575,-1030],[-1565,-1010],[-1540,-1000],[-1480,-1000]]},{"n":"LOST LODE MINE ROAD","c":"t","p":[[-2840,-1440],[-2795,-1440],[-2775,-1445],[-2765,-1455],[-2760,-1475],[-2760,-1505],[-2755,-1520],[-2745,-1520],[-2710,-1505],[-2650,-1475],[-2610,-1460],[-2590,-1460],[-2570,-1455],[-2550,-1445],[-2530,-1420],[-2510,-1380],[-2495,-1355],[-2485,-1345],[-2470,-1335],[-2450,-1325],[-2435,-1310],[-2425,-1290],[-2420,-1275],[-2420,-1265],[-2415,-1250],[-2405,-1230],[-2395,-1215],[-2385,-1205],[-2370,-1195],[-2350,-1185],[-2330,-1180],[-2300,-1180]]}];
+const ROAD_CH = [[-900, 2000], [-640, 705], [-500, 300], [-300, 330], [29, -15]];
+const RD2 = { b: null, fence: null, n: 0 };
+function rd2Index() { const B = new Map(), C = 32, add = (p, hw) => { for (let i = 1; i < p.length; i++) { const sg = [p[i - 1][0], p[i - 1][1], p[i][0], p[i][1], hw];
+      for (let cx = Math.floor((Math.min(sg[0], sg[2]) - 10) / C); cx <= Math.floor((Math.max(sg[0], sg[2]) + 10) / C); cx++) for (let cz = Math.floor((Math.min(sg[1], sg[3]) - 10) / C); cz <= Math.floor((Math.max(sg[1], sg[3]) + 10) / C); cz++) { const k = cx * 65536 + cz; let L = B.get(k); if (!L) B.set(k, L = []); L.push(sg); } } };
+  for (const r of ROADS2) add(r.p, r.c === 'g' ? 2 : 1.3); add(ROAD_CH.slice(0, 3), 2); RD2.b = B; }
+function rd2Dist(x, z) { if (!RD2.b) rd2Index(); const L = RD2.b.get(Math.floor(x / 32) * 65536 + Math.floor(z / 32)); let d = 1e9; if (L) for (const sg of L) d = Math.min(d, segD(x, z, sg) - sg[4]); return d; }   // metres off the edge of a new road (< 0 = on it)
+function rd2Clear() {   // the scenery standing on the new roads: instance matrices zeroed (the v0.38 site-clearing way), fence wires across them dropped
+  let n = 0; for (const k of CHUNKS) { const r = 0.8 + (k.tree ? Math.min(4, 0.45 * (k.sz || 4)) : 0.5); for (let i = 0; i < k.n; i++) { const o = i * 16; if (!k.full[o + 15]) continue; if (rd2Dist(k.xz[i * 3], k.xz[i * 3 + 2]) < r) { k.full.fill(0, o, o + 16); k.im.instanceMatrix.array.fill(0, o, o + 16); k.im.instanceMatrix.needsUpdate = true; n++; } } }
+  const F = RD2.fence; if (F) { const P = F.attributes.position, A = P.array; let ch = false; for (let i = 0; i < P.count; i += 2) { const o = i * 3, mx = (A[o] + A[o + 3]) / 2, mz = (A[o + 2] + A[o + 5]) / 2;
+      if (A[o + 1] - groundY(A[o], A[o + 2]) > 2.5) continue; if (Math.min(rd2Dist(mx, mz), rd2Dist(A[o], A[o + 2]), rd2Dist(A[o + 3], A[o + 5])) < 0.6) { A[o + 3] = A[o]; A[o + 4] = A[o + 1]; A[o + 5] = A[o + 2]; ch = true; n++; } } if (ch) P.needsUpdate = true; }
+  RD2.n += n; return n; }
 const lines = [];   // merged line segments (fence wires + power lines): one draw call
 {
   // bushes / shrubs (0.4-1.2 m) and rocks, denser near the strip
@@ -1267,7 +1282,12 @@ const lines = [];   // merged line segments (fence wires + power lines): one dra
     } } };
   const roadX = z => { for (let i = 0; i < ROAD_NS.length - 1; i++) { const [x0, z0] = ROAD_NS[i], [x1, z1] = ROAD_NS[i + 1];
     if (z <= z1) return x0 + (x1 - x0) * (z - z0) / (z1 - z0); } return ROAD_NS[ROAD_NS.length - 1][0]; };
-  for (const r of ROADS) road(r);
+  for (const r of ROADS) road(r === ROADS[2] ? ROAD_CH : r);   // v1.10.11 the church road off the creek
+  const ruts = pts => { for (let i = 0; i < pts.length - 1; i++) {   // v1.10.11 a dirt 2-track: two wheel ruts (0.6 m) 1.7 m apart
+    const [x0, z0] = pts[i], [x1, z1] = pts[i + 1], L = hyp(x1 - x0, z1 - z0), n = Math.ceil(L / 8), ux = -(z1 - z0) / L, uz = (x1 - x0) / L;
+    for (let k = 0; k < n; k++) { const a = k / n, b = Math.min(1, (k + 1) / n + 0.3 / L), ax = x0 + (x1 - x0) * a, az = z0 + (z1 - z0) * a, bx = x0 + (x1 - x0) * b, bz = z0 + (z1 - z0) * b;
+      for (const c of [-0.85, 0.85]) { const p = c - 0.3, q = c + 0.3; conformPoly([[ax + ux * q, az + uz * q], [bx + ux * q, bz + uz * q], [bx + ux * p, bz + uz * p], [ax + ux * p, az + uz * p]], 0.05, rv); } } } };
+  for (const r of ROADS2) (r.c === 'g' ? road : ruts)(r.p);
   const rg = new THREE.BufferGeometry(); rg.setAttribute('position', new THREE.Float32BufferAttribute(rv, 3)); rg.computeVertexNormals();
   scene.add(new THREE.Mesh(rg, GSTY.road = new THREE.MeshLambertMaterial({ color: 0x8c7552, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -3 })));   // v0.86 its colour follows Ground style
 
@@ -1285,7 +1305,7 @@ const lines = [];   // merged line segments (fence wires + power lines): one dra
   instanced(new THREE.CylinderGeometry(0.12, 0.16, 10, 5).translate(0, 5, 0), mat(0x5a4632), pole);
   instanced(new THREE.BoxGeometry(2.2, 0.12, 0.12), mat(0x5a4632), arm);
   const lg = new THREE.BufferGeometry(); lg.setAttribute('position', new THREE.Float32BufferAttribute(lines, 3));
-  scene.add(new THREE.LineSegments(lg, new THREE.LineBasicMaterial({ color: 0x2b2b2b })));
+  scene.add(new THREE.LineSegments(lg, new THREE.LineBasicMaterial({ color: 0x2b2b2b }))); RD2.fence = lg;   // v1.10.11 (wires across the new tracks get dropped)
 
   // farmsteads: house, barn, silo (known sizes)
   const farms = FARMS;
@@ -3180,6 +3200,7 @@ await bootYield('strip dressing built');   // v1.10.1 boot stage (v1.09.1 load y
     for (let c = 0; c < 4; c++) { const im = instanced(cell(c), sm, L[c], { lod: 2600, tree: 1, near: 380, spr: 1, ro: 1 }); im.userData.noBatch = true; }   // v0.81 ro: the alpha-tested sprites draw after every depth-writing opaque (discard breaks early-Z), before the clouds (2)
     FOREST2.n = n1; FOREST2.n2 = L.reduce((t, l) => t + l.length, 0) - n1; }
 }
+rd2Clear();   // v1.10.11 no tree on the new roads
 const _lcP = new THREE.Vector3();
 await bootYield('sites built');   // v1.10.1 boot stage (v1.09.1 load yield)
 // ================= v0.22: small towns - three abandoned crossroads towns on the dirt-road network =================
@@ -3967,7 +3988,8 @@ function drawMap() {
   x.fillStyle = 'rgba(40,90,170,0.55)'; for (const L of LAKES) { const [px, py] = W2([L.x, L.z]); x.beginPath(); x.ellipse(px, py, L.r * MAP_PX, L.r * MAP_PX * 0.9, 0.3, 0, 6.283); x.fill(); x.stroke(); hand(L.name.toLowerCase(), px, py + L.r * MAP_PX + 12, 15, 'rgba(40,90,170,0.95)'); }
   hand('gorge', X(140), Z(-3300), 20, 'rgba(40,90,170,0.9)', 1.45); hand('creek', X(-1500), Z(3200), 17, 'rgba(40,90,170,0.9)', -1.2);
   // roads: dashed
-  x.strokeStyle = '#3b2a1a'; x.lineWidth = 2; x.setLineDash([9, 7]); for (const rd of ROADS) wob(rd.map(W2), 1.5, 12); x.setLineDash([]);
+  x.strokeStyle = '#3b2a1a'; x.lineWidth = 2; x.setLineDash([9, 7]); for (const rd of ROADS) wob((rd === ROADS[2] ? ROAD_CH : rd).map(W2), 1.5, 12); for (const r of ROADS2) if (r.c === 'g') wob(r.p.map(W2), 1.5, 12);
+  x.lineWidth = 1.3; x.setLineDash([2.5, 4.5]); for (const r of ROADS2) if (r.c === 't') wob(r.p.map(W2), 1, 10); x.setLineDash([]);   // v1.10.11 gravel roads dashed, dirt tracks dotted
   // symbols
   x.strokeStyle = '#1e1810'; x.fillStyle = '#1e1810'; x.lineWidth = 2;
   const strip = (cx, cz, len, txt, dx = 34, dy = 0) => { const [px, py] = W2([cx, cz]), L = len * MAP_PX / 2;
@@ -11108,6 +11130,7 @@ await bootYield('vistas built');   // v1.10.1 boot stage (v1.09.1 load yield)
 // Everything is pooled in typed arrays built at load: the per-frame tick allocates nothing (test/garbage.js checks it with the heap sampler).
 // Tied to the clock (DAY.h / TOD) and the weather (WX.E rain / grey / mist, FR rain fronts); Settings > COMFORT > Ambient life OFF / LOW / FULL;
 // auto quality (DYN.lvl) drops it to LOW at level 2 and OFF at level 4.
+rd2Clear(); bootLog('local roads: ' + ROADS2.length + ' new roads / tracks, ' + RD2.n + ' trees, bushes, posts + wires cleared off them (v1.10.11)');
 await bootYield('vistas ' + (BP_SAFE ? 'skipped (?safe)' : 'ready'));
 const LIFE = BP_SAFE ? { tick() { }, wind: 0, on: false, safe: true, n: { crit: 0, fx: 0 } } : (() => {   // v1.10.1 ?safe: no ambient life
   const L = { on: true, tier: 2, t: 0, ms: 0, warmMs: 0, n: { crit: 0, fx: 0 }, wind: -1, frozen: false };
