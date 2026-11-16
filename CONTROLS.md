@@ -149,6 +149,7 @@ v0.44 latches: every window and the door are latched while shut. Squeeze the han
 | Local roads (v1.10.11) | Gravel roads to the sawmill, lodge, ranger station, Halvorsen station + East Lake; dirt 2-tracks to farms, cabins, camps and the mines; dashed / dotted on the paper map. Mountain, glacier and story sites stay fly-in |
 | Body (v1.10.12) | Your own arms, torso and legs follow the headset and gloves (IK). Settings > CONTROLS > **Body**: HANDS ONLY / ARMS / FULL (default FULL). Your head is not drawn for you; near your eyes the collar and shoulders fade out. Mirror / third person show it all | same |
 | Backpack (v1.11.0) | On foot: reach over your shoulder and squeeze grip: the pack comes into that hand (rifle slung: pack over the LEFT shoulder, rifle the right). Let go by your shoulder = back on; elsewhere it drops (grab its handle). Held in front or on the ground it is open: the other hand takes things out; let go inside to put them back. 14 L; HEAVY over 30 lb; counts in the W&B. Canteen / jerky to your mouth = drink / eat | **I** sets the pack down open in front of you / puts it back on (within 2.5 m) |
+| Rig + belt slots (v1.11.1) | On foot: grip at a chest-rig pocket (small things), the canteen pouch (left back of the belt) or the knife sheath (right hip) takes what is in it; let a thing go at an empty slot that takes it and it snaps in. Pouch (front right) and binocular holster (left hip) unchanged | - |
 
 ## On foot
 | | VR | Desktop |

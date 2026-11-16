@@ -2,6 +2,16 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v1.11.1 – chest-rig pockets and belt slots: grab things off your body and snap them back
+
+- **Four fixed slots on your body:** two small chest-rig pockets (left and right, for small things: the knife, the flashlight, jerky), a canteen pouch at the left back of your belt and a knife sheath on your right hip. They sit on the IK body (chest and hips), so they move with you and show in the mirror and third person. With Body set to HANDS ONLY they sit in the same places under your eyes.
+- **Take and put back (VR, on foot):** squeeze grip at a filled slot and the thing comes into that hand. Let go of a thing at an empty slot that takes it and it snaps in (a click and a tick in the hand). A slot that does not take it (the canteen at a chest pocket) leaves it where you let go, so it drops. Things move freely between the pack and the slots: take the flashlight out of the pack you are holding and pocket it, or put the knife back in the pack.
+- **A new game** starts with the canteen on your belt and the knife in its sheath; the other things are in the pack. A v1.11.0 save keeps its pack and starts with empty slots.
+- **The cartridge pouch (front right) and the binocular holster (left hip) are unchanged** and keep their own reach: a slot never answers where the pouch or the holster is nearer.
+- **Weight:** what is in the slots counts as weight you carry in the W&B, like the pack.
+- **Save:** the slots are saved and loaded with the game.
+- **Cost:** the rig and the belt are one batched draw each, on foot only (not drawn in the Cub). They use the existing item material, so there is no new shader program. No garbage per frame, and the physics checksum is unchanged.
+
 ## v1.11.0 – a backpack you pull over your shoulder, with the things inside it (Ghosts of Tabor style)
 
 - **On your back from the start:** a small canvas rucksack rides on your back (on the IK body's chest frame, so it moves with you). In the mirror and in third person you see it; in your own view it is not drawn while it is on your back, so nothing gets in the way.

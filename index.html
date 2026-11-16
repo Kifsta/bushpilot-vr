@@ -636,7 +636,7 @@ const hyp = (a, b, c = 0) => Math.sqrt(a * a + b * b + c * c);   // v0.59 Math.h
 
 // ======================= RENDERING =======================
 // v0.35 settings (persist in localStorage 'bp_gfx'; ?gfx=shadows:2,grass:1 overrides for testing). Defaults = the v0.34 look and cost.
-const BP_VERSION = 'v1.11.0';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
+const BP_VERSION = 'v1.11.1';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
 { const e = document.getElementById('ver'); if (e) e.textContent = BP_VERSION; } window.__bpVer = BP_VERSION; bootLog('game module running ' + BP_VERSION + ' (three r' + THREE.REVISION + ')' + (/[?&]safe(=|&|$)/.test(location.search) ? ' - SAFE MODE: default graphics, no shadows / ULTRA / life / vistas / music' : ''));
 const GFX_DEF = { shadows: 0, scale: 1, fov: 1, dist: 1, trees: 1, grass: 0, clouds: 1, fog: 1, msaa: 1, hz: 90, vig: 0, turn: 0, fps: 0, tod: 11, stk: 1, tips: 1, terr: 1, dyn: 1, glove: 0, hand: 0, wt: 1, volM: 1, volMu: 0.5, volE: 1, volA: 1, volF: 1, wx: 1, forest: 0, ground: 0, gtex: 0, cvl: 1, water: 1, dayl: 48, flure: 0, fline: 8, fdrag: 4, fbob: 0, fsink: 0, ultra: 0 };   // v0.68.1 dominant hand, volumes. v0.48 BALANCED: 90 % scale, 72 Hz, fast terrain shading, auto resolution; v0.49.1 the stick stays where you let go of it
 const GFX = Object.assign({}, GFX_DEF);
@@ -6559,7 +6559,7 @@ const PK_K = {   // kind: [name, lb, litres, [w h d] in the pack (m), parts (par
   rope: ['ROPE', 2.2, 1.5, [0.17, 0.06, 0.17], [['r', 0.06, 0.022, 10, 0, -0.01, 0, 0xb09060], ['r', 0.058, 0.02, 10, 0, 0.015, 0, 0xa08050]]],
   jerky: ['JERKY', 0.25, 0.3, [0.105, 0.145, 0.03], [['b', 0.1, 0.14, 0.02, 0, 0, 0, 0x8a3a2a], ['b', 0.102, 0.03, 0.022, 0, 0.06, 0, 0xd8c8a0]]],
   tarp: ['TARP', 2.0, 2.5, [0.25, 0.105, 0.105], [['c', 0.05, 0.22, 8, 0, 0, 0, 0x3a5a7a, 0, 0, Math.PI / 2], ['c', 0.052, 0.02, 8, 0.07, 0, 0, 0x2a2a2a, 0, 0, Math.PI / 2], ['c', 0.052, 0.02, 8, -0.07, 0, 0, 0x2a2a2a, 0, 0, Math.PI / 2]]] };
-const PK_ROOM = 14, PK_EMPTY = 3, PK_HEAVY = 30, PK_START = ['tarp', 'rope', 'firstaid', 'canteen', 'knife', 'torch', 'jerky', 'jerky'];   // litres, lb (the empty pack), lb (a warning, never a block)
+const PK_ROOM = 14, PK_EMPTY = 3, PK_HEAVY = 30, PK_START = ['tarp', 'rope', 'firstaid', 'torch', 'jerky', 'jerky'], PK_SL0 = [null, null, 'canteen', 'knife'];   // v1.11.1 a new game: the canteen on your belt, the knife in its sheath   // litres, lb (the empty pack), lb (a warning, never a block)
 const PK_SPLIT = -0.08, PK_DROPY = 0.47;   // head-yaw frame x: with the rifle slung, right of this is the rifle's reach; the handle above the pack's bottom
 const PK = { st: 'worn', g: null, it: PK_START.slice(), gnd: [], hk: [null, null], hm: [], fm: [], fall: [], v: GV3(0, 0, 0), ry: 0, lb: 0, vol: 0, hid: false, mouthT: 0, n: 0,
   hp: [GV3(0, 0, 0), GV3(0, 0, 0)], hv: [GV3(0, 0, 0), GV3(0, 0, 0)], hin: [false, false], slot: [], KG: {}, mesh: null, cm: null, gm: null, geoC: null, geoO: null };
@@ -6598,7 +6598,7 @@ function pkContents() {   // the layout inside (rows across, then forward, then 
 function pkGround() { const G = PK.gnd, m = PK.gm; let n = 0; if (G.length) m.position.set(G[0][1], G[0][2], G[0][3]);
   for (const e of G) n = pkWrite(m.geometry, n, e[0], e[1] - m.position.x, e[2] - m.position.y, e[3] - m.position.z, e[4]); pkDone(m.geometry, n); m.visible = G.length > 0; }
 function pkWeigh() { let lb = PK_EMPTY, h = 0; for (const k of PK.it) lb += PK_K[k][1]; PK.lb = lb; for (const k of PK.hk) if (k) h += PK_K[k][1];   // WBS: what you carry (the pack on you + an item in a hand)
-  WBS.pkLb = (PK.st === 'worn' || PK.st === 'held' ? lb : 0) + h; WBS.pkOn = WBS.pkLb > 0; }
+  WBS.pkLb = (PK.st === 'worn' || PK.st === 'held' ? lb : 0) + h + slLb(); WBS.pkOn = WBS.pkLb > 0; }
 function pkGeo(open) { const g = open ? PK.geoO : PK.geoC; if (PK.mesh.geometry !== g) PK.mesh.geometry = g; PK.cm.visible = open; }
 const pkOpen = () => PK.st === 'ground' || PK.st === 'held';
 const pkOpenFor = g => pkOpen() && PK.g !== g;   // on the ground (no hand), or held in the other hand
@@ -6628,6 +6628,7 @@ function pkDrop(k, p, v, ry) { const F = PK.fall.find(f => !f.on);
   if (!F) { PK.gnd.push([k, p.x, groundY(p.x, p.z) + PK_K[k][3][1] / 2, p.z, ry]); pkGround(); saveSoon(); return; }
   const j = PK.fall.indexOf(F), m = PK.fm[j]; F.on = true; F.k = k; F.p.copy(p); F.v.copy(v); F.ry = ry; pkDone(m.geometry, pkWrite(m.geometry, 0, k, 0, 0, 0, 0)); m.position.copy(p); m.rotation.set(0, ry, 0); m.visible = true; }
 function pkLetItem(i) { const g = grips[i], k = PK.hk[i], m = PK.hm[i]; m.getWorldPosition(_pkV); PK.hk[i] = null; m.visible = false; scene.add(m);
+  if (slPut(i, _pkV, k)) return;   // v1.11.1 near an empty slot that takes it: snapped in
   if (pkOpenFor(g) && pkInOpening(_pkV, 0.03) && pkPut(k)) { HX.pulse(g, 0.2, 14, 'release'); return; }
   pkDrop(k, _pkV, PK.hv[i], headYaw()); pkWeigh(); HX.pulse(g, 0.15, 12, 'release'); }
 function pkLetPack(g) { const i = grips.indexOf(g); g.getWorldPosition(_pkV);
@@ -6640,6 +6641,7 @@ function packGrab(g, p) {   // handGrab: an item in the open pack, one on the gr
   if (mode !== 'foot' || !g.userData.src) return false; const i = grips.indexOf(g); if (i < 0) return false;
   if (PK.g === g || PK.hk[i]) return true; if (pkBusy(g)) return false;
   if ((PK.st === 'ground' || PK.st === 'fall') && pkLocal(p).length() < 0.08) { pkHold(g); return true; }   // the handle first (it sits above the opening)
+  if (slTake(i, p)) return true;   // v1.11.1 a rig / belt slot
   if (pkOpenFor(g)) { const j = pkNearItem(p); if (j >= 0) { const k = PK.it.splice(j, 1)[0]; pkContents(); pkTake(i, k); saveSoon(); return true; } }
   for (let j = 0; j < PK.gnd.length; j++) { const G = PK.gnd[j]; if (Math.hypot(p.x - G[1], p.y - G[2], p.z - G[3]) < 0.15) { PK.gnd.splice(j, 1); pkGround(); pkTake(i, G[0]); saveSoon(); return true; } }
   if (PK.st === 'ground' || PK.st === 'fall') { const v = pkLocal(p); if (Math.abs(v.x) < 0.22 && v.y > -0.52 && v.y < 0.08 && v.z > -0.08 && v.z < 0.24) { pkHold(g); return true; } }
@@ -6654,7 +6656,7 @@ function packKey() {   // desktop I: set the pack down open in front of you / pu
   if (PK.st === 'ground') { camera.getWorldPosition(_pkV); if (_pkV.distanceTo(PK.mesh.position) > 2.5) { say('YOUR PACK IS ' + Math.round(_pkV.distanceTo(PK.mesh.position)) + ' M AWAY'); return true; } pkWear(); return true; }
   return false; }
 function packTick(dt, vr) {   // after bodyTick: the worn pose, falling things, the reach tick, a drink / a bite
-  const M = PK.mesh, foot = mode === 'foot';
+  const M = PK.mesh, foot = mode === 'foot'; slPose(foot);
   for (let i = 0; i < 2; i++) { grips[i].getWorldPosition(_pkV); if (dt > 1e-4) PK.hv[i].subVectors(_pkV, PK.hp[i]).multiplyScalar(1 / dt); PK.hp[i].copy(_pkV); }
   for (let i = 0; i < 2; i++) if (PK.hk[i] && (!foot || !vr)) { const k = PK.hk[i]; PK.hk[i] = null; PK.hm[i].visible = false; if (!pkPut(k, true)) { grips[i].getWorldPosition(_pkV); pkDrop(k, _pkV, PK.v.set(0, 0, 0), 0); } pkWeigh(); }
   if (PK.st === 'held' && (!foot || !vr || !PK.g.userData.src)) pkWear(true);   // you boarded / left VR with it in your hand: on your back
@@ -6670,7 +6672,7 @@ function packTick(dt, vr) {   // after bodyTick: the worn pose, falling things, 
     if (_pkV.distanceTo(_pkL) < 0.14) { PK.mouthT = 4; if (k === 'canteen') { say('A DRINK OF COLD WATER'); sfx('pick'); } else { PK.hk[i] = null; PK.hm[i].visible = false; pkWeigh(); say('JERKY - ONE LESS IN THE PACK'); sfx('pick'); saveSoon(); } } } }
 function packSave() { const r = v => Math.round(v * 1000) / 1000, st = PK.st === 'ground' || PK.st === 'fall' ? 'ground' : 'worn', it = PK.it.slice();
   for (const k of PK.hk) if (k) it.push(k); for (const F of PK.fall) if (F.on) it.push(F.k);
-  return { st, p: st === 'ground' ? [r(PK.mesh.position.x), r(PK.mesh.position.y), r(PK.mesh.position.z)] : undefined, ry: st === 'ground' ? r(PK.ry) : undefined, it, gnd: PK.gnd.map(e => [e[0], r(e[1]), r(e[2]), r(e[3]), r(e[4])]) }; }
+  return { st, p: st === 'ground' ? [r(PK.mesh.position.x), r(PK.mesh.position.y), r(PK.mesh.position.z)] : undefined, ry: st === 'ground' ? r(PK.ry) : undefined, it, gnd: PK.gnd.map(e => [e[0], r(e[1]), r(e[2]), r(e[3]), r(e[4])]), sl: slSave() }; }
 function packLoad(d) {   // a save without a pack (older than v1.11.0): the starter kit on your back
   for (let i = 0; i < 2; i++) { PK.hk[i] = null; PK.hm[i].visible = false; } for (const F of PK.fall) F.on = false; for (const m of PK.fm) m.visible = false;
   const ok = k => typeof k === 'string' && Object.prototype.hasOwnProperty.call(PK_K, k);
@@ -6678,7 +6680,52 @@ function packLoad(d) {   // a save without a pack (older than v1.11.0): the star
   PK.gnd = d && Array.isArray(d.gnd) ? d.gnd.filter(e => Array.isArray(e) && ok(e[0]) && e.slice(1, 5).every(v => typeof v === 'number' && isFinite(v))).slice(0, 40).map(e => e.slice(0, 5)) : [];
   if (d && d.st === 'ground' && Array.isArray(d.p) && d.p.length === 3 && d.p.every(v => typeof v === 'number' && isFinite(v))) { scene.add(PK.mesh); PK.mesh.position.fromArray(d.p); PK.ry = +d.ry || 0; PK.mesh.quaternion.setFromAxisAngle(_ry, PK.ry); PK.st = 'ground'; PK.g = null; PK.mesh.visible = true; pkGeo(true); }
   else { PK.st = 'worn'; PK.g = null; scene.add(PK.mesh); pkGeo(false); }
-  pkContents(); pkGround(); }
+  slLoad(d ? d.sl : null, !d); pkContents(); pkGround(); }
+// ===================== v1.11.1 CHEST RIG + BELT SLOTS: fixed pockets on your body you take things from and snap them back into =====================
+// Two chest-rig pockets (small things: knife, flashlight, jerky), a canteen pouch on the left back of your belt and a knife sheath on your right hip
+// (the cartridge pouch, front right, and the binocular holster, left hip, stay as they were). On the IK body's chest / pelvis frames (head-yaw frame with
+// HANDS ONLY). Grip near a filled slot: the thing comes into that hand. Let a thing go near an empty slot that takes it: it snaps in.
+// Draws: the rig 1 + the belt 1 (one batch each, rebuilt only on a change, ITEM_VM: no new program), on foot only.
+const SL_D = [   // id, frame (2 chest / 0 pelvis), local position of the thing's centre (+x right, +y up, +z behind you), takes, name
+  ['rigL', 2, [-0.085, 0.0, -0.165], k => PK_K[k][2] <= 0.3, 'CHEST POCKET'], ['rigR', 2, [0.085, 0.0, -0.165], k => PK_K[k][2] <= 0.3, 'CHEST POCKET'],
+  ['belt', 0, [-0.13, -0.04, 0.1], k => k === 'canteen', 'CANTEEN POUCH'], ['sheath', 0, [0.17, -0.07, 0.0], k => k === 'knife', 'KNIFE SHEATH']];
+const _slS = GV3(1, 1, 1), SL_R = 0.09, SL_HEAD = [GV3(0, -0.36, 0), GV3(0, -0.66, 0)];   // grab / snap radius (the ammo pouch's is 0.1); HANDS ONLY: chest / pelvis below the eyes
+const RIG = { k: [null, null, 'canteen', 'knife'], m: [], W: [GV3(0, 0, 0), GV3(0, 0, 0), GV3(0, 0, 0), GV3(0, 0, 0)], hin: [false, false] };
+{ const mk = P => { const gs = P.map(partGeo), g = mergeGeometries(gs); for (const x of gs) x.dispose(); const r = { p: g.attributes.position.array.slice(), n: g.attributes.normal.array.slice(), c: g.attributes.color.array.slice(), cnt: g.attributes.position.count }; g.dispose(); return r; };
+  const W = 0x5a5a3a, D = 0x45452c, L = 0x6a4a2a, S = 0x2a2a22;
+  PK.KG._rig = mk([['b', 0.075, 0.1, 0.012, 0, -0.03, -0.022, W], ['b', 0.012, 0.1, 0.045, -0.034, -0.03, 0, W], ['b', 0.012, 0.1, 0.045, 0.034, -0.03, 0, W], ['b', 0.075, 0.012, 0.045, 0, -0.08, 0, D], ['b', 0.077, 0.014, 0.014, 0, 0.02, -0.022, D]]);
+  PK.KG._rigs = mk([['b', 0.25, 0.025, 0.012, 0, -0.08, -0.026, S]]);   // the rig's band (once, across under the pockets)
+  PK.KG._belt = mk([['c', 0.054, 0.12, 10, 0, -0.035, 0, D], ['b', 0.06, 0.03, 0.02, 0, 0.0, -0.055, S]]);
+  PK.KG._sheath = mk([['b', 0.045, 0.15, 0.026, 0, -0.045, 0, L], ['b', 0.05, 0.03, 0.03, 0, 0.03, 0, S]]);
+  PK.KG._strap = mk([['b', 0.34, 0.035, 0.24, 0, 0.03, 0.02, S]]);   // the belt itself (a thin band round the trousers' waist)
+  for (let f = 0; f < 2; f++) { const g = new THREE.BufferGeometry(); for (const a of ['position', 'normal', 'color']) g.setAttribute(a, new THREE.BufferAttribute(new Float32Array(3000 * 3), 3)); g.setDrawRange(0, 0);
+    const m = new THREE.Mesh(g, ITEM_VM); m.userData.noBatch = true; m.frustumCulled = false; m.visible = false; m.matrixAutoUpdate = false; m.name = f ? 'BELT' : 'RIG'; scene.add(m); RIG.m.push(m); } }
+function slWrite() {   // the two batches: pockets + what is in them (on a change only)
+  let n0 = 0, n1 = 0; const g0 = RIG.m[0].geometry, g1 = RIG.m[1].geometry;
+  n0 = pkWrite(g0, n0, '_rigs', 0, 0, -0.16, 0); n1 = pkWrite(g1, n1, '_strap', 0, -0.06, 0, 0);
+  for (let j = 0; j < 4; j++) { const d = SL_D[j], p = d[2], k = RIG.k[j], ch = d[1] === 2, sk = ch ? '_rig' : j === 2 ? '_belt' : '_sheath';
+    if (ch) n0 = pkWrite(g0, n0, sk, p[0], p[1], p[2], 0); else n1 = pkWrite(g1, n1, sk, p[0], p[1], p[2], 0);
+    if (k) { const y = p[1] + (ch ? PK_K[k][3][1] / 2 - 0.07 : j === 2 ? 0.0 : 0.0); if (ch) n0 = pkWrite(g0, n0, k, p[0], y, p[2], 0); else n1 = pkWrite(g1, n1, k, p[0], y, p[2], 0); } }
+  pkDone(g0, n0); pkDone(g1, n1); }
+function slPose(foot) {   // per frame: the two batches on the body (or below the eyes), the slots' world centres
+  const ok = foot && (typeof BODY !== 'undefined' && BODY.tier >= 1 ? BODY.n > 0 : HANDS.force || !!renderer.xr.isPresenting);
+  for (let f = 0; f < 2; f++) { const m = RIG.m[f]; m.visible = ok; if (!ok) continue;
+    if (typeof BODY !== 'undefined' && BODY.tier >= 1 && BODY.MLOC && BODY.n > 0) m.matrix.multiplyMatrices(BODY.MLOC, BODY.W[f ? 0 : 2]);
+    else { camera.getWorldPosition(_pkV).add(SL_HEAD[f]); _pkQ.setFromAxisAngle(_ry, headYaw()); m.matrix.compose(_pkV, _pkQ, _slS); }
+    m.matrixWorld.copy(m.matrix); }
+  for (let j = 0; j < 4; j++) { const d = SL_D[j], p = d[2]; RIG.W[j].set(p[0], p[1], p[2]).applyMatrix4(RIG.m[d[1] === 2 ? 0 : 1].matrixWorld); } }
+function slNear(p, full, k) {   // the slot nearest a hand: a filled one (to take from) or an empty one that takes kind k (to snap into), or -1
+  if (!RIG.m[0].visible) return -1; let b = -1, bd = SL_R * SL_R;
+  for (let j = 0; j < 4; j++) { if (full ? !RIG.k[j] : RIG.k[j] || !SL_D[j][3](k)) continue; const d = RIG.W[j].distanceToSquared(p); if (d < bd) { bd = d; b = j; } }
+  if (b >= 0 && full) { const d = Math.sqrt(bd);   // the cartridge pouch and the binocular holster keep their own reach
+    if (RFL.spare > 0 && rflHas() && rflPouch(_pkC).distanceTo(p) < d) return -1; if (BINO.place === 'hip' && binoHip(_pkC).distanceTo(p) < d) return -1; }
+  return b; }
+function slTake(i, p) { const j = slNear(p, true); if (j < 0) return false; const k = RIG.k[j]; RIG.k[j] = null; slWrite(); pkTake(i, k); saveSoon(); return true; }
+function slPut(i, p, k) { const j = slNear(p, false, k); if (j < 0) return false; RIG.k[j] = k; slWrite(); pkWeigh(); sfx('clack', RIG.W[j]); HX.pulse(grips[i], 0.25, 14, 'release'); say(PK_K[k][0] + ' - ' + SL_D[j][4]); saveSoon(); return true; }
+function slLb() { let lb = 0; for (const k of RIG.k) if (k) lb += PK_K[k][1]; return lb; }
+function slSave() { return RIG.k.slice(); }
+function slLoad(a, fresh) { for (let j = 0; j < 4; j++) { const k = Array.isArray(a) ? a[j] : fresh ? PK_SL0[j] : null; RIG.k[j] = typeof k === 'string' && Object.prototype.hasOwnProperty.call(PK_K, k) && SL_D[j][3](k) ? k : null; } slWrite(); }
+slWrite();
 pkContents(); pkGround();
 function wbUpdate() {   // v0.50: every piece of cargo aboard is a load at its station (rear seat +37, floor, baggage +57); one held in the seat rides at +11
   const fuelGal = fuel / FUEL_MAX * WNB.FUEL_GAL; let rear = 0, bag = 0, foot = 0, pod = 0, loose = 0, held = 0; WB_L.length = 0;
