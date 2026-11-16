@@ -1,0 +1,34 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Bush Pilot VR - XR entry test</title>
+<script type="importmap">{ "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js", "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/" } }</script>
+<style>body{margin:0;background:#123;color:#fff;font:16px monospace}#log{position:fixed;top:0;left:0;padding:10px;white-space:pre;z-index:9}button.go{position:fixed;bottom:80px;left:20px;font-size:22px;padding:12px}</style></head><body><div id="log"></div>
+<script type="module">
+const P = new URLSearchParams(location.search), mode = P.has('raw') ? 'raw' : (P.has('msaa') ? 'three+msaa' : 'three');
+const t0 = performance.now(), logEl = document.getElementById('log');
+const log = m => { const s = '[xrtest ' + Math.round(performance.now() - t0) + 'ms] ' + m; console.log(s); logEl.textContent += s + '\n'; };
+log('mode ' + mode + ' | ' + navigator.userAgent);
+if (mode === 'raw') {
+  const c = document.createElement('canvas'); document.body.appendChild(c);
+  const gl = c.getContext('webgl2', { xrCompatible: true });
+  const b = document.createElement('button'); b.className = 'go'; b.textContent = 'Enter VR (raw WebXR)'; document.body.appendChild(b);
+  b.onclick = async () => {
+    const t = performance.now(); log('requestSession immersive-vr (local-floor optional)');
+    try {
+      const s = await navigator.xr.requestSession('immersive-vr', { optionalFeatures: ['local-floor'] });
+      log('GRANTED in ' + Math.round(performance.now() - t) + 'ms');
+      s.updateRenderState({ baseLayer: new XRWebGLLayer(s, gl) });
+      const ref = await s.requestReferenceSpace('local'); let n = 0;
+      const f = (time, fr) => { const L = s.renderState.baseLayer; gl.bindFramebuffer(gl.FRAMEBUFFER, L.framebuffer); gl.clearColor(0.2, 0.4, 0.7, 1); gl.clear(gl.COLOR_BUFFER_BIT); if (++n === 1 || n === 90) log('XR frame ' + n); s.requestAnimationFrame(f); };
+      s.requestAnimationFrame(f); s.onend = () => log('session ended');
+    } catch (e) { log('refused: ' + e); }
+  };
+} else {
+  const THREE = await import('three'); const { VRButton } = await import('three/addons/webxr/VRButton.js');
+  const r = new THREE.WebGLRenderer({ antialias: mode === 'three+msaa' }); r.setSize(innerWidth, innerHeight); r.xr.enabled = true; document.body.appendChild(r.domElement);
+  const sc = new THREE.Scene(), cam = new THREE.PerspectiveCamera(70, innerWidth / innerHeight, 0.1, 100);
+  sc.background = new THREE.Color(0x335577); const box = new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshNormalMaterial()); box.position.set(0, 1.5, -2); sc.add(box);
+  const rq = navigator.xr.requestSession.bind(navigator.xr); let t;
+  navigator.xr.requestSession = (m, o) => { t = performance.now(); log('requestSession ' + m + ' ' + JSON.stringify(o)); return rq(m, o).then(s => { log('GRANTED in ' + Math.round(performance.now() - t) + 'ms'); s.addEventListener('end', () => log('session ended')); return s; }, e => { log('refused: ' + e); throw e; }); };
+  document.body.appendChild(VRButton.createButton(r)); let n = 0;
+  r.setAnimationLoop(() => { box.rotation.y += 0.01; if (r.xr.isPresenting && (++n === 1 || n === 90)) log('XR frame ' + n); r.render(sc, cam); });
+}
+</script></body></html>
