@@ -2,6 +2,11 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v1.10.2 – PC Link: Enter VR no longer waits 55 s
+
+- **Fixed (Neil, Edge + Quest Link):** Link took 55 s to grant the VR session while the WebXR sample entered at once. three r160's VRButton asks for the optional features `local-floor bounded-floor hand-tracking layers`; on PC (not the Quest browser), `layers` and `bounded-floor` are now dropped from the request. The Quest browser keeps the full list. The boot log prints the features requested.
+- **`?xrf=a,b`** overrides the optional features for testing (e.g. `?xrf=local-floor` or `?xrf=` for none).
+
 ## v1.10.1 – boot log, a lighter start to VR (Link), ?safe skips more
 
 - **Boot log:** every start-up stage is printed to the console as `[boot 1234ms] stage (+56ms)` and listed in a box at the top left. The log covers page start, the GPU/renderer (with whether parallel shader compile is on), terrain, the Cub, world, water, strips, towns, the cloud grid, the map, each compile batch, vistas, life, the shader warm-up, the first frames and BOOT COMPLETE. It also logs any slow shader (over 150 ms) or slow frame (over 300 ms) in the first 2 minutes, plus errors and WebGL context loss. Each line is saved in localStorage, so if a start hangs, the next start says which stage it stopped after. The box hides 12 s after BOOT COMPLETE; add `?boot` to keep it up.

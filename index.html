@@ -63,7 +63,8 @@ MENU (Esc / F2 on desktop, the wrist MENU button in VR; poke, point + trigger, o
   addEventListener('error', function (e) { window.bootLog('ERROR: ' + (e.message || e) + (e.filename ? ' @' + String(e.filename).split('/').pop() + ':' + e.lineno : ''), true); });
   addEventListener('unhandledrejection', function (e) { window.bootLog('ERROR (promise): ' + (e.reason && (e.reason.message || e.reason)), true); });
   window.bootLog('page script started (' + navigator.userAgent.replace(/^Mozilla\/5\.0 /, '') + ', ' + screen.width + 'x' + screen.height + ' @' + devicePixelRatio + ')');
-  try { var X = navigator.xr; if (X && X.requestSession) { var rq = X.requestSession.bind(X); X.requestSession = function (m, o) { window.bootLog('XR session requested (' + m + ')', true); var t = performance.now();   // v1.10.1 how long the runtime (Link) takes to hand over the session
+  try { var X = navigator.xr; if (X && X.requestSession) { var rq = X.requestSession.bind(X); X.requestSession = function (m, o) { try { var Q = /OculusBrowser|Quest/i.test(navigator.userAgent), fq = new URLSearchParams(location.search).get('xrf'); if (o && o.optionalFeatures) { if (fq !== null) o.optionalFeatures = fq ? fq.split(',') : []; else if (!Q) o.optionalFeatures = o.optionalFeatures.filter(function (f) { return f !== 'layers' && f !== 'bounded-floor'; }); } } catch (e2) { }   // v1.10.3 PC Link stalled 55 s on optional features; ?xrf=a,b overrides
+      window.bootLog('XR session requested (' + m + ', features: ' + ((o && o.optionalFeatures) || []).join(' ') + ')', true); var t = performance.now();   // v1.10.1 how long the runtime (Link) takes to hand over the session
       return rq(m, o).then(function (ses) { window.bootLog('XR session granted by the runtime in ' + Math.round(performance.now() - t) + 'ms', true); return ses; }, function (e) { window.bootLog('XR session refused: ' + (e && e.message), true); throw e; }); }; } } catch (e) { }
   addEventListener('DOMContentLoaded', function () { window.bootLog('DOMContentLoaded'); });
 })();
@@ -634,7 +635,7 @@ const hyp = (a, b, c = 0) => Math.sqrt(a * a + b * b + c * c);   // v0.59 Math.h
 
 // ======================= RENDERING =======================
 // v0.35 settings (persist in localStorage 'bp_gfx'; ?gfx=shadows:2,grass:1 overrides for testing). Defaults = the v0.34 look and cost.
-const BP_VERSION = 'v1.10.1';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
+const BP_VERSION = 'v1.10.2';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
 { const e = document.getElementById('ver'); if (e) e.textContent = BP_VERSION; } window.__bpVer = BP_VERSION; bootLog('game module running ' + BP_VERSION + ' (three r' + THREE.REVISION + ')' + (/[?&]safe(=|&|$)/.test(location.search) ? ' - SAFE MODE: default graphics, no shadows / ULTRA / life / vistas / music' : ''));
 const GFX_DEF = { shadows: 0, scale: 1, fov: 1, dist: 1, trees: 1, grass: 0, clouds: 1, fog: 1, msaa: 1, hz: 90, vig: 0, turn: 0, fps: 0, tod: 11, stk: 1, tips: 1, terr: 1, dyn: 1, glove: 0, hand: 0, wt: 1, volM: 1, volMu: 0.5, volE: 1, volA: 1, volF: 1, wx: 1, forest: 0, ground: 0, gtex: 0, cvl: 1, water: 1, dayl: 48, flure: 0, fline: 8, fdrag: 4, fbob: 0, fsink: 0, ultra: 0 };   // v0.68.1 dominant hand, volumes. v0.48 BALANCED: 90 % scale, 72 Hz, fast terrain shading, auto resolution; v0.49.1 the stick stays where you let go of it
 const GFX = Object.assign({}, GFX_DEF);
