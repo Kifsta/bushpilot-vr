@@ -607,9 +607,9 @@ const hyp = (a, b, c = 0) => Math.sqrt(a * a + b * b + c * c);   // v0.59 Math.h
 
 // ======================= RENDERING =======================
 // v0.35 settings (persist in localStorage 'bp_gfx'; ?gfx=shadows:2,grass:1 overrides for testing). Defaults = the v0.34 look and cost.
-const BP_VERSION = 'v1.08';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
+const BP_VERSION = 'v1.09';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
 { const e = document.getElementById('ver'); if (e) e.textContent = BP_VERSION; }
-const GFX_DEF = { shadows: 0, scale: 1, fov: 1, dist: 1, trees: 1, grass: 0, clouds: 1, fog: 1, msaa: 1, hz: 90, vig: 0, turn: 0, fps: 0, tod: 11, stk: 1, tips: 1, terr: 1, dyn: 1, glove: 0, hand: 0, wt: 1, volM: 1, volMu: 0.5, volE: 1, volA: 1, volF: 1, wx: 1, forest: 0, ground: 0, gtex: 0, cvl: 1, water: 1, dayl: 48, flure: 0, fline: 8, fdrag: 4, fbob: 0, fsink: 0 };   // v0.68.1 dominant hand, volumes. v0.48 BALANCED: 90 % scale, 72 Hz, fast terrain shading, auto resolution; v0.49.1 the stick stays where you let go of it
+const GFX_DEF = { shadows: 0, scale: 1, fov: 1, dist: 1, trees: 1, grass: 0, clouds: 1, fog: 1, msaa: 1, hz: 90, vig: 0, turn: 0, fps: 0, tod: 11, stk: 1, tips: 1, terr: 1, dyn: 1, glove: 0, hand: 0, wt: 1, volM: 1, volMu: 0.5, volE: 1, volA: 1, volF: 1, wx: 1, forest: 0, ground: 0, gtex: 0, cvl: 1, water: 1, dayl: 48, flure: 0, fline: 8, fdrag: 4, fbob: 0, fsink: 0, ultra: 0 };   // v0.68.1 dominant hand, volumes. v0.48 BALANCED: 90 % scale, 72 Hz, fast terrain shading, auto resolution; v0.49.1 the stick stays where you let go of it
 const GFX = Object.assign({}, GFX_DEF);
 try { const o = JSON.parse(localStorage.getItem('bp_gfx') || '{}'); if ((o.v || 0) < 48) { if (o.scale === 1) delete o.scale; if (o.hz === 0) delete o.hz; }   // v0.48: saved copies of the old defaults (100 %, AUTO Hz) move to the new ones once
   if ((o.v || 0) < 49 && o.stk === 0) delete o.stk;
@@ -1082,12 +1082,14 @@ function updateChunks(force) {
   const t0 = performance.now(), D = GFX.dist, TD = GFX.trees * DYN.tk, A = clamp((agl - 200) / 1000, 0, 1), LA = (1 - 0.45 * A) * DYN.lk;   // v0.35 draw distance / tree density; v0.48 thinner forest with height + auto resolution steps
   let up = 0;
   const FM = GFX.forest | 0, R = CHS.r + 5, U = FOREST2.u;   // v0.88 TREES: 0 = 3D ONLY, 1 = MIXED (v0.78 DENSE), 2 = 2D ONLY. R: how far you can go before the next rebuild (the sprite superset covers it)
-  U.sprNear.value = FM === 1 ? 380 : 0; U.sprTD.value = TD; U.sprL.value = 2600 * LA * D;   // the sprites' near ring, density and far thinning are drawn per vertex (continuous with distance: nothing pops at a rebuild)
-  for (const k of CHUNKS) { if ((k.spr && !FM) || (k.tree && !k.spr && FM === 2)) { k.im.count = 0; k.im.visible = false; continue; }   // v0.78 no sprites in 3D ONLY; v0.88 no 3D trees in 2D ONLY
+  U.sprNear.value = FM === 1 ? (GQ.ult ? ULT.SPRN : 380) : 0; U.sprTD.value = TD; U.sprL.value = 2600 * LA * D;   // the sprites' near ring, density and far thinning are drawn per vertex (continuous with distance: nothing pops at a rebuild)
+  for (const k of CHUNKS) { if (k.ult && (!GQ.ult || FM !== 1)) { k.im.count = 0; k.im.visible = false; continue; }   // v1.09 the PC ULTRA near forest (MIXED only)
+    if ((k.spr && !FM) || (k.tree && !k.spr && FM === 2)) { k.im.count = 0; k.im.visible = false; continue; }   // v0.78 no sprites in 3D ONLY; v0.88 no 3D trees in 2D ONLY
     if (k.spr) { up += sprChunk(k, FM, TD, D, R); continue; }
     const M = k.im.instanceMatrix, Ar = M.array, f = Math.min(k.far, k.tree ? Infinity : k.sz * CH_SZK) * D, f2 = f * f, l = (k.tree ? k.lod * LA : k.lod) * D, l2 = l * l, l4 = 4 * l2; let c = 0, ok = -1;
     if (!(k.tree && TD <= 0)) for (let i = 0; i < k.n; i++) { const dx = k.xz[i * 3] - _cp.x, dy = k.xz[i * 3 + 1] - _cp.y, dz = k.xz[i * 3 + 2] - _cp.z, d2 = dx * dx + dy * dy + dz * dz;   // v0.48: 3D distance (height counts)
       if (d2 > f2 || (d2 > l2 && i % 3) || (d2 > l4 && i % 6)) continue;
+      if (k.ih && !ultKeep(k, i, d2, TD)) continue;   // v1.09 exactly the trees the sprites leave out inside their near ring (+45 m overlap)
       if (k.near) { const h = Math.sin(k.xz[i * 3] * 7.13 + k.xz[i * 3 + 2] * 3.71) * 9631.7, nn = k.near * (0.7 + 0.6 * (h - Math.floor(h))); if (d2 < nn * nn) continue; }   // v0.78 sprites only past ~270-500 m (dithered, no hard ring)
       if (k.tree && TD < 1) { const h = Math.sin(k.xz[i * 3] * 12.9898 + k.xz[i * 3 + 2] * 78.233) * 43758.5453; if (h - Math.floor(h) >= TD) continue; }
       if (c !== i || i >= k.ok) { if (c !== i && ok < 0) ok = c; const F = k.full, s0 = i * 16, d0 = c * 16; for (let e = 0; e < 16; e++) Ar[d0 + e] = F[s0 + e]; } c++; }   // v0.47: no subarray garbage. v0.88 fix: slot i holds tree i only below k.ok (an earlier rebuild may have packed another tree there: that one was drawn twice and tree i not at all)
@@ -1096,7 +1098,7 @@ function updateChunks(force) {
   CHS.n++; CHS.ms = performance.now() - t0; CHS.up = up;
 }
 function sprChunk(k, FM, TD, D, R) {   // v0.88 the sprite forest: upload a SUPERSET of what the vertex shader shows from anywhere within R of here (it fades each tree in / out by its own distance every frame)
-  const M = k.im.instanceMatrix, Ar = M.array, F = k.full, f = Math.min(k.far, Infinity) * D, lmax = k.lod * DYN.lk * D, nr = FM === 1 ? 380 * 0.7 - 30 : -1;
+  const M = k.im.instanceMatrix, Ar = M.array, F = k.full, f = Math.min(k.far, Infinity) * D, lmax = k.lod * DYN.lk * D, nr = FM === 1 ? (GQ.ult ? ULT.SPRN : 380) * 0.7 - 30 : -1;
   const sm = (a, b, v) => { const t = v <= a ? 0 : v >= b ? 1 : (v - a) / (b - a); return t * t * (3 - 2 * t); }, keep = d => { let q = 1 - 0.6667 * sm(lmax * 0.9, lmax * 1.1, d); q += (0.1667 - q) * sm(lmax * 1.8, lmax * 2.2, d); return q * (1 + (TD - 1) * sm(900, 1100, d)); };   // the shader's q (smoothsteps), at the largest far-thinning range
   let c = 0, ok = -1; const fR2 = (f + R) * (f + R);
   if (TD > 0) for (let i = 0; i < k.n; i++) { if (k.tag[i] && FM !== 2) continue;   // tag 1: the 2D ONLY extras
@@ -2799,7 +2801,7 @@ function partGeo(p) {   // [kind, a, b, c, x, y, z, col, rx, ry, rz]
     const ny = terrainNormal(x, z)[1]; if (ny < 0.74 || ny > 0.985) continue;
     const s = 1.6 + rand() * 1.4; con.push([x, h + 4.5 * s, z, rand() * 6, s, s * (1.1 + rand() * 0.5), s]);
   }
-  instanced(new THREE.ConeGeometry(2.2, 9, 5, 1, true), swayMat(mat(0x23452b), 9, 0.08, -4.5), con, { lod: 4000, tree: 1 }); FOREST2.con = con;   // v0.88 2D ONLY draws these as sprites
+  FOREST2.cg = new THREE.ConeGeometry(2.2, 9, 5, 1, true); FOREST2.cm = swayMat(mat(0x23452b), 9, 0.08, -4.5); instanced(FOREST2.cg, FOREST2.cm, con, { lod: 4000, tree: 1 }); FOREST2.con = con;   // v0.88 2D ONLY draws these as sprites
 }
 // ---- v0.14 water: main river (north valley -> south gorge), creeks down the side drainages, two lakes (dug into the terrain in rawHeight) ----
 const RIVER_X = z => -60 + 40 * Math.sin(z * 0.004) + 25 * Math.sin(z * 0.013) - 120 * smooth(clamp((z + 700) / 400, 0, 1));
@@ -2868,7 +2870,7 @@ void main() {
   vec3 R = reflect(-V, N); vec3 sky = mix(uSkyH, uSkyZ, smoothstep(0.02, 0.6, R.y));
   float sp = pow(max(dot(R, uSun), 0.0), 140.0);
   if (uQ > 0.5) { float gn = texture2D(uN, vW.xz * 1.37 + vec2(uT * 0.061, -uT * 0.047)).a, gm = texture2D(uN, vW.xz * 0.71 - vec2(uT * 0.033, uT * 0.029)).a;   // v1.07.3 sun glitter: tiny wavelet facets that catch the sun and twinkle
-    sp += 3.0 * smoothstep(0.63, 0.68, gn * 0.62 + gm * 0.38) * pow(max(dot(R, uSun), 0.0), 10.0) * smoothstep(900.0, 60.0, dist); }
+    sp += 3.0 * smoothstep(0.63, 0.68, gn * 0.62 + gm * 0.38) * pow(max(dot(R, uSun), 0.0), 10.0) * smoothstep(uQ > 1.5 ? 2400.0 : 900.0, 60.0, dist); }
   vec3 body = mix(uShal, uDeep, smoothstep(0.2, 5.0, d)) * uLit;
   float kd = 1.0 - exp(-max(d, 0.0) * 0.5);
   vec3 under = body; float a = mix(0.3, 0.97, kd);
@@ -2912,7 +2914,7 @@ const WTR_C = new THREE.Color();
 function wtrLight() {   // per frame: the sky it mirrors, the sun / moon glint, how lit the water body is (matches the day / night cycle and the weather greying)
   const U = WATER.U; U.uSkyH.value.copy(scene.background); U.uSkyZ.value.copy(SKYD.z).lerp(scene.background, 0.35); U.fogColor.value.copy(scene.fog.color); U.fogNear.value = scene.fog.near; U.fogFar.value = scene.fog.far;
   const day = sunDir.y > -0.05; U.uSun.value.copy(day ? sunDir : moonDir); WTR_C.copy(sun.color).multiplyScalar(day ? 1.6 * sun.intensity : 1.2 * sun.intensity); U.uSunC.value.copy(WTR_C);
-  U.uLit.value = 0.1 + 0.9 * Math.min(1, hemi.intensity / 1.2); U.uQ.value = GFX.water === 0 ? 0 : 1; }
+  U.uLit.value = 0.1 + 0.9 * Math.min(1, hemi.intensity / 1.2); U.uQ.value = GFX.water === 0 ? 0 : GQ.ult ? 2 : 1; }
 // the lake beds' ground colour: wet sand at the edge, gravel + stones on the slope, dark silt in the deep (both the VALLEY build and the v0.86 ground styles call it)
 function lakeBedCol(x, z, h, cc, j) { for (const L of LAKES) { const dd = hyp(x - L.x, z - L.z); if (dd > L.r + 12) continue; const dep = L.h - 0.2 - h; if (dep < 0.15) return null;
     const r = hash2(Math.floor(x / 7), Math.floor(z / 7));
@@ -3074,8 +3076,9 @@ const LODGE = { x: -380, z: -2440, a: 1.83, hl: 140, hw: 10 };   // backcountry 
       const ty = groundY(tx, tz), s = 0.8 + POI_R() * 0.6, c = hue < 0.2 ? 2 : (POI_R() < 0.5 ? 0 : 1);
       dec[c].push([tx, ty + 4.2 * s, tz, POI_R() * 6, 2.6 * s, 2.3 * s, 2.6 * s]); trunks.push([tx, ty + 1.6 * s, tz, 0, s, s, s]); gr.n++; } }
   const crown = new THREE.IcosahedronGeometry(1, 0);
-  instanced(crown, swayMat(mat(0x4f7a32), 2, 0.045, -1, 1.5), dec[0], { lod: 2500, tree: 1 }); instanced(crown, swayMat(mat(0x6f8a2e), 2, 0.045, -1, 1.5), dec[1], { lod: 2500, tree: 1 }); instanced(crown, swayMat(mat(0xb08a2a), 2, 0.045, -1, 1.5), dec[2], { lod: 2500, tree: 1 });
-  instanced(new THREE.BoxGeometry(0.35, 3.2, 0.35), mat(0x4a3520), trunks, { lod: 2500, tree: 1 });
+  FOREST2.dm = [swayMat(mat(0x4f7a32), 2, 0.045, -1, 1.5), swayMat(mat(0x6f8a2e), 2, 0.045, -1, 1.5), swayMat(mat(0xb08a2a), 2, 0.045, -1, 1.5), mat(0x4a3520)]; FOREST2.crown = crown; FOREST2.tg = new THREE.BoxGeometry(0.35, 3.2, 0.35);   // v1.09 kept for the PC ULTRA forest
+  instanced(crown, FOREST2.dm[0], dec[0], { lod: 2500, tree: 1 }); instanced(crown, FOREST2.dm[1], dec[1], { lod: 2500, tree: 1 }); instanced(crown, FOREST2.dm[2], dec[2], { lod: 2500, tree: 1 });
+  instanced(FOREST2.tg, FOREST2.dm[3], trunks, { lod: 2500, tree: 1 });
   const con2 = [];
   for (let i = 0; i < 60000 && con2.length < 2400; i++) {
     const x = (POI_R() - 0.5) * 2 * (T_OUT - 100), z = (POI_R() - 0.5) * 2 * (T_OUT - 100), h = groundY(x, z);
@@ -9912,7 +9915,13 @@ const GFX_OPT = [   // key, label, values, value labels, note (shown small under
   ['volMu', 'Music', [0, 0.25, 0.5, 0.75, 1], ['OFF', '25%', '50%', '75%', '100%'], 'v1.00 the score: swells at views, quiet while you work'],
 ];
 const GQ = { sig: '', xrRates: null, fogK: -1, fogV: -1, fpsT: 0, menu: null, shadowT: 0 };
-function gfxLabel(k) { if (k === 'hx') return HX.gain ? Math.round(HX.gain * 100) + '%' : 'OFF'; const o = GFX_OPT.find(r => r[0] === k), i = o[2].findIndex(v => Math.abs(v - GFX[k]) < 1e-6); return i >= 0 ? o[3][i] : String(GFX[k]); }
+// v1.09 PC ULTRA: a desktop GPU (NVIDIA / AMD / Intel, not a phone / headset chip or a software renderer) is offered the PC ULTRA preset - played on a PC over Quest Link / Air Link.
+// Never applied by itself: it is only on after you pick it (GFX.ultra), and only on such a GPU (?pc=1 to test). Off = every v1.08 path, unchanged.
+{ let rs = ''; try { const gl = renderer.getContext(), x = gl.getExtension('WEBGL_debug_renderer_info'); rs = String(gl.getParameter(x ? x.UNMASKED_RENDERER_WEBGL : gl.RENDERER) || ''); } catch (e) { }
+  GQ.gpu = rs; GQ.pc = (/NVIDIA|GeForce|RTX|Quadro|Radeon|AMD|Intel/i.test(rs) && !/Adreno|Mali|Apple|SwiftShader|llvmpipe|PowerVR|Software/i.test(rs)) || /[?&]pc=1(&|$)/.test(location.search); GQ.ult = false; GQ.lifeK = 1; }
+function ultOn() { return GFX.ultra > 0 && GQ.pc; }
+const ULT = { far: null, ex: null, patched: false, t: 0, cx: 1e9, cz: 1e9, dir: new THREE.Vector3(), d: new THREE.Vector3(), nk: '', warmMs: 0, SPRN: 1100, was: false };
+function gfxLabel(k) { if (k === 'hx') return HX.gain ? Math.round(HX.gain * 100) + '%' : 'OFF'; const o = GFX_OPT.find(r => r[0] === k), i = o[2].findIndex(v => Math.abs(v - GFX[k]) < 1e-6); return i >= 0 ? o[3][i] : GFX[k] > o[2][o[2].length - 1] ? 'ULTRA' : String(GFX[k]); }
 function gfxSave() { try { localStorage.setItem('bp_gfx', JSON.stringify(Object.assign({ v: 93 }, GFX))); } catch (e) { } }
 function gfxSet(k, v, quiet) {
   if (k === 'hx') { HX.cycle(); return; }
@@ -9921,10 +9930,11 @@ function gfxSet(k, v, quiet) {
   if (GQ.menu) gfxMenuSync();
 }
 const GFX_PRESET = {   // v0.48: one-poke presets (render scale takes effect next time you enter VR)
-  PERFORMANCE: { scale: 0.8, fov: 1, terr: 0, trees: 0.4, dist: 0.6, clouds: 0, fog: 1, shadows: 0, grass: 0, hz: 90, dyn: 1, cvl: 1, water: 0 },
-  BALANCED: { scale: GFX_DEF.scale, fov: 1, terr: 1, trees: 1, dist: 1, clouds: 1, fog: 1, shadows: 0, grass: 0, hz: 90, dyn: 1, cvl: 1, water: 1 },
-  QUALITY: { scale: 1.2, fov: 0.66, terr: 2, trees: 1, dist: 1.3, clouds: 2, fog: 1, shadows: 1, grass: 1, hz: 90, dyn: 1, cvl: 0, water: 1 } };   // v0.68.1; v0.93 all at 90 Hz (auto quality thins detail, then resolution, to hold it)
-function gfxPreset(n) { for (const [k, v] of Object.entries(GFX_PRESET[n])) if (GFX[k] !== v) gfxSet(k, v, true); say(n + (renderer.xr.isPresenting && GFX.scale !== GQ.xrScale ? ' - RENDER SCALE AT NEXT VR START' : '')); sfx('click'); if (GQ.menu) gfxMenuSync(); }
+  PERFORMANCE: { ultra: 0, scale: 0.8, fov: 1, terr: 0, trees: 0.4, dist: 0.6, clouds: 0, fog: 1, shadows: 0, grass: 0, hz: 90, dyn: 1, cvl: 1, water: 0 },
+  BALANCED: { ultra: 0, scale: GFX_DEF.scale, fov: 1, terr: 1, trees: 1, dist: 1, clouds: 1, fog: 1, shadows: 0, grass: 0, hz: 90, dyn: 1, cvl: 1, water: 1 },
+  QUALITY: { ultra: 0, scale: 1.2, fov: 0.66, terr: 2, trees: 1, dist: 1.3, clouds: 2, fog: 1, shadows: 1, grass: 1, hz: 90, dyn: 1, cvl: 0, water: 1 },
+  'PC ULTRA': { ultra: 1, scale: 1.5, fov: 0, terr: 2, trees: 1, forest: 1, dist: 1.3, clouds: 2, fog: 1, shadows: 3, grass: 3, msaa: 1, hz: 120, dyn: 1, cvl: 0, water: 1 } };   // v1.09 desktop GPU only (GQ.pc): 2-zone shadows, a 1.1 km 3D forest, 150 %, 120 Hz   // v0.68.1; v0.93 all at 90 Hz (auto quality thins detail, then resolution, to hold it)
+function gfxPreset(n) { if (GFX_PRESET[n].ultra && !GQ.pc) return; for (const [k, v] of Object.entries(GFX_PRESET[n])) if (GFX[k] !== v) gfxSet(k, v, true); if (GQ.ult) { say('PC ULTRA - COMPILING'); ultPrewarm(); } say(n + (GFX_PRESET[n].ultra && GFX.msaa !== GQ.msaa0 ? ' - RELOAD FOR MSAA' : '') + (renderer.xr.isPresenting && GFX.scale !== GQ.xrScale ? ' - RENDER SCALE AT NEXT VR START' : '')); sfx('click'); if (GQ.menu) gfxMenuSync(); }
 function gfxCycle(k, d = 1) { if (k === 'hx') { HX.cycle(); if (GQ.menu) gfxMenuSync(); return; } const o = GFX_OPT.find(r => r[0] === k), i = o[2].findIndex(v => Math.abs(v - GFX[k]) < 1e-6); gfxSet(k, o[2][((i < 0 ? 0 : i) + d + o[2].length) % o[2].length]); }
 function vlWant() { return GFX.terr < 2 && !LIGHTS.landing; }   // per-pixel lights (landing light) need the Lambert look; v0.85.1 shadows decide per tile (shNearUpdate)
 function vlLam(lm) {   // v0.85.1 the per-pixel ground under the shadow box: FAST+GRAIN = the ground's own Lambert, FAST = a grain-free Lambert twin (matches the grain-free vertex-lit tiles round it)
@@ -9940,6 +9950,7 @@ function vlTick() {   // the vertex-lit uniforms follow the sun / moon and sky l
 }
 function gfxApply(k) {
   const all = !k;
+  if (all || k === 'ultra') ultApply();   // v1.09 first: the shadows / forest / grass below read GQ.ult
   if (all || k === 'cvl' || k === 'shadows') cvlApply();   // v0.95 before the shadow flags (they read the materials)
   if (all || k === 'terr' || k === 'shadows') { VL.key = ''; vlApply(); if (k === 'terr' && GFX.shadows) shPrewarm(); }
   if (all || k === 'ground') gsStart(GFX.ground);
@@ -9965,7 +9976,7 @@ function gfxShadowFlags() {   // every opaque mesh receives (v0.85.1: ground til
   const on = GFX.shadows > 0;
   scene.traverse(o => { if (!o.isMesh && !o.isInstancedMesh) return; const m = Array.isArray(o.material) ? o.material[0] : o.material; if (!m) return;
     const solid = shSolid(m), u = o.userData;
-    o.receiveShadow = on && (u.shN ? !!u.shIn && (u.ring !== undefined || solid) : u.shcOff ? o.receiveShadow : solid); o.castShadow = on && solid && !u.noCast && !u.shcOff && (!u.shN || u.ring !== undefined || TERR_M.includes(o) || !!u.shIn); if (u.shc) o.receiveShadow = false; });   // v0.89 managed sets cast through their near companions; batch cells only near
+    o.receiveShadow = on && (u.shN ? !!u.shIn && (u.ring !== undefined || solid) : u.shcOff ? o.receiveShadow : solid); o.castShadow = on && solid && !u.noCast && (!u.shcOff || (GQ.ult && GFX.shadows > 2)) && (!u.shN || u.ring !== undefined || TERR_M.includes(o) || !!u.shIn); if (u.shc) o.receiveShadow = false; });   // v0.89 managed sets cast through their near companions; batch cells only near
 }
 // v0.85.1 (perf #8) receive only near the shadow box: the ground tiles and the world's batch cells whose bounds touch the shadow camera's box (+ a margin, so it is only
 // re-tested after the box moves half its size or the sun turns) receive shadows; ground tiles outside it stay on the vertex-lit look. receiveShadow is a uniform: no recompile.
@@ -9974,6 +9985,7 @@ function shItems() { const L = SHN.items; L.length = 0; for (const o of TERR_M) 
 function shBounds(o) { const u = o.userData, g = o.geometry; if (u.shG !== g || !u.shB) { if (!g.boundingBox) g.computeBoundingBox(); (u.shB ||= new THREE.Box3()).copy(g.boundingBox).applyMatrix4(o.matrixWorld); u.shG = g; } return u.shB; }
 function shNearUpdate(force) {
   if (!GFX.shadows) return; if (BATCH.list.length !== SHN.nb) { shItems(); force = true; }
+  if (GQ.ult && GFX.shadows > 2) { ultNear(force); return; }   // v1.09 PC ULTRA: everything receives and casts (the far zone covers 2.5 km)
   const t = sun.target.position, M = GQ.shR * 0.5; SHN.d.copy(sun.position).sub(t).normalize();
   if (!force && Math.abs(t.x - SHN.last.x) < M && Math.abs(t.y - SHN.last.y) < M && Math.abs(t.z - SHN.last.z) < M && SHN.d.dot(SHN.dir) > 0.9995) { if (SHC.cn !== CHS.n) shcUpdate(); return; }
   SHN.last.copy(t); SHN.dir.copy(SHN.d); SHN.n++;
@@ -10024,7 +10036,8 @@ function shPrewarm() {   // compile every ground look the near / far tiles can s
 function gfxShadows() {
   const on = GFX.shadows > 0; renderer.shadowMap.enabled = on; renderer.shadowMap.type = GFX.shadows > 1 ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap; renderer.shadowMap.needsUpdate = true;
   sun.castShadow = on; renderer.shadowMap.autoUpdate = false;   // v0.47: refreshed every other frame from the loop
-  if (on) { const sz = GFX.shadows > 1 ? 2048 : 1024, R = GFX.shadows > 1 ? 64 : 28, c = sun.shadow.camera;
+  ultFar(on && GFX.shadows > 2 && GQ.ult);   // v1.09 PC ULTRA: the far shadow zone (added before the programs rebuild)
+  if (on) { const u3 = GFX.shadows > 2 && GQ.ult, sz = u3 ? 4096 : GFX.shadows > 1 ? 2048 : 1024, R = u3 ? 96 : GFX.shadows > 1 ? 64 : 28, c = sun.shadow.camera;
     if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; }
     sun.shadow.mapSize.set(sz, sz); c.left = c.bottom = -R; c.right = c.top = R; c.near = 10; c.far = 1000; c.updateProjectionMatrix();
     sun.shadow.bias = -0.0006; sun.shadow.normalBias = GFX.shadows > 1 ? 0.04 : 0.07; GQ.shR = R; GQ.shTex = 2 * R / sz; }
@@ -10034,6 +10047,75 @@ function gfxShadows() {
   VL.key = ''; vlApply(); if (on) shPrewarm();
 }
 const _gsF = new THREE.Vector3();
+// ===== v1.09 PC ULTRA =====
+GQ.msaa0 = GFX.msaa;
+function ultApply() {
+  const on = ultOn(); GQ.ult = on; GQ.lifeK = on ? 1.75 : 1; if (!on && !ULT.was) return; ULT.was = true;   // never picked: nothing to undo (the Quest default path)
+  if (on && !ULT.ex) ultForest();
+  if (on && !ULT.patched) ultPatch();
+  ULT.nk = ''; updateChunks(true);
+  if (GFX.shadows) gfxShadows(); else ultFar(false);
+  if (GRASS.im && GFX.grass) { GRASS.cx = 1e9; GRASS.job = null; }
+}
+function ultPatch() {   // the lit materials: with 2 directional shadows (PC ULTRA only), the sun uses the near map inside its box and the far map round it (blended over the box's edge). Quest never has 2.
+  const C = THREE.ShaderChunk, a = 'directLight.color *= ( directLight.visible && receiveShadow ) ? getShadow( directionalShadowMap[ i ], directionalLightShadow.shadowMapSize, directionalLightShadow.shadowBias, directionalLightShadow.shadowRadius, vDirectionalShadowCoord[ i ] ) : 1.0;';
+  if (!C.lights_fragment_begin.includes(a)) { ULT.patched = 'miss'; return; }
+  const sh = j => `getShadow( directionalShadowMap[ ${j} ], directionalLightShadows[ ${j} ].shadowMapSize, directionalLightShadows[ ${j} ].shadowBias, directionalLightShadows[ ${j} ].shadowRadius, vDirectionalShadowCoord[ ${j} ] )`;
+  C.lights_fragment_begin = C.lights_fragment_begin.replace(a, `
+		#if NUM_DIR_LIGHT_SHADOWS > 1 && UNROLLED_LOOP_INDEX == 0
+		{ vec3 uc = vDirectionalShadowCoord[ 0 ].xyz / vDirectionalShadowCoord[ 0 ].w; float ue = smoothstep( 0.0, 0.06, min( min( uc.x, 1.0 - uc.x ), min( uc.y, 1.0 - uc.y ) ) );
+		  float uN = ue > 0.0 ? ${sh(0)} : 1.0, uF = ue < 1.0 ? ${sh(1)} : 1.0;
+		  directLight.color *= ( directLight.visible && receiveShadow ) ? mix( uF, uN, ue ) : 1.0; }
+		#else
+		${a}
+		#endif`);
+  ULT.patched = true;
+}
+function ultFar(want) {   // a second, shadow-only sun (colour 0: it adds no light) whose 4096 px map covers 2.5 km round you
+  if (want && !ULT.far) { const L = new THREE.DirectionalLight(0x000000, 0); L.castShadow = true; L.shadow.mapSize.set(4096, 4096); const c = L.shadow.camera; c.left = c.bottom = -1250; c.right = c.top = 1250; c.near = 10; c.far = 7000; c.updateProjectionMatrix();
+    L.shadow.bias = -0.0015; L.shadow.normalBias = 0.8; L.shadow.autoUpdate = false; L.name = 'ULT.far'; ULT.far = L; }
+  if (want && ULT.far && !ULT.far.parent) { scene.add(ULT.far); scene.add(ULT.far.target); ULT.t = 0; ULT.cx = 1e9; }
+  if (!want && ULT.far && ULT.far.parent) { ULT.far.removeFromParent(); ULT.far.target.removeFromParent(); if (ULT.far.shadow.map) { ULT.far.shadow.map.dispose(); ULT.far.shadow.map = null; } }
+}
+function ultFarFollow(dt) {
+  const L = ULT.far, d = ULT.d.copy(sun.position).sub(sun.target.position).normalize(); ULT.t -= dt;
+  if (ULT.t > 0 && hyp(_gsF.x - ULT.cx, _gsF.z - ULT.cz) < 150 && d.dot(ULT.dir) > 0.99995) return;
+  ULT.t = 1.5; const t = 2500 / 4096, fx = Math.round(_gsF.x / t) * t, fz = Math.round(_gsF.z / t) * t; ULT.cx = _gsF.x; ULT.cz = _gsF.z; ULT.dir.copy(d);
+  L.target.position.set(fx, 0, fz); L.target.updateMatrixWorld(); L.position.copy(d).multiplyScalar(3500).add(L.target.position); L.updateMatrixWorld(); L.shadow.needsUpdate = true; renderer.shadowMap.needsUpdate = true;
+}
+function ultNear(force) {   // PC ULTRA shadows: every ground tile / batch cell receives (and the cells cast); the whole instanced sets cast (the far zone needs them), their near-only companions rest
+  const key = SHN.nb + '|' + CHUNKS.length; if (!force && key === ULT.nk) return; ULT.nk = key; let ch = false;
+  for (const o of SHN.items) { const m = Array.isArray(o.material) ? o.material[0] : o.material; if (o.userData.ring !== undefined && !o.userData.shIn) ch = true; o.userData.shIn = true; o.receiveShadow = o.userData.ring !== undefined || shSolid(m);
+    if (o.userData.ring === undefined && !TERR_M.includes(o)) o.castShadow = shSolid(m) && !o.userData.noCast; }
+  if (ch) SHN.ver++;
+  for (const k of CHUNKS) { if (k.spr || !shSolid(k.lm) || k.im.userData.noCast) continue; if (!k.shc) { k.shc = { m: null, cap: 0 }; k.im.userData.shcOff = true; }
+    k.im.castShadow = true; k.im.receiveShadow = true; if (k.shc.m) { k.shc.m.count = 0; k.shc.m.visible = false; } }
+  SHC.cn = -1;
+}
+function ultForest() {   // 3D twins of the MIXED sprite forest (conifers -> the open cones, valley woods -> crowns on trunks), drawn where the sprites' near ring leaves them out
+  ULT.ex = []; const sp = CHUNKS.filter(k => k.spr); if (sp.length < 4 || !FOREST2.cm || !FOREST2.dm) return;
+  const G = [[FOREST2.cg, FOREST2.cm], [FOREST2.crown, FOREST2.dm[0]], [FOREST2.crown, FOREST2.dm[1]], [FOREST2.crown, FOREST2.dm[2]], [FOREST2.tg, FOREST2.dm[3]]], L = G.map(() => ({ l: [], h1: [], h2: [] }));
+  const add = (g, o, k, i) => { L[g].l.push(o); L[g].h1.push(k.h1[i]); L[g].h2.push(k.h2[i]); };
+  sp.forEach((k, c) => { const F = k.full; for (let i = 0; i < k.n; i++) { if (k.tag[i]) continue; const o = i * 16, x = F[o + 12], y = F[o + 13], z = F[o + 14], sx = Math.hypot(F[o], F[o + 1], F[o + 2]), sy = Math.hypot(F[o + 4], F[o + 5], F[o + 6]), ry = k.h2[i] * 6.283;
+    if (c < 2) { const s = sx / 4.4 * 0.85, h = sy * 0.95 / 9; add(0, [x, y + 0.3 + 4.5 * h, z, ry, s, h, s], k, i); }
+    else { const s = sy / 6.5, g0 = y + 0.2; add(c === 3 ? 3 : k.h1[i] < 0.5 ? 1 : 2, [x, g0 + 4.2 * s, z, ry, 2.6 * s, 2.3 * s, 2.6 * s], k, i); add(4, [x, g0 + 1.6 * s, z, 0, s, s, s], k, i); } } });
+  G.forEach(([geo, m], g) => { if (!L[g].l.length) return; const im = instanced1(geo, m, L[g].l, { far: 1500, ult: 1 }, false), k = CHUNKS[CHUNKS.length - 1];
+    k.ult = true; k.ih = Float32Array.from(L[g].h1); k.ih2 = Float32Array.from(L[g].h2); im.count = 0; im.visible = false; ULT.ex.push(k); });
+}
+function ultKeep(k, i, d2, TD) {   // the sprite shader's own rule, inverted: inside its dithered near ring, at its far-thinning / density keep rate
+  const nn = ULT.SPRN * (0.7 + 0.6 * k.ih[i]) + 45; if (d2 > nn * nn) return false;
+  const d = Math.sqrt(d2), sL = FOREST2.u.sprL.value, sm = (a, b, v) => { const t = v <= a ? 0 : v >= b ? 1 : (v - a) / (b - a); return t * t * (3 - 2 * t); };
+  let q = 1 + (0.3333 - 1) * sm(sL * 0.9, sL * 1.1, d); q += (0.1667 - q) * sm(sL * 1.8, sL * 2.2, d); q *= 1 + (TD - 1) * sm(900, 1100, d); return k.ih2[i] < q;
+}
+function ultPrewarm() {   // compile every program the PC ULTRA lighting needs (2 shadow suns) for everything in the scene, shown or not, x each panel-glow / landing-light combination
+  const t0 = performance.now(), hid = [], pv = PL.visible, sv = SL.visible; if (GFX.grass && !GRASS.im) grassInit();
+  scene.traverse(o => { if (!o.visible && !o.isLight) { hid.push(o); o.visible = true; } });
+  for (let c = 0; c < 4; c++) { PL.visible = !!(c & 1); SL.visible = !!(c & 2); renderer.compile(scene, camera); }
+  if (ULT.far && ULT.far.parent) { const rt = ULT.rt || (ULT.rt = new THREE.WebGLRenderTarget(16, 16)), prev = renderer.getRenderTarget(); renderer.setRenderTarget(rt);   // the shadow passes' depth programs too (compile() skips them): one tiny render per light combination
+    for (let c = 0; c < 4; c++) { PL.visible = !!(c & 1); SL.visible = !!(c & 2); renderer.shadowMap.needsUpdate = true; ULT.far.shadow.needsUpdate = true; renderer.render(scene, camera); }
+    renderer.setRenderTarget(prev); renderer.shadowMap.needsUpdate = true; ULT.far.shadow.needsUpdate = true; }
+  PL.visible = pv; SL.visible = sv; for (const o of hid) o.visible = false; ULT.warmMs = performance.now() - t0;
+}
 function gfxShadowFollow(dt) {
   if (!GFX.shadows) return;
   camera.getWorldPosition(_gsF); const t = GQ.shTex || 0.05, half = GQ.shR * 0.55;
@@ -10041,6 +10123,7 @@ function gfxShadowFollow(dt) {
   const fx = Math.round(_gsF.x / t) * t, fz = Math.round(_gsF.z / t) * t;
   sun.target.position.set(fx, _gsF.y, fz); sun.target.updateMatrixWorld();
   sun.position.normalize().multiplyScalar(400).add(sun.target.position); shNearUpdate();
+  if (ULT.far && ULT.far.parent) ultFarFollow(dt);   // v1.09
   if ((GQ.shadowT -= dt) <= 0) { GQ.shadowT = 3; gfxShadowFlags(); }   // late-built meshes pick up the flags
 }
 // ---- clouds: OFF hides them, HIGH adds a second, higher layer of 40 smaller cumulus (same material, one more draw) ----
@@ -10086,10 +10169,11 @@ function grassInit() {
   GRASS.im.count = 0; GRASS.im.frustumCulled = false; GRASS.im.instanceMatrix.setUsage(THREE.DynamicDrawUsage); GRASS.im.instanceColor.setUsage(THREE.DynamicDrawUsage); GRASS.im.userData.noCast = true; scene.add(GRASS.im);
 }
 function grassTick(dt) {
-  if (!GFX.grass) return; if (!GRASS.im) grassInit();
+  if (!GFX.grass) return; if (GFX.grass > 2 && GQ.ult && GRASS.MAX < 21000) { if (GRASS.im) { GRASS.im.removeFromParent(); GRASS.im.dispose(); GRASS.im = null; } GRASS.MAX = 21000; GRASS.job = null; GRASS.cx = 1e9; }   // v1.09
+  if (!GRASS.im) grassInit();
   camera.getWorldPosition(_gsF); const agl = _gsF.y - terrainHeight(_gsF.x, _gsF.z);
   if (agl > 40) { GRASS.im.visible = false; GRASS.job = null; GRASS.cx = 1e9; return; }
-  const R = GFX.grass > 1 ? 26 : 16, S = GFX.grass > 1 ? 0.55 : 0.6;
+  const g3 = GFX.grass > 2 && GQ.ult, R = g3 ? 40 : GFX.grass > 1 ? 26 : 16, S = g3 ? 0.5 : GFX.grass > 1 ? 0.55 : 0.6;
   if (!GRASS.job && hyp(_gsF.x - GRASS.cx, _gsF.z - GRASS.cz) > R * 0.22) {
     const cx = Math.round(_gsF.x / S) * S, cz = Math.round(_gsF.z / S) * S, n = Math.ceil(R / S);
     GRASS.job = { cx, cz, R, S, n, i: -n, out: new Float32Array(GRASS.MAX * 16), col: new Float32Array(GRASS.MAX * 3), c: 0, wet: waterDist(cx, cz) < R + 6 }; }
@@ -10271,6 +10355,7 @@ function svPlace() {   // where you are, for a save's label: the nearest strip
   const x = mode === 'foot' ? footRig.position.x : ac.pos[0], z = mode === 'foot' ? footRig.position.z : ac.pos[2]; let best = null, bd = 1e18;
   for (const S of DLV_STRIPS) { const d = (S.x - x) ** 2 + (S.z - z) ** 2; if (d < bd) { bd = d; best = S; } }
   return best ? (bd > 400 * 400 ? 'NEAR ' : '') + best.name : '?'; }
+function setpPB() { return GQ.pc ? [['PERFORMANCE', 20, 190], ['BALANCED', 214, 190], ['QUALITY', 408, 190], ['PC ULTRA', 602, 190]] : [['PERFORMANCE', 30, 214], ['BALANCED', 262, 214], ['QUALITY', 494, 214]]; }   // v1.09 a 4th preset on a desktop GPU
 function setpBtn(x, X, Y, W, H, t, lit, col) { x.fillStyle = lit ? '#f2d878' : col || '#7a6040'; x.fillRect(X, Y, W, H); x.strokeStyle = '#3a2e20'; x.lineWidth = 2; x.strokeRect(X, Y, W, H);
   x.fillStyle = lit ? '#2e2418' : '#f2ead2'; x.font = 'bold 22px Georgia, serif'; x.textAlign = 'center'; x.fillText(t, X + W / 2, Y + H / 2 + 8); x.textAlign = 'left'; }
 function setpDraw() {
@@ -10285,7 +10370,7 @@ function setpDraw() {
     x.fillStyle = SETP.lit === gi ? '#f2d878' : ch ? '#d9c48e' : '#e2d4ae'; x.fillRect(X + 262, Y - 26, 196, 40); x.strokeStyle = '#5a4630'; x.lineWidth = 2; x.strokeRect(X + 262, Y - 26, 196, 40);
     x.fillStyle = '#2e2418'; x.font = 'bold 20px Georgia, serif'; x.textAlign = 'center'; x.fillText(gfxLabel(k), X + 360, Y + 1); x.textAlign = 'left'; });
   const T = SETP.tab;
-  if (T === 'gfx') { for (const [n, X0] of [['PERFORMANCE', 30], ['BALANCED', 262], ['QUALITY', 494]]) setpBtn(x, X0, 580, 214, 44, n, SETP.lit === n); }
+  if (T === 'gfx') { for (const [n, X0, W0] of setpPB()) setpBtn(x, X0, 580, W0, 44, n, SETP.lit === n); }
   else if (T === 'save') {
     const A = svInfo(SAVE_KEY), cf = SETP.conf && SETP.conf.t > performance.now();
     setpBtn(x, 30, 84, 440, 64, 'SAVE NOW', SETP.lit === 'save:now'); setpBtn(x, 30, 168, 440, 64, 'LOAD LAST SAVE', SETP.lit === 'save:load');
@@ -10312,7 +10397,7 @@ function setpHit(u, v) {   // canvas px -> a GFX_OPT row index, a button id, 'ta
   if (u > 822 && u < 994 && v > 580 && v < 624) return 'close';
   if (v > 10 && v < 62) { for (let i = 0; i < MENU_TABS.length; i++) { const { X, W } = MENU_TAB(i); if (u > X && u < X + W) return 'tab:' + MENU_TABS[i][0]; } return null; }
   const T = SETP.tab, inB = (X, Y, W, H) => u > X && u < X + W && v > Y && v < Y + H;
-  if (T === 'gfx' && v > 580 && v < 624) { if (u > 30 && u < 244) return 'PERFORMANCE'; if (u > 262 && u < 476) return 'BALANCED'; if (u > 494 && u < 708) return 'QUALITY'; }
+  if (T === 'gfx' && v > 580 && v < 624) { for (const [n, X0, W0] of setpPB()) if (u > X0 && u < X0 + W0) return n; }
   if (T === 'save') { if (inB(30, 84, 440, 64)) return 'save:now'; if (inB(30, 168, 440, 64)) return 'save:load'; if (inB(30, 470, 215, 64)) return 'new'; if (inB(255, 470, 215, 64)) return 'new:free';
     for (let n = 1; n <= 3; n++) { const Y0 = MENU_SLOT(n); if (inB(534, Y0 + 50, 210, 56)) return 'slot:' + n; if (inB(770, Y0 + 50, 210, 56)) return 'load:' + n; } return null; }
   if (T === 'comfort' && inB(30, 300, 440, 64)) return 'recentre';
@@ -10393,7 +10478,7 @@ function gfxMenu(open = !GQ.menu) {
   const d = document.createElement('div'); GQ.menu = d;
   d.style.cssText = 'position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:10000;background:#e9dcb8;color:#2e2418;border:3px solid #5a4630;border-radius:6px;padding:16px 22px;font:15px Georgia,serif;box-shadow:0 8px 30px rgba(0,0,0,.5);min-width:420px';
   d.innerHTML = '<div style="font:bold 24px Georgia,serif;margin-bottom:8px">Settings</div><table id="gfxT" style="border-collapse:collapse;width:100%"></table>' +
-    '<div style="margin-top:10px;display:flex;gap:8px"><button id="gfxR">Reset defaults</button><button id="gfxP">PERFORMANCE</button><button id="gfxB">BALANCED</button><button id="gfxC">Close (` / F2)</button></div><div style="font-size:12px;color:#6a5638;margin-top:6px">Defaults = the Quest 3 90 fps baseline. F3 toggles the FPS counter.</div>';
+    '<div style="margin-top:10px;display:flex;gap:8px"><button id="gfxR">Reset defaults</button><button id="gfxP">PERFORMANCE</button><button id="gfxB">BALANCED</button><button id="gfxU" style="display:none">PC ULTRA</button><button id="gfxC">Close (` / F2)</button></div><div style="font-size:12px;color:#6a5638;margin-top:6px">Defaults = the Quest 3 90 fps baseline. F3 toggles the FPS counter.</div>';
   document.body.appendChild(d); const T = d.querySelector('#gfxT');
   for (const [k, lab, vals, labs, note] of GFX_OPT) { const tr = document.createElement('tr'); tr.innerHTML = `<td style="padding:3px 8px 3px 0"><b>${lab}</b><br><span style="font-size:11px;color:#6a5638">${note}</span></td><td></td>`;
     const sel = document.createElement('select'); sel.dataset.k = k; sel.style.cssText = 'font:14px Georgia,serif;min-width:120px';
@@ -10401,7 +10486,7 @@ function gfxMenu(open = !GQ.menu) {
     sel.onchange = () => { if (k === 'hx') { HX.gain = +sel.value; try { localStorage.setItem('bp_hx', HX.gain); } catch (e) { } say('HAPTICS ' + gfxLabel('hx')); } else gfxSet(k, +sel.value); sel.blur(); };
     tr.children[1].appendChild(sel); T.appendChild(tr); }
   d.querySelector('#gfxR').onclick = () => { for (const k in GFX_DEF) if (GFX[k] !== GFX_DEF[k]) gfxSet(k, GFX_DEF[k], true); say('SETTINGS RESET'); gfxMenuSync(); };
-  d.querySelector('#gfxC').onclick = () => gfxMenu(false); d.querySelector('#gfxP').onclick = () => gfxPreset('PERFORMANCE'); d.querySelector('#gfxB').onclick = () => gfxPreset('BALANCED'); gfxMenuSync();
+  d.querySelector('#gfxC').onclick = () => gfxMenu(false); d.querySelector('#gfxP').onclick = () => gfxPreset('PERFORMANCE'); d.querySelector('#gfxB').onclick = () => gfxPreset('BALANCED'); { const u = d.querySelector('#gfxU'); if (GQ.pc) u.style.display = ''; u.onclick = () => gfxPreset('PC ULTRA'); } gfxMenuSync();
 }
 function gfxMenuSync() { if (!GQ.menu) return; for (const sel of GQ.menu.querySelectorAll('select')) { const k = sel.dataset.k, v = k === 'hx' ? HX.gain : GFX[k]; let best = 0, bd = 1e9; [...sel.options].forEach((o, i) => { const dd = Math.abs(+o.value - v); if (dd < bd) { bd = dd; best = i; } }); sel.selectedIndex = best; } }
 addEventListener('keydown', e => { if (e.repeat) return;
@@ -10430,6 +10515,7 @@ if (GFX.ground) gsRun(GFX.ground);   // v0.86 a chosen Ground style is in place 
 if (GFX.gtex) gtRun(GFX.gtex);   // v0.87 likewise a chosen Ground texture
 for (const t of TOWN_MESH) cvlAdd(t.m, 'w');   // v0.95 the towns' / sites' merged meshes
 { vlTick(); for (const f of [true, false]) for (let c = 0; c < 4; c++) { vlApply(f); cvlApply(f); PL.visible = !!(c & 1); SL.visible = !!(c & 2); renderer.compile(scene, camera); } PL.visible = SL.visible = false; VL.key = ''; vlApply(); CVL.p = CVL.w = null; cvlApply(); for (const e of CVL.list) CVL.warm.add(e.vl); }   // v0.48: both terrain looks x each panel-glow / landing-light combination compiled at load (no hitch when one comes on)   // v0.47 LIGHTS_WARM: precompile the lit-cockpit / landing-light variants
+if (GQ.ult) ultPrewarm();   // v1.09
 { if (!GLOVE.gm[0]) gloveInit(); if (!MIST) wxMistBuild(); const W = [...GLOVE.gm, MIST.im, FLX.pts, FLX.rib, FLX.ring[0].m, stars, moon, SUND.d, SUND.h, SKYD.m], vis = W.map(o => o.visible);   // v0.93 the gloves and the valley mist are made late (first hands / first mist): compiled here x each light combination, not on the first frame on foot or at the first rain front
   W.forEach(o => o.visible = true); for (let c = 0; c < 4; c++) { PL.visible = !!(c & 1); SL.visible = !!(c & 2); for (const o of W) renderer.compile(o, camera, scene); }
   PL.visible = SL.visible = false; W.forEach((o, i) => o.visible = vis[i]); }
@@ -10876,7 +10962,7 @@ const LIFE = (() => {
     quad(8, v(0, 0, 1), v(1, 0, 1), v(1, 1, 1), v(0, 1, 1), 1); quad(8, v(1, 0, 0), v(0, 0, 0), v(0, 1, 0), v(1, 1, 0), 0.9);
     quad(8, v(0, 0, 0), v(0, 0, 1), v(0, 1, 1), v(0, 1, 0), 0.8); quad(8, v(1, 0, 1), v(1, 0, 0), v(1, 1, 0), v(1, 1, 1), 0.95);
     quad(8, v(0, 1, 1), v(1, 1, 1), v(1, 1, 0), v(0, 1, 0), 1, undefined, 1); }
-  const NI = 320, CG = new THREE.InstancedBufferGeometry();
+  const NI = GQ.pc ? 560 : 320, CG = new THREE.InstancedBufferGeometry();   // v1.09 (integration) PC: room for PC ULTRA's extra life
   CG.setAttribute('position', new THREE.Float32BufferAttribute(GP, 3)); CG.setAttribute('color', new THREE.Float32BufferAttribute(GC, 3));
   CG.setAttribute('aShp', new THREE.Float32BufferAttribute(GS, 1)); CG.setAttribute('aWing', new THREE.Float32BufferAttribute(GW, 1)); CG.setAttribute('aAcc', new THREE.Float32BufferAttribute(GA, 1));
   L.atlasTris = GP.length / 9;
@@ -10908,7 +10994,7 @@ const LIFE = (() => {
   }
 
   // ---------------- 2. the soft stuff: one Points draw (pool + a compacted GPU copy) ----------------
-  const NP = 1400, K = { puff: 0, glow: 1, spark: 2, ring: 3 };
+  const NP = GQ.pc ? 2400 : 1400, K = { puff: 0, glow: 1, spark: 2, ring: 3 };
   const pX = new Float32Array(NP), pY = new Float32Array(NP), pZ = new Float32Array(NP), vX = new Float32Array(NP), vY = new Float32Array(NP), vZ = new Float32Array(NP);
   const pAge = new Float32Array(NP), pLife = new Float32Array(NP), pS0 = new Float32Array(NP), pS1 = new Float32Array(NP), pA = new Float32Array(NP), pR = new Float32Array(NP), pG = new Float32Array(NP), pB = new Float32Array(NP);
   const pK = new Uint8Array(NP), pSys = new Uint8Array(NP), pF = new Float32Array(NP), pQ = new Float32Array(NP), pW = new Float32Array(NP);   // style, owner system, flag / phase / extra
@@ -11036,7 +11122,7 @@ void main() { vec2 q = vec2(gl_PointCoord.x * 2.0 - 1.0, 1.0 - gl_PointCoord.y *
 
   // ---------------- helpers ----------------
   const lightL = () => { const hi = hemi.intensity, si = sun.intensity; FU.uL.value.set(clamp(0.5 * hi * hemi.color.r + 0.28 * si * sun.color.r, 0.012, 1.25), clamp(0.5 * hi * hemi.color.g + 0.28 * si * sun.color.g, 0.014, 1.25), clamp(0.5 * hi * hemi.color.b + 0.28 * si * sun.color.b, 0.02, 1.25)); };
-  const tierK = () => (L.tier >= 2 ? 1 : 0.5);
+  const tierK = () => (L.tier >= 2 ? GQ.lifeK : 0.5);   // v1.09 (integration) PC ULTRA: 1.75x
 
   function envTick(dt) {
     E.day = TOD.day; E.night = TOD.night; E.dusk = TOD.dusk; E.h = DAY.h;

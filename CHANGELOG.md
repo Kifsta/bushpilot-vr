@@ -2,6 +2,21 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v1.09 – PC ULTRA (a PC graphics tier for Quest Link / Air Link)
+
+- **What it's for:** playing on a gaming PC through Quest Link or Air Link, in desktop Chrome or Edge (Neil's RTX 5080 / 7800X3D). The PC draws every frame, so there's far more headroom than on the Quest itself.
+- **Offered, never forced:** on a desktop GPU (NVIDIA, AMD or Intel, read from the WebGL renderer string), Settings > GRAPHICS gets a 4th preset button, **PC ULTRA** (on the desktop menu too). On the Quest's own browser (Adreno), or any phone, Mac or software renderer, nothing changes: same three buttons, same settings, same code paths. Picking PERFORMANCE / BALANCED / QUALITY leaves it. `?pc=1` forces the offer, for testing.
+- **What PC ULTRA turns on:**
+  - **Shadows everywhere, in 2 zones:** a sharp 4096 px zone (96 m) round you, plus a second 4096 px zone covering 2.5 km. The far zone redraws every 1.5 s or when you move 150 m. It's a shadow-only second sun: it adds no light. Trees, buildings, rocks and the mountains themselves cast; every ground tile receives. The two zones blend over the edge of the near one.
+  - **A 3D forest out to about 1.1 km:** the 2D tree sprites start at about 1.1 km instead of 380 m. Inside that ring, the same trees stand as 3D cones and crowned trees, swaying, with the same dithered hand-over, so nothing pops. This applies when Trees is MIXED, which the preset picks.
+  - **Render scale 150 %, foveation off, MSAA on, 120 Hz** where the headset/Link allows it, otherwise it says what it supports. Draw distance FAR, high clouds, FULL terrain shading, per-pixel Cub and building light.
+  - **Grass out to 40 m** (about 3x the HIGH count).
+  - **Water glitter carries to 2.4 km.**
+  - **1.75x the ambient life** (birds, smoke, insects, motes), with bigger pools on a PC.
+- **No mid-flight shader compiles:** picking PC ULTRA compiles every program it needs there and then (it says "PC ULTRA - COMPILING"), including the shadow passes. The same happens at load if it was your last choice.
+- **Not done (and why):** there's no real post-processing (bloom or tone-map passes aren't XR-safe in three r160; the v1.07.3 sun bloom stands in). There are no planar water reflections (the water mirrors the sky colours). There's no new terrain LOD (the ground mesh already reaches the 6 km haze edge).
+- **Auto quality still runs** and holds the frame rate by thinning first.
+
 ## v1.08 – ambient life (VR Dev 2's module), and one breeze for trees and life
 
 - **The valley is alive.** VR Dev 2's ambient-life module (from /workspace/v2-life, applied unchanged by its own apply.py):

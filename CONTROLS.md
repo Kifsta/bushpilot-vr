@@ -136,6 +136,7 @@ v0.44 latches: every window and the door are latched while shut. Squeeze the han
 | Trees and grass sway (v1.07.2) | Nothing to press: the trees, sprite forest and grass move gently in a rolling breeze (visual only, no gameplay wind) | same |
 | Water sparkle, sun glow, night sky (v1.07.3) | Nothing to press: sun glitter on lakes and rivers, a soft sun glow and low-sun rays when you look toward it, a moon with maria and a halo, twinkling stars. Glow and rays switch off when auto-quality drops to its lower levels | same |
 | Ambient life (v1.08) | Settings > COMFORT > Ambient life FULL / LOW / OFF: birds, waterfowl, fish jumps, chimney and campfire smoke, insects, fireflies, leaves, mist. Auto quality thins it. Trees sway harder in overcast, rain and fronts | same |
+| PC ULTRA (v1.09) | PC over Quest Link / Air Link only: Settings > GRAPHICS > PC ULTRA (4th button, shown only on a desktop GPU). Any other preset leaves it. Reload once for MSAA if you had it off | same |
 
 ## On foot
 | | VR | Desktop |
