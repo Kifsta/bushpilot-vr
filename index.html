@@ -42,10 +42,37 @@ VR - on foot: left stick walks (click = run), right stick turns (snap / smooth i
 MENU (Esc / F2 on desktop, the wrist MENU button in VR; poke, point + trigger, or click): resume, save / load (3 slots), graphics + presets, comfort, controls (dominant hand), audio volumes. ` = old settings list.
 </div>
 <div id="hud"></div><div id="cross"></div>
+<script>
+// v1.10.1 BOOT LOG (Neil: Edge 'page isn't responding'): every start-up stage is printed to the console as  [boot 1234ms] stage name (+56ms)  and shown top-left.
+// Each line is also kept in localStorage (bp_bootlog), so if a start hangs and the tab is closed, the next start shows the stage it stopped after.
+// ?boot keeps the overlay up after the start; it hides 12 s after the first real frame otherwise (and comes back for any slow frame in the first 2 minutes).
+(function () {
+  var T0 = performance.now(), last = T0, L = [], keep = /[?&]boot\b/.test(location.search), safe = /[?&]safe(=|&|$)/.test(location.search), el = null, hideT = 0, prevMsg = '';
+  try { var pv = JSON.parse(localStorage.getItem('bp_bootlog') || 'null'); if (pv && !pv.done && pv.last) prevMsg = 'LAST START DID NOT FINISH - it stopped after: "' + pv.last + '" (' + new Date(pv.at).toLocaleString() + ', ' + (pv.v || '?') + ')'; window.__bootPrev = pv; } catch (e) { }
+  function draw() { if (!document.body) return; if (!el) { el = document.createElement('div'); el.id = 'bootlog';
+      el.style.cssText = 'position:fixed;left:8px;top:8px;z-index:1001;max-width:min(640px,94vw);max-height:60vh;overflow:hidden;padding:6px 9px;background:rgba(8,12,16,0.85);color:#d8f0e0;font:11px/1.4 Consolas,monospace;white-space:pre-wrap;border-radius:4px;pointer-events:none';
+      document.body.appendChild(el); }
+    el.style.display = ''; el.textContent = 'BOOT LOG' + (safe ? '  [?safe]' : '') + '  (F12 console has the full log)\n' + (prevMsg ? prevMsg + '\n' : '') + L.slice(-16).join('\n'); }
+  function store(done) { try { localStorage.setItem('bp_bootlog', JSON.stringify({ at: Date.now(), v: window.__bpVer || '', done: !!done, last: L.length ? L[L.length - 1] : '', lines: L.slice(-60) })); } catch (e) { } }
+  window.bootLog = function (msg, warn) { var t = performance.now(), line = '[boot ' + Math.round(t - T0) + 'ms] ' + msg + ' (+' + Math.round(t - last) + 'ms)'; last = t; L.push(line);
+    (warn ? console.warn : console.log)(line); if (!window.__bootDone) store(false); if (!window.__bootDone || warn) { draw(); if (window.__bootDone && !keep) { clearTimeout(hideT); hideT = setTimeout(function () { if (el) el.style.display = 'none'; }, 12000); } } };
+  window.bootYield = function (msg) { window.bootLog(msg); return new Promise(function (r) { var d = 0, go = function () { if (!d) { d = 1; r(); } };   // a frame, so the overlay paints (a hidden tab: 100 ms)
+    requestAnimationFrame(function () { setTimeout(go, 0); }); setTimeout(go, 100); }); };
+  window.bootDone = function (msg) { if (window.__bootDone) return; window.bootLog(msg); window.__bootDone = performance.now(); store(true); if (!keep) hideT = setTimeout(function () { if (el) el.style.display = 'none'; }, 12000); };
+  window.bootText = function () { return L.join('\n'); };
+  addEventListener('error', function (e) { window.bootLog('ERROR: ' + (e.message || e) + (e.filename ? ' @' + String(e.filename).split('/').pop() + ':' + e.lineno : ''), true); });
+  addEventListener('unhandledrejection', function (e) { window.bootLog('ERROR (promise): ' + (e.reason && (e.reason.message || e.reason)), true); });
+  window.bootLog('page script started (' + navigator.userAgent.replace(/^Mozilla\/5\.0 /, '') + ', ' + screen.width + 'x' + screen.height + ' @' + devicePixelRatio + ')');
+  try { var X = navigator.xr; if (X && X.requestSession) { var rq = X.requestSession.bind(X); X.requestSession = function (m, o) { window.bootLog('XR session requested (' + m + ')', true); var t = performance.now();   // v1.10.1 how long the runtime (Link) takes to hand over the session
+      return rq(m, o).then(function (ses) { window.bootLog('XR session granted by the runtime in ' + Math.round(performance.now() - t) + 'ms', true); return ses; }, function (e) { window.bootLog('XR session refused: ' + (e && e.message), true); throw e; }); }; } } catch (e) { }
+  addEventListener('DOMContentLoaded', function () { window.bootLog('DOMContentLoaded'); });
+})();
+</script>
 <script type="module">
 import * as THREE from 'three';
 import { VRButton } from 'three/addons/webxr/VRButton.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+const bootLog = window.bootLog || (() => { }), bootYield = window.bootYield || (() => new Promise(r => setTimeout(r, 0))), bootDone = window.bootDone || (() => { });   // v1.10.1 the boot log (page script above)
 // v1.07 height fog + aerial perspective, in three's own fog chunks (compiled with every program at load: no new programs, no extra uniforms).
 // The haze is denser low down: along a sight line its strength follows the height half-way along it (eye + 0.5 of the rise), x1.15 on the valley floor to x0.55 over the peaks,
 // and the change fades out toward the far fog so the world's edge stays fully hidden. Costs one varying and a few ALU per pixel.
@@ -607,8 +634,8 @@ const hyp = (a, b, c = 0) => Math.sqrt(a * a + b * b + c * c);   // v0.59 Math.h
 
 // ======================= RENDERING =======================
 // v0.35 settings (persist in localStorage 'bp_gfx'; ?gfx=shadows:2,grass:1 overrides for testing). Defaults = the v0.34 look and cost.
-const BP_VERSION = 'v1.10';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
-{ const e = document.getElementById('ver'); if (e) e.textContent = BP_VERSION; }
+const BP_VERSION = 'v1.10.1';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
+{ const e = document.getElementById('ver'); if (e) e.textContent = BP_VERSION; } window.__bpVer = BP_VERSION; bootLog('game module running ' + BP_VERSION + ' (three r' + THREE.REVISION + ')' + (/[?&]safe(=|&|$)/.test(location.search) ? ' - SAFE MODE: default graphics, no shadows / ULTRA / life / vistas / music' : ''));
 const GFX_DEF = { shadows: 0, scale: 1, fov: 1, dist: 1, trees: 1, grass: 0, clouds: 1, fog: 1, msaa: 1, hz: 90, vig: 0, turn: 0, fps: 0, tod: 11, stk: 1, tips: 1, terr: 1, dyn: 1, glove: 0, hand: 0, wt: 1, volM: 1, volMu: 0.5, volE: 1, volA: 1, volF: 1, wx: 1, forest: 0, ground: 0, gtex: 0, cvl: 1, water: 1, dayl: 48, flure: 0, fline: 8, fdrag: 4, fbob: 0, fsink: 0, ultra: 0 };   // v0.68.1 dominant hand, volumes. v0.48 BALANCED: 90 % scale, 72 Hz, fast terrain shading, auto resolution; v0.49.1 the stick stays where you let go of it
 const GFX = Object.assign({}, GFX_DEF);
 const BP_SAFE = /[?&]safe(=|&|$)/.test(location.search);   // v1.09.1 ?safe: defaults (BALANCED), saved graphics settings ignored
@@ -619,6 +646,7 @@ try { const o = BP_SAFE ? {} : JSON.parse(localStorage.getItem('bp_gfx') || '{}'
   for (const k in GFX_DEF) if (typeof o[k] === 'number' && isFinite(o[k])) GFX[k] = o[k]; } catch (e) { }
 try { const g = new URLSearchParams(location.search).get('ground'); if (g) { const i = 'abcde'.indexOf(g.toLowerCase()[0]); if (i >= 0) GFX.ground = i; } } catch (e) { }   // v0.86 ?ground=a..e (VALLEY, OUTBACK, TROPICAL, FACETED, GOLDEN) for quick looks (like ?gfx=, kept only if you then change a setting)
 try { const g = +new URLSearchParams(location.search).get('gtex'); if (g >= 1 && g <= 5) GFX.gtex = Math.round(g); } catch (e) { }   // v0.87 ?gtex=1..5 (MEADOW, RED GRAVEL, LUSH, PAINTERLY, DRY GRASS)
+if (BP_SAFE) { GFX.shadows = 0; GFX.ultra = 0; }   // v1.10.1 ?safe: never shadows / PC ULTRA
 try { const q = BP_SAFE ? '' : new URLSearchParams(location.search).get('gfx'); if (q) for (const kv of q.split(',')) { const [k, v] = kv.split(':'); if (k in GFX_DEF && isFinite(+v)) GFX[k] = +v; } } catch (e) { }
 const renderer = new THREE.WebGLRenderer({ antialias: !!GFX.msaa, stencil: false });   // v0.81 no stencil: nothing uses it (a lighter XR depth buffer)
 const DIRTY_TEX = new Set(); function texDirty(t) { t.needsUpdate = true; DIRTY_TEX.add(t); } function texInit(t) { renderer.initTexture(t); }   // v0.81 redrawn canvas textures upload before the eye pass, not mid-pass
@@ -629,6 +657,10 @@ renderer.xr.setReferenceSpaceType('local');   // seated
 renderer.xr.setFoveation(GFX.fov); renderer.xr.setFramebufferScaleFactor(GFX.scale);   // v0.35 settings (defaults 1 / 1 = as before)
 document.body.appendChild(renderer.domElement);
 document.body.appendChild(VRButton.createButton(renderer));
+{ const gl = renderer.getContext(); let gpu = '?'; try { const x = gl.getExtension('WEBGL_debug_renderer_info'); gpu = x ? gl.getParameter(x.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER); } catch (e) { }
+  bootLog('renderer created: ' + gpu + ' | parallel shader compile ' + (gl.getExtension('KHR_parallel_shader_compile') ? 'yes' : 'NO') + ' | MSAA ' + (GFX.msaa ? 'on' : 'off'));
+  renderer.domElement.addEventListener('webglcontextlost', e => { bootLog('WEBGL CONTEXT LOST (the GPU driver reset or the headset runtime switched adapters)', true); });
+  renderer.domElement.addEventListener('webglcontextrestored', () => bootLog('webgl context restored', true)); }
 if (location.protocol === 'file:') { const d = document.createElement('div'); d.id = 'fileWarn';   // v1.09.1 opened straight from the disk: the browser blocks the model files (and more)
   d.style.cssText = 'position:fixed;left:0;right:0;top:0;z-index:999;padding:12px 16px;background:#7a1f12;color:#fff;font:600 15px/1.45 system-ui,sans-serif;text-align:center';
   d.innerHTML = 'This page was opened from a file (file://), so the browser blocks its 3D models (rifle, deer). Play from the live site <a style="color:#ffe08a" href="https://kifsta.github.io/bushpilot-vr/">kifsta.github.io/bushpilot-vr</a>, or run a local server in the game folder (<code>python -m http.server</code>, then open <code>http://localhost:8000</code>). <button style="margin-left:10px;font:inherit">OK</button>';
@@ -1169,7 +1201,7 @@ const nearStrip = (rMax, rMin = 25) => { const a = rand() * Math.PI * 2, d = rMi
 const ROAD_NS = [[780, -2600], [760, -1200], [800, -300], [780, 80], [740, 900], [820, 2200]];
 const ROADS = [[[29, -15], [120, -20], [400, 60], [780, 80], [1400, 40], [2600, 120]], ROAD_NS, [[-900, 2000], [-700, 700], [-500, 300], [-300, 330], [29, -15]]];
 const FARMS = [[420, 110], [820, -700], [700, 950], [1500, 10], [-560, 330], [810, -2000], [-820, 1500]];
-await new Promise(r => setTimeout(r, 0));   // v1.09.1 load yield
+await bootYield('terrain built (meshes + v1.07.1 vertex colours)');   // v1.10.1 boot stage (v1.09.1 load yield)
 // v0.22: three abandoned towns. a = heading of the main street (town-local +z). Buildings: [kit, side, along-street, (unused), colour]
 const TOWNS = [
   { name: 'CUTLER', x: 789, z: 1700, a: 0.0614, r: 95, layout: { zn: 15, tower: [-26, -3],
@@ -1779,7 +1811,7 @@ function instUpdate(a, dt) {   // every physics frame: filtered turn rate (deg/s
 // v0.10 perf: dial faces are uploaded ONCE; needles, the attitude card, the heading card and the turn-coordinator
 // symbol/ball are tiny meshes moved every frame. No canvas redraws / texture uploads while flying
 // (v0.9 re-uploaded 3 gauges at 36 Hz + 6 at 12 Hz, each with a mipmap rebuild: ~11 Mpx/s).
-await new Promise(r => setTimeout(r, 0));   // v1.09.1 load yield
+await bootYield('the Cub + instruments built');   // v1.10.1 boot stage (v1.09.1 load yield)
 // All the solid-colour parts (needles, hubs, ball, turn symbol, sky pointer) are ONE dynamic mesh (~400 verts rewritten per frame = 1 draw call).
 const gSc = g => g.m.geometry.parameters.width / GS;                    // canvas px -> metres
 const GP = [];
@@ -1953,7 +1985,8 @@ const rig = new THREE.Group(); rig.position.set(0, 0.4 + CK.y, 0.15 + CK.z); pla
 const xrOffset = new THREE.Group(); rig.add(xrOffset);          // recenter offset for headset pose
 const camera = new THREE.PerspectiveCamera(75, innerWidth / innerHeight, 0.05, 14000);
 xrOffset.add(camera);
-addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
+function winResize() { if (renderer.xr.isPresenting) return; camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); }   // v1.10.1 never while presenting (three refuses + warns; the headset owns the size)
+addEventListener('resize', winResize);
 
 // ======================= INPUT =======================
 const ac = createAircraft();
@@ -2038,7 +2071,7 @@ const MUS_NIGHT = [[47, 54, 62, 66, 69], [43, 50, 59, 62, 66], [40, 47, 55, 59, 
 const MUS_PENT = [62, 64, 66, 69, 71, 74, 76, 78, 81, 83];   // D major pentatonic (bells)
 const musHz = n => 440 * Math.pow(2, (n - 69) / 12);
 function musInit() {
-  if (MUS.ok || !SND.ok || !actx) return; const A = actx; MUS.ok = true;
+  if (MUS.ok || !SND.ok || !actx || BP_SAFE) return; const A = actx; MUS.ok = true; bootLog('music started');   // v1.10.1 ?safe: no music
   const g = v => { const x = A.createGain(); x.gain.value = v; return x; };
   MUS.out = g(0); MUS.out.connect(SND.master);                       // the music bus (Settings > AUDIO > Music x intensity x duck)
   MUS.lp = A.createBiquadFilter(); MUS.lp.type = 'lowpass'; MUS.lp.frequency.value = 900; MUS.lp.Q.value = 0.4; MUS.lp.connect(MUS.out);
@@ -2099,7 +2132,7 @@ function musTick(dt) {
 function setPos(p, v) { if (p.positionX) { p.positionX.value = v.x; p.positionY.value = v.y; p.positionZ.value = v.z; } else p.setPosition(v.x, v.y, v.z); }
 const _sv = new THREE.Vector3();
 // one-shots. pos (optional THREE.Vector3) = positional
-await new Promise(r => setTimeout(r, 0));   // v1.09.1 load yield
+await bootYield('sound code ready (audio + music are made on the first click / key)');   // v1.10.1 boot stage (v1.09.1 load yield)
 // ---- v0.24 haptics: every controller buzz goes through HX ----
 // pulse(g, a, ms): one-shot on one hand. A weaker pulse can't cut off a stronger one still playing (per-hand rate limit),
 // everything is scaled by HX.gain (book GUIDE page / ?hx=0..1, saved), and continuous effects (rumble) are capped at
@@ -2345,7 +2378,8 @@ function board() {
   if (hyp(_w.x - ac.pos[0] - dp[0], _w.z - ac.pos[2] - dp[2]) > 3) { say('TOO FAR FROM PLANE'); return; }
   toPlane();
 }
-renderer.xr.addEventListener('sessionstart', () => { needRecenter = 5; audioInit(); });
+renderer.xr.addEventListener('sessionstart', () => { BOOTF.lite = 3; BOOTF.xs = performance.now(); BOOTF.xa = []; bootLog('XR session started (' + (renderer.xr.getSession()?.environmentBlendMode || '?') + ', rates ' + (renderer.xr.getSession()?.supportedFrameRates ? [...renderer.xr.getSession().supportedFrameRates].join('/') : 'n/a') + ')', true); BOOTF.xr = 0; needRecenter = 5; audioInit(); });
+renderer.xr.addEventListener('sessionend', () => { bootLog('XR session ended', true); setTimeout(winResize, 0); });
 renderer.xr.addEventListener('sessionend', () => { xrOffset.position.set(0, 0, 0); xrOffset.quaternion.identity(); camera.position.set(0, 0, 0); });
 
 function handGrab(g) {   // on foot: the map (ground / cockpit holder / other edge) or the pump nozzle at a filler cap
@@ -2614,7 +2648,7 @@ function drawWrist() {   // v0.10: only re-uploads when something on it changed
   texDirty(wtex); hud.textContent = st;
 }
 
-await new Promise(r => setTimeout(r, 0));   // v1.09.1 load yield
+await bootYield('wrist board + hands built');   // v1.10.1 boot stage (v1.09.1 load yield)
 // ================= v0.45 fuel: two wing tanks (36 gal), burn with power, a hand pump on a drum at the home strip =================
 const PLACES = [], SOLID_SEGS = [];   // v0.45: named places for the paper map (was the loot-spot list); walls / fences you can't walk through ([x0, z0, x1, z1])
 const FOOT = { crouchIn: false, crouchT: 0, jy: 0, jv: 0, fy: undefined, air: false, cr: 0, on: '' };   // on-foot crouch / hop state
@@ -2803,7 +2837,7 @@ function partGeo(p) {   // [kind, a, b, c, x, y, z, col, rx, ry, rz]
   for (const [dx, dz] of [[-1.8, -1.4], [-1.8, 1.4], [1.8, -1.4], [1.8, 1.4]]) box(0.15, 2.4, 0.15, mat(0x5a4632), sx + dx, sy + 1.2, sz + dz, scene);
   PLACES.push({ name: 'RIDGE STRIP', x: sx, z: sz });
 
-await new Promise(r => setTimeout(r, 0));   // v1.09.1 load yield
+await bootYield('world props + conifers built');   // v1.10.1 boot stage (v1.09.1 load yield)
   // v0.7 conifers on the mountain slopes (one instanced draw call, open 5-sided cones)
   const con = [];
   for (let i = 0; i < 40000 && con.length < 3200; i++) {
@@ -2926,7 +2960,7 @@ function wtrLight() {   // per frame: the sky it mirrors, the sun / moon glint, 
   const U = WATER.U; U.uSkyH.value.copy(scene.background); U.uSkyZ.value.copy(SKYD.z).lerp(scene.background, 0.35); U.fogColor.value.copy(scene.fog.color); U.fogNear.value = scene.fog.near; U.fogFar.value = scene.fog.far;
   const day = sunDir.y > -0.05; U.uSun.value.copy(day ? sunDir : moonDir); WTR_C.copy(sun.color).multiplyScalar(day ? 1.6 * sun.intensity : 1.2 * sun.intensity); U.uSunC.value.copy(WTR_C);
   U.uLit.value = 0.1 + 0.9 * Math.min(1, hemi.intensity / 1.2); U.uQ.value = GFX.water === 0 ? 0 : GQ.ult ? 2 : 1; }
-await new Promise(r => setTimeout(r, 0));   // v1.09.1 load yield
+await bootYield('water + lakes built');   // v1.10.1 boot stage (v1.09.1 load yield)
 // the lake beds' ground colour: wet sand at the edge, gravel + stones on the slope, dark silt in the deep (both the VALLEY build and the v0.86 ground styles call it)
 function lakeBedCol(x, z, h, cc, j) { for (const L of LAKES) { const dd = hyp(x - L.x, z - L.z); if (dd > L.r + 12) continue; const dep = L.h - 0.2 - h; if (dep < 0.15) return null;
     const r = hash2(Math.floor(x / 7), Math.floor(z / 7));
@@ -3073,7 +3107,7 @@ const LODGE = { x: -380, z: -2440, a: 1.83, hl: 140, hw: 10 };   // backcountry 
       g.setAttribute('color', new THREE.BufferAttribute(col, 3)); gs.push(g); }
     const mm = new THREE.Mesh(mergeGeometries(gs), new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true })); scene.add(mm); }
 
-await new Promise(r => setTimeout(r, 0));   // v1.09.1 load yield
+await bootYield('strips built');   // v1.10.1 boot stage (v1.09.1 load yield)
   // ---- forests: deciduous groves on the valley floor + extra conifers feathering the forest edge down onto the benches ----
   const clearOf = (x, z, r) => Math.abs(x) < 70 + r && z > -700 - r && z < 300 + r ||                                    // home strip + its approaches
     hyp(x - MEADOW.x, z - MEADOW.z) < 260 + r || hyp(x - PAD.x, z - PAD.z) < 220 + r ||
@@ -3104,7 +3138,7 @@ await new Promise(r => setTimeout(r, 0));   // v1.09.1 load yield
   { const w = POIS.find(p => p.name === 'WRECK'); for (let k = 0; k < 28; k++) { const a = POI_R() * 6.283, r = 14 + POI_R() * 45, x = w.x + Math.cos(a) * r, z = w.z + Math.sin(a) * r, h = groundY(x, z), s = 1.2 + POI_R() * 1.2;
     con2.push([x, h + 4.5 * s, z, POI_R() * 6, s, s * 1.3, s]); } }   // the wreck came down into a stand of timber
   instanced(new THREE.ConeGeometry(2.2, 9, 5, 1, true), swayMat(mat(0x2a5030), 9, 0.08, -4.5), con2, { lod: 4000, tree: 1 });
-await new Promise(r => setTimeout(r, 0));   // v1.09.1 load yield
+await bootYield('strip dressing built');   // v1.10.1 boot stage (v1.09.1 load yield)
   // v0.78 FOREST: DENSE - 2D tree sprites far out (cross-quads, alpha-tested, one 4-cell atlas, 4 instanced draw calls); the 3D trees stay as they are near the camera. Own RNG: the world's rand() stream is untouched
   { let sd = 0x78f0e; const r = () => (sd = (sd * 16807) % 2147483647) / 2147483647, cv = document.createElement('canvas'); cv.width = cv.height = 512; const g = cv.getContext('2d');
     const poly = (c, P) => { g.fillStyle = c; g.beginPath(); P.forEach(([a, b], i) => i ? g.lineTo(a, b) : g.moveTo(a, b)); g.closePath(); g.fill(); };
@@ -3145,7 +3179,7 @@ await new Promise(r => setTimeout(r, 0));   // v1.09.1 load yield
     FOREST2.n = n1; FOREST2.n2 = L.reduce((t, l) => t + l.length, 0) - n1; }
 }
 const _lcP = new THREE.Vector3();
-await new Promise(r => setTimeout(r, 0));   // v1.09.1 load yield
+await bootYield('sites built');   // v1.10.1 boot stage (v1.09.1 load yield)
 // ================= v0.22: small towns - three abandoned crossroads towns on the dirt-road network =================
 // Each town is ONE merged vertex-coloured mesh (1 draw call; + 1 for the Dry Fork mown strip), hidden beyond 5 km.
 // Enterable buildings: wall panels with a door gap, floor slab (groundY() returns the floor inside), ceiling, counters / shelves.
@@ -3789,7 +3823,7 @@ function townTick(dt) {   // distance-cull the towns (and the strip dressing)
   if ((_twT -= dt) > 0) return; _twT = 0.5; camera.getWorldPosition(_lcP);
   for (const t of TOWN_MESH) t.m.visible = hyp(t.x - _lcP.x, t.z - _lcP.z) < (t.far || 5000);
 }
-await new Promise(r => setTimeout(r, 0));   // v1.09.1 load yield
+await bootYield('towns built');   // v1.10.1 boot stage (v1.09.1 load yield)
 // ---- v0.12 clouds: low-poly flat-shaded cumulus, one instanced draw call, drifting; fade out near the camera (no hard pop) ----
 // v1.06.2 the highest ground-mesh vertex in each 120 m cell (the ground is flat triangles, so this is the exact top of the ground in the cell).
 // Built once from TERR_M's vertex buffers on the first cloud update (~0.2 M vertices, a few ms, one Float32Array); clouds ask a few dozen cells, no garbage.
@@ -3802,7 +3836,7 @@ function cldGrid() { const G = CLDG, a = new Float32Array(G.n * G.n).fill(-1e4),
       // a vertex on a cell edge belongs to the cells either side too
       const fx = (v.x + G.o) / G.s - ix, fz = (v.z + G.o) / G.s - iz;
       if (fx < 1e-6 && ix > 0 && v.y > a[k - 1]) a[k - 1] = v.y; if (fz < 1e-6 && iz > 0 && v.y > a[k - G.n]) a[k - G.n] = v.y; if (fx < 1e-6 && fz < 1e-6 && ix > 0 && iz > 0 && v.y > a[k - G.n - 1]) a[k - G.n - 1] = v.y; } }
-  G.a = a; }
+  G.a = a; bootLog('cloud height grid built (v1.06.2)'); }
 const _CLD_I = new THREE.Matrix4();
 function cldMax(x, z, R) { const G = CLDG; if (!G.a) cldGrid(); let h = -1e4;
   const x0 = Math.max(0, Math.floor((x - R + G.o) / G.s)), x1 = Math.min(G.n - 1, Math.floor((x + R + G.o) / G.s)), z0 = Math.max(0, Math.floor((z - R + G.o) / G.s)), z1 = Math.min(G.n - 1, Math.floor((z + R + G.o) / G.s));
@@ -3983,7 +4017,7 @@ function drawMap() {
     x.strokeStyle = 'rgba(80,55,25,0.22)'; x.lineWidth = 1.5; x.beginPath(); x.moveTo(x0 + 1, y0); x.lineTo(x1 + 1, y1); x.stroke(); }
   return c;
 }
-const MAP = { state: 'clip', g: null, g2: null, desk: false, base: drawMap(), key: '' };   // v0.51.1: base = the drawn map; canvas = base + the job marks
+const MAP = { state: 'clip', g: null, g2: null, desk: false, base: drawMap(), key: '' }; bootLog('map drawn');   // v0.51.1: base = the drawn map; canvas = base + the job marks
 MAP.canvas = document.createElement('canvas'); MAP.canvas.width = MAP_W; MAP.canvas.height = MAP_H; MAP.cx = MAP.canvas.getContext('2d'); MAP.cx.drawImage(MAP.base, 0, 0);
 {
   const t = new THREE.CanvasTexture(MAP.canvas); MAP.tex = t; t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = Math.min(16, renderer.capabilities.getMaxAnisotropy());
@@ -4733,7 +4767,7 @@ function micDraw() {   // a helix of wire wound round the chain: 3-sided rings, 
   pa.needsUpdate = true; na.needsUpdate = true;
 }
 
-await new Promise(r => setTimeout(r, 0));   // v1.09.1 load yield
+await bootYield('cockpit detail built');   // v1.10.1 boot stage (v1.09.1 load yield)
 // ---- VR hand grabs on cockpit controls (they win over the stick / throttle grab while the hand is on them) ----
 const CKH = new Map(), _ch = new THREE.Vector3(), _cw = new THREE.Vector3(), _cd = new THREE.Vector3();
 const CK_R = 0.035, WIN_R = 0.075;
@@ -5765,7 +5799,7 @@ const dlvS = id => DLV_STRIPS.find(S => S.id === id) || (id === 'NSHELF' ? ST_SI
 const dlvKm = (a, b) => hyp(a.x - b.x, a.z - b.z) / 1000;
 function dlvInPad(S, x, z) { const dx = x - S.pad[0], dz = z - S.pad[1], c = Math.cos(S.ry), s = Math.sin(S.ry), lx = dx * c - dz * s, lz = dx * s + dz * c; return Math.abs(lx) < DLV_PAD && Math.abs(lz) < DLV_PAD; }
 function dlvPadAt(x, z) { for (const S of DLV_STRIPS) if (dlvInPad(S, x, z)) return S; return null; }
-await new Promise(r => setTimeout(r, 0));   // v1.09.1 load yield
+await bootYield('jobs + cargo built');   // v1.10.1 boot stage (v1.09.1 load yield)
 // ---- boards + pads (posts / frame / pad are plain Lambert: the static batcher merges them; the paper is one canvas each) ----
 const JB_W = 512, JB_H = 352, JB_PW = 1.28, JB_PH = 0.88, JB_Y = 1.45;
 { const wood = mat(0x6b4a2a), dk = mat(0x3a2a1a), padM = mat(0xe0b830), padE = mat(0x2a2a2a);
@@ -6710,7 +6744,7 @@ function storeHint(p, vrOn) {
   if (k && k !== STORE.hint) say('HARDWARE: .44-40, 20 ROUNDS $' + STORE.price + ' - ' + (vrOn ? 'TAP THE BELL TO BUY, GRAB A BOX TO TAKE IT' : 'Z BUYS / TAKES A BOX') + ' (POUCH ' + RFL.spare + (STORE.n ? ', ' + STORE.n + ' ON THE COUNTER' : '') + ')');
   STORE.hint = k;
 }
-await new Promise(r => setTimeout(r, 0));   // v1.09.1 load yield
+await bootYield('rifle + store built');   // v1.10.1 boot stage (v1.09.1 load yield)
 // ---- model ----
 function rflBuild44() {   // v0.84.4 the v0.44-full carbine (Neil's reference proportions): round barrel over a full-length tube, short deep forend, tall boxy receiver, big loop lever, straight-grip stock, crescent buttplate
   const g = new THREE.Group(), S = new THREE.Group(), wood = mat(0x8a4a1e), steel = mat(0x2c3442), brass = new THREE.MeshBasicMaterial({ color: 0xffd36a });
@@ -7322,13 +7356,15 @@ function deerLow(g, q) {   // v0.59 vertex clustering: snap to a q-metre grid, d
     for (let v = 0; v < 3; v++) { const A = acc[key[t + v]]; op.push(A[0] / A[3], A[1] / A[3], A[2] / A[3]); if (C) oc.push(C.getX(t + v), C.getY(t + v), C.getZ(t + v)); } }
   const o = new THREE.BufferGeometry(); o.setAttribute('position', new THREE.Float32BufferAttribute(op, 3)); if (C) o.setAttribute('color', new THREE.Float32BufferAttribute(oc, 3)); o.computeVertexNormals(); return o;
 }
+function attrPlain(a) { if (!a.isInterleavedBufferAttribute) return a.clone(); const n = a.count, k = a.itemSize, st = a.data.stride, D = a.data.array, A = new D.constructor(n * k);   // v1.10.1 de-interleave by hand (no clone warning)
+  for (let i = 0; i < n; i++) for (let j = 0; j < k; j++) A[i * k + j] = D[i * st + a.offset + j]; return new THREE.BufferAttribute(A, k, a.normalized); }
 function deerSrc(sp, gl) {
   const root = gl.scene; root.updateMatrixWorld(true); const b = new THREE.Box3().setFromObject(root, true), k = DSP[sp].h / (b.max.y - b.min.y);
   const S = DEER.src[sp] = { scene: root, clips: gl.animations, k, y0: -b.min.y * k, pool: [] };
   let sk = null; root.traverse(o => { if (o.isSkinnedMesh && !sk) sk = o; });
   { const src = sk.geometry, n = src.attributes.position.count, pos = new Float32Array(n * 3), v = GV3(0, 0, 0);   // the bind pose skinned once, in game axes (nose -z): the far, instanced deer
     for (let i = 0; i < n; i++) { sk.getVertexPosition(i, v); v.applyMatrix4(sk.matrixWorld); pos[i * 3] = -v.x * k; pos[i * 3 + 1] = v.y * k + S.y0; pos[i * 3 + 2] = -v.z * k; }
-    let g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); if (src.attributes.color) g.setAttribute('color', src.attributes.color.clone()); if (src.index) g.setIndex(src.index.clone());
+    let g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); if (src.attributes.color) g.setAttribute('color', attrPlain(src.attributes.color)); if (src.index) g.setIndex(src.index.clone());
     g = g.toNonIndexed(); g.computeVertexNormals(); S.tris = g.attributes.position.count / 3;
     const im = new THREE.InstancedMesh(g, DEER_IVM, DEER.list.length); im.count = 0; im.visible = false; im.frustumCulled = false; im.userData.noBatch = true; im.castShadow = false; scene.add(im); DEER.im[sp] = im; }
   { const gl = deerLow(DEER.im[sp].geometry, 0.16), im = new THREE.InstancedMesh(gl, DEER_IVM, DEER.list.length); im.count = 0; im.visible = false; im.frustumCulled = false; im.userData.noBatch = true; scene.add(im); DEER.imL[sp] = im; S.trisL = gl.attributes.position.count / 3; }   // v0.59 far LOD (past DEER.LOD m): a vertex-clustered copy
@@ -7714,7 +7750,7 @@ const FLM = {};   // lure meshes
     plastic: [['c', 0.005, 0.05, 6, 0, 0, 0, 0x5a7a3a, Math.PI / 2], ['c', 0.006, 0.008, 6, 0, 0, -0.026, 0xb0b0b0, Math.PI / 2]], fly: [['c', 0.002, 0.012, 5, 0, 0, 0, 0x6a4a2a, Math.PI / 2], ['b', 0.014, 0.012, 0.002, 0, 0.006, 0, 0xc8c0a8]],
     bait: [['c', 0.003, 0.03, 5, 0, 0, 0, 0xb06a6a, Math.PI / 2], ['r', 0.006, 0.0008, 6, 0, 0, -0.016, 0xa0a0a0]], bobber: [['d', 0.022, 1, 1, 0, 0.011, 0, 0xe8e8e0], ['d', 0.0221, 0.5, 1, 0, 0.0, 0, 0xd02020]] };
   for (const [k, P] of Object.entries(D)) { const gs = P.map(partGeo), m = new THREE.Mesh(mergeGeometries(gs), ITEM_VM); for (const x of gs) x.dispose(); m.userData.noBatch = true; m.visible = false; scene.add(m); FLM[k] = m; } }
-await new Promise(r => setTimeout(r, 0));   // v1.09.1 load yield
+await bootYield('fishing built');   // v1.10.1 boot stage (v1.09.1 load yield)
 // ---- what you wear on foot (VR): the rod tube on the pack, the net behind your left hip, the creel on your right side (head-yaw frame, like the pouch) ----
 const F_ROD_OFF = GV3(0.22, -0.58, 0.2), F_NET_OFF = GV3(-0.22, -0.6, 0.2), F_CREEL_OFF = GV3(0.3, -0.78, 0.02), _fkQ = new THREE.Quaternion(), _fk1 = GV3(0, 0, 0), _fk2 = GV3(0, 0, 0), _fk3 = GV3(0, 0, 0), _fkM = new THREE.Matrix4();
 function fWorn(off, out) { camera.getWorldPosition(out); _fkQ.setFromAxisAngle(_ry, headYaw()); return out.add(_fk3.copy(off).applyQuaternion(_fkQ)); }
@@ -8782,7 +8818,7 @@ function upgDeskE() {   // desktop E on foot: carry a part / put it on the Cub /
   camera.add(best.mesh); const big = best.k === 'pod' || best.k === 'tank'; best.mesh.position.set(big ? 0.25 : 0, big ? -0.62 : -0.35, big ? -0.85 : -0.6); best.mesh.rotation.set(0.1, big ? Math.PI / 2 : 0, 0); best.st = 'desk'; UPG.desk = best; sfx('pick');
   say('CARRYING THE ' + UPG_I[best.k].label + ' - E BY THE CUB PUTS IT ON ITS SPOT'); return true;
 }
-await new Promise(r => setTimeout(r, 0));   // v1.09.1 load yield
+await bootYield('parts + upgrades built');   // v1.10.1 boot stage (v1.09.1 load yield)
 // ---- the parts board, beside the service board at the hangar ----
 const UPB = { b: [HANGAR.x + 5.6, HANGAR.z - 3.2, Math.PI / 2], key: '', d: 1e9, poke: [true, true], hint: false, r0: 104, rh: 34, rows: UPG_K.concat(['f0', 'f1']) };
 { const [bx, bz, ry] = UPB.b, G = new THREE.Group(), PW = 1.28, PH = 0.88, Y = 1.45, wood = mat(0x6b4a2a); G.position.set(bx, Math.min(groundY(bx - 0.5, bz), groundY(bx + 0.5, bz), groundY(bx, bz)), bz); G.rotation.y = ry; scene.add(G);
@@ -9997,7 +10033,7 @@ function batchTick() {
 }
 // ================= v0.35 settings: graphics / comfort / fps counter (v0.45: wrist SETTINGS board in VR, ` or F2 panel on desktop) =================
 // Defaults (GFX_DEF) reproduce v0.34 exactly: no shadow maps, scale 1, foveation 1, fog 1200-8500 m, all trees, no grass, one cloud layer, MSAA on.
-await new Promise(r => setTimeout(r, 0));   // v1.09.1 load yield
+await bootYield('story, map + save code ready');   // v1.10.1 boot stage (v1.09.1 load yield)
 const GFX_OPT = [   // key, label, values, value labels, note (shown small under the label)
   ['scale', 'Render scale', [0.7, 0.8, 0.9, 1, 1.2], ['70%', '80%', '90%', '100%', '120%'], 'VR: next time you enter VR'],
   ['fov', 'Foveation', [0, 0.33, 0.66, 1], ['OFF', 'LOW', 'MEDIUM', 'HIGH'], 'blurrier edges = faster'],
@@ -10083,7 +10119,7 @@ function gfxApply(k) {
   if (all || k === 'terr' || k === 'shadows') { VL.key = ''; vlApply(); if (k === 'terr' && GFX.shadows) shPrewarm(); }
   if (all || k === 'ground') gsStart(GFX.ground);
   if (all || k === 'gtex') gtStart(GFX.gtex);   // v0.87 built and compiled over a few frames (gtTick), then swapped in   // v0.86 recoloured a slice per frame (gsTick)
-  if (all || k === 'scale') { renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5) * GFX.scale); if (!renderer.xr.isPresenting) renderer.xr.setFramebufferScaleFactor(GFX.scale); }
+  if ((all || k === 'scale') && !renderer.xr.isPresenting) { renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5) * GFX.scale); renderer.xr.setFramebufferScaleFactor(GFX.scale); }   // v1.10.1 neither while presenting (applied at the session's end)
   if (all || k === 'fov') renderer.xr.setFoveation(DYN.lvl ? Math.max(1, GFX.fov) : GFX.fov);
   if (k === 'dyn' && !GFX.dyn) dynSet(0);
   if (all || k === 'dist' || k === 'trees' || k === 'forest') updateChunks(true);
@@ -10286,8 +10322,8 @@ function gfxRate() {
   if (GFX.hz && ses.updateTargetFrameRate && (!GQ.xrRates || GQ.xrRates.includes(GFX.hz))) ses.updateTargetFrameRate(GFX.hz).catch(() => { });
   else if (GFX.hz && GQ.xrRates) say(GFX.hz + ' HZ NOT SUPPORTED HERE (' + GQ.xrRates.join(' / ') + ')');
 }
-renderer.xr.addEventListener('sessionstart', () => { gfxRate(); renderer.xr.setFoveation(GFX.fov); GQ.xrScale = GFX.scale; Object.assign(DYN, { lvl: 0, t: 0, ok: 0, hold: 10, f: 0, wait: 3, vw0: 0, vsOK: null, up: false }); dynSet(0, true); });
-renderer.xr.addEventListener('sessionend', () => renderer.xr.setFramebufferScaleFactor(GFX.scale));
+renderer.xr.addEventListener('sessionstart', () => { gfxRate(); renderer.xr.setFoveation(GFX.fov); GQ.xrScale = GFX.scale; const l0 = DYN.lvl; Object.assign(DYN, { t: 0, ok: 0, hold: 10, f: 0, wait: 5, vw0: 0, vsOK: null, up: false }); if (l0) dynSet(0); else renderer.xr.setFoveation(GFX.fov); });   // v1.10.1 5 s hands-off; nothing rebuilt at session start
+renderer.xr.addEventListener('sessionend', () => { renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5) * GFX.scale); renderer.xr.setFramebufferScaleFactor(GFX.scale); });
 // ---- grass: instanced 3-blade tufts on a stable world grid round the camera, rebuilt in slices (no hitch) after you move a few metres ----
 const GRASS = { im: null, cx: 1e9, cz: 1e9, job: null, MAX: 7000 };
 const GR_PAL = [[0.25, 0.45, 0.30], [0.23, 0.40, 0.26], null, null, [0.28, 0.35, 0.22]], _grc = new THREE.Color();
@@ -10645,21 +10681,26 @@ scene.traverse(o => { const M = o.material; if (!o.isMesh || !M || !M.map || M.t
   const P = o.geometry.parameters; if (P.width < 0.3 || P.width > 8) return; for (let q = o.parent; q; q = q.parent) if (q === plane) return; Object.assign(M, { polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -4 }); });
 for (const o of TERR_M) { o.updateMatrix(); o.matrixAutoUpdate = false; }   // v0.81 static scenery: the ground tiles and towns/sites never move, no matrix rebuild each frame
 for (const t of TOWN_MESH) t.m.traverse(o => { o.updateMatrix(); o.matrixAutoUpdate = false; });
-await new Promise(r => setTimeout(r, 0));   // v1.09.1 load yield
+await bootYield('settings + graphics code ready');   // v1.10.1 boot stage (v1.09.1 load yield)
 gfxApply();
+await bootYield('graphics applied (shadow map ' + (GFX.shadows ? 'ON ' + GFX.shadows : 'off') + ', scale ' + GFX.scale + ')');
 { PL.visible = SL.visible = true; renderer.compile(scene, camera); PL.visible = SL.visible = false; }
+await bootYield('compiled: scene (' + renderer.info.programs.length + ' programs)');
 { const W = [SKYFX.bloom, SKYFX.mglow, SKYFX.rays, stars, moon], v = W.map(o => o.visible); W.forEach(o => { o.visible = true; renderer.compile(o, camera, scene); }); W.forEach((o, i) => { o.visible = v[i]; }); }   // v1.07.3
 { const pv = PL.visible, sv = SL.visible, seen = new Set(); for (const k of CHUNKS) { const m = k.im.material; if (!m.userData.sw || seen.has(m)) continue; seen.add(m); const v = k.im.visible; k.im.visible = true;   // v1.07.2
     for (let c = 0; c < 4; c++) { PL.visible = !!(c & 1); SL.visible = !!(c & 2); renderer.compile(k.im, camera, scene); } k.im.visible = v; } PL.visible = pv; SL.visible = sv; }
+await bootYield('compiled: sky + forest chunks');
 if (GFX.ground) gsRun(GFX.ground);   // v0.86 a chosen Ground style is in place before the first frame
 if (GFX.gtex) gtRun(GFX.gtex);   // v0.87 likewise a chosen Ground texture
+await bootYield('ground style / texture applied');
 for (const t of TOWN_MESH) cvlAdd(t.m, 'w');   // v0.95 the towns' / sites' merged meshes
 { vlTick(); for (const f of [true, false]) for (let c = 0; c < 4; c++) { vlApply(f); cvlApply(f); PL.visible = !!(c & 1); SL.visible = !!(c & 2); renderer.compile(scene, camera); } PL.visible = SL.visible = false; VL.key = ''; vlApply(); CVL.p = CVL.w = null; cvlApply(); for (const e of CVL.list) CVL.warm.add(e.vl); }   // v0.48: both terrain looks x each panel-glow / landing-light combination compiled at load (no hitch when one comes on)   // v0.47 LIGHTS_WARM: precompile the lit-cockpit / landing-light variants
+await bootYield('compiled: vertex-lit + panel-light variants (' + renderer.info.programs.length + ' programs)');
 if (GQ.ult) ultPrewarm();   // v1.09
 { if (!GLOVE.gm[0]) gloveInit(); if (!MIST) wxMistBuild(); const W = [...GLOVE.gm, MIST.im, FLX.pts, FLX.rib, FLX.ring[0].m, stars, moon, SUND.d, SUND.h, SKYD.m], vis = W.map(o => o.visible);   // v0.93 the gloves and the valley mist are made late (first hands / first mist): compiled here x each light combination, not on the first frame on foot or at the first rain front
   W.forEach(o => o.visible = true); for (let c = 0; c < 4; c++) { PL.visible = !!(c & 1); SL.visible = !!(c & 2); for (const o of W) renderer.compile(o, camera, scene); }
   PL.visible = SL.visible = false; W.forEach((o, i) => o.visible = vis[i]); }
-await new Promise(r => setTimeout(r, 0));   // v1.09.1 load yield
+await bootYield('shader prewarm queued (compile calls done)');   // v1.10.1 boot stage (v1.09.1 load yield)
 // >>> V2 VISTAS BEGIN (vistas.js via /workspace/v2-vistas/apply.py)
 // ===================== V2 VISTAS: signature landmarks - Oxbow Falls, the North Icefall, the Hidden Lake + trapper's ruin, Sentinel Fjord, Needle Eye Arch, the northern lights =====================
 // Look + game-side only: nothing in the physics block changes (the ground, waterH, the flight model; physics-test md5 unchanged). Own random stream (the world rand() is untouched).
@@ -10670,7 +10711,7 @@ await new Promise(r => setTimeout(r, 0));   // v1.09.1 load yield
 //   1 falls mesh (falling sheets, cascades, meltwater, spray mist billboards; own small shader)  +  1 aurora (own shader, only on clear nights)
 // Each landmark calls discoverLandmark(id, name) once, the first time you see it up close (in view, in range, a clear line of sight over the ground).
 const VST_NEAR = 1500;
-const VISTA = (() => {
+const VISTA = BP_SAFE ? { tick() { }, hook: null, prims: [], L: [], found: {}, near: [], on: false, safe: true } : (() => {   // v1.10.1 ?safe: no vistas
   let sd = 0x7157a; const R = () => { sd = (sd + 0x6D2B79F5) | 0; let t = Math.imul(sd ^ (sd >>> 15), 1 | sd); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
   const V = { L: [], found: {}, hook: null, on: true, collide: true, waterPhys: false, aur: 0, clear: 1, t: 0, chk: 0, near: [], prims: [], tris: {}, ms: 0 };
   const TH = terrainHeight, lerp = (a, b, t) => a + (b - a) * t;
@@ -11010,7 +11051,7 @@ void main() { float u = vA.x, v = vA.y; float rays = n1(u * 190.0 + uT * 0.9 + v
 function vistaTick(dt) { VISTA.tick(dt); }
 try { VISTA.hook = discoverLandmark; } catch (e) { /* declared later */ }
 // <<< V2 VISTAS END
-await new Promise(r => setTimeout(r, 0));   // v1.09.1 load yield
+await bootYield('vistas built');   // v1.10.1 boot stage (v1.09.1 load yield)
 // >>> V2 LIFE BEGIN (life.js via /workspace/v2-life/apply.py)
 // ===================== V2 AMBIENT LIFE: birds, raptors, waterfowl, fish, smoke, insects, fireflies, motes, leaves, spindrift, dawn mist =====================
 // Look only: nothing here touches the Cub, the physics, the world rand() or any gameplay state. Two draw calls at most, whatever you look at:
@@ -11020,7 +11061,8 @@ await new Promise(r => setTimeout(r, 0));   // v1.09.1 load yield
 // Everything is pooled in typed arrays built at load: the per-frame tick allocates nothing (test/garbage.js checks it with the heap sampler).
 // Tied to the clock (DAY.h / TOD) and the weather (WX.E rain / grey / mist, FR rain fronts); Settings > COMFORT > Ambient life OFF / LOW / FULL;
 // auto quality (DYN.lvl) drops it to LOW at level 2 and OFF at level 4.
-const LIFE = (() => {
+await bootYield('vistas ' + (BP_SAFE ? 'skipped (?safe)' : 'ready'));
+const LIFE = BP_SAFE ? { tick() { }, wind: 0, on: false, safe: true, n: { crit: 0, fx: 0 } } : (() => {   // v1.10.1 ?safe: no ambient life
   const L = { on: true, tier: 2, t: 0, ms: 0, warmMs: 0, n: { crit: 0, fx: 0 }, wind: -1, frozen: false };
   const TAU = 6.283185307;
   const SEED = new Int32Array([0x5eed1e]); const rnd = () => { let x = SEED[0]; x ^= x << 13; x ^= x >>> 17; x ^= x << 5; SEED[0] = x; return (x >>> 0) / 4294967296; };   // own stream: the world rand() is never called
@@ -11505,6 +11547,7 @@ void main() { vec2 q = vec2(gl_PointCoord.x * 2.0 - 1.0, 1.0 - gl_PointCoord.y *
   return L;
 })();
 function lifeTick(dt) { LIFE.tick(dt); }
+await bootYield('ambient life ' + (BP_SAFE ? 'skipped (?safe)' : 'built'));
 // <<< V2 LIFE END
 // v1.09.1 SHADER WARM-UP: three.js compiles at load but only checks / links a program on its first draw - on Windows (ANGLE -> D3D11) that is ~50-300 ms each,
 // so the first frame used to block for every program at once ("page isn't responding"). Now each program is finished one by one over frames (with
@@ -11522,16 +11565,18 @@ function warmStart(label) {   // queue every program three.js has made that hasn
 function warmTick() {   // per frame: true = draw the scene
   if (WARM.done && WARM.jobs.length) { const t = performance.now(); WARM.jd++; WARM.jobs.shift()(); WARM.ms = Math.max(WARM.ms, performance.now() - t); warmUI(); return false; }
   if (!WARM.done) { const L = WARM.list, t = performance.now();
-    while (WARM.i < L.length && performance.now() - t < 20) { const q = L[WARM.i]; if (WARM.par && !q.isReady()) break; q.getUniforms(); q.__w = 1; WARM.i++; }
-    if (WARM.i >= L.length) { WARM.done = true; WARM.doneT = performance.now(); WARM.n++; for (const q of renderer.info.programs) q.__w = 1; }
+    while (WARM.i < L.length && performance.now() - t < 20) { const q = L[WARM.i]; if (WARM.par && !q.isReady() && t - (WARM.qt || (WARM.qt = t)) < 3000) break; const t1 = performance.now(); q.getUniforms(); q.__w = 1; WARM.i++; WARM.qt = 0;
+      const qm = performance.now() - t1; if (qm > 150) bootLog('slow shader ' + Math.round(qm) + 'ms: ' + (q.name || q.cacheKey?.slice(0, 40) || '?'), true); }   // v1.10.1 never wait forever on isReady; log slow links
+    if (WARM.i >= L.length) { WARM.done = true; WARM.doneT = performance.now(); WARM.n++; bootLog('shaders ready: ' + L.length + ' programs in ' + Math.round(WARM.doneT - WARM.t0) + 'ms (' + (WARM.label || '') + ')'); for (const q of renderer.info.programs) q.__w = 1; }
     warmUI(); return WARM.done && !WARM.jobs.length; }
   if (WARM.ub && performance.now() - WARM.doneT > 8000) { WARM.ub = false; try { localStorage.removeItem('bp_ultboot'); } catch (e) { } }   // PC ULTRA ran fine: a later start may restore it
   return true;
 }
-warmStart('Preparing graphics');
+warmStart('Preparing graphics'); bootLog('warm-up started: ' + WARM.tot + ' programs to finish, ' + (WARM.par ? 'polling parallel compile' : 'no parallel compile: one at a time'));
 if (window.__ultSkip) setTimeout(() => say('PC ULTRA WAS NOT RESTORED (THE LAST START DID NOT FINISH) - PICK IT AGAIN IN SETTINGS'), 4000);
+const BOOTF = { n: 0, real: 0, xr: 0, pre: 0, lite: 0, xs: 0, xa: [], xl: 0, last: 0 };   // v1.10.1 boot log: frame stages
 renderer.setAnimationLoop(() => {
-  const t0 = performance.now(), rawDt = clock.getDelta(), dt = Math.min(rawDt, 0.05);
+  const t0 = performance.now(), rawDt = clock.getDelta(), dt = Math.min(rawDt, 0.05); BOOTF.n++; if (BOOTF.n <= 3) bootLog('frame ' + BOOTF.n + ' start' + (renderer.xr.isPresenting ? ' (XR)' : ''));
   const xr = renderer.xr.isPresenting;
   if (xr) {
     mode === 'plane' ? xrInput(dt) : footXR(dt);
@@ -11577,7 +11622,15 @@ renderer.setAnimationLoop(() => {
   if (xr || HANDS.force) { wtTick(dt); updateHands(dt); setpTick(); jbPoke(); ecoPoke(); upgPoke(); emgPoke(); }
   vlTick(); batchTick(); cvlApply(); if (GFX.shadows && FT.n % ((mode !== 'plane' || ac.vel[0] * ac.vel[0] + ac.vel[1] * ac.vel[1] + ac.vel[2] * ac.vel[2] > 0.1) ? DYN.sh : Math.max(2, DYN.sh)) === 0) renderer.shadowMap.needsUpdate = true;   // v0.47 static batches; shadow map at half rate   // v0.23 gloves (after the stick / knobs have their final pose); v0.45 wrist SETTINGS board
   if (DIRTY_TEX.size) { DIRTY_TEX.forEach(texInit); DIRTY_TEX.clear(); } if (WARM.done && !WARM.jobs.length) binoRender();   // v0.53 the 7x view (only while raised); v0.81 the textures upload first
-  if (xr || HANDS.force) wtApply(); if (warmTick()) renderer.render(scene, camera); else renderer.render(WARM.sc, camera); wtRestore();   // v1.09.1 the warm-up screen until every program is ready   // v0.92 item weight: drawn weighed down, then back on the controller
+  if (xr || HANDS.force) wtApply(); BOOTF.pre = performance.now(); BOOTF.wl = xr && BOOTF.lite > 0; if (BOOTF.wl && BOOTF.lite === 2) warmStart('Entering VR');
+  const _wr = warmTick() && !(xr && BOOTF.lite > 0); if (xr && BOOTF.lite > 0) BOOTF.lite--; if (_wr && !BOOTF.real) bootLog('first scene frame: drawing (first draw can still link a few programs)');
+  if (_wr) renderer.render(scene, camera); else renderer.render(WARM.sc, camera); wtRestore();
+  { const tn = performance.now(); if (xr && BOOTF.xr < 300) { const k = ++BOOTF.xr, fm = tn - t0, gap = BOOTF.last ? t0 - BOOTF.last : t0 - BOOTF.xs; BOOTF.xa.push([fm, gap]);   // v1.10.1 the first XR frames: own time + the gap since the last (a stall outside our code shows as a gap)
+      if (k <= 3 || ((fm > 40 || gap > 150) && BOOTF.xl++ < 25)) bootLog('XR frame ' + k + ': ' + Math.round(fm) + 'ms (logic ' + Math.round(BOOTF.pre - t0) + ', draw ' + Math.round(tn - BOOTF.pre) + '), gap ' + Math.round(gap) + 'ms' + (BOOTF.wl ? ' [lite: warm-up backdrop]' : ''), fm > 40 || gap > 150);
+      if (k === 60 || k === 300) { const A = BOOTF.xa, w = A.reduce((m, a, i) => a[0] > A[m][0] ? i : m, 0), wg = A.reduce((m, a, i) => a[1] > A[m][1] ? i : m, 0); bootLog('XR frames 1-' + k + ': mean ' + (A.reduce((t, a) => t + a[0], 0) / A.length).toFixed(1) + 'ms, worst ' + Math.round(A[w][0]) + 'ms (#' + (w + 1) + '), worst gap ' + Math.round(A[wg][1]) + 'ms (#' + (wg + 1) + '), ' + Math.round(tn - BOOTF.xs) + 'ms since sessionstart', true); } }
+    if (xr) BOOTF.last = t0;
+    if (_wr && !BOOTF.real) { BOOTF.real = BOOTF.n; bootDone('BOOT COMPLETE: first scene frame drawn in ' + Math.round(tn - BOOTF.pre) + 'ms (frame ' + BOOTF.n + ')'); } else if (BOOTF.n <= 3) bootLog('frame ' + BOOTF.n + ' done (' + Math.round(tn - t0) + 'ms)');
+    else if (tn - t0 > 300 && performance.now() - (window.__bootDone || 0) < 120000) bootLog('SLOW FRAME ' + Math.round(tn - t0) + 'ms (logic ' + Math.round(BOOTF.pre - t0) + ', draw ' + Math.round(tn - BOOTF.pre) + ')' + (xr ? ' XR' : ''), true); }   // v1.09.1 the warm-up screen until every program is ready   // v0.92 item weight: drawn weighed down, then back on the controller
   const cpu = performance.now() - t0;            // JS + draw submission (GPU time isn't visible from here)
   dynTick(rawDt);   // v0.48 auto resolution
   FT.sf += rawDt * 1000; FT.sc += cpu; FT.sm = Math.max(FT.sm, rawDt * 1000); FT.n++;

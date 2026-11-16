@@ -139,6 +139,7 @@ v0.44 latches: every window and the door are latched while shut. Squeeze the han
 | PC ULTRA (v1.09) | PC over Quest Link / Air Link only: Settings > GRAPHICS > PC ULTRA (4th button, shown only on a desktop GPU). Any other preset leaves it. Reload once for MSAA if you had it off | same |
 | Safe start (v1.09.1) | Add `?safe` to the URL: BALANCED, saved graphics settings ignored. A PC ULTRA start that never finished is skipped on the next load. 'Preparing graphics' bar at load / on PC ULTRA. Opened from a file (file://): a red banner, use the live site or a local server | same |
 | Rod grip + reel (v1.10) | VR: grip at the rod tube takes the rod into a full fist on the cork. The other hand squeezes grip on the reel's crank knob and circles to reel in. Desktop: RMB reels as before. Both holds are in the Pose Lab (FISHING) | RMB reels |
+| Boot log (v1.10.1) | Start-up stages print to the console as `[boot 1234ms] stage (+56ms)` and show top-left (hides 12 s after BOOT COMPLETE; `?boot` keeps it). A start that hung is named on the next one. Entering VR logs the session request/grant, sessionstart and the first 300 XR frames (time + gap). `?safe` also skips vistas, ambient life, music and shadows | same |
 
 ## On foot
 | | VR | Desktop |

@@ -2,6 +2,14 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v1.10.1 – boot log, a lighter start to VR (Link), ?safe skips more
+
+- **Boot log:** every start-up stage is printed to the console as `[boot 1234ms] stage (+56ms)` and listed in a box at the top left. The log covers page start, the GPU/renderer (with whether parallel shader compile is on), terrain, the Cub, world, water, strips, towns, the cloud grid, the map, each compile batch, vistas, life, the shader warm-up, the first frames and BOOT COMPLETE. It also logs any slow shader (over 150 ms) or slow frame (over 300 ms) in the first 2 minutes, plus errors and WebGL context loss. Each line is saved in localStorage, so if a start hangs, the next start says which stage it stopped after. The box hides 12 s after BOOT COMPLETE; add `?boot` to keep it up.
+- **Entering VR:** the log times the XR request, how long the runtime (Link) takes to grant the session, sessionstart, and the first 300 XR frames, each with its time and its gap since the last frame. It prints a summary at frames 60 and 300. The first 3 XR frames are cheap: the warm-up backdrop goes out straight away while any program not linked yet is finished behind it. The auto-quality governor now waits 5 s (was 3) and rebuilds nothing at session start. setSize, setPixelRatio and setFramebufferScaleFactor never run while presenting; they're applied when the session ends. This fixes the "Can't change size while VR device is presenting" warnings.
+- **Fixed:** the deer's colours were cloned from the GLB's interleaved buffer, which gave 2 de-interleave warnings. They're now copied directly.
+- **Shader warm-up:** a program the driver never reports ready is finished by hand after 3 s, so the warm-up screen can't hang.
+- **?safe** now also skips the vistas, ambient life, music and shadows (on top of default graphics and no PC ULTRA).
+
 ## v1.10 – fishing: real fish, fish that stay off the banks, a rod that bends under load, a proper grip and a hand on the reel
 
 - **The fish look like fish:** each species is a low-poly fish of about 175 triangles: a rounded body tapering to a slim tail wrist, a forked tail (rounder on a pike), a dorsal fin (a tall sail on grayling, set far back on pike), an adipose fin on trout and salmon, pectoral, pelvic and anal fins, and eyes. Each has its own colours (back, belly and side stripe; rainbows get their pink band). The tail beats in the vertex shader: fast in a fight, slow when the fish is played out, and a landed fish flaps and then tires. The fish cruising the shallows use the same mesh in one instanced draw, each in its species' colours (pike slimmer).
