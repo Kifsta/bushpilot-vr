@@ -2,6 +2,12 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v1.10.8 – casting and the retrieve: no more lure stuck at the surface
+
+- **Stuck lure (Neil):** reeled in close, a lure was held at the water surface under the rod tip. The rod tip is 1.5-3.5 m above the water, so the line could never get short enough to bring the lure to the tip. The drag slipped and the lure sat there for good. In the headless sim every lure, bait and the bobber rig got stuck this way. Now, once the lure is under the tip, it comes up out of the water with a little splash and hangs on the line, and reeling on brings it up to the tip, ready to cast.
+- **Lures run at a real depth:** the depth under the lure now follows it. It used to be frozen at the splash spot, so a lure could never sink deeper than where it landed, and it ran through the lake bed as the bank shelved up. The pull along the line lifts a lure more as the line steepens near you. The extra planing lift on a retrieve is now per lure and small (spinner 0.14, spoon 0.12, plastic 0.06, bait 0.03 m/s per m/s). Before, it pinned bait, plastics and spinners 2 cm under the surface for most of the retrieve; in the sim they now spend none of it there. At a fair pace a lure rides over a shelving bed, and it only snags when you drag it slowly along the bottom.
+- **VR cast:** the line now goes with the flick's peak tip speed and direction from the last 0.35 s, so letting go of the trigger a moment late still casts. Before, the release used the tip speed at that instant. A natural flick that slows at the end was below the 2.5 m/s threshold, so the lure dropped at your feet. In the sim an eased flick went 2 m before and 19.5 m now, on time or up to 0.12 s late. A flick that's too slow says how to cast.
+
 ## v1.10.7 – Neil's left-hand rod grip, the crank on the right with its knob facing out
 
 - **Neil's rod hold:** his Pose Lab code (FISHING ROD, left hand, every finger joint) is now the game's hold: `POSE_LAB.rodL`, with the right hand mirrored as `rodR`. The rod sits 4 cm further up the fist than the old default, and the fingers wrap as he posed them. The Pose Lab parity check shows no difference.
