@@ -138,6 +138,7 @@ v0.44 latches: every window and the door are latched while shut. Squeeze the han
 | Ambient life (v1.08) | Settings > COMFORT > Ambient life FULL / LOW / OFF: birds, waterfowl, fish jumps, chimney and campfire smoke, insects, fireflies, leaves, mist. Auto quality thins it. Trees sway harder in overcast, rain and fronts | same |
 | PC ULTRA (v1.09) | PC over Quest Link / Air Link only: Settings > GRAPHICS > PC ULTRA (4th button, shown only on a desktop GPU). Any other preset leaves it. Reload once for MSAA if you had it off | same |
 | Safe start (v1.09.1) | Add `?safe` to the URL: BALANCED, saved graphics settings ignored. A PC ULTRA start that never finished is skipped on the next load. 'Preparing graphics' bar at load / on PC ULTRA. Opened from a file (file://): a red banner, use the live site or a local server | same |
+| Rod grip + reel (v1.10) | VR: grip at the rod tube takes the rod into a full fist on the cork. The other hand squeezes grip on the reel's crank knob and circles to reel in. Desktop: RMB reels as before. Both holds are in the Pose Lab (FISHING) | RMB reels |
 
 ## On foot
 | | VR | Desktop |

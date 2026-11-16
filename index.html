@@ -607,7 +607,7 @@ const hyp = (a, b, c = 0) => Math.sqrt(a * a + b * b + c * c);   // v0.59 Math.h
 
 // ======================= RENDERING =======================
 // v0.35 settings (persist in localStorage 'bp_gfx'; ?gfx=shadows:2,grass:1 overrides for testing). Defaults = the v0.34 look and cost.
-const BP_VERSION = 'v1.09.1';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
+const BP_VERSION = 'v1.10';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
 { const e = document.getElementById('ver'); if (e) e.textContent = BP_VERSION; }
 const GFX_DEF = { shadows: 0, scale: 1, fov: 1, dist: 1, trees: 1, grass: 0, clouds: 1, fog: 1, msaa: 1, hz: 90, vig: 0, turn: 0, fps: 0, tod: 11, stk: 1, tips: 1, terr: 1, dyn: 1, glove: 0, hand: 0, wt: 1, volM: 1, volMu: 0.5, volE: 1, volA: 1, volF: 1, wx: 1, forest: 0, ground: 0, gtex: 0, cvl: 1, water: 1, dayl: 48, flure: 0, fline: 8, fdrag: 4, fbob: 0, fsink: 0, ultra: 0 };   // v0.68.1 dominant hand, volumes. v0.48 BALANCED: 90 % scale, 72 Hz, fast terrain shading, auto resolution; v0.49.1 the stick stays where you let go of it
 const GFX = Object.assign({}, GFX_DEF);
@@ -5123,7 +5123,8 @@ function gripCurl(st, D, sx, tOnly) {   // the fingers curl onto the control and
   st.gT.x *= sx; if (!tOnly) st.gA.normalize().lerp(_gd, 0.6).normalize();   // buildHand mixes the thumb in right-hand space
 }
 const _gfV = GV3(0, 0, 0);
-function gripFixed(kind, sx, out) {   // v0.77.1 the authored hand frames (hand space in the control's frame) for the binoculars and paper (v0.77.5 the rifle's come from its lab pose: rflLabSolve)
+function gripFixed(kind, sx, out) {
+  if (kind === 'rod') return rodInHand(sx, out).invert();   // v1.10 the hand in the rod's frame (the rod rides the controller: rodInHand)   // v0.77.1 the authored hand frames (hand space in the control's frame) for the binoculars and paper (v0.77.5 the rifle's come from its lab pose: rflLabSolve)
   if (kind === 'noz') return out.copy(nozInHand(sx, out)).invert();   // v0.77.7 the hand in the nozzle's frame (the nozzle hangs off the controller by nozInHand)
   if (kind === 'board') return out.makeRotationX(KB_GRIPX).premultiply(_gfR.makeRotationY(sx * KB_YAW)).premultiply(_gfR.makeRotationZ(sx * KB_ROLL));   // v0.84 the clipboard as in Neil's photo: its edge in the hand like a handle (finger stack up the edge, thumb on the front, knuckles round the back), tipped 11 deg and turned 20 deg so a level controller shows you the page
   if (kind === 'pbrk') return out.makeBasis(_gx.set(0, 0.95, 0.31).cross(_gfV.set(sx, 0, 0)), _gy.set(0, 0.95, 0.31), _gz.set(sx, 0, 0));   // v0.84.5 overhand on the T-bar: thumb side up and back toward you, knuckles over the top
@@ -5233,6 +5234,7 @@ function handTargets(i, g, st) {                 // decide pose + world matrix f
   } else if (paperHandK(g)) { gripOn(st, paperHandK(g), right ? 1 : -1); st.mode = 'ck'; }   // v0.77.3 the map held on foot: its corner pinch
   else if (HOSE.held === g && HOSE.noz.visible) { gripOn(st, 'noz', right ? 1 : -1); st.mode = 'ck'; st.jx = 0.35 * trig; }   // v0.77.7 the nozzle's pistol grip, the index on the lever
   else if (huntHandK(g) || binoHandK(g)) { const hk = huntHandK(g) || binoHandK(g); gripOn(st, hk, right ? 1 : -1); st.mode = 'ck'; st.jx = hk === 'rgrip' ? 0.3 * trig : 0; }   // v0.67 the trigger finger squeezes   // v0.53 rifle grips, v0.65 binoculars
+  else if (fishGripK(g)) { gripOn(st, fishGripK(g), right ? 1 : -1); st.mode = 'ck'; }   // v1.10 the rod's cork grip (glove on the controller) / the reel's crank knob
   else if (FUELP.g === g || huntHold(g) || fishHold(g)) { st.tc[0] = st.tc[1] = st.tc[2] = st.tc[3] = 0.6; st.tth = 0.3; st.ttw = 0.5; st.mode = 'hold';
     const rk = RFL.round.has(g) && !DROP.held.has(g) && BINO.g !== g && BINO.g2 !== g ? plRoundKey(g) : null, L = rk && POSE_LAB[rk];   // v0.87.1 a round in Neil's Pose Lab hold: its per-joint fingers
     if (L) { st.plJ = L.J || null; if (L.w) st.W.multiply(plW(rk, _plWM)); } }
@@ -7617,6 +7619,8 @@ Object.assign(GDEF, {   // v0.53 procedural grips on the rifle mesh: wrap the wr
   rfore: { labK: 'support', o: () => RFL.g, sh: 'box', st: 'wrap', wa: 2, ...RIFLE_POSES.support },   // v0.77.1 the one forend grip (pose data: RIFLE_POSES; v0.77.5 its lab pose)
   rlev: { o: () => RFL.lever, sh: 'box', c: GV3(0, -0.032, 0.19), b: GV3(0.005, 0.03, 0.045), st: 'pinch', pc: GV3(0, -0.062, 0.19) },   // v0.84.4 the v0.44 loop (lever space)
   bR: { fix: 'bino', o: () => BINO.m, sh: 'cyl', c: GV3(0.032, 0, -0.005), a: 2, r: 0.021, hl: 0.05, st: 'wrap', wa: 2, wr: 0.021, tl: 0.02, wz: -0.004 },   // v0.65 binocular barrels
+  rod: { fix: 'rod', o: () => { fRodPlace(); return FROD.f; }, sh: 'cyl', c: GV3(0, 0, 0), a: 2, r: 0.0135, hl: 0.14, st: 'wrap', wa: 2, wr: 0.0135, tl: 0, wz: 0 },   // v1.10 a full fist on the cork (the rod's frame: axis z)
+  reel: { o: () => FREEL.kf, sh: 'cyl', c: GV3(0, 0, 0), a: 0, r: 0.008, hl: 0.011, st: 'pinch', pc: GV3(0, 0, 0) },   // v1.10 the crank knob between thumb and fingers
   bL: { fix: 'bino', o: () => BINO.m, sh: 'cyl', c: GV3(-0.032, 0, -0.005), a: 2, r: 0.021, hl: 0.05, st: 'wrap', wa: 2, wr: 0.021, tl: 0.02, wz: -0.004 },
 });
 function huntHandK(g) { return !RFL.g ? null : RFL.place === 'vr' && RFL.hand === g ? (RFL.free ? 'rfore' : 'rgrip') : RFL.sup === g ? 'rfore' : RFL.levHand === g ? 'rlev' : null; }
@@ -7652,16 +7656,56 @@ const FISH = { own: {}, lures: {}, line: {}, rod: 'pack', hand: null, crankG: nu
   L: 0, tipV: GV3(0, 0, 0), tip: GV3(0, 0, 0), tip0: GV3(0, 0, 0), lure: GV3(0, 0, 0), lv: GV3(0, 0, 0), crank: 0, crankA: null, turns: 0, retr: 0, T: 0, slack: 0,
   pow: 0, charging: false, desk: { reel: false, lmb: false }, shop: [], hint: '', w: null, bob: GV3(0, 0, 0), dep: 0, wet: false, landed: 0, casts: 0, maxD: 0, food: 80, creel: [], cooler: [], n: 24, stat: {}, deck: false };
 // ---- the rod: a tapered 4-sided blank that bends (rebuilt each frame from its tip deflection), the cork grip, the reel under it with its crank ----
-const FROD = (() => { const N = 10, G = new THREE.BufferGeometry(), P = new Float32Array(N * 4 * 3), C = new Float32Array(N * 4 * 3), I = [];
-  for (let i = 0; i < N; i++) for (let k = 0; k < 4; k++) { const c = i < 2 ? [0.62, 0.48, 0.32] : [0.16, 0.2, 0.26]; C.set(c, (i * 4 + k) * 3); }
-  for (let i = 0; i < N - 1; i++) for (let k = 0; k < 4; k++) { const a = i * 4 + k, b = i * 4 + (k + 1) % 4, c = a + 4, d = b + 4; I.push(a, c, b, b, c, d); }
-  G.setAttribute('position', new THREE.BufferAttribute(P, 3)); G.setAttribute('color', new THREE.BufferAttribute(C, 3)); G.setIndex(I);
-  const m = new THREE.Mesh(G, ITEM_VM); m.frustumCulled = false; m.userData.noBatch = true; m.visible = false; scene.add(m); return { m, N, P, G }; })();
+// v1.10 the rod lives in its own frame (FROD.f: the blank along -z, up +y, origin = the middle of your fist on the cork): butt cap, cork rear grip, the reel seat by your
+// index finger, the fore grip, then the blank with 4 guides hanging on the reel's side and the tip ring. fRodShape bends it (a segmented curve that keeps its length).
+const FROD = (() => { const K = 6, CORK = [0.62, 0.48, 0.32], SEAT = [0.13, 0.13, 0.14], BL = [0.16, 0.2, 0.26], WR = [0.6, 0.48, 0.18], RG = [0.72, 0.74, 0.76];
+  const ST = [[-0.3, 0.004, SEAT], [-0.296, 0.0145, SEAT], [-0.282, 0.0145, SEAT], [-0.281, 0.0135, CORK], [0.014, 0.0135, CORK], [0.015, 0.0112, SEAT], [0.085, 0.0112, SEAT],
+    [0.086, 0.0125, CORK], [0.158, 0.0112, CORK], [0.159, 0.0084, WR], [0.172, 0.0082, WR], [0.173, 0.0079, BL]];   // [m along the rod from your fist, radius, colour]
+  const NG = ST.length, NBL = 16; for (let i = 1; i <= NBL; i++) ST.push([0, 0, BL]);   // the blank's stations: placed by the rod's length
+  const GU = [[0.1, 0.011, 0.034], [0.34, 0.0065, 0.018], [0.58, 0.0048, 0.012], [0.8, 0.0036, 0.009], [1, 0.0026, 0.0035]];   // guides: blank fraction, ring radius, stem; the last is the tip ring
+  const NS = ST.length, nV = NS * K + GU.length * (2 * K + 4), P = new Float32Array(nV * 3), C = new Float32Array(nV * 3), I = [];
+  for (let i = 0; i < NS; i++) for (let k = 0; k < K; k++) C.set(ST[i][2], (i * K + k) * 3);
+  for (let i = 0; i < NS - 1; i++) for (let k = 0; k < K; k++) { const a = i * K + k, b = i * K + (k + 1) % K, c = a + K, d = b + K; I.push(a, c, b, b, c, d); }
+  for (let g = 0; g < GU.length; g++) { const o = NS * K + g * (2 * K + 4); for (let k = 0; k < 2 * K + 4; k++) C.set(RG, (o + k) * 3);
+    for (let k = 0; k < K; k++) { const a = o + k, b = o + (k + 1) % K, c = a + K, d = b + K; I.push(a, c, b, b, c, d, a, b, c, b, d, c); }
+    const q = o + 2 * K; I.push(q, q + 1, q + 2, q + 2, q + 1, q + 3, q, q + 2, q + 1, q + 2, q + 3, q + 1); }
+  const G = new THREE.BufferGeometry(); G.setAttribute('position', new THREE.BufferAttribute(P, 3)); G.setAttribute('color', new THREE.BufferAttribute(C, 3)); G.setIndex(I);
+  const f = new THREE.Object3D(); f.name = 'FROD.f'; scene.add(f);
+  const m = new THREE.Mesh(G, ITEM_VM); m.frustumCulled = false; m.userData.noBatch = true; m.visible = false; f.add(m);
+  const lg = new THREE.BufferGeometry(); lg.setAttribute('position', new THREE.BufferAttribute(new Float32Array((GU.length + 1) * 3), 3));
+  const ln = new THREE.Line(lg, new THREE.LineBasicMaterial({ color: 0xdfe6e8 })); ln.frustumCulled = false; ln.userData.noBatch = true; m.add(ln);   // the line from the spool up through the guides
+  return { f, m, G, P, ST, NG, NBL, NS, GU, K, ln, tipL: GV3(0, 0, -2), gp: Array.from({ length: GU.length }, () => GV3(0, 0, 0)), bp: null }; })();
+const _rsK = GV3(1, 0, 0), _rsV = GV3(0, 0, 0), _rsE1 = GV3(0, 0, 0), _rsE2 = GV3(0, 0, 0), _rsT = GV3(0, 0, 0), _rsP = GV3(0, 0, 0);
+function fRsRot(v, th, out) { const k = _rsK, c = Math.cos(th), sn = Math.sin(th), d = k.dot(v);   // turn v by th about the bend axis
+  return out.set(v.x * c + (k.y * v.z - k.z * v.y) * sn + k.x * d * (1 - c), v.y * c + (k.z * v.x - k.x * v.z) * sn + k.y * d * (1 - c), v.z * c + (k.x * v.y - k.y * v.x) * sn + k.z * d * (1 - c)); }
+function fRodShape(len, bend = 0, bx = 0, by = -1, load = 0) {   // bend (rad, at the tip) toward the unit (bx, by); light loads curl the tip only, heavy ones work down toward the butt
+  const R = FROD, K = R.K, P = R.P, ST = R.ST, NG = R.NG, NBL = R.NBL, a0 = ST[NG - 1][0], ds = (len - a0) / NBL, pw = 3.4 - 1.6 * Math.min(1, load);   // turn at blank fraction u = bend * u^pw
+  _rsK.set(by, -bx, 0); if (_rsK.lengthSq() < 1e-8) _rsK.set(1, 0, 0); _rsK.normalize();
+  const put = (i, px, py, pz, th, r) => { fRsRot(_rsV.set(1, 0, 0), th, _rsE1); fRsRot(_rsV.set(0, 1, 0), th, _rsE2);
+    for (let k = 0; k < K; k++) { const a = k * 2 * Math.PI / K + Math.PI / K, cx = Math.cos(a) * r, cy = Math.sin(a) * r, j = (i * K + k) * 3;
+      P[j] = px + _rsE1.x * cx + _rsE2.x * cy; P[j + 1] = py + _rsE1.y * cx + _rsE2.y * cy; P[j + 2] = pz + _rsE1.z * cx + _rsE2.z * cy; } };
+  for (let i = 0; i < NG; i++) put(i, 0, 0, -ST[i][0], 0, ST[i][1]);
+  const B = R.bp || (R.bp = Array.from({ length: NBL + 1 }, () => [0, 0, 0, 0])); let x = 0, y = 0, z = -a0; B[0][0] = 0; B[0][1] = 0; B[0][2] = z; B[0][3] = 0;
+  for (let i = 1; i <= NBL; i++) { const u = i / NBL, th = bend * Math.pow((i - 0.5) / NBL, pw), c = Math.cos(th), sn = Math.sin(th);
+    x += ds * sn * bx; y += ds * sn * by; z -= ds * c; const tS = bend * Math.pow(u, pw); B[i][0] = x; B[i][1] = y; B[i][2] = z; B[i][3] = tS; put(NG - 1 + i, x, y, z, tS, 0.0079 - 0.0058 * u); }
+  for (let g = 0; g < R.GU.length; g++) { const [u, rr, sh] = R.GU[g], q = Math.min(NBL - 1e-6, u * NBL), i0 = Math.floor(q), fr = q - i0, A = B[i0], E = B[i0 + 1], th = A[3] + (E[3] - A[3]) * fr;
+    fRsRot(_rsV.set(1, 0, 0), th, _rsE1); fRsRot(_rsV.set(0, 1, 0), th, _rsE2); fRsRot(_rsV.set(0, 0, -1), th, _rsT);
+    _rsP.set(A[0] + (E[0] - A[0]) * fr, A[1] + (E[1] - A[1]) * fr, A[2] + (E[2] - A[2]) * fr); const o = R.NS * K + g * (2 * K + 4), cx = _rsP.x - _rsE2.x * (sh + rr), cy = _rsP.y - _rsE2.y * (sh + rr), cz = _rsP.z - _rsE2.z * (sh + rr);
+    R.gp[g].set(cx, cy, cz);   // the ring hangs under the blank (the reel's side), square to it
+    for (let k = 0; k < K; k++) { const a = k * 2 * Math.PI / K, ca = Math.cos(a), sa = Math.sin(a);
+      for (let w = 0; w < 2; w++) { const j = (o + w * K + k) * 3, r2 = rr + w * 0.0012; P[j] = cx + (_rsE1.x * ca + _rsE2.x * sa) * r2; P[j + 1] = cy + (_rsE1.y * ca + _rsE2.y * sa) * r2; P[j + 2] = cz + (_rsE1.z * ca + _rsE2.z * sa) * r2; } }
+    const j = (o + 2 * K) * 3, w = 0.0011, tx = cx + _rsE2.x * rr, ty = cy + _rsE2.y * rr, tz = cz + _rsE2.z * rr;   // the stem: blank -> the ring's top
+    P[j] = _rsP.x - _rsT.x * w; P[j + 1] = _rsP.y - _rsT.y * w; P[j + 2] = _rsP.z - _rsT.z * w; P[j + 3] = _rsP.x + _rsT.x * w; P[j + 4] = _rsP.y + _rsT.y * w; P[j + 5] = _rsP.z + _rsT.z * w;
+    P[j + 6] = tx - _rsT.x * w; P[j + 7] = ty - _rsT.y * w; P[j + 8] = tz - _rsT.z * w; P[j + 9] = tx + _rsT.x * w; P[j + 10] = ty + _rsT.y * w; P[j + 11] = tz + _rsT.z * w; }
+  R.tipL.copy(R.gp[R.GU.length - 1]);
+  const L = R.ln.geometry.attributes.position; L.setXYZ(0, 0, -0.035, -0.095); for (let g = 0; g < R.GU.length; g++) L.setXYZ(g + 1, R.gp[g].x, R.gp[g].y, R.gp[g].z); L.needsUpdate = true;   // spool rim -> guides -> tip ring
+  R.G.attributes.position.needsUpdate = true; }
+fRodShape(2.0);
 const FREEL = (() => { const P = [['c', 0.024, 0.03, 10, 0, 0, 0, 0x2a2e33, 0, 0, Math.PI / 2], ['c', 0.02, 0.036, 10, 0.0, 0, -0.03, 0x8a9098, Math.PI / 2], ['b', 0.006, 0.07, 0.012, 0, 0.04, 0, 0x2a2e33],
     ['r', 0.026, 0.002, 10, 0, 0, -0.05, 0xc0c4c8, Math.PI / 2]];   // body, spool (along the rod), stem up to the rod, the bail wire
-  const gs = P.map(partGeo), g = mergeGeometries(gs); for (const x of gs) x.dispose(); const m = new THREE.Mesh(g, ITEM_VM); m.userData.noBatch = true; m.visible = false; scene.add(m);
+  const gs = P.map(partGeo), g = mergeGeometries(gs); for (const x of gs) x.dispose(); const m = new THREE.Mesh(g, ITEM_VM); m.userData.noBatch = true; m.visible = false; FROD.f.add(m); m.position.set(0, -0.055, -0.045);   // v1.10 on the rod's frame, its stem by your index finger
   const ck = new THREE.Group(); m.add(ck); const cg = [['b', 0.004, 0.06, 0.006, 0, 0.03, 0, 0x2a2e33], ['c', 0.008, 0.022, 8, 0.012, 0.06, 0, 0xd8b070, 0, 0, Math.PI / 2]].map(partGeo);
-  const cm = new THREE.Mesh(mergeGeometries(cg), ITEM_VM); cm.userData.noBatch = true; ck.add(cm); for (const x of cg) x.dispose(); return { m, ck }; })();   // the crank arm turns about the reel's x
+  const cm = new THREE.Mesh(mergeGeometries(cg), ITEM_VM); cm.userData.noBatch = true; ck.add(cm); for (const x of cg) x.dispose(); const kf = new THREE.Object3D(); kf.name = 'FREEL.kf'; m.add(kf); return { m, ck, kf }; })();   // kf: the knob's spot (it spins freely, so it keeps the reel's turn): the cranking hand's grip frame   // the crank arm turns about the reel's x
 const FLINE = (() => { const n = FISH.n, g = new THREE.BufferGeometry(), a = new Float32Array(n * 3); g.setAttribute('position', new THREE.BufferAttribute(a, 3));
   const l = new THREE.Line(g, new THREE.LineBasicMaterial({ color: 0xdfe6e8 })); l.frustumCulled = false; l.userData.noBatch = true; l.visible = false; scene.add(l);
   return { l, a, p: Array.from({ length: n }, () => GV3(0, 0, 0)), o: Array.from({ length: n }, () => GV3(0, 0, 0)) }; })();
@@ -7748,26 +7792,27 @@ function fWaterAt(x, z) { const R = fRiver(x, z); if (R) return groundY(x, z) + 
 // fish depth (not drawn): the lakes shelve off to ~20 m in the middle, river pools ~1.8 m, creeks ~0.7 m
 function fDepthAt(x, z, surf) { if (inLake(x, z)) return Math.max(0.3, surf - terrainHeight(x, z)); const R = fRiver(x, z); if (R) return Math.max(0.15, R.D * (1 - R.s * R.s) - 0.12); return WATERS.at(x, z) !== null ? 1.8 : 0.7; }   // v1.00.1 the real carved lake bed; the river's depth profile   // river pools ~1.8 m, creeks ~0.7 m
 // ---- the rod frame each frame: fist O, axis A (butt -> tip), D (down, square to A), X = D x A (right) ----
-const FRD = { O: GV3(0, 0, 0), A: GV3(0, 0, -1), D: GV3(0, -1, 0), X: GV3(1, 0, 0), def: GV3(0, 0, 0), bend: 0, ang: 0.6, whip: 0 };
+const FRD = { O: GV3(0, 0, 0), A: GV3(0, 0, -1), D: GV3(0, -1, 0), X: GV3(1, 0, 0), def: GV3(0, 0, 0), bend: 0, ang: 0.6, whip: 0, load: 0, bx: 0, by: -1 };
+function rodInHand(sx, out) { const pk = 'rod' + (sx < 0 ? 'L' : 'R'); if (POSE_LAB[pk]) return plT(pk, out); return out.makeTranslation(sx * (0.0155 - 0.0135), -0.045, 0); }   // v1.10 the rod's frame in hand space: the cork across your palm (fingers round it, the reel hanging below), the tip past your thumb; Neil's Pose Lab 'rod' hold when he sends one
+const _frdM = new THREE.Matrix4(), _frIH = new THREE.Matrix4(), _frS = GV3(1, 1, 1);
+function fRodPlace() { if (FISH.rod !== 'vr' || !FISH.hand) return; const g = FISH.hand; g.updateWorldMatrix(true, false); _frdM.multiplyMatrices(g.matrixWorld, HOFF).multiply(rodInHand(fHandS(), _frIH)); _frdM.decompose(FROD.f.position, FROD.f.quaternion, _frS); FROD.f.scale.set(1, 1, 1); FROD.f.updateMatrixWorld(true); }
 function fRodFrame(dt, vrOn) {
-  if (FISH.rod === 'vr') { const g = FISH.hand; g.updateWorldMatrix(true, false); _fkM.multiplyMatrices(g.matrixWorld, HOFF); FRD.O.set(0, -0.04, 0).applyMatrix4(_fkM); FRD.A.set(0, 0, -1).transformDirection(_fkM); }
+  if (FISH.rod === 'vr') fRodPlace();   // v1.10 rigid in your fist (it used to keep its reel under it by gravity)
   else { camera.updateWorldMatrix(true, false); FRD.O.set(0.24, -0.3, -0.32).applyMatrix4(camera.matrixWorld);
     const tgt = FISH.charging ? 0.6 + 1.25 * FISH.pow : FISH.st === 'fight' ? 0.85 + 0.4 * FISH.lift : 0.55; FRD.ang += (tgt - FRD.ang) * Math.min(1, dt * (FRD.whip > 0 ? 40 : 12)); FRD.whip = Math.max(0, FRD.whip - dt);
-    camera.getWorldDirection(_fk1); _fk2.set(-_fk1.z, 0, _fk1.x).normalize(); FRD.A.copy(_fk1).applyAxisAngle(_fk2, FRD.ang).normalize(); }
-  FRD.D.set(0, -1, 0).addScaledVector(FRD.A, FRD.A.y).normalize(); FRD.X.crossVectors(FRD.D, FRD.A).normalize(); }
-function fRodDraw(r) {   // the blank, bent toward the line by the pull on it
-  const N = FROD.N, P = FROD.P, len = r.R.len, s0 = -0.28;
-  FRD.def.set(0, 0, 0); if (FISH.st !== 'idle' && FISH.st !== 'fly' && FISH.T > 0.05) { _fk1.subVectors(FLINE.p[1], FISH.tip); const l = _fk1.length(); if (l > 1e-4) { _fk1.multiplyScalar(1 / l); _fk1.addScaledVector(FRD.A, -_fk1.dot(FRD.A)); FRD.bend = Math.min(1.3, FISH.T / r.R.full); FRD.def.copy(_fk1).multiplyScalar(0.42 * len * FRD.bend); } } else FRD.bend = 0;
-  for (let i = 0; i < N; i++) { const t = i / (N - 1), al = s0 + t * (len - s0 + s0), u = Math.max(0, al) / (len + s0), f = u * u * (3 - u) / 2, rr = i < 2 ? 0.012 : 0.0085 - 0.0068 * t;
-    _fk1.copy(FRD.O).addScaledVector(FRD.A, al).addScaledVector(FRD.def, f);
-    if (i === N - 1) FISH.tip.copy(_fk1);
-    for (let k = 0; k < 4; k++) { const a = k * Math.PI / 2 + Math.PI / 4, cx = Math.cos(a) * rr, cy = Math.sin(a) * rr, j = (i * 4 + k) * 3;
-      P[j] = _fk1.x + FRD.X.x * cx + FRD.D.x * cy; P[j + 1] = _fk1.y + FRD.X.y * cx + FRD.D.y * cy; P[j + 2] = _fk1.z + FRD.X.z * cx + FRD.D.z * cy; } }
-  FROD.G.attributes.position.needsUpdate = true; FROD.G.computeBoundingSphere();
-  // the reel hangs under the grip, its crank on the other hand's side
-  const RM = FREEL.m; RM.position.copy(FRD.O).addScaledVector(FRD.D, 0.055).addScaledVector(FRD.A, 0.02);
-  _fkM.makeBasis(FRD.X, _fk2.copy(FRD.D).negate(), _fk3.copy(FRD.A).negate()); RM.quaternion.setFromRotationMatrix(_fkM);
-  FREEL.ck.position.set(-0.03 * fHandS(), 0, 0); FREEL.ck.rotation.x = -FISH.crank; FREEL.ck.scale.x = fHandS(); }
+    camera.getWorldDirection(_fk1); _fk2.set(-_fk1.z, 0, _fk1.x).normalize(); FRD.A.copy(_fk1).applyAxisAngle(_fk2, FRD.ang).normalize();
+    FRD.D.set(0, -1, 0).addScaledVector(FRD.A, FRD.A.y).normalize(); FRD.X.crossVectors(FRD.D, FRD.A).normalize();
+    _frdM.makeBasis(FRD.X, _fk2.copy(FRD.D).negate(), _fk3.copy(FRD.A).negate()); FROD.f.quaternion.setFromRotationMatrix(_frdM); FROD.f.position.copy(FRD.O); FROD.f.updateMatrixWorld(true); }
+  const e = FROD.f.matrixWorld.elements; FRD.O.setFromMatrixPosition(FROD.f.matrixWorld); FRD.X.set(e[0], e[1], e[2]); FRD.D.set(-e[4], -e[5], -e[6]); FRD.A.set(-e[8], -e[9], -e[10]); }
+function fRodDraw(r) {   // v1.10 the blank bends toward the line, progressively with its pull (never past pointing down the line); the line leaves the tip ring
+  const F = FROD.f; F.updateMatrixWorld(true); let tb = 0, bx = FRD.bx, by = FRD.by;
+  if (FISH.st !== 'idle' && FISH.st !== 'fly' && FISH.T > 0.05) { F.worldToLocal(_fk1.copy(FLINE.p[1])).sub(FROD.tipL); const l = _fk1.length();
+    if (l > 1e-4) { _fk1.multiplyScalar(1 / l); const h = Math.hypot(_fk1.x, _fk1.y); if (h > 0.02) { bx = _fk1.x / h; by = _fk1.y / h; } FRD.load = Math.min(1.3, FISH.T / r.R.full); tb = Math.min(Math.atan2(h, -_fk1.z) * 0.92, 1.2 * FRD.load); } }
+  else FRD.load = 0;
+  FRD.bx = bx; FRD.by = by; FRD.bend += (tb - FRD.bend) * 0.45; fRodShape(r.R.len, FRD.bend, bx, by, FRD.load);
+  FISH.tip.copy(FROD.tipL); F.localToWorld(FISH.tip);
+  const sx = fHandS(); FREEL.ck.position.set(-0.03 * sx, 0, 0); FREEL.ck.rotation.x = -FISH.crank; FREEL.ck.scale.x = sx; FREEL.kf.position.set(-0.018 * sx, 0.06 * Math.cos(-FISH.crank), 0.06 * Math.sin(-FISH.crank)); }
+function fishGripK(g) { return FISH.rod !== 'vr' ? null : FISH.hand === g ? 'rod' : FISH.crankG === g ? 'reel' : null; }   // v1.10 the glove on the cork / on the reel's knob
 function fHandS() { return FISH.rod === 'vr' && FISH.hand?.userData.src?.handedness === 'left' ? -1 : 1; }   // +1: rod in the right hand, crank on the left
 function fKnob(out) { FREEL.m.updateMatrixWorld(true); return FREEL.ck.children[0].localToWorld(out.set(0.012, 0.06, 0)); }
 // ---- the line: node 0 at the rod tip, the last node the lure (or the bobber); rest length FISH.L ----
@@ -7869,7 +7914,7 @@ function fDeskInput(dt) {
   if (FISH.charging) FISH.pow = Math.min(1, FISH.pow + dt / 0.8);
   if (FISH.desk.reel) fCrank(2 * Math.PI * (keys.ShiftLeft ? 2.6 : 1.6) * dt, dt); else fCrank(0, dt); }
 function fishTick(dt, vrOn) {
-  camera.getWorldPosition(_fT); fShopHint(_fT, vrOn); fWornTick(vrOn); fClockTick(dt); fOrderTick(); fDeckTick(); fNetTick(dt, vrOn); fWaterFx(dt);
+  FISH.dtF = dt; camera.getWorldPosition(_fT); fShopHint(_fT, vrOn); fWornTick(vrOn); fClockTick(dt); fOrderTick(); fDeckTick(); fNetTick(dt, vrOn); fWaterFx(dt);
   if (FISH.rod === 'pack') { FROD.m.visible = FREEL.m.visible = FLINE.l.visible = false; return; }
   if (mode !== 'foot') { fishBoard(); return; }
   if (FISH.rod === 'vr' && !FISH.hand?.userData.src) { fStow(''); return; }
@@ -7886,7 +7931,7 @@ function fWornTick(vrOn) { const W = FWORN, on = vrOn && mode === 'foot';
 // ---- hands, keys, mouse ----
 function fishGrab(g, p) { if (mode !== 'foot') return false;
   if (fScaleGrab(g, p) || fShopGrab(g, p)) return true;
-  if (FISH.rod === 'vr' && g !== FISH.hand) { if (p.distanceTo(fKnob(_fk1)) < 0.12 || p.distanceTo(FREEL.m.position) < 0.1) { FISH.crankG = g; FISH.crankA = null; HX.pulse(g, 0.2, 10, 'crank'); return true; } }
+  if (FISH.rod === 'vr' && g !== FISH.hand) { if (p.distanceTo(fKnob(_fk1)) < 0.12 || p.distanceTo(FREEL.m.getWorldPosition(_fk2)) < 0.1) { FISH.crankG = g; FISH.crankA = null; HX.pulse(g, 0.2, 10, 'crank'); return true; } }
   if (typeof fNetGrab === 'function' && fNetGrab(g, p)) return true;
   if (FISH.rod === 'pack' && (fHas('rodL') || fHas('rodH')) && p.distanceTo(fWorn(F_ROD_OFF, _fk1)) < 0.15) return fTake(g) || true;
   return false; }
@@ -7941,13 +7986,56 @@ function fBiteK(sp, r, wk, dep, spd) {   // 0..~2.4: how keen this species is on
 function fSpotK(x, z) { let k = 1; for (const s of FSPOTS) if (hyp(x - s.x, z - s.z) < s.r) k = Math.max(k, s.k); return k; }
 function fRandKg(sp) { const u = Math.random() + Math.random() + Math.random() - 1.5; return clamp(sp.w[1] * Math.exp(u * 0.9), sp.w[0], sp.w[2]); }   // ~lognormal round the median
 const _fA = GV3(0, 0, 0), _fB = GV3(0, 0, 0);
-// ---- the fish mesh: low poly (about 90 triangles), one per species, scaled to its length ----
+// ---- v1.10 the fish mesh: a lofted body (8-sided sections from the snout to a slim tail wrist), a forked tail, the dorsal (a grayling's sail, a pike's set far back),
+// an adipose on the trouts + salmon, pectoral / pelvic / anal fins, eyes. 1 m long, head at -z. The vertex colour is a zone weight (r back, g belly, b side stripe; 0 = eye):
+// FISH_M mixes the species' three colours per instance (iC0..2) and wags the tail in the vertex shader (iW = phase, amplitude).
+function fishGeo(sp) {
+  const pk = sp === 'pike', gr = sp === 'grayling', ad = sp !== 'pike', pos = [], col = [];
+  const S = pk ? [[-0.5, 0.014, 0.01, -0.012], [-0.42, 0.038, 0.03, -0.006], [-0.3, 0.058, 0.066, 0], [-0.12, 0.068, 0.084, 0.004], [0.06, 0.064, 0.084, 0.004], [0.2, 0.05, 0.07, 0.004], [0.3, 0.032, 0.05, 0.003], [0.37, 0.018, 0.032, 0], [0.4, 0.014, 0.027, 0]]
+    : [[-0.5, 0.01, 0.012, -0.012], [-0.44, 0.042, 0.055, -0.006], [-0.32, 0.068, 0.098, 0], [-0.16, 0.08, 0.118, 0.006], [0, 0.074, 0.11, 0.006], [0.15, 0.056, 0.082, 0.004], [0.27, 0.034, 0.05, 0.002], [0.35, 0.018, 0.03, 0], [0.4, 0.014, 0.027, 0]];
+  const at = z => { let i = 0; while (i < S.length - 2 && S[i + 1][0] < z) i++; const a = S[i], b = S[i + 1], t = clamp((z - a[0]) / (b[0] - a[0]), 0, 1); return [a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t, a[3] + (b[3] - a[3]) * t]; };
+  const sm = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+  const V = (x, y, z, w) => { pos.push(x, y, z); col.push(w[0], w[1], w[2]); };
+  const tri = (a, b, c, w, two) => { V(...a, w); V(...b, w); V(...c, w); if (two) { V(...a, w); V(...c, w); V(...b, w); } };
+  const K = 8, R = S.map(([z, w, h, y]) => Array.from({ length: K }, (_, k) => { const a = Math.PI / 2 + k * 2 * Math.PI / K, sn = Math.sin(a), b = sm(0.12, 0.75, sn), l = sm(0.12, 0.75, -sn); return [[Math.cos(a) * w, y + sn * h, z], [b, l, 1 - b - l]]; }));
+  for (let i = 0; i < S.length - 1; i++) for (let k = 0; k < K; k++) { const a = R[i][k], b = R[i][(k + 1) % K], c = R[i + 1][k], d = R[i + 1][(k + 1) % K];
+    V(...a[0], a[1]); V(...b[0], b[1]); V(...c[0], c[1]); V(...b[0], b[1]); V(...d[0], d[1]); V(...c[0], c[1]); }
+  { const z0 = S[0], c0 = [0, z0[3], z0[0] - 0.012], zl = S[S.length - 1], cl = [0, zl[3], zl[0] + 0.004];
+    for (let k = 0; k < K; k++) { const a = R[0][k], b = R[0][(k + 1) % K]; V(...c0, a[1]); V(...b[0], b[1]); V(...a[0], a[1]); const e = R[S.length - 1][k], f = R[S.length - 1][(k + 1) % K]; V(...cl, e[1]); V(...e[0], e[1]); V(...f[0], f[1]); } }
+  const FIN = [0.72, 0.08, 0.2], Y = z => at(z)[1], Yc = z => at(z)[2];
+  const tY = z => Yc(z) + Y(z) - 0.004, bY = z => Yc(z) - Y(z) + 0.004;
+  // the tail: forked (a pike's rounder)
+  { const A = [0, 0.022, 0.385], E = [0, -0.022, 0.385], Bt = pk ? [0, 0.1, 0.505] : [0, 0.13, 0.53], Cf = pk ? [0, 0, 0.485] : [0, 0, 0.465], D = pk ? [0, -0.1, 0.505] : [0, -0.13, 0.53];
+    tri(A, Bt, Cf, FIN, 1); tri(A, Cf, E, FIN, 1); tri(E, Cf, D, FIN, 1); }
+  // the dorsal
+  if (gr) { const z0 = -0.2, z1 = 0.1; tri([0, tY(z0), z0], [0, tY(z0) + 0.12, z0 + 0.06], [0, tY(z1), z1], [0.55, 0.05, 0.4], 1); tri([0, tY(z1), z1], [0, tY(z0) + 0.12, z0 + 0.06], [0, tY(z1) + 0.1, z1 + 0.05], [0.55, 0.05, 0.4], 1); }
+  else if (pk) { const z0 = 0.17, z1 = 0.31; tri([0, tY(z0), z0], [0, tY(z0) + 0.075, z0 + 0.05], [0, tY(z1), z1], FIN, 1); tri([0, tY(z1), z1], [0, tY(z0) + 0.075, z0 + 0.05], [0, tY(z1) + 0.02, z1 + 0.02], FIN, 1); }
+  else { const z0 = -0.1, z1 = 0.06; tri([0, tY(z0), z0], [0, tY(z0) + 0.085, z0 + 0.045], [0, tY(z1), z1], FIN, 1); tri([0, tY(z1), z1], [0, tY(z0) + 0.085, z0 + 0.045], [0, tY(z1) + 0.018, z1 + 0.02], FIN, 1); }
+  if (ad) tri([0, tY(0.235), 0.235], [0, tY(0.27) + 0.028, 0.28], [0, tY(0.29), 0.29], FIN, 1);   // the adipose
+  { const z0 = pk ? 0.19 : 0.16, z1 = pk ? 0.31 : 0.27; tri([0, bY(z0), z0], [0, bY(z1), z1], [0, bY(z0) - 0.06, z0 + 0.05], [0.2, 0.55, 0.25], 1); }   // the anal fin
+  for (const sx of [-1, 1]) { const w = at(-0.27)[0] * 0.85, yp = Yc(-0.27) - Y(-0.27) * 0.45;   // pectorals behind the gills, pelvics under the belly
+    tri([sx * w, yp, -0.29], [sx * w, yp - 0.008, -0.25], [sx * (w + 0.055), yp - 0.04, -0.17], [0.3, 0.45, 0.25], 1);
+    const wb = at(0.02)[0] * 0.5, yb = bY(0.02) + 0.01; tri([sx * wb, yb, -0.01], [sx * wb, yb, 0.05], [sx * (wb + 0.03), yb - 0.045, 0.07], [0.3, 0.45, 0.25], 1);
+    const ze = pk ? -0.36 : -0.39, we = at(ze)[0] + 0.0015, ye = Yc(ze) + Y(ze) * 0.3, e = 0.011;   // the eye
+    tri([sx * we, ye + e, ze], [sx * we, ye, ze - e], [sx * we, ye - e, ze], [0, 0, 0], 1); tri([sx * we, ye + e, ze], [sx * we, ye - e, ze], [sx * we, ye, ze + e], [0, 0, 0], 1); }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); g.computeBoundingSphere(); return g; }
+const FISH_M = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true });
+FISH_M.onBeforeCompile = sh => { sh.vertexShader = 'attribute vec3 iC0;\nattribute vec3 iC1;\nattribute vec3 iC2;\nattribute vec3 iW;\n' + sh.vertexShader
+  .replace('#include <color_vertex>', '#include <color_vertex>\n  vColor.rgb = color.r * iC0 + color.g * iC1 + color.b * iC2;')
+  .replace('#include <begin_vertex>', '#include <begin_vertex>\n  { float fw = smoothstep(-0.3, 0.52, position.z); transformed.x += iW.y * sin(iW.x - position.z * 6.5) * (fw * fw * 0.9 + 0.06); }'); };   // the wave runs head -> tail
+FISH_M.customProgramCacheKey = () => 'fish110';
+function fishIM(geo, n) { for (const k of ['iC0', 'iC1', 'iC2', 'iW']) geo.setAttribute(k, new THREE.InstancedBufferAttribute(new Float32Array(n * 3), 3)); const im = new THREE.InstancedMesh(geo, FISH_M, n);
+  im.frustumCulled = false; im.userData.noBatch = true; im.userData.noCast = true; im.visible = false; scene.add(im); return im; }
+const _fsC = new THREE.Color();
+function fishSet(geo, i, c, ph, amp) { const A = geo.attributes; for (let k = 0; k < 3; k++) { _fsC.set(c[k]); A['iC' + k].setXYZ(i, _fsC.r, _fsC.g, _fsC.b); } A.iW.setXYZ(i, ph, amp, 0); }
+function fishDirty(geo) { const A = geo.attributes; A.iC0.needsUpdate = A.iC1.needsUpdate = A.iC2.needsUpdate = A.iW.needsUpdate = true; }
 const FMESH = {};
-for (const [id, sp] of Object.entries(FSP)) { const [bk, be, st] = sp.c, slim = id === 'pike' ? 0.7 : id === 'grayling' ? 0.85 : 1;
-  const P = [['t', [0.075 * slim, 0.11 * slim], 0.32, 6, 0, 0, 0.0, bk, Math.PI / 2], ['t', [0.11 * slim, 0.04 * slim], 0.42, 6, 0, 0, 0.37, bk, Math.PI / 2], ['k', 0.075 * slim, 0.2, 6, 0, 0, -0.26, bk, -Math.PI / 2],
-    ['b', 0.012, 0.16, 0.14, 0, 0, 0.64, bk], ['b', 0.008, id === 'grayling' ? 0.14 : 0.06, id === 'grayling' ? 0.22 : 0.1, 0, 0.1 * slim, 0.05, bk], ['t', [0.06 * slim, 0.09 * slim], 0.3, 6, 0, -0.035 * slim, 0.02, be, Math.PI / 2],
-    ['b', 0.115 * slim * 2, 0.025, 0.5, 0, 0.005, 0.12, st]];
-  const gs = P.map(partGeo), m = new THREE.Mesh(mergeGeometries(gs), ITEM_VM); for (const x of gs) x.dispose(); m.userData.noBatch = true; m.visible = false; scene.add(m); FMESH[id] = m; }   // 1 m long (head at -z)
+for (const [id, sp] of Object.entries(FSP)) { const m = fishIM(fishGeo(id), 1); m.count = 1; fishSet(m.geometry, 0, sp.c, 0, 0.05); fishDirty(m.geometry); FMESH[id] = m; }   // one per species (1 m long, head at -z): the hooked / landed fish
+// v1.10 the depth field: the raw depth at a point (-1 = dry), the minimum a fish keeps to, and the way to deeper water
+function fDepRaw(x, z) { const w = fWaterAt(x, z); if (w === null) return -1; if (inLake(x, z)) return w - terrainHeight(x, z); const R = fRiver(x, z); if (R) return R.D * (1 - R.s * R.s) - 0.12; return WATERS.at(x, z) !== null ? 1.8 : 0.7; }
+function fMinDep(x, z) { if (inLake(x, z)) return 0.55; const R = fRiver(x, z); return R ? Math.min(0.4, 0.45 * R.D) : 0.25; }
+const _fG = GV3(0, 0, 0);
+function fGrad(x, z, out) { const e = 0.9, d = (a, b) => { const v = fDepRaw(a, b); return v < 0 ? -0.6 : v; }; out.set(d(x + e, z) - d(x - e, z), 0, d(x, z + e) - d(x, z - e)); const l = Math.hypot(out.x, out.z); if (l < 1e-3) return false; out.x /= l; out.z /= l; return true; }
 function fLenM(f) { return Math.cbrt(f.kg * 1000 / FSP[f.sp].k) / 100; }
 // ---- bites ----
 function fBiteTick(dt) {
@@ -7982,7 +8070,8 @@ function fFightStep(dt) {
     if (f.ph === 4 && f.stam > 0.3 && lu.y > surf - 1.5) { f.jumpT = 0.7; f.v.y = 3 + Math.random() * 1.5; sfx('splash', lu); } }
   const tired = f.stam < 0.12, mult = tired ? 0.08 : f.ph === 1 ? 1.6 : f.ph === 2 ? 1.2 : f.ph === 3 ? 1 + 0.6 * Math.sin(f.t * 32) : f.ph === 4 ? 0.3 : 0.45;
   const F = 0.28 * f.kg * 9.81 * sp.pull * (0.3 + 0.7 * f.stam) * mult, ca = Math.cos(f.ang), sa = Math.sin(f.ang);
-  const fx = (_fB.x * ca - _fB.z * sa) * F, fz = (_fB.x * sa + _fB.z * ca) * F;
+  let fx = (_fB.x * ca - _fB.z * sa) * F, fz = (_fB.x * sa + _fB.z * ca) * F;
+  if (!tired && F > 0) { const q = 2.2 / F, mq = fMinDep(lu.x, lu.z); if ((fDepRaw(lu.x, lu.z) < mq || fDepRaw(lu.x + fx * q, lu.z + fz * q) < mq + 0.3) && fGrad(lu.x, lu.z, _fG)) { fx = _fG.x * F; fz = _fG.z * F; f.ang = Math.atan2(_fB.x * _fG.z - _fB.z * _fG.x, _fB.x * _fG.x + _fB.z * _fG.z); } }   // v1.10 shoaling ahead: it turns for deeper water (and out of the shallows: its own swimming keeps it at least fMinDep deep)
   const want = tired ? surf - 0.06 : sp.style === 'deep' ? surf - depth + 0.5 : surf - clamp((sp.dep[0] + sp.dep[1]) / 2, 0.2, depth - 0.2);
   const m = f.kg * 1.5, cw = f.kg * 2.0, n = 4, h = dt / n; let T = 0;
   for (let s = 0; s < n; s++) {
@@ -7998,9 +8087,21 @@ function fFightStep(dt) {
     if (!air && lu.y > surf && f.v.y > 0 && f.jumpT <= 0) { lu.y = Math.min(lu.y, surf); if (f.v.y > 0) f.v.y *= 0.3; }
     if (f.jumpT <= 0 && lu.y < surf && f.out) { f.out = 0; } }
   if (lu.y > surf + 0.1 && !f.out) { f.out = 1; }
-  const dry = fWaterAt(lu.x, lu.z) === null; FISH.beached = false;
-  if (dry && tired) { lu.y = groundY(lu.x, lu.z) + 0.04; f.v.set(0, 0, 0); FISH.beached = true; }   // played out and dragged up the shallows: it lies there
-  else if (dry) { lu.x -= f.v.x * dt * 1.2; lu.z -= f.v.z * dt * 1.2; f.v.x *= -0.3; f.v.z *= -0.3; }   // hits the shore: turns back
+  FISH.beached = false; const dh = fDepRaw(lu.x, lu.z); let atBank = false;   // v1.10 the banks (its own swimming keeps to fMinDep: the steer above)
+  if (tired && away < 7 && dh < 0.3) { if (dh < 0) { lu.y = groundY(lu.x, lu.z) + 0.04; f.v.set(0, 0, 0); FISH.beached = true; } }   // played out and led up the shallows at your feet: it lies there (landing)
+  else if (dh < 0.12) { atBank = true;   // never into the bank (your pull may lead it into the shallows, never ashore): no speed into it, back out to 12 cm of water, sliding along it
+    if (!fGrad(lu.x, lu.z, _fG)) { _fG.set((f.gx ?? lu.x) - lu.x, 0, (f.gz ?? lu.z) - lu.z); const l = Math.hypot(_fG.x, _fG.z); if (l > 1e-4) _fG.multiplyScalar(1 / l); }
+    const vin = f.v.x * _fG.x + f.v.z * _fG.z; if (vin < 0) { f.v.x -= vin * _fG.x; f.v.z -= vin * _fG.z; }
+    for (let k = 0; k < 8 && fDepRaw(lu.x, lu.z) < 0.12; k++) { lu.x += _fG.x * 0.1; lu.z += _fG.z * 0.1; }
+    if (fDepRaw(lu.x, lu.z) < 0.05 && f.gx !== undefined) { lu.x = f.gx; lu.z = f.gz; } }
+  else { f.gx = lu.x; f.gz = lu.z; }
+  // pinned against the bank while you pull (not coming any closer): pulled free, and after a few goes it slips the hook
+  if ((f.pinT = (f.pinT ?? 1) - dt) <= 0) { f.pinT = 1; const pull = T > 0.25 * Math.min(r.drag, r.rate);
+    if (f.bk && pull && away > 6 && away > (f.aw0 ?? 1e9) - 0.3) f.stk = (f.stk || 0) + 1; else f.stk = 0; f.aw0 = away; f.bk = false;
+    if (f.stk >= 3) { f.stk = 0; f.frees = (f.frees || 0) + 1; FISH.stat.unbank = (FISH.stat.unbank || 0) + 1;
+      if (f.frees >= 4) { fLose('IT WRAPPED THE LINE ROUND THE BANK AND SLIPPED THE HOOK', false); return; }
+      if (fGrad(lu.x, lu.z, _fG)) { lu.x += _fG.x * 1.4; lu.z += _fG.z * 1.4; } f.v.set(0, 0, 0); f.ph = 0; f.phT = 2; sfx('splash', lu); say(f.frees === 1 ? 'IT CAME OFF THE BANK - KEEP IT COMING, ROD TIP OUT OVER THE WATER' : 'IT\'S HUGGING THE BANK - WALK ALONG TO GET A BETTER ANGLE'); } }
+  if (atBank) f.bk = true;
   if (FISH.L < 1.2) FISH.L = 1.2;
   if (FISH.L > 100) { fLose('SPOOLED - IT TOOK ALL 100 M OF LINE', true); return; }   // the fish stops at the rod tip-top
   FISH.T = T; FISH.dep = Math.max(0, surf - lu.y); FISH.spd = f.v.length();
@@ -8027,6 +8128,7 @@ function fLiftVR() { return FISH.tipV.y > 1.6 || FISH.tipV.dot(_fk1.subVectors(F
 function fFishDraw() {
   for (const k in FMESH) FMESH[k].visible = false; const f = FISH.fish; if (!f || (FISH.st !== 'fight' && FISH.st !== 'landed')) return;
   const m = FMESH[f.sp], len = fLenM(f); m.visible = true; m.scale.setScalar(len);
+  { const ld = FISH.st === 'landed', tr = f.stam < 0.12; f.wph = (f.wph || 0) + (FISH.dtF || 0.011) * (ld ? 13 : tr ? 3.5 : 7 + 9 * f.stam); const W = m.geometry.attributes.iW; W.setXYZ(0, f.wph, ld ? 0.1 * Math.max(0.25, 1 - (f.ldT = (f.ldT || 0) + (FISH.dtF || 0.011)) / 12) : tr ? 0.03 : 0.05 + 0.05 * f.stam, 0); W.needsUpdate = true; }   // v1.10 the tail beats (a landed fish flaps, then tires)
   if (FISH.st === 'landed') { m.position.copy(FISH.landP); m.quaternion.copy(FISH.landQ); return; }
   m.position.copy(FISH.lure).addScaledVector(_fk1.subVectors(FISH.lure, FISH.tip).normalize(), len * 0.35);
   _fk2.copy(f.v); _fk2.y *= 0.4; if (_fk2.lengthSq() < 0.01) _fk2.subVectors(FISH.lure, FISH.tip).setY(0);
@@ -8065,15 +8167,13 @@ function fSplash(p, surf, k) {   // a plop / jump: droplets (the shared spray pa
 const _fsP = GV3(0, 0, 0);
 // ---- fish you can see: up to 10 cruising the clear shallows near you (0.35 - 3 m deep), one instanced draw, gone past 35 m ----
 const FAMB = { N: 10, F: [], T: 0, im: null, seen: 0, spooks: 0, follow: 0 };
-{ const P = [['t', [0.07, 0.1], 0.32, 6, 0, 0, 0.0, 0x3e4a3a, Math.PI / 2], ['t', [0.1, 0.035], 0.42, 6, 0, 0, 0.37, 0x3e4a3a, Math.PI / 2], ['k', 0.07, 0.2, 6, 0, 0, -0.26, 0x48543e, -Math.PI / 2], ['b', 0.012, 0.15, 0.13, 0, 0, 0.64, 0x343e30], ['t', [0.055, 0.085], 0.3, 6, 0, -0.03, 0.02, 0x8a8e7a, Math.PI / 2]];
-  const gs = P.map(partGeo), g = mergeGeometries(gs); for (const x of gs) x.dispose();
-  const im = new THREE.InstancedMesh(g, DEER_IVM, FAMB.N); im.instanceMatrix.setUsage(THREE.DynamicDrawUsage); im.count = 0; im.frustumCulled = false; im.userData.noBatch = true; im.userData.noCast = true; im.visible = false; scene.add(im); FAMB.im = im;
+{ const im = fishIM(fishGeo('rainbow'), FAMB.N); im.instanceMatrix.setUsage(THREE.DynamicDrawUsage); im.count = 0; FAMB.im = im;   // v1.10 the real fish mesh (one instanced draw; each fish its species' colours, a pike slimmer)
   for (let i = 0; i < FAMB.N; i++) FAMB.F.push({ on: false, x: 0, y: 0, z: 0, h: 0, sp: 0.25, len: 0.4, turn: 0, flee: 0, fol: 0, ph: Math.random() * 6, surf: 0, k: '' }); }
 function fAmbZone(x, z) {   // where a fish could be: { surf, depth, kind } in clear shallow water, or null
   const w = fWaterAt(x, z); if (w === null) return null; const d = fDepthAt(x, z, w); if (d < 0.35 || d > 3) return null; return { surf: w, depth: d }; }
 function fAmbSpawn(F, px, pz) { for (let tr = 0; tr < 4; tr++) { const a = Math.random() * 6.283, r = 6 + Math.random() * 18, x = px + Math.cos(a) * r, z = pz + Math.sin(a) * r, Z = fAmbZone(x, z); if (!Z) continue;
     const wk = fWaterKind(x, z), pick = wk === 'lake' ? (Z.depth > 2.2 ? 'laker' : Math.random() < 0.5 ? 'pike' : 'rainbow') : wk === 'river' ? (Math.random() < 0.4 ? 'salmon' : Math.random() < 0.6 ? 'grayling' : 'rainbow') : 'grayling';
-    F.on = true; F.x = x; F.z = z; F.surf = Z.surf; F.y = Z.surf - Math.min(Z.depth - 0.15, 0.25 + Math.random() * 0.5 * Z.depth); F.h = Math.random() * 6.283; F.sp = 0.15 + Math.random() * 0.25; F.flee = 0; F.fol = 0; F.k = pick;
+    F.on = true; F.x = x; F.z = z; F.surf = Z.surf; F.y = Z.surf - Math.min(Z.depth - 0.15, 0.25 + Math.random() * 0.5 * Z.depth); F.h = Math.random() * 6.283; F.sp = 0.15 + Math.random() * 0.25; F.flee = 0; F.fol = 0; F.k = pick; F.sl = pick === 'pike' ? 0.74 : pick === 'grayling' ? 0.88 : pick === 'laker' ? 1.04 : 1; F.c = FSP[pick].c;
     F.len = pick === 'salmon' ? 0.55 + Math.random() * 0.2 : pick === 'pike' ? 0.5 + Math.random() * 0.3 : pick === 'laker' ? 0.5 + Math.random() * 0.25 : pick === 'grayling' ? 0.25 + Math.random() * 0.12 : 0.3 + Math.random() * 0.15; F.a = 0; FAMB.seen++; return true; } return false; }
 function fSpook(x, z, r) { let n = 0; for (const F of FAMB.F) if (F.on && F.flee <= 0 && hyp(F.x - x, F.z - z) < r) { F.flee = 1.6; F.h = Math.atan2(F.x - x, F.z - z); F.fol = 0; n++; } if (n) FAMB.spooks += n; return n; }
 const _faM = new THREE.Matrix4(), _faQ = new THREE.Quaternion(), _faS = GV3(1, 1, 1), _faP = GV3(0, 0, 0), _faE = new THREE.Euler();
@@ -8092,11 +8192,13 @@ function fAmbTick(dt) {
       if (dl < 5 && (FISH.spd > 0.08 || still)) { if (!F.fol) FAMB.follow++; F.fol = 1; const want = Math.atan2(lu.x - F.x, lu.z - F.z); let d = want - F.h; d = Math.atan2(Math.sin(d), Math.cos(d)); F.h += clamp(d, -2.5 * dt, 2.5 * dt); F.sp = dl > 0.45 ? Math.min(0.9, 0.3 + FISH.spd) : 0.05; F.y += (Math.max(lu.y, F.surf - 2.5) - F.y) * Math.min(1, dt * 1.5); }
       else { F.fol = 0; if ((F.turn -= dt) <= 0) { F.turn = 1.5 + Math.random() * 3; F.tH = rv ? Math.atan2(-rv.tx, -rv.tz) + (Math.random() - 0.5) * 0.8 : F.h + (Math.random() - 0.5) * 2.2; F.sp = rv ? 0.05 + Math.random() * 0.2 : 0.12 + Math.random() * 0.25; }   // in a river they hold facing upstream
         if (F.tH !== undefined) { let d = F.tH - F.h; d = Math.atan2(Math.sin(d), Math.cos(d)); F.h += clamp(d, -0.8 * dt, 0.8 * dt); } } }
+    if (F.flee <= 0 && fDepRaw(F.x + Math.sin(F.h) * 1.2, F.z + Math.cos(F.h) * 1.2) < 0.45 && fGrad(F.x, F.z, _fG)) { const w = Math.atan2(_fG.x, _fG.z); let d = w - F.h; d = Math.atan2(Math.sin(d), Math.cos(d)); F.h += clamp(d, -2.2 * dt, 2.2 * dt); F.tH = w; }   // v1.10 shoaling ahead: turn for deeper water
     let nx = F.x + Math.sin(F.h) * F.sp * dt, nz = F.z + Math.cos(F.h) * F.sp * dt; if (rv && F.flee <= 0) { nx += rv.tx * rv.sp * 0.2 * dt; nz += rv.tz * rv.sp * 0.2 * dt; }
     const Z = fAmbZone(nx, nz); if (Z) { F.x = nx; F.z = nz; F.surf = Z.surf; F.y = clamp(F.y, Z.surf - Z.depth + 0.12, Z.surf - 0.12); } else { F.h += Math.PI * (0.6 + Math.random() * 0.4); F.turn = 1; if (F.flee > 0) F.y -= 0.02; }
     F.a = Math.min(1, F.a + dt * 1.5);
-    _faE.set(0, F.h + Math.PI + Math.sin(F.ph) * 0.12 * Math.min(1, F.sp + 0.2), 0); _faQ.setFromEuler(_faE); _faS.setScalar(F.len * (0.5 + 0.5 * F.a)); _faM.compose(_fsP.set(F.x, F.y, F.z), _faQ, _faS); im.setMatrixAt(n++, _faM); }
-  im.count = n; im.visible = n > 0; if (n) im.instanceMatrix.needsUpdate = true; }
+    _faE.set(0, F.h + Math.PI + Math.sin(F.ph * 2.5) * 0.03, 0); _faQ.setFromEuler(_faE); const sc = F.len * (0.5 + 0.5 * F.a); _faS.set(sc * (F.sl || 1), sc * (F.sl || 1), sc); _faM.compose(_fsP.set(F.x, F.y, F.z), _faQ, _faS);
+    fishSet(im.geometry, n, F.c || FSP.rainbow.c, F.ph * 2.5, 0.04 + 0.06 * Math.min(1, F.sp)); im.setMatrixAt(n++, _faM); }   // v1.10 the tail wag rides in the shader
+  im.count = n; im.visible = n > 0; if (n) { im.instanceMatrix.needsUpdate = true; fishDirty(im.geometry); } }
 // the visible fish nearest the lure takes it (it's the one on the line now)
 function fAmbTake() { let best = null, bd = 3; for (const F of FAMB.F) if (F.on && F.flee <= 0) { const d = hyp(F.x - FISH.lure.x, F.z - FISH.lure.z); if (d < bd) { bd = d; best = F; } } if (best) { best.on = false; FAMB.took = (FAMB.took || 0) + 1; } return best; }
 // ---- snags: a sinking lure dragged along a stony bottom can catch ----
