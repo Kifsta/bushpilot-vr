@@ -2,6 +2,10 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v1.10.5 – PC Link fix: classic XR layer on PC (no more "page isn't responding")
+
+- Found with Neil's tests: on PC Link, three.js r160 draws through the WebXR layers API (a projection layer) and the runtime never delivers a frame, so the headset shows "The page isn't responding". A raw WebXR page using the classic XRWebGLLayer runs fine. Off Quest Browser the game now hides the layers API from three.js so it uses XRWebGLLayer (Quest Browser unchanged; `?xrlayers` restores the old path). Link's own ~55 s start-up wait is separate and outside the game.
+
 ## v1.10.4 – PC Link diagnostics: which XR layer, and whether the runtime ever delivers a frame
 
 - Neil's headset video: on PC Link the raw WebXR test reaches its scene after Link's ~55 s wait, but the game shows Meta's "page isn't responding" (no frames). The boot log now records the XR layer type three.js set up and whether the runtime delivers the first frame callback, to find where frames stop.

@@ -141,6 +141,7 @@ v0.44 latches: every window and the door are latched while shut. Squeeze the han
 | Rod grip + reel (v1.10) | VR: grip at the rod tube takes the rod into a full fist on the cork. The other hand squeezes grip on the reel's crank knob and circles to reel in. Desktop: RMB reels as before. Both holds are in the Pose Lab (FISHING) | RMB reels |
 | Boot log (v1.10.1) | Start-up stages print to the console as `[boot 1234ms] stage (+56ms)` and show top-left (hides 12 s after BOOT COMPLETE; `?boot` keeps it). A start that hung is named on the next one. Entering VR logs the session request/grant, sessionstart and the first 300 XR frames (time + gap). `?safe` also skips vistas, ambient life, music and shadows | same |
 | PC VR features (v1.10.2) | On PC (Link) Enter VR asks only for `local-floor hand-tracking`; `?xrf=a,b` overrides (e.g. `?xrf=local-floor`, `?xrf=` none). Quest browser unchanged | same |
+| PC VR layer (v1.10.5) | On PC (Link) the game draws through the classic XRWebGLLayer (the layers API never got frames on Link); `?xrlayers` restores the layers path. Quest browser unchanged | same |
 
 ## On foot
 | | VR | Desktop |
