@@ -2,6 +2,11 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v1.10.7 – Neil's left-hand rod grip, the crank on the right with its knob facing out
+
+- **Neil's rod hold:** his Pose Lab code (FISHING ROD, left hand, every finger joint) is now the game's hold: `POSE_LAB.rodL`, with the right hand mirrored as `rodR`. The rod sits 4 cm further up the fist than the old default, and the fingers wrap as he posed them. The Pose Lab parity check shows no difference.
+- **The reel's crank:** with the rod in the left hand, the crank is on the RIGHT of the reel (looking down the rod), and its cork knob now faces OUT, away from the reel. Before, the knob pointed in at the reel body. With the rod in the right hand, the crank is on the left. The knob is its own mesh now, so it no longer uses a mirrored scale. The reel hold (the other hand's pinch) follows the knob round, and circling it reels in as before. The Pose Lab shows Neil's setup: rod in the left hand, crank on the right.
+
 ## v1.10.6 – PC Link: classic XR layer forced at the XRSession prototype
 
 - Belt and braces for v1.10.5: the layers API is hidden from three.js on every XRSession off Quest Browser (prototype getter), not only on the session the shim wraps.
