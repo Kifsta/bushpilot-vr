@@ -2,6 +2,15 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v1.09.1 – fix: "page isn't responding" on desktop Edge (PC / Quest Link)
+
+- **Cause:** three.js compiles each shader program as soon as it's set up, but only checks the link the first time it draws with it. At load, about 200 programs (about 330 with PC ULTRA) were all checked in the first frame, and on Windows (ANGLE/D3D11) each one can take tens to hundreds of ms. Together with one long start-up script and the PC ULTRA prewarm, which blocked for 5 s when picked and about 15 s at load, the main thread stalled long enough for Edge to show "page isn't responding".
+- **Shader warm-up over frames:** a "Preparing graphics" progress bar runs at load and when PC ULTRA is picked. Programs are checked within about 20 ms of each frame. Where the browser has KHR_parallel_shader_compile (Chrome/Edge on Windows), it waits until each program is ready instead of blocking on it. The PC ULTRA compile and shadow passes run as small jobs, one per frame (25 shadow casters a time).
+- **Start-up split up:** the long start-up script now yields 19 times. On the test machine the longest task at load dropped from 3.9 s to about 0.9 s. Picking PC ULTRA used to block for 5.1 s; the call now takes 0.4 s, and no later task runs over about 0.5 s.
+- **Safe fallback:** if a PC ULTRA start never finishes, the next load comes up without it and says so ("PICK IT AGAIN IN SETTINGS"). **`?safe`** in the URL forces the defaults (BALANCED) and ignores saved graphics settings.
+- **Opened from a file (file://):** a red banner explains that the browser blocks the 3D models and points you to the live site or a local server (`python -m http.server` → http://localhost:8000). The rifle uses its built-in model and the deer are skipped. A failed model load never holds anything up.
+- **Console warnings gone:** "color undefined" (material cache) and the 10× toNonIndexed warnings (rocks).
+
 ## v1.09 – PC ULTRA (a PC graphics tier for Quest Link / Air Link)
 
 - **What it's for:** playing on a gaming PC through Quest Link or Air Link, in desktop Chrome or Edge (Neil's RTX 5080 / 7800X3D). The PC draws every frame, so there's far more headroom than on the Quest itself.
