@@ -646,12 +646,12 @@ function makeThumb(id) {
 }
 function thumbTick() { let n = 0; while (thumbQ.length && n++ < 3) { const id = thumbQ.shift(); if (!THUMB[id]) try { makeThumb(id); } catch (e) { THUMB[id] = null; } PICKP.dirty = true; } }
 // --------- PICK ---------
-const CAT_N = { HUNTING: 'HUNTING', PAPERS: 'PAPERS', COCKPIT: 'COCKPIT', DOORS: 'DOORS + STRAPS', CARGO: 'CARGO', FUEL: 'FUEL + HANGAR' };
+const CAT_N = { HUNTING: 'HUNTING', PAPERS: 'PAPERS', COCKPIT: 'COCKPIT', DOORS: 'DOORS + STRAPS', CARGO: 'CARGO', FUEL: 'FUEL + HANGAR', FISHING: 'FISHING' };
 const PER = 12;
 function drawPick() {
   const p = PICKP, W = 1024; p.begin(); p.head('PICK');
   p.text('Items from the game ' + DEFS_VER + '  -  ' + ITEMS.length + ' holdables', 30, 112, 24, '#9aa4ae');
-  let y = 140; CATS.forEach((c, i) => { const cw = (W - 48 - 5 * 8) / 6; p.btn(24 + i * (cw + 8), y, cw, 70, CAT_N[c].split(' ')[0], () => { S.cat = c; S.page = 0; dirty(); }, S.cat === c, 24, CAT_N[c].includes(' ') ? CAT_N[c].split(' ').slice(1).join(' ') : '', 'Show the ' + CAT_N[c] + ' items (' + ITEMS.filter(x => x.cat === c).length + ')'); });
+  let y = 140; CATS.forEach((c, i) => { const cw = (W - 48 - (CATS.length - 1) * 8) / CATS.length; p.btn(24 + i * (cw + 8), y, cw, 70, CAT_N[c].split(' ')[0], () => { S.cat = c; S.page = 0; dirty(); }, S.cat === c, 24, CAT_N[c].includes(' ') ? CAT_N[c].split(' ').slice(1).join(' ') : '', 'Show the ' + CAT_N[c] + ' items (' + ITEMS.filter(x => x.cat === c).length + ')'); });
   y += 90; const list = ITEMS.filter(x => x.cat === S.cat), pages = Math.ceil(list.length / PER); S.page = Math.min(S.page, pages - 1);
   list.slice(S.page * PER, S.page * PER + PER).forEach((it, i) => { const c = i % 4, rw = Math.floor(i / 4), bw = 234, bh = 200; if (!(it.id in THUMB) && !thumbQ.includes(it.id)) thumbQ.push(it.id);
     p.btn(24 + c * 246, y + rw * 212, bw, bh, it.name.length > 18 ? it.name.slice(0, 18) : it.name, () => pickItem(it.id), S.item === it.id, it.name.length > 13 ? 19 : it.name.length > 10 ? 22 : 25, it.sub, it.name + (it.sub ? ' (' + it.sub + ')' : '') + (it.note ? ' - ' + it.note : '') + (it.free ? '  [carried in the plain controller hand]' : ''), THUMB[it.id]); });

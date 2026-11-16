@@ -4,7 +4,7 @@ Live: https://kifsta.github.io/bushpilot-vr/posetool.html
 Repo files: `posetool.html`, `posetool/items.glb` (the game's own meshes for every holdable), `posetool/defaults.json` (items, categories, grip shapes, the game's current poses), `posetool/qrcode.js` (qrcode-generator 1.4.4, MIT), `posetool/README.md` (this file).
 Box tooling (not in the repo): `/workspace/posetool/`: `refresh.sh`, `extract.py`, `export.js`, `build2.py`, `src2/`, `decode.mjs`, and the tests `d2.js` / `d3.js` (desktop) and `v2t.js` (`?xrsim`).
 
-## Items (52, exported from the game's committed index.html)
+## Items (54, exported from the game's committed index.html)
 | Category | Items |
 |---|---|
 | HUNTING | `rifle` Rifle (stock hand), `rifleSup` Rifle (forend hand), `rlev` Rifle (lever loop), `bino` Binoculars, `round` Rifle Round (.44) |
@@ -13,6 +13,7 @@ Box tooling (not in the repo): `/workspace/posetool/`: `refresh.sh`, `extract.py
 | DOORS | `lf` Left Window (front), `lr` Left Window (rear), `rup` Right Door (upper), `rlo` Right Door (lower), `rcg` Cargo Door (handle), `belt` Seat Belt (buckle), `net` Cargo Net (anchor) |
 | CARGO | `cg_parcel` Parcel (8-20 lb), `cg_sack` Sack (25-50 lb), `cg_crate` Crate (35-70 lb), `cg_fbox` Fragile Box (10-28 lb), `cg_cooler` Cooler (25-45 lb), `cg_medkit` Medicine Case (6-14 lb), `cg_dog` Dog Crate (40-65 lb), `cg_hens` Chicken Crate (18-32 lb), `cg_cement` Cement Bag (47-55 lb), `cg_feed` Feed Sack (45-55 lb), `cg_nails` Nail Keg (48-60 lb), `cg_fuel` Fuel Can (34-38 lb), `cg_outboard` Outboard Motor (two hands), `cg_generator` Generator (two hands), `cg_deer` Venison Carcass (two hands), `cg_bundle` Drop Bundle (15-35 lb), `cg_patient` Patient (140-200 lb) |
 | FUEL | `noz` Fuel Nozzle, `up_tank` Long-Range Tank (hangar part), `up_tyres` Tundra Tyres 39" (hangar part), `up_pod` Cargo Pod (hangar part), `up_light` Led Landing Light (hangar part), `up_radio` Com Radio (hangar part) |
+| FISHING | `rod` Fishing Rod (cork grip: the rod rides the controller, this hold places it in your fist), `reel` Reel Handle (crank knob, the other hand) |
 
 - Gripped controls (cockpit, doors, rifle, binoculars, clipboard, map, nozzle) use the game's `gripSolve` frame: the pose is relative to `gripFrame(k)`, and the default is the game's own solved hold.
 - Carried items (round, checklist card, mic, belt, net, cargo, hangar parts) hang off the controller in the plain controller hand. Their default is the game's hold offset, and their fingers are the game's free-hand state (`c`, `th`, `tw`), converted to joints.
