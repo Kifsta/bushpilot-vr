@@ -147,6 +147,7 @@ v0.44 latches: every window and the door are latched while shut. Squeeze the han
 | Tackle shop price tags | Walk up to a shop counter or rod rack: each item has a card with its name and price (green when owned) |
 | Z-fighting fix (v1.10.10) | Nothing to press: far ice, cloud joins, roads and tree bases no longer flicker; binoculars hide inside 10 cm of the eyes |
 | Local roads (v1.10.11) | Gravel roads to the sawmill, lodge, ranger station, Halvorsen station + East Lake; dirt 2-tracks to farms, cabins, camps and the mines; dashed / dotted on the paper map. Mountain, glacier and story sites stay fly-in |
+| Body (v1.10.12) | Your own arms, torso and legs follow the headset and gloves (IK). Settings > CONTROLS > **Body**: HANDS ONLY / ARMS / FULL (default FULL). Your head is not drawn for you; near your eyes the collar and shoulders fade out. Mirror / third person show it all | same |
 
 ## On foot
 | | VR | Desktop |
@@ -500,6 +501,7 @@ A customer stands at every job board. Walk up to them for a hello: their rep tie
 | Stick on release | STAYS / CENTRES | VR: what the stick does when you let go. Default STAYS (v0.49.1): it holds where you left it, and grabbing it again carries on from there |
 | Control labels | OFF / ON | VR: the name and state of the control by your hand |
 | Gloves | SAGE / BLACK / TAN | v0.49 flying-glove colours: sage Nomex back with tan leather palm (default), all black, or tan with brown leather |
+| Body (v1.10.12) | HANDS ONLY / ARMS / FULL | your own IK body under the gloves (default FULL). ARMS: the arms only (no torso or legs). Auto quality drops its shadow at step 4 and goes to ARMS at step 5 |
 
 - **Cub + building light (v0.95)**, GRAPHICS tab, last row: PER-VERTEX (cheaper, the default) or PER-PIXEL. It goes per-pixel by itself with Shadows on, the landing light or torch on, or the panel glow lit (that one is the Cub only). Use it to A/B the GPU cost in the headset.
 

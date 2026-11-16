@@ -636,7 +636,7 @@ const hyp = (a, b, c = 0) => Math.sqrt(a * a + b * b + c * c);   // v0.59 Math.h
 
 // ======================= RENDERING =======================
 // v0.35 settings (persist in localStorage 'bp_gfx'; ?gfx=shadows:2,grass:1 overrides for testing). Defaults = the v0.34 look and cost.
-const BP_VERSION = 'v1.10.11';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
+const BP_VERSION = 'v1.10.12';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
 { const e = document.getElementById('ver'); if (e) e.textContent = BP_VERSION; } window.__bpVer = BP_VERSION; bootLog('game module running ' + BP_VERSION + ' (three r' + THREE.REVISION + ')' + (/[?&]safe(=|&|$)/.test(location.search) ? ' - SAFE MODE: default graphics, no shadows / ULTRA / life / vistas / music' : ''));
 const GFX_DEF = { shadows: 0, scale: 1, fov: 1, dist: 1, trees: 1, grass: 0, clouds: 1, fog: 1, msaa: 1, hz: 90, vig: 0, turn: 0, fps: 0, tod: 11, stk: 1, tips: 1, terr: 1, dyn: 1, glove: 0, hand: 0, wt: 1, volM: 1, volMu: 0.5, volE: 1, volA: 1, volF: 1, wx: 1, forest: 0, ground: 0, gtex: 0, cvl: 1, water: 1, dayl: 48, flure: 0, fline: 8, fdrag: 4, fbob: 0, fsink: 0, ultra: 0 };   // v0.68.1 dominant hand, volumes. v0.48 BALANCED: 90 % scale, 72 Hz, fast terrain shading, auto resolution; v0.49.1 the stick stays where you let go of it
 const GFX = Object.assign({}, GFX_DEF);
@@ -11642,6 +11642,432 @@ function warmTick() {   // per frame: true = draw the scene
   if (WARM.ub && performance.now() - WARM.doneT > 8000) { WARM.ub = false; try { localStorage.removeItem('bp_ultboot'); } catch (e) { } }   // PC ULTRA ran fine: a later start may restore it
   return true;
 }
+// >>> V2 BODY BEGIN (body.js via /workspace/v2-body/apply.py)
+// ======================= V2 BODY: a low-poly bush pilot under your gloves (one skinned mesh, 1 draw + its shadow) =======================
+// Arms: two-bone IK from the drawn glove (read only: the glove's own palm skin matrix and bind; nothing on the hands is written) to shoulders
+// that shrug / reach, elbows picked from 24 candidates on the IK circle (wrist alignment with the gauntlet, a natural down-and-out pole,
+// forearm twist, torso / head / cockpit walls / held rifle and rod kept clear), forearm twist split over two frames so nothing candy-wraps,
+// the sleeve's last rings ride the gauntlet itself so it tucks in coaxially. Torso + neck hang from the head with a lagged body yaw,
+// legs step procedurally on foot (crouch / hop too), sit in the Cub's front seat with the feet on the rudder pedals.
+// The head is collapsed for your own view (and the binoculars) but casts its shadow. Settings > CONTROLS > Body: FULL / ARMS / HANDS ONLY.
+// Zero garbage per frame: every number lives in Float64Arrays or preallocated vectors / matrices; no closures, arrays or strings per frame.
+const BODY = (() => {
+  const B = { on: true, tier: 2, showHead: false, tris: 0, warmMs: 0, n: 0 };
+  const NB = 21, PELV = 0, SPINE = 1, CHEST = 2, NECK = 3, HEAD = 4;
+  const CLAV = [5, 10], UARM = [6, 11], FA = [7, 12], FB = [8, 13], HAND = [9, 14], THIGH = [15, 18], SHIN = [16, 19], FOOTB = [17, 20];   // [left, right]
+  const SX = [-1, 1];
+  const V = (x, y, z) => new THREE.Vector3(x, y, z);
+  // ---------------- bind skeleton (model space: metres, facing -z, x right, feet on y 0; eye 1.60) ----------------
+  const L1 = 0.296, L2 = 0.218, LT = 0.43, LS = 0.39, ANK = 0.085;   // upper arm, forearm (elbow -> gauntlet mouth), thigh, shin, ankle height
+  const BP = { P: V(0, 0.98, 0), SP: V(0, 1.08, 0), CH: V(0, 1.24, 0), N: V(0, 1.45, 0.015), HP: V(0, 1.535, 0) };
+  const EYE_OFF = V(0, 0.065, -0.09);   // eye from the head pivot (head frame)
+  const bind = Array.from({ length: NB }, () => new THREE.Matrix4()), binv = Array.from({ length: NB }, () => new THREE.Matrix4());
+  const BLEN = new Float64Array(NB).fill(1);
+  const frameOf = (m, o, y, zh) => { const Y = y.clone().normalize(), Z = zh.clone().addScaledVector(Y, -zh.dot(Y)).normalize(), X = new THREE.Vector3().crossVectors(Y, Z); return m.makeBasis(X, Y, Z).setPosition(o); };
+  const ZB = V(0, 0, 1);
+  frameOf(bind[PELV], BP.P, V(0, 1, 0), ZB); frameOf(bind[SPINE], BP.SP, V(0, 1, 0), ZB); frameOf(bind[CHEST], BP.CH, V(0, 1, 0), ZB);
+  frameOf(bind[NECK], BP.N, BP.HP.clone().sub(BP.N), ZB); bind[HEAD].makeTranslation(BP.HP.x, BP.HP.y, BP.HP.z);
+  const BS = [], BE = [], BT = [], BH = [], BK = [], BA = [];
+  for (let s = 0; s < 2; s++) { const x = SX[s];
+    const cr = V(x * 0.025, 1.425, 0), S0 = V(x * 0.18, 1.415, 0.01), E0 = V(x * 0.205, 1.12, 0.03), T0 = V(x * 0.225, 0.905, 0.0);
+    E0.sub(S0).setLength(L1).add(S0); T0.sub(E0).setLength(L2).add(E0); BS.push(S0); BE.push(E0); BT.push(T0);
+    frameOf(bind[CLAV[s]], cr, S0.clone().sub(cr), ZB); BLEN[CLAV[s]] = S0.distanceTo(cr);
+    frameOf(bind[UARM[s]], S0, E0.clone().sub(S0), ZB); BLEN[UARM[s]] = L1;
+    frameOf(bind[FA[s]], E0, T0.clone().sub(E0), ZB); bind[FB[s]].copy(bind[FA[s]]); BLEN[FA[s]] = BLEN[FB[s]] = L2;
+    bind[HAND[s]].copy(bind[FA[s]]).setPosition(T0);
+    const H0 = V(x * 0.095, 0.905, 0), K0 = V(x * 0.10, 0.905 - LT, -0.01), A0 = V(x * 0.10, ANK, 0.02);
+    K0.sub(H0).setLength(LT).add(H0); A0.sub(K0).setLength(LS).add(K0); BH.push(H0); BK.push(K0); BA.push(A0);
+    frameOf(bind[THIGH[s]], H0, K0.clone().sub(H0), ZB); BLEN[THIGH[s]] = LT; frameOf(bind[SHIN[s]], K0, A0.clone().sub(K0), ZB); BLEN[SHIN[s]] = LS;
+    bind[FOOTB[s]].makeBasis(V(1, 0, 0), V(0, 0, -1), V(0, 1, 0)).setPosition(A0); }
+  for (let k = 0; k < NB; k++) binv[k].copy(bind[k]).invert();
+  BLEN[CHEST] = BP.N.distanceTo(V(0, BP.CH.y, 0)); BLEN[NECK] = BP.HP.distanceTo(BP.N);
+  const HIPL = new Float64Array([BH[1].x - BP.P.x, BH[1].y - BP.P.y, BH[1].z - BP.P.z]);   // right hip joint in the pelvis frame
+  const SHL = new Float64Array([BS[1].x - BP.CH.x, BS[1].y - BP.CH.y, BS[1].z - BP.CH.z]);   // right shoulder joint in the chest frame
+  const CLL = new Float64Array([0.025, 1.425 - BP.CH.y, 0]);                               // right clavicle root in the chest frame
+  const SPN = BP.N.y - BP.P.y;   // pelvis -> neck base (0.47)
+  // ---------------- geometry: rings lofted along the bind frames, flat-shaded vertex colours, 2-bone skin (a, b, weight of a) + region ----------------
+  // regions: 0 torso + legs, 1 left arm, 2 right arm, 3 head + neck (hidden for your own eyes), 4 / 5 left / right fist (only without a glove, desktop)
+  const P = [], SK = [], RG = [], COL = [], _v = V(0, 0, 0), _c = new THREE.Color();
+  const hx = h => _c.setHex(h);
+  const ring = (k, y, rx, rz, n, a, b, w, cx = 0, cz = 0, ph = 0, ex = 1) => { const R = [];
+    for (let i = 0; i < n; i++) { const t = ph + i * 2 * Math.PI / n, c = Math.cos(t), s = Math.sin(t), cc = Math.sign(c) * Math.abs(c) ** ex, ss = Math.sign(s) * Math.abs(s) ** ex;
+      _v.set(cx + rx * cc, y, cz + rz * ss).applyMatrix4(bind[k]); R.push({ p: _v.clone(), sk: [a, b, w], c, s }); }
+    return R; };
+  const tri = (A, Bq, C, col, rg, vary = true) => { const j = vary ? 0.93 + 0.14 * (((Math.sin(P.length * 0.7713) * 43758.5453) % 1 + 1) % 1) : 1; hx(col); _c.multiplyScalar(j);
+    for (const o of [A, Bq, C]) { P.push(o.p.x, o.p.y, o.p.z); SK.push(o.sk[0], o.sk[1], o.sk[2]); RG.push(rg); COL.push(_c.r, _c.g, _c.b); } };
+  const loft = (R, colOf, rg) => { for (let r = 0; r + 1 < R.length; r++) { const A = R[r], C = R[r + 1], n = A.length;
+    for (let i = 0; i < n; i++) { const j = (i + 1) % n, col = colOf(r, i, A[i], A[j]); tri(A[i], C[i], C[j], col, rg); tri(A[i], C[j], A[j], col, rg); } } };
+  const cap = (Rr, tipP, sk, col, rg, flip) => { const t = { p: tipP, sk }; const n = Rr.length; for (let i = 0; i < n; i++) { const j = (i + 1) % n; flip ? tri(Rr[i], t, Rr[j], col, rg) : tri(Rr[j], t, Rr[i], col, rg); } };
+  const ctrOf = R => { const c = V(0, 0, 0); for (const o of R) c.add(o.p); return c.multiplyScalar(1 / R.length); };
+  const boxk = (k, cx, cy, cz, sx, sy, sz, col, rg, sk) => {   // a box in bone k's frame (centre, size), rigid to k (or sk)
+    const C = []; for (let i = 0; i < 8; i++) { _v.set(cx + (i & 1 ? sx : -sx) / 2, cy + (i & 2 ? sy : -sy) / 2, cz + (i & 4 ? sz : -sz) / 2).applyMatrix4(bind[k]); C.push({ p: _v.clone(), sk: sk || [k, k, 1] }); }
+    for (const [a, b, c, d] of [[0, 2, 3, 1], [4, 5, 7, 6], [0, 1, 5, 4], [2, 6, 7, 3], [0, 4, 6, 2], [1, 3, 7, 5]]) { tri(C[a], C[b], C[c], col, rg); tri(C[a], C[c], C[d], col, rg); } };
+  // colours: waxed-canvas jacket, corduroy collar, knit cuffs, olive canvas trousers, leather belt + boots
+  const JK = 0x8a6d44, JKD = 0x6e5636, ZIP = 0x3e3122, COLR = 0x5a3c26, CUFF = 0x3b382f, SHIRT = 0x8c3a2e, TR = 0x575a45, TRD = 0x464838, BELT = 0x2c2017, BUCK = 0xb59a52,
+    BOOT = 0x5c3b22, BOOTD = 0x3e2716, SOLE = 0x1d1a17, SKIN = 0xc79c78, CAP = 0x46523b, CUP = 0x3c5a3c, BAND = 0x232323, FIST = 0x6c7656;
+  // --- trousers: hips (pelvis) ---
+  { const R = [ring(PELV, -0.12, 0.135, 0.095, 10, PELV, PELV, 1, 0, 0.005, 0, 0.8), ring(PELV, -0.05, 0.158, 0.104, 10, PELV, PELV, 1, 0, 0.005, 0, 0.75),
+      ring(PELV, 0.03, 0.152, 0.1, 10, PELV, PELV, 1, 0, 0, 0, 0.75), ring(PELV, 0.09, 0.145, 0.097, 10, PELV, SPINE, 0.6, 0, 0, 0, 0.75)];
+    loft(R, () => TR, 0); cap(R[0], ctrOf(R[0]).add(V(0, -0.015, 0)), [PELV, PELV, 1], TRD, 0, false);
+    const bl = [ring(PELV, 0.035, 0.157, 0.104, 10, PELV, PELV, 1, 0, 0, 0, 0.75), ring(PELV, 0.072, 0.152, 0.101, 10, PELV, PELV, 1, 0, 0, 0, 0.75)]; loft(bl, () => BELT, 0);
+    boxk(PELV, 0, 0.053, -0.104, 0.05, 0.04, 0.012, BUCK, 0); }
+  // --- jacket: hem over the belt, waist, chest, shoulders, collar (superellipse sections: boxier than a tube) ---
+  { const sec = [[PELV, -0.035, 0.172, 0.118, PELV, PELV, 1], [PELV, 0.07, 0.168, 0.114, PELV, SPINE, 0.5], [SPINE, 0.06, 0.163, 0.112, SPINE, SPINE, 1], [SPINE, 0.14, 0.168, 0.116, SPINE, CHEST, 0.5],
+      [CHEST, 0.05, 0.176, 0.122, CHEST, CHEST, 1], [CHEST, 0.12, 0.18, 0.126, CHEST, CHEST, 1], [CHEST, 0.165, 0.168, 0.118, CHEST, CHEST, 1], [CHEST, 0.195, 0.125, 0.095, CHEST, CHEST, 1]];
+    const R = sec.map(([k, y, rx, rz, a, b, w]) => ring(k, y, rx, rz, 12, a, b, w, 0, 0.004, Math.PI / 12, 0.7));
+    loft(R, (r, i, A, Bq) => { const fr = A.s < -0.2 && Bq.s < -0.2, mid = Math.abs(A.c + Bq.c) < 0.6 && fr; return r === 0 ? JKD : mid ? ZIP : JK; }, 0);
+    const top = R[R.length - 1], col = [ring(CHEST, 0.2, 0.082, 0.072, 12, CHEST, CHEST, 1, 0, 0.012, Math.PI / 12), ring(CHEST, 0.245, 0.074, 0.066, 12, CHEST, NECK, 0.65, 0, 0.012, Math.PI / 12)];
+    loft([top, col[0]], (r, i, A) => A.s < -0.5 ? SHIRT : JK, 0); loft(col, (r, i, A) => A.s < -0.6 ? SHIRT : COLR, 0);
+    // collar plug: looking straight down in VR you see a shirt/neck base, not into the empty jacket
+    cap(col[1], ctrOf(col[1]).add(V(0, -0.012, 0.004)), [CHEST, NECK, 0.65], SKIN, 0, true);
+    for (const x of [-1, 1]) { boxk(CHEST, x * 0.085, 0.1, -0.118, 0.1, 0.11, 0.016, JKD, 0); boxk(CHEST, x * 0.085, 0.152, -0.122, 0.104, 0.034, 0.02, JK, 0); boxk(CHEST, x * 0.085, 0.15, -0.133, 0.016, 0.012, 0.006, BUCK, 0); } }
+  // --- neck + head (region 3): skin, a ball cap, a David Clark-style headset ---
+  { const nk = [ring(NECK, -0.01, 0.052, 0.05, 8, NECK, NECK, 1), ring(NECK, 0.09, 0.05, 0.048, 8, NECK, HEAD, 0.4)]; loft(nk, () => SKIN, 3);
+    const H = [[-0.065, 0.045, 0.06, -0.025], [-0.035, 0.068, 0.088, -0.022], [0.0, 0.077, 0.098, -0.02], [0.05, 0.079, 0.1, -0.018], [0.095, 0.072, 0.093, -0.016], [0.13, 0.055, 0.072, -0.016]]
+      .map(([y, rx, rz, cz]) => ring(HEAD, y, rx, rz, 10, HEAD, HEAD, 1, 0, cz));
+    loft(H, (r) => r >= 3 ? CAP : SKIN, 3); cap(H[0], ctrOf(H[0]).add(V(0, -0.012, -0.01)), [HEAD, HEAD, 1], SKIN, 3, false); cap(H[H.length - 1], ctrOf(H[H.length - 1]).add(V(0, 0.022, 0)), [HEAD, HEAD, 1], CAP, 3, true);
+    boxk(HEAD, 0, 0.074, -0.15, 0.15, 0.008, 0.075, CAP, 3); boxk(HEAD, 0, 0.012, -0.118, 0.022, 0.034, 0.02, SKIN, 3);   // brim, nose
+    for (const x of [-1, 1]) { boxk(HEAD, x * 0.088, 0.015, -0.018, 0.03, 0.075, 0.06, CUP, 3); boxk(HEAD, x * 0.07, 0.11, -0.018, 0.02, 0.09, 0.02, BAND, 3); }
+    boxk(HEAD, 0, 0.152, -0.018, 0.13, 0.014, 0.022, BAND, 3); boxk(HEAD, 0.06, -0.035, -0.07, 0.008, 0.008, 0.11, BAND, 3); }   // headband over the cap, the boom mic
+  // --- arms: shoulder cap (clavicle), upper arm, elbow, forearm (2 twist frames), knit cuff tucked into the gauntlet (hand frame) ---
+  for (let s = 0; s < 2; s++) { const rg = 1 + s, c = CLAV[s], u = UARM[s], a = FA[s], b = FB[s], h = HAND[s], NS = 8;
+    const sh = [ring(c, 0.02, 0.05, 0.062, NS, CHEST, c, 0.6), ring(c, 0.1, 0.058, 0.066, NS, c, c, 1), ring(u, -0.03, 0.064, 0.068, NS, c, u, 0.5)];
+    const arm = [ring(u, 0.03, 0.061, 0.064, NS, u, u, 1), ring(u, 0.15, 0.054, 0.057, NS, u, u, 1), ring(u, 0.255, 0.05, 0.052, NS, u, u, 1), ring(u, L1 + 0.006, 0.05, 0.05, NS, u, a, 0.5),
+      ring(a, 0.04, 0.048, 0.05, NS, a, a, 1), ring(a, 0.1, 0.045, 0.047, NS, a, b, 0.5), ring(a, 0.15, 0.042, 0.044, NS, b, b, 1), ring(a, 0.172, 0.04, 0.042, NS, b, b, 1),
+      ring(a, 0.19, 0.036, 0.038, NS, b, h, 0.45), ring(h, 0.0, 0.03, 0.024, NS, h, h, 1), ring(h, 0.035, 0.028, 0.022, NS, h, h, 1)];
+    const R = sh.concat(arm); loft(R, (r) => r >= 9 ? CUFF : r === 0 ? JK : JK, rg); cap(R[R.length - 1], ctrOf(R[R.length - 1]), [h, h, 1], CUFF, rg, true);
+    cap(R[0], ctrOf(R[0]).add(V(-SX[s] * 0.015, 0, 0)), [CHEST, CHEST, 1], JK, rg, false);
+    // the fist (desktop, no glove): a closed mitt in the glove's colour on the hand frame
+    const F = [[0.0, 0.026, 0.032], [0.04, 0.034, 0.045], [0.085, 0.04, 0.05], [0.12, 0.036, 0.046], [0.145, 0.022, 0.03]].map(([y, rx, rz]) => ring(h, y, rx, rz, 8, h, h, 1));
+    loft(F, () => FIST, 4 + s); cap(F[0], ctrOf(F[0]), [h, h, 1], FIST, 4 + s, false); cap(F[F.length - 1], ctrOf(F[F.length - 1]), [h, h, 1], FIST, 4 + s, true); }
+  // --- legs: thigh (cargo pocket), knee, shin, boot shaft; the boot on the foot frame (y forward, z up) ---
+  for (let s = 0; s < 2; s++) { const t = THIGH[s], k = SHIN[s], f = FOOTB[s], x = SX[s];
+    const R = [ring(t, -0.05, 0.086, 0.09, 8, PELV, t, 0.5), ring(t, 0.04, 0.086, 0.088, 8, t, t, 1), ring(t, 0.2, 0.075, 0.078, 8, t, t, 1), ring(t, 0.37, 0.06, 0.063, 8, t, t, 1),
+      ring(t, LT + 0.01, 0.056, 0.058, 8, t, k, 0.5), ring(k, 0.06, 0.054, 0.057, 8, k, k, 1), ring(k, 0.17, 0.052, 0.058, 8, k, k, 1, 0, 0.004), ring(k, 0.26, 0.047, 0.05, 8, k, k, 1)];
+    loft(R, (r) => TR, 0);
+    boxk(t, x * 0.078, 0.22, 0.0, 0.03, 0.15, 0.12, TRD, 0); boxk(t, x * 0.093, 0.155, 0.0, 0.012, 0.03, 0.125, TR, 0);   // cargo pocket + flap
+    const BTR = [ring(k, 0.255, 0.056, 0.058, 8, k, k, 1), ring(k, 0.28, 0.056, 0.058, 8, k, k, 1), ring(k, 0.35, 0.05, 0.053, 8, k, k, 1), ring(k, LS + 0.02, 0.05, 0.056, 8, k, k, 1)];
+    loft(BTR, (r) => r === 0 ? BOOTD : BOOT, 0); cap(BTR[BTR.length - 1], ctrOf(BTR[BTR.length - 1]), [k, k, 1], BOOT, 0, true);
+    const FT = [[-0.075, 0.042, 0.05, -0.04], [-0.05, 0.048, 0.072, -0.018], [0.0, 0.051, 0.08, -0.01], [0.06, 0.05, 0.058, -0.035], [0.13, 0.05, 0.045, -0.045], [0.185, 0.04, 0.033, -0.054], [0.205, 0.022, 0.018, -0.062]]
+      .map(([y, rx, rz, cz]) => ring(f, y, rx, rz, 8, f, f, 1, 0, cz, 0, 0.7));
+    loft(FT, (r, i, A, Bq) => (A.s + Bq.s) < -1.2 ? SOLE : r === 3 && A.s > 0.3 ? BOOTD : BOOT, 0); cap(FT[0], ctrOf(FT[0]), [f, f, 1], BOOT, 0, false); cap(FT[FT.length - 1], ctrOf(FT[FT.length - 1]), [f, f, 1], BOOT, 0, true);
+    boxk(f, 0, 0.04, -0.084, 0.1, 0.27, 0.014, SOLE, 0); }   // sole + heel block
+  B.tris = P.length / 9;
+  const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); geo.setAttribute('sk', new THREE.Float32BufferAttribute(SK, 3));
+  geo.setAttribute('rg', new THREE.Float32BufferAttribute(RG, 1)); geo.setAttribute('color', new THREE.Float32BufferAttribute(COL, 3));
+  // ---------------- materials: the glove's skinning (2-bone linear blend), a region mask; shadow depth material with the head kept ----------------
+  const SKU = new Float32Array(NB * 16), VIS = new Float32Array(6).fill(1), VISD = new Float32Array(6).fill(1);
+  // v1.10.12: the near-plane guard below is replaced by the own-view cut (BCUT, see the shader): what it used to slide onto the near plane is not drawn for you now.
+  // (was) near-plane guard (main pass only; v1.10.10 near plane 0.1 m): a drawn vertex nearer than near + 1.2 cm in front of YOUR eye slides back along its own view ray
+  // to that depth: the same pixel, only the depth clamped, so a shoulder at the cheek (rifle), the chest when you look straight down or an arm reaching past your ear
+  // is never cut open by the near plane. Off for any other camera (third person, mirror) and for the shadow.
+  const EYEU = new THREE.Vector4(), EYEF = new THREE.Vector3();
+  const BCUT = [0.13, 0.02, 0.28, 0.3];   // v1.10.12 own-view cut (m): sphere radius, fade, + the collar / shoulder zone (within 0.28 of the eye sideways and less than 0.3 under it)
+  const skin = (sh, vis, bub) => { sh.uniforms.bSk = { value: SKU }; sh.uniforms.bVis = { value: vis }; if (bub) { sh.uniforms.bEye = { value: EYEU }; sh.uniforms.bFwd = { value: EYEF }; }
+    if (bub) sh.fragmentShader = 'varying vec3 bDd;\n' + sh.fragmentShader.replace('#include <clipping_planes_fragment>', '#include <clipping_planes_fragment>\n  float bNr = min(length(bDd) - ' + BCUT[0].toFixed(3) + ', max(length(bDd.xz) - ' + BCUT[2].toFixed(3) + ', -bDd.y - ' + BCUT[3].toFixed(3) + ')) * ' + (1 / BCUT[1]).toFixed(3) + ';\n  if (bNr < 1.0 && bNr < fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))))) discard;');
+    sh.vertexShader = 'attribute vec3 sk;\nattribute float rg;\nuniform mat4 bSk[' + NB + '];\nuniform float bVis[6];\n' + (bub ? 'uniform vec4 bEye;\nuniform vec3 bFwd;\nvarying vec3 bDd;\n' : '') + sh.vertexShader.replace('#include <begin_vertex>',
+      '#include <begin_vertex>\n  { vec4 p0 = vec4(transformed, 1.0); transformed = (sk.z * (bSk[int(sk.x + 0.5)] * p0) + (1.0 - sk.z) * (bSk[int(sk.y + 0.5)] * p0)).xyz;' + (bub ? ' bDd = vec3(9.0);' : '') + ' if (bVis[int(rg + 0.5)] < 0.5) transformed = vec3(0.0);' +
+      (bub ? ' else if (bEye.w > 0.0) bDd = transformed - bEye.xyz;' : '') + ' }'); };
+  const mat = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true }); mat.onBeforeCompile = sh => skin(sh, VIS, true); mat.customProgramCacheKey = () => 'v2body';
+  const dmat = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking }); dmat.onBeforeCompile = sh => skin(sh, VISD, false); dmat.customProgramCacheKey = () => 'v2body-d';
+  const mesh = new THREE.Mesh(geo, mat); mesh.customDepthMaterial = dmat; mesh.frustumCulled = false; mesh.matrixAutoUpdate = false; mesh.castShadow = true; mesh.receiveShadow = true;
+  mesh.userData.noBatch = true; mesh.visible = false; mesh.name = 'V2 BODY'; scene.add(mesh); B.mesh = mesh;
+  // per view (each XR eye too): the bubble sits on the rendering camera when that camera is your own eye (within 25 cm of the tracked eye, head hidden)
+  const EW = new Float64Array(3);
+  mesh.onBeforeRender = (r, sc, cam) => { const e = cam.matrixWorld.elements, m = mesh.matrixWorld.elements, dx = e[12] - EW[0], dy = e[13] - EW[1], dz = e[14] - EW[2];
+    if (!B.showHead && dx * dx + dy * dy + dz * dz < 0.0625) { EYEU.set(e[12] - m[12], e[13] - m[13], e[14] - m[14], (cam.near > 0 ? cam.near : camera.near) + 0.012); EYEF.set(-e[8], -e[9], -e[10]).normalize(); } else EYEU.w = 0; };
+  // ---------------- per-frame scratch (no allocation in the tick) ----------------
+  const W = Array.from({ length: NB }, () => new THREE.Matrix4()), _M = new THREE.Matrix4(), MOFF = new THREE.Matrix4(), MLOC = new THREE.Matrix4(), MINV = new THREE.Matrix4(), HM = new THREE.Matrix4();
+  const v = () => new THREE.Vector3();
+  const eye = v(), hX = v(), hY = v(), hZ = v(), Hp = v(), N = v(), Pv = v(), UP = v(), fw = v(), bk = v(), rt = v(), t1 = v(), t2 = v(), t3 = v(), t4 = v(), t5 = v(), t6 = v(), t7 = v(), t8 = v();
+  const pX = v(), pY = v(), pZ = v(), sX = v(), sY = v(), sZ = v(), cX = v(), cY = v(), cZ = v(), aO = v(), cO = v();
+  const S0 = [v(), v()], SH = [v(), v()], EL = [v(), v()], TG = [v(), v()], GX = [v(), v()], GY = [v(), v()], GZ = [v(), v()], ELP = [v(), v()];
+  const HIP = [v(), v()], KN = [v(), v()], AN = [v(), v()], FY = [v(), v()], FZ = [v(), v()];
+  const Q = new Float64Array(64);   // 0 body yaw, 1 has yaw, 2 vel x, 3 vel z, 4 prev x, 5 prev z, 6 has prev, 7 walk phase, 8 airborne k, 9 rifle blade k, 10 last mode (0 foot 1 plane)
+  const ST = new Float64Array(2 * 16);   // per foot: 0..2 planted pos (world), 3 yaw, 4 step t (<0 planted), 5..7 from, 8 from yaw, 9..11 to, 12 to yaw, 13 has
+  const AR = new Float64Array(2 * 8);    // per arm: 0 have glove, 1 stretch, 2 twist, 3 elbow valid, 4 shrug, 5 wrist bend (cos)
+  B.dbg = { AR, ST, Q, EL, TG, SH, KN, AN, HIP, Hp, N, Pv, W, SKU, VIS, EYEU, EYEF, EW };
+  const GBP = [new THREE.Matrix4(), new THREE.Matrix4()], GFLIP = new THREE.Matrix4().makeRotationY(Math.PI);
+  const wrap = a => a - Math.round(a / (2 * Math.PI)) * 2 * Math.PI;
+  const setFrame = (k, o, Y, Zh) => {   // length in Q[61] (0 = bind length): no boxed double argument
+    const len = Q[61];   // W[k] = basis (X, Y * stretch, Z) at o; Z = Zh made orthogonal to Y
+    sY.copy(Y).normalize(); sZ.copy(Zh).addScaledVector(sY, -Zh.dot(sY)); if (sZ.lengthSq() < 1e-10) sZ.set(0, 0, 1).addScaledVector(sY, -sY.z); sZ.normalize(); sX.crossVectors(sY, sZ);
+    const st = len > 0 ? len / BLEN[k] : 1; t8.copy(sY).multiplyScalar(st); W[k].makeBasis(sX, t8, sZ).setPosition(o); };
+  const setFrameX = (k, o, Y, Xh) => {
+    const len = Q[61];   // as setFrame but with the X axis as the hint (hinge joints)
+    sY.copy(Y).normalize(); sX.copy(Xh).addScaledVector(sY, -Xh.dot(sY)); if (sX.lengthSq() < 1e-10) sX.set(1, 0, 0); sX.normalize(); sZ.crossVectors(sX, sY);
+    const st = len > 0 ? len / BLEN[k] : 1; t8.copy(sY).multiplyScalar(st); W[k].makeBasis(sX, t8, sZ).setPosition(o); };
+
+  const NECKL = BLEN[NECK], REACH = L1 + L2, LEGL = LT + LS, NC = 24;
+  // the glove's palm bind frame (the gauntlet's axis): GBP[h] = inverse(GLOVE.B[h][1]); h 0 = right, 1 = left. Built once, after gloveInit.
+  function gloveBind() { if (!GLOVE.B[0] || !GLOVE.B[1]) return false; GBP[0].copy(GLOVE.B[0][1]).invert(); GBP[1].copy(GLOVE.B[1][1]).invert(); return true; }
+  const GL = new Float64Array(4);   // 0 glove bind ready
+  // ---- head pose this frame (world): XR = both eyes' poses now (the user camera is only refreshed inside render), desktop = the camera ----
+  function headPose() {
+    if (renderer.xr.isPresenting) { HM.copy(eyeWorld(0)); t1.setFromMatrixPosition(HM); _M.copy(eyeWorld(1)); t2.setFromMatrixPosition(_M); t1.add(t2).multiplyScalar(0.5); HM.setPosition(t1); }
+    else { camera.updateWorldMatrix(true, false); HM.copy(camera.matrixWorld); }
+    HM.premultiply(MINV); HM.extractBasis(hX, hY, hZ); hX.normalize(); hY.normalize(); hZ.normalize(); eye.setFromMatrixPosition(HM);
+    Hp.copy(eye).addScaledVector(hY, -EYE_OFF.y).addScaledVector(hZ, -EYE_OFF.z);
+  }
+  // ---- elbow on the IK circle: 24 candidates, then two refinements ----
+  function elbowCost(s) {   // candidate in Q[50..52], cost out in Q[53] (doubles through a typed array: no HeapNumber boxing per call); reads C (aO), u (t3), r (Q[20]), S (SH), T (TG), hand axes (GX / GY)
+    const ex = Q[50], ey = Q[51], ez = Q[52]; const S = SH[s], T = TG[s], gy = GY[s], gx = GX[s];
+    t4.set(ex, ey, ez); t5.subVectors(T, t4); const lf = Math.sqrt(t5.x * t5.x + t5.y * t5.y + t5.z * t5.z); if (lf < 1e-6) { Q[53] = 1e9; return; } t5.multiplyScalar(1 / lf);   // forearm dir
+    const al = 1 - (t5.x * gy.x + t5.y * gy.y + t5.z * gy.z); let c = 3.0 * al * al + (al > 0.75 ? (al - 0.75) * 20 : 0);   // wrist bend: aligned with the gauntlet (70 deg = 0.66)
+    t6.subVectors(t4, aO); const rr = Math.sqrt(t6.x * t6.x + t6.y * t6.y + t6.z * t6.z); if (rr > 1e-6) t6.multiplyScalar(1 / rr); else t6.copy(t7);   // elbow offset dir
+    c += 0.5 * (1 - (t6.x * t7.x + t6.y * t7.y + t6.z * t7.z));   // natural pole (t7)
+    { const eh = ey - S.y - 0.03; if (eh > 0) c += 6 * eh + 30 * eh * eh; }   // an elbow above the shoulder only when the hand really needs it
+    { const dv = Math.abs(t5.x * gx.x + t5.y * gx.y + t5.z * gx.z) - 0.34; if (dv > 0) c += 8 * dv * dv; }   // the wrist bends far up / down (flexion) but only ~20 deg sideways (deviation)
+    // forearm twist vs the hand: hinge X = (upper dir) x (elbow offset)
+    t8.subVectors(t4, S).normalize(); pX.crossVectors(t8, t6); const xl = Math.sqrt(pX.x * pX.x + pX.y * pX.y + pX.z * pX.z); if (xl > 1e-6) { pX.multiplyScalar(1 / xl); const dx = (pX.x * t5.x + pX.y * t5.y + pX.z * t5.z); pX.addScaledVector(t5, -dx).normalize();
+      const gd = (gx.x * t5.x + gx.y * t5.y + gx.z * t5.z); pY.copy(gx).addScaledVector(t5, -gd); const gl = Math.sqrt(pY.x * pY.x + pY.y * pY.y + pY.z * pY.z); if (gl > 1e-6) { pY.multiplyScalar(1 / gl); pZ.crossVectors(pX, pY); const tw = Math.atan2((pZ.x * t5.x + pZ.y * t5.y + pZ.z * t5.z), (pX.x * pY.x + pX.y * pY.y + pX.z * pY.z)), ta = Math.abs(tw); if (ta > 1.25) c += 2.5 * (ta - 1.25) * (ta - 1.25); } }
+    // torso (chest + abdomen ellipses), head, cockpit walls; elbow and the upper arm's midpoint
+    for (let q = 0; q < 2; q++) { if (q === 0) pZ.copy(t4); else pZ.copy(S).add(t4).multiplyScalar(0.5);
+      pY.subVectors(pZ, cO); const ly = (pY.x * cY.x + pY.y * cY.y + pY.z * cY.z); if (ly > -0.3 && ly < 0.26) { const lx = (pY.x * cX.x + pY.y * cX.y + pY.z * cX.z) / 0.235, lz = (pY.x * cZ.x + pY.y * cZ.y + pY.z * cZ.z) / 0.175, e = lx * lx + lz * lz; if (e < 1) c += 9 * (1 - e); }
+      const dh = Math.sqrt((pZ.x - Hp.x) * (pZ.x - Hp.x) + (pZ.y - Hp.y) * (pZ.y - Hp.y) + (pZ.z - Hp.z) * (pZ.z - Hp.z)); if (dh < 0.17) c += 40 * (0.17 - dh);
+      if (Q[11] > 0) { const ax = Math.abs(pZ.x), aw = ax - 0.265; if (aw > 0 && (pZ.x < 0 || T.x < 0.3)) c += 200 * aw + 4000 * aw * aw; if (pZ.y < -0.2) c += 30 * (-0.2 - pZ.y); }   // seated: elbow / upper arm inside the fuselage sides (out of the open right door only with the hand out of it), the seat
+      if (Q[12] > 0) { pY.subVectors(pZ, oA); const tt = Math.min(Math.max((pY.x * oD.x + pY.y * oD.y + pY.z * oD.z), 0), Q[13]); pY.addScaledVector(oD, -tt); const dr = Math.sqrt(pY.x * pY.x + pY.y * pY.y + pY.z * pY.z); if (dr < 0.075) c += 25 * (0.075 - dr); } }   // a held rifle / rod (segment t1 + t2 * [0, Q13])
+    // forearm past your head: its middle and 3/4 points stay out of the skull and well away from your eye (the near plane; a hand reaching behind the head)
+    for (let q = 0; q < 2; q++) { const f = q === 0 ? 0.5 : 0.75; pZ.copy(t4).lerp(T, f); const dh = Math.sqrt((pZ.x - Hp.x) * (pZ.x - Hp.x) + (pZ.y - Hp.y) * (pZ.y - Hp.y) + (pZ.z - Hp.z) * (pZ.z - Hp.z)); if (dh < 0.15) c += 40 * (0.15 - dh); const de = Math.sqrt((pZ.x - eye.x) * (pZ.x - eye.x) + (pZ.y - eye.y) * (pZ.y - eye.y) + (pZ.z - eye.z) * (pZ.z - eye.z)); if (de < 0.14) c += 80 * (0.14 - de); }
+    if (AR[s * 8 + 3] > 0) { const dx = ex - ELP[s].x, dy = ey - ELP[s].y, dz = ez - ELP[s].z; c += 6 * (dx * dx + dy * dy + dz * dz); }   // keep near last frame's elbow (no flips)
+    Q[53] = c;
+  }
+  // split in three so each part is optimised with its own inlining budget (one big function left three.js calls out of line: boxed doubles = garbage)
+  function armIK(s, dt) { armSolve(s); elbowSearch(s); armFrames(s, dt); }
+  function armSolve(s) {
+    const S = SH[s], T = TG[s]; let d = Math.sqrt((S.x - T.x) * (S.x - T.x) + (S.y - T.y) * (S.y - T.y) + (S.z - T.z) * (S.z - T.z));
+    // shrug / reach: the shoulder moves toward a far hand (protraction, up to 7.5 cm) and up for a high hand (4 cm)
+    let shr = 0; if (d > 0.94 * REACH) { shr = d - 0.94 * REACH; if (shr > 0.075) shr = 0.075; const f = shr / d; S.x += (T.x - S.x) * f; S.y += (T.y - S.y) * f; S.z += (T.z - S.z) * f; }
+    t1.subVectors(T, S); const hi = (t1.x * UP.x + t1.y * UP.y + t1.z * UP.z) - 0.08; if (hi > 0) { const up = hi * 0.3 < 0.04 ? hi * 0.3 : 0.04; S.x += UP.x * up; S.y += UP.y * up; S.z += UP.z * up; shr += up; }
+    d = Math.sqrt((S.x - T.x) * (S.x - T.x) + (S.y - T.y) * (S.y - T.y) + (S.z - T.z) * (S.z - T.z)); const k = Math.max(1, d / (REACH * 0.999)), l1 = L1 * k, l2 = L2 * k; AR[s * 8 + 1] = k; AR[s * 8 + 4] = shr;
+    t3.subVectors(T, S).multiplyScalar(1 / Math.max(d, 1e-6));   // u
+    const a = (l1 * l1 - l2 * l2 + d * d) / (2 * Math.max(d, 1e-6)), r = Math.sqrt(Math.max(l1 * l1 - a * a, 0)); aO.copy(S).addScaledVector(t3, a);
+    // natural pole: down, out to this side, a little back
+    t7.copy(UP).multiplyScalar(-1).addScaledVector(cX, SX[s] * 0.55).addScaledVector(cZ, 0.3); t7.addScaledVector(t3, -(t7.x * t3.x + t7.y * t3.y + t7.z * t3.z)); if ((t7.x * t7.x + t7.y * t7.y + t7.z * t7.z) < 1e-8) t7.copy(cZ); t7.normalize();
+    t2.crossVectors(t3, t7);   // v2 (t7 = v1)
+    pX.copy(t7); pY.copy(t2);   // keep v1 / v2 (elbowCost uses pX / pY as scratch: copy to Q)
+    Q[30] = t7.x; Q[31] = t7.y; Q[32] = t7.z; Q[33] = t2.x; Q[34] = t2.y; Q[35] = t2.z; Q[36] = r;
+  }
+  function elbowSearch(s) {   // the elbow on the IK circle (centre aO, axis t3, radius Q[36], basis Q[30..35])
+    const r = Q[36]; let best = 0, bc = 1e18;
+    for (let j = 0; j < NC; j++) { const th = j * 2 * Math.PI / NC, cs = Math.cos(th) * r, sn = Math.sin(th) * r;
+      Q[50] = aO.x + cs * Q[30] + sn * Q[33]; Q[51] = aO.y + cs * Q[31] + sn * Q[34]; Q[52] = aO.z + cs * Q[32] + sn * Q[35]; elbowCost(s); const c = Q[53]; if (c < bc) { bc = c; best = th; } }
+    for (let st = Math.PI / NC; st > 0.02; st *= 0.5) { for (let sg = -1; sg <= 1; sg += 2) { const th = best + sg * st, cs = Math.cos(th) * r, sn = Math.sin(th) * r;
+      Q[50] = aO.x + cs * Q[30] + sn * Q[33]; Q[51] = aO.y + cs * Q[31] + sn * Q[34]; Q[52] = aO.z + cs * Q[32] + sn * Q[35]; elbowCost(s); const c = Q[53]; if (c < bc) { bc = c; best = th; } } }
+    EL[s].set(aO.x + (Math.cos(best) * Q[30] + Math.sin(best) * Q[33]) * r, aO.y + (Math.cos(best) * Q[31] + Math.sin(best) * Q[34]) * r, aO.z + (Math.cos(best) * Q[32] + Math.sin(best) * Q[35]) * r);
+  }
+  function armFrames(s, dt) {
+    const S = SH[s], T = TG[s], E = EL[s], r = Q[36];
+    if (AR[s * 8 + 3] > 0) { { const al = Math.exp(-dt * 30), P = ELP[s]; E.x += (P.x - E.x) * al; E.y += (P.y - E.y) * al; E.z += (P.z - E.z) * al; } t1.subVectors(E, aO); t1.addScaledVector(t3, -(t1.x * t3.x + t1.y * t3.y + t1.z * t3.z)); if ((t1.x * t1.x + t1.y * t1.y + t1.z * t1.z) > 1e-10) E.copy(aO).addScaledVector(t1.normalize(), r); }   // a short smoothing, back on the circle
+    ELP[s].copy(E); AR[s * 8 + 3] = 1;
+    // frames: hinge X = upper dir x elbow offset dir; forearm twist split over FA (0) / FB (half) / the hand (all)
+    t4.subVectors(E, S); const lu = Math.sqrt(t4.x * t4.x + t4.y * t4.y + t4.z * t4.z); t4.multiplyScalar(1 / Math.max(lu, 1e-6)); t6.subVectors(E, aO); if ((t6.x * t6.x + t6.y * t6.y + t6.z * t6.z) < 1e-10) t6.set(Q[30], Q[31], Q[32]); t6.normalize();
+    t8.crossVectors(t4, t6).normalize(); t1.copy(t8);   // hinge (t1)
+    Q[61] = lu; setFrameX(UARM[s], S, t4, t1);
+    t5.subVectors(T, E); const lf = Math.sqrt(t5.x * t5.x + t5.y * t5.y + t5.z * t5.z); t5.multiplyScalar(1 / Math.max(lf, 1e-6));
+    Q[61] = lf; setFrameX(FA[s], E, t5, t1); W[FA[s]].extractBasis(pX, pY, pZ); pX.normalize();   // FA's X
+    const gd = (GX[s].x * t5.x + GX[s].y * t5.y + GX[s].z * t5.z); t2.copy(GX[s]).addScaledVector(t5, -gd).normalize(); t6.crossVectors(pX, t2); const tw = Math.atan2((t6.x * t5.x + t6.y * t5.y + t6.z * t5.z), (pX.x * t2.x + pX.y * t2.y + pX.z * t2.z)); AR[s * 8 + 2] = tw;
+    AR[s * 8 + 5] = (t5.x * GY[s].x + t5.y * GY[s].y + t5.z * GY[s].z);
+    t6.crossVectors(t5, pX); { const ca = Math.cos(tw * 0.5), sa = Math.sin(tw * 0.5); t2.set(pX.x * ca + t6.x * sa, pX.y * ca + t6.y * sa, pX.z * ca + t6.z * sa); } Q[61] = lf; setFrameX(FB[s], E, t5, t2);
+    W[HAND[s]].makeBasis(GX[s], GY[s], GZ[s]).setPosition(T);
+    t2.subVectors(S, cl0[s]); Q[61] = Math.sqrt(t2.x * t2.x + t2.y * t2.y + t2.z * t2.z); setFrame(CLAV[s], cl0[s], t2, cZ);
+  }
+  const cl0 = [v(), v()], oA = v(), oD = v(), ZS = v(0, 0, 1);
+  // ---- legs: two-bone IK hip -> ankle with a knee pole ----
+  function legIK(s) {   // knee pole in Q[54..56] (no boxed double arguments)
+    const poleX = Q[54], poleY = Q[55], poleZ = Q[56];
+    const H = HIP[s], A = AN[s]; t3.subVectors(A, H); let d = Math.sqrt(t3.x * t3.x + t3.y * t3.y + t3.z * t3.z); if (d > LEGL * 0.999 || d < 0.12) { const nd = d < 0.12 ? 0.12 : LEGL * 0.999, f = nd / (d || 1); t3.x *= f; t3.y *= f; t3.z *= f; A.copy(H).add(t3); d = nd; }   // (component maths: no double arguments anywhere in here)
+    { const f = 1 / d; t3.x *= f; t3.y *= f; t3.z *= f; } const a = (LT * LT - LS * LS + d * d) / (2 * d), r = Math.sqrt(Math.max(LT * LT - a * a, 0));
+    { const dd = poleX * t3.x + poleY * t3.y + poleZ * t3.z; t7.x = poleX - t3.x * dd; t7.y = poleY - t3.y * dd; t7.z = poleZ - t3.z * dd; } if ((t7.x * t7.x + t7.y * t7.y + t7.z * t7.z) < 1e-8) t7.copy(fw); t7.normalize();
+    KN[s].x = H.x + t3.x * a + t7.x * r; KN[s].y = H.y + t3.y * a + t7.y * r; KN[s].z = H.z + t3.z * a + t7.z * r;
+    t4.subVectors(KN[s], H); const lt = Math.sqrt(t4.x * t4.x + t4.y * t4.y + t4.z * t4.z); { const f = 1 / lt; t4.x *= f; t4.y *= f; t4.z *= f; } t1.crossVectors(t7, t4);   // X = Y x (-knee dir)
+    Q[61] = lt; setFrameX(THIGH[s], H, t4, t1); t5.subVectors(A, KN[s]); const ls = Math.sqrt(t5.x * t5.x + t5.y * t5.y + t5.z * t5.z); Q[61] = ls; setFrameX(SHIN[s], KN[s], t5, t1);
+    Q[61] = 0; setFrame(FOOTB[s], A, FY[s], FZ[s]);
+  }
+  // ---- stepping on foot (planted feet, one at a time; a hop lifts both) ----
+  const smooth = x => x * x * (3 - 2 * x);
+  function footTick(s, dt) {   // fy / air / spd in Q[57..59]
+    const fy = Q[57], air = Q[58], spd = Q[59];
+    const o = s * 16, x = SX[s]; t1.copy(Pv).addScaledVector(rt, x * 0.105).addScaledVector(bk, 0.01); t1.x += Q[2] * 0.24; t1.z += Q[3] * 0.24;   // where this foot wants to be
+    const yawW = Q[0] - x * 0.13;
+    if (ST[o + 13] === 0) { ST[o] = t1.x; ST[o + 1] = fy; ST[o + 2] = t1.z; ST[o + 3] = yawW; ST[o + 4] = -1; ST[o + 13] = 1; }
+    if (air > 0.01) { ST[o] = ST[o] + (t1.x - ST[o]) * Math.min(1, dt * 10); ST[o + 2] = ST[o + 2] + (t1.z - ST[o + 2]) * Math.min(1, dt * 10); ST[o + 3] = yawW; ST[o + 4] = -1;
+      ST[o + 1] = Math.max(fy, Pv.y - 0.9 + 0.16 * air); }
+    else if (ST[o + 4] < 0) {   // planted: step when it's far from where it wants to be (and the other foot is down)
+      const dx = t1.x - ST[o], dz = t1.z - ST[o + 2], dd = Math.sqrt(dx * dx + dz * dz), dy = Math.abs(wrap(yawW - ST[o + 3])), oth = ST[(1 - s) * 16 + 4] < 0;
+      const thr = spd > 0.3 ? 0.12 : 0.2;
+      if (oth && (dd > thr || dy > 0.55) && (dd + dy * 0.3) >= Q[40 + (1 - s)] - 0.02) {
+        ST[o + 5] = ST[o]; ST[o + 6] = ST[o + 1]; ST[o + 7] = ST[o + 2]; ST[o + 8] = ST[o + 3];
+        ST[o + 9] = t1.x + Q[2] * 0.1; ST[o + 11] = t1.z + Q[3] * 0.1; ST[o + 12] = yawW; ST[o + 4] = 0;
+        // ground under the landing spot from the slope you walk on (Q47/48, fitted in tickTorso; no groundY call: no boxed numbers)
+        let gy = FOOT.on ? fy : fy + Q[47] * (ST[o + 9] - Hp.x) + Q[48] * (ST[o + 11] - Hp.z); if (!(gy > fy - 0.35 && gy < fy + 0.35)) gy = fy; ST[o + 10] = gy; ST[o + 15] = Math.min(0.42, Math.max(0.2, 0.42 - 0.06 * spd)); }
+      Q[40 + s] = dd + dy * 0.3; }
+    if (ST[o + 4] >= 0) { ST[o + 4] += dt / ST[o + 15]; const u = Math.min(1, ST[o + 4]), k = smooth(u);
+      ST[o] = ST[o + 5] + (ST[o + 9] - ST[o + 5]) * k; ST[o + 2] = ST[o + 7] + (ST[o + 11] - ST[o + 7]) * k; ST[o + 3] = ST[o + 8] + wrap(ST[o + 12] - ST[o + 8]) * k;
+      const sx = ST[o + 9] - ST[o + 5], sz = ST[o + 11] - ST[o + 7], sd = Math.sqrt(sx * sx + sz * sz); ST[o + 1] = ST[o + 6] + (ST[o + 10] - ST[o + 6]) * k + Math.sin(Math.PI * u) * Math.min(0.09, 0.03 + sd * 0.15);
+      if (u >= 1) ST[o + 4] = -1; }
+    AN[s].set(ST[o], ST[o + 1] + ANK, ST[o + 2]);
+    FY[s].set(-Math.sin(ST[o + 3]), 0, -Math.cos(ST[o + 3])); FZ[s].copy(UP);
+    if (ST[o + 4] >= 0) { const u = Math.min(1, ST[o + 4]), p = Math.sin(Math.PI * u) * 0.35 * (u < 0.5 ? 1 : -0.6); FY[s].addScaledVector(UP, p).normalize(); FZ[s].copy(UP).addScaledVector(FY[s], -(UP.x * FY[s].x + UP.y * FY[s].y + UP.z * FY[s].z)).normalize(); }   // toe-off / heel-strike roll
+  }
+  // ---- the tick: after the hands are final (updateHands), before render ----
+  B.tick = dt => {
+    let tier = B.on ? (GFX.body | 0) : 0; if (DYN.lvl >= 5) tier = Math.min(tier, 1); B.tier = tier;
+    if (tier <= 0) { if (mesh.visible) mesh.visible = false; AR[3] = AR[11] = 0; ST[13] = ST[29] = 0; Q[1] = 0; return; }
+    depthQueue(); const t0 = performance.now(); if (GL[0] === 0 && GLOVE.gm[0] && gloveBind()) GL[0] = 1;
+    const seat = mode === 'plane'; Q[11] = seat ? 1 : 0;
+    if (seat) { plane.updateWorldMatrix(true, false); MLOC.copy(plane.matrixWorld); } else MLOC.identity();
+    MINV.copy(MLOC).invert(); UP.set(0, 1, 0);
+    if (Q[10] !== Q[11]) { AR[3] = AR[11] = 0; ST[13] = ST[29] = 0; Q[1] = 0; Q[6] = 0; Q[10] = Q[11]; }   // got in / out: start fresh
+    headPose(); t1.copy(eye).applyMatrix4(MLOC); EW[0] = t1.x; EW[1] = t1.y; EW[2] = t1.z;
+    tickTorso(dt);
+    // arms: the glove when it's drawn; else (desktop) a fist on the stick / throttle, on the desk rifle, or hanging
+    const vrH = renderer.xr.isPresenting || HANDS.force; let armVis = 0;
+    obstacle();
+    for (let s = 0; s < 2; s++) { let gi = -1;
+      if (vrH && GL[0] === 1) for (let i = 0; i < 2; i++) { const st = HANDS.st[i]; if (st && st.vis && GLOVE.gm[i] && GLOVE.gm[i].visible && (st.right ? 1 : 0) === s) gi = i; }
+      AR[s * 8] = gi >= 0 ? 1 : 0;
+      if (gi >= 0) { const h = s === 1 ? 0 : 1; _M.multiplyMatrices(xrOffsetMW(), GLOVE.gm[gi].material.userData.hSk.value[1]).multiply(GBP[h]); if (s === 0) _M.multiply(GFLIP); _M.premultiply(MINV);
+        _M.extractBasis(GX[s], GY[s], GZ[s]); GX[s].normalize(); GY[s].normalize(); GZ[s].normalize(); TG[s].set(0, -0.082, 0).applyMatrix4(_M);
+        t1.copy(GZ[s]).multiplyScalar(SX[s]); GZ[s].copy(GX[s]).multiplyScalar(-SX[s]); GX[s].copy(t1);   // the hand bone = the glove frame turned 90 deg about its axis, so a relaxed forearm reads zero twist
+      }
+      else if (vrH) { continue; }   // a lost controller: no arm
+      else deskHand(s, seat);
+      armIK(s, dt); armVis |= 1 << s; }
+    if (tier >= 2) tickLegs(dt);
+    // skin matrices, relative to an origin near you (float32 precision stays sub-millimetre anywhere on the 12 km map)
+    MOFF.copy(MLOC); if (seat) t1.setFromMatrixPosition(MLOC); else t1.copy(Pv);
+    MOFF.elements[12] -= t1.x; MOFF.elements[13] -= t1.y; MOFF.elements[14] -= t1.z;
+    for (let k = 0; k < NB; k++) { _M.multiplyMatrices(MOFF, W[k]).multiply(binv[k]); const e = _M.elements, o = k * 16; for (let j = 0; j < 16; j++) SKU[o + j] = e[j]; }
+    { const me = mesh.matrix.elements; me[0] = me[5] = me[10] = me[15] = 1; me[1] = me[2] = me[3] = me[4] = me[6] = me[7] = me[8] = me[9] = me[11] = 0; me[12] = t1.x; me[13] = t1.y; me[14] = t1.z; } mesh.matrixWorld.copy(mesh.matrix); mesh.matrixWorldNeedsUpdate = false;
+    const full = tier >= 2 ? 1 : 0; VIS[0] = VISD[0] = full; VIS[1] = VISD[1] = armVis & 1 ? 1 : 0; VIS[2] = VISD[2] = armVis & 2 ? 1 : 0;
+    VIS[3] = full && B.showHead ? 1 : 0; VISD[3] = full; VIS[4] = VISD[4] = armVis & 1 && !AR[0] ? 1 : 0; VIS[5] = VISD[5] = armVis & 2 && !AR[8] ? 1 : 0;
+    mesh.castShadow = DYN.lvl < 4; mesh.visible = true; B.n++; Q[60] = performance.now() - t0;   // CPU ms (B.ms reads it: no boxed double stored per frame)
+  };
+  // the tick in parts (each optimised with its own inlining budget: no boxed doubles out of line); seat = Q[11], fy / air / spd = Q[57..59]
+  function tickTorso(dt) {
+    const seat = Q[11] > 0;
+    // body yaw (lagged behind the head; dead zone standing, quick when walking)
+    const bx = hZ.x * hY.y - hY.x * hZ.y, bz = hZ.z * hY.y - hY.z * hZ.y, hyaw = Math.atan2(bx, bz);
+    if (!seat) { if (Q[6] > 0 && dt > 1e-4) { const vx = (Hp.x - Q[4]) / dt, vz = (Hp.z - Q[5]) / dt, kk = Math.min(1, dt * 8); Q[2] += (Math.max(-6, Math.min(6, vx)) - Q[2]) * kk; Q[3] += (Math.max(-6, Math.min(6, vz)) - Q[3]) * kk; }
+      Q[4] = Hp.x; Q[5] = Hp.z; Q[6] = 1; }
+    else { Q[2] = Q[3] = 0; }
+    const spd = Math.sqrt(Q[2] * Q[2] + Q[3] * Q[3]);
+    if (Q[1] === 0) { Q[0] = seat ? 0 : hyaw; Q[1] = 1; }
+    if (seat) Q[0] = Math.max(-0.35, Math.min(0.35, wrap(hyaw) * 0.3));
+    else { const e = wrap(hyaw - Q[0]), dz = spd > 0.4 ? 0.06 : 0.35, kk = Math.min(1, dt * (spd > 0.4 ? 7 : 2.2)), ae = Math.abs(e); if (ae > dz) Q[0] = wrap(Q[0] + Math.sign(e) * (ae - dz) * kk);
+      const e2 = wrap(hyaw - Q[0]); if (Math.abs(e2) > 1.0) Q[0] = wrap(hyaw - Math.sign(e2) * 1.0); }
+    const yaw = Q[0]; bk.set(Math.sin(yaw), 0, Math.cos(yaw)); fw.copy(bk).negate(); rt.set(Math.cos(yaw), 0, -Math.sin(yaw));
+    // neck base hangs from the head pivot (half the head's tilt)
+    t1.copy(UP).multiplyScalar(0.55).addScaledVector(hY, 0.45).normalize(); N.copy(Hp).addScaledVector(t1, -NECKL);
+    // rifle shouldered: the torso turns and slides so the right (or left) shoulder pocket comes under the butt
+    Q[9] = 0; if (!seat && typeof RFL !== 'undefined' && RFL.g && RFL.place === 'vr' && RFL.stockW > 0.01) rifleShoulder();
+    // pelvis
+    let fy = 0, air = 0;
+    if (seat) Pv.set(0, -0.112, 0.068);
+    else { fy = FOOT.fy === undefined ? N.y - 1.45 : FOOT.fy; air = FOOT.air ? 1 : 0; Q[8] += (air - Q[8]) * Math.min(1, dt * 12); air = Q[8];
+      const hN = N.y - fy, cr = Math.min(1, Math.max(0, (1.42 - hN) / 0.55));
+      Q[16] = cr; Q[17] = hN; Pv.copy(N).addScaledVector(bk, 0.015 + 0.17 * cr); const dx = Pv.x - N.x, dz = Pv.z - N.z; Pv.y = N.y - Math.sqrt(Math.max(SPN * SPN - dx * dx - dz * dz, 0.01));
+      Pv.y = Math.min(Pv.y, fy + 0.975 + air * 0.2); Pv.y = Math.max(Pv.y, fy + 0.4); }
+    // torso frames (pelvis -> abdomen -> chest -> neck -> head)
+    t2.subVectors(N, Pv).normalize();
+    t1.copy(UP).multiplyScalar(seat ? 0.75 : 0.7).addScaledVector(t2, seat ? 0.25 : 0.3).normalize(); Q[61] = 0; setFrame(PELV, Pv, t1, seat ? ZS : bk);
+    W[PELV].extractBasis(pX, pY, pZ); aO.copy(Pv).addScaledVector(pY, 0.1);
+    t3.copy(UP).multiplyScalar(0.25).addScaledVector(t2, 0.75).normalize();
+    if (Q[9] > 0) { const by = yaw - Q[9] * 0.55 * Q[14]; t5.set(Math.sin(by), 0, Math.cos(by)); } else t5.copy(bk);   // chest yaw (bladed for the rifle)
+    t6.copy(seat ? ZS : bk).add(t5).normalize(); Q[61] = 0; setFrame(SPINE, aO, t3, t6);
+    cO.copy(aO).addScaledVector(t3, 0.16); t4.subVectors(N, cO); Q[61] = Math.sqrt(t4.x * t4.x + t4.y * t4.y + t4.z * t4.z); setFrame(CHEST, cO, t4, t5);
+    W[CHEST].extractBasis(cX, cY, cZ); cX.normalize(); cZ.normalize(); const cyl = Math.sqrt(cY.x * cY.x + cY.y * cY.y + cY.z * cY.z); cY.multiplyScalar(1 / cyl);
+    t4.subVectors(Hp, N); Q[61] = Math.sqrt(t4.x * t4.x + t4.y * t4.y + t4.z * t4.z); setFrame(NECK, N, t4, hZ); W[HEAD].makeBasis(hX, hY, hZ).setPosition(Hp);
+    // shoulders + clavicle roots on the chest
+    for (let s = 0; s < 2; s++) { const x = SX[s]; S0[s].copy(cO).addScaledVector(cX, x * SHL[0]).addScaledVector(cY, SHL[1] * cyl).addScaledVector(cZ, SHL[2]); SH[s].copy(S0[s]);
+      cl0[s].copy(cO).addScaledVector(cX, x * CLL[0]).addScaledVector(cY, CLL[1] * cyl).addScaledVector(cZ, CLL[2]); }
+    Q[57] = fy; Q[58] = air; Q[59] = spd;
+    // ground slope under you (LMS fit of FOOT.fy against your own moves; Q42 last fy, Q43/44 last x/z, Q46 valid, Q47/48 gradient)
+    if (seat || FOOT.on || air > 0.01) Q[46] = 0;
+    else { const mx = Hp.x - Q[43], mz = Hp.z - Q[44], mm = mx * mx + mz * mz;
+      if (Q[46] === 0) { Q[47] = Q[48] = 0; Q[46] = 1; Q[42] = fy; Q[43] = Hp.x; Q[44] = Hp.z; }
+      else if (mm > 1e-4) { let df = fy - Q[42]; const m = Math.sqrt(mm), lim = 0.8 * m; if (df > lim) df = lim; else if (df < -lim) df = -lim;
+        const e = df - (Q[47] * mx + Q[48] * mz), g = 0.5 * e / mm; Q[47] += g * mx; Q[48] += g * mz; Q[42] = fy; Q[43] = Hp.x; Q[44] = Hp.z; } }
+  }
+  function tickLegs(dt) {
+    const seat = Q[11] > 0;
+    // legs
+    { W[PELV].extractBasis(pX, pY, pZ); pX.normalize(); pY.normalize(); pZ.normalize();
+      for (let s = 0; s < 2; s++) HIP[s].copy(Pv).addScaledVector(pX, SX[s] * HIPL[0]).addScaledVector(pY, HIPL[1]).addScaledVector(pZ, HIPL[2]);
+      if (seat) { knob.getWorldPosition(t1).applyMatrix4(MINV); Q[15] = t1.x; for (let s = 0; s < 2; s++) { const x = SX[s], rud = typeof ctl !== 'undefined' ? ctl.rud : 0, br = typeof ctl !== 'undefined' ? ctl.brake : 0, pz = -0.645 - x * 0.035 * rud, pit = 0.42 + 0.12 * br;
+          AN[s].set(x * 0.125, -0.372 + 0.04 + ANK * Math.cos(pit), pz); FY[s].set(0, Math.sin(pit), -Math.cos(pit)); FZ[s].set(0, Math.cos(pit), Math.sin(pit)); const kx = Q[15] * x > 0 ? Q[15] * 6 : 0; Q[54] = x * 0.75 + kx; Q[55] = 1; Q[56] = -0.25; legIK(s); } }
+      else { for (let s = 0; s < 2; s++) footTick(s, dt); for (let s = 0; s < 2; s++) { const x = SX[s], fyw = ST[s * 16 + 3] - x * 0.1; Q[54] = -Math.sin(fyw) + rt.x * x * 0.15; Q[55] = 0; Q[56] = -Math.cos(fyw) + rt.z * x * 0.15; legIK(s); } } }
+  }
+  function xrOffsetMW() { xrOffset.updateWorldMatrix(true, false); return xrOffset.matrixWorld; }
+  // desktop hands (no glove): R on the stick, L on the throttle in the seat; on foot the desk rifle, or hanging with the walk
+  // normalise without three's out-of-line divideScalar (deskHand stays on the mid tier: a double argument there is a boxed number); same maths (x * (1 / l))
+  const nz = v => { const k = 1 / (Math.sqrt(v.x * v.x + v.y * v.y + v.z * v.z) || 1); v.x *= k; v.y *= k; v.z *= k; return v; };
+  const asv = (o, v, k) => { o.x += v.x * k; o.y += v.y * k; o.z += v.z * k; return o; };   // only with constant k (no boxing)
+  function deskHand(s, seat) {
+    const T = TG[s], gy = GY[s], gx = GX[s], gz = GZ[s];
+    if (seat) { if (s === 1) { knob.getWorldPosition(t1); } else { throttleKnob.getWorldPosition(t1); } t1.applyMatrix4(MINV);
+      gy.subVectors(t1, SH[s]); gy.y *= 0.3; nz(gy); T.copy(t1); asv(T, gy, -0.075); asv(T, UP, -0.015);
+      gx.crossVectors(gy, UP); gx.x = -gx.x; gx.y = -gx.y; gx.z = -gx.z; nz(gx); gz.crossVectors(gx, gy); return; }
+    if (typeof RFL !== 'undefined' && RFL.g && RFL.place === 'desk') { RFL.g.updateWorldMatrix(true, false); t1.copy(s === 1 ? RF.grip : RF.fore).applyMatrix4(RFL.g.matrixWorld).applyMatrix4(MINV);
+      t2.set(0, 0, -1).transformDirection(RFL.g.matrixWorld); gy.copy(t2); if (s === 1) nz(asv(gy, UP, -0.6)); else nz(asv(gy, rt, 0.5));
+      T.copy(t1); asv(T, gy, -0.06); asv(T, UP, -0.025); gx.crossVectors(gy, UP); gx.x = -gx.x; gx.y = -gx.y; gx.z = -gx.z; nz(gx); gz.crossVectors(gx, gy); return; }
+    // hanging, swinging opposite the legs
+    const pu = ST[(1 - s) * 16 + 4] >= 0 ? Math.min(1, ST[(1 - s) * 16 + 4]) : 0, pq = pu * (1 - pu), ph = 16 * pq / (5 - 4 * pq),   // sin(pi u) (Bhaskara, < 0.2 %: no Math.sin call on this tier)
+      sw = Math.min(1, Math.sqrt(Q[2] * Q[2] + Q[3] * Q[3]) / 2) * 0.22 * ph;
+    const kx = SX[s] * 0.06, kz = -0.02 - sw, kg = -sw * 0.8;
+    T.copy(SH[s]); asv(T, UP, -0.5); T.x += cX.x * kx + cZ.x * kz; T.y += cX.y * kx + cZ.y * kz; T.z += cX.z * kx + cZ.z * kz;
+    gy.set(-UP.x + cZ.x * kg, -UP.y + cZ.y * kg, -UP.z + cZ.z * kg); nz(gy); gx.x = -cX.x; gx.y = -cX.y; gx.z = -cX.z;
+    { const dd = gx.x * gy.x + gx.y * gy.y + gx.z * gy.z; gx.x -= gy.x * dd; gx.y -= gy.y * dd; gx.z -= gy.z * dd; } nz(gx); gz.crossVectors(gx, gy);
+  }
+
+  // obstacles for the elbow: a held rifle (grip -> butt) or the rod's butt (segment t1 + t2 * [0, Q13]); in local space
+  function obstacle() { Q[12] = 0;
+    if (typeof RFL !== 'undefined' && RFL.g && (RFL.place === 'vr' || RFL.place === 'desk') && RFL.g.visible) { RFL.g.updateWorldMatrix(true, false); oA.set(0, -0.02, 0.33).applyMatrix4(RFL.g.matrixWorld).applyMatrix4(MINV);
+      oD.set(0, -0.01, -0.05).applyMatrix4(RFL.g.matrixWorld).applyMatrix4(MINV); oD.sub(oA); Q[13] = Math.sqrt(oD.x * oD.x + oD.y * oD.y + oD.z * oD.z); oD.multiplyScalar(1 / Math.max(Q[13], 1e-6)); Q[12] = 1; return; }
+    if (typeof FROD !== 'undefined' && FROD.m.visible && typeof FISH !== 'undefined' && FISH.rod !== 'pack') {   // the rod's butt + rear grip (v1.10: FROD.f, fist at the origin, butt cap at z +0.3)
+      const F = FROD.f || FREEL.m, z0 = FROD.f ? 0.3 : 0.27, y0 = FROD.f ? 0 : 0.04; F.updateWorldMatrix(true, false); oA.set(0, y0, z0).applyMatrix4(F.matrixWorld).applyMatrix4(MINV);
+      oD.set(0, y0, FROD.f ? 0.04 : -0.05).applyMatrix4(F.matrixWorld).applyMatrix4(MINV); oD.sub(oA); Q[13] = Math.sqrt(oD.x * oD.x + oD.y * oD.y + oD.z * oD.z); oD.multiplyScalar(1 / Math.max(Q[13], 1e-6)); Q[12] = 1; } }
+  // rifle in the shoulder (VR): blade the chest (yaw toward the rifle side) and slide the torso so the shoulder pocket sits behind the butt plate
+  function rifleShoulder() {
+    const w = Math.min(1, RFL.stockW), side = RFL.sx < 0 ? -1 : 1; RFL.g.updateWorldMatrix(true, false); t1.set(0, -0.035, 0.335).applyMatrix4(RFL.g.matrixWorld).applyMatrix4(MINV);   // butt plate centre
+    // pocket = chest-frame point (side * 0.12, 0.15, -0.075) for a chest yawed by -side * blade; best blade of 0..55 deg, then the slide
+    let bb = 0, bd = 1e9; for (let i = 0; i <= 8; i++) { const bl = i / 8, by = Q[0] - side * bl * 0.95, c = Math.cos(by), sn = Math.sin(by);
+      const px = N.x + c * side * 0.12 + sn * (-0.075 - 0.02), pz = N.z - sn * side * 0.12 + c * (-0.075 - 0.02), dd = (px - t1.x) * (px - t1.x) + (pz - t1.z) * (pz - t1.z); if (dd < bd) { bd = dd; bb = bl; } }
+    Q[9] = w; Q[14] = side * bb * 1.73;   // blade angle factor used by the chest yaw (0.55 * 1.73 = 0.95 rad max)
+    const by = Q[0] - side * bb * 0.95, c = Math.cos(by), sn = Math.sin(by);
+    t2.set(N.x + c * side * 0.12 + sn * (-0.095), N.y - 0.06, N.z - sn * side * 0.12 + c * (-0.095)); t2.subVectors(t1, t2); if (Math.sqrt(t2.x * t2.x + t2.y * t2.y + t2.z * t2.z) > 0.14) t2.setLength(0.14);
+    N.addScaledVector(t2, w * 0.85);
+  }
+  // ---------------- prewarm: this material with every panel-glow / landing-light combination, and the shadow depth program ----------------
+  B.prewarm = () => { const t = performance.now(), pv = PL.visible, sv = SL.visible, mv = mesh.visible; mesh.visible = true;
+    for (let c = 0; c < 4; c++) { PL.visible = !!(c & 1); SL.visible = !!(c & 2); renderer.compile(mesh, camera, scene); }
+    PL.visible = pv; SL.visible = sv; mesh.visible = mv; B.warmMs = performance.now() - t; };
+  B.prewarm();
+  // the shadow pass's depth program (compile() can't make it): the body alone, one tiny render (as PC ULTRA's own warm-up does), queued on the game's
+  // warm-up jobs once shadows are on (at load, or when they are switched on later), then the warm-up finishes the new programs before the next frame is drawn
+  const DW = new Float64Array(2);   // 0 depth program made, 1 queued
+  let dRT = null;
+  B.warmDepth = () => { const L = []; scene.traverse(o => { if (o.isLight && o.castShadow) L.push(o); }); if (!L.length) { DW[1] = 0; return; }
+    const sv = []; scene.traverse(o => { if (o !== scene && !o.isLight) { sv.push(o, o.visible); o.visible = false; } });
+    for (const o of [mesh, ...L]) for (let q = o.parent; q && q !== scene; q = q.parent) q.visible = true; mesh.visible = true; const cs = mesh.castShadow; mesh.castShadow = true;
+    if (!dRT) dRT = new THREE.WebGLRenderTarget(16, 16); const prev = renderer.getRenderTarget(); renderer.setRenderTarget(dRT); renderer.shadowMap.needsUpdate = true; for (const l of L) l.shadow.needsUpdate = true;
+    renderer.render(scene, camera); renderer.setRenderTarget(prev); for (let i = 0; i < sv.length; i += 2) sv[i].visible = sv[i + 1]; mesh.castShadow = cs; renderer.shadowMap.needsUpdate = true; for (const l of L) l.shadow.needsUpdate = true;
+    DW[0] = 1; };
+  const J1 = () => { B.prewarm(); B.warmDepth(); }, J2 = () => warmStart(WARM.label || 'Preparing graphics');
+  const depthQueue = () => { if (DW[0] || DW[1] || !(GFX.shadows > 0)) return; DW[1] = 1; WARM.jobs.push(J1, J2); warmUI(); };
+  depthQueue();
+  // ---------------- the setting: Settings > CONTROLS > Body (HANDS ONLY / ARMS / FULL), default FULL; auto quality: no shadow from step 4, ARMS at step 5 ----------------
+  if (!('body' in GFX_DEF)) { GFX_DEF.body = 2; GFX.body = 2; try { const o = JSON.parse(localStorage.getItem('bp_gfx') || '{}'); if (typeof o.body === 'number' && isFinite(o.body)) GFX.body = Math.min(Math.max(Math.round(o.body), 0), 2); } catch (e) { /* no storage */ }
+    try { const q = new URLSearchParams(location.search).get('gfx'); if (q) for (const kv of q.split(',')) { const [k, vv] = kv.split(':'); if (k === 'body' && isFinite(+vv)) GFX.body = Math.min(Math.max(Math.round(+vv), 0), 2); } } catch (e) { /* no url */ } }
+  if (!GFX_OPT.some(o => o[0] === 'body')) { const i = GFX_OPT.findIndex(o => o[0] === 'glove'); GFX_OPT.splice(i < 0 ? GFX_OPT.length : i + 1, 0, ['body', 'Body', [0, 1, 2], ['HANDS ONLY', 'ARMS', 'FULL'], 'your own arms, body and legs (auto quality thins it)']); }
+  if (MENU_ROWS.controls && !MENU_ROWS.controls.includes('body')) { const i = MENU_ROWS.controls.indexOf('glove'); MENU_ROWS.controls.splice(i < 0 ? MENU_ROWS.controls.length : i + 1, 0, 'body'); }
+  B.W = W; B.bind = bind; B.NB = NB; B.fns = { armIK, armSolve, elbowSearch, armFrames, elbowCost, legIK, footTick, tickTorso, tickLegs, deskHand, headPose, obstacle, rifleShoulder, setFrame, setFrameX, nz, asv, tick: B.tick };   // for the tests (tier checks)
+  Object.defineProperty(B, 'ms', { get: () => Q[60] });
+  return B;
+})();
+function bodyTick(dt) { BODY.tick(dt); }
+// <<< V2 BODY END
 warmStart('Preparing graphics'); bootLog('warm-up started: ' + WARM.tot + ' programs to finish, ' + (WARM.par ? 'polling parallel compile' : 'no parallel compile: one at a time'));
 if (window.__ultSkip) setTimeout(() => say('PC ULTRA WAS NOT RESTORED (THE LAST START DID NOT FINISH) - PICK IT AGAIN IN SETTINGS'), 4000);
 const BOOTF = { n: 0, real: 0, xr: 0, pre: 0, lite: 0, xs: 0, xa: [], xl: 0, last: 0 };   // v1.10.1 boot log: frame stages
@@ -11691,7 +12117,7 @@ renderer.setAnimationLoop(() => {
   if ((chunkT += dt) > 0.2) { chunkT = 0; updateChunks(); }
   hxTick(dt);                                // v0.24 haptics (engine / buffet / gear + queued pulses)
   if (xr || HANDS.force) { wtTick(dt); updateHands(dt); setpTick(); jbPoke(); ecoPoke(); upgPoke(); emgPoke(); }
-  vlTick(); batchTick(); cvlApply(); if (GFX.shadows && FT.n % ((mode !== 'plane' || ac.vel[0] * ac.vel[0] + ac.vel[1] * ac.vel[1] + ac.vel[2] * ac.vel[2] > 0.1) ? DYN.sh : Math.max(2, DYN.sh)) === 0) renderer.shadowMap.needsUpdate = true;   // v0.47 static batches; shadow map at half rate   // v0.23 gloves (after the stick / knobs have their final pose); v0.45 wrist SETTINGS board
+  bodyTick(dt); vlTick(); batchTick(); cvlApply(); if (GFX.shadows && FT.n % ((mode !== 'plane' || ac.vel[0] * ac.vel[0] + ac.vel[1] * ac.vel[1] + ac.vel[2] * ac.vel[2] > 0.1) ? DYN.sh : Math.max(2, DYN.sh)) === 0) renderer.shadowMap.needsUpdate = true;   // v0.47 static batches; shadow map at half rate   // v0.23 gloves (after the stick / knobs have their final pose); v0.45 wrist SETTINGS board
   if (DIRTY_TEX.size) { DIRTY_TEX.forEach(texInit); DIRTY_TEX.clear(); } if (WARM.done && !WARM.jobs.length) binoRender();   // v0.53 the 7x view (only while raised); v0.81 the textures upload first
   if (xr || HANDS.force) wtApply(); BOOTF.pre = performance.now(); BOOTF.wl = xr && BOOTF.lite > 0; if (BOOTF.wl && BOOTF.lite === 2) warmStart('Entering VR');
   const _wr = warmTick() && !(xr && BOOTF.lite > 0); if (xr && BOOTF.lite > 0) BOOTF.lite--; if (_wr && !BOOTF.real) bootLog('first scene frame: drawing (first draw can still link a few programs)');

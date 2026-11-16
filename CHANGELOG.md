@@ -2,6 +2,15 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v1.10.12 – your own body: arms, torso and legs under the gloves (IK), by VR Dev 2
+
+- **A full body (VR Dev 2's IK body):** you now have shoulders, sleeves, a waxed-canvas jacket, trousers and boots, which follow your headset and the two gloves. The arms are solved by IK each frame. The elbows pick a natural down-and-out bend and stay clear of the torso, the cockpit walls, the held rifle and the rod. The sleeves tuck into the gauntlets. The torso hangs from your head with a lagged body yaw, and the legs walk, crouch, kneel and jump with you on foot. The gloves themselves are unchanged and exactly where they were.
+- **The head is not drawn for you** (nor for the binoculars), but it still casts its shadow. In the mirror and in third person you see all of it: the ball cap and the David Clark-style headset.
+- **First-person polish (new in this version):** in your own view, any part of the body within 13 cm of your eyes, plus the collar and shoulders (within 28 cm sideways and less than 30 cm under your eyes), is no longer drawn. It fades out over 2 cm. Looking straight down, you now see your sleeves, belt and boots instead of a flat wall of jacket across the bottom of the view. The rifle's cheek weld no longer has a shoulder slab in it. This replaces the earlier "near-plane guard", which flattened the jacket onto your eyes. The mirror, third-person view and shadow are unchanged.
+- **Note:** the brown band seen in the earlier first-person test shots was the old church road under the test spot near the home hangar, not the body.
+- **Settings > CONTROLS > Body:** HANDS ONLY / ARMS / FULL (default FULL). Auto quality step 4 drops the body's shadow, and step 5 drops it to ARMS.
+- **Cost:** one skinned mesh, about 1.9k triangles, 1 draw call (+1 shadow-depth draw with shadows on). It makes no garbage per frame and uses no new shader program after the start-up warm-up. The physics checksum is unchanged.
+
 ## v1.10.11 – local roads: gravel roads and dirt tracks to the places that should have them
 
 - **Audit (Neil: "check it makes sense with regard to roads"):** I checked every town, strip, camp, POI, vista and story place against the road network. The three towns were already joined through the crossroads. The farms, the gas station, the motel, the checkpoint, the bridge and the Dry Fork strip were on roads. But the sawmill, the lodge, the ranger station, Halvorsen station, the East Lake campground and every cabin, ranch, homestead and mine camp had no way in. The church road also ran 40 m down a creek bed where it meets the creek mouth.
