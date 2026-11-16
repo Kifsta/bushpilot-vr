@@ -145,6 +145,7 @@ v0.44 latches: every window and the door are latched while shut. Squeeze the han
 | Rod hold + crank (v1.10.7) | VR: the rod hand uses Neil's Pose Lab hold (rodL, mirrored for the right). The crank is on the side away from the rod hand (rod left = crank right), with its knob facing out. The other hand grips the knob and circles to reel in | same |
 | Casting (v1.10.8) | VR: trigger opens the bail and holds the line; flick the rod forward and let go during or just after the flick (the peak of the flick counts). Reel a lure in under the tip and it lifts out and reels up to the tip. Desktop unchanged | same |
 | Tackle shop price tags | Walk up to a shop counter or rod rack: each item has a card with its name and price (green when owned) |
+| Z-fighting fix (v1.10.10) | Nothing to press: far ice, cloud joins, roads and tree bases no longer flicker; binoculars hide inside 10 cm of the eyes |
 
 ## On foot
 | | VR | Desktop |

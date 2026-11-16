@@ -2,6 +2,14 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v1.10.10 – no more z-fighting on the far glacier, clouds and trees
+
+- **Cause (Neil: flicker in the clouds, the distant glacier and the trees):** the near plane was 5 cm with the far plane at 7-14 km. That left the depth buffer about 1 m apart at 1 km, 7 m at 2.5 km and 30 m at 5 km. Surfaces closer together than that flickered as you moved. That included the North Icefall's ice, which lies 0.6-3 m over the slope, the shallow joins between a cloud's puffs, and the tree bases and roads on the ground.
+- **Near plane 10 cm** (the WebXR default): twice the depth precision at every range, at no cost. The binoculars now hide when they are inside 10 cm of your eyes, the same rule as before.
+- **The icefall:** the ice (tongue, seracs, snout) and the crevasses are now two small meshes of their own, pulled forward in depth over the ground. The pull is counted in depth-buffer steps, so it holds at any range. They use the same material and programs, and add 2 draws only when the icefall is in view. The ice looks the same up close. From 1-6 km the ground no longer shows through it: in the sim, flickering pixels on the glacier went down 3-5x, and what is left is serac edges.
+- **Clouds:** each puff of a cloud is drawn a little nearer along its own view ray (0.3 % per puff), so the outline is unchanged and one puff always wins where two meet at a shallow angle. The striped "comb" along the joins is gone, at no cost.
+- **Roads:** a constant depth offset as well as the slope one, so a road seen flat from far off no longer flickers on the ground.
+
 ## v1.10.9 – price tags in the tackle shops
 
 - **Shop labels (Neil):** every item in the Cutler tackle shop and on the Dry Fork bench now has a small tent card in front of it with its name and price in large type, plus the pack size or line length. The rods on the Cutler rack have cards above them. A card goes green when you own the item (OWNED, or HAVE n for lures) and updates as soon as you buy. The cards are readable from where you stand in VR, about 1 m away.
