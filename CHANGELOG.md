@@ -2,6 +2,17 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v1.11.12 – recorded sounds (a CC0 sound pack), with a switch back to the classic sounds
+
+- **Recorded sounds:** 52 sounds (119 short Ogg Opus files, about 457 KB in `sfx/`) now play over the synthesized Web Audio ones.
+  - **Loops:** the engine (4 recorded loops crossfaded and pitched by rpm, heard from the cowl), cockpit wind by airspeed, rain, rivers, crickets at night, a daytime bird bed and the fishing reel while you crank.
+  - **One-shots:** switches, latches, doors, cargo by material, the rifle, splashes, eating, axe, straps, cash, the radio, thunder and crash damage. Footsteps on foot change with the ground: grass, gravel in town, wood, snow and water.
+  - The volume sliders, windows, weather, towns and time of day still drive every sound. Anything without a recording stays synthesized.
+- **Sound: RECORDED / CLASSIC:** a new row in Settings > AUDIO switches between the recordings and the original synthesized sounds, live and saved. It's handy for an A/B, especially the engine, which is pitched from race-car loops.
+- **Loading:** the files load quietly in the background 2 s after start, from the game's own `sfx/` folder and nowhere else. Until they've loaded, or if a file fails, the classic sound plays. `?nosfx` (or safe mode) turns the pack off.
+- **Credits:** every sound is CC0 (public domain) or made for the game. Sources and authors (Kenney, OpenGameArt contributors) are listed in `sfx/CREDITS.md`, and the CC0 legal text is in `sfx/LICENSES`.
+- **Cost:** no garbage per frame, no new shader programs, and the physics checksum is unchanged. Each sound event creates a few Web Audio nodes, like before.
+
 ## v1.11.11 – the right-side doors work like a real Super Cub's
 
 - **Two openings, one B-pillar:** the right side now has two openings: the main door by the seats, and the rear door behind it back to the baggage bay. Only a narrow vertical B-pillar (8 cm) separates them. The rear window and the rear door are now the full width of the rear opening, so the old strip of skin between the window and the door post is gone.
