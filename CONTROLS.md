@@ -169,6 +169,15 @@ v0.44 latches: every window and the door are latched while shut. Squeeze the han
 | Right-side doors (v1.11.14, Neil) | The pilot door (the seats) as before v1.11.11: open on foot, shut in the seat. Behind the B-pillar: the **passenger door** beside the rear seat (lower half down, window up) and the **baggage door** behind it (one pillar between them, nothing across either opening; it swings out on its aft hinge). On foot, squeeze once at a door's handle (passenger: also its window's lower edge) to open or shut it; sitting in shuts both | 5 (passenger door, in the seat) |
 | Load cargo (v1.11.3) | Through any opening while it's open: the pilot door, the passenger door or (v1.11.14) the baggage door; a shut door and the pillars block it. The Cub is solid: a held item that pushes through the side is stopped, and let go there it drops outside | – |
 | Lean in (v1.11.14) | With a door open, lean your head in through it (up to about 27 cm past the skin) to look inside or reach for cargo. Your body stays outside; a shut door or a pillar keeps your head out | – |
+| Grab ray (v1.11.19) | On foot: hold B (empty right hand) for a 3 m beam; when its tip lights green, squeeze grip and the thing comes to your hand. A short B tap does what it did (rifle hand: the lever) | - |
+| Crouch (v1.11.19) | Right stick down: crouch as far as you push it (linear); up = hop | C = full crouch |
+| Buttons B / Y (v1.11.19 audit) | Right B - cockpit: restart hint (restart is in the wrist menu); on foot: rifle lever on the rifle hand, else tap = hint, hold = grab ray. Left Y - cockpit: climb out; on foot: rifle lever on the rifle hand (left-handed), else climb in. A / X: recentre, or load the round in that hand | - |
+| Haptics (v1.11.19) | Ticks when a hand reaches something it can take, on grabs, let-gos and when you are hurt; Settings > Haptics sets the strength (and says NO MOTOR FOUND if the controllers have none) | - |
+| Swag camp (v1.12.0) | VR: grip the swag strapped under the worn pack; trigger rolls it out in front of you (flat, dry ground). A hand on it + trigger = sleep when tired: REST back, through to dawn, then it saves (SAVED AT YOUR CAMP). Grip it to roll it up; let it go at the pack's bottom to strap it on | Shift+I: unroll / sleep (tired) / roll up |
+| Pack: left shoulder (v1.12.0) | Reach back over your LEFT shoulder (a wide zone behind and above it) and grip: the pack comes off. With the rifle slung the right side stays the rifle's | - |
+| Lean in / Cub rifle (v1.12.0) | Through an open door you can lean about 20 cm further in, and the rifle in the Cub's floor holder takes a hand up to about 25 cm off it | - |
+| Things come to rest (v1.12.0) | Dropped or thrown things land on tables, stumps, counters and the Cub (floor, wings, cargo bay), not just the ground; lost ones (under the ground, out of the world) come back to your feet | same |
+| Title screen (v1.12.0) | Before play (flat screen only - the headset never sees it): CONTINUE, NEW STORY, SETTINGS, ENTER VR over slow shots of the Cub. ?notitle skips it | Enter = continue |
 | Map light (v1.11.18) | In the cockpit: grip the knob of the small lamp on the left wall by your shoulder and twist to dim it; a quick squeeze switches it off / back on. Needs the master switch | Shift+K: OFF / 25 / 50 / 100 % |
 | Night reading (v1.11.18) | At night signs, boards and papers are only readable in light: shine your torch on them, stand by a lantern at home, or use the map light / panel lights in the cockpit | (same) |
 | Pack: free placement (v1.11.17) | With the pack open, let an item go inside: it stays where and how you put it (tilted over 45 deg it lies on its side). No room there: it stays in your hand with a buzz - move it or take it out. Opening the pack shows how full the bag really is | U / E pack as before (auto-packed) |
@@ -185,9 +194,9 @@ v0.44 latches: every window and the door are latched while shut. Squeeze the han
 |---|---|---|
 | Walk / run | Left stick, click it to run | WASD (or arrows), Shift to run |
 | Turn | Right stick left / right (snap 30°, or snap 45° / smooth in Settings) | Mouse (click to capture it) |
-| Crouch / hop | Right stick down / up | Hold C / Space |
+| Crouch / hop | Right stick down (v1.11.19: as far as you push it) / up | Hold C / Space |
 | Climb in (within 3 m of the Cub's door) | Y | F |
-| Recentre / reset | X or A recentre, B resets the Cub to the strip | Home / R |
+| Recentre / reset | X or A recentre; restart: wrist MENU > RESUME > RESTART FLIGHT (v1.11.19: hold B is the grab ray) | Home / R |
 
 Town walls and the fences at the depot, checkpoint and lab are solid. You walk round them, not through them.
 
@@ -264,10 +273,10 @@ Fourteen **unprepared landing spots** off the airfields (eight since v0.52, six 
 **v0.84.4: the v0.44-full rifle is back (Neil).** The rifle model and the way it sits in your hands are the zombie version's again. Where the rows below describe the v0.77 hold, this wins:
 - **Grip:** squeeze on the stock's wrist. The rifle is your controller turned by the **grip angle** (default -40°, muzzle down from the controller's forward). To change it, hold the **right stick in** and push it up or down while the rifle is in your right hand: 5° steps, kept between sessions. The rifle's origin is at your controller, so it moves 1:1 with your hand.
 - **Support hand:** grip within about 30 cm of the forend. The bore runs from your grip hand to your forend hand, tilted 6° so the forend sits on that hand.
-- **Lever by hand:** with your other hand, squeeze on the **lever loop** (within 7 cm) and swing it down and back up. B / Y and the flick still work.
+- **Lever:** v1.12.0: **B / Y** on the rifle hand only. Grabbing the lever loop and the down-flick no longer work it.
 - **Forend only:** let go of the wrist while the forend is held, and the rifle stays exactly where it was in that hand. Grab the wrist again to shoot.
 - **Shouldering (cheek weld):** bring the grip hand about 20 cm in front of your eye and 6 cm below it. Since v0.91.3 the stock only starts to pull in within about **8 cm** of that point (fully inside 2.5 cm; it was 14 / 4 cm). The stock pulls in, and your eye sits on the sight line over the forend hand: the buckhorn notch and the brass bead are level, 3 cm over the bore. The sights are zeroed at 50 m. Recoil pivots under the grip, or in your shoulder when shouldered.
-- **Unchanged:** firing, the 7 + 1 rounds, loading through the gate from the belt pouch, the ballistics, the Dry Fork ammo counter, deer, the cabin rack, the Cub's floor holder and the back slot.
+- **Unchanged:** firing, the 7 + 1 rounds, loading from the belt pouch (v1.12.0: with A / X, see Load), the ballistics, the Dry Fork ammo counter, deer, the cabin rack, the Cub's floor holder and the back slot.
 Some jobs on the boards are **hunting jobs**: a lodge, the elk camp, the ranch or the Dry Fork butcher wants one deer. The board says `1 DEER (~100-150 LB) - HUNT AREA ON THE MAP`, and the paper map circles the herd's forest in orange with a hoof. Hunting jobs pay well.
 
 | | VR (Quest) | Desktop |
@@ -276,8 +285,8 @@ Some jobs on the boards are **hunting jobs**: a lodge, the elk camp, the ranch o
 | Support hand | Squeeze grip with your other hand anywhere within about 15 cm of the rifle: it always takes the **one fixed forend grip** (a palm-up cradle under the forend). Bring the stock to your cheek: it settles into a virtual shoulder. Let go of the stock and the forend hand **stays on the forend** and holds the rifle there (v0.77.6). It can't fire or work the lever until a hand grabs the stock again. Held in one hand, the muzzle lags a little behind fast swings | (automatic) |
 | Aim | Look down the rear notch over the bead | Hold **RMB** (aim down the sights) |
 | Fire | Trigger, rifle hand only. The rifle's trigger follows your finger (v0.67) | **LMB** |
-| Work the lever | Flick the rifle down and up one-handed, or press **B** on the rifle hand (**Y** if it's your left) without letting go: it ejects the case, cocks the hammer and chambers the next round | **X** |
-| Load | Squeeze on the **cartridge pouch** at your belt (front right, within about 10 cm since v0.91.2) for a round and bring its tip within about 6 cm of the loading gate on the receiver's right side, pointing roughly forward (within ~60°): it snaps onto the gate and slides in (v0.67.2). A full tube says MAGAZINE FULL and you keep the round. Keep squeezing at the gate and the next one comes from the pouch | **Z** (one round per press) |
+| Work the lever | Press **B** on the rifle hand (**Y** if it's your left) without letting go: it ejects the case, cocks the hammer and chambers the next round (v1.12.0: the flick no longer does) | **X** |
+| Load | Squeeze on the **cartridge pouch** at your belt (front right, within about 10 cm since v0.91.2) for a round, bring it within about **25 cm** of the loading gate on the receiver's right side and press **A** (**X** if the round is in your left hand): it slides in (v1.12.0: touching the round to the gate no longer loads it). A full tube says MAGAZINE FULL and you keep the round. Keep squeezing at the gate and the next one comes from the pouch | **Z** (one round per press) |
 | Ammo at home (v0.79.2) | None for sale: the carton on the stump by the cabin is empty. You start a new game with 20 rounds in the pouch (plus a full tube); after that, buy at Dry Fork | – |
 | Buy ammo in Dry Fork (v0.70) | The **HARDWARE** counter in the Dry Fork strip hangar: a box of 20 .44-40 for $35 from your wallet. Tap the brass bell on the counter to buy: the box lands on the counter. Grab it and the 20 rounds go into your belt pouch (60 max). Up to 3 bought boxes wait on the counter, and they are saved | **Z** at the counter: takes a waiting box, else buys one |
 | Sling / put down | Let go over your shoulder, muzzle up, to sling it. Let go at a rack to rack it. Let go anywhere else and it lies on the ground | T |
@@ -381,7 +390,7 @@ Every customer remembers you: the town or crew at each strip, each bush camp's c
   - VR (v0.77.7): the nozzle is a pistol grip (body, spout, red trigger lever, guard). Your hand holds it by the grip, fixed in your fist, with the spout pointing where your fingers point and a little down. The lever squeezes with the trigger. The hose drapes over the wing's leading edge and top and never passes through the wing.
   - Can't reach the cap? (v0.72) Climb the Cub: walk into the dark **step plate** on the main-gear leg (44 cm up), then on to the **tyre top** (80 cm up). You step up on your own, eased over a moment. From the tyre, the cap is at chest height. Walk off and you drop back down. A hop (right stick up / Space) is a little higher next to the Cub (55 cm instead of 40).
   - Desktop: stand by a filler cap and press G. G again (or walking away) stops it.
-- A reset (R / B) keeps the fuel you have (and your cash). With under 5 gal aboard (main + aux) it tops up to 5 gal at the home drum price ($6.40/gal, at most $32), on the hangar account if you're broke (v0.79.2).
+- A reset (R, or the wrist menu's RESTART FLIGHT) keeps the fuel you have (and your cash). With under 5 gal aboard (main + aux) it tops up to 5 gal at the home drum price ($6.40/gal, at most $32), on the hangar account if you're broke (v0.79.2).
 - When you stop, you get a receipt: gallons and cost. Away from home it is **cash only**, so the pump stops when you run out of money. The **home drum always gives you 12 gal on account**, even when you are broke past the hangar's credit limit. That is enough to reach any job and back, so you can never be stuck.
 
 ## Running costs (v0.55): oil, tach hours, wear, damage, the home hangar
@@ -495,7 +504,7 @@ A customer stands at every job board. Walk up to them for a hello: their rep tie
   - **GRAPHICS:** every graphics row, plus the PERFORMANCE / BALANCED / QUALITY presets and the PERF strip.
   - **COMFORT:** comfort vignette, turning (snap 30° / 45° / smooth), stick on release, control labels, and RECENTRE + SET HEIGHT.
   - **CONTROLS:** dominant hand (RIGHT / LEFT: the watch and its MENU go on the other wrist, and your dominant finger pokes), haptics, and a quick button reference.
-  - **AUDIO:** master, engine + flight (engine, wind, rumble), ambient, and effects (clicks, shots, horn) volumes.
+  - **AUDIO:** master, engine (engine, starter, prop wash, tyres), cockpit wind (v1.12.0), footsteps (v1.12.0), ambient, effects (clicks, shots, horn) and music volumes. v1.12.0: sounds are positional (HRTF on a PC / PCVR, equal-power on a standalone headset) and each cockpit control has its own sound.
 - Settings are saved in this browser (`bp_gfx`). The slots are `bushpilot-save-slot1..3`.
 - ` (backquote) still opens the old desktop settings list.
 

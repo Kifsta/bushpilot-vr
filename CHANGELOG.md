@@ -2,6 +2,52 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v1.12.0 – one large build: new story in VR, things rest on tables, the Cub's rifle in reach, a swag camp, sound sliders, positional sound, switch sounds, a title screen, input, clouds + rifle
+
+- **New story / load without leaving VR:** in a headset, the menu's NEW STORY, NEW FREE PLAY and LOAD used to reload the page, which ended the VR session. They now reset the game in place: your hands let go, every system starts fresh (or loads the save), you stand at the start and the view recentres. On desktop it still reloads.
+- **Things rest on what they land on:** a dropped or thrown item, the pack, cargo and the rifle now come to rest on the cabin tables, stumps, shop counters, the Cub's floor, wings and cargo bay (the CUBC) as well as the ground.
+  - A thing in the Cub rides along when it moves; one lying on a wing slides off once the Cub passes about 1.5 m/s.
+  - Anything that ends up under the ground, falls for more than 6 s or leaves the world comes back at your feet.
+  - One grid of the static meshes is built once (about 13 ms); a landing costs one short ray, and a resting thing only re-checks after it moves 8 cm. No per-frame garbage.
+- **Lean into the Cub:** with a door open you can lean further into the cockpit (head and arm allowance extended by 20 cm), and the rifle in the floor holder takes a hand up to about 25 cm off it.
+- **Pack over the LEFT shoulder:** reaching back over your left shoulder anywhere in a wider zone (behind and above the shoulder) takes the pack; with the rifle slung, the right side of your back stays the rifle's.
+- **Darker nights:** the night sky light and the moon are 30 % dimmer, so torches, lanterns and the map light matter.
+- **The swag (bedroll):** strapped under the bottom of the pack (4.5 lb).
+  - VR: grip it under the worn pack, then trigger rolls it out on the ground in front of you (needs a flat, dry bit). A hand on it + trigger sleeps in it when you're tired: REST comes back and the night skips to dawn like the cabin cot, then the game saves ("SAVED AT YOUR CAMP"). Grip it to roll it back up; let it go at the pack's bottom to strap it back on.
+  - Desktop: Shift+I unrolls it, sleeps (when tired) or rolls it up.
+  - The camp is saved.
+- **CC0 models:** the swag is Kenney's "Survival Kit" bedroll (packed and rolled out); the flashlight and the first aid kit are Quaternius models (from Poly Pizza). All are CC0, baked into the pack-item batches with vertex colours (no new draws, textures or programs), scaled to the old items' sizes so every grip, the torch beam and the Pose Lab holds are unchanged. Sources and licences: models/CREDITS.md.
+- **Volume sliders:** Settings > AUDIO now has **Engine**, **Cockpit wind** and **Footsteps** next to Master, Ambient, Effects and Music, each 0–100 % and saved. The in-cabin slipstream has its own bus now, so the engine slider no longer turns the wind down with it.
+- **Directional sound:** panners are HRTF on a PC (and PCVR) and equal-power on a standalone headset (cheaper). The river and lake water comes from the nearest shore, the rifle shot from its muzzle, the Cub's door from the door, and the home cabin's stove crackles from the stove. The engine heard on foot, birds and animals were already positional.
+- **A sound for each cockpit control:** master (a heavy toggle), the mag key (detents), fuel valve (a thunk and fuel moving), primer (plunger), carb heat and mixture (cable knobs), panel lights (rheostat tick), landing light (a snap toggle) and the starter (solenoid clunk). All synthesised, no new files.
+- **Title screen:** before play the page shows BUSH PILOT over slow cinematic shots of the Cub where it stands (an orbit, a low dolly to the prop, a crane, a wide pan; slow fades), with CONTINUE (when there is a save), NEW STORY (asks before replacing a save), SETTINGS and ENTER VR. It is on the flat page only, so the headset never shows it and there is no forced motion in VR. ENTER VR (it lights up once the browser confirms VR) goes straight into your game. In the headset the wrist MENU's NEW STORY and LOAD now work without leaving VR (see above). Keys don't move you while it's up. ?notitle skips it.
+- **Haptics on Quest 3:**
+  - Every buzz now has a floor of 14 ms and 10 % strength. The Quest 3's motor dropped anything shorter or weaker, which is why most small ticks (the 6–10 ms crank, detent and UI ticks) were never felt.
+  - When a controller has no WebXR actuator, the buzz goes through the standard Gamepad vibration actuator instead (for example over Link).
+  - An actuator that throws is counted and skipped, never fatal.
+  - Settings > Haptics says "NO MOTOR FOUND" if neither actuator exists. If you once cycled Haptics to OFF, it stays saved as OFF: cycle it back on there.
+- **New ticks:**
+  - A light tick when a hand comes onto something it can take: a cockpit control (its ring moves to it), a full belt or chest slot, an item in the open pack, or something on the ground (a pack item, the pack, the rifle, the map, cargo, a story item).
+  - A grab that took something without buzzing now gets a grab tick, and the same goes for a let-go.
+  - Getting hurt buzzes both hands, harder the more it hurts.
+  - Reach ticks are rate-limited, and the throttle detents are unchanged.
+- **Analog crouch:** pull the right stick down and you crouch as far as you pull it, from a small deadzone to full depth near the bottom, at the old crouch speed. Push up to hop, as before. A mostly sideways push (turning) never crouches, and desktop C is still a full crouch.
+- **Hold-B grab ray (VR, on foot):** hold B with an empty right hand for a 3 m beam. When it points at something you could pick up, the tip lights green; squeeze grip and it comes to your hand.
+  - A short tap of B does what B did before.
+  - With the rifle in that hand, B works the lever at once, as before.
+- **B / Y audit:** only two places in the code read these buttons.
+  - Right B: in the cockpit, the restart hint. On foot: the rifle lever on the rifle hand, otherwise a tap gives the restart hint and a hold gives the ray.
+  - Left Y: in the cockpit, climb out. On foot: the rifle lever on the rifle hand (left-handed), otherwise climb in.
+  - A / X recentre, and load the round in that hand.
+  - The help text no longer says B resets the flight (that moved to the wrist menu).
+- **Distant clouds no longer z-fight (VR Dev 3):** past about 1.45–1.55 km each cloud's puffs are drawn in painter's order through the depth test (in the vertex shader: no CPU work, no extra draws). Flicker at 2–4 km dropped from about 2,500 to about 100 changed pixels a frame; the rain fronts' dark bases get the same fix.
+- **Rifle (VR Dev 3):**
+  - Shouldering: the stock zone is exact inside 4.5 cm and its outer ramp is 11 cm (was 8), so the stock settles in reliably.
+  - Roll damping: while shouldered or raised in two hands, roll about the aim line is filtered (exact once your hand is still).
+  - Button-only actions: B / Y on the rifle hand works the lever; take a round from the belt pouch and press A / X with it within 25 cm of the gate to load. Grabbing the lever loop, the down-flick and touching a round to the gate no longer do anything (they misfired).
+- **Pose Lab:** every item you can hold now has its own left and right grip in the Lab, including all pack items (by category), the open tackle box and field guide, the pack itself and the swag. Codes saved in the Lab are taken by the game. See posetool/.
+- No physics change (md5 unchanged), no new shader programs after warm-up, no per-frame garbage.
+
 ## v1.11.18 – night lighting: signs and papers need light, a cockpit map light, lanterns at home, a creased map
 
 - **Signs and papers take the scene's light.** Signs, boards, shop tags, the field guide and tackle card, and the cockpit papers (checklist card, kneeboard, map) no longer glow in the dark. In daylight they look exactly as before. At night you can only read one when something lights it: your torch, the landing light, a lantern, the panel glow or the map light.
