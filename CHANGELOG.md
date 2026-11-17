@@ -2,6 +2,28 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v1.11.8 – battery and voltmeter, OAT gauge, thunderstorms, fog and cloud flying, carb ice (VR Dev 3)
+
+- **Battery and voltmeter:** the Cub now has a 25 Ah battery, and a voltmeter on the panel reads the bus while the master is on.
+  - The master, radio, panel lights and landing light all draw from it. Electrical time runs 10× fast, so a master left on flattens the battery in about 1.5 hours of play.
+  - The alternator charges from 1000 rpm and holds 14.2 V. Parked with the engine off within 30 m of the hangar or a fuel pump, ground power charges it.
+  - A weak battery cranks slowly. Below 7.8 V while cranking the engine won't turn over at all, below 11 V the radio goes dead, and the lights dim as the volts sag.
+  - The landing light and the panel glow now need the master on and a live battery.
+  - A new game (and the story start) begins with a healthy battery (92 %). The charge and any carb ice are saved with the game.
+- **OAT gauge:** an outside-air thermometer on the panel. It reads about 13 °C at sea level, swings with the time of day, drops 6.5 °C per km of height and drops in rain, mist and storms. The bulb takes about 12 s to settle.
+- **Thunderstorms:** a new weather state (+TSRA, low cloud base around 330 m, heavy rain). It can grow out of an overcast or drizzle; `?wx=storm` forces one.
+  - Lightning strikes every 5–23 s up to 7 km away, with a flash, a visible bolt below the cloud deck and thunder that arrives at the speed of sound.
+  - Fog banks can also roll in after dark now (they used to come only at dawn).
+- **Flying in cloud (IMC):** inside a cloud, under a front's dark base or in the storm deck, the view closes to a few metres of grey. The sky, sun, moon and stars fade out.
+- **Bumps:** storms, cloud and fronts shake the Cub (up to ±1.1 m/s vertical, small rolls and pitches). The bumps average out to nothing over time, and there's no wind.
+- **Carb ice:** in cool, damp air (about −4 to 18 °C with high humidity, worst at low power) ice builds in the carburettor.
+  - The engine loses power (an iced Cub at full throttle makes about 900 rpm less), runs rough and pops, and the wrist says so.
+  - Carb heat HOT (pull the knob, or H) clears it in about 22 s; then push it back in (COLD) for full power.
+  - Carb ice and bumps go through the control-input wrapper, outside the physics block. The physics checksum is unchanged.
+- **Old saves:** saves from before v1.11.8 (6 weather entries) still load; the new storm channel starts at zero.
+- **Less garbage in the base game:** the weather tick and the fire tick no longer build iterators every frame (weather 682 → 334 bytes per frame, fire 87 → 23), and the crash flare no longer allocates while it burns.
+- **Cost:** 3 more draw calls in the cockpit (the two gauges and their needles) plus the bolt while it shows. No garbage per frame, no new lights or shadow casters, and every new shader is compiled at load.
+
 ## v1.11.7 – airdrop bundles show where they are going
 
 - **Bundle labels:** airdrop bundles now carry the drop site's name on their shipping label, for example DEEP WOODS. Search-and-rescue supply bundles carry the search area's name. Before, both showed the strip they were loaded at. Other cargo is unchanged and still shows its destination strip.

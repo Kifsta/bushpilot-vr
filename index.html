@@ -636,7 +636,7 @@ const hyp = (a, b, c = 0) => Math.sqrt(a * a + b * b + c * c);   // v0.59 Math.h
 
 // ======================= RENDERING =======================
 // v0.35 settings (persist in localStorage 'bp_gfx'; ?gfx=shadows:2,grass:1 overrides for testing). Defaults = the v0.34 look and cost.
-const BP_VERSION = 'v1.11.7';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
+const BP_VERSION = 'v1.11.8';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
 { const e = document.getElementById('ver'); if (e) e.textContent = BP_VERSION; } window.__bpVer = BP_VERSION; bootLog('game module running ' + BP_VERSION + ' (three r' + THREE.REVISION + ')' + (/[?&]safe(=|&|$)/.test(location.search) ? ' - SAFE MODE: default graphics, no shadows / ULTRA / life / vistas / music' : ''));
 const GFX_DEF = { shadows: 0, scale: 1, fov: 1, dist: 1, trees: 1, grass: 0, clouds: 1, fog: 1, msaa: 1, hz: 90, vig: 0, turn: 0, fps: 0, tod: 11, stk: 1, tips: 1, terr: 1, dyn: 1, glove: 0, hand: 0, wt: 1, volM: 1, volMu: 0.5, volE: 1, volA: 1, volF: 1, wx: 1, forest: 0, ground: 0, gtex: 0, cvl: 1, water: 1, dayl: 48, flure: 0, fline: 8, fdrag: 4, fbob: 0, fsink: 0, ultra: 0 };   // v0.68.1 dominant hand, volumes. v0.48 BALANCED: 90 % scale, 72 Hz, fast terrain shading, auto resolution; v0.49.1 the stick stays where you let go of it
 const GFX = Object.assign({}, GFX_DEF);
@@ -10245,11 +10245,11 @@ function frBuild() {   // two draw calls for every front: the see-through shafts
   FR.im = new THREE.InstancedMesh(g, m, n); FR.im.frustumCulled = false; FR.im.renderOrder = 2; FR.im.userData.noBatch = true; FR.im.userData.noCast = true; scene.add(FR.im);
   FR.cl = new THREE.InstancedMesh(CLOUDS.im.geometry, new THREE.MeshLambertMaterial({ color: 0x8c939a, emissive: 0x2c3238, flatShading: true }), n * 2); FR.cl.frustumCulled = false; FR.cl.userData.noBatch = true; FR.cl.userData.noCast = true; scene.add(FR.cl); }
 function frTick(dt, on) {   // v0.79 move the fronts, draw them, and rain on you when you're under one (on top of the map-wide weather)
-  for (const F of FR.L) { F.a += F.v * dt; if (F.a > FR.WRAP) { F.a -= 2 * FR.WRAP; F.b = (FR.r() - 0.5) * 6000; } }
+  for (let j = 0; j < FR.L.length; j++) { const F = FR.L[j]; F.a += F.v * dt; if (F.a > FR.WRAP) { F.a -= 2 * FR.WRAP; F.b = (FR.r() - 0.5) * 6000; } }   // v1.11.8 indexed: no iterators per frame
   if (!on) { if (FR.im) FR.im.visible = FR.cl.visible = false; FR.f = 0; return; }
   if (!FR.im) frBuild(); FR.im.visible = FR.cl.visible = true; const P = _frP; let i = 0;
-  for (const F of FR.L) for (const sh of F.sh) { frPos(F, sh, P); _m4.compose(_v.set(P[0], -60, P[1]), _q.identity(), _s.set(sh.r, FR.H + 60, sh.r)); FR.im.setMatrixAt(i, _m4);
-    for (let c = 0; c < 2; c++) { _m4.compose(_v.set(P[0] + (c - 0.5) * sh.r * 0.8, FR.H + 30 + c * 25, P[1] + (c - 0.5) * sh.r * 0.3), _q.setFromAxisAngle(_up, sh.o + c), _s.set(sh.r * 1.5, sh.r * 0.32, sh.r * 1.1)); FR.cl.setMatrixAt(i * 2 + c, _m4); } i++; }
+  for (let j = 0; j < FR.L.length; j++) { const F = FR.L[j]; for (let n = 0; n < F.sh.length; n++) { const sh = F.sh[n]; frPos(F, sh, P); _m4.compose(_v.set(P[0], -60, P[1]), _q.identity(), _s.set(sh.r, FR.H + 60, sh.r)); FR.im.setMatrixAt(i, _m4);
+    for (let c = 0; c < 2; c++) { _m4.compose(_v.set(P[0] + (c - 0.5) * sh.r * 0.8, FR.H + 30 + c * 25, P[1] + (c - 0.5) * sh.r * 0.3), _q.setFromAxisAngle(_up, sh.o + c), _s.set(sh.r * 1.5, sh.r * 0.32, sh.r * 1.1)); FR.cl.setMatrixAt(i * 2 + c, _m4); } i++; } }
   FR.im.instanceMatrix.needsUpdate = true; FR.cl.instanceMatrix.needsUpdate = true;
   FR.cl.material.emissive.setRGB(0.17, 0.2, 0.22).multiplyScalar(0.15 + 0.85 * TOD.day); FR.cl.material.color.setRGB(0.55, 0.58, 0.6).multiplyScalar(0.3 + 0.7 * TOD.day); FR.im.material.uniforms.uC.value.setRGB(0.49, 0.52, 0.56).multiplyScalar(0.25 + 0.75 * TOD.day);
   camera.getWorldPosition(_v); const f = FR.f = frAt(_v.x, _v.z, _v.y), E = WX.E; if (f <= 0) return;   // under a shaft: rain, greyer, darker, shorter visibility (no wind)
@@ -10797,8 +10797,8 @@ function wxMist(k) {   // grow / shrink the patches with the mist amount (only w
 }
 function wxTick(dt) {   // after updateDay (it sets the clear-sky colours and lights every frame), before gfxTick (fog distance)
   if (!WX.forced && (WX.t -= dt) <= 0) wxSet(WX.nx);
-  const T = WX_S[WX.s], a = 1 - Math.exp(-dt / WX_TAU); for (const k of WX_K) WX.P[k] += (T[k] - WX.P[k]) * a;
-  const on = GFX.wx > 0; for (const k of WX_K) WX.E[k] = on ? WX.P[k] : (k === 'vis' ? 1 : 0);
+  const T = WX_S[WX.s], a = 1 - Math.exp(-dt / WX_TAU); for (let i = 0; i < WX_K.length; i++) { const k = WX_K[i]; WX.P[k] += (T[k] - WX.P[k]) * a; }   // v1.11.8 indexed loops: no iterator objects per frame
+  const on = GFX.wx > 0; for (let i = 0; i < WX_K.length; i++) { const k = WX_K[i]; WX.E[k] = on ? WX.P[k] : (k === 'vis' ? 1 : 0); }
   const E = WX.E; frTick(dt, on && (!WX.forced || FR.force)); WX.vis = E.vis;   // v0.79 the rain fronts add their rain where they are
   if (E.grey > 0.002) { _wxc.copy(WX_GREY).multiplyScalar(0.2 + 0.8 * Math.max(TOD.day, 0.3 * (1 - TOD.night))); scene.background.lerp(_wxc, E.grey); scene.fog.color.copy(scene.background); SKYD.z.lerp(_wxc, E.grey); SKYD.k *= 1 - E.grey; }
   if (E.dim > 0.002) { hemi.intensity *= 1 - E.dim * 0.7; sun.intensity *= 1 - E.dim; CLOUDS.im.material.color.multiplyScalar(1 - 0.35 * E.grey); CLOUDS.im.material.emissive.multiplyScalar(1 - 0.3 * E.grey); }
@@ -12639,6 +12639,269 @@ const SURV = (() => {
 window.SURV = SURV;
 function survTick(dt, vr) { SURV.tick(dt, vr); }
 // <<< V2 SURVIVAL END
+// >>> V3 WX BEGIN (wx.js via /workspace/v3-wx/apply.py)
+// V3 WX (lead items 4, 12, 13): battery + alternator + voltmeter, OAT gauge, storms / lightning / thunder, IMC whiteout in cloud, carb icing.
+// Game-side only: nothing in PHYSICS START..END is touched and stepAircraft() never reads any of this (physics-test.mjs md5 unchanged).
+// Carb ice and storm bumps act through ecoIn() (the pilot's inputs before the steps; ecoOut() puts the throttle back) - no wind, no steady drift.
+// Builds on the v0.75 weather (WX / WX_S: one more state 'storm' + key 'storm') and the v0.79 rain fronts (FR: their dark bases count as cloud).
+// Fog only through scene.fog (gfxTick's near / far); no new shadow casters (every mesh here is noCast).
+const WX3 = (() => {
+  // all per-frame state lives in one Float64Array (no boxed numbers: 0 B per frame); X.<name> getters / setters below are for tests and other modules
+  const F = new Float64Array(64), N = ['soc', 'V', 'I', 'alt', 'load', 'kL', 'crankV', 'oat', 'oatS', 'td', 'rh', 'imc', 'imcDark', 'S', 'ice', 'risk', 'rough', 'rn', 'melt', 'pw', 'turb',
+    'flash', 'lt', 't', 'boltT', 'ftT', 'gpT', 'ndv', 'ndav', 'ndat', 'boltD', 'lastD', 'bus', 'radioOK', 'park', 'flatSaid', 'lowSaid', 'gpSaid', 'iceSaid', 'nStrike', 'tvI', 'imcW', 'spread'];
+  const X = { F, tv: null };
+  const BOOL = ['bus', 'radioOK', 'park'];
+  N.forEach((n, i) => Object.defineProperty(X, n, BOOL.includes(n) ? { get: () => F[i] > 0.5, set: v => { F[i] = v ? 1 : 0; }, enumerable: true } : { get: () => F[i], set: v => { F[i] = +v; }, enumerable: true }));
+  Object.defineProperty(X, 'nd', { get: () => ({ v: F[27], av: F[28], at: F[29] }) });
+  const SOC = 0, V = 1, I = 2, ALT = 3, LOAD = 4, KL = 5, CRV = 6, OAT = 7, OATS = 8, TD = 9, RH = 10, IMC = 11, IMCD = 12, SS = 13, ICE = 14, RISK = 15, ROUGH = 16, RN = 17, MELT = 18, PW = 19, TURB = 20,
+    FLASH = 21, LT = 22, TT = 23, BOLTT = 24, FTT = 25, GPT = 26, NDV = 27, NDAV = 28, NDAT = 29, BOLTD = 30, LASTD = 31, BUS = 32, ROK = 33, PARK = 34, FLATSAID = 35, LOWSAID = 36, GPSAID = 37,
+    ICESAID = 38, NSTRIKE = 39, TVI = 40, IMCW = 41, SPREAD = 42, IN_Y = 50, IN_H = 51, IN_PN = 52, IN_RH = 53, OUT = 54, DEPTH = 55;
+  F[SOC] = 0.92; F[PW] = 1; F[KL] = 1; F[ROK] = 1; F[OAT] = F[OATS] = 15; F[LT] = 8; F[FTT] = 99; F[BOLTT] = -1; F[NDAV] = F[NDAT] = -99;
+  // ---- model constants (all tunable here; see README) ----
+  const K = X.K = {
+    CAP_AH: 25, TS: 10,                       // 25 Ah battery; electrical time runs 10x (a forgotten master flattens it in ~1.5 h of play, not 17 h)
+    OCV0: 10.5, OCV1: 12.7, R0: 0.010, R1: 0.030,   // open-circuit volts = OCV0 + (OCV1 - OCV0) * charge; internal ohms = R0 + R1 * (1 - charge)^2
+    A_BASE: 1.2, A_RADIO: 1.5, A_PANEL: [0, 0.4, 0.8], A_LDG: 7.7, A_LDG_LED: 1.6, A_START: 100,   // amps: master (relays, electric turn coordinator), COM radio, panel lights, landing light (100 W / LED), starter
+    ALT_A: 35, ALT_RPM0: 1000, ALT_RPM1: 1700, ALT_V: 14.2,   // alternator: cuts in at 1000 rpm, full 35 A by 1700, regulated 14.2 V
+    CRANK_MIN: 7.8, CRANK_OK: 9.2, RADIO_MIN: 11.0, LIGHT_V0: 9.0, LIGHT_V1: 12.5,   // starter dead below 7.8 V under load (slow below 9.2), radio drops out under 11 V, lights dim from 12.5 V to nothing at 9 V
+    GP_A: 20, GP_R: 30,                       // ground power at a fuel pump / the home hangar: 20 A while parked within 30 m, engine off
+    T_SL: 13, T_DIURNAL: 6.5, T_PEAK_H: 15, LAPSE: 0.0065, DEW_LAPSE: 0.0020,   // sea-level mean, day / night swing (warmest 15:00), 6.5 C/km (dew point 2 C/km)
+    ICE_T: 120, ICE_MELT_T: 22, ICE_SUBL_T: 600, ICE_LOSS: 0.5, ICE_ROUGH: 0.22,   // full ice in 2 min at worst risk; carb heat clears it in ~22 s; power x (1 - 0.5 ice^1.3); rough-running throttle jitter
+    IMC_NEAR: 3, IMC_FAR: 42,                 // whiteout fog (m) at full IMC
+    TURB_V: 1.1, TURB_R: 0.12, TURB_P: 0.05,  // storm bumps at full strength: +-1.1 m/s vertical, +-0.12 rad/s roll, +-0.05 rad/s pitch, zero-mean (a bounded noise, applied as its differences)
+    STRIKE_MIN: 5, STRIKE_MAX: 23, STRIKE_R: 7000, SOUND: 343 };
+  // ---- weather: one more state on the v0.75 machine, and a 'storm' channel every state carries ----
+  for (const s in WX_S) if (!('storm' in WX_S[s])) WX_S[s].storm = 0;
+  WX_S.storm = { n: 'THUNDERSTORM', vis: 0.24, grey: 0.86, dim: 0.52, low: 330, rain: 1, mist: 0.55, storm: 1, w: 5, go: ['drizzle', 'over'], cl: 'BKN018CB OVC035', wx: '+TSRA' };
+  for (const s of ['over', 'drizzle']) if (!WX_S[s].go.includes('storm')) WX_S[s].go.push('storm');
+  if (!WX_K.includes('storm')) WX_K.push('storm');
+  WX.P.storm = WX.P.storm || 0; WX.E.storm = WX.E.storm || 0;
+  { const q = new URLSearchParams(location.search).get('wx'); if (q === 'storm') { wxSet('storm', true); WX.forced = true; } }
+  wxPick = (orig => function (from) { const r = orig(from);   // fog banks can also roll in after dark (they were dawn-only)
+    return r !== 'fog' && DAY.h >= 20.5 && from !== 'drizzle' && from !== 'storm' && Math.random() < 0.12 ? 'fog' : r; })(wxPick);
+  wxSave = (orig => function () { const o = orig(); o.x3 = { b: Math.round(F[SOC] * 1000) / 1000, i: Math.round(F[ICE] * 100) / 100 }; return o; })(wxSave);
+  const x3Load = d => { if (d && d.x3 && isFinite(d.x3.b)) F[SOC] = clamp(+d.x3.b, 0, 1); if (d && d.x3 && isFinite(d.x3.i)) F[ICE] = clamp(+d.x3.i, 0, 1); };
+  wxLoad = (orig => function (d) { x3Load(d); return orig(d); })(wxLoad);
+  try { if (!NOSAVE) { const d = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); if (d && d.wx) x3Load(d.wx); } } catch (e) { /* no storage */ }
+  // ---- electrical (everything inline: no number-returning helpers per frame) ----
+  const crankCalc = () => { const s = F[SOC], r = K.R0 + K.R1 * (1 - s) * (1 - s); F[CRV] = K.OCV0 + (K.OCV1 - K.OCV0) * s - K.A_START * r; };
+  X.crankVolts = s => { const s0 = F[SOC], c0 = F[CRV]; F[SOC] = s ?? s0; crankCalc(); const v = F[CRV]; F[SOC] = s0; F[CRV] = c0; return v; };
+  X.flat = () => { crankCalc(); return F[CRV] < K.CRANK_MIN; };
+  function elecTick(dt) {
+    const E = ENG, m = E.master; let L = 0, A = 0;
+    if (m) { L = K.A_BASE + (UPG.radio ? K.A_RADIO : 0) + (LIGHTS.pl === 2 ? K.A_PANEL[2] : LIGHTS.pl === 1 ? K.A_PANEL[1] : 0) + (LIGHTS.landing ? (UPG.light ? K.A_LDG_LED : K.A_LDG) : 0) + (E.cranking ? K.A_START : 0); }
+    if (m && E.running) { const u = (E.rpm - K.ALT_RPM0) / (K.ALT_RPM1 - K.ALT_RPM0); A = K.ALT_A * (u < 0 ? 0 : u > 1 ? 1 : u); }
+    F[LOAD] = L; F[ALT] = A; const s = F[SOC], r = K.R0 + K.R1 * (1 - s) * (1 - s), ocv = K.OCV0 + (K.OCV1 - K.OCV0) * s;   // battery current lives in F[I] (no float phi to box)
+    if (m && A > 0 && A >= L) { F[I] = Math.min(A - L, 4 + 30 * (1 - s)); const q = 1 - (A - L) / 6; F[V] = K.ALT_V - 0.5 * (q < 0 ? 0 : q > 1 ? 1 : q); }
+    else { F[I] = A - L; F[V] = m ? Math.max(0, ocv + (A - L) * r) : 0; }
+    if ((F[GPT] -= dt) <= 0) { F[GPT] = 1; F[PARK] = 0;
+      if (!E.running) { const vx = ac.vel[0], vz = ac.vel[2]; if (vx * vx + vz * vz < 0.25) { const x = ac.pos[0], z = ac.pos[2], R2 = K.GP_R * K.GP_R; let dx = x - HANGAR.x, dz = z - HANGAR.z; if (dx * dx + dz * dz < R2) F[PARK] = 1;
+        for (let i = 0; i < FUEL_ST.length; i++) { const p = FUEL_ST[i].p; if (p) { dx = x - p.x; dz = z - p.z; if (dx * dx + dz * dz < R2) F[PARK] = 1; } } } } }
+    const gp = (F[PARK] > 0) & (s < 1); F[I] += gp * K.GP_A; EV[3] = gp & (F[GPSAID] === 0) & (s < 0.9); F[GPSAID] *= F[PARK];   // branch-free: messages go out through x3Ev()
+    const ns = s + F[I] * dt * K.TS / (K.CAP_AH * 3600); F[SOC] = ns < 0 ? 0 : ns > 1 ? 1 : ns;
+    F[BUS] = m && F[V] >= K.LIGHT_V0 ? 1 : 0; F[ROK] = m && F[V] >= K.RADIO_MIN ? 1 : 0;
+    { let q = (F[V] - K.LIGHT_V0) / (K.LIGHT_V1 - K.LIGHT_V0); q = q < 0 ? 0 : q > 1 ? 1 : q; F[KL] = F[BUS] > 0 ? q * Math.sqrt(q) : 0; }   // ^1.5 (Math.pow boxes in Maglev)
+    const p = (F[SOC] < 0.3) + (F[SOC] < 0.5); EV[4] = (m & (F[I] < 0) & !E.running & (p > F[LOWSAID])) * p; F[LOWSAID] *= +(F[SOC] <= 0.55);
+  }
+  updateEngine = (orig => function (dt) {   // flat battery: the starter only clicks; weak battery: slow cranking (the start takes longer)
+    const E = ENG, f0 = E.fireT, pressed = mode === 'plane' && !ac.crashed && (E.starterVR || (!renderer.xr.isPresenting && !!keys.Space));
+    crankCalc();
+    if (pressed && E.master && !E.running && F[CRV] < K.CRANK_MIN) {   // the game never sees the button: no crank, no rpm, no drying, no 'keep cranking' hints
+      const sv = E.starterVR, ks = keys.Space; E.starterVR = false; keys.Space = false; try { orig(dt); } finally { E.starterVR = sv; keys.Space = ks; } E.starter = true;
+      if (F[FLATSAID] === 0) { F[FLATSAID] = 1; sfx('click'); say('STARTER: CLICK... BATTERY FLAT (' + Math.round(F[SOC] * 100) + '%) - CHARGE IT AT A FUEL PUMP OR THE HANGAR'); } return; }
+    if (!pressed) F[FLATSAID] = 0;
+    orig(dt);
+    if (E.cranking && F[CRV] < K.CRANK_OK && !E.running) { const k = (F[CRV] - K.CRANK_MIN) / (K.CRANK_OK - K.CRANK_MIN); if (E.fireT > f0) E.fireT = f0 + (E.fireT - f0) * k; E.rpm *= 0.85 + 0.15 * k; }
+  })(updateEngine);
+  updateDay = (orig => function (dt) { orig(dt);   // lights need the bus: landing light / panel glow off with the master off or a flat battery, dim as the volts sag
+    if (SL.intensity > 0) { SL.intensity *= F[KL]; SL.visible = SL.intensity > 0; }
+    if (mode === 'plane' && ENG.master && LIGHTS.pl && PL.intensity > 0) { PL.intensity *= F[KL]; PL.visible = PL.intensity > 0; } })(updateDay);
+  panelTint = (orig => function () { if (!(ENG.master && F[KL] < 0.25)) return orig(); const p = LIGHTS.pl; LIGHTS.pl = 0; try { orig(); } finally { LIGHTS.pl = p; } })(panelTint);
+  toggleLanding = (orig => function () { orig(); if (LIGHTS.landing && F[BUS] === 0) say('LANDING LIGHT ON - NO POWER (' + (ENG.master ? 'BATTERY FLAT' : 'MASTER IS OFF') + ')'); })(toggleLanding);
+  const radioDead = () => UPG.radio && ENG.master && F[ROK] === 0;
+  upgRadioTick = (orig => function (dt) { if (!radioDead()) orig(dt); })(upgRadioTick);
+  emgTick = (orig => function (dt) { if (!radioDead()) return orig(dt); const r = UPG.radio; UPG.radio = 0; try { orig(dt); } finally { UPG.radio = r; } })(emgTick);
+  emgRadioTake = (orig => function () { if (EMG.call && radioDead()) { sfx('click'); say('COM RADIO DEAD - BATTERY FLAT (' + F[V].toFixed(1) + ' V)'); return true; } return orig(); })(emgRadioTake);
+  // ---- outside air: lapse rate, time of day, weather; dew point -> humidity (carb ice). Inputs IN_Y (m), IN_H (h); out OUT (C), SPREAD (C) ----
+  function airCalc() { const E = WX.E, y = F[IN_Y], d = Math.cos((F[IN_H] - K.T_PEAK_H) / 24 * 2 * Math.PI), amp = K.T_DIURNAL * (1 - 0.6 * E.grey) * (1 - 0.4 * E.rain);
+    F[OUT] = K.T_SL + amp * d - 2.5 * E.rain - 1.2 * E.mist - 3.5 * E.storm - K.LAPSE * y;
+    let sp = 9 + 3 * d - 6 * E.grey - 6 * E.rain - 6 * E.mist - 3 * E.storm; sp = sp < 0.3 ? 0.3 : sp > 16 ? 16 : sp; sp -= (K.LAPSE - K.DEW_LAPSE) * (y > 0 ? y : 0); F[SPREAD] = sp > 0 ? sp : 0; }
+  X.oatAt = (y, h = DAY.h) => { const a = F[IN_Y], b = F[IN_H], o = F[OUT], p = F[SPREAD]; F[IN_Y] = y; F[IN_H] = h; airCalc(); const r = F[OUT]; F[IN_Y] = a; F[IN_H] = b; F[OUT] = o; F[SPREAD] = p; return r; };
+  X.spreadAt = (y, h = DAY.h) => { const a = F[IN_Y], b = F[IN_H], o = F[OUT], p = F[SPREAD]; F[IN_Y] = y; F[IN_H] = h; airCalc(); const r = F[SPREAD]; F[IN_Y] = a; F[IN_H] = b; F[OUT] = o; F[SPREAD] = p; return r; };
+  // ---- carb ice. riskCalc: inputs OAT, IN_RH, IN_PN -> RISK ----
+  function riskCalc() { const T = F[OAT], q = (F[IN_RH] - 0.45) / 0.45, fH = q < 0 ? 0 : q > 1 ? 1 : q;
+    let fT = 1; if (T <= -12 || T >= 32) fT = 0; else if (T < -4) { const u = (T + 12) / 8; fT = u * u * (3 - 2 * u); } else if (T > 18) { const u = (32 - T) / 14; fT = u * u * (3 - 2 * u); }
+    F[RISK] = fT * fH * (0.25 + 0.75 * (1 - F[IN_PN])); }
+  X.iceRisk = (T, rh, pn) => { const a = F[OAT], b = F[IN_RH], c = F[IN_PN], d = F[RISK]; F[OAT] = T; F[IN_RH] = rh; F[IN_PN] = pn; riskCalc(); const r = F[RISK]; F[OAT] = a; F[IN_RH] = b; F[IN_PN] = c; F[RISK] = d; return r; };
+  const EV = new Int32Array(8), RS = new Int32Array([(Date.now() ^ 0x9e3779b9) | 1]);   // xorshift32: Math.random() boxes its result when not inlined
+  function iceTick(dt) {   // (clamps via Math.min / max: a ternary mixing 0 / 1 with a double makes a tagged phi in Maglev, i.e. a boxed number)
+    const E = ENG; F[IN_PN] = Math.min(1, Math.max(0, (ac.power - C.IDLE_POWER) / (1 - C.IDLE_POWER))); F[IN_RH] = Math.max(F[RH], F[IMC]); if (WX.E.rain > 0.5) F[IN_RH] = 1;
+    F[RISK] = 0; F[MELT] = 0; if (E.running && !E.carb) riskCalc();
+    if (E.running && E.carb) { const m = Math.min(F[ICE], dt / K.ICE_MELT_T * (0.4 + 0.6 * E.temp)); F[ICE] -= m; F[MELT] = m / dt; }
+    else if (F[RISK] > 0) F[ICE] = Math.min(1, F[ICE] + F[RISK] * dt / K.ICE_T); else F[ICE] = Math.max(0, F[ICE] - dt / K.ICE_SUBL_T);
+    let x = RS[0]; x ^= x << 13; x ^= x >>> 17; x ^= x << 5; RS[0] = x; F[RN] += (((x & 0xffff) / 32768 - 1) - F[RN]) * Math.min(1, dt * 14);
+    F[ROUGH] = 0; F[PW] = 1;
+    if (E.running) { const u = Math.min(1, Math.max(0, (F[ICE] - 0.15) / 0.6)); F[ROUGH] = K.ICE_ROUGH * u * u * (3 - 2 * u) + Math.min(0.25, F[MELT] * 4);
+      F[PW] = (1 - K.ICE_LOSS * Math.exp(1.3 * Math.log(Math.max(F[ICE], 1e-9)))) * (1 - F[ROUGH] * Math.max(0, F[RN])); }
+    EV[2] = E.running & (F[ROUGH] > 0.05) & (((x >>> 16) & 1023) / 1024 < dt * 3 * F[ROUGH]) & SND.ok;   // events as int flags, no rare call sites in here (x3Ev() acts on them)
+    EV[0] = (F[ICE] > 0.25) & (F[ICESAID] === 0) & E.running & !E.carb; EV[1] = (F[ICESAID] === 1) & (F[ICE] < 0.03) & E.carb;
+  }
+  function x3Ev() {   // the rare side effects of the per-frame model (ints only until one fires: nothing boxed even unoptimised)
+    if (EV[0]) { EV[0] = 0; F[ICESAID] = 1; say('ENGINE RUNNING ROUGH, RPM DROPPING - CARB ICE? CARB HEAT ON (PULL THE KNOB / H)'); }
+    if (EV[1]) { EV[1] = 0; F[ICESAID] = 0; say('CARB ICE CLEARED - CARB HEAT OFF (IN) FOR FULL POWER'); }
+    if (EV[2]) { EV[2] = 0; sfx('pop', plane.localToWorld(_x3v.set(0.25, -0.35, -1.3))); }
+    if (EV[3]) { EV[3] = 0; F[GPSAID] = 1; say('GROUND POWER: THE BATTERY IS ON CHARGE HERE (' + Math.round(F[SOC] * 100) + '%)'); }
+    if (EV[4]) { const p = EV[4]; EV[4] = 0; F[LOWSAID] = p; say(p === 2 ? 'VOLTS LOW: BATTERY ' + Math.round(F[SOC] * 100) + '% - MASTER OFF OR IT WON\'T CRANK' : 'BATTERY ' + Math.round(F[SOC] * 100) + '% - THE MASTER IS DRAINING IT (ENGINE OFF)'); } }
+  const _x3v = new THREE.Vector3(), _x3c = new THREE.Vector3(), _x3col = new THREE.Color(), FLASHC = new THREE.Color(0xdcdfff);
+  // ---- IMC: inside a cloud puff (the cumulus, the HIGH layer, the fronts' dark bases) -> whiteout through the fog ----
+  const PUFF = new Float64Array([0, 0, 0, 1, 0.55, -0.1, 0.1, 0.75, -0.6, -0.12, -0.05, 0.7, 0.15, 0.25, -0.2, 0.7, -0.2, 0.05, 0.45, 0.62, 0.9, -0.22, -0.3, 0.5, -1.0, -0.25, 0.3, 0.45]);   // the CLOUDS geometry's 7 puffs (x y z r)
+  function inCloud(im, n) {   // F[DEPTH] = signed depth (0 at the skin, 1 at a puff centre, < 0 outside) of the deepest puff of any instance round _x3c
+    const e = im.instanceMatrix.array, px = _x3c.x, py = _x3c.y, pz = _x3c.z; let best = -1;
+    for (let i = 0; i < n; i++) { const o = i * 16, dx = px - e[o + 12], dy = py - e[o + 13], dz = pz - e[o + 14];
+      const s0 = e[o] * e[o] + e[o + 1] * e[o + 1] + e[o + 2] * e[o + 2], s1 = e[o + 4] * e[o + 4] + e[o + 5] * e[o + 5] + e[o + 6] * e[o + 6], s2 = e[o + 8] * e[o + 8] + e[o + 9] * e[o + 9] + e[o + 10] * e[o + 10];
+      if (dx * dx + dz * dz > 3.2 * (s0 > s2 ? s0 : s2) || dy * dy > 2.2 * s1) continue;
+      const lx = (dx * e[o] + dy * e[o + 1] + dz * e[o + 2]) / s0, ly = (dx * e[o + 4] + dy * e[o + 5] + dz * e[o + 6]) / s1, lz = (dx * e[o + 8] + dy * e[o + 9] + dz * e[o + 10]) / s2;
+      if (ly < -0.36) continue;
+      for (let p = 0; p < 28; p += 4) { const a = lx - PUFF[p], b = ly - PUFF[p + 1], c = lz - PUFF[p + 2], d = 1 - Math.sqrt(a * a + b * b + c * c) / PUFF[p + 3]; if (d > best) best = d; } }
+    F[DEPTH] = best; }
+  function imcTick(dt) {
+    let k = -1, dark = 0;
+    if (GFX.clouds > 0 && CLOUDS.im.visible) { inCloud(CLOUDS.im, CLOUDS.im.count); k = F[DEPTH]; }
+    if (CLOUDS2 && CLOUDS2.im.visible) { inCloud(CLOUDS2.im, CLOUDS2.im.count); if (F[DEPTH] > k) k = F[DEPTH]; }
+    if (FR.cl && FR.cl.visible) { inCloud(FR.cl, FR.cl.count); if (F[DEPTH] > k) { k = F[DEPTH]; dark = 1; } }
+    let u = (k + 0.22) / 0.5; u = u < 0 ? 0 : u > 1 ? 1 : u; const tgt = u * u * (3 - 2 * u);   // starts ~20 % of a puff's radius outside its skin (wisps), solid a third of the way in
+    F[IMC] += (tgt - F[IMC]) * Math.min(1, dt * 3); F[IMCD] += (dark - F[IMCD]) * Math.min(1, dt * 2); if (F[IMC] < 0.002) F[IMC] = 0;
+  }
+  gfxTick = (orig => function (dt) {
+    const was = F[IMCW] > 0; if (F[IMC] > 0 || was) GQ.fogV = -1;   // gfxTick only rewrites the fog when its key changes: force it while we bend it, and once more after
+    orig(dt); F[IMCW] = F[IMC] > 0 ? 1 : 0;
+    const f = scene.fog, bg = scene.background;
+    if (F[IMC] > 0) { const k = F[IMC], lf = Math.log(f.far); f.far = Math.exp(lf + (Math.log(K.IMC_FAR) - lf) * k); f.near = Math.min(f.near + (K.IMC_NEAR - f.near) * k, f.far * 0.5);
+      const day = 0.1 + 0.9 * Math.max(TOD.day, 0.25 * (1 - TOD.night)), s = (1 - 0.5 * F[SS]) * day, d = F[IMCD];
+      _x3col.r = (0.8 - 0.38 * d) * s; _x3col.g = (0.82 - 0.37 * d) * s; _x3col.b = (0.85 - 0.37 * d) * s;
+      bg.r += (_x3col.r - bg.r) * k; bg.g += (_x3col.g - bg.g) * k; bg.b += (_x3col.b - bg.b) * k; const z = SKYD.z; z.r += (_x3col.r - z.r) * k; z.g += (_x3col.g - z.g) * k; z.b += (_x3col.b - z.b) * k;
+      f.color.r = bg.r; f.color.g = bg.g; f.color.b = bg.b; SKYD.k *= 1 - k;
+      if (SUND.d.visible) { SUND.d.material.opacity *= 1 - k; SUND.h.material.opacity *= 1 - k; } if (stars.visible) { stars.material.opacity *= 1 - k; moon.material.opacity *= 1 - k; } }
+    if (F[FLASH] > 0.003) { const a = Math.min(1, F[FLASH]), a6 = 0.6 * a, a5 = 0.5 * a, z = SKYD.z;
+      bg.r += (FLASHC.r - bg.r) * a6; bg.g += (FLASHC.g - bg.g) * a6; bg.b += (FLASHC.b - bg.b) * a6; f.color.r = bg.r; f.color.g = bg.g; f.color.b = bg.b;
+      z.r += (FLASHC.r - z.r) * a5; z.g += (FLASHC.g - z.g) * a5; z.b += (FLASHC.b - z.b) * a5; hemi.intensity += 2.4 * a; }
+  })(gfxTick);
+  // ---- storm: heavier rain, darker clouds, lightning (flash + a bolt), thunder after the light (343 m/s) ----
+  const NB = 14, NR = 7, BP = new Float64Array((NB + NR) * 3), FLT = new Float64Array(4);
+  const BG = new THREE.BufferGeometry(); BG.setAttribute('position', new THREE.BufferAttribute(new Float32Array((NB + NR) * 6), 3).setUsage(THREE.DynamicDrawUsage));
+  { const ix = []; for (const [a, n] of [[0, NB], [NB, NR]]) for (let i = 0; i < n - 1; i++) { const v = (a + i) * 2; ix.push(v, v + 1, v + 2, v + 1, v + 3, v + 2); } BG.setIndex(ix); }
+  const BOLT = new THREE.Mesh(BG, new THREE.MeshBasicMaterial({ color: 0xf0f2ff, fog: false, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide }));
+  BOLT.frustumCulled = false; BOLT.visible = false; BOLT.renderOrder = 3; BOLT.userData.noBatch = true; BOLT.userData.noCast = true; scene.add(BOLT); X.bolt = BOLT;
+  X.strike = (dist, ang, bolt) => {   // tests call it with a distance / bearing; the storm with random ones (an event: it may allocate)
+    camera.getWorldPosition(_x3c); const d = dist ?? 400 + Math.pow(Math.random(), 0.7) * K.STRIKE_R, a = ang ?? Math.random() * 6.283, x = _x3c.x + Math.cos(a) * d, z = _x3c.z + Math.sin(a) * d;
+    const g = groundY(x, z), top = Math.max(g + 450, 640 - CLOUDS.st.dy * 0.4 + Math.random() * 400); F[NSTRIKE]++; F[LASTD] = d; F[FTT] = 0;
+    FLT[0] = (0.45 + 0.55 * Math.random()) / (1 + d / 2600); FLT[1] = 0.06 + Math.random() * 0.06; FLT[2] = FLT[1] + 0.09 + Math.random() * 0.12; FLT[3] = Math.random() < 0.5 ? 1 : 0;
+    const show = (bolt ?? Math.random() < 0.65) && d < Math.max(1800, scene.fog.far * 1.6);
+    if (show) { let px = x, pz = z; for (let i = 0; i < NB; i++) { const t = i / (NB - 1); BP[i * 3] = px; BP[i * 3 + 1] = top + (g - top) * t; BP[i * 3 + 2] = pz; px += (Math.random() - 0.5) * 70; pz += (Math.random() - 0.5) * 70; }
+      const j = 3 + Math.floor(Math.random() * 4), sx = Math.random() < 0.5 ? -1 : 1; let bx = BP[j * 3], by = BP[j * 3 + 1], bz = BP[j * 3 + 2];
+      for (let i = 0; i < NR; i++) { const o = (NB + i) * 3; BP[o] = bx; BP[o + 1] = by; BP[o + 2] = bz; bx += sx * (25 + Math.random() * 40); by -= (top - g) * 0.05 * (0.6 + Math.random()); bz += (Math.random() - 0.5) * 50; }
+      F[BOLTT] = 0; F[BOLTD] = d; } else F[BOLTT] = -1;
+    if (X.tv && SND.ok) thunder(d);
+    return d; };
+  function boltDraw() {   // camera-facing ribbon through the stored points (no allocation)
+    const P = BG.attributes.position.array; camera.getWorldPosition(_x3c); const w0 = Math.max(3, F[BOLTD] * 0.0055);   // ~0.3 deg wide: a few pixels in the headset at any range
+    for (let sg = 0; sg < 2; sg++) { const a = sg ? NB : 0, n = sg ? NR : NB, w = sg ? 0.55 : 1; for (let i = 0; i < n; i++) { const o = (a + i) * 3, q = (a + Math.min(i + 1, n - 1)) * 3, r = (a + Math.max(i - 1, 0)) * 3;
+      const tx = BP[q] - BP[r], ty = BP[q + 1] - BP[r + 1], tz = BP[q + 2] - BP[r + 2], vx = _x3c.x - BP[o], vy = _x3c.y - BP[o + 1], vz = _x3c.z - BP[o + 2];
+      let sx = ty * vz - tz * vy, sy = tz * vx - tx * vz, sz = tx * vy - ty * vx; const l = Math.sqrt(sx * sx + sy * sy + sz * sz) || 1, ww = w0 * w * (1 - 0.5 * i / n) / l; sx *= ww; sy *= ww; sz *= ww;
+      const v = (a + i) * 6; P[v] = BP[o] - sx; P[v + 1] = BP[o + 1] - sy; P[v + 2] = BP[o + 2] - sz; P[v + 3] = BP[o] + sx; P[v + 4] = BP[o + 1] + sy; P[v + 5] = BP[o + 2] + sz; } }
+    BG.attributes.position.needsUpdate = true; }
+  function thunderInit() { const A = actx; X.tv = [];
+    for (let i = 0; i < 2; i++) { const s = A.createBufferSource(), f = A.createBiquadFilter(), g = A.createGain(); s.buffer = SND.noise; s.loop = true; f.type = 'lowpass'; f.frequency.value = 200; f.Q.value = 0.7; g.gain.value = 0;
+      s.connect(f).connect(g).connect(SND.amb); s.start(); X.tv.push({ f, g }); } }
+  function thunder(d) {   // a crack (close) or a low roll (far), arriving d / 343 s after the flash, with a re-swell (an event)
+    const A = actx; F[TVI] = (F[TVI] + 1) % 2; const v = X.tv[F[TVI]], t0 = A.currentTime + d / K.SOUND, inP = mode === 'plane', vol = clamp(0.6 / (1 + d / 900), 0.025, 0.6) * (inP ? 0.7 : 1), near = d < 1300, r = Math.random();
+    v.g.gain.cancelScheduledValues(t0); v.g.gain.setValueAtTime(0.0001, t0); v.g.gain.linearRampToValueAtTime(vol, t0 + (near ? 0.03 : 0.35));
+    v.g.gain.setTargetAtTime(vol * 0.3, t0 + (near ? 0.25 : 0.8), 0.35); v.g.gain.linearRampToValueAtTime(vol * (0.45 + 0.3 * r), t0 + 1.3 + r); v.g.gain.setTargetAtTime(0, t0 + 1.8 + r, 0.9 + r * 1.2);
+    v.f.frequency.cancelScheduledValues(t0); v.f.frequency.setValueAtTime((near ? 2200 : 520) * (inP ? 0.6 : 1), t0); v.f.frequency.setTargetAtTime(near ? 160 : 95, t0 + 0.12, near ? 0.35 : 0.9); }
+  const LV = [null]; LV.length = 0; for (let i = 0; i <= 208; i++) LV.push(i / 128 + 1e-9);   // (a holey/object array: its elements stay boxed, read back as they are)
+  function stormTick(dt) {
+    const E = WX.E; F[SS] = GFX.wx > 0 ? E.storm : 0; const S = F[SS];
+    if (S > 0.002) { if (RAIN.visible) RAIN.material.uniforms.uO.value = LV[(Math.min(1.6, E.rain * (1 + 0.6 * S)) * 128 + 0.5) | 0];   // pre-boxed levels: a uniform's .value is a tagged field (a fresh double there = a new HeapNumber each frame)
+      const c = CLOUDS.im.material.color, em = CLOUDS.im.material.emissive, kc = 1 - 0.4 * S, ke = 1 - 0.5 * S; c.r *= kc; c.g *= kc; c.b *= kc; em.r *= ke; em.g *= ke; em.b *= ke; }
+    if (S > 0.35 && (F[LT] -= dt) <= 0) { F[LT] = (K.STRIKE_MIN + Math.random() * (K.STRIKE_MAX - K.STRIKE_MIN)) / S; X.strike(); }
+    F[FTT] += dt; const t = F[FTT], t1 = FLT[1], t2 = FLT[2];
+    F[FLASH] = FLT[0] * (Math.exp(-t / 0.05) + (t >= t1 ? 0.8 * Math.exp(-(t - t1) / 0.05) : 0) + (t >= t2 ? FLT[3] * 0.6 * Math.exp(-(t - t2) / 0.05) : 0));
+    if (F[BOLTT] >= 0) { F[BOLTT] += dt; BOLT.visible = F[BOLTT] < 0.42; if (BOLT.visible) { const o = 0.35 + 0.88 * F[FLASH] / Math.max(FLT[0], 0.05); BOLT.material.opacity = o > 1 ? 1 : o; boltDraw(); } else F[BOLTT] = -1; }
+    else BOLT.visible = false;
+  }
+  // ---- storm bumps (and lighter ones in cloud / under a front's rain): a bounded zero-mean noise; ecoIn adds its change since last frame (sums to nothing over time) ----
+  const TB = new Float64Array(9), PH = new Float64Array([Math.random() * 6.3, Math.random() * 6.3, Math.random() * 6.3, Math.random() * 6.3, Math.random() * 6.3, Math.random() * 6.3]);
+  function turbTick() { const t = F[TT], q = F[SS] + 0.45 * F[IMC] + 0.35 * (FR.f || 0), I = q > 1 ? 1 : q; F[TURB] = I;
+    TB[0] = I * (0.55 * Math.sin(1.7 * t + PH[0]) + 0.3 * Math.sin(3.3 * t + PH[1]) + 0.15 * Math.sin(6.9 * t + PH[2]));
+    TB[1] = I * (0.6 * Math.sin(1.3 * t + PH[3]) + 0.4 * Math.sin(4.1 * t + PH[4]));
+    TB[2] = I * (0.6 * Math.sin(2.1 * t + PH[5]) + 0.4 * Math.sin(5.3 * t + PH[0])); }
+  ecoIn = (orig => function () { orig();
+    if (ENG.running && F[PW] < 1) ctl.throttle *= F[PW];   // carb ice: less power + rough running (ecoOut restores the lever)
+    if (!ac.crashed && ac.out.wow === 0 && mode === 'plane') { ac.vel[1] += K.TURB_V * (TB[0] - TB[3]); ac.w[2] += K.TURB_R * (TB[1] - TB[4]); ac.w[0] += K.TURB_P * (TB[2] - TB[5]); }
+    TB[3] = TB[0]; TB[4] = TB[1]; TB[5] = TB[2]; })(ecoIn);
+  // ---- instruments: voltmeter (panel, between the tach and the oil gauge) + OAT dial on the windscreen with its probe through the glass ----
+  const aV = v => 0.75 * Math.PI + (clamp(v, 7.55, 16.3) - 8) / 8 * 1.5 * Math.PI, aT = f => 0.75 * Math.PI + (clamp(f, -44, 124) + 40) / 160 * 1.5 * Math.PI;   // (face drawing + tests only)
+  X.aV = aV; X.aT = aT;
+  const fc = document.createElement('canvas'); fc.width = 512; fc.height = 256; const fx = fc.getContext('2d');
+  fx.drawImage(dial(x => { arc(x, aV, 8, 11.5, 108, 10, '#e52'); arc(x, aV, 11.5, 12.6, 108, 10, '#e8c020'); arc(x, aV, 13.4, 14.6, 108, 10, '#2fae3a'); arc(x, aV, 15.2, 16, 108, 10, '#e52');
+    ticks(x, aV, 8, 16, 0.5, 9, 2); ticks(x, aV, 8, 16, 2, 18, 4); nums(x, aV, 8, 16, 2, v => v, 78, 'bold 30px sans-serif'); label(x, 'VOLTS', -34, 'bold 19px sans-serif'); label(x, 'DC', 44, 'bold 15px sans-serif'); }), 0, 0);
+  fx.drawImage(dial(x => { ticks(x, aT, -40, 120, 5, 8, 2); ticks(x, aT, -40, 120, 20, 16, 4); nums(x, aT, -40, 120, 40, v => v, 90, 'bold 22px sans-serif');
+    x.fillStyle = '#e8b040'; x.font = 'bold 17px sans-serif'; for (let c = -40; c <= 40; c += 20) { const a = aT(c * 1.8 + 32); x.fillText(c, Math.cos(a) * 58, Math.sin(a) * 58); }
+    arc(x, aT, -40, 120, 70, 2, '#777'); label(x, 'AIR TEMP', -30, 'bold 15px sans-serif'); x.fillStyle = '#ccc'; x.font = 'bold 14px sans-serif'; x.fillText('°F', 0, 30); x.fillStyle = '#e8b040'; x.fillText('°C', 0, 48); }), 256, 0);
+  const ft = new THREE.CanvasTexture(fc); ft.colorSpace = THREE.SRGBColorSpace; ft.anisotropy = ANISO;
+  const VOLT_P = new THREE.Vector3(0.1775, 0.068 + CK.y, PANEL_Z + 0.0012), VOLT_D = 0.044, OAT_D = 0.05;
+  const GL = D2B(-0.21, -1.08 + 0.58 * 0.7, 0.535 + 0.425 * 0.7);   // the probe goes through the windscreen here (70 % up, left of centre)
+  const EYE = new THREE.Vector3(0, 0.4 + CK.y, 0.15 + CK.z), OAT_P = GL.clone().addScaledVector(EYE.clone().sub(GL).normalize(), 0.05);   // on the line from your eye to the probe: the stem hides behind the dial
+  const BV = new THREE.Matrix4().makeTranslation(VOLT_P.x, VOLT_P.y, VOLT_P.z), BO = new THREE.Matrix4();
+  { const n = EYE.clone().sub(OAT_P).normalize(), r = new THREE.Vector3(0, 1, 0).cross(n).normalize(), u = n.clone().cross(r); BO.makeBasis(r, u, n).setPosition(OAT_P); }
+  const quad = (d, cell, M) => { const g = new THREE.CircleGeometry(d / 2 * 0.975, 32), uv = g.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setX(i, (cell + uv.getX(i)) / 2); return g.applyMatrix4(M); };
+  const FACEM = new THREE.Mesh(mergeGeometries([quad(VOLT_D, 0, BV), quad(OAT_D, 1, new THREE.Matrix4().multiplyMatrices(BO, new THREE.Matrix4().makeTranslation(0, 0, 0.0015)))]), new THREE.MeshBasicMaterial({ map: ft }));
+  const GLi = GL.clone().applyMatrix4(BO.clone().invert()), sd = GLi.clone().normalize(), sEnd = GLi.clone().addScaledVector(sd, 0.055), sLen = sEnd.length() - 0.02;
+  const cyl = (r, len, from, dir) => { const g = new THREE.CylinderGeometry(r, r, len, 8); g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir)); g.translate(from.x + dir.x * len / 2, from.y + dir.y * len / 2, from.z + dir.z * len / 2); return g; };
+  const bezV = ckGeo([['c', 0.0245, 0.012, 18, 0, 0, -0.0068, 0x101012, Math.PI / 2], ['r', 0.0236, 0.0024, 18, 0, 0, 0.0018, 0x34353a, Math.PI / 2], ['c', 0.0018, 0.003, 6, -0.019, 0.019, 0.002, 0x9a9a9a, Math.PI / 2], ['c', 0.0018, 0.003, 6, 0.019, -0.019, 0.002, 0x9a9a9a, Math.PI / 2]]).applyMatrix4(BV);
+  const bezO = ckGeo([['c', 0.028, 0.02, 18, 0, 0, -0.0105, 0x1a1a1c, Math.PI / 2], ['r', 0.0268, 0.0028, 18, 0, 0, 0.0012, 0x3a3b40, Math.PI / 2],
+    ['g', cyl(0.0042, sLen, new THREE.Vector3(0, 0, -0.02), sd), 0, 0, 0, 0, 0, 0x9a9da2], ['g', cyl(0.0075, 0.006, GLi.clone().addScaledVector(sd, -0.006), sd), 0, 0, 0, 0, 0, 0x2a2a2a],   // chrome stem, the nut on the glass
+    ['g', cyl(0.0058, 0.03, sEnd.clone().addScaledVector(sd, -0.03), sd), 0, 0, 0, 0, 0, 0x6a6e72]]).applyMatrix4(BO);   // the probe out in the airflow
+  const BEZ = new THREE.Mesh(mergeGeometries([bezV, bezO]), CKVM);
+  // needles: one small vertex-coloured mesh in the panel's needle material (GPM: the same program, tinted with the panel)
+  const ndl = (len, w, tail) => { const g = needleGeo(len, w, tail).toNonIndexed(), p = g.attributes.position, a = new Float32Array(p.count * 2); for (let i = 0; i < p.count; i++) { a[i * 2] = p.getX(i); a[i * 2 + 1] = p.getY(i); } return a; };
+  const hubA = (() => { const g = new THREE.CircleGeometry(10, 12).toNonIndexed(), p = g.attributes.position, a = new Float32Array(p.count * 2); for (let i = 0; i < p.count; i++) { a[i * 2] = p.getX(i); a[i * 2 + 1] = p.getY(i); } return a; })();
+  const NP = [{ xy: ndl(100, 7, 18), M: BV, sc: VOLT_D / GS, z: 0.0042, c: 0xf4f4f4 }, { xy: hubA, M: BV, sc: VOLT_D / GS, z: 0.0048, c: 0x444444 },
+    { xy: ndl(104, 6, 18), M: BO, sc: OAT_D / GS, z: 0.0055, c: 0xf4f4f4 }, { xy: hubA, M: BO, sc: OAT_D / GS, z: 0.006, c: 0x444444 }];
+  const nV = NP.reduce((s, p) => s + p.xy.length / 2, 0), NG = new THREE.BufferGeometry(), NA = new Float32Array(nV * 3), NC = new Float32Array(nV * 3);
+  { let o = 0; for (const p of NP) { _x3col.set(p.c); for (let i = 0; i < p.xy.length / 2; i++, o++) { NC[o * 3] = _x3col.r; NC[o * 3 + 1] = _x3col.g; NC[o * 3 + 2] = _x3col.b; } } }
+  NG.setAttribute('position', new THREE.BufferAttribute(NA, 3).setUsage(THREE.DynamicDrawUsage)); NG.setAttribute('color', new THREE.BufferAttribute(NC, 3));
+  const NDL = new THREE.Mesh(NG, GPM);
+  const NDA = new Float64Array(2);
+  function needles() { let o = 0;   // angles from NDA (no number args)
+    for (let k = 0; k < NP.length; k++) { const p = NP[k], ang = k < 2 ? -NDA[0] : -NDA[1], c = Math.cos(ang) * p.sc, s = Math.sin(ang) * p.sc, e = p.M.elements;
+      for (let i = 0; i < p.xy.length; i += 2, o += 3) { const x = p.xy[i] * c - p.xy[i + 1] * s, y = p.xy[i] * s + p.xy[i + 1] * c, z = p.z;
+        NA[o] = e[0] * x + e[4] * y + e[8] * z + e[12]; NA[o + 1] = e[1] * x + e[5] * y + e[9] * z + e[13]; NA[o + 2] = e[2] * x + e[6] * y + e[10] * z + e[14]; } }
+    NG.attributes.position.needsUpdate = true; }
+  NDA[0] = aV(0); NDA[1] = aT(59); needles();
+  for (const m of [FACEM, BEZ, NDL]) { m.userData.noBatch = true; m.userData.noCast = true; plane.add(m); } NDL.frustumCulled = false;
+  PTINT.m.push(FACEM.material); PTINT.key = '';
+  X.meshes = { face: FACEM, bez: BEZ, ndl: NDL, bolt: BOLT, P: { volt: VOLT_P, oat: OAT_P, glass: GL } };
+  function instTick(dt) {
+    const v = ENG.master ? F[V] : 0; F[NDV] += (v - F[NDV]) * Math.min(1, dt / 0.35); F[OATS] += (F[OAT] - F[OATS]) * Math.min(1, dt / 12);   // the needle lags; the OAT bulb takes ~12 s
+    let q = F[NDV]; q = q < 7.55 ? 7.55 : q > 16.3 ? 16.3 : q; const av = 0.75 * Math.PI + (q - 8) / 8 * 1.5 * Math.PI;
+    q = F[OATS] * 1.8 + 32; q = q < -44 ? -44 : q > 124 ? 124 : q; const at = 0.75 * Math.PI + (q + 40) / 160 * 1.5 * Math.PI;
+    if (Math.abs(av - F[NDAV]) > 0.002 || Math.abs(at - F[NDAT]) > 0.002) { F[NDAV] = NDA[0] = av; F[NDAT] = NDA[1] = at; needles(); } }
+  // ---- warm-up: the bolt's look is the only program this adds; compiled at load with the other combinations ----
+  { const pv = PL.visible, sv = SL.visible; BOLT.visible = true; for (let c = 0; c < 4; c++) { PL.visible = !!(c & 1); SL.visible = !!(c & 2); for (const m of [BOLT, FACEM, BEZ, NDL]) renderer.compile(m, camera, scene); } PL.visible = pv; SL.visible = sv; BOLT.visible = false; }
+  X.tick = dt => {
+    F[TT] += dt; camera.getWorldPosition(_x3c); F[IN_Y] = _x3c.y; F[IN_H] = DAY.h;
+    stormTick(dt); imcTick(dt);
+    airCalc(); F[OAT] = F[OUT]; const T = F[OAT], td = T - F[SPREAD] * (1 - F[IMC]); F[TD] = td;   // Magnus: RH = e(Td) / e(T)
+    const r = Math.exp(17.62 * td / (243.12 + td)) / Math.exp(17.62 * T / (243.12 + T)); F[RH] = r < 1 ? r : 1;
+    iceTick(dt); elecTick(dt); instTick(dt); turbTick(); x3Ev();
+    if (!X.tv && SND.ok && SND.amb) thunderInit();
+  };
+  X.inCloudAt = (x, y, z) => { _x3c.set(x, y, z); let k = -1; for (const [im, ok] of [[CLOUDS.im, GFX.clouds > 0 && CLOUDS.im.visible], [CLOUDS2 && CLOUDS2.im, CLOUDS2 && CLOUDS2.im.visible], [FR.cl, FR.cl && FR.cl.visible]]) if (ok) { inCloud(im, im.count); k = Math.max(k, F[DEPTH]); } return k; };
+  window.WX3 = X; return X;
+})();
+function wx3Tick(dt) { WX3.tick(dt); }
+// <<< V3 WX END
 // >>> V3 CRASH BEGIN (crash.js via /workspace/v3-crash/apply.py)
 // ======================= V3 CRASH: crash outcomes (fatal -> wake at home / minor -> flare recovery), pilot health, visible Cub damage, damage sounds, menu RESTART =======================
 // Neil's items 9, 12, 13. Nothing here touches the flight model: it reads ac (crashed, crashReason, vel, q) after the physics and acts through the game's own
@@ -12895,7 +13158,7 @@ const CRX = (() => {
   // the flare in the air: velocity in FD (half gravity: a parachute flare's drag), scaled up with distance so it stays a visible red point
   function flareStep(dt) { FD.y -= 4.905 * dt; const fp = FB.position; fp.x += FD.x * dt; fp.y += FD.y * dt; fp.z += FD.z * dt;
     const me = camera.matrixWorld.elements, dx = me[12] - fp.x, dy = me[13] - fp.y, dz = me[14] - fp.z, d2 = dx * dx + dy * dy + dz * dz;
-    FB.scale.setScalar(d2 > 400 ? Math.sqrt(d2) * 0.05 : 1); }   // ~1.6 deg across at any range: a bright red point
+    { const k = d2 > 400 ? Math.sqrt(d2) * 0.05 : 1; FB.scale.x = k; FB.scale.y = k; FB.scale.z = k; } }   // v1.11.8 no double argument to box (garbage tests run without inlining)   // ~1.6 deg across at any range: a bright red point
   // ---------------- per frame ----------------
   X.tick = (dt) => {
     if (P.hp < P.max && P.hp > 0 && GFX.dayl > 0 && dt < 1) P.hp = Math.min(P.max, P.hp + P.regen * dt * 24 / (GFX.dayl * 60));
@@ -12983,7 +13246,7 @@ renderer.setAnimationLoop(() => {
   fpsFrames++; fpsT += dt; instT += dt;
   if (fpsT >= 1) { fps = Math.round(fpsFrames / fpsT); fpsFrames = 0; fpsT = 0; }
   if (msgT > 0) { msgT -= dt; msgA += dt; }
-  tallTick(); fuelTick(dt); hoseTick(dt); fuelPumpTick(dt); saveTick(dt); CLOUDS.tick(dt); updateDay(dt); wxTick(dt); gfxTick(dt); updateWater(dt); vistaTick(dt); lifeTick(dt); LIFE.wind = SWAY.w; townTick(dt); updateFalling(dt); updateAudio(dt);
+  tallTick(); fuelTick(dt); hoseTick(dt); fuelPumpTick(dt); saveTick(dt); CLOUDS.tick(dt); updateDay(dt); wxTick(dt); wx3Tick(dt); gfxTick(dt); updateWater(dt); vistaTick(dt); lifeTick(dt); LIFE.wind = SWAY.w; townTick(dt); updateFalling(dt); updateAudio(dt);
   panelUpdate(ac, dt); cmpWet(dt);
   if (instT > 0.1) { instT = 0; drawWrist(); }
   if ((chunkT += dt) > 0.2) { chunkT = 0; updateChunks(); }

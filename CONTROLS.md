@@ -56,7 +56,9 @@ Nine holds now come from Neil's Pose Lab codes, each mirrored for the other hand
 | Fuel valve ON / OFF | Grab the red pointer handle (switch strip under the left of the panel) and roll your wrist a quarter turn. It clicks into each detent and bumps at the stop. ON feeds both wing tanks | U |
 | Master ON / OFF | Grip the red rocker to flip it (v0.84: no fingertip push) | O |
 | Mixture RICH (in) / CUTOFF (out) | Grab the red knob and pull it out / push it in | Y |
-| Carb heat COLD (in) / HOT (out) | Grab the black knob and pull it out / push it in | H |
+| Carb heat COLD (in) / HOT (out) | Grab the black knob and pull it out / push it in. v1.11.8: use HOT to clear carb ice (see below), then push it back in | H |
+| Voltmeter + battery (v1.11.8) | The small VOLTS gauge between the tach and the oil gauge reads the bus with the master ON: about 12.5 V on the battery, 14.2 V once the alternator charges (above about 1000 rpm). A low battery cranks slowly; below about 7.8 V while cranking the starter only clicks. Parked by the hangar or a fuel pump with the engine off, ground power charges it. Master OFF when you leave the Cub | same (O = master) |
+| OAT gauge (v1.11.8) | The outside-air thermometer on the panel, in °C (it takes about 12 s to settle) | same |
 | Primer | v0.44: it is locked in. Grab the chrome T-handle and twist it a quarter turn to unlock it, then pull it all the way out and push it back in (one shot per stroke). Push it home and twist it back to lock it. v0.46.1: the twist has to be deliberate (past about 30° and held for a moment), and while you're pumping it ignores how your wrist rolls. It only locks again once it's fully home and you twist it back the way it came | P (one stroke) |
 | Mags OFF > R > L > BOTH > START | Grab the key and twist clockwise / back (click + buzz per position). v0.44: keep twisting past BOTH, against the spring, to START, and the engine cranks while you hold it. Let go and it springs back to BOTH | I (Space to crank) |
 | Starter | Squeeze and hold the grip on the red START button (the glove points its index finger at it), or turn the key to START | Hold Space |
@@ -64,6 +66,8 @@ Nine holds now come from Neil's Pose Lab codes, each mirrored for the other hand
 
 Start: fuel ON, master ON, mixture RICH, carb heat COLD, prime 2–3 strokes (cold) or 0–1 (warm), throttle cracked (~10%), mags BOTH, hold the starter until it runs (~700 rpm).
 Flooded? Throttle full and crank, then pull the throttle back when it fires.
+
+**Carb ice (v1.11.8):** in cool, damp air (about −4 to 18 °C on the OAT, in rain, mist or cloud) ice can build in the carburettor, fastest at low power. The rpm drops, the engine runs rough and pops, and the wrist says ENGINE RUNNING ROUGH ... CARB ICE? Pull carb heat to HOT (knob out / H): the ice clears in about 22 s. Push it back in (COLD) for full power. The landing light and the panel lights need the master ON and a live battery (v1.11.8).
 Shutdown: throttle idle, mixture CUTOFF (it stops), mags OFF, master OFF, fuel OFF.
 
 v0.23 hands (VTOL VR style, no laser): your hands are gloves. Squeeze with the trigger off = point the index finger; trigger curls it; thumb off the buttons lifts the thumb. A yellow ring shows what your hand will work. Squeezing a control and letting go without moving it still does the old one-step toggle. Quest hand tracking (no controllers) shows tracked gloves and pokes switches with your index tip.
