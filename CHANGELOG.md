@@ -2,6 +2,18 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v1.11.6 – crashes you can survive, visible damage, a flare and waking up (VR Dev 3)
+
+- **Two kinds of crash:** an impact of about 15 g or more (roughly 16 m/s, 32 kt, into the ground) is fatal. Anything softer is a minor crash: you are hurt (4–50 % health) but alive. Health is one shared value with the survival stats, and it is the only way you can die.
+- **After a minor crash:** a flare gun sits on the glare shield. In VR, grip it and pull the trigger; on the desktop, press **G**.
+  - A rancher sees the flare, and 3 hours later a flatbed brings you and the Cub home. You pay the recovery bill plus $35 for the flare.
+  - **You can climb out of the wreck (v1.11.6):** Y in VR, F on the desktop, as always. Walk around, wait, or fire the flare. A flare from your pack works anywhere; desktop G works within 6 m of the Cub. Y / F climbs back in.
+- **After a fatal crash:** the screen fades and you wake 14 hours later on the cot in Walt's hangar, at 25 % health. The salvage crew and the clinic ($900) go on the account, and the story notes it.
+- **Damage you can see and hear:** gear, belly, wings, cowl, prop and windscreen show their damage on the Cub, and the prop bends. A hangar repair clears it all. Knocks and hard landings make a crunch scaled to the impact.
+- **Restart moved to the menu:** B no longer restarts the flight. Use MENU > RESUME > RESTART FLIGHT and press it twice to confirm. On the desktop, press R twice within 4 s. A crash no longer resets the flight by itself after 2.5 s.
+- **Cost:** no garbage per frame, the new damage, flare and fade meshes are compiled at load, and the physics checksum is unchanged.
+- **Tests:** t_crash 35/0 (new: climb out after a minor crash, walk, climb back in; desktop flare on G). t55 now reads the crash bill from the pending recovery bill, since the module charges it when you are recovered. Also fixed: the rifle-shouldered obstacle check no longer allocates (the bodyTick garbage test is 0 B/frame in every state).
+
 ## v1.11.5 – survival: food, water, rest and usable items (VR Dev 2)
 
 - **Food, water and rest:** water falls about 3.6 % an hour, food about 3.6 % an hour and you get tired faster at night. All of it runs on the game clock. Starting full at 08:00, nothing is critical within a day. When you are hungry, thirsty or exhausted, you heal more slowly. With no food or water left your health sinks to 10 % but never kills you. You get a message when you are thirsty or tired. Tiredness above 70 % closes a vignette in, and when you are exhausted you get heavy blinks.

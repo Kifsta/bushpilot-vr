@@ -636,7 +636,7 @@ const hyp = (a, b, c = 0) => Math.sqrt(a * a + b * b + c * c);   // v0.59 Math.h
 
 // ======================= RENDERING =======================
 // v0.35 settings (persist in localStorage 'bp_gfx'; ?gfx=shadows:2,grass:1 overrides for testing). Defaults = the v0.34 look and cost.
-const BP_VERSION = 'v1.11.5';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
+const BP_VERSION = 'v1.11.6';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
 { const e = document.getElementById('ver'); if (e) e.textContent = BP_VERSION; } window.__bpVer = BP_VERSION; bootLog('game module running ' + BP_VERSION + ' (three r' + THREE.REVISION + ')' + (/[?&]safe(=|&|$)/.test(location.search) ? ' - SAFE MODE: default graphics, no shadows / ULTRA / life / vistas / music' : ''));
 const GFX_DEF = { shadows: 0, scale: 1, fov: 1, dist: 1, trees: 1, grass: 0, clouds: 1, fog: 1, msaa: 1, hz: 90, vig: 0, turn: 0, fps: 0, tod: 11, stk: 1, tips: 1, terr: 1, dyn: 1, glove: 0, hand: 0, wt: 1, volM: 1, volMu: 0.5, volE: 1, volA: 1, volF: 1, wx: 1, forest: 0, ground: 0, gtex: 0, cvl: 1, water: 1, dayl: 48, flure: 0, fline: 8, fdrag: 4, fbob: 0, fsink: 0, ultra: 0 };   // v0.68.1 dominant hand, volumes. v0.48 BALANCED: 90 % scale, 72 Hz, fast terrain shading, auto resolution; v0.49.1 the stick stays where you let go of it
 const GFX = Object.assign({}, GFX_DEF);
@@ -2389,14 +2389,15 @@ function resetFuel() {
   say('RESET - TOPPED UP TO 5 GAL AT THE HOME DRUM -$' + c + (DLV.cash < 0 ? ' ON ACCOUNT' : '') + ' (' + ecoMoney(DLV.cash) + ')'); return c;
 }
 function exitPlane() {
-  if (!(acGS() < 1 && ctl.throttle < 0.05 && !ac.crashed)) { say('STOP + IDLE TO EXIT'); return; }
+  const wreck = ac.crashed && typeof window.crxMinor === 'function' && window.crxMinor();   // v1.11.6 after a minor (survivable) crash you can climb out of the wreck
+  if (!wreck && !(acGS() < 1 && ctl.throttle < 0.05 && !ac.crashed)) { say('STOP + IDLE TO EXIT'); return; } if (wreck) ctl.throttle = 0;
   const s = qRot(ac.q, [2.2, 0, -0.3]), f = qRot(ac.q, [0, 0, -1]), yaw = Math.atan2(-f[0], -f[2]);
   let x = ac.pos[0] + s[0], z = ac.pos[2] + s[2], deck = null;
   { const hw = waterH(x, z); if (hw !== null && hw - groundY(x, z) > 0.6 && (deck = fDeckExit())) { x = deck[0]; z = deck[2]; } else if (hw !== null && hw - groundY(x, z) > 0.6) { say('TOO DEEP TO STEP OUT - TAXI IN AND BEACH IT (THE FLOATS ON THE SAND), OR TIE UP IN THE SHALLOWS'); return; } }   // v0.90 floats: wade ashore, don't swim
   footRig.position.set(x, groundY(x, z) + EYE, z); footRig.rotation.set(0, yaw, 0);   // (v0.90.1 restored: v0.90 lost this line, so you got out where you last stood)
   footRig.add(xrOffset); mode = 'foot'; lookYaw = lookPitch = 0; needRecenter = renderer.xr.isPresenting ? 2 : 0;
   ctl.elev = ctl.ail = ctl.rud = 0;
-  bodyYaw = yaw; huntExit(); if (deck) say('ON THE FLOAT - WALK IT BOW TO STERN, FISH OFF IT; Y / F CLIMBS BACK IN');   // v0.53 binoculars in the holster on your left hip
+  bodyYaw = yaw; huntExit(); if (wreck) say('YOU CLIMB OUT OF THE WRECK - FIRE THE FLARE (' + (renderer.xr.isPresenting ? 'THE GUN ON THE GLARE SHIELD, OR A FLARE FROM YOUR PACK' : 'G, WITHIN 6 M OF THE CUB') + ') OR WAIT. Y / F CLIMBS BACK IN'); if (deck) say('ON THE FLOAT - WALK IT BOW TO STERN, FISH OFF IT; Y / F CLIMBS BACK IN');   // v0.53 binoculars in the holster on your left hip
   if (ENG.running) { ENG.running = false; say('ENGINE SHUT DOWN'); } ENG.starterVR = false; CKH.clear(); cardHome(); kbHome(); micRelease();   // v0.19
 }
 function board() {
@@ -2442,7 +2443,7 @@ addEventListener('keydown', e => {
   if (upgKey(e)) return;   // v0.57 1-7 at the parts board; E carries / fits / bolts a part
   if (ecoKey(e)) return;   // v0.55 1-4 at a service board
   if (dlvDeskKey(e)) return;   // v0.50 on foot: E carry / load, 1-3 at a job board; / straps
-  if (e.code === 'KeyR') resetFlight();
+  if (e.code === 'KeyR') crxKeyR();
   if (e.code === 'KeyM') mapDesk();
   if (e.code === 'KeyL' && mode === 'plane') toggleLanding();
   if (e.code === 'Semicolon' && mode === 'plane') gearSet();   // v0.90 the amphibs' wheels
@@ -2580,7 +2581,7 @@ function xrInput(dt) {
       ctl.throttle = th;
     }
     rudA[right ? 1 : 0] = gp.axes[2] || 0; trg[right ? 1 : 0] = KB.g === g || MIC.g === g ? 0 : gp.buttons[0]?.value || 0;   // v0.64 the trigger of a hand holding the clipboard turns its page, it doesn't brake
-    if (right) { if (pressedEdge(gp, 4, 'A')) recenter(); if (pressedEdge(gp, 5, 'B')) resetFlight(); }
+    if (right) { if (pressedEdge(gp, 4, 'A')) recenter(); if (pressedEdge(gp, 5, 'B')) crxB(); }
     else { if (pressedEdge(gp, 4, 'X')) recenter(); if (pressedEdge(gp, 5, 'Y')) exitPlane(); }
   }
   const rudX = Math.abs(rudA[1]) > Math.abs(rudA[0]) ? rudA[1] : rudA[0];   // rudder: the left thumbstick, or the right one if it is pushed further (stick in the left hand)
@@ -2597,7 +2598,7 @@ function footXR(dt) {
     const src = g.userData.src; if (!src || !src.gamepad) continue;
     const gp = src.gamepad, h = src.handedness, sq = !!gp.buttons[1]?.pressed;
     if (h === 'left') { lx = gp.axes[2] || 0; ly = gp.axes[3] || 0; if (pressedEdge(gp, 5, 'Y')) { if (!rflLeverBtn(g)) board(); } if (pressedEdge(gp, 4, 'X')) { if (!rflLoadBtn(g)) recenter(); } if (pressedEdge(gp, 3, 'LS')) vr.sprint = true; }
-    else { rx = gp.axes[2] || 0; ry = gp.axes[3] || 0; if (pressedEdge(gp, 5, 'B')) { if (!rflLeverBtn(g)) resetFlight(); } if (pressedEdge(gp, 4, 'A')) { if (!rflLoadBtn(g)) recenter(); } }
+    else { rx = gp.axes[2] || 0; ry = gp.axes[3] || 0; if (pressedEdge(gp, 5, 'B')) { if (!rflLeverBtn(g)) crxB(); } if (pressedEdge(gp, 4, 'A')) { if (!rflLoadBtn(g)) recenter(); } }
     if (pressedEdge(gp, 0, h + 'tr')) rflTrigger(g);   // v0.53 trigger fires the rifle in that hand
     if (pressedEdge(gp, 1, h + 'sq')) { HX.ctx = g; HX.st(g).armed = true; handGrab(g); HX.ctx = null; }
     if (!sq) { HX.ctx = g; handRelease(g); HX.ctx = null; }   // v0.24: let-go clicks buzz this hand
@@ -12301,10 +12302,10 @@ const BODY = (() => {
   // obstacles for the elbow: a held rifle (grip -> butt) or the rod's butt (segment t1 + t2 * [0, Q13]); in local space
   function obstacle() { Q[12] = 0;
     if (typeof RFL !== 'undefined' && RFL.g && (RFL.place === 'vr' || RFL.place === 'desk') && RFL.g.visible) { RFL.g.updateWorldMatrix(true, false); oA.set(0, -0.02, 0.33).applyMatrix4(RFL.g.matrixWorld).applyMatrix4(MINV);
-      oD.set(0, -0.01, -0.05).applyMatrix4(RFL.g.matrixWorld).applyMatrix4(MINV); oD.sub(oA); Q[13] = Math.sqrt(oD.x * oD.x + oD.y * oD.y + oD.z * oD.z); oD.multiplyScalar(1 / Math.max(Q[13], 1e-6)); Q[12] = 1; return; }
+      oD.set(0, -0.01, -0.05).applyMatrix4(RFL.g.matrixWorld).applyMatrix4(MINV); oD.sub(oA); Q[13] = Math.sqrt(oD.x * oD.x + oD.y * oD.y + oD.z * oD.z); { const k = 1 / Math.max(Q[13], 1e-6); oD.x *= k; oD.y *= k; oD.z *= k; } Q[12] = 1; return; }
     if (typeof FROD !== 'undefined' && FROD.m.visible && typeof FISH !== 'undefined' && FISH.rod !== 'pack') {   // the rod's butt + rear grip (v1.10: FROD.f, fist at the origin, butt cap at z +0.3)
       const F = FROD.f || FREEL.m, z0 = FROD.f ? 0.3 : 0.27, y0 = FROD.f ? 0 : 0.04; F.updateWorldMatrix(true, false); oA.set(0, y0, z0).applyMatrix4(F.matrixWorld).applyMatrix4(MINV);
-      oD.set(0, y0, FROD.f ? 0.04 : -0.05).applyMatrix4(F.matrixWorld).applyMatrix4(MINV); oD.sub(oA); Q[13] = Math.sqrt(oD.x * oD.x + oD.y * oD.y + oD.z * oD.z); oD.multiplyScalar(1 / Math.max(Q[13], 1e-6)); Q[12] = 1; } }
+      oD.set(0, y0, FROD.f ? 0.04 : -0.05).applyMatrix4(F.matrixWorld).applyMatrix4(MINV); oD.sub(oA); Q[13] = Math.sqrt(oD.x * oD.x + oD.y * oD.y + oD.z * oD.z); { const k = 1 / Math.max(Q[13], 1e-6); oD.x *= k; oD.y *= k; oD.z *= k; } Q[12] = 1; } }
   // rifle in the shoulder (VR): blade the chest (yaw toward the rifle side) and slide the torso so the shoulder pocket sits behind the butt plate
   function rifleShoulder() {
     const w = Math.min(1, RFL.stockW), side = RFL.sx < 0 ? -1 : 1; RFL.g.updateWorldMatrix(true, false); t1.set(0, -0.035, 0.335).applyMatrix4(RFL.g.matrixWorld).applyMatrix4(MINV);   // butt plate centre
@@ -12634,6 +12635,307 @@ const SURV = (() => {
 window.SURV = SURV;
 function survTick(dt, vr) { SURV.tick(dt, vr); }
 // <<< V2 SURVIVAL END
+// >>> V3 CRASH BEGIN (crash.js via /workspace/v3-crash/apply.py)
+// ======================= V3 CRASH: crash outcomes (fatal -> wake at home / minor -> flare recovery), pilot health, visible Cub damage, damage sounds, menu RESTART =======================
+// Neil's items 9, 12, 13. Nothing here touches the flight model: it reads ac (crashed, crashReason, vel, q) after the physics and acts through the game's own
+// resetFlight / exitPlane / ECO / DLV / STORY / SETP / sfx-bus code. Zero garbage per frame: the tick only compares numbers; geometry is rewritten only when damage changes.
+//  - Crash classes (CRX.classify): impact speed vi from the crash type (gear / float hits: sink rate; ground strikes: sink + 35 % of the ground speed; trees / objects:
+//    full speed), g = vi^2 / (2 * 0.9 m crush * 9.81). g >= CRX.FATAL_G (15 g, vi >= 16.3 m/s ~ 32 kt / 3200 fpm) = FATAL, else MINOR (pilot loses 4..50 health).
+//  - One death path: HEALTH.kill(why) (window.HEALTH) -> fade, time skip, wake in Walt's hangar on low health (window.SURV.reset() if present), salvage + clinic on the account.
+//  - MINOR: the flare gun appears on the glare shield. VR: grip it, pull the trigger. Desktop: F. The flare goes up, fade, the Cub and you are trucked home (cost by distance).
+//  - Restart: controller B no longer restarts (it says where Restart went); MENU > RESUME > RESTART FLIGHT (poke twice to confirm); desktop R twice. Restart after a crash = recovery (charged).
+//  - Damage visuals: per part (CRX.dmg: cowl, prop, screen, wing L, wing R, gear / belly, sides, tail) -> one overlay mesh of dents / scrapes / tears / windscreen cracks
+//    (the prop blade's own material: no new program, 1 draw only while the Cub is damaged) + the prop blades bent in place. The hangar board's REPAIR clears it.
+const CRX = (() => {
+  const X = { FATAL_G: 15, CRUSH: 0.9, GLANCE: 0.35, st: 'ok', kind: '', seen: false, t: 0, a: 0, info: null, pend: 0, last: null, snd: { n: 0, vol: 0, kind: '' },
+    WAKE_H: 14, REC_H: 3, CLINIC: 900, FLARE_C: 35, REC_BASE: 120, REC_KM: 40, hold: 0, lines: [], held: null, rconf: 0, bSaid: 0, n: { fatal: 0, minor: 0, flare: 0, wake: 0, rec: 0, restart: 0 } };
+  const NP = 8, PART = ['COWL', 'PROP', 'WINDSCREEN', 'LEFT WING', 'RIGHT WING', 'GEAR + BELLY', 'FUSELAGE', 'TAIL'];
+  const dmg = new Float32Array(NP), shown = new Float32Array(NP).fill(-1), eff = new Float32Array(NP);
+  X.dmg = dmg; X.PART = PART; X.eff = eff;
+  // ---------------- pilot health: the one place for hurt / heal / death (window.HEALTH; reused if another module made it first) ----------------
+  const P = (window.HEALTH && typeof window.HEALTH === 'object') ? window.HEALTH : {};
+  if (!(P.max > 0)) P.max = 100; if (!(P.hp >= 0)) P.hp = P.max; if (!(P.regen >= 0)) P.regen = 3;   // regen: health per game hour while above 0
+  P.onDeath = P.onDeath || []; P.onWake = P.onWake || [];
+  P.hurt = (n, why) => { if (!(n > 0) || X.st === 'fade' || X.st === 'black') return P.hp; P.hp = Math.max(0, P.hp - n); X.dirty = 1; if (P.hp <= 0) P.kill(why || 'injuries'); return P.hp; };
+  P.heal = n => { if (n > 0) P.hp = Math.min(P.max, P.hp + n); return P.hp; };
+  P.set = v => { P.hp = Math.min(P.max, Math.max(0, +v || 0)); return P.hp; };
+  P.kill = why => die(why || 'unknown', null);
+  P.dead = () => X.kind === 'fatal' && X.st !== 'ok' && X.st !== 'minor';
+  window.HEALTH = P; X.P = P;
+  // ---------------- crash classification (pure; tests call it) ----------------
+  X.classify = (why, vel, q) => {
+    const w = String(why || ''), vx = vel[0], vy = vel[1], vz = vel[2], sink = Math.max(0, -vy), hz = Math.sqrt(vx * vx + vz * vz), sp = Math.sqrt(vx * vx + vy * vy + vz * vz);
+    let type = 'other', vi = Math.sqrt(sink * sink + 0.25 * hz * hz);
+    if (/hard landing|gear collapsed|floats crushed/i.test(w)) { type = 'gear'; vi = sink; }
+    else if (/flipped/i.test(w)) { type = 'flip'; vi = Math.sqrt(sink * sink + (X.GLANCE * hz) ** 2); }
+    else if (/wing ?tip|wing strike/i.test(w)) { type = 'wing'; vi = Math.sqrt(sink * sink + (X.GLANCE * hz) ** 2); }
+    else if (/prop|nose/i.test(w)) { type = 'nose'; vi = Math.sqrt(sink * sink + (X.GLANCE * hz) ** 2); }
+    else if (/airframe/i.test(w)) { type = 'airframe'; vi = Math.sqrt(sink * sink + (X.GLANCE * hz) ** 2); }
+    else if (/trees|flew into/i.test(w)) { type = 'impact'; vi = sp; }
+    else if (/lake|water/i.test(w)) { type = 'water'; vi = Math.sqrt(sink * sink + (X.GLANCE * hz) ** 2); }
+    const g = vi * vi / (2 * X.CRUSH * 9.81), fatal = g >= X.FATAL_G, sev = Math.min(1, g / X.FATAL_G);
+    let side = 0; if (q) { const x = q[0], y = q[1], z = q[2], ww = q[3], ry = 2 * (x * y + ww * z); side = ry < 0 ? 1 : -1; }   // body +x (right) world y < 0: right wing low
+    return { type, vi, g, fatal, sev, sink, hz, sp, side, hurt: fatal ? P.max : Math.round(4 + 46 * Math.pow(sev, 1.3)), why: w };
+  };
+  // damage per part from a crash (0..1, never lowers what is already there)
+  const up = (k, v) => { dmg[k] = Math.min(1, Math.max(dmg[k], v)); };
+  X.applyDamage = (c) => { const s = c.fatal ? 1 : Math.max(0.15, c.sev);
+    if (c.type === 'gear') { up(5, 0.4 + 0.6 * s); up(6, 0.25 * s); if (/collapsed|crushed/i.test(c.why)) up(1, 0.5 + 0.4 * s); }
+    else if (c.type === 'nose' || c.type === 'flip') { up(1, 0.6 + 0.4 * s); up(0, 0.3 + 0.6 * s); up(2, 0.35 + 0.5 * s); up(5, 0.3 * s); if (c.type === 'flip') { up(7, 0.6); up(3, 0.4); up(4, 0.4); } }
+    else if (c.type === 'wing') { up(c.side > 0 ? 4 : 3, 0.5 + 0.5 * s); up(1, 0.3 * s); up(5, 0.25 * s); }
+    else if (c.type === 'airframe') { up(5, 0.6 + 0.4 * s); up(6, 0.4 * s + 0.2); up(7, 0.4 * s + 0.2); }
+    else if (c.type === 'impact') { up(3, 0.4 + 0.6 * s); up(4, 0.4 + 0.6 * s); up(2, 0.6 + 0.4 * s); up(0, 0.5 * s + 0.2); up(1, 0.7); }
+    else { up(1, 0.5); up(2, 0.3); up(5, 0.3 + 0.4 * s); up(6, 0.3 * s); }
+    if (c.fatal) for (let k = 0; k < NP; k++) up(k, 0.6);
+    X.dirty = 1; };
+  X.bodyCost = () => Math.round(700 * dmg[0] + 900 * dmg[1] + 450 * dmg[2] + 800 * dmg[3] + 800 * dmg[4] + 300 * dmg[5] + 500 * dmg[6] + 600 * dmg[7]);
+  X.bodyPct = () => { let s = 0; for (let k = 0; k < NP; k++) s += dmg[k]; return Math.round(100 * s / NP); };
+  X.clear = () => { dmg.fill(0); X.dirty = 1; };
+  // ---------------- sound: a subtle scrape / crunch on the effects bus, volume scaled to the hit ----------------
+  X.sound = (mag, kind) => {   // mag 0..1 (small knocks quiet); events only (WebAudio nodes per call, like sfx)
+    const vol = Math.min(0.42, 0.035 + 0.38 * Math.max(0, Math.min(1, mag))); X.snd.n++; X.snd.vol = vol; X.snd.kind = kind; SND.n.dmg = (SND.n.dmg || 0) + 1;
+    if (!SND.ok || !actx || !SND.noise) return vol; const A = actx, t = A.currentTime, out = SND.fx;
+    const nb = (len, v, type, f0, f1, at, Q) => { const s = A.createBufferSource(); s.buffer = SND.noise; const b = A.createBiquadFilter(), g = A.createGain(); b.type = type; b.Q.value = Q || 0.8;
+      b.frequency.setValueAtTime(f0, t + at); b.frequency.exponentialRampToValueAtTime(f1, t + at + len); g.gain.setValueAtTime(0.0001, t + at); g.gain.linearRampToValueAtTime(v, t + at + 0.012);
+      g.gain.exponentialRampToValueAtTime(0.0008, t + at + len); s.connect(b).connect(g).connect(out); s.start(t + at, Math.random() * 1.2, len + 0.05); };
+    if (kind !== 'scrape') { nb(0.22 + 0.25 * mag, vol, 'lowpass', 380, 90, 0, 0.7); nb(0.08, vol * 0.5, 'bandpass', 2600, 1400, 0.015, 1.4); if (mag > 0.35) nb(0.12, vol * 0.35, 'bandpass', 1800, 900, 0.09, 2); }
+    if (kind !== 'crunch') nb(0.35 + 0.5 * mag, vol * 0.55, 'bandpass', 1500, 520, kind === 'scrape' ? 0 : 0.05, 3);
+    return vol; };
+  // ---------------- visuals: overlay mesh in the drawing frame (cubD), the blade's material ----------------
+  let seed = 7; const rnd = () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
+  const PT = [], CL = [], PATCH = []; const _c = new THREE.Color(); let cur = null;
+  const V3 = THREE.Vector3, _n = new V3(), _t = new V3(), _b = new V3(), _up = new V3(0, 1, 0), _ax = new V3(1, 0, 0);
+  const begin = (part, th) => { cur = { part, th, s: PT.length / 3, n: 0 }; };
+  const end = () => { cur.n = PT.length / 3 - cur.s; if (cur.n) PATCH.push(cur); cur = null; };
+  const vtx = (p, col) => { PT.push(p.x, p.y, p.z); CL.push(col.r, col.g, col.b); };
+  const tri = (a, b, c, hex, j = 0.1) => { _c.setHex(hex).multiplyScalar(1 - j / 2 + j * rnd()); vtx(a, _c); vtx(b, _c); vtx(c, _c); };
+  const frame = (N) => { _n.copy(N).normalize(); _t.crossVectors(_n, Math.abs(_n.y) > 0.9 ? _ax : _up).normalize(); _b.crossVectors(_n, _t); };
+  const at = (P0, u, v, h) => new V3().copy(P0).addScaledVector(_t, u).addScaledVector(_b, v).addScaledVector(_n, h);
+  function dent(P0, N, r0, part, th, base = 0xc49a12) { const r = r0 * 1.5;   // shallow crumpled bowl: rim proud, centre sunk, flat-shaded facets + two creases
+    frame(N); begin(part, th); const k = 7, R = []; const a0 = rnd() * 6.28;
+    for (let i = 0; i < k; i++) { const a = a0 + i * 6.283 / k, rr = r * (0.7 + 0.4 * rnd()); R.push(at(P0, Math.cos(a) * rr, Math.sin(a) * rr, 0.012)); }
+    const C = at(P0, (rnd() - 0.5) * r * 0.3, (rnd() - 0.5) * r * 0.3, 0.002);
+    for (let i = 0; i < k; i++) tri(C, R[i], R[(i + 1) % k], base, 0.6);
+    tri(at(C, 0, 0, 0.001).addScaledVector(_t, r * 0.18), at(C, 0, 0, 0.001).addScaledVector(_b, r * 0.15), at(C, 0, 0, 0.001).addScaledVector(_t, -r * 0.12), 0x9a9a92, 0.1);   // a chip of bare metal
+    for (let j = 0; j < 2; j++) { const a = rnd() * 3.14, ca = Math.cos(a), sa = Math.sin(a), w = 0.0055, L = r * 0.95;
+      const A = at(P0, -ca * L - sa * w, -sa * L + ca * w, 0.0125), B = at(P0, ca * L - sa * w, sa * L + ca * w, 0.0125), Cc = at(P0, ca * L + sa * w, sa * L - ca * w, 0.0125), D = at(P0, -ca * L + sa * w, -sa * L - ca * w, 0.0125);
+      tri(A, B, Cc, 0x4a3a10, 0.1); tri(A, Cc, D, 0x4a3a10, 0.1); }
+    end(); }
+  function scrape(P0, N, dir, len, w0, part, th) { const w = w0 * 1.4;   // bare-metal / primer streak along dir, jagged edges
+    frame(N); _t.copy(dir).addScaledVector(_n, -dir.dot(_n)).normalize(); _b.crossVectors(_n, _t); begin(part, th); const seg = 5;
+    for (let i = 0; i < seg; i++) { const u0 = (i / seg - 0.5) * len, u1 = ((i + 1) / seg - 0.5) * len, w0 = w * (0.5 + 0.6 * rnd()), w1 = w * (0.5 + 0.6 * rnd());
+      const A = at(P0, u0, -w0, 0.006), B = at(P0, u1, -w1, 0.006), C = at(P0, u1, w1, 0.006), D = at(P0, u0, w0, 0.006), col = i & 1 ? 0xa9a9a0 : 0x8c8a7c;
+      tri(A, B, C, col, 0.15); tri(A, C, D, col, 0.15); }
+    end(); }
+  function tear(P0, N, r, part, th) {   // a dark rip in the fabric with a lifted flap
+    frame(N); begin(part, th); const k = 6, R = [];
+    for (let i = 0; i < k; i++) { const a = i * 6.283 / k, rr = r * (i & 1 ? 0.45 : 1) * (0.8 + 0.3 * rnd()); R.push(at(P0, Math.cos(a) * rr * 1.6, Math.sin(a) * rr, 0.006)); }
+    const C = at(P0, 0, 0, 0.006); for (let i = 0; i < k; i++) tri(C, R[i], R[(i + 1) % k], 0x2a2418, 0.2);
+    tri(R[0], R[1], at(P0, r * 0.9, r * 0.5, r * 0.8), 0xe8b818, 0.1); end(); }
+  function crack(P0, N, r, part, th) {   // windscreen: an impact star + radial cracks with branches, thin pale quads 3 mm off the glass
+    frame(N); begin(part, th); const w = 0.0016, col = 0xdde4e8; const seg = (u0, v0, u1, v1) => { const du = u1 - u0, dv = v1 - v0, l = Math.hypot(du, dv) || 1, nu = -dv / l * w, nv = du / l * w;
+      const A = at(P0, u0 + nu, v0 + nv, 0.003), B = at(P0, u1 + nu, v1 + nv, 0.003), C = at(P0, u1 - nu, v1 - nv, 0.003), D = at(P0, u0 - nu, v0 - nv, 0.003); tri(A, B, C, col, 0.05); tri(A, C, D, col, 0.05); };
+    const k = 7; for (let i = 0; i < k; i++) { let a = i * 6.283 / k + rnd() * 0.5, u = 0, v = 0; const L = r * (0.5 + 0.6 * rnd());
+      for (let s = 0; s < 4; s++) { const l = L / 4, u2 = u + Math.cos(a) * l, v2 = v + Math.sin(a) * l; seg(u, v, u2, v2);
+        if (rnd() < 0.4) { const b = a + (rnd() < 0.5 ? 0.7 : -0.7); seg(u2, v2, u2 + Math.cos(b) * l * 0.8, v2 + Math.sin(b) * l * 0.8); } u = u2; v = v2; a += (rnd() - 0.5) * 0.5; } }
+    for (let i = 0; i < 5; i++) { const a = i * 1.2566, b = a + 1.2566, rr = r * 0.12; seg(Math.cos(a) * rr, Math.sin(a) * rr, Math.cos(b) * rr, Math.sin(b) * rr); }
+    end(); }
+  // the Cub's skin in the drawing frame (the same numbers as the v0.18 exterior: cowl sections, wy(), windscreen, belly)
+  const CS = [[-1.86, 0.27, 0.40, -0.19, 0.16], [-1.76, 0.35, 0.44, -0.23, 0.14], [-1.45, 0.40, 0.48, -0.26, 0.10], [-1.11, 0.35, 0.535, -0.28, 0]];
+  const cowl = (z, i) => { let k = 0; while (k < 2 && z > CS[k + 1][0]) k++; const A = CS[k], B = CS[k + 1], f = Math.min(1, Math.max(0, (z - A[0]) / (B[0] - A[0]))); return A[i] + (B[i] - A[i]) * f; };
+  const RF = [[1.10, 0.35], [1.66, 0.296], [2.27, 0.236], [2.88, 0.177], [3.49, 0.117], [4.00, 0.068]];
+  const rearHW = z => { let k = 0; while (k < RF.length - 2 && z > RF[k + 1][0]) k++; const A = RF[k], B = RF[k + 1]; return A[1] + (B[1] - A[1]) * (z - A[0]) / (B[0] - A[0]); };
+  const AFU = [[0, 0.045], [0.035, 0.115], [0.15, 0.175], [0.33, 0.19], [0.55, 0.17], [0.775, 0.115], [1, 0.03]];
+  const afTop = f => { let k = 0; while (k < AFU.length - 2 && f > AFU[k + 1][0]) k++; const A = AFU[k], B = AFU[k + 1]; return A[1] + (B[1] - A[1]) * (f - A[0]) / (B[0] - A[0]); };
+  const wingTop = (x, f) => new V3(x, wy(x, LE_Z + f * CHORD) + afTop(f), LE_Z + f * CHORD);
+  const wingBot = (x, f) => new V3(x, wy(x, LE_Z + f * CHORD) - 0.002, LE_Z + f * CHORD);
+  const scrN = new V3(0, 0.807, -0.591), scr = (u, v) => new V3(u * 0.35, 0.535 + v * 0.425, -1.08 + v * 0.58);
+  const bellyY = z => z < 0.17 ? -0.28 + (-0.07) * (z + 1.11) / 1.28 : -0.35 + 0.12 * (z - 0.17) / 0.93;
+  const Vn = (x, y, z) => new V3(x, y, z), AFT = Vn(0, 0, 1);
+  function build() {
+    // 0 cowl: dents on both cheeks, the top, the nose bowl
+    dent(Vn(-cowl(-1.55, 1), 0.12, -1.55), Vn(-1, 0, 0), 0.09, 0, 0.05); dent(Vn(0.06, cowl(-1.4, 2) + 0.004, -1.4), Vn(0, 1, 0), 0.08, 0, 0.2);
+    dent(Vn(cowl(-1.3, 1), 0.02, -1.3), Vn(1, 0, 0), 0.1, 0, 0.35); dent(Vn(0.1, 0.02, -1.862), Vn(0, 0, -1), 0.07, 0, 0.5);
+    dent(Vn(-cowl(-1.25, 1) * 0.62, cowl(-1.25, 2) - 0.02, -1.25), Vn(-0.55, 0.85, 0), 0.07, 0, 0.65); scrape(Vn(cowl(-1.6, 1), -0.12, -1.6), Vn(1, 0, 0), AFT, 0.35, 0.03, 0, 0.8);
+    dent(Vn(-cowl(-1.75, 1), -0.08, -1.75), Vn(-1, 0, -0.3), 0.06, 0, 0.9);
+    // 2 windscreen cracks
+    crack(scr(-0.35, 0.55), scrN, 0.22, 2, 0.05); crack(scr(0.45, 0.3), scrN, 0.18, 2, 0.45); crack(scr(0.05, 0.8), scrN, 0.2, 2, 0.8);
+    // 3 / 4 wings: leading-edge crumple, top dents, tip tears, bottom scrapes
+    for (const sx of [-1, 1]) { const k = sx < 0 ? 3 : 4;
+      scrape(wingBot(sx * 5.05, 0.45), Vn(0, -1, 0), Vn(sx * 0.3, 0, 1), 0.9, 0.05, k, 0.05); dent(wingTop(sx * 4.6, 0.04), Vn(0, 0.35, -0.94), 0.09, k, 0.15);
+      dent(wingTop(sx * 4.1, 0.3), Vn(0, 1, 0), 0.12, k, 0.3); tear(wingTop(sx * 4.9, 0.55), Vn(0, 1, -0.05), 0.08, k, 0.45);
+      dent(wingTop(sx * 3.3, 0.06), Vn(0, 0.4, -0.92), 0.1, k, 0.6); tear(wingTop(sx * 3.9, 0.7), Vn(0, 1, 0.1), 0.1, k, 0.75); scrape(wingBot(sx * 4.4, 0.3), Vn(0, -1, 0), Vn(0, 0, 1), 0.7, 0.04, k, 0.85); dent(wingTop(sx * 2.5, 0.25), Vn(0, 1, 0), 0.1, k, 0.92); }
+    // 5 gear / belly: scrapes along the belly, dents at the gear fittings
+    scrape(Vn(0.05, bellyY(-0.4), -0.4), Vn(0, -1, 0), AFT, 0.9, 0.06, 5, 0.05); dent(Vn(0.351, -0.24, 0.12), Vn(1, 0, 0), 0.07, 5, 0.25); dent(Vn(-0.351, -0.25, 0.1), Vn(-1, 0, 0), 0.07, 5, 0.4);
+    scrape(Vn(-0.12, bellyY(0.5), 0.5), Vn(0, -1, 0.1), AFT, 0.8, 0.05, 5, 0.6); scrape(Vn(0.1, bellyY(-0.9), -0.9), Vn(0, -1, -0.2), AFT, 0.4, 0.04, 5, 0.8);
+    // 6 fuselage sides
+    dent(Vn(-0.352, 0.05, 0.7), Vn(-1, 0, 0), 0.1, 6, 0.1); dent(Vn(rearHW(1.9) + 0.002, 0.45, 1.9), Vn(1, 0, 0), 0.11, 6, 0.3); scrape(Vn(-rearHW(2.4) - 0.002, 0.25, 2.4), Vn(-1, 0, 0), AFT, 0.9, 0.04, 6, 0.5);
+    dent(Vn(-rearHW(2.9) - 0.002, 0.5, 2.9), Vn(-1, 0, 0), 0.09, 6, 0.7); dent(Vn(0.352, 0.2, -0.9), Vn(1, 0, 0), 0.08, 6, 0.85);
+    // 7 tail: fin dents + the bottom of the rear fuselage
+    dent(Vn(0.026, 1.25, 4.15), Vn(1, 0, 0), 0.09, 7, 0.1); scrape(Vn(0, 0.24, 3.8), Vn(0, -1, 0), AFT, 0.7, 0.04, 7, 0.3); dent(Vn(-0.026, 1.05, 4.0), Vn(-1, 0, 0), 0.1, 7, 0.55); tear(Vn(0.026, 1.5, 4.25), Vn(1, 0, 0), 0.06, 7, 0.8);
+  }
+  build();
+  const G = new THREE.BufferGeometry(), POS = new Float32Array(PT), BASE = new Float32Array(PT);
+  G.setAttribute('position', new THREE.BufferAttribute(POS, 3)); G.setAttribute('color', new THREE.Float32BufferAttribute(CL, 3)); G.computeVertexNormals();
+  G.boundingSphere = new THREE.Sphere(new V3(0, 0.4, 1), 7);
+  const OV = new THREE.Mesh(G, blade.material); OV.userData.noBatch = true; OV.visible = false; OV.frustumCulled = true; cubD.add(OV); X.ov = OV; X.patches = PATCH.length; X.tris = POS.length / 9;
+  // prop blades: bend the tips aft in place (blade 1 = first half of the merged geometry, blade 2 = second half)
+  const BP = blade.geometry.attributes.position, BB = new Float32Array(BP.array); X.bladeBase = BB;
+  function bendProp(b) { const a = BP.array, h = BP.count >> 1;
+    for (let i = 0; i < BP.count; i++) { const x = BB[i * 3], y = BB[i * 3 + 1], z = BB[i * 3 + 2], r = Math.abs(y), k = i < h ? 1 : 0.55, e = r > 0.25 ? (r - 0.25) : 0;
+      a[i * 3] = x + b * k * 0.3 * e * e * (i < h ? 1 : -1); a[i * 3 + 1] = y - Math.sign(y) * b * k * 0.1 * e * e; a[i * 3 + 2] = z + b * k * 0.55 * e * e; }
+    BP.needsUpdate = true; blade.geometry.computeBoundingSphere(); }
+  X.bendProp = bendProp;
+  function visSync() {   // per frame: numbers only; geometry rewritten when the effective damage moved
+    let ch = false, any = false;
+    for (let k = 0; k < NP; k++) { const v = k === 5 ? Math.max(dmg[5], ECO.gear) : dmg[k]; eff[k] = v; if (Math.abs(v - shown[k]) > 0.005) ch = true; if (v > 0.01) any = true; }
+    if (!ch) return false;
+    for (let i = 0; i < PATCH.length; i++) { const p = PATCH[i], on = eff[p.part] >= p.th, s3 = p.s * 3, e3 = (p.s + p.n) * 3;
+      if (on) for (let j = s3; j < e3; j++) POS[j] = BASE[j]; else for (let j = s3; j < e3; j += 3) { POS[j] = BASE[s3]; POS[j + 1] = BASE[s3 + 1]; POS[j + 2] = BASE[s3 + 2]; } }
+    G.attributes.position.needsUpdate = true; OV.visible = any;
+    if (Math.abs(eff[1] - shown[1]) > 0.005) bendProp(eff[1] > 0.05 ? eff[1] : 0);
+    for (let k = 0; k < NP; k++) shown[k] = eff[k];
+    for (const F of FUEL_ST) if (F.B) F.B.key = '';
+    return true; }
+  X.visSync = visSync;
+  // ---------------- the flare gun (glare shield, shown after a minor crash) and the flare ----------------
+  const gunGeo = (() => { const parts = [['b', 0.035, 0.05, 0.16, 0, 0, -0.02, 0xe0661a], ['b', 0.03, 0.09, 0.04, 0, -0.06, 0.045, 0x202020], ['b', 0.044, 0.044, 0.07, 0, 0.002, -0.125, 0xe0661a], ['b', 0.008, 0.02, 0.03, 0, -0.035, 0.012, 0x202020], ['b', 0.01, 0.012, 0.02, 0, 0.03, 0.05, 0x303030]];
+    const gs = parts.map(([, w, h, d, x, y, z, c]) => { const g = new THREE.BoxGeometry(w, h, d).toNonIndexed(); g.translate(x, y, z); const n = g.attributes.position.count, cc = new Float32Array(n * 3); _c.setHex(c); for (let i = 0; i < n; i++) { cc[i * 3] = _c.r; cc[i * 3 + 1] = _c.g; cc[i * 3 + 2] = _c.b; } g.setAttribute('color', new THREE.BufferAttribute(cc, 3)); g.deleteAttribute('uv'); return g; });
+    return mergeGeometries(gs); })();
+  const GUN = new THREE.Mesh(gunGeo, blade.material); GUN.userData.noBatch = true; GUN.visible = false; plane.add(GUN);
+  const GUN_P = new V3(0.13, 0.15 + CK.y + 0.04, -0.70 + CK.z), GUN_R = new THREE.Euler(0.25, 0.35, Math.PI / 2);
+  const gunHome = () => { plane.add(GUN); GUN.matrixAutoUpdate = true; GUN.position.copy(GUN_P); GUN.rotation.copy(GUN_R); X.held = null; };
+  const GOFF = new THREE.Matrix4().compose(new V3(0, -0.02, -0.04), new THREE.Quaternion().setFromEuler(new THREE.Euler(-0.6, 0, 0)), new V3(1, 1, 1));   // the gun in the hand (grip space)
+  const gunFollow = g => { GUN.matrix.multiplyMatrices(g.matrixWorld, GOFF); GUN.matrixWorldNeedsUpdate = true; };   // grips are not drawn (the gloves are): the gun copies the grip's pose instead of being its child
+  gunHome(); X.gun = GUN;
+  const FB = new THREE.Mesh(new THREE.IcosahedronGeometry(0.3, 1), new THREE.MeshBasicMaterial({ color: 0xff3a1a, fog: false })); FB.userData.noBatch = true; FB.visible = false; FB.frustumCulled = false; scene.add(FB); X.fb = FB;
+  const FV = new V3(), FD = new V3(), _w = new V3(), _w2 = new V3(), _qq = new THREE.Quaternion();
+  // ---------------- the fade: a black quad + a text card, both on the camera (only drawn while fading) ----------------
+  const fcv = document.createElement('canvas'); fcv.width = 4; fcv.height = 4; { const x = fcv.getContext('2d'); x.fillStyle = '#000'; x.fillRect(0, 0, 4, 4); }
+  const ftx = new THREE.CanvasTexture(fcv); ftx.colorSpace = THREE.SRGBColorSpace;
+  const fmatOpts = { transparent: true, opacity: 0, depthTest: false, depthWrite: false, fog: false };
+  const FQ = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.MeshBasicMaterial(Object.assign({ map: ftx }, fmatOpts))); FQ.position.z = -0.15; FQ.renderOrder = 10000; FQ.frustumCulled = false; FQ.visible = false; FQ.userData.noBatch = true; camera.add(FQ);
+  const tcv = document.createElement('canvas'); tcv.width = 1024; tcv.height = 512; const tcx = tcv.getContext('2d');
+  const ttx = new THREE.CanvasTexture(tcv); ttx.colorSpace = THREE.SRGBColorSpace; ttx.generateMipmaps = false; ttx.minFilter = THREE.LinearFilter;
+  const TQ = new THREE.Mesh(new THREE.PlaneGeometry(1.3, 0.65), new THREE.MeshBasicMaterial(Object.assign({ map: ttx }, fmatOpts))); TQ.position.z = -1.05; TQ.renderOrder = 10001; TQ.frustumCulled = false; TQ.visible = false; TQ.userData.noBatch = true; camera.add(TQ);
+  X.fq = FQ; X.tq = TQ; X.tcv = tcv;
+  function card(title, lines) { const x = tcx; x.clearRect(0, 0, 1024, 512); x.textAlign = 'center'; x.fillStyle = '#e8dcc0'; x.font = 'italic bold 44px Georgia, serif'; x.fillText(title, 512, 90);
+    x.fillStyle = '#d8ccb0'; x.font = '27px Georgia, serif'; lines.forEach((l, i) => { let p = 27; do { x.font = p + 'px Georgia, serif'; } while (x.measureText(l).width > 960 && --p > 14); x.fillText(l, 512, 170 + i * 52); }); texDirty(ttx); X.lines = lines; X.title = title; }
+  const fadeSet = a => { X.a = a; FQ.material.opacity = a; TQ.material.opacity = X.st === 'black' ? Math.min(1, X.t / 0.6) : X.st === 'fadein' ? Math.max(0, 1 - X.t * 2) : 0; FQ.visible = a > 0.001; TQ.visible = FQ.visible && TQ.material.opacity > 0.01; };
+  // ---------------- crash -> outcome ----------------
+  const homeKm = () => hyp(ac.pos[0], ac.pos[2] + 145) / 1000;
+  const money = v => ecoMoney(v);
+  function charge(c, what) { DLV.cash -= c; DLV.spent = (DLV.spent || 0) + c; X.lastCharge = c; X.lastWhat = what; saveSoon(); return c; }
+  function onCrash() {
+    const c = X.classify(ac.crashReason || '', ac.vel, ac.q); X.info = c; X.applyDamage(c); visSync();
+    X.sound(c.fatal ? 1 : Math.max(0.15, c.sev), c.type === 'gear' ? 'crunch' : 'both');
+    const left = P.hp - c.hurt;
+    if (c.fatal || left <= 0) { X.n.fatal++; P.hp = Math.max(0, left); die(ac.crashReason || 'crash', c); return; }
+    X.n.minor++; P.hp = left; X.st = 'minor'; X.kind = 'minor'; X.t = 0; X.nag = 0; GUN.visible = true; gunHome();
+    say('CRASHED (' + (ac.crashReason || '').toUpperCase() + ') - YOU\'RE HURT (' + Math.round(P.hp) + '% HEALTH) BUT ALIVE. FLARE GUN ON THE GLARE SHIELD: ' + (renderer.xr.isPresenting ? 'GRIP IT, PULL THE TRIGGER (Y CLIMBS OUT)' : 'G FIRES IT, F CLIMBS OUT') + ' - RECOVERY TO HOME ' + money(recCost(true)));
+  }
+  const recCost = (flare) => Math.round(X.pend || (250 + 80 * homeKm())) + (flare ? X.FLARE_C : 0);
+  function die(why, c) {   // THE death path (crash or HEALTH.kill from anywhere)
+    if (X.st === 'fade' || X.st === 'black' || X.st === 'fadein') return;
+    X.kind = 'fatal'; X.st = 'fade'; X.t = -0.35; X.why = why; X.crashed = !!c || ac.crashed; GUN.visible = false; X.held = null; gunHome(); FB.visible = false;
+    for (const f of P.onDeath) { try { f(why); } catch (e) { /* a listener */ } }
+  }
+  function startRecovery(flare) { if (X.st === 'fade' || X.st === 'black' || X.st === 'fadein') return false; X.kind = 'recover'; X.flare = !!flare; X.st = 'fade'; X.t = 0; return true; }
+  X.recover = startRecovery;
+  function skipHours(h) { if (GFX.dayl > 0) { DAY.h = (DAY.h + h) % 24; updateDay(0); } if (STORY.on) STORY.gh += h; X.skipped = h; }
+  function blackout() {   // the moment the screen is black: move the world on
+    const fatal = X.kind === 'fatal', km = homeKm();
+    ctl.throttle = 0; ctl.brake = 0; if (SETP.open) setpOpen(false);
+    let cost = 0, lines;
+    if (fatal) { X.n.wake++;
+      const salv = X.crashed ? Math.round(X.pend || (250 + 80 * km)) : (km > 0.3 ? Math.round(X.REC_BASE + X.REC_KM * km) : 0);
+      cost = charge(salv + X.CLINIC, 'salvage + clinic'); skipHours(X.WAKE_H);
+      resetFlight(); ctl.throttle = 0; exitPlane();
+      if (mode === 'foot') { const x = HANGAR.x - 1.6, z = HANGAR.z + 0.4; footRig.position.set(x, groundY(x, z) + EYE, z); footRig.rotation.set(0, Math.PI / 2, 0); bodyYaw = Math.PI / 2; lookYaw = lookPitch = 0; }
+      P.hp = Math.max(1, Math.round(P.max * 0.25)); if (window.SURV && typeof window.SURV.reset === 'function') { try { window.SURV.reset(); } catch (e) { /* survival module */ } }
+      lines = ['You come to on the cot in Walt\'s hangar. Every breath catches in your ribs.', 'Nurse Okafor\'s note on the crate: "Lucky. Eat, drink, rest. Don\'t fly tired." - O.',
+        'Salvage crew + the clinic: ' + money(cost) + ' on the hangar account (' + money(DLV.cash) + ').',
+        STORY.on ? 'Valley Credit still wants ' + money(storyOwed()) + ' before the snow - day ' + storyDay() + ', ' + storyLeft() + ' left.' : 'The Cub is out on the strip. She needs the hangar\'s attention.'];
+      card(X.WAKE_H + ' HOURS LATER', lines);
+      if (STORY.on) storyLog('Crashed (' + String(X.why).slice(0, 40) + '). Woke in Walt\'s hangar - ' + money(cost) + ' more on the account.');
+      for (const f of P.onWake) { try { f(); } catch (e) { /* a listener */ } }
+    } else { X.n.rec++;
+      cost = charge(recCost(X.flare), X.flare ? 'flare + recovery' : 'recovery'); skipHours(X.REC_H); resetFlight();
+      lines = [X.flare ? 'A rancher saw your red flare go up and radioed the strip.' : 'You got through on the radio.', 'A flatbed and four strong backs brought you and the Cub home on the back roads.',
+        'Recovery: ' + money(cost) + ' on the account (' + money(DLV.cash) + '). Repairs at the hangar board.', STORY.on ? money(storyOwed()) + ' still owed to Valley Credit - day ' + storyDay() + '.' : 'You\'re sore, but you\'ll fly again.'];
+      card(X.REC_H + ' HOURS LATER', lines);
+      if (STORY.on) storyLog('Recovered after a crash - ' + money(cost) + ' for the flatbed.');
+    }
+    X.pend = 0; X.lastCost = cost; X.seen = false; GUN.visible = false; FB.visible = false; gunHome(); X.dirty = 1;
+  }
+  X.die = die;
+  // ---------------- flare ----------------
+  function fire(fromHand) {
+    if (X.st !== 'minor') return false;
+    if (fromHand && X.held) { gunFollow(X.held); GUN.updateWorldMatrix(true, false); GUN.getWorldPosition(FV); FD.set(0, 0, -1).applyQuaternion(GUN.getWorldQuaternion(_qq)); }
+    else { FV.set(ac.pos[0], ac.pos[1] + 1.6, ac.pos[2]); FD.set(0.08, 1, -0.05); }   // desktop / item API: straight up out of the cabin
+    if (FD.y < 0.3) FD.y = 0.3; FD.normalize().multiplyScalar(55); FB.position.copy(FV); FB.visible = true; X.st = 'flare'; X.t = 0; X.n.flare++;
+    sfx('click'); X.sound(0.1, 'crunch'); say('FLARE AWAY - HOLD ON, HELP IS COMING'); return true; }
+  X.fire = fire; X.flareUse = () => fire(false);
+  // ---------------- restart (menu / R twice / API) ----------------
+  X.restart = () => { if (X.st === 'fade' || X.st === 'black' || X.st === 'fadein') return false; X.n.restart++; if (ac.crashed) return startRecovery(false); resetFlight(); say('RESTARTED AT THE HOME STRIP'); return true; };
+  X.keyR = () => { const now = performance.now(); if (now < X.rconf) { X.rconf = 0; X.restart(); } else { X.rconf = now + 4000; say('PRESS R AGAIN TO RESTART' + (ac.crashed ? ' (RECOVERY ' + money(recCost(false)) + ')' : '') + ' - OR MENU > RESUME'); } };
+  X.buttonB = () => { const now = performance.now(); if (now - X.bSaid > 6000) { X.bSaid = now; say('RESTART IS IN THE MENU NOW: WRIST MENU > RESUME > RESTART FLIGHT' + (X.st === 'minor' ? ' - OR FIRE THE FLARE' : '')); } };
+  // ---------------- VR: grab the gun (grip near it), fire (trigger) ----------------
+  const GP = [0, 0], TP = [0, 0], Q = new Float64Array(4);
+  function vrGun() {
+    for (let i = 0; i < 2; i++) { const g = grips[i], gp = g && g.userData.src && g.userData.src.gamepad; if (!gp) continue;
+      const sq = !!(gp.buttons[1] && gp.buttons[1].pressed), tr = !!(gp.buttons[0] && gp.buttons[0].pressed), sqE = sq && !GP[i], trE = tr && !TP[i]; GP[i] = sq ? 1 : 0; TP[i] = tr ? 1 : 0;
+      if (X.held === g) { if (!sq) gunHome(); else { gunFollow(g); if (trE) fire(true); } continue; }
+      if (sqE && !X.held && GUN.visible) { g.getWorldPosition(_w); GUN.getWorldPosition(_w2); if (_w.distanceTo(_w2) < 0.16) { scene.add(GUN); GUN.matrixAutoUpdate = false; X.held = g; gunFollow(g); GUN.updateMatrixWorld(true); HX.pulse(g, 0.4, 20, 'pick'); } } } }
+  // the flare in the air: velocity in FD (half gravity: a parachute flare's drag), scaled up with distance so it stays a visible red point
+  function flareStep(dt) { FD.y -= 4.905 * dt; const fp = FB.position; fp.x += FD.x * dt; fp.y += FD.y * dt; fp.z += FD.z * dt;
+    const me = camera.matrixWorld.elements, dx = me[12] - fp.x, dy = me[13] - fp.y, dz = me[14] - fp.z, d2 = dx * dx + dy * dy + dz * dz;
+    FB.scale.setScalar(d2 > 400 ? Math.sqrt(d2) * 0.05 : 1); }   // ~1.6 deg across at any range: a bright red point
+  // ---------------- per frame ----------------
+  X.tick = (dt) => {
+    if (P.hp < P.max && P.hp > 0 && GFX.dayl > 0 && dt < 1) P.hp = Math.min(P.max, P.hp + P.regen * dt * 24 / (GFX.dayl * 60));
+    if (ac.crashed && !X.seen && X.st === 'ok') { X.seen = true; onCrash(); } else if (!ac.crashed && X.st === 'ok') X.seen = false;
+    if (ECO.gear > Q[0] + 1e-4 && !ac.crashed) X.sound(Math.min(1, (ECO.gear - Q[0]) * 1.6), 'crunch');
+    Q[0] = ECO.gear; visSync();
+    const S = X.st; if (S === 'ok') return;
+    X.t += dt;
+    if (S === 'minor') { if (renderer.xr.isPresenting || HANDS.force) vrGun(); if (crashTimer > 25 && !X.nag) { X.nag = 1; say('STILL IN THE WRECK - FIRE THE FLARE (' + (renderer.xr.isPresenting ? 'GRIP THE GUN ON THE GLARE SHIELD, TRIGGER' : 'G') + ') OR MENU > RESUME > RESTART FLIGHT'); } if (!ac.crashed) { X.st = 'ok'; GUN.visible = false; gunHome(); } return; }
+    if (S === 'flare') { if (X.held) vrGun(); flareStep(dt); if (X.t > 2.6) { startRecovery(true); X.st = 'fade'; X.t = 0; } return; }
+    if (S === 'fade') { const L = X.kind === 'fatal' ? 1.1 : 1.3; fadeSet(Math.max(0, Math.min(1, X.t / L))); if (X.st === 'fade' && FB.visible) { FD.y -= 4.9 * dt; FB.position.addScaledVector(FD, dt); }
+      if (X.t >= L) { X.st = 'black'; X.t = 0; blackout(); fadeSet(1); } return; }
+    if (S === 'black') { fadeSet(1); if (X.t >= (X.kind === 'fatal' ? 5.5 : 4.5)) { X.st = 'fadein'; X.t = 0; } return; }
+    if (S === 'fadein') { fadeSet(Math.max(0, 1 - X.t / 1.6)); if (X.t >= 1.6) { X.st = 'ok'; X.kind = ''; fadeSet(0);
+      say(X.lastWhat === 'salvage + clinic' ? 'WALT\'S HANGAR - ' + Math.round(P.hp) + '% HEALTH. ' + money(X.lastCost) + ' ON THE ACCOUNT. THE CUB NEEDS REPAIRS (HANGAR BOARD)' : 'HOME - RECOVERY ' + money(X.lastCost) + '. REPAIRS AT THE HANGAR BOARD'); } }
+  };
+  Q[0] = ECO.gear;
+  // ---------------- hooks into the game's own functions (reassigned function declarations: no text edits inside them) ----------------
+  const ecoCrash0 = ecoCrash; ecoCrash = why => { const c0 = DLV.cash, s0 = DLV.spent; ecoCrash0(why); X.pend = c0 - DLV.cash; DLV.cash = c0; DLV.spent = s0; };   // the damage stays, the bill waits for the outcome
+  const ecoCost0 = ecoCost; ecoCost = (F, r) => { const o = ecoCost0(F, r); if (r !== 'fix' || !F.B || !F.B.home) return o; const b = X.bodyCost(); if (!b) return o;
+    return [o[0] + b, (o[2] ? o[1] + ', ' : 'REPAIR: ') + 'AIRFRAME ' + X.bodyPct() + '% (' + PART.filter((p, k) => dmg[k] > 0.05).slice(0, 3).join(', ') + ')', true, o[3]]; };
+  const ecoDo0 = ecoDo; ecoDo = (F, i) => { const r = F.B && F.B.rows[i], c0 = DLV.cash, o = ecoDo0(F, i); if (r === 'fix' && DLV.cash < c0 && ECO.gear === 0) { X.clear(); visSync(); say('REPAIRED - GEAR, ENGINE + AIRFRAME AS NEW (-' + money(c0 - DLV.cash) + ', ' + money(DLV.cash) + ')'); } return o; };
+  const ecoSave0 = ecoSave; ecoSave = () => { const o = ecoSave0(); o.cx = Array.from(dmg, v => Math.round(v * 1000) / 1000); o.hp = Math.round(P.hp * 10) / 10; return o; };
+  try { const d = NOSAVE ? null : JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); const e = d && d.eco; if (e && Array.isArray(e.cx)) for (let k = 0; k < NP; k++) dmg[k] = Math.min(1, Math.max(0, +e.cx[k] || 0)); if (e && isFinite(+e.hp) && e.hp !== null) P.hp = Math.min(P.max, Math.max(1, +e.hp)); } catch (e) { /* no save */ }
+  const setpDraw0 = setpDraw; setpDraw = () => { setpDraw0(); if (SETP.tab !== 'resume') return; const x = SETP.x, cf = SETP.conf && SETP.conf.k === 'restart' && SETP.conf.t > performance.now();
+    setpBtn(x, 262, 430, 500, 80, cf ? 'AGAIN: RESTART' : 'RESTART FLIGHT', SETP.lit === 'restart', cf ? '#9a2a1a' : '#5a4630');
+    x.font = '15px Georgia, serif'; x.fillStyle = '#6a5638'; x.textAlign = 'center'; x.fillText(ac.crashed ? 'After a crash: recovery to the home strip, ' + money(recCost(false)) + ' on the account.' : 'Back to the home strip, cold and dark (fuel and cash kept). Poke twice.', 512, 540); x.textAlign = 'left';
+    if (SETP.desk) SETP.deskDraw(); texDirty(SETP.t); };
+  const setpHit0 = setpHit; setpHit = (u, v) => (SETP.tab === 'resume' && u > 262 && u < 762 && v > 430 && v < 510) ? 'restart' : setpHit0(u, v);
+  const setpPoke0 = setpPoke; setpPoke = r => { if (r !== 'restart') return setpPoke0(r); SETP.lit = r; if (!setpConfirm('restart')) { setpDraw(); return; } setpOpen(false); X.restart(); };
+  { const i = MENU_HELP.findIndex(l => /reset flight/i.test(l)); if (i >= 0) MENU_HELP[i] = 'B  rifle lever (RESTART: MENU > RESUME)'; }
+  addEventListener('keydown', e => { if (e.code === 'KeyG' && !e.repeat && X.st === 'minor' && (mode === 'plane' || (mode === 'foot' && hyp(footRig.position.x - ac.pos[0], footRig.position.z - ac.pos[2]) < 6))) { e.stopImmediatePropagation(); fire(false); } }, true);   // v1.11.6 G fires the flare after a minor crash, seated or beside the wreck (F climbs out / in)
+  window.crxMinor = () => X.st === 'minor';   // F fires the flare after a minor crash (F can't climb out of a wreck anyway)
+  // ---------------- warm-up: every program this block can draw, with the point / spot light combinations (before the load-time warmStart) ----------------
+  { const W = [OV, GUN, FB, FQ, TQ], v = W.map(o => o.visible), pv = PL.visible, sv = SL.visible; W.forEach(o => { o.visible = true; });
+    for (let c = 0; c < 4; c++) { PL.visible = !!(c & 1); SL.visible = !!(c & 2); for (const o of W) renderer.compile(o, camera, scene); }
+    PL.visible = pv; SL.visible = sv; W.forEach((o, i) => { o.visible = v[i]; }); }
+  X.state = () => ({ st: X.st, kind: X.kind, hp: P.hp, dmg: Array.from(dmg), eff: Array.from(eff), ov: OV.visible, cash: DLV.cash, info: X.info, n: X.n, snd: X.snd, a: X.a });
+  return X;
+})();
+function crxTick(dt) { CRX.tick(dt); }
+function crxB() { CRX.buttonB(); }
+function crxKeyR() { CRX.keyR(); }
+// <<< V3 CRASH END
 warmStart('Preparing graphics'); bootLog('warm-up started: ' + WARM.tot + ' programs to finish, ' + (WARM.par ? 'polling parallel compile' : 'no parallel compile: one at a time'));
 if (window.__ultSkip) setTimeout(() => say('PC ULTRA WAS NOT RESTORED (THE LAST START DID NOT FINISH) - PICK IT AGAIN IN SETTINGS'), 4000);
 const BOOTF = { n: 0, real: 0, xr: 0, pre: 0, lite: 0, xs: 0, xa: [], xl: 0, last: 0 };   // v1.10.1 boot log: frame stages
@@ -12658,10 +12960,10 @@ renderer.setAnimationLoop(() => {
     pbApply(); ecoIn();   // v0.55 wear / damage on the inputs (nothing on a healthy Cub); v0.77.11 the parking brake
     for (let i = 0; i < n; i++) stepAircraft(ac, dt / n);
     ctl.elev = e0; ecoOut();
-  } else if ((crashTimer += dt) > 2.5) resetFlight();
+  } else crashTimer += dt; /*V3CRX*/
 
   plane.position.fromArray(ac.pos); plane.quaternion.fromArray(ac.q);
-  dlvTick(dt); wbWarn(dt); huntTick(dt, xr || HANDS.force); fishTick(dt, xr || HANDS.force); htagTick(dt, xr || HANDS.force); storyTick(dt); cbTick(dt); glintTick(dt); act2Tick(dt); act3Tick(dt); discTick(dt); radTick(dt); fogTick(dt); musTick(dt); trustTick(dt); dropTick(dt); ecoTick(dt); upgTick(dt); emgTick(dt);   // v0.53 rifle, deer, binoculars; v0.54 bundles in the air, the signal smoke   // v0.50 delivery: game clock, falling / loose cargo, job boards
+  dlvTick(dt); wbWarn(dt); huntTick(dt, xr || HANDS.force); fishTick(dt, xr || HANDS.force); htagTick(dt, xr || HANDS.force); storyTick(dt); cbTick(dt); glintTick(dt); act2Tick(dt); act3Tick(dt); discTick(dt); radTick(dt); fogTick(dt); musTick(dt); trustTick(dt); dropTick(dt); ecoTick(dt); crxTick(dt); upgTick(dt); emgTick(dt);   // v0.53 rifle, deer, binoculars; v0.54 bundles in the air, the signal smoke   // v0.50 delivery: game clock, falling / loose cargo, job boards
   GV.update(dt); kitTick(dt); flxTick(dt);   // v0.20 gear legs / tyres / tail wheel (v0.90 + the gear kits)
   updateMap(); updateCockpitV19(dt);
   propTick(dt, ENG.rpm);

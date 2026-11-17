@@ -28,7 +28,7 @@ v0.50 turns it into a **bush delivery** game: take a job off a strip's job board
 | Get out (stopped, idle) | Y | F |
 | Landing light | Grip the toggle under the panel (the yellow ring on it) to flick it up / down | L |
 | Amphib wheels up / down (v0.90, floats only) | Grip the blue-knobbed toggle right of the landing light | ; |
-| Reset / recentre | B = reset to the home strip, cold and dark (keeps your fuel and cash; below 5 gal it tops up to 5 gal, paid at the home drum price), A / X = recentre | R reset, Home recentre |
+| Reset / recentre | v1.11.6: MENU > RESUME > RESTART FLIGHT (press twice) = back to the home strip, cold and dark (keeps your fuel and cash; below 5 gal it tops up to 5 gal, paid at the home drum price); B no longer restarts. A / X = recentre | R twice within 4 s, Home recentre |
 
 ## Sound (v0.83)
 - The engine has a prop thrum, sounds duller with the windows shut, pops when you chop the throttle at high rpm and ticks as it cools after shutdown. Under a rain front the rain drums on the fabric (louder at speed, duller with the windows shut). Cargo sounds like what it is (wood, metal, sacks, card, cases) and what it weighs, and the straps make a buckle sound. In the three towns you hear a murmur and people at work. The volumes are under MENU > AUDIO, as before.
@@ -158,6 +158,8 @@ v0.44 latches: every window and the door are latched while shut. Squeeze the han
 | Use an item (v1.11.5) | Trigger: first aid kit, flashlight on / off, rest under the tarp, signal flare (after a crash) | O toggles the flashlight |
 | Sleep / buy supplies (v1.11.5) | Grip the cot blanket by the home cabin to sleep. Grip an item on the supply crate with a free hand to buy it | K by the cot sleeps; K by the crate buys beans |
 | Survival gauges (v1.11.5) | Turn the watch toward you: FOOD / WATER / REST / HEALTH under MENU | – |
+| After a minor crash (v1.11.6) | Grip the flare gun on the glare shield and pull the trigger: help comes. Or climb out with Y to walk around or wait (a flare from your pack works too), and climb back in with Y | G fires the flare (in the seat or within 6 m of the Cub), F climbs out / in |
+| Restart the flight (v1.11.6) | MENU > RESUME > RESTART FLIGHT, press it twice (B no longer restarts) | R twice within 4 s |
 
 ## On foot
 | | VR | Desktop |
