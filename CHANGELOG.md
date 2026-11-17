@@ -2,6 +2,23 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v1.11.2 – quick fixes: stow spots clear of your legs, a clamshell pack, a held-item tag, a cast that leaves, subtle throttle detents
+
+- **Stow spots clear of the IK body:** the clipboard now lies flat on top of your left thigh, with its clip toward the knee. It used to sit inside the leg. The things you carry on your body are hung off the pelvis, so they follow your hips and stay out of your legs standing, walking and crouching: the knife sheath sits flat on your right side, the canteen pouch behind your left hip, the cartridge pouch front right and the binocular holster on your left side. The cockpit radio mic was already about 15 cm clear of your legs and has not moved.
+- **The backpack opens like a clamshell:** the panel against your back swings open from its bottom edge, and you reach in through that side. The top stays closed. In your hand it hangs from its handle with the open side turned toward you. Set down, it lies on its front with the open side up.
+- **The pack puts itself back on** if you walk off and leave it on the ground: about 3.5 m away it is back on your back, with a message. Things you dropped beside it stay where they are.
+- **Smaller over-the-shoulder grab:** to take the pack off your back you now have to reach right to its top edge, behind your shoulder (within about 15 cm). Before, a hand anywhere near your ear could take it.
+- **A tag naming what you hold (VR):** when you pick something up, a small card in the shop-tag style shows its name just above that hand for about 2.5 seconds, then shrinks away. It is one draw, it is only redrawn when the name changes, and it adds no new shader.
+- **No W&B card on the cockpit wall:** it is on the clipboard now.
+- **Casting in VR:** letting go of the trigger now casts reliably instead of dropping the lure under the tip.
+  - Let go a little early, as the forward flick starts, and the line slips at the flick's peak.
+  - Let go late, up to about 0.9 s after the flick, and the flick still counts.
+  - A back-cast no longer counts as the flick.
+  - A natural overhead or sidearm flick lands about 10–25 m out; a gentle one lands closer.
+  - Squeezing the trigger again by reflex just after the cast no longer stops the line.
+- **Throttle detents:** a very small tick at every 10 % while you hold the throttle, set just above the engine rumble so you can feel it. There is a little hysteresis, so it does not chatter when you hold it on a detent. The firm stops at idle and full are unchanged.
+- **Cost:** no garbage per frame, no new shader programs, and the physics checksum is unchanged.
+
 ## v1.11.1 – chest-rig pockets and belt slots: grab things off your body and snap them back
 
 - **Four fixed slots on your body:** two small chest-rig pockets (left and right, for small things: the knife, the flashlight, jerky), a canteen pouch at the left back of your belt and a knife sheath on your right hip. They sit on the IK body (chest and hips), so they move with you and show in the mirror and third person. With Body set to HANDS ONLY they sit in the same places under your eyes.

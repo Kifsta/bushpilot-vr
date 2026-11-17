@@ -636,7 +636,7 @@ const hyp = (a, b, c = 0) => Math.sqrt(a * a + b * b + c * c);   // v0.59 Math.h
 
 // ======================= RENDERING =======================
 // v0.35 settings (persist in localStorage 'bp_gfx'; ?gfx=shadows:2,grass:1 overrides for testing). Defaults = the v0.34 look and cost.
-const BP_VERSION = 'v1.11.1';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
+const BP_VERSION = 'v1.11.2';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
 { const e = document.getElementById('ver'); if (e) e.textContent = BP_VERSION; } window.__bpVer = BP_VERSION; bootLog('game module running ' + BP_VERSION + ' (three r' + THREE.REVISION + ')' + (/[?&]safe(=|&|$)/.test(location.search) ? ' - SAFE MODE: default graphics, no shadows / ULTRA / life / vistas / music' : ''));
 const GFX_DEF = { shadows: 0, scale: 1, fov: 1, dist: 1, trees: 1, grass: 0, clouds: 1, fog: 1, msaa: 1, hz: 90, vig: 0, turn: 0, fps: 0, tod: 11, stk: 1, tips: 1, terr: 1, dyn: 1, glove: 0, hand: 0, wt: 1, volM: 1, volMu: 0.5, volE: 1, volA: 1, volF: 1, wx: 1, forest: 0, ground: 0, gtex: 0, cvl: 1, water: 1, dayl: 48, flure: 0, fline: 8, fdrag: 4, fbob: 0, fsink: 0, ultra: 0 };   // v0.68.1 dominant hand, volumes. v0.48 BALANCED: 90 % scale, 72 Hz, fast terrain shading, auto resolution; v0.49.1 the stick stays where you let go of it
 const GFX = Object.assign({}, GFX_DEF);
@@ -2177,8 +2177,9 @@ HX.pulse = (g, a, ms = 20, tag) => {
 HX.rumble = (g, a, tag = 'rumble') => {   // continuous: call every frame; re-issued as 40 ms pulses ~30x/s, never over RUMBLE_MAX
   if (!g || g === 'desk' || a < 0.01) return false; const s = HX.st(g);
   if (HX.t < s.until || HX.t < s.rt) return false;                        // a one-shot is playing / not time yet
-  s.rt = HX.t + 0.033; return HX.send(g, Math.min(a, HX.RUMBLE_MAX), 40, tag);
+  s.rt = HX.t + 0.033; s.ra = Math.min(a, HX.RUMBLE_MAX); s.raT = HX.t; return HX.send(g, s.ra, 40, tag);
 };
+HX.detent = (g, a, ms) => { if (!g || g === 'desk') return false; const s = HX.st(g), r = HX.t - (s.raT ?? -9) < 0.1 ? s.ra : 0; return HX.pulse(g, Math.min(1, r + a), ms, 'throttle'); };   // v1.11.2 a detent felt just over the engine rumble (a bare 0.1 tick vanished under it)
 HX.both = (a, ms, tag) => { for (const g of grips) HX.pulse(g, a, ms, tag); };
 HX.later = (g, a, ms, dt, tag) => HX.q.push({ g, a, ms, t: HX.t + dt, tag });
 HX.tick = dt => { HX.t += dt; for (let i = HX.q.length - 1; i >= 0; i--) { const e = HX.q[i]; if (HX.t >= e.t) { HX.q.splice(i, 1); e.g === 'both' ? HX.both(e.a, e.ms, e.tag) : HX.pulse(e.g, e.a, e.ms, e.tag); } } };
@@ -2571,8 +2572,8 @@ function xrInput(dt) {
       ctl.ail = clamp(ai, -1, 1); ctl.elev = clamp(el, -1, 1);
     }
     if (vr.thrG === g) {                                           // push forward = more power; v0.42: a light tick every 10 %, a firm stop at idle / full
-      const raw = vr.thr0 - (_p.z - vr.thrZ) / THROTTLE_TRAVEL, th = clamp(raw, 0, 1), tk = Math.round(th * 10);
-      if (tk !== vr.thrTick) { vr.thrTick = tk; hap(g, tk === 0 || tk === 10 ? 0.4 : 0.1, tk === 0 || tk === 10 ? 16 : 6); if (tk === 0 || tk === 10) sfx('tick'); }
+      const raw = vr.thr0 - (_p.z - vr.thrZ) / THROTTLE_TRAVEL, th = clamp(raw, 0, 1), tk = Math.abs(th * 10 - (vr.thrTick ?? -9)) > 0.62 ? Math.round(th * 10) : vr.thrTick;   // a little hysteresis: no chatter sitting on a detent
+      if (tk !== vr.thrTick) { vr.thrTick = tk; if (tk === 0 || tk === 10) { hap(g, 0.4, 16); sfx('tick'); } else { CKX.haps++; HX.detent(g, 0.07, 8); } }
       ctl.throttle = th;
     }
     rudA[right ? 1 : 0] = gp.axes[2] || 0; trg[right ? 1 : 0] = KB.g === g || MIC.g === g ? 0 : gp.buttons[0]?.value || 0;   // v0.64 the trigger of a hand holding the clipboard turns its page, it doesn't brake
@@ -4609,7 +4610,8 @@ function updateCard() {
 }
 
 // ---- v0.51.1 kneeboard: a clipboard on the left thigh listing the active jobs (canvas redrawn only when its text changes) ----
-const KB_W = 512, KB_H = 704, KB = { home: new THREE.Vector3(-0.165, -0.055, -0.255), rx: -1.0, ry: 0.22, g: null, desk: false, key: '' };
+const KB_W = 512, KB_H = 704, KB = { home: new THREE.Vector3(-0.168, -0.017, -0.146), q: new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(new THREE.Vector3(-0.307, 0.286, -0.909).cross(new THREE.Vector3(0.091, 0.955, 0.27)).normalize(), new THREE.Vector3(-0.307, 0.286, -0.909), new THREE.Vector3(0.091, 0.955, 0.27))),   // v1.11.2 flat on top of the left thigh (it sat inside the IK body's leg), its clip toward the knee
+  rx: -1.0, ry: 0.22, g: null, desk: false, key: '' };
 { const c = document.createElement('canvas'); c.width = KB_W; c.height = KB_H; KB.c = c; KB.x = c.getContext('2d'); KB.t = new THREE.CanvasTexture(c); KB.t.colorSpace = THREE.SRGBColorSpace; KB.t.generateMipmaps = false; KB.t.minFilter = THREE.LinearFilter; KB.t.anisotropy = 4;
   KB.m = new THREE.Group(); const paper = new THREE.Mesh(new THREE.PlaneGeometry(0.15, 0.206), new THREE.MeshBasicMaterial({ map: KB.t, color: 0xdedede })); paper.position.set(0, -0.006, 0.002); paper.userData.noBatch = true; KB.m.add(paper);
   const back = new THREE.Mesh(mergeGeometries([['b', 0.17, 0.235, 0.006, 0, 0, -0.002, 0x7a5232], ['b', 0.07, 0.022, 0.012, 0, 0.106, 0.004, 0xb0b4b8], ['b', 0.02, 0.012, 0.016, 0, 0.1, 0.008, 0x8a8e92]].map(partGeo)), ITEM_VM);
@@ -4624,7 +4626,7 @@ function paperHeld(g, k, out) {   // v0.77.8 the held paper's world frame (unsca
   g.updateWorldMatrix(true, false); return out.multiplyMatrices(g.matrixWorld, HOFF).multiply(_ppH.invert());
 }
 function paperHandK(g) { const L = paperSx(g) < 0; return KB.g === g ? (L ? 'kbL' : 'kbR') : MAP.state === 'held' && (MAP.g === g || MAP.g2 === g) ? (L ? 'mpL' : 'mpR') : null; }
-function kbHome() { KB.g = null; KB.desk = false; plane.add(KB.m); KB.m.position.copy(KB.home); KB.m.rotation.set(KB.rx, KB.ry, 0, 'YXZ'); KB.m.scale.setScalar(1); }
+function kbHome() { KB.g = null; KB.desk = false; plane.add(KB.m); KB.m.position.copy(KB.home); KB.m.quaternion.copy(KB.q); KB.m.scale.setScalar(1); }
 kbHome();
 function kbLines() {   // the text, one entry per active job
   const A = dlvActive(), L = [], P = ac.pos;
@@ -6560,18 +6562,21 @@ const PK_K = {   // kind: [name, lb, litres, [w h d] in the pack (m), parts (par
   jerky: ['JERKY', 0.25, 0.3, [0.105, 0.145, 0.03], [['b', 0.1, 0.14, 0.02, 0, 0, 0, 0x8a3a2a], ['b', 0.102, 0.03, 0.022, 0, 0.06, 0, 0xd8c8a0]]],
   tarp: ['TARP', 2.0, 2.5, [0.25, 0.105, 0.105], [['c', 0.05, 0.22, 8, 0, 0, 0, 0x3a5a7a, 0, 0, Math.PI / 2], ['c', 0.052, 0.02, 8, 0.07, 0, 0, 0x2a2a2a, 0, 0, Math.PI / 2], ['c', 0.052, 0.02, 8, -0.07, 0, 0, 0x2a2a2a, 0, 0, Math.PI / 2]]] };
 const PK_ROOM = 14, PK_EMPTY = 3, PK_HEAVY = 30, PK_START = ['tarp', 'rope', 'firstaid', 'torch', 'jerky', 'jerky'], PK_SL0 = [null, null, 'canteen', 'knife'];   // v1.11.1 a new game: the canteen on your belt, the knife in its sheath   // litres, lb (the empty pack), lb (a warning, never a block)
-const PK_SPLIT = -0.08, PK_DROPY = 0.47;   // head-yaw frame x: with the rifle slung, right of this is the rifle's reach; the handle above the pack's bottom
+const PK_SPLIT = -0.08, PK_DROPY = 0.2, PK_AWAY = 3.5, PK_GRAB = 0.15;   // v1.11.2 lying on its front, back panel up (the handle 0.2 m up); walk this far off and it goes back on; the grab: this close to the pack's top edge   // head-yaw frame x: with the rifle slung, right of this is the rifle's reach; the handle above the pack's bottom
 const PK = { st: 'worn', g: null, it: PK_START.slice(), gnd: [], hk: [null, null], hm: [], fm: [], fall: [], v: GV3(0, 0, 0), ry: 0, lb: 0, vol: 0, hid: false, mouthT: 0, n: 0,
   hp: [GV3(0, 0, 0), GV3(0, 0, 0)], hv: [GV3(0, 0, 0), GV3(0, 0, 0)], hin: [false, false], slot: [], KG: {}, mesh: null, cm: null, gm: null, geoC: null, geoO: null };
 const _pkV = GV3(0, 0, 0), _pkL = GV3(0, 0, 0), _pkQ = new THREE.Quaternion(), _pkM = new THREE.Matrix4(), _pkC = GV3(0, 0, 0);
 const PK_WORN = new THREE.Matrix4().makeTranslation(0, 0.17, 0.14);   // the handle in the body's chest frame (+z behind you)
-const PK_HQ = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(GV3(0, 0, 1), GV3(0, 1, 0), GV3(-1, 0, 0)));   // in the hand: the handle along the fist, the pack hanging below
+const PK_LIE = new THREE.Quaternion().setFromAxisAngle(GV3(1, 0, 0), Math.PI / 2);   // v1.11.2 on the ground: on its front, the open back up, the handle toward you
+function pkLie(ry) { PK.ry = ry; PK.mesh.quaternion.setFromAxisAngle(_ry, ry).multiply(PK_LIE); }
+function pkHeldPose() { const M = PK.mesh; PK.g.getWorldPosition(M.position); M.position.y -= 0.012; camera.getWorldPosition(_pkV); _pkV.y = M.position.y;   // in your hand it hangs from the handle, its open back turned to you
+  _pkM.lookAt(M.position, _pkV, _ry); M.quaternion.setFromRotationMatrix(_pkM); }   // (a matrix: no boxed angle a frame)
 { const C = 0x5a5a3a, D = 0x45452c, S = 0x2a2a22, K = 0x8a8a7a, mk = P => { const gs = P.map(partGeo), g = mergeGeometries(gs); for (const x of gs) x.dispose(); return g; };
   const com = [['b', 0.24, 0.17, 0.04, 0, -0.33, 0.18, D], ['b', 0.05, 0.38, 0.02, -0.08, -0.23, -0.012, S], ['b', 0.05, 0.38, 0.02, 0.08, -0.23, -0.012, S], ['b', 0.08, 0.015, 0.015, 0, 0, 0, S],
     ['b', 0.03, 0.03, 0.006, -0.07, -0.13, 0.177, K], ['b', 0.03, 0.03, 0.006, 0.07, -0.13, 0.177, K], ['b', 0.012, 0.2, 0.05, -0.166, -0.3, 0.08, D], ['b', 0.012, 0.2, 0.05, 0.166, -0.3, 0.08, D]];
   PK.geoC = mk(com.concat([['b', 0.32, 0.44, 0.16, 0, -0.25, 0.08, C], ['b', 0.33, 0.06, 0.17, 0, -0.04, 0.085, D], ['b', 0.04, 0.12, 0.012, -0.07, -0.1, 0.168, S], ['b', 0.04, 0.12, 0.012, 0.07, -0.1, 0.168, S]]));
-  PK.geoO = mk(com.concat([['b', 0.32, 0.44, 0.012, 0, -0.25, 0.006, C], ['b', 0.32, 0.44, 0.012, 0, -0.25, 0.154, C], ['b', 0.012, 0.44, 0.16, -0.154, -0.25, 0.08, C], ['b', 0.012, 0.44, 0.16, 0.154, -0.25, 0.08, C],
-    ['b', 0.32, 0.012, 0.16, 0, -0.464, 0.08, 0x2e2e20], ['b', 0.33, 0.17, 0.04, 0, -0.12, -0.045, D]]));
+  PK.geoO = mk(com.concat([['b', 0.32, 0.44, 0.012, 0, -0.464 + 0.22 * Math.cos(1.92), 0.006 - 0.22 * Math.sin(1.92), C, -1.92], ['b', 0.32, 0.012, 0.16, 0, -0.03, 0.08, C], ['b', 0.32, 0.44, 0.012, 0, -0.25, 0.154, C], ['b', 0.012, 0.44, 0.16, -0.154, -0.25, 0.08, C], ['b', 0.012, 0.44, 0.16, 0.154, -0.25, 0.08, C],
+    ['b', 0.32, 0.012, 0.16, 0, -0.464, 0.08, 0x2e2e20], ['b', 0.296, 0.42, 0.004, 0, -0.25, 0.146, 0x2e2e20]]));
   for (const [k, v] of Object.entries(PK_K)) { const g = mk(v[4]), P = g.attributes.position.array, N = g.attributes.normal.array, Cc = g.attributes.color.array; PK.KG[k] = { p: P.slice(), n: N.slice(), c: Cc.slice(), cnt: P.length / 3 }; g.dispose(); }
   const bg = n => { const g = new THREE.BufferGeometry(); for (const a of ['position', 'normal', 'color']) g.setAttribute(a, new THREE.BufferAttribute(new Float32Array(n * 3), 3)); g.setDrawRange(0, 0); return g; };
   const mm = (g, par) => { const m = new THREE.Mesh(g, ITEM_VM); m.userData.noBatch = true; m.frustumCulled = false; m.visible = false; par.add(m); return m; };
@@ -6606,14 +6611,14 @@ function pkBusy(g) { return RFL.hand === g || RFL.sup === g || RFL.levHand === g
 function pkHead(p) { camera.getWorldPosition(_pkC); return _pkL.subVectors(p, _pkC).applyAxisAngle(_ry, -headYaw()); }   // head-yaw frame: +x right, +y up, +z behind you
 function pkShoulder(p) { const v = pkHead(p); return v.z > BACK_R.behind && v.y > BACK_R.lo && v.y < BACK_R.hi && Math.abs(v.x) < BACK_R.side && v.x * v.x + v.z * v.z < BACK_R.reach * BACK_R.reach; }
 function pkReach(p) {   // the worn pack: over either shoulder; with the rifle slung the left side is the pack's, the right side the rifle's
-  if (PK.st !== 'worn' || mode !== 'foot' || !pkShoulder(p)) return false;
-  return !(RFL.place === 'back' && RFL.g && _pkL.x > PK_SPLIT); }
+  if (PK.st !== 'worn' || mode !== 'foot') return false; const v = pkLocal(p), dx = Math.max(0, Math.abs(v.x) - 0.16), dy = v.y + 0.03, dz = v.z - 0.08;   // v1.11.2 only right at its top edge (was the whole shoulder zone)
+  if (dx * dx + dy * dy + dz * dz > PK_GRAB * PK_GRAB) return false; pkHead(p); return !(RFL.place === 'back' && RFL.g && _pkL.x > PK_SPLIT); }
 function pkLocal(p) { PK.mesh.updateWorldMatrix(true, false); return PK.mesh.worldToLocal(_pkL.copy(p)); }
-function pkInOpening(p, m) { const v = pkLocal(p); return Math.abs(v.x) < 0.17 + m && v.z > -0.01 - m && v.z < 0.17 + m && v.y > -0.47 && v.y < 0.06 + 2 * m; }
-function pkNearItem(p) { if (!pkInOpening(p, 0.05)) return -1; let b = -1, bd = 0.12;   // the item nearest the hand (its height counts as a line: reach in from above)
-  for (let j = 0; j < PK.slot.length; j++) { const s = PK.slot[j], d = Math.hypot(_pkL.x - s[0], Math.max(0, Math.abs(_pkL.y - s[1]) - PK_K[PK.it[j]][3][1] / 2), _pkL.z - s[2]); if (d < bd) { bd = d; b = j; } }
+function pkInOpening(p, m) { const v = pkLocal(p); return Math.abs(v.x) < 0.17 + m && v.y > -0.47 && v.y < -0.02 + m && v.z > -0.07 - 2 * m && v.z < 0.16 + m; }   // v1.11.2 in through the open back
+function pkNearItem(p) { if (!pkInOpening(p, 0.05)) return -1; let b = -1, bd = 0.12;   // the item nearest the hand (distance to its box: reach in through the open back)
+  for (let j = 0; j < PK.slot.length; j++) { const s = PK.slot[j], z = PK_K[PK.it[j]][3], d = Math.hypot(Math.max(0, Math.abs(_pkL.x - s[0]) - z[0] / 2), Math.max(0, Math.abs(_pkL.y - s[1]) - z[1] / 2), Math.max(0, Math.abs(_pkL.z - s[2]) - z[2] / 2)); if (d < bd) { bd = d; b = j; } }
   return b; }
-function pkHold(g) { PK.st = 'held'; PK.g = g; PK.v.set(0, 0, 0); g.add(PK.mesh); PK.mesh.position.set(0, -0.012, 0); PK.mesh.quaternion.copy(PK_HQ); PK.mesh.scale.set(1, 1, 1); PK.mesh.visible = true; pkGeo(true);
+function pkHold(g) { PK.st = 'held'; PK.g = g; PK.v.set(0, 0, 0); scene.add(PK.mesh); pkHeldPose(); PK.mesh.scale.set(1, 1, 1); PK.mesh.visible = true; pkGeo(true);
   pkWeigh(); sfx('pick'); HX.pulse(g, 0.45, 28, 'cargo'); say('PACK ' + Math.round(PK.lb) + ' LB - ' + PK.it.length + ' ITEMS (' + PK.vol.toFixed(1) + ' / ' + PK_ROOM + ' L) - TAKE ONE WITH YOUR OTHER HAND, LET GO BY YOUR SHOULDER TO PUT IT ON'); saveSoon(); }
 function pkWear(quiet) { PK.st = 'worn'; PK.g = null; scene.add(PK.mesh); pkGeo(false); pkWornPose(); pkWeigh(); if (!quiet) { sfx('pick'); say('PACK ON YOUR BACK - REACH OVER YOUR SHOULDER FOR IT'); } saveSoon(); }
 function pkWornPose() { const M = PK.mesh;
@@ -6633,7 +6638,7 @@ function pkLetItem(i) { const g = grips[i], k = PK.hk[i], m = PK.hm[i]; m.getWor
   pkDrop(k, _pkV, PK.hv[i], headYaw()); pkWeigh(); HX.pulse(g, 0.15, 12, 'release'); }
 function pkLetPack(g) { const i = grips.indexOf(g); g.getWorldPosition(_pkV);
   if (pkShoulder(_pkV)) { pkWear(); HX.pulse(g, 0.3, 20, 'release'); return; }
-  PK.mesh.getWorldPosition(_pkV); scene.add(PK.mesh); PK.mesh.position.copy(_pkV); PK.ry = headYaw(); PK.mesh.quaternion.setFromAxisAngle(_ry, PK.ry);   // upright, its front pocket toward you
+  PK.mesh.getWorldPosition(_pkV); scene.add(PK.mesh); PK.mesh.position.copy(_pkV); pkLie(headYaw());   // it lands on its front, the open back up
   PK.st = 'fall'; PK.g = null; PK.v.copy(PK.hv[i]); pkWeigh(); HX.pulse(g, 0.15, 12, 'release'); }
 function packHold(g) { return (PK.st === 'held' && PK.g === g) || !!PK.hk[grips.indexOf(g)]; }
 function pkKg(g) { const i = grips.indexOf(g); if (i < 0) return 0; if (PK.st === 'held' && PK.g === g) return PK.lb * WT.LB; return PK.hk[i] ? PK_K[PK.hk[i]][1] * WT.LB : 0; }
@@ -6651,7 +6656,7 @@ function packRelease(g) { const i = grips.indexOf(g); if (i < 0) return; if (PK.
 function packKey() {   // desktop I: set the pack down open in front of you / put it back on (within 2.5 m)
   if (mode !== 'foot') return false;
   if (PK.st === 'worn') { camera.getWorldPosition(_pkV); const y = headYaw(); _pkV.x -= Math.sin(y) * 0.7; _pkV.z -= Math.cos(y) * 0.7; scene.add(PK.mesh); PK.mesh.position.set(_pkV.x, groundY(_pkV.x, _pkV.z) + PK_DROPY, _pkV.z);
-    PK.ry = y; PK.mesh.quaternion.setFromAxisAngle(_ry, PK.ry); PK.st = 'ground'; PK.mesh.visible = true; pkGeo(true); pkWeigh(); sfx('thud', PK.mesh.position);
+    pkLie(y); PK.st = 'ground'; PK.mesh.visible = true; pkGeo(true); pkWeigh(); sfx('thud', PK.mesh.position);
     say('PACK DOWN: ' + PK.it.map(k => PK_K[k][0]).join(', ') + ' - ' + Math.round(PK.lb) + ' LB (I PUTS IT BACK ON)'); saveSoon(); return true; }
   if (PK.st === 'ground') { camera.getWorldPosition(_pkV); if (_pkV.distanceTo(PK.mesh.position) > 2.5) { say('YOUR PACK IS ' + Math.round(_pkV.distanceTo(PK.mesh.position)) + ' M AWAY'); return true; } pkWear(); return true; }
   return false; }
@@ -6660,6 +6665,8 @@ function packTick(dt, vr) {   // after bodyTick: the worn pose, falling things, 
   for (let i = 0; i < 2; i++) { grips[i].getWorldPosition(_pkV); if (dt > 1e-4) PK.hv[i].subVectors(_pkV, PK.hp[i]).multiplyScalar(1 / dt); PK.hp[i].copy(_pkV); }
   for (let i = 0; i < 2; i++) if (PK.hk[i] && (!foot || !vr)) { const k = PK.hk[i]; PK.hk[i] = null; PK.hm[i].visible = false; if (!pkPut(k, true)) { grips[i].getWorldPosition(_pkV); pkDrop(k, _pkV, PK.v.set(0, 0, 0), 0); } pkWeigh(); }
   if (PK.st === 'held' && (!foot || !vr || !PK.g.userData.src)) pkWear(true);   // you boarded / left VR with it in your hand: on your back
+  if (PK.st === 'ground' && foot) { camera.getWorldPosition(_pkV); _pkV.sub(M.position); _pkV.y = 0; if (_pkV.lengthSq() > PK_AWAY * PK_AWAY) { pkWear(true); sfx('pick'); say('PACK BACK ON - YOU WALKED OFF WITHOUT IT'); } }   // v1.11.2
+  if (PK.st === 'held') pkHeldPose();
   if (PK.st === 'worn') { M.visible = foot; if (foot) pkWornPose(); }
   else if (PK.st === 'fall') { PK.v.y -= 9.81 * dt; M.position.addScaledVector(PK.v, dt); const gy = groundY(M.position.x, M.position.z) + PK_DROPY;
     if (M.position.y <= gy) { M.position.y = gy; PK.v.set(0, 0, 0); PK.st = 'ground'; sfx('thud', M.position); saveSoon(); } }
@@ -6678,7 +6685,7 @@ function packLoad(d) {   // a save without a pack (older than v1.11.0): the star
   const ok = k => typeof k === 'string' && Object.prototype.hasOwnProperty.call(PK_K, k);
   PK.it = d && Array.isArray(d.it) ? d.it.filter(ok).slice(0, 40) : PK_START.slice();
   PK.gnd = d && Array.isArray(d.gnd) ? d.gnd.filter(e => Array.isArray(e) && ok(e[0]) && e.slice(1, 5).every(v => typeof v === 'number' && isFinite(v))).slice(0, 40).map(e => e.slice(0, 5)) : [];
-  if (d && d.st === 'ground' && Array.isArray(d.p) && d.p.length === 3 && d.p.every(v => typeof v === 'number' && isFinite(v))) { scene.add(PK.mesh); PK.mesh.position.fromArray(d.p); PK.ry = +d.ry || 0; PK.mesh.quaternion.setFromAxisAngle(_ry, PK.ry); PK.st = 'ground'; PK.g = null; PK.mesh.visible = true; pkGeo(true); }
+  if (d && d.st === 'ground' && Array.isArray(d.p) && d.p.length === 3 && d.p.every(v => typeof v === 'number' && isFinite(v))) { scene.add(PK.mesh); PK.mesh.position.fromArray(d.p); PK.mesh.position.y = groundY(d.p[0], d.p[2]) + PK_DROPY; pkLie(+d.ry || 0); PK.st = 'ground'; PK.g = null; PK.mesh.visible = true; pkGeo(true); }
   else { PK.st = 'worn'; PK.g = null; scene.add(PK.mesh); pkGeo(false); }
   slLoad(d ? d.sl : null, !d); pkContents(); pkGround(); }
 // ===================== v1.11.1 CHEST RIG + BELT SLOTS: fixed pockets on your body you take things from and snap them back into =====================
@@ -6688,7 +6695,7 @@ function packLoad(d) {   // a save without a pack (older than v1.11.0): the star
 // Draws: the rig 1 + the belt 1 (one batch each, rebuilt only on a change, ITEM_VM: no new program), on foot only.
 const SL_D = [   // id, frame (2 chest / 0 pelvis), local position of the thing's centre (+x right, +y up, +z behind you), takes, name
   ['rigL', 2, [-0.085, 0.0, -0.165], k => PK_K[k][2] <= 0.3, 'CHEST POCKET'], ['rigR', 2, [0.085, 0.0, -0.165], k => PK_K[k][2] <= 0.3, 'CHEST POCKET'],
-  ['belt', 0, [-0.13, -0.04, 0.1], k => k === 'canteen', 'CANTEEN POUCH'], ['sheath', 0, [0.17, -0.07, 0.0], k => k === 'knife', 'KNIFE SHEATH']];
+  ['belt', 0, [-0.13, 0.03, 0.2], k => k === 'canteen', 'CANTEEN POUCH'], ['sheath', 0, [0.245, -0.02, 0.03], k => k === 'knife', 'KNIFE SHEATH', Math.PI / 2]];   // v1.11.2 clear of the legs: canteen behind the left hip, sheath flat on the right side
 const _slS = GV3(1, 1, 1), SL_R = 0.09, SL_HEAD = [GV3(0, -0.36, 0), GV3(0, -0.66, 0)];   // grab / snap radius (the ammo pouch's is 0.1); HANDS ONLY: chest / pelvis below the eyes
 const RIG = { k: [null, null, 'canteen', 'knife'], m: [], W: [GV3(0, 0, 0), GV3(0, 0, 0), GV3(0, 0, 0), GV3(0, 0, 0)], hin: [false, false] };
 { const mk = P => { const gs = P.map(partGeo), g = mergeGeometries(gs); for (const x of gs) x.dispose(); const r = { p: g.attributes.position.array.slice(), n: g.attributes.normal.array.slice(), c: g.attributes.color.array.slice(), cnt: g.attributes.position.count }; g.dispose(); return r; };
@@ -6697,15 +6704,15 @@ const RIG = { k: [null, null, 'canteen', 'knife'], m: [], W: [GV3(0, 0, 0), GV3(
   PK.KG._rigs = mk([['b', 0.25, 0.025, 0.012, 0, -0.08, -0.026, S]]);   // the rig's band (once, across under the pockets)
   PK.KG._belt = mk([['c', 0.054, 0.12, 10, 0, -0.035, 0, D], ['b', 0.06, 0.03, 0.02, 0, 0.0, -0.055, S]]);
   PK.KG._sheath = mk([['b', 0.045, 0.15, 0.026, 0, -0.045, 0, L], ['b', 0.05, 0.03, 0.03, 0, 0.03, 0, S]]);
-  PK.KG._strap = mk([['b', 0.34, 0.035, 0.24, 0, 0.03, 0.02, S]]);   // the belt itself (a thin band round the trousers' waist)
+  PK.KG._strap = mk([['b', 0.318, 0.035, 0.214, 0, 0.03, 0.0, S]]);   // the belt itself (a thin band round the trousers' waist)
   for (let f = 0; f < 2; f++) { const g = new THREE.BufferGeometry(); for (const a of ['position', 'normal', 'color']) g.setAttribute(a, new THREE.BufferAttribute(new Float32Array(3000 * 3), 3)); g.setDrawRange(0, 0);
     const m = new THREE.Mesh(g, ITEM_VM); m.userData.noBatch = true; m.frustumCulled = false; m.visible = false; m.matrixAutoUpdate = false; m.name = f ? 'BELT' : 'RIG'; scene.add(m); RIG.m.push(m); } }
 function slWrite() {   // the two batches: pockets + what is in them (on a change only)
   let n0 = 0, n1 = 0; const g0 = RIG.m[0].geometry, g1 = RIG.m[1].geometry;
-  n0 = pkWrite(g0, n0, '_rigs', 0, 0, -0.16, 0); n1 = pkWrite(g1, n1, '_strap', 0, -0.06, 0, 0);
+  n0 = pkWrite(g0, n0, '_rigs', 0, 0, -0.16, 0); n1 = pkWrite(g1, n1, '_strap', 0, 0.02, 0, 0);
   for (let j = 0; j < 4; j++) { const d = SL_D[j], p = d[2], k = RIG.k[j], ch = d[1] === 2, sk = ch ? '_rig' : j === 2 ? '_belt' : '_sheath';
-    if (ch) n0 = pkWrite(g0, n0, sk, p[0], p[1], p[2], 0); else n1 = pkWrite(g1, n1, sk, p[0], p[1], p[2], 0);
-    if (k) { const y = p[1] + (ch ? PK_K[k][3][1] / 2 - 0.07 : j === 2 ? 0.0 : 0.0); if (ch) n0 = pkWrite(g0, n0, k, p[0], y, p[2], 0); else n1 = pkWrite(g1, n1, k, p[0], y, p[2], 0); } }
+    const ry = d[5] || 0; if (ch) n0 = pkWrite(g0, n0, sk, p[0], p[1], p[2], ry); else n1 = pkWrite(g1, n1, sk, p[0], p[1], p[2], ry);
+    if (k) { const y = p[1] + (ch ? PK_K[k][3][1] / 2 - 0.07 : j === 2 ? 0.0 : 0.0); if (ch) n0 = pkWrite(g0, n0, k, p[0], y, p[2], ry); else n1 = pkWrite(g1, n1, k, p[0], y, p[2], ry); } }
   pkDone(g0, n0); pkDone(g1, n1); }
 function slPose(foot) {   // per frame: the two batches on the body (or below the eyes), the slots' world centres
   const ok = foot && (typeof BODY !== 'undefined' && BODY.tier >= 1 ? BODY.n > 0 : HANDS.force || !!renderer.xr.isPresenting);
@@ -6755,8 +6762,7 @@ function wbWarn(dt) {   // v0.50 (from the full-game branch): one reminder when 
 // ---- the laminated W&B card (right cabin wall) and the shared envelope chart ----
 const WBC_C = document.createElement('canvas'); WBC_C.width = 256; WBC_C.height = 352;
 const WBC_X = WBC_C.getContext('2d'), WBC_T = new THREE.CanvasTexture(WBC_C); WBC_T.colorSpace = THREE.SRGBColorSpace; WBC_T.generateMipmaps = false; WBC_T.minFilter = THREE.LinearFilter; WBC_T.anisotropy = 4;
-const WB_CARD = new THREE.Mesh(new THREE.PlaneGeometry(0.11, 0.151), new THREE.MeshBasicMaterial({ map: WBC_T, color: 0xd8d8d8 }));
-WB_CARD.position.set(0.312, -0.075 + CK.y, -0.5 + CK.z); WB_CARD.rotation.set(0, -Math.PI / 2 + 0.25, 0, 'YXZ'); plane.add(WB_CARD);
+// v1.11.2 the card is no longer on the right cabin wall (the clipboard carries the W&B page); its canvas still backs the shared chart
 function wbChart(x, X, Y, W, H, P, fs = 1) {   // CG (in) across, weight (lb) up: TCDS normal envelope, gross line, the dot
   const c0 = 8, c1 = 24, w0 = 1100, w1 = 2000, px = c => X + (c - c0) / (c1 - c0) * W, py = w => Y + H - (w - w0) / (w1 - w0) * H;
   x.fillStyle = '#f6f3e8'; x.fillRect(X, Y, W, H);
@@ -7412,7 +7418,9 @@ function rflPose(dt) {
     g.rotateX(R.a); g.rotateY(R.y); _rp3.set(0, -0.04, pz).applyQuaternion(g.quaternion); g.position.add(_rp2).sub(_rp3); g.translateZ(R.z); }
 }
 const POUCH_OFF = GV3(0.12, -0.62, -0.15);   // v0.77.1 belt, front right: 12 cm right, 62 cm below the eyes, 15 cm forward (head-yaw frame, so looking down at it does not move it)
-function rflPouch(out) { const y = headYaw(); camera.getWorldPosition(out); return out.add(_rd.copy(POUCH_OFF).applyAxisAngle(_ry, y)); }
+const _bbM = new THREE.Matrix4(), POUCH_BELT = GV3(0.11, 0.08, -0.145), B_BELT = GV3(-0.238, -0.01, -0.03);   // v1.11.2 on the IK body's belt (pelvis frame: +x right, +y up, +z behind): pouch front right, binocular holster left side
+function bodyBelt(l, out, q) { if (mode !== 'foot' || typeof BODY === 'undefined' || BODY.tier < 1 || !BODY.MLOC || !(BODY.n > 0)) return false; _bbM.multiplyMatrices(BODY.MLOC, BODY.W[0]); out.copy(l).applyMatrix4(_bbM); if (q) q.setFromRotationMatrix(_bbM); return true; }
+function rflPouch(out) { if (bodyBelt(POUCH_BELT, out)) return out; const y = headYaw(); camera.getWorldPosition(out); return out.add(_rd.copy(POUCH_OFF).applyAxisAngle(_ry, y)); }
 const POUCH = new THREE.Mesh(mergeGeometries([['b', 0.09, 0.08, 0.04, 0, 0, 0, 0x6a4a2a], ['b', 0.094, 0.025, 0.045, 0, 0.03, 0.002, 0x4a3218], ['c', 0.006, 0.02, 6, 0.02, 0.05, 0, 0xc9a040], ['c', 0.006, 0.02, 6, -0.005, 0.05, 0, 0xc9a040]].map(partGeo)), ITEM_VM);
 POUCH.userData.noBatch = true; POUCH.visible = false; scene.add(POUCH);
 let rflHintT = 0;
@@ -7427,7 +7435,7 @@ function rflTick(dt, vrOn) {
   if (RFL.flashT > 0 && (RFL.flashT -= dt) <= 0) RFL.flash.visible = false;
   RFL.deskT -= dt;
   // VR rounds: the tip into the loading gate (inside 2.5 cm) loads it; keep squeezing and go back to the pouch for the next one
-  const vrFoot = vrOn && mode === 'foot'; POUCH.visible = vrFoot && rflHas(); if (POUCH.visible) { rflPouch(POUCH.position); POUCH.rotation.set(0, headYaw(), 0); }
+  const vrFoot = vrOn && mode === 'foot'; POUCH.visible = vrFoot && rflHas(); if (POUCH.visible) { rflPouch(POUCH.position); if (bodyBelt(POUCH_BELT, POUCH.position, POUCH.quaternion)) {} else POUCH.rotation.set(0, headYaw(), 0); }
   rflLoadAnim(dt);
   for (const [gh, m] of RFL.round) { rndHoldSet(gh, m); if (RFL.place !== 'vr' || RFL.hand === gh) continue;   // v0.67.2: forgiving - the tip within 6 cm of the gate, pointing roughly forward (60 deg), from any side, lever open or shut
     gh.updateWorldMatrix(true, false); m.updateWorldMatrix(true, false); RFL.g.updateMatrixWorld();
@@ -7762,7 +7770,7 @@ BINO.hol = (() => { const L = 0x4a3420, K = 0x2e2014, P = [['b', 0.136, 0.13, 0.
     ['b', 0.148, 0.012, 0.082, 0, -0.085, 0, K], ['b', 0.14, 0.012, 0.03, 0, 0.042, 0.047, K, 0.5], ['b', 0.03, 0.05, 0.004, 0, 0.03, -0.043, K]];   // v0.77.10 a leather case, open at the top (the flap folded back), belt loop on the inside
   const gs = P.map(partGeo), g = mergeGeometries(gs); for (const x of gs) x.dispose(); const m = new THREE.Mesh(g, ITEM_VM); m.userData.noBatch = true; m.visible = false; scene.add(m); return m; })();
 const B_HIP = GV3(-0.2, -0.68, -0.02), _bhQ = new THREE.Quaternion(), _bhE = new THREE.Euler();   // v0.77.10 the holster: left hip, 20 cm left of and 68 cm below the eyes (head-yaw frame, so looking down doesn't move it)
-function binoHip(out, q) { camera.getWorldPosition(out); _yq.setFromAxisAngle(_ry, headYaw()); out.add(_bd.copy(B_HIP).applyQuaternion(_yq)); if (q) q.copy(_yq).multiply(_bhQ.setFromEuler(_bhE.set(0, Math.PI / 2, 0))); return out; }
+function binoHip(out, q) { if (bodyBelt(B_BELT, out, q)) { if (q) q.multiply(_bhQ.setFromEuler(_bhE.set(0, Math.PI / 2, 0))); return out; } camera.getWorldPosition(out); _yq.setFromAxisAngle(_ry, headYaw()); out.add(_bd.copy(B_HIP).applyQuaternion(_yq)); if (q) q.copy(_yq).multiply(_bhQ.setFromEuler(_bhE.set(0, Math.PI / 2, 0))); return out; }
 function binoPut(pl) {
   BINO.place = pl; BINO.g = BINO.g2 = null; const m = BINO.m;
   if (pl === 'cub') { plane.add(m); m.position.copy(BINO.cubP).add(GV3(0, 0.0, 0)); m.rotation.set(-Math.PI / 2, -Math.PI / 2, 0, 'YXZ'); }
@@ -8115,7 +8123,7 @@ function fLineStep(dt) {
   for (let i = 1; i < n - 1; i++) { const p = P[i]; if (wet && p.y < surf && i > n * 0.3) { p.y = surf; O[i].y = surf; if (FISH.flx || FISH.flz) { const k = 0.9 * dt * (i / n); p.x += FISH.flx * k; p.z += FISH.flz * k; O[i].x += FISH.flx * k; O[i].z += FISH.flz * k; } continue; }   // v1.00.1 the current bellies the line   // lies on the water (out toward the lure)
     if ((i + FISH.gTick) % 3 === 0) FLINE.gy[i] = groundY(p.x, p.z) + 0.01; if (p.y < FLINE.gy[i]) { p.y = FLINE.gy[i]; O[i].lerp(p, 0.6); } }
   const A = FLINE.a; for (let i = 0; i < n; i++) { A[i * 3] = P[i].x; A[i * 3 + 1] = P[i].y; A[i * 3 + 2] = P[i].z; } FLINE.l.geometry.attributes.position.needsUpdate = true; }
-FISH.tipPk = GV3(0, 0, 0); FISH.pkT = 0;
+FISH.tipPk = GV3(0, 0, 0); FISH.pkT = 0; FISH.fwdPk = 0; FISH.relW = 0; FISH.flyAge = 9; const _fFw = GV3(0, 0, 0);
 FLINE.gy = new Float32Array(FISH.n).fill(-1e9); FISH.gTick = 0; FISH.surf = -1e9; FISH.end = null; FISH.lift = 0;
 // ---- casting, the bail, the crank ----
 function fBail(open) { if (FISH.bail === open) return; FISH.bail = open; sfx('click'); if (FISH.hand) HX.pulse(FISH.hand, 0.25, 12, 'bail'); }
@@ -8195,18 +8203,39 @@ function fLureDraw(dt) {
 function fVRInput(dt) {
   const g = FISH.hand, gp = g?.userData.src?.gamepad; if (!gp) return;
   const tv = gp.buttons[0]?.value || 0;
-  if (tv > 0.6 && !FISH.trg) { FISH.trg = true; if (FISH.st === 'idle') { fBail(true); FISH.pinch = true; } else if (FISH.st === 'fly') FISH.pinch = true; }   // finger on the line (and in flight: feather it to a stop)
-  else if (tv < 0.3 && FISH.trg) { FISH.trg = false; if (FISH.pinch) { FISH.pinch = false; const V = FISH.tipPk.lengthSq() > FISH.tipV.lengthSq() ? FISH.tipPk : FISH.tipV, s = V.length(); if (FISH.st === 'idle' && s > 2.5) fCast(fLaunchV(V, _fk1)); else if (FISH.st === 'idle' && s > 0.8) say('FLICK THE ROD FORWARD AND LET GO OF THE TRIGGER AS IT GOES'); } }
+  if (tv > 0.6 && !FISH.trg) { FISH.trg = true; if (FISH.st === 'idle') { fBail(true); FISH.pinch = true; } else if (FISH.st === 'fly' && FISH.flyAge > 0.5) FISH.pinch = true; else if (FISH.relW > 0) FISH.relW = 0; }   // finger on the line (and in flight: feather it to a stop)
+  else if (tv < 0.3 && FISH.trg) { FISH.trg = false; if (FISH.pinch) { if (FISH.st === 'idle') FISH.relW = 0.35; else FISH.pinch = false; } }   // v1.11.2 let go: the line slips off your finger at the flick's peak - a let-go a little early waits for it, a late one still uses it
+  FISH.flyAge += dt; if (FISH.relW > 0) fLetGo(dt);
   const cg = FISH.crankG; if (cg) { cg.getWorldPosition(_fW); FREEL.m.updateMatrixWorld(true); FREEL.m.worldToLocal(_fW); const ph = Math.atan2(-_fW.z, _fW.y);
     if (FISH.crankA !== null) { let dA = ph - FISH.crankA; if (dA > Math.PI) dA -= 2 * Math.PI; if (dA < -Math.PI) dA += 2 * Math.PI; fCrank(dA, dt); } else fCrank(0, dt); FISH.crankA = ph; }
   else fCrank(0, dt); }
 // the lure hangs on its drop and swings over the tip as the rod unloads: it leaves ~60 deg above the tip's own path. Let go at about one o'clock
 // (the tip still moving forward-down) and it flies ~30 deg up; early (rod upright) it lobs high; late it slaps the water close in.
-function fLaunchV(tv, out) { const s = tv.length() * 1.1; let hx = tv.x, hz = tv.z, h = hyp(hx, hz); if (h < 0.3) { hx = FRD.A.x; hz = FRD.A.z; h = hyp(hx, hz) || 1; }
-  const e = Math.min(1.4, Math.atan2(tv.y, hyp(tv.x, tv.z)) + 1.05), c = Math.cos(e) * s / h; return out.set(hx * c, Math.sin(e) * s, hz * c); }
+function fLetGo(dt) { const pk = FISH.fwdPk, go = pk > 2.5 && FISH.fwdV < 0.85 * pk;   // the peak has passed (or the rod has stopped)
+  FISH.relW -= dt; if (FISH.st !== 'idle') { FISH.relW = 0; FISH.pinch = false; return; } if (!go && FISH.relW > 0) return;
+  FISH.relW = 0; FISH.pinch = false; if (pk > 2.5) { if (fCast(fLaunchV(FISH.tipPk, _fk1)) !== false) FISH.flyAge = 0; } else if (FISH.tipV.length() > 0.8 || pk > 0.8) say('FLICK THE ROD FORWARD AND LET GO OF THE TRIGGER AS IT GOES'); }
+// v1.11.2 a natural flick (tip 15-35 m/s) lands 10-25 m out (was x1.1: 30-50 m), launched 17-57 deg up
+function fLaunchV(tv, out) { const s = Math.min(18.5, 5 + 0.55 * tv.length()); let hx = tv.x, hz = tv.z, h = hyp(hx, hz); if (h < 0.3) { hx = FRD.A.x; hz = FRD.A.z; h = hyp(hx, hz) || 1; }
+  const e = Math.max(0.3, Math.min(1.0, Math.atan2(tv.y, hyp(tv.x, tv.z)) + 1.05)), c = Math.cos(e) * s / h; return out.set(hx * c, Math.sin(e) * s, hz * c); }
 function fDeskInput(dt) {
   if (FISH.charging) FISH.pow = Math.min(1, FISH.pow + dt / 0.8);
   if (FISH.desk.reel) fCrank(2 * Math.PI * (keys.ShiftLeft ? 2.6 : 1.6) * dt, dt); else fCrank(0, dt); }
+// v1.11.2 a small tag over your hand naming what you just picked up (the shop-tag card): one plane, redrawn only when the name changes; it pops in and shrinks away (no transparency: no new shader)
+const HTAG = { cv: document.createElement('canvas'), k: ['', ''], t: 0, g: null, nm: '', LIFE: 2.6 }; HTAG.cv.width = 512; HTAG.cv.height = 96;
+HTAG.tx = new THREE.CanvasTexture(HTAG.cv); HTAG.tx.colorSpace = THREE.SRGBColorSpace; HTAG.tx.generateMipmaps = false; HTAG.tx.minFilter = THREE.LinearFilter;
+HTAG.m = new THREE.Mesh(new THREE.PlaneGeometry(0.12, 0.0225), new THREE.MeshBasicMaterial({ map: HTAG.tx, color: 0xd8d8d8 })); HTAG.m.visible = false; HTAG.m.frustumCulled = false; scene.add(HTAG.m);
+function heldName(g, i) { if (PK.hk[i]) return PK_K[PK.hk[i]][0]; if (PK.st === 'held' && PK.g === g) return 'BACKPACK'; if (RFL.hand === g) return 'RIFLE'; if (DROP.held.has(g)) return 'SUPPLY BUNDLE'; if (RFL.round.has(g)) return 'CARTRIDGE';
+  if (BINO.g === g || BINO.g2 === g) return 'BINOCULARS'; if (FISH.rod === 'vr' && FISH.hand === g) return 'FISHING ROD'; if (FISH.netG === g) return 'LANDING NET';
+  const bi = DLV.held.get(g); if (bi) return CARGO_K[bi.k].n; const P = UPG.held.get(g); if (P) return UPG_I[P.k].label;
+  if (MAP.g === g || MAP.g2 === g) return 'MAP'; if (KB.g === g) return 'CLIPBOARD'; if (CARD.g === g) return 'CHECKLIST'; if (MIC.g === g) return 'RADIO MIC'; if (HOSE.held === g) return 'FUEL NOZZLE'; return ''; }
+function htagDraw(n) { const x = HTAG.cv.getContext('2d'); x.fillStyle = '#f4ecd0'; x.fillRect(0, 0, 512, 96); x.strokeStyle = '#5a4630'; x.lineWidth = 6; x.strokeRect(3, 3, 506, 90);
+  x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillStyle = '#2a1e12'; let f = 52; do x.font = 'bold ' + f + 'px sans-serif'; while (x.measureText(n).width > 480 && --f > 18); x.fillText(n, 256, 50); texDirty(HTAG.tx); }
+function htagTick(dt, vrOn) { const M = HTAG.m;
+  if (vrOn) for (let i = 0; i < 2; i++) { const g = grips[i], n = g.userData.src ? heldName(g, i) : ''; if (n === HTAG.k[i]) continue; HTAG.k[i] = n;
+    if (n) { HTAG.g = g; HTAG.t = HTAG.LIFE; if (n !== HTAG.nm) { HTAG.nm = n; htagDraw(n); } } else if (HTAG.g === g) HTAG.t = Math.min(HTAG.t, 0.2); }
+  if (!vrOn || HTAG.t <= 0 || !HTAG.g) { if (M.visible) M.visible = false; HTAG.t = 0; return; }
+  HTAG.t -= dt; const s = Math.max(0.001, Math.min(1, HTAG.t / 0.2, (HTAG.LIFE - HTAG.t) / 0.1 + 0.3));
+  HTAG.g.getWorldPosition(M.position); M.position.y += 0.11; camera.getWorldQuaternion(M.quaternion); M.scale.setScalar(s); M.visible = true; }
 function fishTick(dt, vrOn) {
   FISH.dtF = dt; camera.getWorldPosition(_fT); fShopHint(_fT, vrOn); fWornTick(vrOn); fClockTick(dt); fOrderTick(); fDeckTick(); fNetTick(dt, vrOn); fWaterFx(dt);
   if (FISH.rod === 'pack') { FROD.m.visible = FREEL.m.visible = FLINE.l.visible = false; return; }
@@ -8214,7 +8243,8 @@ function fishTick(dt, vrOn) {
   if (FISH.rod === 'vr' && !FISH.hand?.userData.src) { fStow(''); return; }
   const r = FISH.rig || (FISH.rig = fRig()); fRodFrame(dt, vrOn); fRodDraw(r);
   if (dt > 0) { FISH.tipV.lerp(_fk2.subVectors(FISH.tip, FISH.tipP || FISH.tip).multiplyScalar(1 / dt), 0.6); } FISH.tipP = (FISH.tipP || GV3(0, 0, 0)).copy(FISH.tip);
-  FISH.pkT += dt; if (FISH.pkT > 0.35 || FISH.tipV.lengthSq() >= FISH.tipPk.lengthSq()) { FISH.tipPk.copy(FISH.tipV); FISH.pkT = 0; }   // v1.10.8 the flick's peak in the last 0.35 s
+  camera.getWorldDirection(_fFw); _fFw.y = 0; if (_fFw.lengthSq() < 1e-6) _fFw.set(0, 0, -1); _fFw.normalize(); FISH.fwdV = FISH.tipV.dot(_fFw);   // v1.11.2 the tip's speed toward where you face (a back-cast is negative)
+  FISH.pkT += dt; if (FISH.pkT > 0.9 || FISH.fwdV >= FISH.fwdPk) { FISH.tipPk.copy(FISH.tipV); FISH.fwdPk = FISH.fwdV; FISH.pkT = 0; }   // the forward flick's peak in the last 0.9 s (was the fastest motion in 0.35 s: a back-cast or a late let-go lost it)
   if (FISH.rod === 'vr') fVRInput(dt); else fDeskInput(dt);
   fLureStep(dt); if (typeof fFishStep === 'function') fFishStep(dt);
   fLineStep(dt); fLureDraw(dt); if (typeof fFishDraw === 'function') fFishDraw(); FROD.m.visible = FREEL.m.visible = FLINE.l.visible = true; }
@@ -12286,7 +12316,7 @@ renderer.setAnimationLoop(() => {
   } else if ((crashTimer += dt) > 2.5) resetFlight();
 
   plane.position.fromArray(ac.pos); plane.quaternion.fromArray(ac.q);
-  dlvTick(dt); wbWarn(dt); huntTick(dt, xr || HANDS.force); fishTick(dt, xr || HANDS.force); storyTick(dt); cbTick(dt); glintTick(dt); act2Tick(dt); act3Tick(dt); discTick(dt); radTick(dt); fogTick(dt); musTick(dt); trustTick(dt); dropTick(dt); ecoTick(dt); upgTick(dt); emgTick(dt);   // v0.53 rifle, deer, binoculars; v0.54 bundles in the air, the signal smoke   // v0.50 delivery: game clock, falling / loose cargo, job boards
+  dlvTick(dt); wbWarn(dt); huntTick(dt, xr || HANDS.force); fishTick(dt, xr || HANDS.force); htagTick(dt, xr || HANDS.force); storyTick(dt); cbTick(dt); glintTick(dt); act2Tick(dt); act3Tick(dt); discTick(dt); radTick(dt); fogTick(dt); musTick(dt); trustTick(dt); dropTick(dt); ecoTick(dt); upgTick(dt); emgTick(dt);   // v0.53 rifle, deer, binoculars; v0.54 bundles in the air, the signal smoke   // v0.50 delivery: game clock, falling / loose cargo, job boards
   GV.update(dt); kitTick(dt); flxTick(dt);   // v0.20 gear legs / tyres / tail wheel (v0.90 + the gear kits)
   updateMap(); updateCockpitV19(dt);
   propTick(dt, ENG.rpm);
