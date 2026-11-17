@@ -2,6 +2,14 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v1.11.10 – fishing: the line hangs from the rod tip, the hook sits in the fish's jaw, one continuous rod tip
+
+- **The line hangs from the tip:** under water the line no longer lies flat on the surface and then drops straight down to the lure. It runs from the rod tip down into the water to the lure along the line between them, and a wet line slowly sinks toward that line.
+- **The lure sinks on its line:** with the bail closed, a sinking lure (spoon, spinner, plastic, bait) now sinks on an arc in toward under the rod tip, at its own sink rate, and doesn't creep out on extra line. With the bail open it still angles in toward the tip as it sinks and pulls some line off the spool. Reeling and rising tension bring it in toward under the tip as before. Flies and bobbers behave as before.
+- **The hook is in the fish's jaw:** a hooked fish now hangs from its snout, which stays on the lure for the whole fight. A running fish swims nose-first where it's going. As it tires, or when the line comes tight, its head turns toward you, and a played-out fish comes in head-first. Before, the hook sat behind its head and a tired fish came in tail-first.
+- **One continuous rod tip:** under a heavy bend the line inside the guides was drawn as straight chords between the far-apart tip guides, which looked like a second tip splitting off the blank. It now follows the bent blank through every guide and leaves from the tip ring.
+- **Cost:** no garbage per frame, no new shader programs, and the physics checksum is unchanged.
+
 ## v1.11.9 – heavy cargo feels heavy, papers stay where you put them (VR Dev 3)
 
 - **Heavy cargo feels heavy:** carried pieces (one hand, or each hand of a two-hand piece) now lag and sag more the heavier they are.

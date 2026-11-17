@@ -329,6 +329,8 @@ Buy a rod, reel, line and lures at a tackle shop. The **Cutler** store has the f
 - **The fight:**
   - Keep the rod up and let the drag work. Reel when the fish rests.
   - Too much tension for more than a quarter second breaks the line. Slack lets the hook pull out.
+- **The sink (v1.11.10):** after the cast, close the bail (first turn of the crank) and let a spoon, spinner, plastic or bait sink: it swings down on its line in toward under the rod tip, and the line runs from the tip down into the water to it. Count it down to the depth you want, then reel. With the bail left open it still angles in and takes a little line.
+- **Hooked fish (v1.11.10):** the hook sits in the fish's jaw. It runs nose-first, turns its head toward you as it tires, and comes in head-first when played out.
 - **Keeping fish:** they stay fresh 8 game hours in the creel (6 kg) or 36 in the cooler (30 kg). When you fly, the creel goes into the cooler. Cutler pays full price at the scales; Dry Fork pays 80 %.
 - **Lodge orders:** the FISH WANTED sign beside the LODGE board. Bring the fish within 6 m of the sign.
 - **Hunger** drops 5 per game hour. Eat fish to restore it (+40 per kg). Below 10 % you walk slower.
