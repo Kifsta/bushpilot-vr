@@ -2,6 +2,18 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v1.11.16 – hunting knife field dressing and a 4x rifle scope (VR Dev 2); binocular and zoom view fixes
+
+- **Field dressing:** carry a knife and a deer with no job can be dressed where it lies: 4 strokes give 4 venison cuts on the grass. A hunting job still takes the carcass and leaves 1 cut for you.
+  - Venison: +35 food at the mouth, $10 a cut at Cutler (80 % at Dry Fork); 2 lb / 1 L per cut.
+  - A landed fish let go low over dry ground with a knife on you lies on the grass. 3 strokes fillet it: 1 pair per ~0.8 kg, at most 4. Fillets: +25 food, $6 a pair at Cutler (80 % at Dry Fork).
+- **Rifle scope ($120, Dry Fork hardware counter):** grab the one on the cradle (desktop: L at the counter buys and fits it). It mounts on the left of the receiver. With your eye 5–13 cm behind the eyepiece you get a 4x view in that eye, zeroed at 100 m.
+- **Binoculars:** the black mask is now opaque everywhere and covers your whole field of view (no see-through edges or stencil artifacts). The 7x picture has 4x anti-aliasing, and smoke and signal puffs show at their real size in the zoomed view (they were about 5x too big).
+- **Zoom views cost less:** the binocular and scope passes no longer re-walk the scene graph, skip your own body and kit, and sort without making garbage. Each uniform now gets its own setter for its value type. Per pass, garbage went from 14.1 KB to 3.2 KB for the binoculars and from 16.1 KB to 3.2 KB for the scope; three's own render-list push (~1.4 KB) is the main part left. The scope view is 320 px.
+- **Desktop L:** L stays the field guide's key, except at a store counter (buy the scope) or with a fish landed (fillet it), where it is the hunt's.
+- Turning shadows on now also prepares the hidden point sprites (the stars, gun smoke and puffs), so dusk or your next shot no longer compiles a shader.
+- (v1.11.15 also made the rudder pedals and the door animation garbage-free.)
+
 ## v1.11.15 – tackle box and the bush pilot's field guide (VR Dev 2)
 
 - **Tackle box:** a tackle box comes with your first lure. It goes in your pack, or at your feet if the pack is full, and older saves that own lures get one when they load. It shows what you actually own (lures, line, bobber, split shot), with the shop's names and prices.

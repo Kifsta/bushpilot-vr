@@ -636,7 +636,7 @@ const hyp = (a, b, c = 0) => Math.sqrt(a * a + b * b + c * c);   // v0.59 Math.h
 
 // ======================= RENDERING =======================
 // v0.35 settings (persist in localStorage 'bp_gfx'; ?gfx=shadows:2,grass:1 overrides for testing). Defaults = the v0.34 look and cost.
-const BP_VERSION = 'v1.11.15';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
+const BP_VERSION = 'v1.11.16';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
 { const e = document.getElementById('ver'); if (e) e.textContent = BP_VERSION; } window.__bpVer = BP_VERSION; bootLog('game module running ' + BP_VERSION + ' (three r' + THREE.REVISION + ')' + (/[?&]safe(=|&|$)/.test(location.search) ? ' - SAFE MODE: default graphics, no shadows / ULTRA / life / vistas / music' : ''));
 const GFX_DEF = { shadows: 0, scale: 1, fov: 1, dist: 1, trees: 1, grass: 0, clouds: 1, fog: 1, msaa: 1, hz: 90, vig: 0, turn: 0, fps: 0, tod: 11, stk: 1, tips: 1, terr: 1, dyn: 1, glove: 0, hand: 0, wt: 1, volM: 1, volMu: 0.5, volE: 1, volA: 1, volF: 1, wx: 1, forest: 0, ground: 0, gtex: 0, cvl: 1, water: 1, dayl: 48, flure: 0, fline: 8, fdrag: 4, fbob: 0, fsink: 0, ultra: 0, sfxr: 1 };   // v0.68.1 dominant hand, volumes. v0.48 BALANCED: 90 % scale, 72 Hz, fast terrain shading, auto resolution; v0.49.1 the stick stays where you let go of it
 const GFX = Object.assign({}, GFX_DEF);
@@ -2432,7 +2432,7 @@ function handGrab(g) {   // on foot: the map (ground / cockpit holder / other ed
   if (mapGrab(g, _a)) return;
   if (fuelGrab(g, _a)) return;
   if (fishGrab(g, _a)) return;   // v0.97 a tackle item, the rod off your pack, the reel's crank, the net
-  if (packGrab(g, _a)) return;   // v1.11.0 the backpack over your shoulder, an item in it, things on the ground
+  if (h2Grab(g, _a)) return; if (packGrab(g, _a)) return;   // v1.11.0 the backpack over your shoulder, an item in it, things on the ground
   if (huntGrab(g, _a)) return;   // v0.53 rifle (rack / ground / back, lever, forend), the belt pouch, ammo box, binoculars, a carcass
   if (cargoGrab(_a)) return;   // v0.77.13 the cargo door from outside
   if (upgGrab(g, _a)) return;   // v0.57 a part off the hangar floor, or a bolt head to twist
@@ -2454,7 +2454,7 @@ addEventListener('keydown', e => {
   if (dropKey(e)) return;   // v0.54 G: push a bundle out of the open door
   if (fishKey(e)) return;   // v0.97 Q rod, - / = drag, E net / keep / buy
   if (e.code === 'KeyI' && packKey()) return;   // v1.11.0 the pack
-  if (huntKey(e)) return;   // v0.53 T rifle, X lever, Z load / buy ammo, V binoculars, hold E over a carcass
+  if (h2Key(e)) return; if (huntKey(e)) return;   // v0.53 T rifle, X lever, Z load / buy ammo, V binoculars, hold E over a carcass
   if (engKey(e)) return;     // v0.19 cockpit keys (U O Y H I P K J, 1-5 windows / doors; Space = starter, held)
   if (emgKey(e)) return;   // v0.58 C takes a call-out by COM radio; 4 at a red EMERGENCY sign
   if (upgKey(e)) return;   // v0.57 1-7 at the parts board; E carries / fits / bolts a part
@@ -6685,6 +6685,20 @@ PK_K.guide = ['FIELD GUIDE', 0.6, 0.4, [0.15, 0.205, 0.03], [['b', 0.15, 0.205, 
   ['b', 0.142, 0.197, 0.021, 0.003, 0, 0, 0xe8dcc0], ['b', 0.09, 0.03, 0.001, 0.005, 0.05, 0.0148, 0xd8b048]]];
 // <<< V2 GUIDE ITEMS END
 const PK_ROOM = 14, PK_EMPTY = 3, PK_HEAVY = 30, PK_START = ['tarp', 'rope', 'firstaid', 'torch', 'jerky', 'jerky', 'guide'], PK_SL0 = [null, null, 'canteen', 'knife'];   // v1.11.1 a new game: the canteen on your belt, the knife in its sheath   // litres, lb (the empty pack), lb (a warning, never a block)
+// >>> V2 HUNT ITEMS BEGIN (hunt-items.js via /workspace/v2-items2/hunt/apply.py)
+// ======================= V2 HUNT ITEMS: the knife's yield (venison cuts, fish fillets) + the 4x rifle scope, as pack / pocket kinds =======================
+// Same format as PK_K: [name, lb, litres, [w h d] in the pack (m), parts (partGeo, centred on the item; +y = up out of your fist)]. Here, before the pack's
+// geometry table is built, so a saved pack keeps them. Food (eaten at the mouth): venison 35, fillets 25 (V2 SURVIVAL's FOOD table when it is in, else FISH.food).
+// Sold at the tackle counters' scale with the fish (Cutler full price, Dry Fork 80 %): venison $10 a cut, fillets $6 a pair.
+PK_K.venison = ['VENISON (2 LB CUT)', 2.0, 1.0, [0.2, 0.08, 0.075], [['c', 0.034, 0.19, 8, 0, 0, 0, 0x6a1414, 0, 0, Math.PI / 2], ['b', 0.17, 0.012, 0.042, 0, 0.03, 0, 0xd8c8b0], ['b', 0.15, 0.004, 0.05, 0, 0.0365, 0, 0xe8e0d0],
+  ['c', 0.031, 0.006, 6, 0.096, 0, 0, 0x9a2c2c, 0, 0, Math.PI / 2], ['c', 0.031, 0.006, 6, -0.096, 0, 0, 0x9a2c2c, 0, 0, Math.PI / 2], ['b', 0.006, 0.07, 0.072, 0.04, 0, 0, 0xe0d8c8], ['b', 0.006, 0.07, 0.072, -0.04, 0, 0, 0xe0d8c8]]];
+PK_K.fillets = ['FISH FILLETS (A PAIR)', 0.9, 0.5, [0.19, 0.04, 0.075], [['b', 0.16, 0.016, 0.034, 0.005, 0.006, -0.018, 0xe8906a], ['b', 0.06, 0.012, 0.022, -0.1, 0.006, -0.018, 0xe8906a, 0, 0.12], ['b', 0.16, 0.004, 0.034, 0.005, -0.004, -0.018, 0xb8c4c8],
+  ['b', 0.16, 0.016, 0.034, 0.005, 0.006, 0.018, 0xee9a74], ['b', 0.06, 0.012, 0.022, -0.1, 0.006, 0.018, 0xee9a74, 0, -0.12], ['b', 0.16, 0.004, 0.034, 0.005, -0.004, 0.018, 0xb0bcc0], ['b', 0.13, 0.003, 0.004, 0.01, 0.0155, -0.018, 0xf4c8b0], ['b', 0.13, 0.003, 0.004, 0.01, 0.0155, 0.018, 0xf4c8b0]]];
+PK_K.scope = ['4X RIFLE SCOPE', 0.9, 0.5, [0.29, 0.05, 0.05], (() => {   // lying along x, the eyepiece at +x - a lighter cut of the fitted scope (a held / pack item batch takes 400 vertices)
+  const C = (r, l, s, col, n) => ['c', r, l, n || 6, 0.1425 - s, 0, 0, col, 0, 0, -Math.PI / 2], T = (r0, r1, l, s, col) => ['t', [r0, r1], l, 6, 0.1425 - s, 0, 0, col, 0, 0, -Math.PI / 2];
+  return [T(0.019, 0.0165, 0.07, 0.035, 0x1a1b1d), C(0.0127, 0.13, 0.135, 0x1f2123), C(0.0165, 0.034, 0.13, 0x1f2123), T(0.0127, 0.021, 0.03, 0.215, 0x1f2123), C(0.021, 0.059, 0.2555, 0x1a1b1d),
+    ['b', 0.016, 0.016, 0.016, 0.1425 - 0.13, 0.022, 0, 0x2a2c2e]]; })()];
+// <<< V2 HUNT ITEMS END
 const PK_SPLIT = -0.08, PK_DROPY = 0.2, PK_AWAY = 3.5, PK_GRAB = 0.15;   // v1.11.2 lying on its front, back panel up (the handle 0.2 m up); walk this far off and it goes back on; the grab: this close to the pack's top edge   // head-yaw frame x: with the rifle slung, right of this is the rifle's reach; the handle above the pack's bottom
 const PK = { st: 'worn', g: null, it: PK_START.slice(), gnd: [], hk: [null, null], hm: [], fm: [], fall: [], v: GV3(0, 0, 0), ry: 0, lb: 0, vol: 0, hid: false, mouthT: 0, n: 0,
   hp: [GV3(0, 0, 0), GV3(0, 0, 0)], hv: [GV3(0, 0, 0), GV3(0, 0, 0)], hin: [false, false], slot: [], KG: {}, mesh: null, cm: null, gm: null, geoC: null, geoO: null };
@@ -7275,6 +7289,7 @@ const smMat = new THREE.PointsMaterial({ size: 1, vertexColors: true, transparen
     gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.5, 'rgba(255,255,255,0.45)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = gr; x.fillRect(0, 0, 64, 64); return new THREE.CanvasTexture(c); })() });
 smMat.onBeforeCompile = sh => { sh.vertexShader = sh.vertexShader.replace('uniform float size;', 'uniform float size;\nattribute float psize;').replace('gl_PointSize = size;', 'gl_PointSize = size * psize;'); };
 const smPts = new THREE.Points(smGeo, smMat); smPts.frustumCulled = false; smPts.renderOrder = 5; smPts.visible = false; smPts.userData.noBatch = true; scene.add(smPts);
+gfxShadows = (orig => function () { const r = orig.apply(this, arguments); scene.traverse(o => { if (!o.isPoints || o.visible) return; o.visible = true; renderer.compile(o, camera, scene); o.visible = false; }); return r; })(gfxShadows);   // v1.11.16 hidden point sprites (stars by day, gun smoke, puffs) get their program for the new shadow state too: the rebuild skipped them (a compile at dusk / your next shot)
 const SMP = Array.from({ length: SMN }, () => ({ t: 0, life: 0, p: GV3(0, 0, 0), v: GV3(0, 0, 0), o: null, k: 1 })); let smIdx = 0, smLive = 0;
 for (let i = 0; i < SMN; i++) smPos[i * 3 + 1] = -1e4;
 const _se = GV3(0, 0, 0);
@@ -7850,7 +7865,7 @@ function deerTick(dt) {
 const DRESS_T = 3;
 function huntJobFor(a) { const A = dlvActive().filter(j => j.hunt && !j.hunt.got); return A.find(j => j.hunt.h === a.h) || A[0] || null; }
 function deerStartDress(a, g) {
-  if (!huntJobFor(a)) { say('NOBODY HAS ORDERED VENISON - TAKE A HUNTING JOB AT A JOB BOARD FIRST'); return true; }
+  if (!huntJobFor(a) && !h2Knife()) { say('NOBODY HAS ORDERED VENISON - TAKE A HUNTING JOB AT A JOB BOARD FIRST'); return true; }
   DEER.dress = { a, g, t: 0, n: 0 }; say('FIELD DRESSING THE ' + DSP[a.sp].name + ' - KEEP HOLDING'); if (g !== 'desk') HX.pulse(g, 0.4, 30, 'dress'); return true;
 }
 function deerNear(p, r) { let best = null, bd = r; for (const a of DEER.list) { if (a.state !== 'dead') continue; const d = hyp(a.x - p.x, a.z - p.z); if (d < bd && Math.abs(p.y - a.y) < 2.2) { bd = d; best = a; } } return best; }
@@ -7864,7 +7879,7 @@ function deerDressTick(dt) {
   if (D.t >= DRESS_T) { DEER.dress = null; deerDress(D.a); }
 }
 function deerDress(a) {
-  const j = huntJobFor(a); if (!j) return; const S = DSP[a.sp], lb = Math.round(S.lb[0] + Math.random() * (S.lb[1] - S.lb[0]));
+  const j = huntJobFor(a); if (!j) { h2Meat(a, null); return; } h2Meat(a, j); const S = DSP[a.sp], lb = Math.round(S.lb[0] + Math.random() * (S.lb[1] - S.lb[0]));
   j.hunt.got = 1; j.items = [{ k: 'deer', lb }]; j.fresh = 1;
   const it = dlvMake(j, 'deer', lb, 0); dlvSetGround(it, a.x, a.z, a.yaw + Math.PI / 2);
   a.state = 'gone'; if (a.inst) deerFree(a); sfx('flesh'); MAP.key = ''; for (const T of DLV_STRIPS) T.key = '';
@@ -7872,15 +7887,42 @@ function deerDress(a) {
 }
 // ---- binoculars (full-game v0.41): in a holster on your left hip on foot (v0.77.10; was the chest), in a holder by the right door in the Cub. Raise them to your eyes (VR) or press V (desktop) ----
 // VR: a 7x view in a ring in front of your eyes, rendered from your head at 384 px (v0.77.10 every frame, from this frame's XR head pose, no shadow update); desktop: the camera zooms.
-const BINO = { place: 'cub', g: null, g2: null, two: false, on: false, desk: false, fov0: 75, t: 0, last: '', n: 0, force: false, near: 9, f: 9, lat: 0, al: 0, rt: new THREE.WebGLRenderTarget(384, 384), hq: new THREE.Quaternion(), hb: null, ht: 0, cam: new THREE.PerspectiveCamera(2 * Math.atan(Math.tan(5 * D2R) * 0.22 / 0.15) / D2R, 1, 0.5, 9000), cubP: GV3(0.285, -0.16 + CK.y, -0.36 + CK.z) };
+const BINO = { place: 'cub', g: null, g2: null, two: false, on: false, desk: false, fov0: 75, t: 0, last: '', n: 0, force: false, near: 9, f: 9, lat: 0, al: 0, rt: new THREE.WebGLRenderTarget(384, 384, { samples: 4 }),   /* v1.11.16 4x MSAA: no crawling edges at 7x */ hq: new THREE.Quaternion(), hb: null, ht: 0, cam: new THREE.PerspectiveCamera(2 * Math.atan(Math.tan(5 * D2R) * 0.22 / 0.15) / D2R, 1, 0.5, 9000), cubP: GV3(0.285, -0.16 + CK.y, -0.36 + CK.z) };
 BINO.rt.texture.colorSpace = THREE.SRGBColorSpace;
+// v1.11.16 the zoom passes (binoculars, and anything else that renders the scene a second time): no per-pass garbage, less CPU
+const ZP = { T: [], hide: null, hv: [], L: null };
+function zpSort(cmp) {   // three sorts its render lists with Array.prototype.sort, which allocates a work array the size of the list on every call (~8 B per item, every pass). The same stable order, from a reused buffer
+  const a = this, n = a.length, T = ZP.T; if (n < 2) return a; while (T.length < n) T.push(null);
+  for (let s = 0; s < n; s += 8) { const e = Math.min(s + 8, n); for (let i = s + 1; i < e; i++) { const x = a[i]; let j = i - 1; while (j >= s && cmp(a[j], x) > 0) { a[j + 1] = a[j]; j--; } a[j + 1] = x; } }
+  let src = a, dst = T; for (let w = 8; w < n; w *= 2) { for (let lo = 0; lo < n; lo += 2 * w) { const mid = Math.min(lo + w, n), hi = Math.min(lo + 2 * w, n); let i = lo, j = mid, k = lo;
+      while (i < mid && j < hi) dst[k++] = cmp(src[j], src[i]) < 0 ? src[j++] : src[i++]; while (i < mid) dst[k++] = src[i++]; while (j < hi) dst[k++] = src[j++]; } const x = src; src = dst; dst = x; }
+  if (src !== a) for (let i = 0; i < n; i++) a[i] = src[i]; return a; }
+// v1.11.16 three's uniform setters (setValueV1f..V4f) load v.x / v.r through megamorphic loads (a fresh heap number for each double) and pass doubles to gl.uniform*f (boxed):
+// ~8 KB a zoom pass. Each uniform gets a setter for its own value class on first use (monomorphic loads, a Float64Array cache, the fv call with a reused Float32Array).
+const ZPU = { n: -1, F1: new Float32Array(1), F2: new Float32Array(2), F3: new Float32Array(3), F4: new Float32Array(4) };
+function zpU1(g, v) { const c = this.cache; if (c[0] === v) return; c[0] = ZPU.F1[0] = v; g.uniform1fv(this.addr, ZPU.F1); }
+function zpU2(g, v) { const c = this.cache, x = v.x, y = v.y; if (c[0] === x && c[1] === y) return; const F = ZPU.F2; c[0] = F[0] = x; c[1] = F[1] = y; g.uniform2fv(this.addr, F); }
+function zpU3(g, v) { const c = this.cache, x = v.x, y = v.y, z = v.z; if (c[0] === x && c[1] === y && c[2] === z) return; const F = ZPU.F3; c[0] = F[0] = x; c[1] = F[1] = y; c[2] = F[2] = z; g.uniform3fv(this.addr, F); }
+function zpU3c(g, v) { const c = this.cache, x = v.r, y = v.g, z = v.b; if (c[0] === x && c[1] === y && c[2] === z) return; const F = ZPU.F3; c[0] = F[0] = x; c[1] = F[1] = y; c[2] = F[2] = z; g.uniform3fv(this.addr, F); }
+function zpU4(g, v) { const c = this.cache, x = v.x, y = v.y, z = v.z, w = v.w; if (c[0] === x && c[1] === y && c[2] === z && c[3] === w) return; const F = ZPU.F4; c[0] = F[0] = x; c[1] = F[1] = y; c[2] = F[2] = z; c[3] = F[3] = w; g.uniform4fv(this.addr, F); }
+function zpUFirst(g, v, t) { const f = typeof v === 'number' ? (this.type === 0x1406 ? zpU1 : null) : !v ? null : v.isVector2 ? zpU2 : v.isVector3 ? zpU3 : v.isColor ? zpU3c : v.isVector4 ? zpU4 : null;
+  if (f) { this.setValue = f; this.cache = new Float64Array(4).fill(NaN); f.call(this, g, v); } else { this.setValue = this.zpSv0; this.setValue(g, v, t); } }
+function zpUFix(seq) { for (const u of seq) { if (u.seq) zpUFix(u.seq); else if ((u.type === 0x1406 || u.type === 0x8b50 || u.type === 0x8b51 || u.type === 0x8b52) && !u.size && !u.zpSv0) { u.zpSv0 = u.setValue; u.setValue = zpUFirst; } } }
+function zpUni() { const P = renderer.info.programs; if (P.length === ZPU.n) return; ZPU.n = P.length; for (let i = 0; i < P.length; i++) zpUFix(P[i].getUniforms().seq); }   // new programs only (none after the warm-up)
+function zpSortFix() { zpUni(); const L = renderer.renderLists.get(scene, 0); if (L.opaque.sort === zpSort) return; L.opaque.sort = zpSort; L.transmissive.sort = zpSort; L.transparent.sort = zpSort; }   // the main pass uses the same lists, so it gains too
+function zpBegin() {   // just before a zoom pass: the scene graph is already up to date from this frame's code (a moving thing is at most one frame behind in the zoomed view), and your own body, hands and kit are never in front of a zoomed camera
+  zpSortFix(); scene.matrixWorldAutoUpdate = false;
+  if (!ZP.hide) { ZP.hide = [camera.parent]; for (const n of ['RIG', 'PACK', 'BELT', 'V2 BODY']) { const o = scene.getObjectByName(n); if (o) ZP.hide.push(o); } }
+  for (let i = 0; i < ZP.hide.length; i++) { const o = ZP.hide[i]; ZP.hv[i] = o.visible; o.visible = false; } }
+function zpEnd() { scene.matrixWorldAutoUpdate = true; for (let i = 0; i < ZP.hide.length; i++) ZP.hide[i].visible = ZP.hv[i]; }
+const PTS_UH = [], PTS_UH0 = new Float64Array(4);   // v1.11.16 the point-sprite uniforms sized from the screen height (uH): the 7x view sets them from its own target's height while it renders
 // v0.67.1: the view is a head-locked black mask over the whole field of view with two overlapping round holes (the 7x picture), so nothing near your face shows round it
 const BV = { r: 0.15, ox: 0.07, span: 0.22, z: -0.5 };
-{ const G = new THREE.PlaneGeometry(2.4, 2.4), P = G.attributes.position, U = G.attributes.uv; for (let i = 0; i < P.count; i++) U.setXY(i, P.getX(i) / (2 * BV.span) + 0.5, P.getY(i) / (2 * BV.span) + 0.5);
+{ const G = new THREE.PlaneGeometry(4, 4), P = G.attributes.position, U = G.attributes.uv; for (let i = 0; i < P.count; i++) U.setXY(i, P.getX(i) / (2 * BV.span) + 0.5, P.getY(i) / (2 * BV.span) + 0.5);
   const M = new THREE.MeshBasicMaterial({ map: BINO.rt.texture, depthTest: false, depthWrite: false, transparent: true, fog: false });   // transparent: drawn after the scene's see-through parts
   M.onBeforeCompile = sh => { sh.fragmentShader = sh.fragmentShader.replace('#include <map_fragment>', `#include <map_fragment>
     { vec2 p = (vMapUv - 0.5) * ${(2 * BV.span).toFixed(3)}; float d = min(length(p - vec2(-${BV.ox.toFixed(3)}, 0.0)), length(p - vec2(${BV.ox.toFixed(3)}, 0.0)));
-      diffuseColor.rgb *= 1.0 - smoothstep(${(BV.r - 0.014).toFixed(3)}, ${BV.r.toFixed(3)}, d); }`); };
+      float k = 1.0 - smoothstep(${(BV.r - 0.014).toFixed(3)}, ${BV.r.toFixed(3)}, d); diffuseColor.rgb *= k; diffuseColor.a = 1.0; }`); };   // v1.11.16 opaque everywhere: the black never takes the picture's alpha
   BINO.disk = new THREE.Mesh(G, M); BINO.disk.position.set(0, 0, BV.z); BINO.disk.renderOrder = 998; BINO.disk.frustumCulled = false; }
 BINO.disk.visible = false; BINO.disk.userData.noBatch = true; camera.add(BINO.disk);
 BINO.m = (() => { const D = 0x2a2c2e, R = 0x16171a, P = [];   // eyepieces toward +z (your face), objectives -z
@@ -7967,7 +8009,9 @@ function binoRender() {
   if (!BINO.on) { BINO.hb = null; return; }   // v0.77.10 every frame while raised (every other frame made the picture judder against the head-locked ring)
   binoHead(BINO.cam.position, BINO.cam.quaternion); binoHandNudge(); BINO.cam.quaternion.multiply(BINO.hq); BINO.cam.updateMatrixWorld(true);
   const xr = renderer.xr.enabled, su = renderer.shadowMap.autoUpdate, nu = renderer.shadowMap.needsUpdate; renderer.xr.enabled = false; renderer.shadowMap.autoUpdate = false; renderer.shadowMap.needsUpdate = false; BINO.disk.visible = false;
-  const rt0 = renderer.getRenderTarget(); renderer.setRenderTarget(BINO.rt); renderer.render(scene, BINO.cam); renderer.setRenderTarget(rt0); renderer.xr.enabled = xr; renderer.shadowMap.autoUpdate = su; renderer.shadowMap.needsUpdate = nu; BINO.disk.visible = true;   // v0.84.7 put back the target we found: in a headset that is the XR layer's framebuffer (null drew the rest of the frame to the page canvas, never the headset)
+  for (let i = 0; i < PTS_UH.length; i++) { PTS_UH0[i] = PTS_UH[i].value; PTS_UH[i].value = BINO.rt.height * 0.5; }   // v1.11.16 smoke / signal puffs: world size in the 7x view (they were sized for the eye's framebuffer, ~5x too big)
+  zpBegin(); const rt0 = renderer.getRenderTarget(); renderer.setRenderTarget(BINO.rt); renderer.render(scene, BINO.cam); renderer.setRenderTarget(rt0); zpEnd();
+  for (let i = 0; i < PTS_UH.length; i++) PTS_UH[i].value = PTS_UH0[i]; renderer.xr.enabled = xr; renderer.shadowMap.autoUpdate = su; renderer.shadowMap.needsUpdate = nu; BINO.disk.visible = true;   // v0.84.7 put back the target we found: in a headset that is the XR layer's framebuffer (null drew the rest of the frame to the page canvas, never the headset)
 }
 const _bhM = new THREE.Matrix4(), _bhP = GV3(0, 0, 0), _bhD = GV3(0, 0, 0), _bhT = new THREE.Quaternion(), _bhI = new THREE.Quaternion(), _bhO = new THREE.Quaternion(), B_NUDGE = { k: 0.25, max: 3 * D2R, tau: 0.45 };
 function binoHead(outP, outQ) {   // v0.77.10 this frame's head pose: three.js sets the XR eye cameras' matrices from the viewer pose before our frame runs, but camera.matrixWorld only after render() (a frame late here)
@@ -8695,7 +8739,7 @@ function fNetGrab(g, p) {
     if (FISH.fish.kg > 3 && !FISH.beached) { say('TOO BIG TO LIFT BY HAND (' + FISH.fish.kg.toFixed(1) + ' KG) - NET IT'); HX.pulse(g, 0.2, 10, 'ui'); return true; } fLanded('hand', g); return true; }
   return false; }
 function fNetRelease(g) { if (FISH.netG === g) { FISH.netG = null; if (FISH.st === 'landed' && FISH.held === null) fRelease('LET THE NET GO - THE FISH SLIPPED BACK IN'); }
-  if (FISH.held === g) { FISH.held = null; if (FISH.st === 'landed') { if (FISH.landHow === 'hand' || FISH.netG === null) fKeepOrRelease(); } } }
+  if (FISH.held === g) { FISH.held = null; if (h2Lay(g)) return; if (FISH.st === 'landed') { if (FISH.landHow === 'hand' || FISH.netG === null) fKeepOrRelease(); } } }
 function fNetTick(dt, vrOn) { const m = FNET.m; m.visible = false;
   if (FISH.netG && FISH.netG.userData.src) { const g = FISH.netG; g.updateWorldMatrix(true, false); _fkM.multiplyMatrices(g.matrixWorld, HOFF); _fkM.decompose(m.position, m.quaternion, _fk3); m.translateZ(-0.38); m.visible = true;
     if (FISH.st === 'fight' && FISH.ready && fHoop(_fk1).distanceTo(FISH.lure) < 0.4) fLanded('net', g); }
@@ -8736,9 +8780,9 @@ function fClockTick(dt) { const h = DAY.h; if (FISH.hPrev !== null) { let d = h 
   if ((FISH.spoilT = (FISH.spoilT || 0) - dt) <= 0) { FISH.spoilT = 2; for (const [box, hrs, nm] of [[FISH.creel, FKEEP.creelH, 'CREEL'], [FISH.cooler, FKEEP.coolerH, 'COOLER']]) { const bad = box.filter(f => FISH.clock - f.t > hrs); if (bad.length) { for (const f of bad) box.splice(box.indexOf(f), 1); say(bad.length + ' FISH IN YOUR ' + nm + ' WENT OFF - THROWN OUT (KEEP THEM ' + hrs + ' H AT MOST' + (nm === 'CREEL' ? ', OR IN THE CUB\'S COOLER' : '') + ')'); } } }
   if (mode === 'plane' && fHas('cooler') && FISH.creel.length) { let n = 0; while (FISH.creel.length && fKg(FISH.cooler) + FISH.creel[0].kg <= FKEEP.cooler) { FISH.cooler.push(FISH.creel.shift()); n++; } if (n) say(n + ' FISH FROM YOUR CREEL INTO THE COOLER'); } }
 // ---- selling: the tackle counters buy fresh fish by the kilo (Cutler pays full, Dry Fork 80 %); the cooler sells too if the Cub is parked close ----
-function fSell(S) { const boxes = [FISH.creel]; if (hyp(ac.pos[0] - S.at.x, ac.pos[2] - S.at.z) < 150) boxes.push(FISH.cooler); let $ = 0, kg = 0, n = 0; const k = S.name === 'CUTLER' ? 1 : 0.8;
+function fSell(S) { const h2$ = h2Sell(S); const boxes = [FISH.creel]; if (hyp(ac.pos[0] - S.at.x, ac.pos[2] - S.at.z) < 150) boxes.push(FISH.cooler); let $ = 0, kg = 0, n = 0; const k = S.name === 'CUTLER' ? 1 : 0.8;
   for (const b of boxes) { for (const f of b) { $ += f.kg * FSP[f.sp].$ * k; kg += f.kg; n++; } b.length = 0; }
-  if (!n) { say('THE SCALE: NO FISH TO SELL (' + (S.name === 'CUTLER' ? 'FULL PRICE HERE' : '80 % HERE') + ': TROUT $6, LAKER $5, GRAYLING $8, PIKE $4, SALMON $9 A KG)'); return false; }
+  if (!n) { if (h2$) return true; say('THE SCALE: NO FISH TO SELL (' + (S.name === 'CUTLER' ? 'FULL PRICE HERE' : '80 % HERE') + ': TROUT $6, LAKER $5, GRAYLING $8, PIKE $4, SALMON $9 A KG)'); return false; }
   $ = Math.round($); DLV.cash += $; sfx('cash'); FISH.stat.sold = (FISH.stat.sold || 0) + $; say('SOLD ' + n + ' FISH, ' + kg.toFixed(1) + ' KG: +$' + $ + ' (WALLET $' + DLV.cash + ')'); saveSoon(); for (const s of DLV_STRIPS) s.key = ''; return true; }
 // ---- the lodge wants fresh fish: an order on a sign by its board; walk up with the fish in your creel (or the Cub's cooler parked close) ----
 const FORD = { o: null, sign: null, cv: null, at: null };
@@ -8834,7 +8878,7 @@ setTimeout(function huntAssets(tries = 3) {   // the rifle + deer models: after 
 // ---- the signal smoke: one Points draw (soft puffs rising, no wind), only at sites with a drop on and within 6 km ----
 { const N = 64, cv = document.createElement('canvas'); cv.width = cv.height = 64; const x = cv.getContext('2d'), gr = x.createRadialGradient(32, 32, 2, 32, 32, 31); gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = gr; x.fillRect(0, 0, 64, 64);
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(N * 3), 3)); g.setAttribute('aS', new THREE.BufferAttribute(new Float32Array(N), 1)); g.setAttribute('aA', new THREE.BufferAttribute(new Float32Array(N), 1));
-  const M = new THREE.ShaderMaterial({ transparent: true, depthWrite: false, uniforms: { map: { value: new THREE.CanvasTexture(cv) }, col: { value: new THREE.Color(0xf08a3a) }, uH: { value: 400 }, fc: { value: scene.fog.color }, fn: { value: scene.fog.near }, ff: { value: scene.fog.far } },
+  const M = new THREE.ShaderMaterial({ transparent: true, depthWrite: false, uniforms: { map: { value: new THREE.CanvasTexture(cv) }, col: { value: new THREE.Color(0xf08a3a) }, uH: PTS_UH[PTS_UH.push({ value: 400 }) - 1], fc: { value: scene.fog.color }, fn: { value: scene.fog.near }, ff: { value: scene.fog.far } },
     vertexShader: 'attribute float aS; attribute float aA; varying float vA; varying float vF; uniform float uH, fn, ff; void main() { vec4 mv = modelViewMatrix * vec4(position, 1.0); gl_Position = projectionMatrix * mv; gl_PointSize = aS * uH * projectionMatrix[1][1] / max(1.0, -mv.z); vA = aA; vF = smoothstep(fn, ff, -mv.z); }',
     fragmentShader: 'uniform sampler2D map; uniform vec3 col, fc; varying float vA; varying float vF; void main() { vec4 t = texture2D(map, gl_PointCoord); gl_FragColor = vec4(mix(col, fc, vF), t.a * vA * (1.0 - vF * 0.7)); }' });
   const pts = new THREE.Points(g, M); pts.frustumCulled = false; pts.userData.noBatch = true; pts.visible = false; scene.add(pts); DROP.sm = { pts, N, p: [], k: 0, at: null }; }
@@ -10335,7 +10379,7 @@ function cubParked() { return !ac.crashed && acGS() < 1 && ac.gs.some(g => g.Fn 
 function saveGame(why) {
   if (NOSAVE || SV.off) return false;
   if (cubParked()) SV.cub = { p: ac.pos.map(r3), q: ac.q.map(v => Math.round(v * 1e6) / 1e6) };
-  const d = { v: 55, gd: gdSave(), surv: survSave(), cab: cabSave(), at: Date.now(), cub: SV.cub, fuel: r3(fuel), h: r3(DAY.h), mode, foot: mode === 'foot' ? [r3(footRig.position.x), r3(footRig.position.z), r3(bodyYaw)] : null, dlv: dlvSave(), hunt: huntSave(), eco: ecoSave(), upg: upgSave(), emg: emgSave(), fish: fishSave(), pack: packSave(), story: storySave(), disc: discSave(), fog: fogSave(), wx: wxSave(), meta: { cash: DLV.cash, loc: svPlace() } };   // v0.68.1 meta: the menu's slot label. v0.55 + the Cub's log (tach, oil, wear, damage)   // v0.53 + rifle / ammo   // v0.50: + wallet, jobs, cargo, straps
+  const d = { v: 55, gd: gdSave(), surv: survSave(), cab: cabSave(), at: Date.now(), cub: SV.cub, fuel: r3(fuel), h: r3(DAY.h), mode, foot: mode === 'foot' ? [r3(footRig.position.x), r3(footRig.position.z), r3(bodyYaw)] : null, dlv: dlvSave(), hunt: huntSave(), h2: h2Save(), eco: ecoSave(), upg: upgSave(), emg: emgSave(), fish: fishSave(), pack: packSave(), story: storySave(), disc: discSave(), fog: fogSave(), wx: wxSave(), meta: { cash: DLV.cash, loc: svPlace() } };   // v0.68.1 meta: the menu's slot label. v0.55 + the Cub's log (tach, oil, wear, damage)   // v0.53 + rifle / ammo   // v0.50: + wallet, jobs, cargo, straps
   try { localStorage.setItem(SAVE_KEY, JSON.stringify(d)); } catch (e) { return false; }
   SV.last = Date.now(); SV.n++; SV.why = why || ''; SV.t = 30; SV.due = -1; return true;
 }
@@ -10357,7 +10401,7 @@ function gameLoad() {
   if (d.mode === 'foot' && Array.isArray(d.foot) && d.foot.slice(0, 3).every(isFinite)) { exitPlane(); const [x, z, yaw] = d.foot; footRig.position.set(x, groundY(x, z) + EYE, z); footRig.rotation.set(0, yaw, 0); bodyYaw = yaw; }   // v0.59.1 checked (a damaged foot entry stopped the page loading)
   upgLoad(d.upg || null);   // v0.57 before the cargo (the pod)
   emgLoad(d.emg || null);   // v0.58 before the cargo (a patient aboard finds their job)
-  wxLoad(d.wx || null); dlvLoad(d.v >= 50 ? d.dlv : null); huntLoad(d.v >= 53 ? d.hunt : null); fishLoad(d.fish || null); packLoad(d.pack || null); gdLoad(d.gd || null); survLoad(d.surv || null); cabLoad(d.cab || null); storyLoad(d.story || null); discLoad(d.disc || null); fogLoad(d.fog || null); dropLoadFix(); ecoLoad(d.v >= 55 ? d.eco : null); emgFix();   // v0.54 a save taken mid-drop: the last bundle down settles the job
+  wxLoad(d.wx || null); dlvLoad(d.v >= 50 ? d.dlv : null); huntLoad(d.v >= 53 ? d.hunt : null); h2Load(d.h2 || null); fishLoad(d.fish || null); packLoad(d.pack || null); gdLoad(d.gd || null); survLoad(d.surv || null); cabLoad(d.cab || null); storyLoad(d.story || null); discLoad(d.disc || null); fogLoad(d.fog || null); dropLoadFix(); ecoLoad(d.v >= 55 ? d.eco : null); emgFix();   // v0.54 a save taken mid-drop: the last bundle down settles the job
   msgT = 0; SV.last = d.at || 0; return true;
 }
 MYS_SITES.clear();   // the whole world is built now: clear trees and rocks off the strips and sites
@@ -11620,7 +11664,7 @@ const LIFE = BP_SAFE ? { tick() { }, wind: 0, on: false, safe: true, n: { crit: 
   const FG = new THREE.BufferGeometry(), FPOS = new Float32Array(NP * 3), FCOL = new Float32Array(NP * 4), FSZ = new Float32Array(NP), FK = new Float32Array(NP);
   FG.setAttribute('position', new THREE.BufferAttribute(FPOS, 3).setUsage(THREE.DynamicDrawUsage)); FG.setAttribute('aC', new THREE.BufferAttribute(FCOL, 4).setUsage(THREE.DynamicDrawUsage));
   FG.setAttribute('aS', new THREE.BufferAttribute(FSZ, 1).setUsage(THREE.DynamicDrawUsage)); FG.setAttribute('aK', new THREE.BufferAttribute(FK, 1).setUsage(THREE.DynamicDrawUsage)); FG.setDrawRange(0, 0);
-  const FU = { uH: { value: 400 }, uFN: { value: 100 }, uFF: { value: 3000 }, uFC: { value: scene.fog.color }, uL: { value: new THREE.Vector3(1, 1, 1) } };
+  const FU = { uH: PTS_UH[PTS_UH.push({ value: 400 }) - 1], uFN: { value: 100 }, uFF: { value: 3000 }, uFC: { value: scene.fog.color }, uL: { value: new THREE.Vector3(1, 1, 1) } };
   const FM = new THREE.ShaderMaterial({ uniforms: FU, transparent: true, depthWrite: false, blending: THREE.CustomBlending, blendSrc: THREE.OneFactor, blendDst: THREE.OneMinusSrcAlphaFactor,
     vertexShader: `attribute vec4 aC; attribute float aS; attribute float aK; uniform float uH, uFN, uFF; varying vec4 vC; varying float vK; varying float vF; varying vec2 vUp; varying float vSq;
 void main() { vec4 mv = modelViewMatrix * vec4(position, 1.0); gl_Position = projectionMatrix * mv; float d = max(0.3, -mv.z); float px = aS * uH * projectionMatrix[1][1] / d;
@@ -14166,7 +14210,7 @@ const GDE = (() => {
     F[11] = 8; if (!anyLure()) { say('NO LURES IN THE BOX'); return; } if (!rodOk(true) && FISH.rod !== 'pack') { rodOk(false); return; }
     for (let s = 1; s <= 5; s++) { const j = ((GFX.flure | 0) + s) % 5; if (lureN(j) > 0) { tie(j, null); return; } } }
   addEventListener('keydown', e => { if (e.repeat || mode !== 'foot' || renderer.xr.isPresenting || (typeof SETP !== 'undefined' && SETP.open)) return;
-    if (e.code === 'KeyL') { e.stopImmediatePropagation(); deskBook(); }
+    if (e.code === 'KeyL') { if (typeof h2LWants === 'function' && h2LWants()) return; e.stopImmediatePropagation(); deskBook(); }   // v1.11.16 at a counter / with a fish landed L is the hunt's
     else if (e.code === 'Backslash') { e.stopImmediatePropagation(); deskBox(); }
     else if (F[10] === 1 && (e.code === 'Comma' || e.code === 'Period')) { e.stopImmediatePropagation(); if (!turn(e.code === 'Period' ? 1 : -1)) say(e.code === 'Period' ? 'THE LAST PAGE - L PUTS IT AWAY' : 'THE FIRST PAGE'); saveSoon(); } }, true);
   // ---------------- per frame ----------------
@@ -14234,6 +14278,193 @@ const GDE = (() => {
 window.GDE = GDE;
 function gdTick(dt, vr) { GDE.tick(dt, vr); }
 // <<< V2 GUIDE END
+// >>> V2 HUNT BEGIN (hunt.js via /workspace/v2-items2/hunt/apply.py)
+// ======================= V2 HUNT: knife field dressing (deer + fish) and a 4x rifle scope from the Dry Fork hardware counter =======================
+// KNIFE: draw the sheath knife (the blade shows in your fist) and slice across a downed deer or a landed fish: a stroke is the blade moving through it at
+// >= 0.45 m/s for 10 cm; deer 4 strokes, fish 3. A deer gives the hunting job's carcass (as the grip-hold method, which still works) + one cut for you, or with no
+// job, 4 cuts of venison laid by it; a fish gives fillet pairs (1 per ~0.8 kg, max 4) - the first in the hand that held it, the rest in your pack (or at your feet).
+// Cuts and fillets are food at the mouth and sell at the tackle counters' scale. Desktop: hold E over a deer (any deer once you carry a knife), L fillets a landed fish.
+// SCOPE: $120 at the Dry Fork hardware counter (grab the one on the cradle; desktop L there buys + fits it). Bring it to the rifle's receiver: it snaps onto a
+// left-offset side mount (the 1892 ejects straight up, so nothing sits over the port). With your eye on its axis 5-13 cm behind the eyepiece (a 3 cm eye box)
+// you see a 4x view in the scope eye only (XR eye layer), rendered from the rifle at 384 px only while you look, zeroed at 100 m on the game's own ballistics.
+// The picture is a render target drawn with the main pass's programs (the target is flagged like the XR layer's: same output colour space + tone mapping), no stencil.
+var h2On, h2Pend;   // var: hooks can run before this block (gameLoad runs at boot)
+const H2 = { ready: false, kn: [0, 0], knCnt: 0, st: new Float64Array(16), tp: [GV3(0, 0, 0), GV3(0, 0, 0)], tv: GV3(0, 0, 0), sd: [GV3(0, 0, 0), GV3(0, 0, 0)], bp: [GV3(0, 0, 0), GV3(0, 0, 0), GV3(0, 0, 0)],
+  deer: null, cut: [0, 0], cutT: [0, 0], arm: [1, 1], tgt: [null, null], mt: [0, 0], fit: false, att: false, sf: false, price: 120, ZR: 100, MAG: 4,
+  FOOD: { venison: 35, fillets: 25 }, SELL: { venison: 10, fillets: 6 }, NEED: { deer: 4, fish: 3 }, stat: { cuts: 0, fish: 0, deer: 0, sold: 0 } };
+const _h2a = GV3(0, 0, 0), _h2b = GV3(0, 0, 0), _h2c = GV3(0, 0, 0), _h2d = GV3(0, 0, 0), _h2e = GV3(0, 0, 0), _h2q = new THREE.Quaternion(), _h2q2 = new THREE.Quaternion(), _h2m = new THREE.Matrix4();
+// ---- the drawn knife (in a fist: handle in the grip, guard at the index finger, a 11 cm drop-point blade up out of the thumb side, edge forward) ----
+{ const gs = [['b', 0.026, 0.094, 0.03, 0, 0.0, 0, 0x3a2a1a], ['b', 0.029, 0.01, 0.032, 0, -0.051, 0, 0x8a8a80], ['b', 0.03, 0.008, 0.05, 0, 0.051, 0, 0x9a9a92], ['b', 0.0035, 0.09, 0.026, 0, 0.1, -0.001, 0xc4c8cc],
+    ['b', 0.0035, 0.034, 0.018, 0, 0.152, 0.0035, 0xc4c8cc, -0.42], ['b', 0.0045, 0.09, 0.004, 0, 0.1, -0.0135, 0xeef0f2], ['b', 0.0045, 0.032, 0.004, 0, 0.152, -0.008, 0xeef0f2, -0.42]].map(partGeo), g = mergeGeometries(gs); for (const x of gs) x.dispose();
+  PK.KG._knifeD = { p: g.attributes.position.array.slice(), n: g.attributes.normal.array.slice(), c: g.attributes.color.array.slice(), cnt: g.attributes.position.count }; g.dispose(); H2.knCnt = PK.KG._knifeD.cnt; }
+const H2_BLADE = [GV3(0, 0.03, 0.01), GV3(0, 0.09, 0.008), GV3(0, 0.145, 0.012)];   // guard, middle, tip in the held-item frame (pkTake puts it at (0, -0.025, 0.01) in the grip)
+function h2Knife() { return h2On === true && (PK.hk[0] === 'knife' || PK.hk[1] === 'knife' || RIG.k.includes('knife') || PK.it.includes('knife')); }
+// ---- deer: the blade against the body (a capsule from the 'Back' to the 'Torso3' bone of the downed deer's skinned pose; the LOD pose: a box round a.x / a.z) ----
+// (no double crosses a call here: a boxed return / argument is garbage in the unoptimised tiers; booleans and objects only)
+function h2DeerNear(p) { const L = DEER.list; let best = null, bd = 2.56; for (let k = 0; k < L.length; k++) { const a = L[k]; if (a.state !== 'dead') continue;
+  const dx = a.x - p.x, dz = a.z - p.z, d = dx * dx + dz * dz; if (d < bd && Math.abs(p.y - a.y) < 2.2) { bd = d; best = a; } } return best; }   // the game's deerNear(p, 1.6), squared
+function h2DeerHit(a, p) { const I = a.inst, s = DSP[a.sp].h / 1.75;
+  if (I && I.bn.Back && I.bn.Torso3) { I.bn.Back.getWorldPosition(_h2b); I.bn.Torso3.getWorldPosition(_h2c);   // distance from p to the segment Back..Torso3 < 0.24 m (scaled)
+    _h2e.subVectors(_h2c, _h2b); const L = _h2e.lengthSq(); let t = L > 1e-9 ? _h2d.subVectors(p, _h2b).dot(_h2e) / L : 0; t = t < 0 ? 0 : t > 1 ? 1 : t; _h2d.copy(_h2b).addScaledVector(_h2e, t);
+    const r = 0.24 * s; return _h2d.distanceToSquared(p) < r * r; }
+  return Math.abs(p.x - a.x) < 0.7 * s && Math.abs(p.z - a.z) < 0.7 * s && p.y > a.y && p.y < a.y + 0.55 * s; }
+function h2FishHit(p) { const f = FISH.fish; return !!f && p.distanceTo(FISH.landP) < Math.max(0.07, fLenM(f) * 0.5); }
+// ---- a stroke done on target t (0 deer, 1 fish) by hand i ----
+function h2Stroke(i, t, p) { const g = grips[i], need = t ? H2.NEED.fish : H2.NEED.deer; H2.cut[i]++; H2.cutT[i] = 0; H2.stat.cuts++;
+  HX.pulse(g, 0.55, 22, 'dress'); sfx('flesh', p); if (!t) FX.blood(p, _h2a.set(0, -0.3, 0));   // a short welling-up at the cut, not the shot spray (a fish barely bleeds)
+  if (H2.cut[i] < need) { say((t ? 'FILLETING THE ' + FSP[FISH.fish.sp].nm : 'FIELD DRESSING THE ' + DSP[H2.deer.sp].name) + ' - CUT ' + H2.cut[i] + ' OF ' + need); return; }
+  H2.cut[i] = 0; H2.tgt[i] = null; if (t) h2Fillet(i); else { const a = H2.deer; if (DEER.dress && DEER.dress.a === a) DEER.dress = null; H2.stat.deer++; deerDress(a); } }
+// ---- what a deer gives: with a job its carcass is the job's cargo (deerDress) + this one cut; no job: 4 cuts by it ----
+function h2Meat(a, j) { const n = j ? 1 : 4, c = Math.cos(a.yaw), s = Math.sin(a.yaw);
+  for (let k = 0; k < n; k++) { const x = a.x + c * (0.55 + 0.22 * k) - s * 0.5, z = a.z - s * (0.55 + 0.22 * k) - c * 0.5; PK.gnd.push(['venison', x, groundY(x, z) + PK_K.venison[3][1] / 2, z, a.yaw + 0.3 * k]); }
+  pkGround(); saveSoon();
+  if (!j) { a.state = 'gone'; if (a.inst) deerFree(a); sfx('flesh'); say('FIELD DRESSED THE ' + DSP[a.sp].name + ': 4 CUTS OF VENISON (8 LB) ON THE GRASS BY YOU - FOOD AT YOUR MOUTH, OR SELL THEM AT A TACKLE COUNTER ($' + H2.SELL.venison + ' A CUT)'); } }
+// VR: a landed fish let go low over dry ground (and you carry a knife) is laid on the grass instead of kept / let go - the rod stays in the other hand,
+// the freed hand draws the knife. Pick it back up as before (a grab near it), or the creel / water gestures once it's in hand again.
+function h2Lay(g) { if (FISH.st !== 'landed' || !FISH.fish || !g || !g.userData.src || !(PK.it.includes('knife') || PK.hk.includes('knife'))) return false;
+  const p = FISH.landP, gy = groundY(p.x, p.z), w = fWaterAt(p.x, p.z); if (p.y - gy > 0.35 || (w !== null && w > gy - 0.02)) return false;
+  p.y = gy + 0.03; FISH.landQ.setFromAxisAngle(_ry, headYaw() + Math.PI / 2); FISH.landHow = 'ground'; HX.pulse(g, 0.3, 15, 'fish');
+  say('LAID THE ' + FSP[FISH.fish.sp].nm + ' ON THE GRASS - DRAW YOUR KNIFE AND SLICE ALONG IT TO FILLET (' + H2.NEED.fish + ' STROKES), OR PICK IT BACK UP'); return true; }
+function h2Fillet(i) { const f = FISH.fish; if (!f) return; const n = clamp(Math.round(f.kg / 0.8), 1, 4), held = FISH.held, hi = held ? grips.indexOf(held) : -1;
+  _h2c.copy(FISH.landP); FISH.stat.filleted = (FISH.stat.filleted || 0) + 1; H2.stat.fish++; fClearLanded(); let inPack = 0, onGnd = 0;
+  for (let k = 0; k < n; k++) { if (k === 0 && hi >= 0 && !PK.hk[hi]) { pkTake(hi, 'fillets'); continue; } if (pkPut('fillets', true)) inPack++; else { onGnd++; PK.gnd.push(['fillets', _h2c.x + 0.1 * k, groundY(_h2c.x, _h2c.z) + 0.02, _h2c.z, 0]); } }
+  if (onGnd) pkGround(); pkWeigh(); sfx('flesh'); if (i >= 0) HX.pulse(grips[i], 0.7, 40, 'landed');
+  say('FILLETED THE ' + FSP[f.sp].nm + ' (' + f.kg.toFixed(1) + ' KG): ' + n + (n > 1 ? ' PAIRS' : ' PAIR') + ' OF FILLETS' + (hi >= 0 ? ' - ONE IN YOUR HAND' : '') + (inPack ? ', ' + inPack + ' IN THE PACK' : '') + (onGnd ? ', ' + onGnd + ' AT YOUR FEET' : '') + ' (FOOD, OR $' + H2.SELL.fillets + ' A PAIR AT A TACKLE COUNTER)'); saveSoon(); }
+// ---- eating a cut / fillets at the mouth (packTick only knows canteen / jerky; V2 SURVIVAL's food setter + FOOD table when it is in) ----
+function h2Food() { const V = window.SURV; return V && V.S ? V.food : FISH.food; }
+function h2Eat(i, k) { const V = window.SURV, v = (V && V.FOOD && V.FOOD[k]) || H2.FOOD[k];
+  if (h2Food() >= 98) { say('NOT HUNGRY (FOOD ' + Math.round(h2Food()) + ' %)'); return; }
+  if (V && V.S) V.food = Math.min(100, V.food + v); else FISH.food = Math.min(100, FISH.food + v); FISH.hungry = 0;
+  if (i >= 0) { PK.hk[i] = null; PK.hm[i].visible = false; HX.pulse(grips[i], 0.2, 25, 'cargo'); } pkWeigh(); sfx('crunch');
+  say((k === 'venison' ? 'VENISON STEAK, SEARED OVER A SMALL FIRE' : 'FISH FILLETS, PAN-FRIED') + ' - FOOD ' + Math.round(h2Food()) + ' %'); saveSoon(); }
+// ---- selling at the tackle counters' scale (fSell calls this first): every cut / pair in the pack and in your hands ----
+function h2Sell(S) { if (h2On !== true) return 0; const k = S && S.name === 'CUTLER' ? 1 : 0.8; let $ = 0, nv = 0, nf = 0;
+  for (let j = PK.it.length - 1; j >= 0; j--) { const q = PK.it[j]; if (q === 'venison' || q === 'fillets') { $ += H2.SELL[q] * k; if (q === 'venison') nv++; else nf++; PK.it.splice(j, 1); } }
+  for (let i = 0; i < 2; i++) { const q = PK.hk[i]; if (q === 'venison' || q === 'fillets') { $ += H2.SELL[q] * k; if (q === 'venison') nv++; else nf++; PK.hk[i] = null; PK.hm[i].visible = false; } }
+  if (!nv && !nf) return 0; $ = Math.round($); DLV.cash += $; H2.stat.sold += $; pkContents(); sfx('cash');
+  say('SOLD ' + (nv ? nv + ' CUT' + (nv > 1 ? 'S' : '') + ' OF VENISON' : '') + (nv && nf ? ' + ' : '') + (nf ? nf + ' PAIR' + (nf > 1 ? 'S' : '') + ' OF FILLETS' : '') + ': +$' + $ + ' (WALLET $' + DLV.cash + ')'); saveSoon(); return $; }
+// ======================= the scope =======================
+// Rifle space (x right, y up, -z the muzzle; origin the grip). Tube axis at SC_X / SC_Y, the eyepiece at SC_OZ, 285 mm long; rings on a side mount screwed to the
+// receiver's left side. The line of sight runs from the eyepiece centre to where the game's bullet (launched at ZERO up from the bore) is H2.ZR m out.
+const SC_X = -0.032, SC_Y = 0.09, SC_OZ = 0.07, SC_L = 0.285, SC_ER = 0.09, SC_R0 = 0.13, SC_Z = 0.5, SC_SPAN = 0.5;
+const SC = { rt: new THREE.WebGLRenderTarget(320, 320),   /* v1.11.16 320 px (VR Dev 2's 384): a third less to fill; the 4x circle is ~280 px across in the headset */ cam: null, disk: null, g: null, tag: null, disp: GV3(0, 0, 0), dispM: null, uC: { value: new THREE.Vector2() }, uR: { value: SC_R0 }, uA: { value: 1 },
+  ax: GV3(0, 0, -1), axQ: new THREE.Quaternion(), O: GV3(SC_X, SC_Y, SC_OZ), E0: GV3(0, 0, 0), OBJ: GV3(0, 0, 0), mount: GV3(SC_X, SC_Y - 0.03, SC_OZ - 0.11), on: false, eye: -1, n: 0, ms: 0,
+  zero: { yZ: 0, mil: 0, at50: 0, at150: 0 }, fit: 0 };
+{ const r0 = renderer.getRenderTarget(); renderer.setRenderTarget(SC.rt); renderer.setRenderTarget(r0); }   // storage made now as plain RGBA8 (texture colour space still none) ...
+SC.rt.isXRRenderTarget = true; SC.rt.texture.colorSpace = THREE.SRGBColorSpace;   // ... then flagged: three.js keys its programs like the canvas / XR layer pass (sRGB out, tone mapped), so the scope view makes no new programs
+{ const p = GV3(0, 0, 0), v = GV3(0, 0, 0); p.set(0, RF.muz.y, RF.muz.z); v.set(0, Math.sin(ZERO), -Math.cos(ZERO)).multiplyScalar(GUN.mv); const at = {};   // the game's own bullet, rifle level, no dispersion
+  for (let i = 0; i < 40000 && p.z > -151; i++) { bulletStep(p, v, BH); for (const z of [50, 150]) if (at[z] === undefined && p.z <= -z) at[z] = p.y; if (p.z <= -H2.ZR && SC.zero.yZ === 0) SC.zero.yZ = p.y; }
+  SC.ax.set(0 - SC_X, SC.zero.yZ - SC_Y, -H2.ZR - SC_OZ).normalize(); SC.axQ.setFromUnitVectors(GV3(0, 0, -1), SC.ax);
+  const los = z => SC_Y + SC.ax.y / SC.ax.z * (-z - SC_OZ); SC.zero.at50 = (at[50] - los(50)) * 100; SC.zero.at150 = (at[150] - los(150)) * 100; SC.zero.mil = Math.atan2(-SC.ax.y, -SC.ax.z) * 1000;
+  SC.E0.copy(SC.O).addScaledVector(SC.ax, -SC_ER); SC.OBJ.copy(SC.O).addScaledVector(SC.ax, SC_L); }
+SC.cam = new THREE.PerspectiveCamera(2 * Math.atan(Math.tan(Math.atan(SC_R0 / SC_Z)) / H2.MAG) / D2R, 1, 0.5, 9000);
+SC.cam.matrixAutoUpdate = true;
+// the picture: a plane SC_Z in front of the scoped eye along the line of sight; the 4x circle (radius SC_R0), the eye box's moving shadow, a duplex reticle, black round it
+{ const M = new THREE.MeshBasicMaterial({ map: SC.rt.texture, depthTest: false, depthWrite: false, transparent: true, fog: false, toneMapped: false });
+  M.onBeforeCompile = sh => { sh.uniforms.uC = SC.uC; sh.uniforms.uR = SC.uR; sh.uniforms.uA = SC.uA; sh.fragmentShader = 'uniform vec2 uC; uniform float uR; uniform float uA;\n' + sh.fragmentShader.replace('#include <map_fragment>', `
+    { vec2 p = (vMapUv - 0.5) * ${SC_SPAN.toFixed(3)}; vec4 tc = texture2D(map, p / ${(2 * SC_R0).toFixed(3)} + 0.5);
+      vec3 c = mix(tc.rgb / 12.92, pow((tc.rgb + 0.055) / 1.055, vec3(2.4)), step(vec3(0.04045), tc.rgb));   // the target holds sRGB-encoded values (written like the XR layer)
+      float r = length(p), v = (1.0 - smoothstep(${(SC_R0 - 0.003).toFixed(4)}, ${SC_R0.toFixed(4)}, r)) * (1.0 - smoothstep(uR - 0.012, uR, length(p - uC)));
+      float wx = abs(p.y) > 0.034 ? 0.0021 : 0.00055, wy = abs(p.x) > 0.034 ? 0.0021 : 0.00055;
+      float ret = max(1.0 - smoothstep(wx * 0.5, wx, abs(p.x)), 1.0 - smoothstep(wy * 0.5, wy, abs(p.y)));
+      diffuseColor = vec4(c * v * (1.0 - ret * 0.92), (1.0 - smoothstep(0.205, 0.245, r)) * uA); }`); };
+  SC.disk = new THREE.Mesh(new THREE.PlaneGeometry(SC_SPAN, SC_SPAN), M); SC.disk.renderOrder = 999; SC.disk.frustumCulled = false; SC.disk.visible = false; SC.disk.userData.noBatch = true; scene.add(SC.disk); }
+function h2ScopeParts(X, Y, OZ, mount) {   // along -z from the eyepiece at OZ (cylinders turned so their +y end is the eyepiece side)
+  const C = (r, l, s, col) => ['c', r, l, 10, X, Y, OZ - s, col, Math.PI / 2], T = (r0, r1, l, s, col) => ['t', [r0, r1], l, 10, X, Y, OZ - s, col, Math.PI / 2];
+  const P = [C(0.0195, 0.01, 0.005, 0x0c0c0c), T(0.019, 0.0165, 0.06, 0.04, 0x1a1b1d), C(0.0172, 0.004, 0.072, 0xb0924a), C(0.0127, 0.13, 0.135, 0x1f2123), C(0.0165, 0.034, 0.13, 0x1f2123),
+    ['c', 0.009, 0.016, 10, X, Y + 0.0235, OZ - 0.13, 0x2a2c2e], ['c', 0.0095, 0.004, 10, X, Y + 0.031, OZ - 0.13, 0x101010], ['c', 0.009, 0.016, 10, X + 0.0235, Y, OZ - 0.13, 0x2a2c2e, 0, 0, -Math.PI / 2],
+    T(0.0127, 0.021, 0.03, 0.215, 0x1f2123), C(0.021, 0.055, 0.2575, 0x1a1b1d), C(0.0213, 0.004, 0.282, 0x101010), C(0.015, 0.002, 0.0, 0x1e3a55), C(0.018, 0.002, 0.2855, 0x2a5070)];
+  if (mount) for (const s of [0.1, 0.185]) P.push(['b', 0.031, 0.031, 0.012, X, Y, OZ - s, 0x151515], ['b', 0.012, 0.03, 0.012, X + 0.005, Y - 0.028, OZ - s, 0x151515], ['b', 0.004, 0.006, 0.012, X + 0.0095, Y - 0.04, OZ - s, 0x151515]);
+  if (mount) P.push(['b', 0.004, 0.028, 0.15, -0.0233, 0.036, OZ - 0.145, 0x202224], ['b', 0.0045, 0.006, 0.006, -0.0235, 0.03, OZ - 0.09, 0x6a6a64], ['b', 0.0045, 0.006, 0.006, -0.0235, 0.03, OZ - 0.2, 0x6a6a64]);
+  return P; }
+function h2Mesh(P, par) { const gs = P.map(partGeo), g = mergeGeometries(gs); for (const x of gs) x.dispose(); const m = new THREE.Mesh(g, ITEM_VM); m.userData.noBatch = true; m.castShadow = true; if (par) par.add(m); return m; }
+SC.g = new THREE.Group(); SC.g.name = 'SCOPE'; SC.g.visible = false; h2Mesh(h2ScopeParts(SC_X, SC_Y, SC_OZ, true), SC.g);   // a Group: rflSkin hides the v0.44 meshes it finds in the rifle, not groups
+// ---- the hardware counter: a scope on a felt cradle + its price card, by the bell (STORE.g: hidden with the store) ----
+{ const o = DFSTORE.o, c = Math.cos(o.a), sn = Math.sin(o.a), L = (lx, ly, lz) => GV3(o.x + lx * c + lz * sn, o.y + ly, o.z - lx * sn + lz * c);
+  const at = L(5.3, 1.17, 0.78), G = new THREE.Group(); G.position.copy(at); G.rotation.y = o.a; G.userData.noBatch = true; STORE.g.add(G);
+  const P = h2ScopeParts(0, 0.052, 0.1425, false).concat([['b', 0.07, 0.022, 0.05, 0, 0.011, 0.07, 0x6a4a2a], ['b', 0.07, 0.022, 0.05, 0, 0.011, -0.07, 0x6a4a2a], ['b', 0.05, 0.006, 0.04, 0, 0.025, 0.07, 0x2a5a2a], ['b', 0.05, 0.006, 0.04, 0, 0.025, -0.07, 0x2a5a2a], ['b', 0.004, 0.06, 0.05, -0.12, 0.03, 0, 0x6a4a2a]]);
+  SC.dispM = h2Mesh(P, G); SC.dispM.castShadow = false; SC.disp.copy(at).add(GV3(0, 0.052, 0));
+  const cv = document.createElement('canvas'); cv.width = 256; cv.height = 128; const x = cv.getContext('2d'); x.fillStyle = '#efe6cc'; x.fillRect(0, 0, 256, 128); x.strokeStyle = '#5a4630'; x.lineWidth = 6; x.strokeRect(3, 3, 250, 122);
+  x.fillStyle = '#3a2a1a'; x.textAlign = 'center'; x.font = 'bold 30px serif'; x.fillText('4X RIFLE SCOPE', 128, 40); x.font = 'bold 40px serif'; x.fillText('$' + H2.price, 128, 84); x.font = '19px serif'; x.fillText('SIDE MOUNT FITS THE .44-40 - TAKE IT', 128, 114);
+  const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; const tag = new THREE.Mesh(new THREE.PlaneGeometry(0.16, 0.08), new THREE.MeshBasicMaterial({ map: t, color: 0xd8d8d8 }));
+  tag.position.set(-0.13, 0.055, 0.0); tag.rotation.set(0, -Math.PI / 2, 0); tag.rotateX(-0.35); tag.userData.noBatch = true; G.add(tag); SC.tag = tag; }
+function h2Has() { return SC.fit || PK.it.includes('scope') || PK.hk[0] === 'scope' || PK.hk[1] === 'scope' || RIG.k.includes('scope') || PK.gnd.some(e => e[0] === 'scope'); }
+function h2Buy(i) {   // VR: into hand i; desktop (i < 0): bought and fitted
+  if (h2Has()) { say('YOU HAVE A SCOPE ALREADY' + (SC.fit ? ' (ON YOUR RIFLE)' : ' - BRING IT TO THE RIFLE\'S RECEIVER TO FIT IT')); if (i >= 0) HX.pulse(grips[i], 0.2, 10, 'ui'); return true; }
+  if (DLV.cash < H2.price) { say('NOT ENOUGH CASH - THE 4X SCOPE IS $' + H2.price + ' (WALLET $' + DLV.cash + ')'); if (i >= 0) HX.pulse(grips[i], 0.2, 10, 'ui'); return true; }
+  DLV.cash -= H2.price; sfx('cash'); for (const S of DLV_STRIPS) S.key = '';
+  if (i >= 0) { pkTake(i, 'scope'); HX.pulse(grips[i], 0.5, 25, 'cargo'); say('BOUGHT THE 4X SCOPE -$' + H2.price + ' (WALLET $' + DLV.cash + ') - HOLD IT TO YOUR RIFLE\'S RECEIVER TO FIT IT'); }
+  else { h2Fit(true); say('BOUGHT THE 4X SCOPE -$' + H2.price + ' AND FITTED IT (WALLET $' + DLV.cash + ') - RIGHT MOUSE AIMS THROUGH IT, ZEROED AT ' + H2.ZR + ' M'); }
+  saveSoon(); return true; }
+function h2Fit(on) { SC.fit = on ? 1 : 0; if (SC.g) SC.g.visible = !!on; if (on) sfx('click'); }
+function h2Grab(g, p) { if (h2On !== true || mode !== 'foot' || !g.userData.src) return false; const i = grips.indexOf(g); if (i < 0 || PK.hk[i] || pkBusy(g)) return false;
+  if (STORE.g.visible && p.distanceTo(SC.disp) < 0.13) return h2Buy(i);
+  return false; }
+function h2LWants() { if (h2On !== true || mode !== 'foot') return false; camera.getWorldPosition(_h2a); return !!storeNear(_h2a, 2.6) || (FISH.st === 'landed' && !!FISH.fish); }   // v1.11.16 the field guide leaves L to these
+function h2Key(e) { if (h2On !== true || mode !== 'foot' || e.code !== 'KeyL') return false; camera.getWorldPosition(_h2a);
+  if (storeNear(_h2a, 2.6)) return h2Buy(-1);
+  if (FISH.st === 'landed' && FISH.fish) { if (!h2Knife()) { say('NO KNIFE TO FILLET IT WITH'); return true; } h2Fillet(-1); return true; }
+  if (!SC.fit && PK.it.includes('scope')) { PK.it.splice(PK.it.indexOf('scope'), 1); pkContents(); h2Fit(true); say('SCOPE FITTED TO YOUR RIFLE'); saveSoon(); return true; }
+  for (const k of ['venison', 'fillets']) if (h2Food() < 85 && PK.it.includes(k)) { PK.it.splice(PK.it.indexOf(k), 1); pkContents(); h2Eat(-1, k); return true; }
+  return false; }
+function h2Save() { return h2On === true ? { v: 1, f: SC.fit, s: H2.stat } : undefined; }
+function h2Load(d) { h2Pend = d || null; if (h2On === true) h2Apply(); }
+function h2Apply() { const d = h2Pend; h2Fit(!!(d && d.f)); if (d && d.s && typeof d.s === 'object') for (const k of Object.keys(H2.stat)) if (isFinite(d.s[k])) H2.stat[k] = +d.s[k]; }
+// ---- per frame (after the hunt tick: the rifle and the hands are placed) ----
+function h2Tick(dt, vr) { if (h2On !== true) return; const S = H2.st, foot = mode === 'foot';
+  if (!H2.att && RFL.g) { RFL.g.add(SC.g); H2.att = true; h2Fit(!!SC.fit); }
+  if (!H2.sf) { H2.sf = true; const V = window.SURV; if (V && V.FOOD) { V.FOOD.venison = H2.FOOD.venison; V.FOOD.fillets = H2.FOOD.fillets; } }   // V2 SURVIVAL's food table (once, at the first frame: SURV may sit after this block)
+  for (let i = 0; i < 2; i++) { const k = PK.hk[i], m = PK.hm[i];
+    if (k !== 'knife') { H2.kn[i] = 0; H2.cut[i] = 0; H2.tgt[i] = null; }
+    if (k === 'knife') {
+      if (m.geometry.drawRange.count !== H2.knCnt) pkDone(m.geometry, pkWrite(m.geometry, 0, '_knifeD', 0, 0, 0, 0));   // drawn: blade out (a write on the change only)
+      if (!vr || !foot) continue; m.updateWorldMatrix(true, false);
+      for (let j = 0; j < 3; j++) H2.bp[j].copy(H2_BLADE[j]).applyMatrix4(m.matrixWorld);
+      const tp = H2.bp[2]; if (H2.kn[i]) H2.tv.subVectors(tp, H2.tp[i]).multiplyScalar(dt > 1e-4 ? 1 / dt : 0); else H2.tv.set(0, 0, 0); H2.tp[i].copy(tp); H2.kn[i] = 1;
+      const spd = H2.tv.length(); let tgt = null, hp = -1;
+      if (FISH.st === 'landed' && FISH.fish && FISH.held !== grips[i]) for (let j = 0; j < 3; j++) if (h2FishHit(H2.bp[j])) { tgt = FISH; hp = j; break; }
+      if (!tgt) { const a = h2DeerNear(tp); if (a) for (let j = 0; j < 3; j++) if (h2DeerHit(a, H2.bp[j])) { tgt = a; hp = j; break; } }
+      if (tgt !== H2.tgt[i]) { if (tgt) { H2.tgt[i] = tgt; H2.cut[i] = 0; S[i] = 0; } else if ((H2.cutT[i] += dt) > 20) { H2.tgt[i] = null; H2.cut[i] = 0; } }
+      if (!tgt) { H2.arm[i] = 1; S[i] = 0; continue; }
+      if (tgt !== FISH) H2.deer = tgt;
+      if (spd * dt > 0.08) { S[i] = 0; continue; }   // a jump (tracking loss / teleport) is not a stroke
+      if (spd < 0.2 || H2.tv.dot(H2.sd[i]) < 0) H2.arm[i] = 1;   // re-armed by slowing down or by the stroke back
+      if (H2.arm[i] && spd >= 0.45) { S[i] += spd * dt; if (S[i] >= 0.1) { S[i] = 0; H2.arm[i] = 0; H2.sd[i].copy(H2.tv); h2Stroke(i, tgt === FISH ? 1 : 0, H2.bp[hp]); } } else if (spd < 0.45) S[i] = 0;
+      continue; }
+    if ((k === 'venison' || k === 'fillets') && vr && foot) { m.getWorldPosition(_h2a); camera.getWorldPosition(_h2b);
+      if (_h2a.distanceTo(_h2b) < 0.15) { if ((H2.mt[i] += dt) > 0.7) { H2.mt[i] = -3; h2Eat(i, k); } } else if (H2.mt[i] > 0) H2.mt[i] = 0; else H2.mt[i] = Math.min(0, H2.mt[i] + dt); }
+    if (k === 'scope' && RFL.g && H2.att) { m.getWorldPosition(_h2a); RFL.g.localToWorld(_h2b.copy(SC.mount));
+      if (_h2a.distanceTo(_h2b) < 0.12) { PK.hk[i] = null; m.visible = false; pkWeigh(); h2Fit(true); HX.pulse(grips[i], 0.7, 35, 'cargo'); say('SCOPE FITTED - EYE ON ITS AXIS A HAND BEHIND THE EYEPIECE: 4X, ZEROED AT ' + H2.ZR + ' M'); saveSoon(); } } } }
+// ---- the 4x view (after the binoculars' view, before the frame is drawn): only while an eye is in the eye box ----
+const _h2E = [GV3(0, 0, 0), GV3(0, 0, 0)];
+function h2Render() { const d = SC.disk; if (h2On !== true) return;
+  const held = SC.fit && RFL.g && (RFL.place === 'vr' || RFL.place === 'desk') && mode === 'foot'; let best = -1, bo = 1, ox = 0, oy = 0, oz = 0;
+  if (held) { const g = RFL.g; g.updateWorldMatrix(true, false); _h2m.copy(g.matrixWorld).invert(); _h2q.copy(SC.axQ).invert();
+    if (RFL.place === 'desk') { if (RFL.ads > 0.9) { best = 0; bo = 0; camera.getWorldPosition(_h2E[0]); } }
+    else { const X = renderer.xr.isPresenting ? renderer.xr.getCamera() : null, C = X && X.cameras;
+      const n = C && C.length ? Math.min(2, C.length) : 1; if (C && C.length) camera.parent.updateWorldMatrix(true, false);
+      for (let e = 0; e < n; e++) { if (C && C.length) _h2E[e].setFromMatrixPosition(C[e].matrix).applyMatrix4(camera.parent.matrixWorld); else camera.getWorldPosition(_h2E[e]);
+        _h2a.copy(_h2E[e]).applyMatrix4(_h2m).sub(SC.E0).applyQuaternion(_h2q); const lat = Math.sqrt(_h2a.x * _h2a.x + _h2a.y * _h2a.y);
+        if (lat < 0.03 && _h2a.z > -0.05 && _h2a.z < 0.05 && lat < bo) { bo = lat; best = e; ox = _h2a.x; oy = _h2a.y; oz = _h2a.z; } } } }
+  const A = best < 0 ? 0 : bo ? clamp(1 - (bo - 0.01) / 0.02, 0, 1) * clamp(1 - (Math.abs(oz) - 0.03) / 0.02, 0, 1) : 1;   // the eye box: full within 1 cm of the axis and 3 cm of the eye relief, gone by 3 / 5 cm
+  if (A < 0.02) best = -1;
+  SC.on = best >= 0; if (!SC.on) { d.visible = false; SC.eye = -1; return; }
+  const t0 = performance.now(), g = RFL.g, X = renderer.xr.isPresenting; SC.eye = best;
+  g.getWorldQuaternion(_h2q2); _h2q2.multiply(SC.axQ);   // the line of sight in the world
+  SC.cam.position.copy(SC.OBJ).applyMatrix4(g.matrixWorld); SC.cam.quaternion.copy(_h2q2); SC.cam.updateMatrixWorld(true);
+  _h2d.set(0, 0, -SC_Z).applyQuaternion(_h2q2); d.position.copy(_h2E[best]).add(_h2d); d.quaternion.copy(_h2q2); d.updateMatrixWorld(true);
+  d.layers.set(X ? 1 + best : 0);   // XR: the scoped eye's own layer (three's left / right eye cameras see layers 1 / 2); desktop: the camera's
+  SC.uA.value = A; SC.uC.value.set(-ox * 2.6, -oy * 2.6); SC.uR.value = SC_R0 * (0.35 + 0.65 * clamp(1 - Math.max(0, bo - 0.004) / 0.02, 0, 1));   // off axis: the picture's shadow slides in from the side you moved to
+  const xr = renderer.xr.enabled, su = renderer.shadowMap.autoUpdate, nu = renderer.shadowMap.needsUpdate, bv = BINO.disk.visible; renderer.xr.enabled = false; renderer.shadowMap.autoUpdate = false; renderer.shadowMap.needsUpdate = false; d.visible = false; BINO.disk.visible = false;
+  for (let i = 0; i < PTS_UH.length; i++) { PTS_UH0[i] = PTS_UH[i].value; PTS_UH[i].value = SC.rt.height * 0.5; }   // v1.11.16 smoke / signal puffs at their world size in the 4x view (as the binoculars)
+  zpBegin(); const rt0 = renderer.getRenderTarget(); renderer.setRenderTarget(SC.rt); renderer.render(scene, SC.cam); renderer.setRenderTarget(rt0); zpEnd();   // v1.11.16 no scene-graph walk, no sort garbage, your own body / kit skipped (see zpBegin)
+  for (let i = 0; i < PTS_UH.length; i++) PTS_UH[i].value = PTS_UH0[i];
+  renderer.xr.enabled = xr; renderer.shadowMap.autoUpdate = su; renderer.shadowMap.needsUpdate = nu; BINO.disk.visible = bv; d.visible = true; SC.n++; SC.ms = SC.ms * 0.9 + (performance.now() - t0) * 0.1; }
+// ---- warm-up: the picture plane, the scope, the cradle + card (the four panel-glow / landing-light combinations). The view itself uses the main pass's programs (see SC.rt) ----
+{ const pv = PL.visible, sv = SL.visible, W = [SC.disk, SC.g, SC.dispM, SC.tag], vis = W.map(o => o.visible); W.forEach(o => { o.visible = true; });
+  for (let c = 0; c < 4; c++) { PL.visible = !!(c & 1); SL.visible = !!(c & 2); for (const o of W) renderer.compile(o, camera, scene); } W.forEach((o, i) => { o.visible = vis[i]; }); PL.visible = pv; SL.visible = sv; }
+h2On = true; H2.ready = true; h2Apply();
+// <<< V2 HUNT END
 warmStart('Preparing graphics'); bootLog('warm-up started: ' + WARM.tot + ' programs to finish, ' + (WARM.par ? 'polling parallel compile' : 'no parallel compile: one at a time'));
 if (window.__ultSkip) setTimeout(() => say('PC ULTRA WAS NOT RESTORED (THE LAST START DID NOT FINISH) - PICK IT AGAIN IN SETTINGS'), 4000);
 const BOOTF = { n: 0, real: 0, xr: 0, pre: 0, lite: 0, xs: 0, xa: [], xl: 0, last: 0 };   // v1.10.1 boot log: frame stages
@@ -14261,7 +14492,7 @@ renderer.setAnimationLoop(() => {
   } else crashTimer += dt; /*V3CRX*/
 
   plane.position.fromArray(ac.pos); plane.quaternion.fromArray(ac.q);
-  dlvTick(dt); wbWarn(dt); huntTick(dt, xr || HANDS.force); fishTick(dt, xr || HANDS.force); htagTick(dt, xr || HANDS.force); storyTick(dt); cbTick(dt); glintTick(dt); act2Tick(dt); act3Tick(dt); discTick(dt); radTick(dt); fogTick(dt); musTick(dt); trustTick(dt); dropTick(dt); ecoTick(dt); crxTick(dt); upgTick(dt); emgTick(dt);   // v0.53 rifle, deer, binoculars; v0.54 bundles in the air, the signal smoke   // v0.50 delivery: game clock, falling / loose cargo, job boards
+  dlvTick(dt); wbWarn(dt); huntTick(dt, xr || HANDS.force); h2Tick(dt, xr || HANDS.force); fishTick(dt, xr || HANDS.force); htagTick(dt, xr || HANDS.force); storyTick(dt); cbTick(dt); glintTick(dt); act2Tick(dt); act3Tick(dt); discTick(dt); radTick(dt); fogTick(dt); musTick(dt); trustTick(dt); dropTick(dt); ecoTick(dt); crxTick(dt); upgTick(dt); emgTick(dt);   // v0.53 rifle, deer, binoculars; v0.54 bundles in the air, the signal smoke   // v0.50 delivery: game clock, falling / loose cargo, job boards
   GV.update(dt); kitTick(dt); flxTick(dt);   // v0.20 gear legs / tyres / tail wheel (v0.90 + the gear kits)
   updateMap(); updateCockpitV19(dt);
   propTick(dt, ENG.rpm);
@@ -14284,10 +14515,10 @@ renderer.setAnimationLoop(() => {
   hxTick(dt);                                // v0.24 haptics (engine / buffet / gear + queued pulses)
   if (xr || HANDS.force) { wtTick(dt); updateHands(dt); setpTick(); jbPoke(); ecoPoke(); upgPoke(); emgPoke(); }
   bodyTick(dt); vlTick(); batchTick(); cvlApply(); packTick(dt, xr || HANDS.force); gdTick(dt, xr || HANDS.force); survTick(dt, xr || HANDS.force); cabTick(dt, xr || HANDS.force); if (GFX.shadows && FT.n % ((mode !== 'plane' || ac.vel[0] * ac.vel[0] + ac.vel[1] * ac.vel[1] + ac.vel[2] * ac.vel[2] > 0.1) ? DYN.sh : Math.max(2, DYN.sh)) === 0) renderer.shadowMap.needsUpdate = true;   // v0.47 static batches; shadow map at half rate   // v0.23 gloves (after the stick / knobs have their final pose); v0.45 wrist SETTINGS board
-  if (DIRTY_TEX.size) { DIRTY_TEX.forEach(texInit); DIRTY_TEX.clear(); } if (WARM.done && !WARM.jobs.length) binoRender();   // v0.53 the 7x view (only while raised); v0.81 the textures upload first
+  if (DIRTY_TEX.size) { DIRTY_TEX.forEach(texInit); DIRTY_TEX.clear(); } if (WARM.done && !WARM.jobs.length) binoRender(); if (WARM.done && !WARM.jobs.length) h2Render();   // v0.53 the 7x view (only while raised); v0.81 the textures upload first
   if (xr || HANDS.force) wtApply(); BOOTF.pre = performance.now(); BOOTF.wl = xr && BOOTF.lite > 0; if (BOOTF.wl && BOOTF.lite === 2) warmStart('Entering VR');
   const _wr = warmTick() && !(xr && BOOTF.lite > 0); if (xr && BOOTF.lite > 0) BOOTF.lite--; if (_wr && !BOOTF.real) bootLog('first scene frame: drawing (first draw can still link a few programs)');
-  if (_wr) renderer.render(scene, camera); else renderer.render(WARM.sc, camera); wtRestore();
+  if (_wr) { zpSortFix(); renderer.render(scene, camera); } else renderer.render(WARM.sc, camera); wtRestore();
   { const tn = performance.now(); if (xr && BOOTF.xr < 300) { const k = ++BOOTF.xr, fm = tn - t0, gap = BOOTF.last ? t0 - BOOTF.last : t0 - BOOTF.xs; BOOTF.xa.push([fm, gap]);   // v1.10.1 the first XR frames: own time + the gap since the last (a stall outside our code shows as a gap)
       if (k <= 3 || ((fm > 40 || gap > 150) && BOOTF.xl++ < 25)) bootLog('XR frame ' + k + ': ' + Math.round(fm) + 'ms (logic ' + Math.round(BOOTF.pre - t0) + ', draw ' + Math.round(tn - BOOTF.pre) + '), gap ' + Math.round(gap) + 'ms' + (BOOTF.wl ? ' [lite: warm-up backdrop]' : ''), fm > 40 || gap > 150);
       if (k === 60 || k === 300) { const A = BOOTF.xa, w = A.reduce((m, a, i) => a[0] > A[m][0] ? i : m, 0), wg = A.reduce((m, a, i) => a[1] > A[m][1] ? i : m, 0); bootLog('XR frames 1-' + k + ': mean ' + (A.reduce((t, a) => t + a[0], 0) / A.length).toFixed(1) + 'ms, worst ' + Math.round(A[w][0]) + 'ms (#' + (w + 1) + '), worst gap ' + Math.round(A[wg][1]) + 'ms (#' + (wg + 1) + '), ' + Math.round(tn - BOOTF.xs) + 'ms since sessionstart', true); } }
