@@ -636,7 +636,7 @@ const hyp = (a, b, c = 0) => Math.sqrt(a * a + b * b + c * c);   // v0.59 Math.h
 
 // ======================= RENDERING =======================
 // v0.35 settings (persist in localStorage 'bp_gfx'; ?gfx=shadows:2,grass:1 overrides for testing). Defaults = the v0.34 look and cost.
-const BP_VERSION = 'v1.11.10';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
+const BP_VERSION = 'v1.11.11';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
 { const e = document.getElementById('ver'); if (e) e.textContent = BP_VERSION; } window.__bpVer = BP_VERSION; bootLog('game module running ' + BP_VERSION + ' (three r' + THREE.REVISION + ')' + (/[?&]safe(=|&|$)/.test(location.search) ? ' - SAFE MODE: default graphics, no shadows / ULTRA / life / vistas / music' : ''));
 const GFX_DEF = { shadows: 0, scale: 1, fov: 1, dist: 1, trees: 1, grass: 0, clouds: 1, fog: 1, msaa: 1, hz: 90, vig: 0, turn: 0, fps: 0, tod: 11, stk: 1, tips: 1, terr: 1, dyn: 1, glove: 0, hand: 0, wt: 1, volM: 1, volMu: 0.5, volE: 1, volA: 1, volF: 1, wx: 1, forest: 0, ground: 0, gtex: 0, cvl: 1, water: 1, dayl: 48, flure: 0, fline: 8, fdrag: 4, fbob: 0, fsink: 0, ultra: 0 };   // v0.68.1 dominant hand, volumes. v0.48 BALANCED: 90 % scale, 72 Hz, fast terrain shading, auto resolution; v0.49.1 the stick stays where you let go of it
 const GFX = Object.assign({}, GFX_DEF);
@@ -1429,9 +1429,11 @@ const W_FRT = [[-0.67, 0.38], [0.28, 0.38], [0.28, 0.92], [-0.36, 0.92]];       
 const W_RR = [[0.48, 0.40], [0.98, 0.40], [1.05, 0.87], [0.48, 0.885]];                 // rear side window
 const DOOR_LO = [[-0.67, -0.20], [0.28, -0.22], [0.28, 0.375], [-0.67, 0.375]];        // right lower door (hinges down)
 const DOOR_HOLE = [[-0.67, -0.20], [0.28, -0.22], [0.28, 0.92], [-0.36, 0.92], [-0.67, 0.38]];
-const CARGO_LO = [[0.40, -0.20], [1.03, -0.20], [1.03, 0.37], [0.40, 0.37]];   // v0.77.13 right cargo door below the rear window, aft of the door post (hinges down like the main door)
+const CARGO_LO = [[0.36, -0.20], [1.03, -0.20], [1.03, 0.375], [0.36, 0.375]];   // v0.77.13 right cargo door below the rear window, aft of the door post (hinges down like the main door); v1.11.11 from the B-pillar back
+const W_RRR = [[0.36, 0.38], [1.03, 0.38], [1.05, 0.87], [0.36, 0.885]];   // v1.11.11 the right rear window (hinged), the full width of the rear opening
+const REAR_HOLE = [[0.36, -0.20], [1.03, -0.20], [1.03, 0.38], [1.05, 0.87], [0.36, 0.885]];   // v1.11.11 the rear (seat + baggage) opening: only the B-pillar (0.28-0.36) between it and the main door
 for (const sx of [-1, 1]) {
-  sideSkin(CAB, sx < 0 ? [W_SCR, W_FRT, W_RR] : [W_SCR, DOOR_HOLE, W_RR, CARGO_LO], sx, yellow, PD);
+  sideSkin(CAB, sx < 0 ? [W_SCR, W_FRT, W_RR] : [W_SCR, DOOR_HOLE, REAR_HOLE], sx, yellow, PD);
   for (const w of sx < 0 ? [W_SCR, W_FRT, W_RR] : [W_SCR]) {   // v1.11.3 the right rear window is its own hinged pane (rwin)
     if (sx > 0 || w === W_SCR) sidePane(w, sx, glass, PD); sideFrame(w, sx, PD); }   // v0.19: left side windows are sliding panes (see v0.19 block)
 }
@@ -1625,11 +1627,11 @@ const rudGrp = new THREE.Group(); rudGrp.position.set(0, 0, 4.39); cubD.add(rudG
 const door = new THREE.Group(); door.position.set(0.35, -0.21, 0); cubD.add(door);
 sideSkin(DOOR_LO, [], 1, yellow, door).geometry.translate(-0.35, 0.21, 0); box(0.004, 0.065, 0.95, boltMat, 0.002, 0.21 + 0.155, -0.195, door);   // door + its stripe piece
 const cdoor = new THREE.Group(); cdoor.position.set(0.35, -0.21, 0); cubD.add(cdoor);   // v0.77.13 the cargo door, same bottom hinge line as the main door
-sideSkin(CARGO_LO, [], 1, yellow, cdoor).geometry.translate(-0.35, 0.21, 0); box(0.004, 0.065, 0.63, boltMat, 0.002, 0.21 + 0.155, 0.715, cdoor); box(0.006, 0.57, 0.012, dark, 0.003, 0.21 + 0.085, 0.405, cdoor); box(0.006, 0.57, 0.012, dark, 0.003, 0.21 + 0.085, 1.025, cdoor);   // skin, stripe, the edge seams
+sideSkin(CARGO_LO, [], 1, yellow, cdoor).geometry.translate(-0.35, 0.21, 0); box(0.004, 0.065, 0.67, boltMat, 0.002, 0.21 + 0.155, 0.695, cdoor); box(0.006, 0.57, 0.012, dark, 0.003, 0.21 + 0.085, 0.365, cdoor); box(0.006, 0.57, 0.012, dark, 0.003, 0.21 + 0.085, 1.025, cdoor);   // skin, stripe, the edge seams
 const win = new THREE.Group(); win.position.set(0.35, 0.92, 0); cubD.add(win);
 sidePane(W_FRT, 1, glass, win).geometry.translate(-0.35, -0.92, 0); sideFrame(W_FRT, 1, win).geometry.translate(-0.35, -0.92, 0);
 const rwin = new THREE.Group(); rwin.position.set(0.35, 0.88, 0); cubD.add(rwin);   // v1.11.3 the right rear window: hinged at its top under the wing like the pilot's, opens with the cargo door
-sidePane(W_RR, 1, glass, rwin).geometry.translate(-0.35, -0.88, 0); sideFrame(W_RR, 1, rwin).geometry.translate(-0.35, -0.88, 0);
+sidePane(W_RRR, 1, glass, rwin).geometry.translate(-0.35, -0.88, 0); sideFrame(W_RRR, 1, rwin).geometry.translate(-0.35, -0.88, 0);
 let doorT = 0;
 // v0.35 propeller: a real 2-blade Sensenich-style metal prop (tapered, twisted, painted tips) + a separate blur disc that only
 // fades in with rpm. Before: the blade was a flat 10 cm box parented to an always-on 18 % grey disc, so a stopped prop sat
@@ -2668,7 +2670,7 @@ function cubPush(w) {   // the camera's ground position w: pushed out of the Cub
 function cubHands() {   // where each hand is against the cabin: in through an open door (the main door is open on foot; the rear door + window when opened) or not
   for (let i = 0; i < 2; i++) { if (!CUBC.near) { CUBC.hin[i] = false; continue; } grips[i].getWorldPosition(CUBC.q); const p = CUBC.p.copy(CUBC.q).applyMatrix4(CUBC.inv), o = CUBC.hp[i];
     const ins = Math.abs(p.x) < 0.36 && p.y > -0.33 && p.y < 0.95 && p.z > -1.0 && p.z < 1.10;
-    if (ins && !CUBC.hin[i]) CUBC.hok[i] = o.x > 0.2 && ((o.z > -0.67 && o.z < 0.28 && o.y > -0.22 && o.y < 0.92) || (WIN.rcg > 0.5 && o.z > 0.40 && o.z < 1.05 && o.y > -0.22 && o.y < 0.885));
+    if (ins && !CUBC.hin[i]) CUBC.hok[i] = o.x > 0.2 && ((doorT > 0.5 && o.z > -0.67 && o.z < 0.28 && o.y > -0.22 && o.y < 0.92) || (WIN.rcg > 0.5 && o.z > 0.36 && o.z < 1.04 && o.y > -0.22 && o.y < 0.885));   // v1.11.11 either opening, while it is open
     if (!ins) CUBC.hl[i].copy(p); CUBC.hin[i] = ins; o.copy(p); } }
 function cubBlocked(g) { const i = grips.indexOf(g); return mode === 'foot' && i >= 0 && CUBC.hin[i] && !CUBC.hok[i]; }
 function updateFoot(dt) {
@@ -4555,8 +4557,8 @@ function updateSwitches(dt) {
 }
 
 // ---- windows: right upper hinges up under the wing (latches), right lower door folds down, left front / rear slide on outer tracks ----
-const WIN = { rup: 0, rlo: 0, lf: 0, lr: 0, rcg: 0, tgt: {}, open: 0 };
-const WIN_MAX = { rup: 1.45, rlo: 1.35, rcg: 1.35 };                          // radians (same as the exit animation)
+const WIN = { rup: 0, rlo: 0, lf: 0, lr: 0, rcg: 0, tgt: {}, open: 0, ft: 1 };   // v1.11.11 ft: the main door + window on foot (1 open)
+const WIN_MAX = { rup: 1.45, rlo: 2.85, rcg: 2.85 };   // v1.11.11 the lower doors fold right down (were 1.35)                          // radians (same as the exit animation)
 const LW_TRAVEL = { lf: 0.45, lr: 0.28 };                          // m (front slides aft over the wall, rear slides aft)
 function slidePane(pts, x0, handleZ) {
   const g = new THREE.Group(), tmp = new THREE.Group(); cubD.add(g);
@@ -4591,8 +4593,11 @@ function latchDraw() {
 }
 const _cgo = new THREE.Vector3();
 function cargoGrab(p) {   // v0.77.13 on foot: a squeeze at the outside handle (or anywhere on its top edge) swings the cargo door
-  cdoor.localToWorld(_cgo.set(0.03, 0.515, 0.72));   // outside face, opposite the inside handle
-  let d = p.distanceTo(_cgo); if (d > 0.16) { rwin.localToWorld(_cgo.set(0.03, -0.42, 0.76)); d = p.distanceTo(_cgo); } if (d > 0.16) return false;   // v1.11.3 or the rear window's lower edge
+  cdoor.localToWorld(_cgo.set(0.03, 0.515, 0.70));   // outside face, opposite the inside handle
+  let d = p.distanceTo(_cgo); rwin.localToWorld(_cgo.set(0.03, -0.42, 0.70)); d = Math.min(d, p.distanceTo(_cgo));   // v1.11.3 or the rear window's lower edge
+  door.localToWorld(_cgo.set(0.03, 0.55, -0.2)); let dm = p.distanceTo(_cgo); win.localToWorld(_cgo.set(0.03, -0.5, -0.2)); dm = Math.min(dm, p.distanceTo(_cgo));   // v1.11.11 the main door's top edge / its window's lower edge
+  if (Math.min(d, dm) > 0.16) return false;
+  if (dm < d) { WIN.ft = doorT > 0.5 ? 0 : 1; sfx('clack'); say(WIN.ft ? 'DOOR + WINDOW OPEN' : 'DOOR + WINDOW CLOSED'); return true; }   // v1.11.11 one squeeze: both halves
   winToggle('rcg'); return true; }
 function winToggle(k) { WIN.tgt[k] = WIN[k] > 0.5 ? 0 : 1; sfx('clack');
   say({ rup: 'RIGHT WINDOW', rlo: 'DOOR (LOWER)', lf: 'LEFT FRONT WINDOW', lr: 'LEFT REAR WINDOW', rcg: 'REAR DOOR + WINDOW' }[k] + (WIN.tgt[k] ? ' OPEN' : ' CLOSED')); }
@@ -4611,8 +4616,8 @@ function updateWindows(dt) {
     else if (!LATCH[k] && WIN[k] === 0 && WIN.tgt[k] === undefined && !ckhHas(k)) { LATCH[k] = 1; if (mode === 'plane') sfx('clack'); }
     LATCHV.a[k] = CKX.vis['L' + k] ?? (LATCH[k] ? 0 : 1.0); }
   for (const k of ['rup', 'rlo', 'lf', 'lr', 'rcg']) if (WIN.tgt[k] !== undefined) { WIN[k] = approach(WIN[k], WIN.tgt[k], 1.2, dt); if (WIN[k] === WIN.tgt[k]) delete WIN.tgt[k]; }
-  doorT = approach(doorT, mode === 'foot' ? 1 : 0, 1.5, dt);
-  if (mode !== WIN.md) { if (mode === 'plane' && (WIN.rcg > 0 || WIN.tgt.rcg)) WIN.tgt.rcg = 0; WIN.md = mode; }   // v1.11.3 you sat in: the rear door + window swing shut
+  if (mode !== WIN.md) { if (mode === 'plane' && (WIN.rcg > 0 || WIN.tgt.rcg)) WIN.tgt.rcg = 0; if (mode === 'foot') WIN.ft = 1; WIN.md = mode; }   // v1.11.3 you sat in: the rear door + window swing shut; v1.11.11 climbing out opens the main door
+  doorT = approach(doorT, mode === 'foot' ? WIN.ft : 0, 1.5, dt);   // v1.11.3 you sat in: the rear door + window swing shut
   door.rotation.z = -WIN_MAX.rlo * Math.max(doorT, WIN.rlo); win.rotation.z = WIN_MAX.rup * Math.max(doorT, WIN.rup); cdoor.rotation.z = -WIN_MAX.rcg * WIN.rcg; rwin.rotation.z = WIN_MAX.rup * WIN.rcg;
   pedalDraw();
   LWF.g.position.z = LW_TRAVEL.lf * WIN.lf; LWR.g.position.z = LW_TRAVEL.lr * WIN.lr;

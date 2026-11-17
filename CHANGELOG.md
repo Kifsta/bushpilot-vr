@@ -2,6 +2,14 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v1.11.11 – the right-side doors work like a real Super Cub's
+
+- **Two openings, one B-pillar:** the right side now has two openings: the main door by the seats, and the rear door behind it back to the baggage bay. Only a narrow vertical B-pillar (8 cm) separates them. The rear window and the rear door are now the full width of the rear opening, so the old strip of skin between the window and the door post is gone.
+- **The lower halves fold right down:** both lower doors swing about 163° on their bottom hinge and hang down against the fuselage side (they used to stop about 77° out). The upper windows still swing up under the wing.
+- **One squeeze each:** on foot, squeeze once at either half of an opening (the lower door's top edge or the window's lower edge) and that whole opening opens: door down, window up. Squeeze again to shut both halves. The main door opens by itself as you climb out, and sitting in shuts both openings.
+- **Cargo through either opening:** a held piece goes into the cabin through whichever opening is open. A shut door or the B-pillar stops it, just like the fabric (if you let go there, it drops outside). Walking into the Cub is blocked the same way with the doors open or shut.
+- **Cost:** no garbage per frame, no new shader programs, and the physics checksum is unchanged.
+
 ## v1.11.10 – fishing: the line hangs from the rod tip, the hook sits in the fish's jaw, one continuous rod tip
 
 - **The line hangs from the tip:** under water the line no longer lies flat on the surface and then drops straight down to the lure. It runs from the rod tip down into the water to the lure along the line between them, and a wet line slowly sinks toward that line.
