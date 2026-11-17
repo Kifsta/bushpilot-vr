@@ -2,6 +2,11 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v1.11.4 – Neil's second left-hand rod grip
+
+- **Rod grip:** the fishing rod in your left hand now sits exactly as in Neil's second Pose Lab code. The rod is 10 mm lower and 27 mm further forward in the fist, and it is tilted 27.6° forward. The finger joints are his: middle and ring fingers wrapped further round the cork, the index finger's tip relaxed. A rod in the right hand uses the mirror of the same grip. The crank stays on the side away from the rod hand, with its knob facing out.
+- **Cost:** pose data only. No garbage per frame, no new shader programs, and the physics checksum is unchanged.
+
 ## v1.11.3 – the rear door opens with its window, the Cub is solid, rudder pedals
 
 - **Rear door with one squeeze:** on foot, squeeze once at the cargo door handle, or at the rear window above it, and the whole rear opening opens. The cargo door folds down and the right rear window, now hinged, swings up under the wing with it. Squeeze again to shut both. When you climb into the seat, the rear door and window swing shut by themselves. In the seat, key 5 still works both.
