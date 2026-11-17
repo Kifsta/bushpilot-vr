@@ -2,6 +2,19 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v1.11.9 – heavy cargo feels heavy, papers stay where you put them (VR Dev 3)
+
+- **Heavy cargo feels heavy:** carried pieces (one hand, or each hand of a two-hand piece) now lag and sag more the heavier they are.
+  - A piece starts a little below your hand and comes up slowly, over 0.3 to 1 s depending on its weight. You get a thump in the controller on pickup, stronger for heavier pieces.
+  - A pack or pack item you let go of flies off slower when it's heavy.
+  - The rifle and empty hands feel exactly as before, so the shouldered zero and the Pose Lab holds don't move. With Item weight OFF everything behaves as it used to.
+  - This only changes what's drawn: every grab, drop, load and stack still uses the controller's real pose.
+- **Papers stay where you put them:** the checklist card, the kneeboard and the paper map stay where you let go of them in or near the cockpit, and they ride with the Cub.
+  - While one is away from home, a small yellow ring marks its home spot. Let it go within 12 cm of the ring and it snaps back home.
+  - Let go well outside the cockpit and you get the old behaviour: the card and kneeboard go home, and the map clips in the plane (or drops to the ground on foot).
+  - Where they are is saved with the game. Older saves load with everything at home.
+- **Cost:** no garbage per frame, no new shader programs (the rings reuse the map margin's material), and the physics checksum is unchanged.
+
 ## v1.11.8 – battery and voltmeter, OAT gauge, thunderstorms, fog and cloud flying, carb ice (VR Dev 3)
 
 - **Battery and voltmeter:** the Cub now has a 25 Ah battery, and a voltmeter on the panel reads the bus while the master is on.

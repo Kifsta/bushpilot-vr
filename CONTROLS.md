@@ -67,6 +67,8 @@ Nine holds now come from Neil's Pose Lab codes, each mirrored for the other hand
 Start: fuel ON, master ON, mixture RICH, carb heat COLD, prime 2–3 strokes (cold) or 0–1 (warm), throttle cracked (~10%), mags BOTH, hold the starter until it runs (~700 rpm).
 Flooded? Throttle full and crank, then pull the throttle back when it fires.
 
+**Papers stay put (v1.11.9):** let go of the checklist card, the kneeboard or the map anywhere in or near the cockpit and it stays there (it rides with the Cub). A small yellow ring marks its home spot; let go within 12 cm of the ring and it snaps home. Let go well outside the cockpit: the old behaviour (card and kneeboard home, the map clipped in / dropped). **Heavy cargo (v1.11.9):** heavy pieces come up off the ground slowly and lag your hand more; the controller thumps on pickup (Item weight OFF in GRAPHICS: the old feel).
+
 **Carb ice (v1.11.8):** in cool, damp air (about −4 to 18 °C on the OAT, in rain, mist or cloud) ice can build in the carburettor, fastest at low power. The rpm drops, the engine runs rough and pops, and the wrist says ENGINE RUNNING ROUGH ... CARB ICE? Pull carb heat to HOT (knob out / H): the ice clears in about 22 s. Push it back in (COLD) for full power. The landing light and the panel lights need the master ON and a live battery (v1.11.8).
 Shutdown: throttle idle, mixture CUTOFF (it stops), mags OFF, master OFF, fuel OFF.
 
