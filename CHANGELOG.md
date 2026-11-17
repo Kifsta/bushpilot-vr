@@ -2,6 +2,17 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v1.11.18 – night lighting: signs and papers need light, a cockpit map light, lanterns at home, a creased map
+
+- **Signs and papers take the scene's light.** Signs, boards, shop tags, the field guide and tackle card, and the cockpit papers (checklist card, kneeboard, map) no longer glow in the dark. In daylight they look exactly as before. At night you can only read one when something lights it: your torch, the landing light, a lantern, the panel glow or the map light.
+- **Cockpit map light:** a small warm lamp on the left wall by your shoulder, shining on your lap.
+  - VR: grip its knob and twist to dim it (a tick every quarter turn). A quick squeeze with no twist switches it off, or back on at the last level.
+  - Desktop: Shift+K steps it through OFF / 25 / 50 / 100 %.
+  - It needs the master switch, draws up to 0.3 A from the battery, dims with the bus, and is saved with your game.
+- **Lanterns at home:** five on posts (both sides of the cabin door, the path, the HOME STRIP board and the tie-down pad). Their glass glows from dusk, and the nearest one really lights the ground and the boards around it.
+- **The map** has soft fold creases and sags a little when you hold it: the far side droops away from your hand, less when you hold it with both hands.
+- No new lights, no new shader programs, and no per-frame garbage.
+
 ## v1.11.17 – backpack rework: free placement inside, side slots for the rod and rifle (VR Dev 3)
 
 - **Free placement inside the open pack:** an item you let go inside the bag stays exactly where you put it, at the angle you held it. Tilted more than 45° it lies on its side. If it pokes through a wall it gets pushed back in, and if it clips another item it gets nudged up to 5 cm clear. When there is no room it stays in your hand with a buzz and NO ROOM THERE; move it somewhere free or take it back out of the opening.

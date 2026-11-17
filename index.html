@@ -23,7 +23,7 @@
 You start on foot by the Cub at the cabin strip. Walk up to her and climb in (F / Y), then start her up off the checklist card (J).
 Desktop - flying: W/S or arrows pitch, A/D or arrows roll, Q/E rudder, Shift / Ctrl (or + / -) throttle, B brakes, \ parking brake, [ ] flaps, PgUp / PgDn trim,
   R reset to the strip (cold and dark), F climb out, M map, L landing light, Home recentre, mouse looks (click to capture).
-Desktop - engine: U fuel valve, O master, Y mixture, H carb heat, P primer, I mags (OFF > R > L > BOTH), hold Space = starter, K panel lights,
+Desktop - engine: U fuel valve, O master, Y mixture, H carb heat, P primer, I mags (OFF > R > L > BOTH), hold Space = starter, K panel lights, Shift+K map light (off / 25 / 50 / 100 %),
   1-4 windows / door, 5 passenger door, J checklist card, N clipboard (, and . turn its pages: JOBS, W&B, CUB, PERF).
 Desktop - on foot: WASD walk, Shift run, C crouch, Space hop, F climb in, G refuel at the strip pump (near a wing filler cap), M map.
   Jobs: 1-3 at a job board accept / cancel, E pick up / set down cargo (E by the Cub loads or unloads it), / seat belt + cargo net.
@@ -32,7 +32,7 @@ Desktop - on foot: WASD walk, Shift run, C crouch, Space hop, F climb in, G refu
   Running costs: fuel is paid at the red drums (4 strips, 4 prices); oil, tyres + brakes, repairs and the 100-hour service at the home HANGAR board (1-4 there).
 VR - in the cockpit: grip the stick (right) and throttle (left), left stick = rudder, left trigger = brakes, reach up and pull the flap handle down
   a notch at a time, wind the trim crank, turn knobs / the mag key / the primer / the fuel valve with your hand; every cockpit control needs the grip (yellow ring = what it takes); the parking brake T-handle: grip it and pull it out along its shaft to set, push it in to release. Binoculars: the 7x view comes up inside 12 cm of your eyes and drops past 16 cm (v0.84.7: fixed in the headset).
-  Grip the clipboard on your thigh to lift it, its hand's trigger turns the page. A / X recentre, B reset, Y climb out. Turn your left wrist to your face and poke its MENU button with your right finger for SETTINGS.
+  Grip the clipboard on your thigh to lift it, its hand's trigger turns the page. Map light (left wall by your shoulder): grip its knob and twist to dim, a quick squeeze switches it off / on. At night signs and papers need light: your torch, a lantern, the map light. A / X recentre, B reset, Y climb out. Turn your left wrist to your face and poke its MENU button with your right finger for SETTINGS.
 VR - on foot: left stick walks (click = run), right stick turns (snap / smooth in Settings), right stick down = crouch, up = hop,
   Y climb in, take the nozzle off a red drum, put it in a wing filler cap and hold the trigger to refuel from the pump, grab the map off its cockpit holder.
   Jobs: poke ACCEPT on a strip's job board, grip cargo to carry it, let go over the rear seat / baggage bay, grab the belt buckle / net to strap.
@@ -636,7 +636,7 @@ const hyp = (a, b, c = 0) => Math.sqrt(a * a + b * b + c * c);   // v0.59 Math.h
 
 // ======================= RENDERING =======================
 // v0.35 settings (persist in localStorage 'bp_gfx'; ?gfx=shadows:2,grass:1 overrides for testing). Defaults = the v0.34 look and cost.
-const BP_VERSION = 'v1.11.17';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
+const BP_VERSION = 'v1.11.18';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
 { const e = document.getElementById('ver'); if (e) e.textContent = BP_VERSION; } window.__bpVer = BP_VERSION; bootLog('game module running ' + BP_VERSION + ' (three r' + THREE.REVISION + ')' + (/[?&]safe(=|&|$)/.test(location.search) ? ' - SAFE MODE: default graphics, no shadows / ULTRA / life / vistas / music' : ''));
 const GFX_DEF = { shadows: 0, scale: 1, fov: 1, dist: 1, trees: 1, grass: 0, clouds: 1, fog: 1, msaa: 1, hz: 90, vig: 0, turn: 0, fps: 0, tod: 11, stk: 1, tips: 1, terr: 1, dyn: 1, glove: 0, hand: 0, wt: 1, volM: 1, volMu: 0.5, volE: 1, volA: 1, volF: 1, wx: 1, forest: 0, ground: 0, gtex: 0, cvl: 1, water: 1, dayl: 48, flure: 0, fline: 8, fdrag: 4, fbob: 0, fsink: 0, ultra: 0, sfxr: 1 };   // v0.68.1 dominant hand, volumes. v0.48 BALANCED: 90 % scale, 72 Hz, fast terrain shading, auto resolution; v0.49.1 the stick stays where you let go of it
 const GFX = Object.assign({}, GFX_DEF);
@@ -10379,7 +10379,7 @@ function cubParked() { return !ac.crashed && acGS() < 1 && ac.gs.some(g => g.Fn 
 function saveGame(why) {
   if (NOSAVE || SV.off) return false;
   if (cubParked()) SV.cub = { p: ac.pos.map(r3), q: ac.q.map(v => Math.round(v * 1e6) / 1e6) };
-  const d = { v: 55, gd: gdSave(), surv: survSave(), cab: cabSave(), at: Date.now(), cub: SV.cub, fuel: r3(fuel), h: r3(DAY.h), mode, foot: mode === 'foot' ? [r3(footRig.position.x), r3(footRig.position.z), r3(bodyYaw)] : null, dlv: dlvSave(), hunt: huntSave(), h2: h2Save(), eco: ecoSave(), upg: upgSave(), emg: emgSave(), fish: fishSave(), pack: packSave(), story: storySave(), disc: discSave(), fog: fogSave(), wx: wxSave(), meta: { cash: DLV.cash, loc: svPlace() } };   // v0.68.1 meta: the menu's slot label. v0.55 + the Cub's log (tach, oil, wear, damage)   // v0.53 + rifle / ammo   // v0.50: + wallet, jobs, cargo, straps
+  const d = { v: 55, nl: r3(window.NLM ? NLM.lv : 0), gd: gdSave(), surv: survSave(), cab: cabSave(), at: Date.now(), cub: SV.cub, fuel: r3(fuel), h: r3(DAY.h), mode, foot: mode === 'foot' ? [r3(footRig.position.x), r3(footRig.position.z), r3(bodyYaw)] : null, dlv: dlvSave(), hunt: huntSave(), h2: h2Save(), eco: ecoSave(), upg: upgSave(), emg: emgSave(), fish: fishSave(), pack: packSave(), story: storySave(), disc: discSave(), fog: fogSave(), wx: wxSave(), meta: { cash: DLV.cash, loc: svPlace() } };   // v0.68.1 meta: the menu's slot label. v0.55 + the Cub's log (tach, oil, wear, damage)   // v0.53 + rifle / ammo   // v0.50: + wallet, jobs, cargo, straps
   try { localStorage.setItem(SAVE_KEY, JSON.stringify(d)); } catch (e) { return false; }
   SV.last = Date.now(); SV.n++; SV.why = why || ''; SV.t = 30; SV.due = -1; return true;
 }
@@ -10401,7 +10401,7 @@ function gameLoad() {
   if (d.mode === 'foot' && Array.isArray(d.foot) && d.foot.slice(0, 3).every(isFinite)) { exitPlane(); const [x, z, yaw] = d.foot; footRig.position.set(x, groundY(x, z) + EYE, z); footRig.rotation.set(0, yaw, 0); bodyYaw = yaw; }   // v0.59.1 checked (a damaged foot entry stopped the page loading)
   upgLoad(d.upg || null);   // v0.57 before the cargo (the pod)
   emgLoad(d.emg || null);   // v0.58 before the cargo (a patient aboard finds their job)
-  wxLoad(d.wx || null); dlvLoad(d.v >= 50 ? d.dlv : null); huntLoad(d.v >= 53 ? d.hunt : null); h2Load(d.h2 || null); fishLoad(d.fish || null); packLoad(d.pack || null); gdLoad(d.gd || null); survLoad(d.surv || null); cabLoad(d.cab || null); storyLoad(d.story || null); discLoad(d.disc || null); fogLoad(d.fog || null); dropLoadFix(); ecoLoad(d.v >= 55 ? d.eco : null); emgFix();   // v0.54 a save taken mid-drop: the last bundle down settles the job
+  wxLoad(d.wx || null); dlvLoad(d.v >= 50 ? d.dlv : null); huntLoad(d.v >= 53 ? d.hunt : null); h2Load(d.h2 || null); fishLoad(d.fish || null); packLoad(d.pack || null); gdLoad(d.gd || null); if (window.NLM) { NLM.lv = clamp(+d.nl || 0, 0, 1); if (NLM.lv > 0.02) NLM.last = NLM.lv; } survLoad(d.surv || null); cabLoad(d.cab || null); storyLoad(d.story || null); discLoad(d.disc || null); fogLoad(d.fog || null); dropLoadFix(); ecoLoad(d.v >= 55 ? d.eco : null); emgFix();   // v0.54 a save taken mid-drop: the last bundle down settles the job
   msgT = 0; SV.last = d.at || 0; return true;
 }
 MYS_SITES.clear();   // the whole world is built now: clear trees and rocks off the strips and sites
@@ -13502,7 +13502,7 @@ const WX3 = (() => {
   X.flat = () => { crankCalc(); return F[CRV] < K.CRANK_MIN; };
   function elecTick(dt) {
     const E = ENG, m = E.master; let L = 0, A = 0;
-    if (m) { L = K.A_BASE + (UPG.radio ? K.A_RADIO : 0) + (LIGHTS.pl === 2 ? K.A_PANEL[2] : LIGHTS.pl === 1 ? K.A_PANEL[1] : 0) + (LIGHTS.landing ? (UPG.light ? K.A_LDG_LED : K.A_LDG) : 0) + (E.cranking ? K.A_START : 0); }
+    if (m) { L = K.A_BASE + (UPG.radio ? K.A_RADIO : 0) + (LIGHTS.pl === 2 ? K.A_PANEL[2] : LIGHTS.pl === 1 ? K.A_PANEL[1] : 0) + (LIGHTS.landing ? (UPG.light ? K.A_LDG_LED : K.A_LDG) : 0) + (window.NLM && NLM.on ? NLM.A_MAP * NLM.lv : 0) + (E.cranking ? K.A_START : 0); }   // v1.11.18 + the map light
     if (m && E.running) { const u = (E.rpm - K.ALT_RPM0) / (K.ALT_RPM1 - K.ALT_RPM0); A = K.ALT_A * (u < 0 ? 0 : u > 1 ? 1 : u); }
     F[LOAD] = L; F[ALT] = A; const s = F[SOC], r = K.R0 + K.R1 * (1 - s) * (1 - s), ocv = K.OCV0 + (K.OCV1 - K.OCV0) * s;   // battery current lives in F[I] (no float phi to box)
     if (m && A > 0 && A >= L) { F[I] = Math.min(A - L, 4 + 30 * (1 - s)); const q = 1 - (A - L) / 6; F[V] = K.ALT_V - 0.5 * (q < 0 ? 0 : q > 1 ? 1 : q); }
@@ -14643,6 +14643,116 @@ function h2Render() { const d = SC.disk; if (h2On !== true) return;
   for (let c = 0; c < 4; c++) { PL.visible = !!(c & 1); SL.visible = !!(c & 2); for (const o of W) renderer.compile(o, camera, scene); } W.forEach((o, i) => { o.visible = vis[i]; }); PL.visible = pv; SL.visible = sv; }
 h2On = true; H2.ready = true; h2Apply();
 // <<< V2 HUNT END
+// >>> V1.11.18 NIGHT LIGHT BEGIN (nl.js via /workspace/v11280/build.py)
+// v1.11.18 NIGHT LIGHT: paper takes the scene's light. Game-side only (nothing in PHYSICS START..END), no new lights (PL / SL are the game's two), no new programs.
+// (1) Signs, boards, shop tags, the field guide / tackle card and the cockpit papers (checklist card, kneeboard, map) are unlit MeshBasic: they glowed at night.
+//     Each one's colour is now its own colour x the light where it is, per channel: the sky + sun / moon as the game's other unlit things work it out (0.5 hemi + 0.28 sun,
+//     the sun term x0.6 for facing), plus PL (point) and SL (spot: torch / landing light) with three's own falloff, plus the lanterns. Full daylight = exactly the old look.
+//     So at night a sign is only readable when something lights it: your torch, the landing light, a lantern, the panel glow, the map light.
+// (2) Cockpit map light: a small warm lamp on the left wall by your shoulder. VR: squeeze its knob and twist (dimmer; detent ticks every quarter), a short squeeze
+//     with no twist switches it off / back to the last level. Desktop: Shift+K steps OFF / 25 / 50 / 100 %. Needs the master switch; draws up to 0.3 A from the battery; it dims
+//     with the bus like the panel lights. It is PL (moved to the lamp; the panel glow adds in), so the cockpit's lit parts take it too.
+// (3) Lanterns round home: five on posts (cabin door x2, the path, the strip board, the tie-down pad). Glass glows from dusk; the nearest one within 16 m is the real PL
+//     when PL is free (not in the plane / at the stove); the other four light paper by the same sum (no light, no draw).
+// (4) The map: soft fold creases on the paper, and a cheap sag when held: the sheet is 8 x 6 quads, bent away from the holding hand (less with two hands), more when it lies
+//     flat; written into its own position arrays, only while it is held (zero per frame garbage).
+const NLM = { lv: 0, last: 1, g: null, q0: new THREE.Quaternion(), lv0: 0, th: 0, tw: 0, det: 0, pv: [false, false], p: GV3(0, 0, 0), A_MAP: 0.3, on: false, nv: 0.5 }; window.NLM = NLM;   // (the battery / save lines above test window.NLM)
+const NL = { E: [], C: new Float64Array(3), V: GV3(0, 0, 0), W: GV3(0, 0, 0), Q: new THREE.Quaternion(), Q2: new THREE.Quaternion(), Q3: new THREE.Quaternion(), P2: GV3(0, 0, 0), SC: GV3(1, 1, 1), N: GV3(0, 0, 0), LP: [], LK: 3.0, LD: 8, LANT: null, lamp: null, knob: null,
+  KN: new THREE.Vector3(), LAMP_P: null, hc: new THREE.Color(), sc: new THREE.Color(), dark: 0, f: 0, sagOn: false, SG: [], li: -1, scanned: false, nch: -1, R: new Float64Array(3), B: new Float64Array(3 * 512) };
+{ const h = new THREE.Color(0xd8eaff), u = new THREE.Color(0xfff1dc); NL.R[0] = 1 / (0.6 * h.r + 0.336 * u.r); NL.R[1] = 1 / (0.6 * h.g + 0.336 * u.g); NL.R[2] = 1 / (0.6 * h.b + 0.336 * u.b); }   // the noon sky (GRADE: hemi 1.2, sun 2.0)
+// ---- the lamp: on the left wall by the pilot's shoulder (drawing frame x -0.3, station -0.14, y 0.66), shining down at the lap
+NL.LAMP_P = D2B(-0.3, -0.14, 0.66);
+{ const G = new THREE.Group(); G.position.copy(NL.LAMP_P); plane.add(G); NL.lamp = G;
+  G.add(new THREE.Mesh(mergeGeometries([['b', 0.05, 0.012, 0.04, 0, 0.012, 0, 0x2a2a2c], ['c', 0.016, 0.03, 10, 0, -0.008, 0, 0x3a3a3c], ['c', 0.004, 0.012, 6, 0.03, 0.006, 0, 0x6a6a6e, 0, 0, Math.PI / 2]].map(partGeo)), ITEM_VM));
+  NL.glass = new THREE.Mesh(new THREE.CircleGeometry(0.013, 12).rotateX(Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0x40382c })); NL.glass.position.y = -0.0235; G.add(NL.glass);
+  NL.knob = new THREE.Mesh(partGeo(['c', 0.008, 0.01, 10, 0, 0, 0, 0xb0a890, 0, 0, Math.PI / 2]), ITEM_VM); NL.knob.position.set(0.041, 0.006, 0); G.add(NL.knob);
+  G.traverse(o => { o.userData.noBatch = true; o.userData.noCast = true; }); }
+NL.KN.copy(NL.LAMP_P).add(GV3(0.041, 0.006, 0));
+// ---- lanterns round home (world x, z): cabin door both sides, the path, the HOME STRIP board, the tie-down pad
+NL.LP = [[35.55, -12.95], [35.55, -14.95], [26.2, -17.2], [18.7, -27.1], [16.6, -19.2]].map(([x, z]) => { const y = groundY(x, z); return [x, y + 1.62, z, y]; });
+{ const P = [], Q = []; for (const [x, yl, z, y] of NL.LP) { const h = yl - y;
+    P.push(['b', 0.07, h - 0.12, 0.07, x, y + (h - 0.12) / 2, z, 0x5a3e26], ['b', 0.18, 0.03, 0.03, x + 0.06, y + h - 0.1, z, 0x5a3e26], ['c', 0.055, 0.012, 10, x + 0.12, yl + 0.1, z, 0x2a2622], ['t', [0.012, 0.055], 0.05, 10, x + 0.12, yl + 0.14, z, 0x2a2622],
+      ['c', 0.06, 0.01, 10, x + 0.12, yl - 0.11, z, 0x2a2622], ['b', 0.006, 0.2, 0.006, x + 0.12 + 0.05, yl, z, 0x2a2622], ['b', 0.006, 0.2, 0.006, x + 0.12 - 0.05, yl, z, 0x2a2622]);
+    Q.push(['c', 0.045, 0.19, 10, x + 0.12, yl, z, 0xffffff]); }
+  const body = new THREE.Mesh(mergeGeometries(P.map(partGeo)), ITEM_VM); body.castShadow = false; body.userData.noCast = true; scene.add(body);
+  NL.LANT = new THREE.Mesh(mergeGeometries(Q.map(partGeo)), new THREE.MeshBasicMaterial({ color: 0x3a342a })); NL.LANT.userData.noBatch = true; NL.LANT.userData.noCast = true; scene.add(NL.LANT);
+  for (const L of NL.LP) L[0] += 0.12; }
+// ---- paper registry: [material, r0, g0, b0, object]
+function nlReg(m, o) { if (!m || !o || NL.E.some(e => e[0] === m)) return; const c = m.color, j = NL.E.length * 3; if (j + 3 > NL.B.length) return; NL.B[j] = c.r; NL.B[j + 1] = c.g; NL.B[j + 2] = c.b; NL.E.push([m, c.r, c.g, c.b, o]); }   // (hot path reads NL.B)
+function nlScan() {   // (keeps what it found before: nlReg skips a material it has)
+   // every unlit textured paper in the world (not the cockpit kit, not your rig / UI), plus the cockpit papers by name
+  const rig = camera.parent, skip = new Set([HTAG.m, NL.glass, NL.LANT]);
+  scene.traverse(o => { if (!o.isMesh || skip.has(o)) return; const m = o.material; if (!m || m.type !== 'MeshBasicMaterial' || !m.map || !m.map.isCanvasTexture || m.depthTest === false || m.transparent || m.fog === false) return;
+    for (let p = o.parent; p; p = p.parent) if (p === plane || p === rig) return; nlReg(m, o); });
+  nlReg(CARD.mesh.material, CARD.mesh); nlReg(KB.m.children[0].material, KB.m.children[0]); nlReg(MAP.sheet.children[0].material, MAP.sheet); nlReg(MAP.sheet.children[2].material, MAP.sheet); }
+function nlAt(p) {   // light at world point p -> NL.C (r g b, 1 = full day)
+  const C = NL.C, R = NL.R, hi = hemi.intensity * 0.5, si = sun.intensity * 0.28 * 0.6; C[0] = (hi * hemi.color.r + si * sun.color.r) * R[0]; C[1] = (hi * hemi.color.g + si * sun.color.g) * R[1]; C[2] = (hi * hemi.color.b + si * sun.color.b) * R[2];   // / the noon sky: noon = 1
+  if (PL.visible && PL.intensity > 0) { const dx = p.x - PL.position.x, dy = p.y - PL.position.y, dz = p.z - PL.position.z, d2 = dx * dx + dy * dy + dz * dz, d = Math.sqrt(d2), r = d / PL.distance;
+    if (r < 1) { const w = 1 - r * r * r * r, e = 0.33 * PL.intensity * w * w / Math.max(d * Math.sqrt(Math.max(d, 0.05)), 0.01); C[0] += e * PL.color.r; C[1] += e * PL.color.g; C[2] += e * PL.color.b; } }
+  if (SL.visible && SL.intensity > 0) { const dx = p.x - SL.position.x, dy = p.y - SL.position.y, dz = p.z - SL.position.z, d = Math.sqrt(dx * dx + dy * dy + dz * dz), r = d / SL.distance;
+    if (r < 1 && d > 1e-3) { const tx = SL.target.position.x - SL.position.x, ty = SL.target.position.y - SL.position.y, tz = SL.target.position.z - SL.position.z, tl = Math.sqrt(tx * tx + ty * ty + tz * tz) || 1;
+      const cs = (dx * tx + dy * ty + dz * tz) / (d * tl), c0 = Math.cos(SL.angle), c1 = Math.cos(SL.angle * (1 - SL.penumbra)); if (cs > c0) { let s = (cs - c0) / Math.max(c1 - c0, 1e-4); s = s > 1 ? 1 : s; s = s * s * (3 - 2 * s);
+        const w = 1 - r * r * r * r, e = 0.33 * SL.intensity * s * w * w / Math.max(d * Math.cbrt(d), 0.01); C[0] += e * SL.color.r; C[1] += e * SL.color.g; C[2] += e * SL.color.b; } } }
+  if (NL.dark > 0.02) for (let i = 0; i < NL.LP.length; i++) { const L = NL.LP[i]; if (NL.li === i) continue; const dx = p.x - L[0], dy = p.y - L[1], dz = p.z - L[2], d = Math.sqrt(dx * dx + dy * dy + dz * dz), r = d / NL.LD;
+    if (r < 1) { const w = 1 - r * r * r * r, e = 0.33 * NL.LK * NL.dark * w * w / Math.max(d * Math.sqrt(Math.max(d, 0.05)), 0.01); C[0] += e; C[1] += e * 0.72; C[2] += e * 0.42; } }
+  return C; }
+// ---- the map: 8 x 6 quads, creases
+{ for (let i = 0; i < 3; i++) { const m = MAP.sheet.children[i], gp = m.geometry.parameters || {}; const w = i === 0 ? MAP_SHEET[0] : MAP_SHEET_B[0], h = i === 0 ? MAP_SHEET[1] : MAP_SHEET_B[1];
+    const g = new THREE.PlaneGeometry(w, h, 8, 6); if (i === 1) g.rotateY(Math.PI); if (i === 2) g.translate(0, 0, -0.0008); m.geometry.dispose(); m.geometry = g; m.frustumCulled = false;
+    const P = g.attributes.position; P.setUsage(THREE.DynamicDrawUsage); NL.SG.push([P, Float32Array.from(P.array)]); void gp; }
+  const x = MAP.base.getContext('2d'), W = MAP_W, H = MAP_H;
+  const fold = (x0, y0, x1, y1, vx, vy) => { for (let k = 0; k < 3; k++) { x.strokeStyle = ['rgba(60,40,20,0.10)', 'rgba(255,250,235,0.22)', 'rgba(60,40,20,0.05)'][k]; x.lineWidth = [5, 1.6, 12][k];
+      x.beginPath(); x.moveTo(x0 + vx * (k - 1) * 1.5, y0 + vy * (k - 1) * 1.5); x.lineTo(x1 + vx * (k - 1) * 1.5, y1 + vy * (k - 1) * 1.5); x.stroke(); } };
+  fold(W / 3, 0, W / 3 + 2, H, 1, 0); fold(2 * W / 3, 0, 2 * W / 3 - 3, H, 1, 0); fold(0, H / 2, W, H / 2 + 2, 0, 1);
+  MAP.cx.drawImage(MAP.base, 0, 0); MAP.key = ''; MAP.tex.needsUpdate = true; }
+function nlSag() {   // bend the held map: dz = -A (r / R)^2 from the holding hand (both hands: the nearer one, A / 3), A larger when the sheet lies flat
+  const held = MAP.state === 'held' && MAP.g && MAP.sheet.visible;
+  if (!held) { if (NL.sagOn) { for (const [P, B] of NL.SG) { P.array.set(B); P.needsUpdate = true; } NL.sagOn = false; } return; }
+  MAP.sheet.updateWorldMatrix(true, false); MAP.g.getWorldPosition(NL.V); MAP.sheet.worldToLocal(NL.V); const gx = NL.V.x, gy = NL.V.y; let hx = 9, hy = 9;
+  if (MAP.g2) { MAP.g2.getWorldPosition(NL.W); MAP.sheet.worldToLocal(NL.W); hx = NL.W.x; hy = NL.W.y; }
+  m4Decomp(MAP.sheet.matrixWorld, NL.P2, NL.Q, NL.SC); NL.N.set(0, 0, 1).applyQuaternion(NL.Q); const flat = Math.abs(NL.N.y), A = (MAP.g2 ? 0.006 : 0.018) * (0.35 + 0.65 * flat), sg = NL.N.y >= 0 ? -1 : 1;
+  for (let k = 0; k < NL.SG.length; k++) { const P = NL.SG[k][0], B = NL.SG[k][1], a = P.array;
+    for (let i = 0; i < a.length; i += 3) { const ex = B[i] - gx, ey = B[i + 1] - gy, fx = B[i] - hx, fy = B[i + 1] - hy; let r2 = ex * ex + ey * ey; const q2 = fx * fx + fy * fy; if (q2 < r2) r2 = q2;
+      a[i + 2] = B[i + 2] + sg * A * r2 / 0.25; }
+    P.needsUpdate = true; }
+  NL.sagOn = true; }
+// ---- per frame (after updateDay, so PL / SL / the sky are this frame's)
+function nlTick(dt) {
+  { const dk = 1 - TOD.day; NL.dark = dk < 0 ? 0 : dk > 1 ? 1 : dk; } const bus = ENG.master ? WX3.F[5] : 0, lv = NLM.lv * bus;
+  NLM.on = NLM.lv > 0 && ENG.master;
+  // the map light: PL at the lamp (the panel glow folded in)
+  if (lv > 0.001) { const pi = PL.intensity > 0 && mode === 'plane' && LIGHTS.pl ? PL.intensity : 0; plane.localToWorld(PL.position.copy(NL.LAMP_P)); PL.position.y -= 0.03; PL.color.setHex(0xffb468); PL.distance = 1.8;
+    PL.intensity = 1.2 * lv + pi; PL.visible = true; }
+  { const c = NL.glass.material.color; c.r = 0.25 + 0.75 * lv; c.g = 0.22 + 0.6 * lv; c.b = 0.17 + 0.35 * lv; }   // (no double call arguments: zero garbage un-inlined too)
+  // lanterns: the glass, and the nearest one as PL when it is free
+  NL.li = -1;
+  if (NL.dark > 0.02) { camera.getWorldPosition(NL.V); let bi = -1, bd = 16 * 16;
+    if (!(PL.visible && PL.intensity > 0)) for (let i = 0; i < NL.LP.length; i++) { const L = NL.LP[i], dx = NL.V.x - L[0], dz = NL.V.z - L[2], d2 = dx * dx + dz * dz; if (d2 < bd) { bd = d2; bi = i; } }
+    if (bi >= 0) { const L = NL.LP[bi]; PL.position.set(L[0], L[1], L[2]); PL.color.setHex(0xffb060); PL.distance = NL.LD; PL.intensity = NL.LK * NL.dark; PL.visible = true; NL.li = bi; } }
+  const k = NL.dark * NL.dark * (3 - 2 * NL.dark); { const c = NL.LANT.material.color; c.r = 0.23 + 0.77 * k; c.g = 0.2 + 0.52 * k; c.b = 0.16 + 0.2 * k; }   // dull glass by day, warm from dusk
+  // paper
+  for (let i = 0; i < NL.E.length; i++) { const e = NL.E[i], o = e[4]; if (!o.visible) continue; o.getWorldPosition(NL.W); const C = nlAt(NL.W);
+    const c = e[0].color, B = NL.B, j = i * 3; c.r = B[j] * (C[0] > 1 ? 1 : C[0]); c.g = B[j + 1] * (C[1] > 1 ? 1 : C[1]); c.b = B[j + 2] * (C[2] > 1 ? 1 : C[2]); }
+  nlSag(); nlKnob(dt); }
+// ---- the dimmer knob (VR): squeeze within 4.5 cm, twist; a short squeeze with no twist = off / last level
+function nlStep(g) { const v = NLM.nv, q0 = Math.floor(NLM.lv * 4 + 1e-6), q1 = Math.floor(v * 4 + 1e-6); NLM.lv = v; if (v > 0.02) NLM.last = v; if (q0 !== q1 && g) HX.pulse(g, 0.25, 10, 'ui'); }
+function nlKnob(dt) { const g = NLM.g; if (!g) return; NLM.th += dt; g.updateWorldMatrix(true, false); m4Decomp(g.matrixWorld, NL.P2, NL.Q, NL.SC); NL.N.set(0, 0, -1).applyQuaternion(NL.Q); NL.Q2.copy(NL.Q).multiply(NL.Q3.copy(NLM.q0).invert()); let tw = 2 * Math.atan2(NL.Q2.x * NL.N.x + NL.Q2.y * NL.N.y + NL.Q2.z * NL.N.z, NL.Q2.w); if (tw > Math.PI) tw -= 2 * Math.PI; if (tw < -Math.PI) tw += 2 * Math.PI; NLM.tw = Math.max(NLM.tw, Math.abs(tw));   // (twistAbout inline: its double return is a heap number)
+  let v = NLM.lv0 - tw / 1.6; v = v < 0 ? 0 : v > 1 ? 1 : v; if (Math.abs(v - NLM.lv) > 1e-4) { NLM.nv = v; nlStep(g); } NL.knob.rotation.x = -NLM.lv * 2.6; }
+ckHand = (orig => function (g, squeeze, id) {
+  const i = grips.indexOf(g);
+  if (NLM.g === g) { if (squeeze) return true; NLM.g = null;
+    if (NLM.tw < 0.12 && NLM.th < 0.45) { NLM.nv = NLM.lv0 > 0.02 ? 0 : NLM.last; nlStep(g); HX.pulse(g, 0.4, 14, 'ui'); sfx('click'); say(NLM.lv > 0 ? 'MAP LIGHT ' + Math.round(NLM.lv * 100) + ' %' + (ENG.master ? '' : ' (MASTER IS OFF)') : 'MAP LIGHT OFF'); }
+    else say('MAP LIGHT ' + (NLM.lv > 0 ? Math.round(NLM.lv * 100) + ' %' : 'OFF'));
+    if (i >= 0) NLM.pv[i] = false; saveSoon(); return orig(g, false, id); }
+  const edge = i >= 0 && squeeze && !NLM.pv[i]; if (i >= 0) NLM.pv[i] = squeeze;
+  if (edge && !CKH.get(g) && mode === 'plane') { g.getWorldPosition(NL.V); plane.localToWorld(NL.W.copy(NL.KN)); if (NL.V.distanceToSquared(NL.W) < 0.045 * 0.045) {
+      NLM.g = g; g.getWorldQuaternion(NLM.q0); NLM.lv0 = NLM.lv; NLM.th = 0; NLM.tw = 0; HX.pulse(g, 0.3, 12, 'ui'); return true; } }
+  return orig(g, squeeze, id); })(ckHand);
+addEventListener('keydown', e => { if (e.repeat || e.code !== 'KeyK' || !e.shiftKey || mode !== 'plane' || (typeof SETP !== 'undefined' && SETP.open)) return; e.stopImmediatePropagation();
+  const S = [0, 0.25, 0.5, 1]; let j = S.findIndex(v => v > NLM.lv + 1e-3); if (j < 0) j = 0; NLM.nv = S[j]; nlStep(null); sfx('click'); NL.knob.rotation.x = -NLM.lv * 2.6;
+  say(NLM.lv > 0 ? 'MAP LIGHT ' + Math.round(NLM.lv * 100) + ' %' + (ENG.master ? '' : ' (MASTER IS OFF)') : 'MAP LIGHT OFF'); saveSoon(); }, true);
+updateDay = (orig => function (dt) { const r = orig.call(this, dt); if (WARM.done && scene.children.length !== NL.nch) { NL.nch = scene.children.length; nlScan(); } nlTick(dt || 0); return r; })(updateDay);   // (re)scan once loaded and when the scene's top level changes
+// <<< V1.11.18 NIGHT LIGHT END
 warmStart('Preparing graphics'); bootLog('warm-up started: ' + WARM.tot + ' programs to finish, ' + (WARM.par ? 'polling parallel compile' : 'no parallel compile: one at a time'));
 if (window.__ultSkip) setTimeout(() => say('PC ULTRA WAS NOT RESTORED (THE LAST START DID NOT FINISH) - PICK IT AGAIN IN SETTINGS'), 4000);
 const BOOTF = { n: 0, real: 0, xr: 0, pre: 0, lite: 0, xs: 0, xa: [], xl: 0, last: 0 };   // v1.10.1 boot log: frame stages
