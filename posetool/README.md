@@ -4,21 +4,25 @@ Live: https://kifsta.github.io/bushpilot-vr/posetool.html
 Repo files: `posetool.html`, `posetool/items.glb` (the game's own meshes for every holdable), `posetool/defaults.json` (items, categories, grip shapes, the game's current poses), `posetool/qrcode.js` (qrcode-generator 1.4.4, MIT), `posetool/README.md` (this file).
 Box tooling (not in the repo): `/workspace/posetool/`: `refresh.sh`, `extract.py`, `export.js`, `build2.py`, `src2/`, `decode.mjs`, and the tests `d2.js` / `d3.js` (desktop) and `v2t.js` (`?xrsim`).
 
-## Items (54, exported from the game's committed index.html)
+## Items (76, exported from the game's committed index.html, v1.12.0)
 | Category | Items |
 |---|---|
-| HUNTING | `rifle` Rifle (stock hand), `rifleSup` Rifle (forend hand), `rlev` Rifle (lever loop), `bino` Binoculars, `round` Rifle Round (.44) |
-| PAPERS | `clip` Clipboard, `map` Map, `card` Checklist (card) |
+| HUNTING | `rifle` Rifle (stock hand), `rifleSup` Rifle (forend hand), `rlev` Rifle (lever loop), `bino` Binoculars, `round` Rifle Round (.44), `pk_knife` Sheath Knife (drawn), `pk_venison` Venison (2 Lb Cut), `pk_fillets` Fish Fillets (A Pair), `pk_scope` 4X Rifle Scope (loose) |
+| PAPERS | `clip` Clipboard, `map` Map, `card` Checklist (card), `pk_guide` Field Guide (closed), `pk_photo` Polaroid Print (print), `pk_guideOpen` Field Guide (open) |
 | COCKPIT | `stick` Stick, `thr` Throttle, `mix` Mixture (knob), `carb` Carb Heat (knob), `prime` Primer, `flap` Flap Lever, `trim` Trim (crank), `master` Master (switch), `mags` Mags Key, `valve` Fuel Valve, `plt` Panel Lights (knob), `ldg` Landing Light (switch), `pbrk` Park Brake (T-handle), `mic` Hand Mic |
 | DOORS | `lf` Left Window (front), `lr` Left Window (rear), `rup` Right Door (upper), `rlo` Right Door (lower), `rcg` Cargo Door (handle), `belt` Seat Belt (buckle), `net` Cargo Net (anchor) |
 | CARGO | `cg_parcel` Parcel (8-20 lb), `cg_sack` Sack (25-50 lb), `cg_crate` Crate (35-70 lb), `cg_fbox` Fragile Box (10-28 lb), `cg_cooler` Cooler (25-45 lb), `cg_medkit` Medicine Case (6-14 lb), `cg_dog` Dog Crate (40-65 lb), `cg_hens` Chicken Crate (18-32 lb), `cg_cement` Cement Bag (47-55 lb), `cg_feed` Feed Sack (45-55 lb), `cg_nails` Nail Keg (48-60 lb), `cg_fuel` Fuel Can (34-38 lb), `cg_outboard` Outboard Motor (two hands), `cg_generator` Generator (two hands), `cg_deer` Venison Carcass (two hands), `cg_bundle` Drop Bundle (15-35 lb), `cg_patient` Patient (140-200 lb) |
 | FUEL | `noz` Fuel Nozzle, `up_tank` Long-Range Tank (hangar part), `up_tyres` Tundra Tyres 39" (hangar part), `up_pod` Cargo Pod (hangar part), `up_light` Led Landing Light (hangar part), `up_radio` Com Radio (hangar part) |
-| FISHING | `rod` Fishing Rod (cork grip: the rod rides the controller, this hold places it in your fist), `reel` Reel Handle (crank knob, the other hand) |
+| FISHING | `rod` Fishing Rod (cork grip), `reel` Reel Handle (crank knob), `pk_tackle` Tackle Box (closed), `pk_tackleOpen` Tackle Box (open) |
+| CAMP | `pk_polaroid` Polaroid Camera, `pk_swag` Swag (Bedroll) (rolled), `pack` Pack (by the handle) |
+| SURVIVAL | `pk_torch` Flashlight, `pk_canteen` Canteen, `pk_firstaid` First Aid Kit, `pk_jerky` Jerky (food), `pk_beans` Tin Of Beans (food), `pk_bar` Chocolate Bar (food), `pk_cigs` Cigarettes + Lighter, `pk_flare` Signal Flare, `pk_rope` Rope, `pk_tarp` Tarp |
+
+- v1.12.0: every pack item has its own left / right hold (categories HUNTING, FISHING, PAPERS, CAMP, SURVIVAL), plus the open tackle box and field guide, the pack by its handle and the swag. Their default is the game's own carried placement; a saved code becomes a `POSE_LAB.pk_<kind>L/R` line the game takes. The flashlight, first aid kit and swag use the CC0 models (see models/CREDITS.md) at the old sizes.
 
 - Gripped controls (cockpit, doors, rifle, binoculars, clipboard, map, nozzle) use the game's `gripSolve` frame: the pose is relative to `gripFrame(k)`, and the default is the game's own solved hold.
 - Carried items (round, checklist card, mic, belt, net, cargo, hangar parts) hang off the controller in the plain controller hand. Their default is the game's hold offset, and their fingers are the game's free-hand state (`c`, `th`, `tw`), converted to joints.
 - The trim crank and the door handles are part of bigger meshes in the game, so the lab draws grey stand-ins from their grip shapes.
-- These are not in the game, so they are not in the lab: knife, canteen, tools, an ammo-box hold (rounds come from the belt pouch), a hose hold (you hold the nozzle), and a COM-radio knob hold (the radio is only a hangar part).
+- These are not in the lab: tools, an ammo-box hold (rounds come from the belt pouch), a hose hold (you hold the nozzle), and a COM-radio knob hold (the radio is only a hangar part).
 
 ## What Neil does
 1. Open the link in the Quest browser and press ENTER VR. There are three panels: **1 PICK** (left), **2 EDIT** (middle) and **3 SEND** (right). There is also a view from the other side above them. Labels float over both controllers and always show what each button does right now. The strip at the bottom of each panel explains the button you are pointing at.

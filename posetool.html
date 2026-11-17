@@ -646,7 +646,7 @@ function makeThumb(id) {
 }
 function thumbTick() { let n = 0; while (thumbQ.length && n++ < 3) { const id = thumbQ.shift(); if (!THUMB[id]) try { makeThumb(id); } catch (e) { THUMB[id] = null; } PICKP.dirty = true; } }
 // --------- PICK ---------
-const CAT_N = { HUNTING: 'HUNTING', PAPERS: 'PAPERS', COCKPIT: 'COCKPIT', DOORS: 'DOORS + STRAPS', CARGO: 'CARGO', FUEL: 'FUEL + HANGAR', FISHING: 'FISHING' };
+const CAT_N = { SURVIVAL: 'SURVIVAL', CAMP: 'CAMP', HUNTING: 'HUNTING', PAPERS: 'PAPERS', COCKPIT: 'COCKPIT', DOORS: 'DOORS + STRAPS', CARGO: 'CARGO', FUEL: 'FUEL + HANGAR', FISHING: 'FISHING' };
 const PER = 12;
 function drawPick() {
   const p = PICKP, W = 1024; p.begin(); p.head('PICK');
