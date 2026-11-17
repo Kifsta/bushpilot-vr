@@ -2,6 +2,11 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v1.11.7 – airdrop bundles show where they are going
+
+- **Bundle labels:** airdrop bundles now carry the drop site's name on their shipping label, for example DEEP WOODS. Search-and-rescue supply bundles carry the search area's name. Before, both showed the strip they were loaded at. Other cargo is unchanged and still shows its destination strip.
+- **Cost:** drawn once, when the job is accepted. Nothing changes per frame.
+
 ## v1.11.6 – crashes you can survive, visible damage, a flare and waking up (VR Dev 3)
 
 - **Two kinds of crash:** an impact of about 15 g or more (roughly 16 m/s, 32 kt, into the ground) is fatal. Anything softer is a minor crash: you are hurt (4–50 % health) but alive. Health is one shared value with the survival stats, and it is the only way you can die.
