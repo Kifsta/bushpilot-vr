@@ -636,7 +636,7 @@ const hyp = (a, b, c = 0) => Math.sqrt(a * a + b * b + c * c);   // v0.59 Math.h
 
 // ======================= RENDERING =======================
 // v0.35 settings (persist in localStorage 'bp_gfx'; ?gfx=shadows:2,grass:1 overrides for testing). Defaults = the v0.34 look and cost.
-const BP_VERSION = 'v1.11.12';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
+const BP_VERSION = 'v1.11.13';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
 { const e = document.getElementById('ver'); if (e) e.textContent = BP_VERSION; } window.__bpVer = BP_VERSION; bootLog('game module running ' + BP_VERSION + ' (three r' + THREE.REVISION + ')' + (/[?&]safe(=|&|$)/.test(location.search) ? ' - SAFE MODE: default graphics, no shadows / ULTRA / life / vistas / music' : ''));
 const GFX_DEF = { shadows: 0, scale: 1, fov: 1, dist: 1, trees: 1, grass: 0, clouds: 1, fog: 1, msaa: 1, hz: 90, vig: 0, turn: 0, fps: 0, tod: 11, stk: 1, tips: 1, terr: 1, dyn: 1, glove: 0, hand: 0, wt: 1, volM: 1, volMu: 0.5, volE: 1, volA: 1, volF: 1, wx: 1, forest: 0, ground: 0, gtex: 0, cvl: 1, water: 1, dayl: 48, flure: 0, fline: 8, fdrag: 4, fbob: 0, fsink: 0, ultra: 0, sfxr: 1 };   // v0.68.1 dominant hand, volumes. v0.48 BALANCED: 90 % scale, 72 Hz, fast terrain shading, auto resolution; v0.49.1 the stick stays where you let go of it
 const GFX = Object.assign({}, GFX_DEF);
@@ -6617,6 +6617,16 @@ const PK_K = {   // kind: [name, lb, litres, [w h d] in the pack (m), parts (par
   rope: ['ROPE', 2.2, 1.5, [0.17, 0.06, 0.17], [['r', 0.06, 0.022, 10, 0, -0.01, 0, 0xb09060], ['r', 0.058, 0.02, 10, 0, 0.015, 0, 0xa08050]]],
   jerky: ['JERKY', 0.25, 0.3, [0.105, 0.145, 0.03], [['b', 0.1, 0.14, 0.02, 0, 0, 0, 0x8a3a2a], ['b', 0.102, 0.03, 0.022, 0, 0.06, 0, 0xd8c8a0]]],
   tarp: ['TARP', 2.0, 2.5, [0.25, 0.105, 0.105], [['c', 0.05, 0.22, 8, 0, 0, 0, 0x3a5a7a, 0, 0, Math.PI / 2], ['c', 0.052, 0.02, 8, 0.07, 0, 0, 0x2a2a2a, 0, 0, Math.PI / 2], ['c', 0.052, 0.02, 8, -0.07, 0, 0, 0x2a2a2a, 0, 0, Math.PI / 2]]] };
+// >>> V2 CABIN ITEMS BEGIN (items.js via /workspace/v2-items2/cabin/apply.py)
+// ======================= V2 CABIN ITEMS: the Polaroid camera + its prints, as pack kinds (same format as PK_K; here so a saved pack keeps them) =======================
+// polaroid: an instant camera (lens toward -z, the grip's forward); photo: one print (white face +z, black back) - which picture it is lives in the V2 CABIN block.
+PK_K.polaroid = ['POLAROID CAMERA', 1.4, 1.3, [0.14, 0.105, 0.115], [['b', 0.14, 0.095, 0.1, 0, 0, 0.005, 0xe9e5da], ['b', 0.142, 0.012, 0.102, 0, -0.045, 0.005, 0x3a3a3c],
+  ['b', 0.136, 0.062, 0.006, 0, 0.012, -0.048, 0x1e1e20], ['c', 0.025, 0.016, 12, -0.028, 0.012, -0.058, 0x2a2a2c, Math.PI / 2], ['c', 0.017, 0.002, 12, -0.028, 0.012, -0.0665, 0x3a4a66, Math.PI / 2],
+  ['b', 0.0055, 0.06, 0.002, 0.024, 0.012, -0.0515, 0xd8352a], ['b', 0.0055, 0.06, 0.002, 0.0295, 0.012, -0.0515, 0xf08a24], ['b', 0.0055, 0.06, 0.002, 0.035, 0.012, -0.0515, 0xf2c81e],
+  ['b', 0.0055, 0.06, 0.002, 0.0405, 0.012, -0.0515, 0x4aa84a], ['b', 0.0055, 0.06, 0.002, 0.046, 0.012, -0.0515, 0x2a7ac8], ['b', 0.05, 0.016, 0.004, -0.028, 0.0505, -0.035, 0xd8dce0],
+  ['b', 0.016, 0.014, 0.006, 0.058, 0.034, -0.0525, 0x101012], ['c', 0.007, 0.006, 10, 0.055, 0.0505, -0.025, 0xd02020], ['b', 0.1, 0.006, 0.004, 0, -0.034, -0.0505, 0x0a0a0a]]];
+PK_K.photo = ['POLAROID PRINT', 0.02, 0.02, [0.088, 0.107, 0.004], [['b', 0.088, 0.107, 0.0015, 0, 0, 0.00075, 0xf2f0ea], ['b', 0.088, 0.107, 0.0015, 0, 0, -0.00075, 0x26262a]]];
+// <<< V2 CABIN ITEMS END
 // >>> V2 SURVIVAL ITEMS BEGIN (items.js via /workspace/v2-survival/apply.py)
 // ======================= V2 SURVIVAL ITEMS: three new pack / pocket kinds for the survival module (eaten / smoked at the mouth) =======================
 // (+ a signal flare: trigger fires it via the crash module, CRX.flareUse(), only during a minor crash; inert without crash.js)
@@ -6699,7 +6709,7 @@ function pkDrop(k, p, v, ry) { const F = PK.fall.find(f => !f.on);
   if (!F) { PK.gnd.push([k, p.x, groundY(p.x, p.z) + PK_K[k][3][1] / 2, p.z, ry]); pkGround(); saveSoon(); return; }
   const j = PK.fall.indexOf(F), m = PK.fm[j]; F.on = true; F.k = k; F.p.copy(p); F.v.copy(v); F.ry = ry; pkDone(m.geometry, pkWrite(m.geometry, 0, k, 0, 0, 0, 0)); m.position.copy(p); m.rotation.set(0, ry, 0); m.visible = true; }
 function pkLetItem(i) { const g = grips[i], k = PK.hk[i], m = PK.hm[i]; m.getWorldPosition(_pkV); PK.hk[i] = null; m.visible = false; scene.add(m);
-  if (slPut(i, _pkV, k)) return;   // v1.11.1 near an empty slot that takes it: snapped in
+  if (cabLet(i, _pkV, k)) return; if (slPut(i, _pkV, k)) return;   // v1.11.1 near an empty slot that takes it: snapped in
   if (pkOpenFor(g) && pkInOpening(_pkV, 0.03) && pkPut(k)) { HX.pulse(g, 0.2, 14, 'release'); return; }
   pkDrop(k, _pkV, PK.hv[i], headYaw()); pkWeigh(); HX.pulse(g, 0.15, 12, 'release'); }
 function pkLetPack(g) { const i = grips.indexOf(g); g.getWorldPosition(_pkV);
@@ -10278,7 +10288,7 @@ function cubParked() { return !ac.crashed && acGS() < 1 && ac.gs.some(g => g.Fn 
 function saveGame(why) {
   if (NOSAVE || SV.off) return false;
   if (cubParked()) SV.cub = { p: ac.pos.map(r3), q: ac.q.map(v => Math.round(v * 1e6) / 1e6) };
-  const d = { v: 55, surv: survSave(), at: Date.now(), cub: SV.cub, fuel: r3(fuel), h: r3(DAY.h), mode, foot: mode === 'foot' ? [r3(footRig.position.x), r3(footRig.position.z), r3(bodyYaw)] : null, dlv: dlvSave(), hunt: huntSave(), eco: ecoSave(), upg: upgSave(), emg: emgSave(), fish: fishSave(), pack: packSave(), story: storySave(), disc: discSave(), fog: fogSave(), wx: wxSave(), meta: { cash: DLV.cash, loc: svPlace() } };   // v0.68.1 meta: the menu's slot label. v0.55 + the Cub's log (tach, oil, wear, damage)   // v0.53 + rifle / ammo   // v0.50: + wallet, jobs, cargo, straps
+  const d = { v: 55, surv: survSave(), cab: cabSave(), at: Date.now(), cub: SV.cub, fuel: r3(fuel), h: r3(DAY.h), mode, foot: mode === 'foot' ? [r3(footRig.position.x), r3(footRig.position.z), r3(bodyYaw)] : null, dlv: dlvSave(), hunt: huntSave(), eco: ecoSave(), upg: upgSave(), emg: emgSave(), fish: fishSave(), pack: packSave(), story: storySave(), disc: discSave(), fog: fogSave(), wx: wxSave(), meta: { cash: DLV.cash, loc: svPlace() } };   // v0.68.1 meta: the menu's slot label. v0.55 + the Cub's log (tach, oil, wear, damage)   // v0.53 + rifle / ammo   // v0.50: + wallet, jobs, cargo, straps
   try { localStorage.setItem(SAVE_KEY, JSON.stringify(d)); } catch (e) { return false; }
   SV.last = Date.now(); SV.n++; SV.why = why || ''; SV.t = 30; SV.due = -1; return true;
 }
@@ -10300,7 +10310,7 @@ function gameLoad() {
   if (d.mode === 'foot' && Array.isArray(d.foot) && d.foot.slice(0, 3).every(isFinite)) { exitPlane(); const [x, z, yaw] = d.foot; footRig.position.set(x, groundY(x, z) + EYE, z); footRig.rotation.set(0, yaw, 0); bodyYaw = yaw; }   // v0.59.1 checked (a damaged foot entry stopped the page loading)
   upgLoad(d.upg || null);   // v0.57 before the cargo (the pod)
   emgLoad(d.emg || null);   // v0.58 before the cargo (a patient aboard finds their job)
-  wxLoad(d.wx || null); dlvLoad(d.v >= 50 ? d.dlv : null); huntLoad(d.v >= 53 ? d.hunt : null); fishLoad(d.fish || null); packLoad(d.pack || null); survLoad(d.surv || null); storyLoad(d.story || null); discLoad(d.disc || null); fogLoad(d.fog || null); dropLoadFix(); ecoLoad(d.v >= 55 ? d.eco : null); emgFix();   // v0.54 a save taken mid-drop: the last bundle down settles the job
+  wxLoad(d.wx || null); dlvLoad(d.v >= 50 ? d.dlv : null); huntLoad(d.v >= 53 ? d.hunt : null); fishLoad(d.fish || null); packLoad(d.pack || null); survLoad(d.surv || null); cabLoad(d.cab || null); storyLoad(d.story || null); discLoad(d.disc || null); fogLoad(d.fog || null); dropLoadFix(); ecoLoad(d.v >= 55 ? d.eco : null); emgFix();   // v0.54 a save taken mid-drop: the last bundle down settles the job
   msgT = 0; SV.last = d.at || 0; return true;
 }
 MYS_SITES.clear();   // the whole world is built now: clear trees and rocks off the strips and sites
@@ -12367,6 +12377,409 @@ const BODY = (() => {
 })();
 function bodyTick(dt) { BODY.tick(dt); }
 // <<< V2 BODY END
+// >>> V2 CABIN BEGIN (cabin.js via /workspace/v2-items2/cabin/apply.py)
+// ======================= V2 CABIN: a cozy home-cabin interior + a Polaroid instant camera (prints, a corkboard, saved photos) =======================
+// The home cabin (32, -15) was a solid 6 x 3 x 5 box you could walk through. It is now a log shell (same footprint, same roof, same colour from afar) with a door
+// in the east wall (the road ends there), a window in the west wall (the strip, the Cub and the big mountain), solid walls on foot (SOLID_SEGS, door open) and
+// an interior: plank floor + ceiling with beams, a box stove on a hearth (fire window flickers; the game's PL light warms the room while you are inside - no new
+// light, no shadow caster), a wood pile, the bunk (V2 SURVIVAL's cot is moved in here and stays the sleep spot; without survival a plain bunk), a table under
+// the window with a kerosene lamp, a bench, rugs, a bookcase full of stores, a corkboard, a wall map, a sectional chart, a calendar, an antler + a fish trophy,
+// a coat peg with jacket and hat, a footlocker.
+// Polaroid: on a stump by the supply crate ($35, grip it with a free hand; desktop P there). Hold it (the item's one fixed pose in the fist, lens forward,
+// grip -z), trigger = shutter: the scene is rendered ONCE from the lens into a 512 render target (no per-frame cost), read back and stored as a 256 x 256
+// JPEG dataURL. The print slides out of the front slot and develops from grey over ~7 s (in the camera, in your hand, in the pack, on the board - all the
+// same atlas cell). Grab it with your other hand; let it go in the pack / a chest pocket (it is a pack item, 'photo'), or on the corkboard in the cabin:
+// it snaps to the nearest free pin (24 snap points, 6 x 4). Grab a pinned print to take it down. Desktop P: a photo from your eyes (the print goes in the
+// pack); at the board P pins your newest print.
+// Save: d.cab = { v: 1, n: next id, p: [[id, 1 carried | 2 pinned, pin]] }; the pictures in localStorage 'bp_photos_v1' = { v: 1, p: { id: jpeg dataURL } }
+// (not written with ?nosave). Cap 24 photos: a new one drops the oldest unpinned print first (then the oldest pinned). Old saves load (no photos).
+// Draws (inside): interior 1 + stove / lamp glow 1 + board, decals and pins 1 (+1 while a print is in a hand or the camera's slot). The shell is static
+// (the game's batching merges it, as the old box was). Interior / glow / board are culled beyond 45 m. Programs: compiled at load for all PL / SL combos;
+// the photo render target is flagged like an XR target with an RGBA8 store, so it uses the very same programs as the screen (no compile on the shutter).
+// Zero garbage per frame: typed arrays, preallocated vectors, buffers rewritten in place; strings / dataURLs only on events.
+var cabPend, cabReady;   // gameLoad() runs before this block: what it hands cabLoad() waits here (no initialiser: a var assigned now would wipe it)
+function cabSave() { return cabReady ? HCAB.save() : cabPend || undefined; }
+function cabLoad(d) { if (!cabReady) { cabPend = d || null; return; } HCAB.load(d || null); }
+function cabLet(i, p, k) { return cabReady ? HCAB.let(i, p, k) : false; }   // pkLetItem: a print let go at the corkboard is pinned (true = handled)
+const HCAB = (() => {
+  const OX = 32, OZ = -15, PI = Math.PI, NEAR = 45, PRICE = 35, DEV = 7, CAP = 24;
+  const WIN = { z0: -1.75, z1: -0.85, y0: 1.0, y1: 1.75 }, DOOR = { z0: 0.9, z1: 1.9, y1: 2.0 };   // west window, east door (local, on course lines)
+  const COTW = { x: 34.42, z: -16.3 }, STAND = { x: 28.42, z: -12.15, y: 0.661 }, STOVE = { x: -0.4, z: -1.95 }, LAMP = { x: -2.6, z: -1.68 };
+  const BOARD = { x: 0.55, y: 1.5, z: 2.317, nx: 6, ny: 4, px: 0.175, py: 0.19, w: 0.088, h: 0.107 };
+  const AW = 1200, AH = 1280, CW = 200, CH = 240;   // atlas: 24 print cells (6 x 4) + a strip of wall decals
+  const mk = P => { const gs = P.map(partGeo), g = mergeGeometries(gs); for (const x of gs) x.dispose(); return g; };
+  // the hand / falling-item batches hold 400 vertices; the camera is ~800: room for 1200 (the same arrays copied over; nothing else changes)
+  for (const m of [...PK.hm, ...PK.fm]) { const g = m.geometry; if (g.attributes.position.count >= 1200) continue; const n = new THREE.BufferGeometry();
+    for (const k of ['position', 'normal', 'color']) { const A = new Float32Array(1200 * 3); A.set(g.attributes[k].array); n.setAttribute(k, new THREE.BufferAttribute(A, 3)); } n.setDrawRange(g.drawRange.start, g.drawRange.count); m.geometry = n; g.dispose(); }
+  const v1 = GV3(0, 0, 0), v2 = GV3(0, 0, 0), v3 = GV3(0, 0, 0), vPL = GV3(0, 0, 0), q1 = new THREE.Quaternion();
+  // ---------------- the shell: log courses round a door and a window, corner posts, trim, shutters, the open door leaf, a step, the stovepipe, the camera stand ----------------
+  let box0 = null; scene.traverse(o => { const p = o.geometry && o.geometry.parameters; if (o.isMesh && p && p.width === 6 && p.height === 3 && p.depth === 5 && Math.abs(o.position.x - OX) < 0.01 && Math.abs(o.position.z - OZ) < 0.01) box0 = o; });
+  function shellParts() {
+    const P = [], LOG = [0x6b4a2f, 0x75533a, 0x62432a], CP = 0x553a24, TR = 0x4a3220, SH = 0x3d5a3a;
+    for (let c = 0; c < 12; c++) { const y0 = c * 0.25, t = c % 2 ? 0.16 : 0.14, col = LOG[c % 3];
+      for (const s of [-1, 1]) P.push(['b', 5.8, 0.25, t, 0, y0 + 0.125, s * 2.43, col]);   // north / south walls
+      for (const s of [-1, 1]) { const o = s < 0 ? WIN : { z0: DOOR.z0, z1: DOOR.z1, y0: 0, y1: DOOR.y1 }, cut = y0 >= o.y0 - 1e-6 && y0 + 0.25 <= o.y1 + 1e-6;
+        const seg = (a, b) => P.push(['b', t, 0.25, b - a, s * 2.93, y0 + 0.125, (a + b) / 2, col]);
+        if (cut) { seg(-2.36, o.z0); seg(o.z1, 2.36); } else seg(-2.36, 2.36); } }
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) P.push(['b', 0.24, 3.0, 0.24, sx * 2.9, 1.5, sz * 2.4, CP]);
+    // window: trim, sill, mullions, shutters
+    const wz = (WIN.z0 + WIN.z1) / 2, wy = (WIN.y0 + WIN.y1) / 2, ww = WIN.z1 - WIN.z0, wh = WIN.y1 - WIN.y0;
+    P.push(['b', 0.04, wh + 0.07, 0.07, -3.02, wy, WIN.z0 - 0.035, TR], ['b', 0.04, wh + 0.07, 0.07, -3.02, wy, WIN.z1 + 0.035, TR], ['b', 0.04, 0.07, ww + 0.14, -3.02, WIN.y1 + 0.035, wz, TR],
+      ['b', 0.12, 0.04, ww + 0.2, -3.04, WIN.y0 - 0.02, wz, TR], ['b', 0.04, wh, 0.035, -2.93, wy, wz, TR], ['b', 0.036, 0.035, ww, -2.93, wy, wz, TR], ['b', 0.16, 0.035, ww + 0.1, -2.8, WIN.y0 - 0.0175, wz, 0x7a5a3a],
+      ['b', 0.03, wh + 0.05, 0.42, -3.06, wy, WIN.z0 - 0.3, SH], ['b', 0.03, wh + 0.05, 0.42, -3.06, wy, WIN.z1 + 0.3, SH]);
+    // door: trim, threshold, the leaf open outward flat against the wall (planks + Z brace + handle), a step
+    const dz = (DOOR.z0 + DOOR.z1) / 2;
+    P.push(['b', 0.04, DOOR.y1 + 0.07, 0.07, 3.02, (DOOR.y1 + 0.07) / 2, DOOR.z0 - 0.035, TR], ['b', 0.04, DOOR.y1 + 0.07, 0.07, 3.02, (DOOR.y1 + 0.07) / 2, DOOR.z1 + 0.035, TR],
+      ['b', 0.04, 0.07, 1.14, 3.02, DOOR.y1 + 0.035, dz, TR], ['b', 0.2, 0.03, 1.0, 2.93, 0.015, dz, 0x4a3828], ['b', 0.5, 0.06, 1.2, 3.3, 0.03, dz, 0x5e4630]);
+    for (let k = 0; k < 4; k++) P.push(['b', 0.045, 1.96, 0.226, 3.068, 0.99, DOOR.z0 - 0.04 - 0.113 - k * 0.228, k % 2 ? 0x6e4e32 : 0x664830]);
+    const lz = DOOR.z0 - 0.04 - 0.456;
+    P.push(['b', 0.03, 0.12, 0.88, 3.105, 0.42, lz, 0x553a24], ['b', 0.03, 0.12, 0.88, 3.105, 1.6, lz, 0x553a24], ['b', 0.03, 0.1, 1.38, 3.105, 1.01, lz, 0x553a24, Math.atan2(1.18, 0.86), 0, 0],
+      ['c', 0.012, 0.12, 6, 3.13, 1.0, lz - 0.38, 0x2a2a2a]);
+    // stovepipe above the roof + its cap
+    P.push(['c', 0.065, 1.6, 8, STOVE.x, 4.1, STOVE.z - 0.1, 0x2a2a2a], ['k', 0.12, 0.08, 8, STOVE.x, 4.95, STOVE.z - 0.1, 0x222222]);
+    // the camera stand by the supply crate (a stump, a price board)
+    const sx = STAND.x - OX, sz = STAND.z - OZ;
+    P.push(['c', 0.17, 0.6, 9, sx, 0.3, sz, 0x6a4c30], ['c', 0.165, 0.01, 9, sx, 0.605, sz, 0xb89a6a], ['b', 0.012, 0.11, 0.16, sx - 0.02, 0.665, sz + 0.12, 0x8a6a40]);
+    return P; }
+  const SHELL_G = (() => { const sg = mk(shellParts()), cg = mk(PK_K.polaroid[4]); cg.rotateY(PI / 2); cg.translate(STAND.x - OX, STAND.y, STAND.z - OZ); const g2 = mergeGeometries([sg, cg]); cg.dispose(); sg.dispose(); return g2; })();   // + the display camera on the stump
+  const shell = new THREE.Mesh(SHELL_G, ITEM_VM); shell.position.set(OX, 0, OZ); shell.name = 'CAB_SHELL';
+  shell.castShadow = box0 ? box0.castShadow : true; shell.receiveShadow = box0 ? box0.receiveShadow : true; scene.add(shell);
+  if (box0 && box0.parent) box0.parent.remove(box0);   // the old solid box (its bullet box CABIN_BB stays: a shot from inside stops at the wall)
+  // walls are solid on foot (centre lines; the door is open)
+  { const W = (x0, z0, x1, z1) => SOLID_SEGS.push([OX + x0, OZ + z0, OX + x1, OZ + z1]);
+    W(-2.93, -2.43, -2.93, 2.43); W(-2.93, -2.43, 2.93, -2.43); W(-2.93, 2.43, 2.93, 2.43); W(2.93, -2.43, 2.93, DOOR.z0); W(2.93, DOOR.z1, 2.93, 2.43); }
+  // ---------------- the interior (one merged mesh, culled when far) ----------------
+  function interiorParts(bunk) {
+    const P = [], hsh = n => { const s = Math.sin(n * 127.1 + 311.7) * 43758.5453; return s - Math.floor(s); };
+    for (let k = 0; k < 20; k++) P.push(['b', 5.72, 0.04, 0.234, 0, 0.02, -2.36 + 0.118 + k * 0.236, [0x7a5636, 0x704e30, 0x80603e, 0x6a4a2e][k % 4]]);   // floor planks (2 mm seams)
+    for (let k = 0; k < 10; k++) P.push(['b', 5.72, 0.03, 0.468, 0, 2.86, -2.36 + 0.236 + k * 0.472, k % 2 ? 0x9a7650 : 0x8e6c48]);   // ceiling
+    for (const x of [-2.0, -0.7, 0.6, 1.9]) P.push(['b', 0.14, 0.18, 4.72, x, 2.755, 0, 0x4e3624]);
+    // stove on a hearth, a brick heat shield, pipe, kettle + coffee pot
+    const sx = STOVE.x, sz = STOVE.z;
+    P.push(['b', 0.95, 0.04, 0.85, sx, 0.06, sz + 0.05, 0x8a8078], ['b', 1.0, 1.3, 0.03, sx, 0.75, -2.32, 0x9a5a40]);
+    for (let k = 1; k < 8; k++) P.push(['b', 1.0, 0.012, 0.004, sx, 0.1 + k * 0.16, -2.3035, 0xb8a898]);
+    for (const ax of [-1, 1]) for (const az of [-1, 1]) P.push(['b', 0.04, 0.22, 0.04, sx + ax * 0.22, 0.19, sz + az * 0.18, 0x1a1a1a]);
+    P.push(['b', 0.56, 0.42, 0.48, sx, 0.51, sz, 0x232323], ['b', 0.6, 0.03, 0.52, sx, 0.735, sz, 0x161616], ['b', 0.3, 0.22, 0.02, sx, 0.5, sz + 0.25, 0x2e2e2e], ['b', 0.06, 0.015, 0.02, sx + 0.12, 0.5, sz + 0.27, 0x888888],
+      ['c', 0.065, 2.12, 8, sx, 1.81, sz - 0.1, 0x262626], ['c', 0.075, 0.02, 8, sx, 1.3, sz - 0.1, 0x3a3a3a],
+      ['c', 0.08, 0.12, 10, sx + 0.12, 0.81, sz + 0.03, 0x5a6a6a], ['c', 0.012, 0.08, 6, sx + 0.21, 0.83, sz + 0.03, 0x5a6a6a, 0, 0, -0.9], ['r', 0.05, 0.007, 8, sx + 0.12, 0.9, sz + 0.03, 0x222222, PI / 2],
+      ['c', 0.05, 0.14, 8, sx - 0.13, 0.82, sz - 0.05, 0x8a3a2a]);
+    // wood pile against the north wall (end grain toward the room), an axe
+    { const LC = [0x5a4030, 0x6a4a34, 0x4e3828], R = 0.065; let n = 0;
+      for (let row = 0; row < 4; row++) { const cnt = 6 - row, y = 0.105 + row * 0.113, x0 = -1.92 + row * 0.0675;
+        for (let k = 0; k < cnt; k++) { const x = x0 + k * 0.135; P.push(['c', R, 0.42, 7, x, y, -2.1, LC[n % 3], PI / 2], ['c', R - 0.008, 0.004, 7, x, y, -1.887, 0xc8a878, PI / 2]); n++; } } }
+    P.push(['c', 0.015, 0.7, 6, -0.92, 0.37, -2.2, 0x8a6a40, -0.22], ['b', 0.13, 0.05, 0.022, -0.92, 0.71, -2.27, 0x55585a, -0.22]);
+    // the bunk (only without V2 SURVIVAL: its cot is moved in to this spot)
+    if (bunk) { const bx = COTW.x - OX, bz = COTW.z - OZ;
+      for (const ax of [-1, 1]) for (const az of [-1, 1]) P.push(['b', 0.05, 0.42, 0.05, bx + ax * 0.34, 0.25, bz + az * 0.92, 0x5a3e28]);
+      P.push(['b', 0.74, 0.06, 1.9, bx, 0.43, bz, 0x5a3e28], ['b', 0.7, 0.1, 1.84, bx, 0.51, bz, 0x8a7a5a], ['b', 0.72, 0.04, 1.2, bx, 0.58, bz + 0.3, 0x8a2a2a], ['b', 0.5, 0.08, 0.3, bx, 0.6, bz - 0.72, 0xd8d0b8]); }
+    // shelf over the bunk (books, a radio), a footlocker at its foot
+    { const ex = 2.74, ez = -1.3; P.push(['b', 0.22, 0.03, 1.0, ex, 1.5, ez, 0x7a5a3a], ['b', 0.2, 0.12, 0.03, ex, 1.43, ez - 0.4, 0x6a4a2e], ['b', 0.2, 0.12, 0.03, ex, 1.43, ez + 0.4, 0x6a4a2e]);
+      let z = ez - 0.45; for (let k = 0; k < 9; k++) { const w = 0.03 + 0.02 * hsh(k), h = 0.16 + 0.07 * hsh(k + 9); P.push(['b', 0.15, h, w, ex + 0.01, 1.515 + h / 2, z + w / 2, [0x7a2a22, 0x2a4a6a, 0x3a5a2a, 0xa8884a, 0x5a3a5a, 0x8a6a2a][k % 6]]); z += w + 0.004; }
+      P.push(['b', 0.15, 0.17, 0.3, ex, 1.6, ez + 0.3, 0x5a3a22], ['b', 0.004, 0.08, 0.2, ex - 0.077, 1.62, ez + 0.3, 0xd8c890], ['c', 0.015, 0.02, 8, ex - 0.08, 1.56, ez + 0.4, 0x222222, 0, 0, PI / 2]);
+      P.push(['b', 0.7, 0.38, 0.4, 2.42, 0.23, 0.0, 0x3d4a32], ['b', 0.72, 0.03, 0.42, 2.42, 0.435, 0.0, 0x2e3826], ['b', 0.08, 0.06, 0.01, 2.42, 0.36, -0.205, 0x9a9a8a]); }
+    // table under the window, bench, lamp, mug, an open logbook, a pencil
+    { const tx = -2.42, tz = -1.3; P.push(['b', 0.75, 0.04, 1.15, tx, 0.76, tz, 0x8a6440]);
+      for (const ax of [-1, 1]) for (const az of [-1, 1]) P.push(['b', 0.05, 0.74, 0.05, tx + ax * 0.3, 0.41, tz + az * 0.5, 0x6a4a2e]);
+      P.push(['b', 0.32, 0.04, 0.95, -1.75, 0.46, tz, 0x7a5636], ['b', 0.28, 0.4, 0.04, -1.75, 0.24, tz - 0.4, 0x6a4a2e], ['b', 0.28, 0.4, 0.04, -1.75, 0.24, tz + 0.4, 0x6a4a2e]);
+      P.push(['c', 0.055, 0.05, 10, LAMP.x, 0.805, LAMP.z, 0x8a2a1a], ['c', 0.04, 0.02, 10, LAMP.x, 0.95, LAMP.z, 0x2a2a2a], ['r', 0.04, 0.004, 8, LAMP.x, 0.99, LAMP.z, 0x333333, 0, 0, PI / 2],
+        ['c', 0.04, 0.09, 8, -2.33, 0.825, -0.92, 0x2a5a8a], ['r', 0.025, 0.006, 6, -2.29, 0.83, -0.92, 0x2a5a8a, 0, 0, PI / 2],
+        ['b', 0.15, 0.012, 0.21, -2.32, 0.786, -1.42, 0xeeeadd, 0, 0, 0.05], ['b', 0.15, 0.012, 0.21, -2.32, 0.786, -1.635, 0xe6e2d4, 0, 0, -0.05], ['b', 0.16, 0.006, 0.43, -2.32, 0.783, -1.53, 0x3a2a1a],
+        ['c', 0.004, 0.14, 5, -2.25, 0.796, -1.5, 0xd8a830, 0, 0.4, PI / 2]); }
+    // rugs (a little proud of the floor: no z-fight)
+    P.push(['b', 2.0, 0.008, 1.4, 0.3, 0.044, 0.1, 0x7a2a22], ['b', 2.0, 0.004, 0.1, 0.3, 0.05, -0.55, 0xc8a050], ['b', 2.0, 0.004, 0.1, 0.3, 0.05, 0.75, 0xc8a050],
+      ['b', 0.1, 0.004, 1.2, -0.65, 0.05, 0.1, 0xc8a050], ['b', 0.1, 0.004, 1.2, 1.25, 0.05, 0.1, 0xc8a050]);
+    for (const z of [-0.25, 0.1, 0.45]) P.push(['b', 1.5, 0.004, 0.06, 0.3, 0.0505, z, 0x2a3a5a]);
+    P.push(['b', 0.6, 0.008, 1.1, 1.75, 0.044, -1.3, 0x4a5a3a], ['b', 0.5, 0.004, 1.0, 1.75, 0.05, -1.3, 0x6a7a4a]);
+    // bookcase on the south wall: boards + stores (cans, jars, books, a tackle box, a fuel can, a coil of rope)
+    { const bx = -1.7, bz = 2.2; for (const s of [-1, 1]) P.push(['b', 0.03, 2.0, 0.28, bx + s * 0.6, 1.04, bz, 0x6a4a2e]); P.push(['b', 1.23, 2.0, 0.015, bx, 1.04, 2.338, 0x5a3e26]);
+      const BY = [0.12, 0.6, 1.05, 1.5, 1.95]; for (const y of BY) P.push(['b', 1.17, 0.03, 0.26, bx, y, bz, 0x7a5a3a]);
+      let n = 0; for (let r = 0; r < 4; r++) { const y = BY[r] + 0.015; let x = bx - 0.55;
+        while (x < bx + 0.5) { const t = hsh(n * 3.1 + r), u = hsh(n * 7.7 + 1);
+          if (t < 0.35) { const h = 0.1 + 0.03 * u; P.push(['c', 0.038, h, 8, x + 0.04, y + h / 2, bz - 0.02, [0xb8452c, 0x3a6a3a, 0xd8b048, 0x2a5a8a, 0xb4b8bc][n % 5]], ['c', 0.0385, h * 0.55, 8, x + 0.04, y + h * 0.45, bz - 0.02, [0xe8dcc0, 0xc82018, 0x2a2a2a][n % 3]]); x += 0.09; }
+          else if (t < 0.55) { const h = 0.13; P.push(['c', 0.045, h, 8, x + 0.05, y + h / 2, bz - 0.02, 0xc8902a], ['c', 0.047, 0.02, 8, x + 0.05, y + h + 0.01, bz - 0.02, 0x8a8a8a]); x += 0.105; }
+          else if (t < 0.85) { for (let k = 0; k < 4; k++) { const w = 0.028 + 0.02 * hsh(n + k), h = 0.17 + 0.08 * hsh(n * 2 + k); P.push(['b', w, h, 0.17, x + w / 2, y + h / 2, bz, [0x7a2a22, 0x2a4a6a, 0x3a5a2a, 0xa8884a, 0x5a3a5a, 0x8a6a2a, 0x2a2a2a][(n + k) % 7]]); x += w + 0.003; } x += 0.02; }
+          else { P.push(r % 2 ? ['b', 0.2, 0.12, 0.15, x + 0.1, y + 0.06, bz, 0x3a6a4a] : ['r', 0.08, 0.025, 10, x + 0.1, y + 0.025, bz - 0.01, 0xb09060]); x += 0.22; }
+          n++; } }
+      P.push(['b', 0.16, 0.24, 0.1, bx + 0.4, 0.27, bz - 0.04, 0xb82a1a], ['c', 0.015, 0.04, 6, bx + 0.44, 0.41, bz - 0.04, 0x9a9a9a]); }
+    // corkboard frame + cork (the prints / pins are the board batch)
+    { const bx = BOARD.x, by = BOARD.y; P.push(['b', 1.1, 0.8, 0.02, bx, by, 2.33, 0xb08a5a], ['b', 1.18, 0.04, 0.04, bx, by + 0.42, 2.325, 0x5a3e26], ['b', 1.18, 0.04, 0.04, bx, by - 0.42, 2.325, 0x5a3e26],
+      ['b', 0.04, 0.8, 0.04, bx - 0.57, by, 2.325, 0x5a3e26], ['b', 0.04, 0.8, 0.04, bx + 0.57, by, 2.325, 0x5a3e26]); }
+    // trophies: an antler mount (north wall), a fish (west wall, over the map); coat pegs + jacket + hat by the door
+    P.push(['b', 0.24, 0.3, 0.03, 1.0, 2.3, -2.325, 0x5a3a22], ['b', 0.1, 0.12, 0.08, 1.0, 2.31, -2.27, 0xd8ccb0]);
+    for (const s of [-1, 1]) { P.push(['c', 0.012, 0.36, 5, 1.0 + s * 0.12, 2.47, -2.24, 0xcbb894, 0.35, 0, -s * 0.6]);
+      for (let k = 0; k < 3; k++) P.push(['c', 0.008, 0.12, 5, 1.0 + s * (0.1 + k * 0.05), 2.45 + k * 0.06, -2.2, 0xd8c8a0, -0.5, 0, -s * 0.15]); }
+    P.push(['b', 0.03, 0.22, 0.62, -2.835, 2.2, 0.75, 0x5a3a22], ['d', 0.12, 0.45, 2.0, -2.77, 2.2, 0.72, 0x7a8a6a], ['k', 0.07, 0.12, 4, -2.77, 2.2, 1.0, 0x6a7a5a, PI / 2], ['b', 0.01, 0.03, 0.3, -2.715, 2.18, 0.72, 0xc8706a]);
+    P.push(['b', 0.03, 0.08, 0.5, 2.835, 1.72, 0.45, 0x5a3e26], ['c', 0.01, 0.07, 6, 2.8, 1.72, 0.3, 0x3a2a1a, 0, 0, PI / 2], ['c', 0.01, 0.07, 6, 2.8, 1.72, 0.62, 0x3a2a1a, 0, 0, PI / 2],
+      ['b', 0.12, 0.62, 0.4, 2.74, 1.38, 0.3, 0x8a3a28], ['b', 0.125, 0.05, 0.405, 2.74, 1.5, 0.3, 0x2a2a2a], ['b', 0.125, 0.04, 0.405, 2.74, 1.25, 0.3, 0x2a2a2a],
+      ['c', 0.12, 0.015, 10, 2.74, 1.69, 0.62, 0x5a4a30], ['c', 0.07, 0.08, 10, 2.74, 1.735, 0.62, 0x5a4a30]);
+    return P; }
+  const IM = new THREE.Mesh(mk(interiorParts(true)), ITEM_VM); IM.position.set(OX, 0, OZ); IM.name = 'CAB_IN'; IM.userData.noBatch = true; IM.matrixAutoUpdate = false; IM.updateMatrix(); IM.receiveShadow = true; scene.add(IM);
+  // glow: the fire window + draft slit (flicker) and the lamp's globe - unlit, one draw
+  const GLM = new THREE.MeshBasicMaterial({ vertexColors: true });
+  const GL = new THREE.Mesh(mk([['b', 0.2, 0.1, 0.004, STOVE.x, 0.52, STOVE.z + 0.264, 0xd0501a], ['b', 0.13, 0.05, 0.003, STOVE.x, 0.505, STOVE.z + 0.2675, 0xffc060], ['b', 0.1, 0.012, 0.003, STOVE.x, 0.42, STOVE.z + 0.2625, 0xff7020],
+    ['c', 0.034, 0.1, 10, LAMP.x, 0.88, LAMP.z, 0xffd890]]), GLM);
+  GL.position.set(OX, 0, OZ); GL.name = 'CAB_GLOW'; GL.userData.noBatch = true; GL.matrixAutoUpdate = false; GL.updateMatrix(); scene.add(GL);
+  // ---------------- the atlas: 24 print cells (white card, picture area) + wall decals (map, chart, calendar, price card, a white texel) ----------------
+  const AC = document.createElement('canvas'); AC.width = AW; AC.height = AH; const AX = AC.getContext('2d');
+  const ATL = new THREE.CanvasTexture(AC); ATL.colorSpace = THREE.SRGBColorSpace; ATL.anisotropy = 4;
+  const DC = document.createElement('canvas'); DC.width = CW; DC.height = CH; const DX = DC.getContext('2d'); const DTX = new THREE.CanvasTexture(DC);   // one cell, for sub-uploads
+  const DEC = { map: [0, 960, 400, 320], chart: [400, 960, 400, 320], cal: [800, 960, 200, 320], white: [1000, 960, 200, 140], price: [1000, 1100, 200, 180] };
+  function drawDecals() {
+    const X = AX; X.fillStyle = '#fff'; X.fillRect(...DEC.white);
+    { const [x, y, w, h] = DEC.map; X.fillStyle = '#e6dcbc'; X.fillRect(x, y, w, h); X.save(); X.beginPath(); X.rect(x, y, w, h); X.clip();
+      X.strokeStyle = 'rgba(140,100,60,0.55)'; X.lineWidth = 1.2;
+      for (let k = 0; k < 7; k++) { X.beginPath(); for (let t = 0; t <= 60; t++) { const a = t / 60 * 6.283, r = 30 + k * 17 + 8 * Math.sin(a * 3 + k); const px = x + 150 + Math.cos(a) * r * 1.3, py = y + 140 + Math.sin(a) * r; if (t) X.lineTo(px, py); else X.moveTo(px, py); } X.stroke(); }
+      X.fillStyle = '#7fa8c8'; for (const [cx, cy, rx, ry] of [[300, 80, 46, 22], [90, 250, 34, 18], [320, 240, 22, 30]]) { X.beginPath(); X.ellipse(x + cx, y + cy, rx, ry, 0.4, 0, 6.283); X.fill(); }
+      X.strokeStyle = '#5a88b0'; X.lineWidth = 2.5; X.beginPath(); X.moveTo(x + 300, y + 100); X.bezierCurveTo(x + 260, y + 170, x + 200, y + 200, x + 105, y + 245); X.stroke();
+      X.strokeStyle = '#b02a1a'; X.lineWidth = 2; X.setLineDash([6, 4]); X.beginPath(); X.moveTo(x + 160, y + 150); X.lineTo(x + 300, y + 70); X.lineTo(x + 330, y + 230); X.stroke(); X.setLineDash([]);
+      X.fillStyle = '#b02a1a'; X.beginPath(); X.arc(x + 160, y + 150, 5, 0, 6.283); X.fill();
+      X.fillStyle = '#3a2a1a'; X.font = 'bold 22px serif'; X.fillText('HOME VALLEY', x + 14, y + 30); X.font = '13px serif'; X.fillText('CABIN', x + 168, y + 156); X.fillText('N', x + 372, y + 40);
+      X.strokeStyle = '#3a2a1a'; X.lineWidth = 2; X.beginPath(); X.moveTo(x + 377, y + 70); X.lineTo(x + 377, y + 46); X.stroke(); X.restore(); }
+    { const [x, y, w, h] = DEC.chart; X.fillStyle = '#dfe6c8'; X.fillRect(x, y, w, h); X.strokeStyle = 'rgba(80,110,140,0.35)'; X.lineWidth = 1;
+      for (let k = 0; k <= w; k += 40) { X.beginPath(); X.moveTo(x + k, y); X.lineTo(x + k, y + h); X.stroke(); } for (let k = 0; k <= h; k += 40) { X.beginPath(); X.moveTo(x, y + k); X.lineTo(x + w, y + k); X.stroke(); }
+      X.fillStyle = '#c8b890'; X.beginPath(); X.ellipse(x + 260, y + 120, 110, 70, -0.3, 0, 6.283); X.fill(); X.fillStyle = '#a89870'; X.beginPath(); X.ellipse(x + 270, y + 115, 60, 35, -0.3, 0, 6.283); X.fill();
+      X.fillStyle = '#8ab4d8'; X.beginPath(); X.ellipse(x + 90, y + 230, 50, 26, 0.2, 0, 6.283); X.fill();
+      X.strokeStyle = '#a0287a'; X.lineWidth = 3; for (const [cx, cy, r] of [[120, 110, 26], [300, 250, 18]]) { X.beginPath(); X.arc(x + cx, y + cy, r, 0, 6.283); X.stroke(); }
+      X.strokeStyle = '#2a5a9a'; X.lineWidth = 2; X.beginPath(); X.moveTo(x + 120, y + 110); X.lineTo(x + 300, y + 250); X.stroke();
+      X.fillStyle = '#2a2a4a'; X.font = 'bold 18px sans-serif'; X.fillText('SECTIONAL', x + 12, y + 26); X.font = '12px sans-serif'; X.fillText('1:500,000', x + 12, y + 44); }
+    { const [x, y, w, h] = DEC.cal; X.fillStyle = '#f4f1e8'; X.fillRect(x, y, w, h); X.fillStyle = '#b02a1a'; X.fillRect(x, y, w, 46); X.fillStyle = '#fff'; X.font = 'bold 22px sans-serif'; X.fillText('NOVEMBER', x + 18, y + 31);
+      X.fillStyle = '#3a6a8a'; X.fillRect(x + 10, y + 54, w - 20, 80); X.fillStyle = '#e8e0c8'; X.beginPath(); X.moveTo(x + 10, y + 134); X.lineTo(x + 70, y + 74); X.lineTo(x + 110, y + 110); X.lineTo(x + 150, y + 70); X.lineTo(x + 190, y + 134); X.fill();
+      X.font = '13px sans-serif'; for (let d = 1; d <= 30; d++) { const c = (d + 1) % 7, r = Math.floor((d + 1) / 7); X.fillStyle = '#333'; X.fillText(String(d), x + 12 + c * 26, y + 160 + r * 30);
+        if (d < 17) { X.strokeStyle = '#b02a1a'; X.lineWidth = 1.5; X.beginPath(); X.moveTo(x + 10 + c * 26, y + 148 + r * 30); X.lineTo(x + 30 + c * 26, y + 164 + r * 30); X.stroke(); } } }
+    { const [x, y, w, h] = DEC.price; X.fillStyle = '#e8dcc0'; X.fillRect(x, y, w, h); X.strokeStyle = '#5a3a22'; X.lineWidth = 6; X.strokeRect(x + 4, y + 4, w - 8, h - 8);
+      X.fillStyle = '#3a2a1a'; X.font = 'bold 26px sans-serif'; X.textAlign = 'center'; X.fillText('POLAROID', x + w / 2, y + 48); X.font = 'bold 50px sans-serif'; X.fillStyle = '#b02a1a'; X.fillText('$' + PRICE, x + w / 2, y + 108);
+      X.font = 'bold 17px sans-serif'; X.fillStyle = '#3a2a1a'; X.fillText('GRIP IT TO BUY', x + w / 2, y + 150); X.textAlign = 'left'; } }
+  const IMG = new Array(CAP).fill(null);   // a picture being shown / developed (canvas or Image), dropped when developed
+  const CXY = new Float64Array(8), HW = new Uint8Array(1);   // CXY: 0-1 draw origin, 2 k, 3-4 atlas xy, 5 u, 6 scratch; HW: atlas texture is on the GPU
+  function cellDraw(X, img) {   // one print face: white card, a grey-green blank that develops into the picture (CXY[2] = k 0..1). No double args.
+    const ox = CXY[0], oy = CXY[1], k = CXY[2];
+    X.fillStyle = '#f2f0ea'; X.fillRect(ox, oy, CW, CH); X.fillStyle = '#e4e1d8'; X.fillRect(ox, oy + CH - 4, CW, 4);
+    X.fillStyle = '#5c6157'; X.fillRect(ox + 11, oy + 11, 178, 178);
+    if (img && k > 0) { if (k < 1) X.globalAlpha = k; X.drawImage(img, ox + 11, oy + 11, 178, 178); if (k < 1) X.globalAlpha = 1; } }
+  const CP2 = new THREE.Vector2();
+  function cellUp(c) {   // redraw a cell (k in CXY[2]) and push just that rectangle to the GPU (no full atlas upload). c is an integer; no double args.
+    CXY[3] = (c % 6) * CW; CXY[4] = (c / 6 | 0) * CH; CXY[0] = 0; CXY[1] = 0;
+    cellDraw(DX, IMG[c]); AX.drawImage(DC, CXY[3], CXY[4]);
+    if (HW[0]) { CP2.x = CXY[3]; CP2.y = AH - CXY[4] - CH; renderer.copyTextureToTexture(CP2, DTX, ATL); } else ATL.needsUpdate = true; }
+  drawDecals(); for (let c = 0; c < CAP; c++) { CXY[0] = (c % 6) * CW; CXY[1] = (c / 6 | 0) * CH; CXY[2] = 0; cellDraw(AX, null); }
+  // ---------------- photos: per atlas cell ----------------
+  const ID = new Int32Array(CAP).fill(-1), ST = new Uint8Array(CAP), PIN = new Int8Array(CAP).fill(-1), DT = new Float64Array(CAP), DK = new Float32Array(CAP).fill(1);   // ST 0 free 1 carried 2 pinned 3 in a hand 4 in the camera slot
+  const JPG = new Array(CAP).fill(null), SLOT = new Int8Array(BOARD.nx * BOARD.ny).fill(-1), HC = new Int8Array(2).fill(-1), HB = new Uint8Array(2), F = new Float64Array(16);   // F: 0 clock 1 eject cell 2 eject t 3 dev timer 4 cull timer 5 next id 6 reconcile timer 7 PL used 8 flicker 9 board dirty
+  F[1] = -1; F[5] = 1; F[10] = 0.125; F[11] = 1 / DEV;   // 10 develop period, 11 1/DEV (typed slots; no boxed literals on the develop path)
+  const SQ = new Uint8Array(2), TR = new Uint8Array(2), NEARB = new Uint8Array(2);
+  // ---------------- the board batch (decals, pins, pinned prints; cabin-local) + the loose batch (prints in hands / the camera slot; world) ----------------
+  const PM = new THREE.MeshLambertMaterial({ map: ATL, vertexColors: true });
+  const bb = n => { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(n * 3), 3)); g.setAttribute('normal', new THREE.BufferAttribute(new Float32Array(n * 3), 3));
+    g.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(n * 2), 2)); g.setAttribute('color', new THREE.BufferAttribute(new Float32Array(n * 3), 3)); g.setDrawRange(0, 0); return g; };
+  const BM = new THREE.Mesh(bb(1600), PM); BM.position.set(OX, 0, OZ); BM.name = 'CAB_BOARD'; BM.userData.noBatch = true; BM.frustumCulled = false; BM.matrixAutoUpdate = false; BM.updateMatrix(); BM.receiveShadow = true; scene.add(BM);
+  const LM = new THREE.Mesh(bb(48), PM); LM.name = 'CAB_PRINTS'; LM.userData.noBatch = true; LM.frustumCulled = false; LM.visible = false; scene.add(LM);
+  // a quad: centre c, half-axes a (right) and b (up) as viewed, normal = a x b; uv rect u0 v0 (bottom-left) .. u1 v1; colour
+  const QA = new Float64Array(16);   // quadQ's input (cx cy cz ax ay az bx by bz u0 v0 u1 v1 r g b): per-frame callers fill it (no boxed double arguments)
+  function quadQ(g, o) {
+    const P = g.attributes.position.array, N = g.attributes.normal.array, U = g.attributes.uv.array, C = g.attributes.color.array, A = QA;
+    let nx = A[4] * A[8] - A[5] * A[7], ny = A[5] * A[6] - A[3] * A[8], nz = A[3] * A[7] - A[4] * A[6]; const l = Math.sqrt(nx * nx + ny * ny + nz * nz) || 1; nx /= l; ny /= l; nz /= l;
+    for (let k = 0; k < 6; k++) { const q = k === 0 || k === 3 ? 0 : k === 1 ? 1 : k === 2 || k === 4 ? 2 : 3, sa = q === 1 || q === 2 ? 1 : -1, sb = q >= 2 ? 1 : -1, J = (o + k) * 3, I = (o + k) * 2;
+      P[J] = A[0] + sa * A[3] + sb * A[6]; P[J + 1] = A[1] + sa * A[4] + sb * A[7]; P[J + 2] = A[2] + sa * A[5] + sb * A[8]; N[J] = nx; N[J + 1] = ny; N[J + 2] = nz; C[J] = A[13]; C[J + 1] = A[14]; C[J + 2] = A[15];
+      U[I] = sa > 0 ? A[11] : A[9]; U[I + 1] = sb > 0 ? A[12] : A[10]; }
+    return o + 6; }
+  function quad(g, o, cx, cy, cz, ax, ay, az, bx, by, bz, u0, v0, u1, v1, r, gg, b) {   // events only (board rebuild)
+    const A = QA; A[0] = cx; A[1] = cy; A[2] = cz; A[3] = ax; A[4] = ay; A[5] = az; A[6] = bx; A[7] = by; A[8] = bz; A[9] = u0; A[10] = v0; A[11] = u1; A[12] = v1; A[13] = r; A[14] = gg; A[15] = b; return quadQ(g, o); }
+  const WU = (DEC.white[0] + 100) / AW, WV = 1 - (DEC.white[1] + 70) / AH;
+  function cube(g, o, cx, cy, cz, hx, hy, hz, r, gg, b) {   // a small box from six quads (pins)
+    o = quad(g, o, cx, cy, cz - hz, -hx, 0, 0, 0, hy, 0, WU, WV, WU, WV, r, gg, b); o = quad(g, o, cx, cy, cz + hz, hx, 0, 0, 0, hy, 0, WU, WV, WU, WV, r, gg, b);
+    o = quad(g, o, cx - hx, cy, cz, 0, 0, hz, 0, hy, 0, WU, WV, WU, WV, r, gg, b); o = quad(g, o, cx + hx, cy, cz, 0, 0, -hz, 0, hy, 0, WU, WV, WU, WV, r, gg, b);
+    o = quad(g, o, cx, cy + hy, cz, hx, 0, 0, 0, 0, -hz, WU, WV, WU, WV, r, gg, b); return quad(g, o, cx, cy - hy, cz, hx, 0, 0, 0, 0, hz, WU, WV, WU, WV, r, gg, b); }
+  const dUV = d => [(d[0] + 1) / AW, 1 - (d[1] + d[3] - 1) / AH, (d[0] + d[2] - 1) / AW, 1 - (d[1] + 1) / AH];
+  const UVB = new Float32Array(4);   // cellUV's result (reused: read it at once)
+  function cellUV(c) { const x = (c % 6) * CW, y = Math.floor(c / 6) * CH; UVB[0] = (x + 1) / AW; UVB[1] = 1 - (y + CH - 1) / AH; UVB[2] = (x + CW - 1) / AW; UVB[3] = 1 - (y + 1) / AH; return UVB; }
+  const ATT = ['position', 'normal', 'uv', 'color'];
+  const SLP = new Float32Array(BOARD.nx * BOARD.ny * 3);   // slot centre x, y (cabin-local, on the cork) + its tilt
+  for (let s = 0; s < SLP.length / 3; s++) { const c = s % BOARD.nx, r = Math.floor(s / BOARD.nx), h = Math.sin(s * 91.7 + 3.1) * 4375.85;
+    SLP[s * 3] = BOARD.x + (2.5 - c) * BOARD.px; SLP[s * 3 + 1] = BOARD.y + (1.5 - r) * BOARD.py - 0.004; SLP[s * 3 + 2] = (h - Math.floor(h) - 0.5) * 0.09; }
+  const PINC = [[0.8, 0.12, 0.1], [0.95, 0.8, 0.15], [0.15, 0.35, 0.8], [0.2, 0.6, 0.25]];
+  function boardWrite() {   // decals + pinned prints (on a change only)
+    const g = BM.geometry; let o = 0; F[9] = 0;
+    { const u = dUV(DEC.map); o = quad(g, o, -2.838, 1.45, 0.75, 0, 0, -0.45, 0, 0.3, 0, u[0], u[1], u[2], u[3], 1, 1, 1);
+      for (const [dy, dz] of [[0.27, 0.42], [0.27, -0.42], [-0.27, 0.42], [-0.27, -0.42]]) o = cube(g, o, -2.832, 1.45 + dy, 0.75 + dz, 0.005, 0.006, 0.006, 0.8, 0.15, 0.1); }
+    { const u = dUV(DEC.chart); o = quad(g, o, 1.0, 1.55, -2.342, 0.35, 0, 0, 0, 0.28, 0, u[0], u[1], u[2], u[3], 1, 1, 1); for (const sx of [-0.33, 0.33]) o = cube(g, o, 1.0 + sx, 1.81, -2.336, 0.006, 0.006, 0.005, 0.15, 0.35, 0.8); }
+    { const u = dUV(DEC.cal); o = quad(g, o, 1.75, 1.5, 2.342, -0.14, 0, 0, 0, 0.224, 0, u[0], u[1], u[2], u[3], 1, 1, 1); o = cube(g, o, 1.75, 1.73, 2.336, 0.005, 0.005, 0.005, 0.3, 0.3, 0.3); }
+    { const u = dUV(DEC.price); o = quad(g, o, STAND.x - OX - 0.029, 0.665, STAND.z - OZ + 0.12, 0, 0, 0.075, 0, 0.05, 0, u[0], u[1], u[2], u[3], 1, 1, 1); }
+    for (let s = 0; s < SLOT.length; s++) { const c = SLOT[s]; if (c < 0) continue; const x = SLP[s * 3], y = SLP[s * 3 + 1], t = SLP[s * 3 + 2], ct = Math.cos(t), st = Math.sin(t), u = cellUV(c), hw = BOARD.w / 2, hh = BOARD.h / 2;
+      o = quad(g, o, x, y, BOARD.z, -ct * hw, st * hw, 0, st * hh, ct * hh, 0, u[0], u[1], u[2], u[3], 1, 1, 1);   // faces -z (into the room); right = -x
+      const pc = PINC[s % 4]; o = cube(g, o, x + st * (hh - 0.012), y + ct * (hh - 0.012), BOARD.z - 0.006, 0.0055, 0.0055, 0.005, pc[0], pc[1], pc[2]); }
+    g.setDrawRange(0, o); for (const k of ['position', 'normal', 'uv', 'color']) g.attributes[k].needsUpdate = true; }
+  // ---------------- poses: the camera in the fist (lens forward, its right end in your right fist), a print held up by its bottom margin ----------------
+  const CAMP = [GV3(0.062, 0.028, -0.012), GV3(-0.062, 0.028, -0.012)], PRP = GV3(0, 0.058, -0.02), LENS = GV3(-0.028, 0.012, -0.07);
+  const EJ = { slot: -0.0525, y: -0.034, len: 0.107, t: 1.4 };
+  function looseWrite() {   // prints in a hand / in the camera slot (world space), every frame they exist (fills QA in place: no garbage)
+    const g = LM.geometry, A = QA, hw = BOARD.w / 2, hh = BOARD.h / 2; let o = 0;
+    for (let i = 0; i < 2; i++) { if (PK.hk[i] !== 'photo') continue; const m = PK.hm[i]; m.updateWorldMatrix(true, false); const e = m.matrixWorld.elements, c = HC[i], z = 0.0021;
+      A[0] = e[12] + e[8] * z; A[1] = e[13] + e[9] * z; A[2] = e[14] + e[10] * z; A[3] = e[0] * hw; A[4] = e[1] * hw; A[5] = e[2] * hw; A[6] = e[4] * hh; A[7] = e[5] * hh; A[8] = e[6] * hh;
+      if (c >= 0) { cellUV(c); A[9] = UVB[0]; A[10] = UVB[1]; A[11] = UVB[2]; A[12] = UVB[3]; } else { A[9] = A[11] = WU; A[10] = A[12] = WV; } A[13] = A[14] = A[15] = 1; o = quadQ(g, o); }
+    const c = F[1] | 0; if (c >= 0) { let hand = -1; for (let i = 0; i < 2; i++) if (PK.hk[i] === 'polaroid') hand = i;
+      if (hand >= 0) { const m = PK.hm[hand]; m.updateWorldMatrix(true, false); const e = m.matrixWorld.elements, k = Math.min(1, (F[0] - F[2]) / EJ.t), s = k * k * (3 - 2 * k), zc = EJ.slot + EJ.len / 2 - s * (EJ.len - 0.012);
+        for (let sd = 1; sd >= -1; sd -= 2) { const y = EJ.y + sd * 0.0011;   // face up (picture top leads out, -z), black back below
+          A[0] = e[12] + e[4] * y + e[8] * zc; A[1] = e[13] + e[5] * y + e[9] * zc; A[2] = e[14] + e[6] * y + e[10] * zc; A[3] = sd * e[0] * hw; A[4] = sd * e[1] * hw; A[5] = sd * e[2] * hw; A[6] = -e[8] * hh; A[7] = -e[9] * hh; A[8] = -e[10] * hh;
+          if (sd > 0) { cellUV(c); A[9] = UVB[0]; A[10] = UVB[1]; A[11] = UVB[2]; A[12] = UVB[3]; A[13] = A[14] = A[15] = 1; } else { A[9] = A[11] = WU; A[10] = A[12] = WV; A[13] = 0.12; A[14] = 0.12; A[15] = 0.13; } o = quadQ(g, o); } } }
+    g.setDrawRange(0, o); if (o) { for (let j = 0; j < 4; j++) g.attributes[ATT[j]].needsUpdate = true; } LM.visible = o > 0; }
+  // ---------------- the shutter: one render from the lens -> pixels -> a 256 JPEG ----------------
+  const PWR = 512, RT = new THREE.WebGLRenderTarget(PWR, PWR, { depthBuffer: true });
+  RT.texture.colorSpace = THREE.SRGBColorSpace; RT.texture.internalFormat = 'RGBA8'; RT.isXRRenderTarget = true;   // same program keys as the screen / XR layer (sRGB output), stored raw
+  const PCAM = new THREE.PerspectiveCamera(52, 1, 0.05, 6000), PIX = new Uint8Array(PWR * PWR * 4);
+  const C5 = document.createElement('canvas'); C5.width = C5.height = PWR; const X5 = C5.getContext('2d'), ID5 = X5.createImageData(PWR, PWR);
+  const C2 = document.createElement('canvas'); C2.width = C2.height = 256; const X2 = C2.getContext('2d');
+  const VG = X2.createRadialGradient(128, 128, 70, 128, 128, 190); VG.addColorStop(0, 'rgba(0,0,0,0)'); VG.addColorStop(1, 'rgba(20,10,0,0.55)');
+  function render(pos, quat) {   // pos / quat: the lens; returns a dataURL
+    PCAM.position.copy(pos); PCAM.quaternion.copy(quat); PCAM.layers.mask = camera.layers.mask; PCAM.updateMatrixWorld(true);
+    const pv = PL.visible, pi = PL.intensity, pd = PL.distance, pc = PL.color.getHex(); vPL.copy(PL.position); let flash = false;
+    if (1 - TOD.day > 0.45 && !(PL.visible && PL.intensity > 0)) { flash = true; PL.position.copy(pos); PL.color.setHex(0xfff2e0); PL.distance = 12; PL.intensity = 3.2; PL.visible = true; }   // the flash bar
+    const lmv = LM.visible; LM.visible = false; for (let i = 0; i < 2; i++) if (PK.hk[i] === 'polaroid') PK.hm[i].visible = false;
+    const xr = renderer.xr.enabled, su = renderer.shadowMap.autoUpdate, nu = renderer.shadowMap.needsUpdate, rt0 = renderer.getRenderTarget(); renderer.xr.enabled = false; renderer.shadowMap.autoUpdate = false; renderer.shadowMap.needsUpdate = false;
+    renderer.setRenderTarget(RT); renderer.clear(); renderer.render(scene, PCAM); renderer.readRenderTargetPixels(RT, 0, 0, PWR, PWR, PIX); renderer.setRenderTarget(rt0);
+    renderer.xr.enabled = xr; renderer.shadowMap.autoUpdate = su; renderer.shadowMap.needsUpdate = nu; LM.visible = lmv; for (let i = 0; i < 2; i++) if (PK.hk[i] === 'polaroid') PK.hm[i].visible = true;
+    if (flash) { PL.position.copy(vPL); PL.color.setHex(pc); PL.distance = pd; PL.intensity = pi; PL.visible = pv; }
+    const row = PWR * 4; for (let y = 0; y < PWR; y++) ID5.data.set(PIX.subarray((PWR - 1 - y) * row, (PWR - y) * row), y * row);   // GL rows are bottom-up
+    X5.putImageData(ID5, 0, 0); X2.imageSmoothingQuality = 'high'; X2.drawImage(C5, 0, 0, 256, 256);
+    X2.globalCompositeOperation = 'multiply'; X2.fillStyle = '#fff1dc'; X2.fillRect(0, 0, 256, 256); X2.globalCompositeOperation = 'source-over'; X2.fillStyle = VG; X2.fillRect(0, 0, 256, 256);
+    X2.fillStyle = 'rgba(40,30,60,0.06)'; X2.fillRect(0, 0, 256, 256);   // lifted, faintly cool blacks
+    return C2.toDataURL('image/jpeg', 0.8); }
+  // ---------------- photo bookkeeping ----------------
+  function freeCell() { for (let c = 0; c < CAP; c++) if (!ST[c]) return c; return -1; }
+  function oldest(st) { let b = -1; for (let c = 0; c < CAP; c++) if (ST[c] === st && (b < 0 || ID[c] < ID[b])) b = c; return b; }
+  function newest(st) { let b = -1; for (let c = 0; c < CAP; c++) if (ST[c] === st && (b < 0 || ID[c] > ID[b])) b = c; return b; }
+  function dropItem() {   // take one carried print out of the pack world (pack, pockets, the ground)
+    let j = PK.it.indexOf('photo'); if (j >= 0) { PK.it.splice(j, 1); pkContents(); return true; }
+    j = RIG.k.indexOf('photo'); if (j >= 0) { RIG.k[j] = null; slWrite(); pkWeigh(); return true; }
+    j = PK.gnd.findIndex(e => e[0] === 'photo'); if (j >= 0) { PK.gnd.splice(j, 1); pkGround(); return true; } return false; }
+  function free(c) { if (ST[c] === 2 && PIN[c] >= 0) { SLOT[PIN[c]] = -1; F[9] = 1; } ID[c] = -1; ST[c] = 0; PIN[c] = -1; JPG[c] = null; IMG[c] = null; DK[c] = 1; CXY[2] = 0; cellUp(c); }
+  function room() {   // a cell for a new picture: a free one, else the oldest unpinned print goes, else the oldest pinned one
+    let c = freeCell(); if (c >= 0) return c;
+    c = oldest(1); if (c >= 0) { dropItem(); free(c); say('PHOTO LIMIT ' + CAP + ' - YOUR OLDEST LOOSE PRINT WAS THROWN OUT'); return c; }
+    c = oldest(2); if (c >= 0) { free(c); boardWrite(); say('PHOTO LIMIT ' + CAP + ' - THE OLDEST PRINT CAME OFF THE BOARD'); return c; } return -1; }
+  function count() { let n = 0; const I = PK.it, K = RIG.k, G = PK.gnd, Fa = PK.fall;   // indexed loops (no iterators)
+    for (let j = 0; j < I.length; j++) if (I[j] === 'photo') n++; for (let j = 0; j < K.length; j++) if (K[j] === 'photo') n++; for (let j = 0; j < G.length; j++) if (G[j][0] === 'photo') n++;
+    for (let j = 0; j < Fa.length; j++) if (Fa[j].on && Fa[j].k === 'photo') n++; if (PK.hk[0] === 'photo') n++; if (PK.hk[1] === 'photo') n++; return n; }
+  function reconcile() {   // fewer print items than carried pictures (one got lost / thrown out): forget the oldest loose ones
+    let ids = 0; for (let c = 0; c < CAP; c++) if (ST[c] === 1 || ST[c] === 3) ids++; let n = count();
+    while (ids > n) { const c = oldest(1); if (c < 0) break; free(c); ids--; } }
+  function setImg(c, url, k) { JPG[c] = url; const im = new Image(); im.onload = () => { if (JPG[c] !== url) return; IMG[c] = im; CXY[2] = DK[c]; cellUp(c); if (DK[c] >= 1) IMG[c] = null; }; im.src = url; if (k < 1) { DK[c] = 0; DT[c] = F[0]; } }
+  function store() {   // the pictures to localStorage (events only; never with ?nosave)
+    if (NOSAVE) return; const p = {}; for (let c = 0; c < CAP; c++) if (ST[c] && JPG[c]) p[ID[c]] = JPG[c];
+    try { localStorage.setItem('bp_photos_v1', JSON.stringify({ v: 1, p })); } catch (e) { say('PHOTO STORAGE FULL - OLDER PRINTS WERE NOT SAVED'); } }
+  function snap(pos, quat, hand) {   // take a picture; hand >= 0: the print ejects from that hand's camera, else straight into the pack
+    const c = room(); if (c < 0) { say('NO ROOM FOR ANOTHER PHOTO'); return -1; }
+    const url = render(pos, quat), cv = document.createElement('canvas'); cv.width = cv.height = 256; cv.getContext('2d').drawImage(C2, 0, 0);   // its own copy while it develops (C2 is reused by the next shot)
+    ID[c] = F[5]++; IMG[c] = cv; JPG[c] = url; DK[c] = 0; DT[c] = F[0]; CXY[2] = 0; cellUp(c);
+    sfx('click'); if (hand >= 0) { ST[c] = 4; F[1] = c; F[2] = F[0]; HX.pulse(grips[hand], 0.5, 30, 'cargo'); say('CLICK - THE PRINT IS COMING OUT: TAKE IT WITH YOUR OTHER HAND'); }
+    else { ST[c] = 1; if (!pkPut('photo', true)) { camera.getWorldPosition(v1); pkDrop('photo', v1, v2.set(0, 0, 0), headYaw()); } say('CLICK - A NEW PRINT IN YOUR PACK (IT DEVELOPS IN A FEW SECONDS)'); }
+    store(); saveSoon(); return c; }
+  function owns() { return PK.it.includes('polaroid') || RIG.k.includes('polaroid') || PK.hk[0] === 'polaroid' || PK.hk[1] === 'polaroid'; }
+  function local(p) { return v3.set(p.x - OX, p.y, p.z - OZ); }
+  function nearSlot(p) { const l = local(p); if (Math.abs(l.z - BOARD.z) > 0.14 || Math.abs(l.x - BOARD.x) > 0.62 || Math.abs(l.y - BOARD.y) > 0.48) return -2;   // -2: not at the board
+    let b = -1, bd = 1e9; for (let s = 0; s < SLOT.length; s++) { if (SLOT[s] >= 0) continue; const ex = l.x - SLP[s * 3], ey = l.y - SLP[s * 3 + 1], d = Math.sqrt(ex * ex + ey * ey); if (d < bd) { bd = d; b = s; } } return b; }
+  function pin(c, s) { ST[c] = 2; PIN[c] = s; SLOT[s] = c; boardWrite(); }
+  function letPrint(i, p, k) { if (k !== 'photo') return false; const s = nearSlot(p); if (s === -2) return false; const c = HC[i];
+    if (s < 0) { say('THE BOARD IS FULL - TAKE A PRINT DOWN FIRST'); return false; } if (c < 0) { say('A BLANK PRINT - NOTHING TO PIN'); return false; }
+    HC[i] = -1; pin(c, s); sfx('clack', p); HX.pulse(grips[i], 0.3, 18, 'release'); say('PINNED TO THE BOARD (' + count() + ' MORE PRINTS ON YOU)'); saveSoon(); return true; }
+  function freeHand(i) { const g = grips[i]; return !PK.hk[i] && PK.g !== g && !pkBusy(g); }
+  function buy(i) { if (DLV.cash < PRICE) { say('NOT ENOUGH CASH - THE POLAROID IS $' + PRICE + ' (WALLET ' + ecoMoney(DLV.cash) + ')'); if (i >= 0) HX.pulse(grips[i], 0.2, 10, 'ui'); return false; }
+    if (i < 0 && !pkPut('polaroid')) return false; DLV.cash -= PRICE; DLV.spent = (DLV.spent || 0) + PRICE; sfx('cash'); if (i >= 0) pkTake(i, 'polaroid');
+    say('POLAROID CAMERA -$' + PRICE + ' (WALLET ' + ecoMoney(DLV.cash) + ') - TRIGGER TAKES A PICTURE' + (i < 0 ? ' - IN YOUR PACK' : '')); saveSoon(); return true; }
+  function grab(i) { const g = grips[i]; g.getWorldPosition(v1);
+    const c = F[1] | 0; if (c >= 0) { for (let j = 0; j < 2; j++) if (PK.hk[j] === 'polaroid' && j !== i) { const m = PK.hm[j]; m.updateWorldMatrix(true, false); v2.set(0, EJ.y, EJ.slot - EJ.len / 2).applyMatrix4(m.matrixWorld);
+      if (v1.distanceTo(v2) < 0.11) { F[1] = -1; ST[c] = 3; pkTake(i, 'photo'); HC[i] = c; HB[i] = 0; say(DK[c] < 1 ? 'YOUR PRINT - IT IS STILL DEVELOPING' : 'YOUR PRINT'); return true; } } }
+    { const l = local(v1); if (Math.abs(l.z - BOARD.z) < 0.1) { let b = -1, bd = 0.075; for (let s = 0; s < SLOT.length; s++) { if (SLOT[s] < 0) continue; const ex = l.x - SLP[s * 3], ey = l.y - SLP[s * 3 + 1], d = Math.sqrt(ex * ex + ey * ey); if (d < bd) { bd = d; b = s; } }
+      if (b >= 0) { const cc = SLOT[b]; SLOT[b] = -1; PIN[cc] = -1; ST[cc] = 3; boardWrite(); pkTake(i, 'photo'); HC[i] = cc; HB[i] = 0; say('TAKEN OFF THE BOARD'); saveSoon(); return true; } } }
+    if (v1.distanceTo(v2.set(STAND.x, STAND.y, STAND.z)) < 0.13) return buy(i);
+    return false; }
+  // ---------------- per frame ----------------
+  function tick(dt, vr) {
+    F[0] += dt; if (F[0] > 1e7) F[0] = 0; const foot = mode === 'foot';
+    camera.getWorldPosition(v1); const dx = v1.x - OX, dz = v1.z - OZ;
+    if ((F[4] -= dt) <= 0) { F[4] = 0.25; if (!DQ[0] && !DQ[1] && GFX.shadows > 0) depthQueue(); const on = dx * dx + dz * dz < NEAR * NEAR; if (IM.visible !== on) IM.visible = GL.visible = BM.visible = on; }
+    if (F[9]) boardWrite();
+    // the stove: flicker on the fire window; PL warms the room while you are inside (the game zeroed it this frame; it is the Cub's panel glow otherwise)
+    if (IM.visible) { const t = F[0], f = 0.82 + 0.1 * Math.sin(t * 7.3) + 0.06 * Math.sin(t * 17.9 + 1.3) + 0.04 * Math.sin(t * 31.1 + 0.7); F[8] = f; GLM.color.setRGB(f, 0.9 + 0.1 * f, 0.9 + 0.1 * f);
+      const inside = Math.abs(dx) < 2.9 && Math.abs(dz) < 2.4 && foot;
+      if (inside && PL.intensity === 0) { PL.position.set(OX + STOVE.x, 0.75, OZ + STOVE.z + 0.55); PL.color.setHex(0xff9a52); PL.distance = 8; PL.intensity = (0.9 + 2.6 * (1 - TOD.day)) * f; PL.visible = true; F[7] = 1; } else F[7] = 0; }
+    // hands: the camera's pose + shutter, a print's pose, the grab
+    for (let i = 0; i < 2; i++) { const k = PK.hk[i], src = grips[i].userData.src, gp = vr && src ? src.gamepad : null;
+      const tr = gp && gp.buttons[0] ? gp.buttons[0].pressed : false, sq = gp && gp.buttons[1] ? gp.buttons[1].pressed : false;
+      if (k === 'polaroid') { const m = PK.hm[i]; m.position.copy(CAMP[i]); m.quaternion.identity();
+        if (tr && !TR[i] && foot) { if ((F[1] | 0) >= 0) { say('TAKE THE PRINT OUT OF THE CAMERA FIRST'); sfx('click'); } else { m.updateWorldMatrix(true, false); v2.copy(LENS).applyMatrix4(m.matrixWorld); m.getWorldQuaternion(q1); snap(v2, q1, i); } } }
+      else if (k === 'photo') { const m = PK.hm[i]; m.position.copy(PRP); m.quaternion.identity();
+        if (HC[i] < 0 && !HB[i]) { const c = newest(1); if (c >= 0) { ST[c] = 3; HC[i] = c; } else HB[i] = 1; }
+        const s = nearSlot(PK.hp[i]), on = s >= 0 ? 1 : 0; if (on && !NEARB[i]) HX.pulse(grips[i], 0.2, 10, 'ui'); NEARB[i] = on; }
+      if (k !== 'photo') { if (HC[i] >= 0) { const c = HC[i]; if (ST[c] === 3) ST[c] = 1; HC[i] = -1; } HB[i] = 0; NEARB[i] = 0; }
+      if (foot && vr && sq && !SQ[i] && freeHand(i)) grab(i);
+      TR[i] = tr ? 1 : 0; SQ[i] = sq ? 1 : 0; }
+    // a print left in the slot when the camera went away: into the pack (or at your feet)
+    { const c = F[1] | 0; if (c >= 0 && PK.hk[0] !== 'polaroid' && PK.hk[1] !== 'polaroid') { F[1] = -1; ST[c] = 1; if (!pkPut('photo', true)) { camera.getWorldPosition(v2); pkDrop('photo', v2, v1.set(0, 0, 0), headYaw()); } } }
+    // developing (8 Hz cell updates while any print is still coming up)
+    if ((F[3] -= dt) <= 0) { F[3] = F[10]; for (let c = 0; c < CAP; c++) { if (!ST[c] || DK[c] >= 1) continue;
+      CXY[5] = (F[0] - DT[c]) * F[11]; if (CXY[5] >= 1) { DK[c] = 1; CXY[2] = 1; cellUp(c); IMG[c] = null; }
+      else { CXY[6] = 2 * CXY[5]; CXY[6] = 3 - CXY[6]; CXY[2] = CXY[5] * CXY[5] * CXY[6]; DK[c] = CXY[2]; cellUp(c); } } }
+    if ((F[6] -= dt) <= 0) { F[6] = 1; reconcile(); }
+    if (LM.visible || PK.hk[0] === 'photo' || PK.hk[1] === 'photo' || (F[1] | 0) >= 0) looseWrite();
+  }
+  // ---------------- desktop: P = buy at the stand / pin at the board / a photo from your eyes ----------------
+  addEventListener('keydown', e => { if (e.code !== 'KeyP' || e.repeat || mode !== 'foot' || renderer.xr.isPresenting || (typeof SETP !== 'undefined' && SETP.open)) return;
+    camera.getWorldPosition(v1); const l = local(v1), atBoard = Math.hypot(l.x - BOARD.x, l.z - BOARD.z) < 1.8 && Math.abs(l.x) < 2.9 && Math.abs(l.z) < 2.4;
+    if (atBoard && newest(1) >= 0) { const s = nearSlot(v2.set(OX + BOARD.x, BOARD.y, OZ + BOARD.z)); if (s < 0) { say('THE BOARD IS FULL'); return; } const c = newest(1); if (!dropItem()) { say('THE PRINT IS IN YOUR HAND - PIN IT BY HAND'); return; } pin(c, s); sfx('clack'); say('PINNED TO THE BOARD'); saveSoon(); return; }
+    if (!owns()) { if (Math.hypot(v1.x - STAND.x, v1.z - STAND.z) < 2.2) buy(-1); else say('P: A POLAROID CAMERA IS FOR SALE ON THE STUMP BY THE SUPPLY CRATE ($' + PRICE + ')'); return; }
+    camera.getWorldQuaternion(q1); camera.getWorldDirection(v2); v1.addScaledVector(v2, 0.32); snap(v1, q1, -1); });   // a little in front of your face (your own hat brim is not in the picture)
+  // ---------------- save / load ----------------
+  function save() { const p = []; for (let c = 0; c < CAP; c++) if (ST[c]) p.push([ID[c], ST[c] === 2 ? 2 : 1, ST[c] === 2 ? PIN[c] : -1]); return { v: 1, n: F[5], p }; }
+  function load(d) {
+    for (let c = 0; c < CAP; c++) { ID[c] = -1; ST[c] = 0; PIN[c] = -1; JPG[c] = null; IMG[c] = null; DK[c] = 1; CXY[0] = (c % 6) * CW; CXY[1] = (c / 6 | 0) * CH; CXY[2] = 0; cellDraw(AX, null); } SLOT.fill(-1); HC.fill(-1); HB.fill(0); F[1] = -1; F[5] = 1; ATL.needsUpdate = true;
+    let ph = {}; try { const s = JSON.parse(localStorage.getItem('bp_photos_v1') || 'null'); if (s && s.v === 1 && s.p && typeof s.p === 'object') ph = s.p; } catch (e) { ph = {}; }
+    if (d && d.v === 1 && Array.isArray(d.p)) { F[5] = Math.max(1, d.n | 0);
+      for (const e of d.p.slice(0, CAP)) { if (!Array.isArray(e)) continue; const id = e[0] | 0, url = ph[id]; if (typeof url !== 'string' || !url.startsWith('data:image/')) continue; const c = freeCell(); if (c < 0) break;
+        ID[c] = id; F[5] = Math.max(F[5], id + 1); const s = e[2] | 0; if (e[1] === 2 && s >= 0 && s < SLOT.length && SLOT[s] < 0) { ST[c] = 2; PIN[c] = s; SLOT[s] = c; } else ST[c] = 1; setImg(c, url, 1); } }
+    reconcile(); boardWrite(); }
+  // ---------------- V2 SURVIVAL's cot: moved in to the bunk spot (lazily: either block order); without survival the interior has its own bunk ----------------
+  const CF = new Uint8Array(2);   // 0 cot moved, 1 bunk dropped from the interior
+  function cot() { const SV = window.SURV; if (CF[0] || !SV || !SV.COT || !SV.COT.m) return; const C = SV.COT; C.x = COTW.x; C.z = COTW.z; C.y = 0.04; C.m.position.set(C.x, C.y, C.z); C.m.updateMatrixWorld(true); CF[0] = 1;
+    if (!CF[1]) { CF[1] = 1; const g = IM.geometry; IM.geometry = mk(interiorParts(false)); g.dispose(); } }
+  cot();
+  // ---------------- warm-up: every new mesh with each PL / SL combination ----------------
+  function prewarm() { const W = [shell, IM, GL, BM, LM, ...PK.hm], vis = W.map(o => o.visible), pv = PL.visible, sv = SL.visible; W.forEach(o => { o.visible = true; });
+    for (let c = 0; c < 4; c++) { PL.visible = !!(c & 1); SL.visible = !!(c & 2); for (const o of W) renderer.compile(o, camera, scene); }
+    W.forEach((o, i) => { o.visible = vis[i]; }); PL.visible = pv; SL.visible = sv; }
+  // the shadow pass's depth programs: three r160 shares one depth material and only re-picks its program when the caster KIND changes (instanced /
+  // skinned / batched...), taking the light counts and the side of whatever caster is drawn at that moment. The stove turns PL on while you are on
+  // foot (the game only lit it in the cockpit), so a kind switch landing on e.g. the double-sided terrain made a new program inside the cabin. Warm-up:
+  // for every (kind, shadow side, alpha-tested map...) caster class in the scene, compile a twin of the shadow pass's depth material on one caster of
+  // that class with PL on (SL off / on), into a small linear target like the shadow pass - at load if shadows are on, else queued on the game's
+  // warm-up jobs the first time shadows are on (checked every 0.25 s with the cull test). Same program keys, so the shadow pass reuses them.
+  const DQ = new Uint8Array(2), DKEEP = []; let dRT = null;   // DKEEP: the warm depth materials stay alive, else dispose() releases their fresh programs   // 0 made, 1 queued
+  const SSIDE = [THREE.BackSide, THREE.FrontSide, THREE.DoubleSide];   // the shadow pass's side for FrontSide / BackSide / DoubleSide casters
+  function cabDepth() { const L = []; scene.traverse(o => { if (o.isLight && o.castShadow) L.push(o); }); if (!L.length) { DQ[1] = 0; return; }
+    const rep = new Map(); scene.traverse(o => { if (!o.castShadow || !(o.isMesh || o.isPoints || o.isLine) || o.customDepthMaterial) return; const m = Array.isArray(o.material) ? o.material[0] : o.material, g = o.geometry; if (!m) return;
+      const sd = m.shadowSide != null ? m.shadowSide : SSIDE[m.side], at = m.alphaTest > 0 && (m.map || m.alphaMap);
+      const k = [o.isSkinnedMesh, o.isInstancedMesh, !!o.instanceColor, o.isBatchedMesh, o.isPoints, o.isLine, !!(g && g.morphAttributes && g.morphAttributes.position), sd, !!at, !!(at && m.map), !!(at && m.alphaMap), !!(m.displacementMap && m.displacementScale !== 0)].join();
+      if (!rep.has(k)) rep.set(k, [o, m, sd, at]); });
+    if (!dRT) dRT = new THREE.WebGLRenderTarget(16, 16); const prev = renderer.getRenderTarget(), pv = PL.visible, slv = SL.visible, DM = [];
+    renderer.setRenderTarget(dRT); const fg = scene.fog; scene.fog = null;   // the shadow pass renders with no scene (fog off): compile() with scene.fog would make fog-keyed twins
+    for (const [o, m, sd, at] of rep.values()) { const d = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking }); DM.push(d); d.side = sd;
+      if (at) { d.map = m.map; d.alphaMap = m.alphaMap; d.alphaTest = m.alphaTest; } if (m.displacementMap && m.displacementScale !== 0) { d.displacementMap = m.displacementMap; d.displacementScale = m.displacementScale; d.displacementBias = m.displacementBias; }
+      const om = o.material, ov = o.visible; o.material = d; o.visible = true;
+      for (let c = 0; c < 2; c++) { PL.visible = true; SL.visible = !!c; renderer.compile(o, camera, scene); }
+      o.material = om; o.visible = ov; }
+    renderer.setRenderTarget(prev); scene.fog = fg; PL.visible = pv; SL.visible = slv; DKEEP.push(...DM); DQ[0] = 1; DQ[1] = 0; }
+  const DJ1 = () => cabDepth(), DJ2 = () => warmStart(WARM.label || 'Preparing graphics');
+  function depthQueue() { if (DQ[0] || DQ[1] || !(GFX.shadows > 0)) return; DQ[1] = 1; WARM.jobs.push(DJ1, DJ2); warmUI(); }
+  boardWrite(); prewarm(); renderer.initTexture(ATL); HW[0] = renderer.properties.get(ATL).__webglTexture ? 1 : 0; if (GFX.shadows > 0) cabDepth();
+  const API = { OX, OZ, STAND, BOARD, COTW, PRICE, CAP, DEV, ID, ST, PIN, SLOT, HC, DK, DT, tickFn: tick, fns: { tick, cabDepth, looseWrite, quadQ, count, reconcile, nearSlot, cellUp, cellUV }, JPG, F, SLP, IM, GL, BM, LM, shell, RT, PCAM, atlas: ATL, AC,
+    tick: (dt, vr) => { cot(); tick(dt, vr); }, let: letPrint, save, load, snap, render, grab, buy, pin, nearSlot, count, reconcile, store, boardWrite, looseWrite, owns,
+    lens(i) { const m = PK.hm[i]; m.updateWorldMatrix(true, false); return [v2.copy(LENS).applyMatrix4(m.matrixWorld).clone(), m.getWorldQuaternion(new THREE.Quaternion())]; },
+    state() { const n = [0, 0, 0, 0, 0]; for (let c = 0; c < CAP; c++) n[ST[c]]++; return { free: n[0], carried: n[1], pinned: n[2], hand: n[3], slot: n[4], items: count(), next: F[5], pl: F[7] }; } };
+  cabReady = true; load(cabPend || null);
+  return API;
+})();
+window.HCAB = HCAB;
+function cabTick(dt, vr) { HCAB.tick(dt, vr); }
+// <<< V2 CABIN END
 // >>> V2 SURVIVAL BEGIN (survival.js via /workspace/v2-survival/apply.py)
 // ======================= V2 SURVIVAL: food, water, fatigue, health + usable items (torch, first aid, cigarettes, food, canteen, tarp) =======================
 // Survival (no stamina): WATER and FATIGUE live here, FOOD is the game's own FISH.food (fClockTick takes 5 %/h; this block gives 1.4 %/h back, so the net
@@ -13525,7 +13938,7 @@ renderer.setAnimationLoop(() => {
   if ((chunkT += dt) > 0.2) { chunkT = 0; updateChunks(); }
   hxTick(dt);                                // v0.24 haptics (engine / buffet / gear + queued pulses)
   if (xr || HANDS.force) { wtTick(dt); updateHands(dt); setpTick(); jbPoke(); ecoPoke(); upgPoke(); emgPoke(); }
-  bodyTick(dt); vlTick(); batchTick(); cvlApply(); packTick(dt, xr || HANDS.force); survTick(dt, xr || HANDS.force); if (GFX.shadows && FT.n % ((mode !== 'plane' || ac.vel[0] * ac.vel[0] + ac.vel[1] * ac.vel[1] + ac.vel[2] * ac.vel[2] > 0.1) ? DYN.sh : Math.max(2, DYN.sh)) === 0) renderer.shadowMap.needsUpdate = true;   // v0.47 static batches; shadow map at half rate   // v0.23 gloves (after the stick / knobs have their final pose); v0.45 wrist SETTINGS board
+  bodyTick(dt); vlTick(); batchTick(); cvlApply(); packTick(dt, xr || HANDS.force); survTick(dt, xr || HANDS.force); cabTick(dt, xr || HANDS.force); if (GFX.shadows && FT.n % ((mode !== 'plane' || ac.vel[0] * ac.vel[0] + ac.vel[1] * ac.vel[1] + ac.vel[2] * ac.vel[2] > 0.1) ? DYN.sh : Math.max(2, DYN.sh)) === 0) renderer.shadowMap.needsUpdate = true;   // v0.47 static batches; shadow map at half rate   // v0.23 gloves (after the stick / knobs have their final pose); v0.45 wrist SETTINGS board
   if (DIRTY_TEX.size) { DIRTY_TEX.forEach(texInit); DIRTY_TEX.clear(); } if (WARM.done && !WARM.jobs.length) binoRender();   // v0.53 the 7x view (only while raised); v0.81 the textures upload first
   if (xr || HANDS.force) wtApply(); BOOTF.pre = performance.now(); BOOTF.wl = xr && BOOTF.lite > 0; if (BOOTF.wl && BOOTF.lite === 2) warmStart('Entering VR');
   const _wr = warmTick() && !(xr && BOOTF.lite > 0); if (xr && BOOTF.lite > 0) BOOTF.lite--; if (_wr && !BOOTF.real) bootLog('first scene frame: drawing (first draw can still link a few programs)');

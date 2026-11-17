@@ -2,6 +2,19 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v1.11.13 – a Polaroid camera and a cozy home cabin (VR Dev 2)
+
+- **The home cabin has an inside now:** the cabin by the strip is a log cabin you can walk into. The door in the east wall faces the road and stands open, and the west window looks out at the strip, the Cub and the mountain. The walls are solid, so you go in through the door.
+  - Inside: a wood stove with a kettle and wood pile, a bunk, table and bench under the window with a lamp, mug and logbook, rugs, a bookcase, a wall map, a calendar, a corkboard, trophies and coat pegs.
+  - The stove's fire flickers, and while you're inside it lights the room warmly, stronger at night. The light never leaks outside.
+  - The survival cot (your sleep spot) moves inside to the bunk corner.
+- **Polaroid camera ($35):** it sits on a stump by the supply crate. In VR, grip it to buy; on desktop, press P near it.
+  - Hold it in either hand and pull the trigger to take a picture through the lens (at night with a flash). The print slides out of the front slot; take it with your other hand. It develops from grey-green to the picture over about 7 seconds.
+  - Pin prints on the cabin's corkboard: let go of one near the board and it snaps on with a coloured pin. Squeeze a pinned print to take it back down.
+  - On desktop, P takes a picture from your eyes (the print goes into your pack), and P at the corkboard pins your newest print.
+  - Up to 24 pictures are kept. Past that, a new photo replaces the oldest unpinned print. Pictures and where they're pinned are saved; older saves load with an empty album.
+- **Cost:** 1 extra draw outside (the cabin shell), 2–4 inside the cabin, no new lights or shadow casters, no new shader programs when you take a picture, no garbage per frame, and the physics checksum is unchanged.
+
 ## v1.11.12 – recorded sounds (a CC0 sound pack), with a switch back to the classic sounds
 
 - **Recorded sounds:** 52 sounds (119 short Ogg Opus files, about 457 KB in `sfx/`) now play over the synthesized Web Audio ones.
