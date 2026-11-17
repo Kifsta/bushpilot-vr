@@ -636,7 +636,7 @@ const hyp = (a, b, c = 0) => Math.sqrt(a * a + b * b + c * c);   // v0.59 Math.h
 
 // ======================= RENDERING =======================
 // v0.35 settings (persist in localStorage 'bp_gfx'; ?gfx=shadows:2,grass:1 overrides for testing). Defaults = the v0.34 look and cost.
-const BP_VERSION = 'v1.11.2';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
+const BP_VERSION = 'v1.11.3';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
 { const e = document.getElementById('ver'); if (e) e.textContent = BP_VERSION; } window.__bpVer = BP_VERSION; bootLog('game module running ' + BP_VERSION + ' (three r' + THREE.REVISION + ')' + (/[?&]safe(=|&|$)/.test(location.search) ? ' - SAFE MODE: default graphics, no shadows / ULTRA / life / vistas / music' : ''));
 const GFX_DEF = { shadows: 0, scale: 1, fov: 1, dist: 1, trees: 1, grass: 0, clouds: 1, fog: 1, msaa: 1, hz: 90, vig: 0, turn: 0, fps: 0, tod: 11, stk: 1, tips: 1, terr: 1, dyn: 1, glove: 0, hand: 0, wt: 1, volM: 1, volMu: 0.5, volE: 1, volA: 1, volF: 1, wx: 1, forest: 0, ground: 0, gtex: 0, cvl: 1, water: 1, dayl: 48, flure: 0, fline: 8, fdrag: 4, fbob: 0, fsink: 0, ultra: 0 };   // v0.68.1 dominant hand, volumes. v0.48 BALANCED: 90 % scale, 72 Hz, fast terrain shading, auto resolution; v0.49.1 the stick stays where you let go of it
 const GFX = Object.assign({}, GFX_DEF);
@@ -1432,7 +1432,8 @@ const DOOR_HOLE = [[-0.67, -0.20], [0.28, -0.22], [0.28, 0.92], [-0.36, 0.92], [
 const CARGO_LO = [[0.40, -0.20], [1.03, -0.20], [1.03, 0.37], [0.40, 0.37]];   // v0.77.13 right cargo door below the rear window, aft of the door post (hinges down like the main door)
 for (const sx of [-1, 1]) {
   sideSkin(CAB, sx < 0 ? [W_SCR, W_FRT, W_RR] : [W_SCR, DOOR_HOLE, W_RR, CARGO_LO], sx, yellow, PD);
-  for (const w of sx < 0 ? [W_SCR, W_FRT, W_RR] : [W_SCR, W_RR]) { if (sx > 0 || w === W_SCR) sidePane(w, sx, glass, PD); sideFrame(w, sx, PD); }   // v0.19: left side windows are sliding panes (see v0.19 block)
+  for (const w of sx < 0 ? [W_SCR, W_FRT, W_RR] : [W_SCR]) {   // v1.11.3 the right rear window is its own hinged pane (rwin)
+    if (sx > 0 || w === W_SCR) sidePane(w, sx, glass, PD); sideFrame(w, sx, PD); }   // v0.19: left side windows are sliding panes (see v0.19 block)
 }
 polyMesh([[[[-0.35, -0.28, -1.11], [0.35, -0.28, -1.11], [0.35, -0.35, 0.17], [-0.35, -0.35, 0.17]], [0, -1, 0]],
   [[[-0.35, -0.35, 0.17], [0.35, -0.35, 0.17], [0.35, -0.23, 1.10], [-0.35, -0.23, 1.10]], [0, -1, 0]]], yellow);   // cabin belly
@@ -1627,6 +1628,8 @@ const cdoor = new THREE.Group(); cdoor.position.set(0.35, -0.21, 0); cubD.add(cd
 sideSkin(CARGO_LO, [], 1, yellow, cdoor).geometry.translate(-0.35, 0.21, 0); box(0.004, 0.065, 0.63, boltMat, 0.002, 0.21 + 0.155, 0.715, cdoor); box(0.006, 0.57, 0.012, dark, 0.003, 0.21 + 0.085, 0.405, cdoor); box(0.006, 0.57, 0.012, dark, 0.003, 0.21 + 0.085, 1.025, cdoor);   // skin, stripe, the edge seams
 const win = new THREE.Group(); win.position.set(0.35, 0.92, 0); cubD.add(win);
 sidePane(W_FRT, 1, glass, win).geometry.translate(-0.35, -0.92, 0); sideFrame(W_FRT, 1, win).geometry.translate(-0.35, -0.92, 0);
+const rwin = new THREE.Group(); rwin.position.set(0.35, 0.88, 0); cubD.add(rwin);   // v1.11.3 the right rear window: hinged at its top under the wing like the pilot's, opens with the cargo door
+sidePane(W_RR, 1, glass, rwin).geometry.translate(-0.35, -0.88, 0); sideFrame(W_RR, 1, rwin).geometry.translate(-0.35, -0.88, 0);
 let doorT = 0;
 // v0.35 propeller: a real 2-blade Sensenich-style metal prop (tapered, twisted, painted tips) + a separate blur disc that only
 // fades in with rpm. Before: the blade was a flat 10 cm box parented to an always-on 18 % grey disc, so a stopped prop sat
@@ -2637,10 +2640,41 @@ function footSupport(x, z, fy) {   // the highest thing you can stand on here: t
   FOOT.on = on; return fDeckSupport(x, z, sup);   // v0.97.2 the float deck
 }
 const _twp = { x: 0, z: 0 };
+// v1.11.3 the parked Cub is solid on foot: a few boxes in the drawing frame (x right, y up, z aft: cowl + cabin, the aft fuselage, the tail, the
+// stabiliser, the wings, the prop disc) and the four lift struts; your body (r 0.25 at four heights) is pushed out sideways. The main wheels are left
+// out so you can still step up on a tyre to fuel. The hands are tracked too: a piece of cargo has to go into the cabin through an open door.
+const CUBC = { m: new THREE.Matrix4(), inv: new THREE.Matrix4(), p: new THREE.Vector3(), q: new THREE.Vector3(), o: new THREE.Vector3(), w: new THREE.Vector3(), R: 0.25, near: false,
+  B: new Float64Array([-0.42, 0.42, -0.42, 0.96, -1.98, 1.10,  -0.36, 0.36, -0.32, 0.86, 1.10, 2.40,  -0.25, 0.25, -0.12, 0.82, 2.40, 3.50,  -0.13, 0.13, 0.10, 1.85, 3.50, 4.95,
+    -1.45, 1.45, 0.58, 0.74, 3.85, 4.85,  -5.40, 5.40, 0.94, 1.18, -0.52, 1.12,  -0.95, 0.95, -0.72, 1.20, -2.08, -1.98]),
+  S: new Float64Array(24), hin: [false, false], hok: [false, false], hl: [new THREE.Vector3(), new THREE.Vector3()], hp: [new THREE.Vector3(), new THREE.Vector3()] };
+{ let i = 0; for (const sx of [-1, 1]) for (const z of [-0.25, 0.55]) { CUBC.S.set([sx * 0.35, -0.33, 0.17, sx * 3.27, wy(3.27, z), z], i); i += 6; } }
+function cubPushPt(w) {   // w (world) -> pushed out of the boxes / struts in the drawing frame; returns true if it moved (w updated, y kept)
+  const p = CUBC.p.copy(w).applyMatrix4(CUBC.inv), B = CUBC.B, S = CUBC.S, R = CUBC.R; let mv = false;
+  for (let i = 0; i < B.length; i += 6) { if (p.y < B[i + 2] || p.y > B[i + 3]) continue; const a = p.x - (B[i] - R), b = B[i + 1] + R - p.x, c = p.z - (B[i + 4] - R), d = B[i + 5] + R - p.z;
+    if (a <= 0 || b <= 0 || c <= 0 || d <= 0) continue; const mx = Math.min(a, b), mz = Math.min(c, d);
+    if (mx < mz) p.x += a < b ? -a : b; else p.z += c < d ? -c : d; mv = true; }
+  for (let i = 0; i < 24; i += 6) { const ax = S[i], ay = S[i + 1], az = S[i + 2], ux = S[i + 3] - ax, uy = S[i + 4] - ay, uz = S[i + 5] - az;
+    const t = Math.max(0, Math.min(1, ((p.x - ax) * ux + (p.y - ay) * uy + (p.z - az) * uz) / (ux * ux + uy * uy + uz * uz)));
+    const vx = p.x - ax - t * ux, vz = p.z - az - t * uz, vy = p.y - ay - t * uy, dd = vx * vx + vy * vy + vz * vz; if (dd >= R * R) continue;
+    const hh = Math.sqrt(vx * vx + vz * vz), k = (R - Math.sqrt(dd)) / Math.max(hh, 1e-3); if (hh < 1e-3) p.z += R; else { p.x += vx * k; p.z += vz * k; } mv = true; }
+  if (!mv) return false; const y = w.y; w.copy(p).applyMatrix4(CUBC.m); w.y = y; return true; }
+function cubPush(w) {   // the camera's ground position w: pushed out of the Cub at four heights from your feet to your head
+  CUBC.near = false; if (mode !== 'foot') return false; const dx = w.x - ac.pos[0], dz = w.z - ac.pos[2]; if (dx * dx + dz * dz > 64) return false;
+  plane.updateMatrixWorld(); CUBC.m.multiplyMatrices(plane.matrixWorld, CUB_M); CUBC.inv.copy(CUBC.m).invert(); CUBC.near = true;
+  const f0 = FOOT.fy ?? (w.y - EYE), x0 = w.x, z0 = w.z;
+  for (let k = 0; k < 4; k++) { CUBC.o.set(w.x, f0 + 0.25 + k * (EYE - 0.35 - FOOT.cr) / 3, w.z); if (cubPushPt(CUBC.o)) { w.x = CUBC.o.x; w.z = CUBC.o.z; } }
+  return w.x !== x0 || w.z !== z0; }
+function cubHands() {   // where each hand is against the cabin: in through an open door (the main door is open on foot; the rear door + window when opened) or not
+  for (let i = 0; i < 2; i++) { if (!CUBC.near) { CUBC.hin[i] = false; continue; } grips[i].getWorldPosition(CUBC.q); const p = CUBC.p.copy(CUBC.q).applyMatrix4(CUBC.inv), o = CUBC.hp[i];
+    const ins = Math.abs(p.x) < 0.36 && p.y > -0.33 && p.y < 0.95 && p.z > -1.0 && p.z < 1.10;
+    if (ins && !CUBC.hin[i]) CUBC.hok[i] = o.x > 0.2 && ((o.z > -0.67 && o.z < 0.28 && o.y > -0.22 && o.y < 0.92) || (WIN.rcg > 0.5 && o.z > 0.40 && o.z < 1.05 && o.y > -0.22 && o.y < 0.885));
+    if (!ins) CUBC.hl[i].copy(p); CUBC.hin[i] = ins; o.copy(p); } }
+function cubBlocked(g) { const i = grips.indexOf(g); return mode === 'foot' && i >= 0 && CUBC.hin[i] && !CUBC.hok[i]; }
 function updateFoot(dt) {
   camera.getWorldPosition(_w);
   _twp.x = _w.x; _twp.z = _w.z; if (townPush(_twp, 0.3)) { footRig.position.x += _twp.x - _w.x; footRig.position.z += _twp.z - _w.z; _w.x = _twp.x; _w.z = _twp.z; }   // v0.22 town walls
   _twp.x = _w.x; _twp.z = _w.z; if (solidPush(_twp, 0.3)) { footRig.position.x += _twp.x - _w.x; footRig.position.z += _twp.z - _w.z; _w.x = _twp.x; _w.z = _twp.z; }   // v0.34 fences / walls
+  CUBC.w.copy(_w); if (cubPush(CUBC.w)) { footRig.position.x += CUBC.w.x - _w.x; footRig.position.z += CUBC.w.z - _w.z; _w.x = CUBC.w.x; _w.z = CUBC.w.z; } cubHands();   // v1.11.3 the Cub
   footVista();   // v1.06.1 the landmark rocks
   FOOT.crouchT = clamp(FOOT.crouchT + (FOOT.crouchIn ? 1 : -1) * dt / CROUCH_TIME, 0, 1);
   const gY = groundY(_w.x, _w.z), cr = CROUCH_DROP * crouchK();
@@ -4557,18 +4591,29 @@ function latchDraw() {
 const _cgo = new THREE.Vector3();
 function cargoGrab(p) {   // v0.77.13 on foot: a squeeze at the outside handle (or anywhere on its top edge) swings the cargo door
   cdoor.localToWorld(_cgo.set(0.03, 0.515, 0.72));   // outside face, opposite the inside handle
-  const d = p.distanceTo(_cgo); if (d > 0.16) return false;
+  let d = p.distanceTo(_cgo); if (d > 0.16) { rwin.localToWorld(_cgo.set(0.03, -0.42, 0.76)); d = p.distanceTo(_cgo); } if (d > 0.16) return false;   // v1.11.3 or the rear window's lower edge
   winToggle('rcg'); return true; }
 function winToggle(k) { WIN.tgt[k] = WIN[k] > 0.5 ? 0 : 1; sfx('clack');
-  say({ rup: 'RIGHT WINDOW', rlo: 'DOOR (LOWER)', lf: 'LEFT FRONT WINDOW', lr: 'LEFT REAR WINDOW', rcg: 'CARGO DOOR' }[k] + (WIN.tgt[k] ? ' OPEN' : ' CLOSED')); }
+  say({ rup: 'RIGHT WINDOW', rlo: 'DOOR (LOWER)', lf: 'LEFT FRONT WINDOW', lr: 'LEFT REAR WINDOW', rcg: 'REAR DOOR + WINDOW' }[k] + (WIN.tgt[k] ? ' OPEN' : ' CLOSED')); }
 function ckhHas(k) { for (const h of CKH.values()) if (h.k === k) return true; return false; }   // v0.59 (was a spread copy per latch per frame)
+// v1.11.3 rudder pedals: one instanced draw, under the seated IK feet (same rudder / brake travel as the feet: BODY seat legs)
+const PEDAL = { mesh: new THREE.InstancedMesh(ckGeo([['b', 0.085, 0.012, 0.115, 0, 0, 0, 0x3a3c40], ['b', 0.07, 0.004, 0.09, 0, 0.008, 0, 0x1c1c1c], ['c', 0.009, 0.11, 6, 0, -0.045, 0.03, 0x6a6e72, 0.5, 0, 0], ['c', 0.007, 0.07, 6, 0, -0.02, -0.07, 0x55585c, -0.9, 0, 0]]), CKVM.clone(), 2),
+  M: new THREE.Matrix4(), R: new THREE.Matrix4() };
+PEDAL.mesh.frustumCulled = false; plane.add(PEDAL.mesh);
+{ const bar = new THREE.Mesh(ckGeo([['c', 0.01, 0.36, 6, 0, -0.355, -0.66, 0x55585c, 0, 0, Math.PI / 2], ['b', 0.03, 0.025, 0.03, -0.17, -0.355, -0.66, 0x3a3c40], ['b', 0.03, 0.025, 0.03, 0.17, -0.355, -0.66, 0x3a3c40]]), CKVM); bar.userData.noBatch = true; plane.add(bar); }   // the torque tube across the floor
+function pedalDraw() { if (mode !== 'plane') { PEDAL.mesh.visible = false; return; } PEDAL.mesh.visible = true; const rud = ctl.rud, br = ctl.brake;
+  for (let s = 0; s < 2; s++) { const x = s ? 1 : -1, pit = 0.42 + 0.12 * br, sp = Math.sin(pit), cp = Math.cos(pit), pz = -0.645 - x * 0.035 * rud;   // the heel on the floor (y -0.332), the plate under the ball of the foot
+    PEDAL.M.makeRotationX(pit); PEDAL.M.setPosition(x * 0.125, -0.332 + 0.1 * sp - 0.012 * cp, pz - 0.1 * cp - 0.097 * sp); PEDAL.mesh.setMatrixAt(s, PEDAL.M); }
+  PEDAL.mesh.instanceMatrix.needsUpdate = true; }
 function updateWindows(dt) {
   for (const k in LATCH) { if (WIN.tgt[k] > 0 || WIN[k] > 0.03) LATCH[k] = 0;   // v0.44: keys 1-4 / the exit work the latch for you
     else if (!LATCH[k] && WIN[k] === 0 && WIN.tgt[k] === undefined && !ckhHas(k)) { LATCH[k] = 1; if (mode === 'plane') sfx('clack'); }
     LATCHV.a[k] = CKX.vis['L' + k] ?? (LATCH[k] ? 0 : 1.0); }
   for (const k of ['rup', 'rlo', 'lf', 'lr', 'rcg']) if (WIN.tgt[k] !== undefined) { WIN[k] = approach(WIN[k], WIN.tgt[k], 1.2, dt); if (WIN[k] === WIN.tgt[k]) delete WIN.tgt[k]; }
   doorT = approach(doorT, mode === 'foot' ? 1 : 0, 1.5, dt);
-  door.rotation.z = -WIN_MAX.rlo * Math.max(doorT, WIN.rlo); win.rotation.z = WIN_MAX.rup * Math.max(doorT, WIN.rup); cdoor.rotation.z = -WIN_MAX.rcg * WIN.rcg;
+  if (mode !== WIN.md) { if (mode === 'plane' && (WIN.rcg > 0 || WIN.tgt.rcg)) WIN.tgt.rcg = 0; WIN.md = mode; }   // v1.11.3 you sat in: the rear door + window swing shut
+  door.rotation.z = -WIN_MAX.rlo * Math.max(doorT, WIN.rlo); win.rotation.z = WIN_MAX.rup * Math.max(doorT, WIN.rup); cdoor.rotation.z = -WIN_MAX.rcg * WIN.rcg; rwin.rotation.z = WIN_MAX.rup * WIN.rcg;
+  pedalDraw();
   LWF.g.position.z = LW_TRAVEL.lf * WIN.lf; LWR.g.position.z = LW_TRAVEL.lr * WIN.lr;
   latchDraw();   // v0.49.1: after the panes have moved this frame
   WIN.open = mode === 'plane' ? clamp(0.5 * Math.max(doorT, WIN.rup) + 0.35 * Math.max(doorT, WIN.rlo) + 0.3 * WIN.lf + 0.2 * WIN.lr + 0.25 * WIN.rcg, 0, 1) : 0;
@@ -6417,7 +6462,8 @@ function dlvWalkK() { if (mode !== 'foot') return 1; let lb = 0; for (const it o
 function dlvRelease(g) { if (DLV.lift && DLV.lift.g === g) { DLV.lift = null; return; } const it = DLV.held.get(g); if (!it) return;
   const L = []; for (let p = it.up; p; p = p.up) L.push(p); const W = L.map(p => p.mesh.getWorldPosition(new THREE.Vector3()));   // v0.88.1 a carried stack: the bottom piece first, then each one where it was (onto the one below)
   for (const p of L) { dlvUnstack(p); scene.attach(p.mesh); } dlvUnstack(it);
-  it.mesh.getWorldPosition(_dg); const r = dlvDrop(it, _dg); let n = r === 'cargo' ? 1 : 0;
+  it.mesh.getWorldPosition(_dg); if (cubBlocked(g)) { { const l = CUBC.hl[grips.indexOf(g)]; _dg.set((l.x < 0 ? -1 : 1) * Math.max(0.8, Math.abs(l.x)), l.y, l.z).applyMatrix4(CUBC.m); } W.forEach((w, i) => w.copy(_dg).y += 0.2 * (i + 1)); say('LOAD IT THROUGH AN OPEN DOOR - NOT THROUGH THE SIDE'); }   // v1.11.3 the hand came in through the fuselage: it drops outside, where it came in
+  const r = dlvDrop(it, _dg); let n = r === 'cargo' ? 1 : 0;
   L.forEach((p, i) => { p.st = 'held'; if (r === 'cargo' && !cgZoneAt(plane.worldToLocal(_dp.copy(W[i]))) && cgLoadAny(p, true)) n++; else if (dlvDrop(p, W[i], true) === 'cargo') n++; });   // (the top of a tall stack over the cabin: still into the Cub)
   if (L.length && n) { wbUpdate(); const B = WBS.plan; say('LOADED ' + n + ' OF ' + (L.length + 1) + ' PIECES | ' + B.lb.toFixed(0) + ' LB CG +' + B.arm.toFixed(1) + (B.over ? ' OVER GROSS' : B.inEnv ? '' : ' OUT OF LIMITS')); }
   HX.pulse(g, 0.15, 12, 'release'); }

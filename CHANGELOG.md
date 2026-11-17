@@ -2,6 +2,14 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v1.11.3 – the rear door opens with its window, the Cub is solid, rudder pedals
+
+- **Rear door with one squeeze:** on foot, squeeze once at the cargo door handle, or at the rear window above it, and the whole rear opening opens. The cargo door folds down and the right rear window, now hinged, swings up under the wing with it. Squeeze again to shut both. When you climb into the seat, the rear door and window swing shut by themselves. In the seat, key 5 still works both.
+- **The Cub is solid on foot:** you can no longer walk through the fuselage, tail, wings, struts or the prop. You slide along them instead. It costs nothing when you are more than 8 m from the Cub.
+- **Cargo goes in through a door:** a hand holding cargo, or anything else, that pushes in through the fabric is blocked. If you let go there, the item falls outside the Cub with a message. Load through the open main door, or through the rear door once it is open.
+- **Rudder pedals:** two pedals on a torque tube on the cabin floor, where your seated feet rest. They follow the rudder (one in, one out) and tilt with the brakes.
+- **Cost:** no garbage per frame, no new shader programs, and the physics checksum is unchanged.
+
 ## v1.11.2 – quick fixes: stow spots clear of your legs, a clamshell pack, a held-item tag, a cast that leaves, subtle throttle detents
 
 - **Stow spots clear of the IK body:** the clipboard now lies flat on top of your left thigh, with its clip toward the knee. It used to sit inside the leg. The things you carry on your body are hung off the pelvis, so they follow your hips and stay out of your legs standing, walking and crouching: the knife sheath sits flat on your right side, the canteen pouch behind your left hip, the cartridge pouch front right and the binocular holster on your left side. The cockpit radio mic was already about 15 cm clear of your legs and has not moved.

@@ -104,7 +104,7 @@ v0.24 haptics: you feel the engine (rpm, rough running, cranking), stall buffet,
 | Right upper window (latches under the wing) | Grab its handle, roll your wrist to turn the latch, then swing it out and up | 1 |
 | Right lower door half (folds down) | Grab its handle, roll your wrist to turn the latch, then push it out | 2 |
 | Left front / rear window (slide aft) | Grab the handle, roll your wrist to turn the latch, then drag | 3 / 4 |
-| Right cargo door (v0.77.13: aft of the door, under the rear window; folds down) | In the seat: reach back to its handle, roll your wrist to turn the latch, then push it out (past halfway it drops onto its stop). On foot: squeeze at its handle from outside to open or shut it | 5 (in the seat) |
+| Right cargo door (v0.77.13: aft of the door, under the rear window; folds down) | In the seat: reach back to its handle, roll your wrist to turn the latch, then push it out (past halfway it drops onto its stop). On foot (v1.11.3): squeeze once at its handle, or at the rear window above it, to open or shut the door and the window together; both shut by themselves when you sit in | 5 (in the seat, door + window) |
 
 v0.44 latches: every window and the door are latched while shut. Squeeze the handle and roll your wrist about 35° until the latch clacks free, then move it. Shut it and let go, and the latch drops back in. The desktop keys work the latch for you.
 
@@ -152,6 +152,8 @@ v0.44 latches: every window and the door are latched while shut. Squeeze the han
 | Rig + belt slots (v1.11.1) | On foot: grip at a chest-rig pocket (small things), the canteen pouch (left back of the belt) or the knife sheath (right hip) takes what is in it; let a thing go at an empty slot that takes it and it snaps in. Pouch (front right) and binocular holster (left hip) unchanged | - |
 | Held-item tag (v1.11.2) | VR: when you pick something up, its name shows on a small card above that hand for a moment | – |
 | Pack: walk off (v1.11.2) | Leave the pack on the ground and walk about 3.5 m away: it goes back on your back by itself. Take it off your back by reaching right to its top edge behind your shoulder. It opens at the back (clamshell): reach in through the side that faces you | I sets it down / puts it back on |
+| Rear door + window (v1.11.3) | On foot: squeeze once at the cargo door handle or at the rear window to open both (the door folds down, the window swings up). Squeeze again to shut them. They shut by themselves when you sit in | 5 (in the seat) |
+| Load cargo (v1.11.3) | Through the open main door, or the open rear door. The Cub is solid: a held item that pushes through the side is stopped, and let go there it drops outside | – |
 
 ## On foot
 | | VR | Desktop |
