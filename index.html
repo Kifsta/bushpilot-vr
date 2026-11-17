@@ -636,7 +636,7 @@ const hyp = (a, b, c = 0) => Math.sqrt(a * a + b * b + c * c);   // v0.59 Math.h
 
 // ======================= RENDERING =======================
 // v0.35 settings (persist in localStorage 'bp_gfx'; ?gfx=shadows:2,grass:1 overrides for testing). Defaults = the v0.34 look and cost.
-const BP_VERSION = 'v1.11.16';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
+const BP_VERSION = 'v1.11.17';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
 { const e = document.getElementById('ver'); if (e) e.textContent = BP_VERSION; } window.__bpVer = BP_VERSION; bootLog('game module running ' + BP_VERSION + ' (three r' + THREE.REVISION + ')' + (/[?&]safe(=|&|$)/.test(location.search) ? ' - SAFE MODE: default graphics, no shadows / ULTRA / life / vistas / music' : ''));
 const GFX_DEF = { shadows: 0, scale: 1, fov: 1, dist: 1, trees: 1, grass: 0, clouds: 1, fog: 1, msaa: 1, hz: 90, vig: 0, turn: 0, fps: 0, tod: 11, stk: 1, tips: 1, terr: 1, dyn: 1, glove: 0, hand: 0, wt: 1, volM: 1, volMu: 0.5, volE: 1, volA: 1, volF: 1, wx: 1, forest: 0, ground: 0, gtex: 0, cvl: 1, water: 1, dayl: 48, flure: 0, fline: 8, fdrag: 4, fbob: 0, fsink: 0, ultra: 0, sfxr: 1 };   // v0.68.1 dominant hand, volumes. v0.48 BALANCED: 90 % scale, 72 Hz, fast terrain shading, auto resolution; v0.49.1 the stick stays where you let go of it
 const GFX = Object.assign({}, GFX_DEF);
@@ -6643,7 +6643,7 @@ const WB_PK = { lb: 0, arm: WNB.PILOT_ARM, y: 0.1 }, WB_PKO = [WB_OFF[0], { lb: 
 // VR on foot: reach over your shoulder and grip - the pack swings off your back into that hand (with the rifle slung, the right side of your back stays
 // the rifle's: the pack is then over your LEFT shoulder). Let go by your shoulder = back on; anywhere else it drops, falls and lands (grab it again).
 // Held in one hand or on the ground its lid is open and the items lie inside as small models: take one with the other hand (or either, on the ground),
-// let it go inside the opening to put it back (room: PK_ROOM litres). Let an item go elsewhere and it drops to the ground. Weight: the pack and all in it
+// let it go inside the opening to put it back (v1.11.17: where you let it go; the bag's own space decides - V3 PACK below). Let an item go elsewhere and it drops to the ground. Weight: the pack and all in it
 // ride with you (the W&B in the seat - over gross warns, never blocks; the v0.92 item weight in the hand that holds it). Desktop: I sets it down / puts it on.
 // Draws: the pack 1, the contents 1 (only while open), things on the ground 1, an item in a hand 1: all ITEM_VM (no new program). Your own eyes never see
 // the worn pack (it is behind you; drawn for every other camera, the third-person view and the mirror shots).
@@ -6756,7 +6756,7 @@ function pkNearItem(p) { if (!pkInOpening(p, 0.05)) return -1; let b = -1, bd = 
   for (let j = 0; j < PK.slot.length; j++) { const s = PK.slot[j], z = PK_K[PK.it[j]][3], d = Math.hypot(Math.max(0, Math.abs(_pkL.x - s[0]) - z[0] / 2), Math.max(0, Math.abs(_pkL.y - s[1]) - z[1] / 2), Math.max(0, Math.abs(_pkL.z - s[2]) - z[2] / 2)); if (d < bd) { bd = d; b = j; } }
   return b; }
 function pkHold(g) { PK.st = 'held'; PK.g = g; PK.v.set(0, 0, 0); scene.add(PK.mesh); pkHeldPose(); PK.mesh.scale.set(1, 1, 1); PK.mesh.visible = true; pkGeo(true);
-  pkWeigh(); sfx('pick'); HX.pulse(g, 0.45, 28, 'cargo'); say('PACK ' + Math.round(PK.lb) + ' LB - ' + PK.it.length + ' ITEMS (' + PK.vol.toFixed(1) + ' / ' + PK_ROOM + ' L) - TAKE ONE WITH YOUR OTHER HAND, LET GO BY YOUR SHOULDER TO PUT IT ON'); saveSoon(); }
+  pkWeigh(); sfx('pick'); HX.pulse(g, 0.45, 28, 'cargo'); say('PACK ' + Math.round(PK.lb) + ' LB - ' + PK.it.length + ' ITEMS (' + PK.vol.toFixed(1) + ' L, THE BAG ' + (PK.fill | 0) + ' % FULL) - TAKE ONE WITH YOUR OTHER HAND, LET GO BY YOUR SHOULDER TO PUT IT ON'); saveSoon(); }
 function pkWear(quiet) { PK.st = 'worn'; PK.g = null; scene.add(PK.mesh); pkGeo(false); pkWornPose(); pkWeigh(); if (!quiet) { sfx('pick'); say('PACK ON YOUR BACK - REACH OVER YOUR SHOULDER FOR IT'); } saveSoon(); }
 function pkWornPose() { const M = PK.mesh;
   if (typeof BODY !== 'undefined' && BODY.tier >= 1 && BODY.MLOC && BODY.n > 0) { _pkM.multiplyMatrices(BODY.MLOC, BODY.W[2]).multiply(PK_WORN); M.position.setFromMatrixPosition(_pkM); M.quaternion.setFromRotationMatrix(_pkM).normalize(); }   // the chest frame is unscaled (no decompose: it boxes a double a frame)
@@ -13160,6 +13160,184 @@ const SURV = (() => {
 window.SURV = SURV;
 function survTick(dt, vr) { SURV.tick(dt, vr); }
 // <<< V2 SURVIVAL END
+// >>> V3 PACK BEGIN (pack.js via /workspace/v3-pack/apply.py)
+// V3 PACK (lead: backpack rework on the v1.11.0-v1.11.2 PK block). Game-side only: nothing in PHYSICS START..END is touched.
+// (1) No allocated slots inside: an item let go inside the open bag stays exactly where you let it go, relative to the bag (bag-local centre + a turn
+//     about the bag's up axis; held more than 45 deg over it lies on its side: `tip`). A box-overlap check against the other contents (each item's
+//     PK_K [w h d] box, turned) and the bag's inner volume PKX_IN: out of the walls it is pushed back inside; clipping another item it is nudged out along
+//     the shortest way (one or two pushes, PKX_NUDGE at most). No way within that: rejected - it stays in your hand (a buzz + NO ROOM THERE) until you
+//     move it somewhere free (it goes in as soon as it fits while your grip is open) or take it out of the opening (it drops, as before).
+//     Things put in without a hand (auto-stow when you board / leave VR, the supply crate, a save without positions) are packed by pkxAuto: the lowest
+//     free spot (then nearest the opening, then left), upright either way round; on its side only when upright fits nowhere. The litre limit (PK_ROOM) is gone: the
+//     bag's own space decides (PKX_IN, a 16.5 L inner box). Opening the pack shows how full it really is: PK.fill, the share of that box the items' own boxes take.
+// (2) Kept: the clamshell back opening, auto-stow, the small shoulder grab (pkReach), chest-rig + belt slots (SL_D / RIG untouched).
+// (3) External side slots on the pack (they ride with it: worn, in a hand, on the ground):
+//     - right side: the fishing rod, telescoped down to 0.45 m (3 sections; it collapses over PKX_ROD.tel s as it goes in). Grip it there to take it
+//       (it comes out full length: the game's own rod, fTake); let it go anywhere and it snaps back in, as before (fStow). The old hip tube is
+//       not drawn any more; its grab spot (F_ROD_OFF) still takes the rod while the pack is on your back (it is beside the new slot).
+//     - left side: the rifle, strapped upright, muzzle up. Let the rifle go within PKX_RFL.snap of the strap: strapped (RFL.place stays 'back': all the
+//       rifle rules for a slung rifle hold - boarding, the save, T on the desktop; PKX.rs says "on the pack side"). Grip it there (within
+//       PKX_RFL.grab of it) to take it. The over-the-shoulder sling (let go by your head, muzzle up) is unchanged and is still the default, so the
+//       pack's whole top edge is the pack's while the rifle is on its side. Fly off with the pack left on the ground: the rifle comes with you, slung.
+// (4) Save: pack.ip = [x, y, z, ry, tip] per item of pack.it (0.1 mm / 0.1 mrad), pack.rs = 1 for a strapped rifle. Older saves load (auto-packed).
+// Draws: rod 3 (while stowed; the old tube 1 is gone), the straps + rod cup are merged into the pack's own geometry (0 more). ITEM_VM: no new program.
+// Per frame: no allocation (scratch typed arrays / vectors); the box search runs only on a put / take / load.
+const PKX_IN = [-0.148, 0.148, -0.458, -0.036, 0.012, 0.144];   // the inner volume, bag-local x0 x1 y0 y1 z0 z1 (inside the walls, floor, lid, back liner)
+const PKX_GAP = 0.003, PKX_NUDGE = 0.05, PKX_EPS = 1e-4, PKX_MAX = 64;   // m between items, the furthest a let-go item is nudged, tolerance, the most items
+const PKX_ROD = { p: [0.2, -0.49, 0.08], rz: -0.08, len: 0.45, r: 0.08, ext: [0.38, 0.76], tel: 0.35 };   // right side: butt, lean, telescoped length, grab radius, section travel, collapse s
+const PKX_RFL = { p: [-0.19, -0.16, 0.08], rz: 0.1, grab: 0.1, snap: 0.2 };   // left side: the rifle's wrist, lean (muzzle out), grab radius, snap radius
+const PKX = { ik: [], hint: -1, pend: null, next: null, seed: null, seedK: null, rej: [false, false], rs: 0, rsL: 0, tel: 0, rodWas: '', clash: -1, ver: 0, verL: new Int32Array(2), L: new Float64Array(10),
+  OB: new Float64Array(6 * PKX_MAX), OI: new Int32Array(PKX_MAX), nb: 0, R: new Float64Array(5), E: new Float64Array(3), C: new Float64Array(6), P: new Float64Array(5), T: new Float64Array(5), XS: new Float64Array(2 * PKX_MAX + 2), YS: new Float64Array(2 * PKX_MAX + 2), ZS: new Float64Array(2 * PKX_MAX + 2),
+  RM: new THREE.Matrix4(), M: new THREE.Matrix4(), V: GV3(0, 0, 0), W: GV3(0, 0, 0), U: GV3(0, 0, 0), S: GV3(0, 0, 0), Q: new THREE.Quaternion(), Q2: new THREE.Quaternion(), rodG: null, rodS: [] };
+PKX.RM.makeRotationZ(PKX_RFL.rz).multiply(new THREE.Matrix4().makeRotationX(Math.PI / 2)).setPosition(PKX_RFL.p[0], PKX_RFL.p[1], PKX_RFL.p[2]);   // rifle -z (muzzle) -> bag +y, its top -> bag +z
+// (hot paths pass numbers through PKX.C / PKX.P / PKX.T, never as call arguments: a double argument to a call that is not inlined is a new heap number)
+function pkxExt(k, ry, tip) { PKX.T[3] = ry; PKX.T[4] = tip ? 1 : 0; return pkxExtS(k, PKX.T); }
+function pkxExtS(k, q) {   // half extents of kind k's box turned q[3] (q[4]: on its side: its up -> bag +z, its depth -> bag -y)
+  const ry = q[3], tip = q[4], d = PK_K[k][3], w = d[0] / 2, ey = (tip ? d[2] : d[1]) / 2, dz = (tip ? d[1] : d[2]) / 2, c = Math.abs(Math.cos(ry)), s = Math.abs(Math.sin(ry)), E = PKX.E;
+  E[0] = c * w + s * dz; E[1] = ey; E[2] = s * w + c * dz; return E; }
+function pkxOthers(K, S, skip) {   // the boxes to keep clear of (items K with poses S, skipping index skip / items not placed yet)
+  let n = 0; const O = PKX.OB;
+  for (let j = 0; j < K.length && n < PKX_MAX; j++) { const s = S[j]; if (j === skip || !s) continue; const E = pkxExtS(K[j], s), o = n * 6;
+    O[o] = s[0]; O[o + 1] = s[1]; O[o + 2] = s[2]; O[o + 3] = E[0]; O[o + 4] = E[1]; O[o + 5] = E[2]; PKX.OI[n++] = j; }
+  PKX.nb = n; }
+function pkxAtC() {   // the box PKX.C (centre, half extents): -2 out of the inner volume, the first box it clips (index into OB), or -1: free
+  const C = PKX.C, x = C[0], y = C[1], z = C[2], ex = C[3], ey = C[4], ez = C[5], I = PKX_IN; if (x - ex < I[0] - PKX_EPS || x + ex > I[1] + PKX_EPS || y - ey < I[2] - PKX_EPS || y + ey > I[3] + PKX_EPS || z - ez < I[4] - PKX_EPS || z + ez > I[5] + PKX_EPS) return -2;
+  const O = PKX.OB; for (let b = 0; b < PKX.nb; b++) { const o = b * 6;
+    if (Math.abs(x - O[o]) < ex + O[o + 3] + PKX_GAP - PKX_EPS && Math.abs(y - O[o + 1]) < ey + O[o + 4] + PKX_GAP - PKX_EPS && Math.abs(z - O[o + 2]) < ez + O[o + 5] + PKX_GAP - PKX_EPS) return b; }
+  return -1; }
+function pkxPlace(k, x, y, z, ry, tip) { const P = PKX.P; P[0] = x; P[1] = y; P[2] = z; P[3] = ry; P[4] = tip ? 1 : 0; return pkxPlaceP(k); }
+function pkxPlaceP(k) {   // a let-go item at bag-local PKX.P (x, y, z, ry, tip): pushed inside the walls, then nudged clear (<= PKX_NUDGE) -> PKX.R; false: rejected
+  const P = PKX.P, ry = P[3], tip = P[4], E = pkxExtS(k, P), ex = E[0], ey = E[1], ez = E[2], I = PKX_IN, R = PKX.R, C = PKX.C; let x = P[0], y = P[1], z = P[2];
+  if (2 * ex > I[1] - I[0] + PKX_EPS || 2 * ey > I[3] - I[2] + PKX_EPS || 2 * ez > I[5] - I[4] + PKX_EPS) { PKX.clash = -2; return false; }
+  if (x < I[0] + ex) x = I[0] + ex; else if (x > I[1] - ex) x = I[1] - ex; if (y < I[2] + ey) y = I[2] + ey; else if (y > I[3] - ey) y = I[3] - ey; if (z < I[4] + ez) z = I[4] + ez; else if (z > I[5] - ez) z = I[5] - ez;   // (no clamp() call: no boxed arguments)
+  R[3] = ry; R[4] = tip ? 1 : 0; let b0 = (C[0] = x, C[1] = y, C[2] = z, C[3] = ex, C[4] = ey, C[5] = ez, pkxAtC()); if (b0 === -1) { R[0] = x; R[1] = y; R[2] = z; return true; }
+  PKX.clash = b0 >= 0 ? PKX.OI[b0] : -2; let bd = PKX_NUDGE + PKX_EPS, ok = false; const O = PKX.OB, D = 1e-5;
+  for (let b = 0; b < PKX.nb; b++) { const o = b * 6;   // every box it clips, each of its 6 faces: one push; still clipping another: a second push off that one
+    if (!(Math.abs(x - O[o]) < ex + O[o + 3] + PKX_GAP - PKX_EPS && Math.abs(y - O[o + 1]) < ey + O[o + 4] + PKX_GAP - PKX_EPS && Math.abs(z - O[o + 2]) < ez + O[o + 5] + PKX_GAP - PKX_EPS)) continue;
+    for (let a = 0; a < 6; a++) { const ax = a >> 1, sg = a & 1 ? -1 : 1, v = O[o + ax] + sg * (O[o + 3 + ax] + E[ax] + PKX_GAP + D);
+      const cx = ax === 0 ? v : x, cy = ax === 1 ? v : y, cz = ax === 2 ? v : z, d1 = Math.abs(v - (ax === 0 ? x : ax === 1 ? y : z)); if (d1 >= bd) continue;
+      const r1 = (C[0] = cx, C[1] = cy, C[2] = cz, C[3] = ex, C[4] = ey, C[5] = ez, pkxAtC()); if (r1 === -1) { bd = d1; ok = true; R[0] = cx; R[1] = cy; R[2] = cz; continue; } if (r1 < 0) continue;
+      const p = r1 * 6; for (let a2 = 0; a2 < 6; a2++) { const ax2 = a2 >> 1, sg2 = a2 & 1 ? -1 : 1, v2 = O[p + ax2] + sg2 * (O[p + 3 + ax2] + E[ax2] + PKX_GAP + D);
+        const qx = ax2 === 0 ? v2 : cx, qy = ax2 === 1 ? v2 : cy, qz = ax2 === 2 ? v2 : cz, d2 = Math.sqrt((qx - x) * (qx - x) + (qy - y) * (qy - y) + (qz - z) * (qz - z));
+        if (d2 < bd && (C[0] = qx, C[1] = qy, C[2] = qz, C[3] = ex, C[4] = ey, C[5] = ez, pkxAtC()) === -1) { bd = d2; ok = true; R[0] = qx; R[1] = qy; R[2] = qz; } } } }
+  return ok; }
+function pkxAuto(k) {   // put without a hand: the lowest free spot (then nearest the opening, then left), upright first, else on its side -> PKX.R; false: no room
+  const I = PKX_IN, O = PKX.OB, R = PKX.R, C = PKX.C, T = PKX.T; let best = Infinity;
+  for (let w = 0; w < 4; w++) { const tip = w >> 1; T[3] = (w & 1) * Math.PI / 2; T[4] = tip; const ry = T[3], E = pkxExtS(k, T), ex = E[0], ey = E[1], ez = E[2];
+    if (2 * ex > I[1] - I[0] + PKX_EPS || 2 * ey > I[3] - I[2] + PKX_EPS || 2 * ez > I[5] - I[4] + PKX_EPS) continue;
+    let nx = 2, ny = 2, nz = 2; PKX.XS[0] = I[0] + ex; PKX.YS[0] = I[2] + ey; PKX.ZS[0] = I[4] + ez; PKX.XS[1] = I[1] - ex; PKX.YS[1] = I[3] - ey; PKX.ZS[1] = I[5] - ez;   // against a wall or beside a box, either side
+    for (let b = 0; b < PKX.nb; b++) { const o = b * 6, gx = O[o + 3] + PKX_GAP + ex + 1e-5, gy = O[o + 4] + PKX_GAP + ey + 1e-5, gz = O[o + 5] + PKX_GAP + ez + 1e-5;
+      PKX.XS[nx++] = O[o] + gx; PKX.XS[nx++] = O[o] - gx; PKX.YS[ny++] = O[o + 1] + gy; PKX.YS[ny++] = O[o + 1] - gy; PKX.ZS[nz++] = O[o + 2] + gz; PKX.ZS[nz++] = O[o + 2] - gz; }
+    const XS = PKX.XS.subarray(0, nx).sort(), YS = PKX.YS.subarray(0, ny).sort(), ZS = PKX.ZS.subarray(0, nz).sort();   // (a put / load only, never a frame)
+    search: for (let iy = 0; iy < ny; iy++) { const y = YS[iy]; if (y - ey >= best - 1e-6) break;   // the lowest
+      for (let iz = 0; iz < nz; iz++) for (let ix = 0; ix < nx; ix++) if ((C[0] = XS[ix], C[1] = y, C[2] = ZS[iz], C[3] = ex, C[4] = ey, C[5] = ez, pkxAtC()) === -1) { best = y - ey; R[0] = XS[ix]; R[1] = y; R[2] = ZS[iz]; R[3] = ry; R[4] = tip; break search; } }
+    if (w === 1 && best < Infinity) break; }   // upright (either way round) wherever it fits; on its side only when upright fits nowhere
+  return best < Infinity; }
+const pkxR = () => [PKX.R[0], PKX.R[1], PKX.R[2], PKX.R[3], PKX.R[4]];
+function pkxSync() {   // PK.slot (the poses) follows PK.it after any change: kept for the items still there, the new ones placed
+  const it = PK.it, ik = PKX.ik, ps = PK.slot; let same = it.length === ik.length && ps.length === ik.length;
+  for (let j = 0; same && j < it.length; j++) same = it[j] === ik[j]; if (same) { PKX.hint = -1; PKX.next = null; return; }
+  const np = new Array(it.length).fill(null), eq = r => { for (let j = 0, q = 0; j < it.length; j++, q++) { if (q === r) q++; if (it[j] !== ik[q]) return false; } return true; };
+  if (it.length === ik.length - 1 && ps.length === ik.length) {   // one taken out: the hand's (pkNearItem), else the first of its kind (PK.it.indexOf / splice)
+    let r = PKX.hint; if (!(r >= 0 && r < ik.length && eq(r))) { let i = 0; while (i < it.length && it[i] === ik[i]) i++; r = ik.indexOf(ik[i]); if (!eq(r)) r = -1; }
+    if (r >= 0) for (let j = 0, q = 0; j < it.length; j++, q++) { if (q === r) q++; np[j] = ps[q]; } }
+  if (np.every(s => !s) && ps.length === ik.length) for (let i = 0, q = 0; i < it.length; i++) for (let t = q; t < ik.length; t++) if (ik[t] === it[i]) { np[i] = ps[t]; q = t + 1; break; }   // in order
+  for (let i = 0; i < it.length; i++) { if (np[i]) continue; const k = it[i]; pkxOthers(it, np, i);
+    const s = PKX.next && i === it.length - 1 ? PKX.next : PKX.seed && PKX.seedK && PKX.seedK[i] === k && Array.isArray(PKX.seed[i]) && PKX.seed[i].length >= 4 && PKX.seed[i].slice(0, 4).every(v => typeof v === 'number' && isFinite(v)) ? PKX.seed[i] : null;
+    if ((s && pkxPlace(k, s[0], s[1], s[2], s[3], s[4] ? 1 : 0)) || pkxAuto(k)) np[i] = pkxR();
+    else { const E = pkxExt(k, 0, 0); np[i] = [0, Math.max(PKX_IN[2] + E[1], PKX_IN[3] - E[1]), (PKX_IN[4] + PKX_IN[5]) / 2, 0, 0]; } }   // no room (pushed in by code past the space): on top, clipping
+  PK.slot.length = 0; for (const s of np) PK.slot.push(s); PKX.ik = it.slice(); PKX.hint = -1; PKX.next = null; PKX.ver++; }
+function pkxWrite(g, o, k, s) {   // pkWrite with the item on its side when s[4]
+  const K = PK.KG[k], P = g.attributes.position.array, N = g.attributes.normal.array, C = g.attributes.color.array, c = Math.cos(s[3]), sn = Math.sin(s[3]), t = s[4];
+  if ((o + K.cnt) * 3 > P.length) return o;
+  for (let i = 0; i < K.cnt; i++) { const j = i * 3, J = (o + i) * 3; let px = K.p[j], py = K.p[j + 1], pz = K.p[j + 2], nx = K.n[j], ny = K.n[j + 1], nz = K.n[j + 2];
+    if (t) { const a = py, b = ny; py = -pz; pz = a; ny = -nz; nz = b; }
+    P[J] = s[0] + c * px + sn * pz; P[J + 1] = s[1] + py; P[J + 2] = s[2] - sn * px + c * pz; N[J] = c * nx + sn * nz; N[J + 1] = ny; N[J + 2] = -sn * nx + c * nz; C[J] = K.c[j]; C[J + 1] = K.c[j + 1]; C[J + 2] = K.c[j + 2]; }
+  return o + K.cnt; }
+pkContents = function () {   // (re-bound) the batch from the free poses; on a change only
+  pkxSync(); let n = 0; PK.vol = 0; const g = PK.cm.geometry;
+  let bv = 0; for (let j = 0; j < PK.it.length; j++) { const d = PK_K[PK.it[j]][3]; PK.vol += PK_K[PK.it[j]][2]; bv += d[0] * d[1] * d[2]; n = pkxWrite(g, n, PK.it[j], PK.slot[j]); }
+  PK.fill = Math.min(100, Math.round(100 * bv / ((PKX_IN[1] - PKX_IN[0]) * (PKX_IN[3] - PKX_IN[2]) * (PKX_IN[5] - PKX_IN[4]))));   // % of the inner box (shown when you open the pack)
+  pkDone(g, n); pkWeigh(); };
+pkNearItem = function (p) {   // (re-bound) the item nearest the hand: distance to its turned box (remembered for pkxSync)
+  PKX.hint = -1; if (!pkInOpening(p, 0.05)) return -1; const lx = _pkL.x, ly = _pkL.y, lz = _pkL.z; let b = -1, bd = 0.12;
+  for (let j = 0; j < PK.slot.length; j++) { const s = PK.slot[j], E = pkxExtS(PK.it[j], s);
+    const dx = Math.max(0, Math.abs(lx - s[0]) - E[0]), dy = Math.max(0, Math.abs(ly - s[1]) - E[1]), dz = Math.max(0, Math.abs(lz - s[2]) - E[2]), d = Math.sqrt(dx * dx + dy * dy + dz * dz); if (d < bd) { bd = d; b = j; } }
+  PKX.hint = b; return b; };
+pkPut = function (k, quiet) {   // (re-bound) into the pack: where the hand let it go (PKX.pend) or the first free spot; room = the bag's space
+  pkxSync(); pkxOthers(PK.it, PK.slot, -1); let ok = !!PKX.pend; if (ok) PKX.R.set(PKX.pend); else ok = pkxAuto(k); PKX.pend = null;
+  if (!ok) { if (!quiet) say('NO ROOM IN THE PACK - THE ' + PK_K[k][0] + ' DOES NOT FIT'); return false; }
+  PKX.next = pkxR(); PK.it.push(k); pkContents(); if (!quiet) { sfx('pick'); if (PK.lb > PK_HEAVY) say('PACK ' + Math.round(PK.lb) + ' LB - HEAVY (OVER ' + PK_HEAVY + ' LB)'); } saveSoon(); return true; };
+function pkxPoseOf(m) {   // a hand's item -> bag-local centre (PKX.V) + turn / on its side (PKX.R[3], R[4])
+  m.getWorldPosition(PKX.V); PKX.V.copy(pkLocal(PKX.V)); m.getWorldQuaternion(PKX.Q); PK.mesh.getWorldQuaternion(PKX.Q2).invert().multiply(PKX.Q);
+  const u = PKX.U.set(0, 1, 0).applyQuaternion(PKX.Q2);
+  if (Math.abs(u.y) >= Math.SQRT1_2) { u.set(1, 0, 0).applyQuaternion(PKX.Q2); PKX.R[3] = Math.atan2(-u.z, u.x); PKX.R[4] = 0; } else { PKX.R[3] = Math.atan2(u.x, u.z); PKX.R[4] = 1; } }
+pkLetItem = (orig => function (i) {   // let go inside the opening: at that spot (nudged / pushed in) or, clipping with no way out, kept in the hand
+  const g = grips[i], k = PK.hk[i], m = PK.hm[i]; if (!k || !pkOpenFor(g)) { PKX.rej[i] = false; return orig(i); }
+  m.getWorldPosition(PKX.W); if (slNear(PKX.W, false, k) >= 0 || !pkInOpening(PKX.W, 0.03)) { PKX.rej[i] = false; return orig(i); }   // a rig / belt slot first, as before; outside: drops
+  pkxPoseOf(m); const ry = PKX.R[3], tip = PKX.R[4], L = PKX.L, o = i * 5;   // rejected and hovering: tried again only once it moved 5 mm / turned 3 deg (or the contents changed)
+  if (PKX.rej[i] && PKX.ver === PKX.verL[i] && Math.abs(PKX.V.x - L[o]) < 0.005 && Math.abs(PKX.V.y - L[o + 1]) < 0.005 && Math.abs(PKX.V.z - L[o + 2]) < 0.005 && Math.abs(ry - L[o + 3]) < 0.05 && tip === L[o + 4]) return;
+  L[o] = PKX.V.x; L[o + 1] = PKX.V.y; L[o + 2] = PKX.V.z; L[o + 3] = ry; L[o + 4] = tip; PKX.verL[i] = PKX.ver; pkxOthers(PK.it, PK.slot, -1);
+  const P = PKX.P; P[0] = PKX.V.x; P[1] = PKX.V.y; P[2] = PKX.V.z; P[3] = ry; P[4] = tip; let fit = pkxPlaceP(k);   // too big the way it is held (a rope coil held flat): the nearest way round that fits there
+  for (let w = 1; !fit && PKX.clash === -2 && w < 4; w++) { P[3] = ry + (w >> 1) * Math.PI / 2; P[4] = w & 1 ? 1 - tip : tip; fit = pkxPlaceP(k); }
+  if (fit) { PKX.pend = pkxR(); PKX.rej[i] = false; const r = orig(i); PKX.pend = null; return r; }
+  if (!PKX.rej[i]) { PKX.rej[i] = true; HX.pulse(g, 0.6, 40, 'ui'); say('NO ROOM THERE - THE ' + PK_K[k][0] + (PKX.clash >= 0 ? ' WOULD CLIP THE ' + PK_K[PK.it[PKX.clash]][0] : ' DOES NOT FIT THAT WAY') + ' - MOVE IT'); } })(pkLetItem);
+pkHold = (orig => function (g) { orig(g); say('PACK ' + Math.round(PK.lb) + ' LB - ' + PK.it.length + ' ITEMS - PUT THINGS IN ANYWHERE INSIDE, LET GO BY YOUR SHOULDER TO PUT IT ON'); })(pkHold);
+// ---- side slots ----
+const pkxRs = () => PKX.rs && RFL.g && RFL.place === 'back' && (PK.st !== 'worn' || mode === 'foot');   // the rifle drawn on the pack side now
+function pkxRiflePose() { const g = RFL.g; PK.mesh.updateWorldMatrix(true, false); PKX.M.multiplyMatrices(PK.mesh.matrixWorld, PKX.RM).decompose(g.position, g.quaternion, PKX.S);
+  RFL.baseP.copy(g.position); RFL.baseQ.copy(g.quaternion); RFL.sig = ''; }
+function pkxRodNear(p) {   // a hand within PKX_ROD.r of the telescoped rod (not reaching into the open bag)
+  if (!PK.mesh.visible) return false; if (pkOpen() && pkInOpening(p, 0)) return false; const v = pkLocal(p), R = PKX_ROD, dx = -Math.sin(R.rz), dy = Math.cos(R.rz);
+  const t = clamp((v.x - R.p[0]) * dx + (v.y - R.p[1]) * dy, 0, R.len), ex = v.x - R.p[0] - dx * t, ey = v.y - R.p[1] - dy * t, ez = v.z - R.p[2]; return ex * ex + ey * ey + ez * ez < R.r * R.r; }
+const pkxRodOn = () => FISH.rod === 'pack' && (fHas('rodL') || fHas('rodH'));
+rflPut = (orig => function (pl, x, z, ry) { PKX.rs = 0; return orig(pl, x, z, ry); })(rflPut);   // any move of the rifle unstraps it (the strap sets PKX.rs after)
+rflPose = (orig => function (dt) { orig(dt); if (pkxRs()) pkxRiflePose(); })(rflPose);
+rflBackReach = (orig => function (p) { if (!pkxRs()) return orig(p); return rflDistTo(p) < PKX_RFL.grab && !(pkOpen() && pkInOpening(p, 0)); })(rflBackReach);
+rflRelease = (orig => function (g) {   // let the rifle go by the pack's left strap: strapped there
+  if (RFL.g && RFL.hand === g && RFL.place === 'vr' && !RFL.sup && mode === 'foot' && PK.st !== 'fall' && PK.mesh.visible) {
+    RFL.g.getWorldPosition(PKX.V); PK.mesh.updateWorldMatrix(true, false); PK.mesh.localToWorld(PKX.W.set(PKX_RFL.p[0], PKX_RFL.p[1], PKX_RFL.p[2]));
+    if (PKX.V.distanceTo(PKX.W) < PKX_RFL.snap) { const m = RFL.round.get(g); if (m) { m.removeFromParent(); RFL.round.delete(g); RFL.spare++; } if (RFL.levHand) rflLevRelease();
+      rflPut('back'); PKX.rs = 1; pkxRiflePose(); sfx('clack'); HX.pulse(g, 0.25, 16, 'release'); say('RIFLE STRAPPED TO THE SIDE OF YOUR PACK'); saveSoon(); return; } }
+  return orig(g); })(rflRelease);
+pkReach = (orig => function (p) {   // the rifle on the pack side: the pack's whole top edge is the pack's again
+  if (!(PKX.rs && RFL.place === 'back')) return orig(p); if (PK.st !== 'worn' || mode !== 'foot') return false;
+  const v = pkLocal(p), dx = Math.max(0, Math.abs(v.x) - 0.16), dy = v.y + 0.03, dz = v.z - 0.08; return dx * dx + dy * dy + dz * dz <= PK_GRAB * PK_GRAB; })(pkReach);
+packGrab = (orig => function (g, p) { const i = grips.indexOf(g);   // a hand on the strapped rifle: the rifle's (huntGrab), not the pack's
+  if (i >= 0 && PK.g !== g && !PK.hk[i] && mode === 'foot' && pkxRs() && rflDistTo(p) < PKX_RFL.grab && !(pkOpen() && pkInOpening(p, 0)) && !pkBusy(g)) return false;
+  return orig(g, p); })(packGrab);
+fishGrab = (orig => function (g, p) {   // the rod off the pack's right side; the hip-tube spot only while the pack is on your back
+  if (mode === 'foot' && pkxRodOn() && pkxRodNear(p)) return fTake(g) || true;
+  if (FISH.rod === 'pack' && PK.st !== 'worn') { FISH.rod = 'pk'; try { return orig(g, p); } finally { FISH.rod = 'pack'; } }
+  return orig(g, p); })(fishGrab);
+fWornTick = (orig => function (vrOn) { orig(vrOn); FWORN.tube.visible = false; })(fWornTick);   // the rod rides on the pack now
+packTick = (orig => function (dt, vr) { orig(dt, vr);
+  if (PKX.rsL && RFL.g) { PKX.rs = RFL.place === 'back' ? 1 : 0; PKX.rsL = 0; }   // a save with the rifle strapped (once the rifle model is in)
+  if (PKX.rs && (RFL.place !== 'back' || (mode !== 'foot' && PK.st !== 'worn'))) PKX.rs = 0;   // gone from the strap / flown off without the pack: slung on you
+  if (pkxRs()) pkxRiflePose();
+  const on = pkxRodOn(); if (on && PKX.rodWas !== 'pack' && PKX.rodWas !== '') PKX.tel = 1; PKX.rodWas = FISH.rod;   // just stowed: it telescopes down
+  if (PKX.tel > 0) { PKX.tel = Math.max(0, PKX.tel - dt / PKX_ROD.tel); const u = PKX.tel * PKX.tel; PKX.rodS[1].position.y = u * PKX_ROD.ext[0]; PKX.rodS[2].position.y = u * PKX_ROD.ext[1]; }
+  PKX.rodG.visible = on && PK.mesh.visible; })(packTick);
+packSave = (orig => function () { const d = orig(), r = v => Math.round(v * 1e4) / 1e4; d.ip = PK.slot.map(s => [r(s[0]), r(s[1]), r(s[2]), r(s[3]), s[4] ? 1 : 0]); if (PKX.rs || PKX.rsL) d.rs = 1; return d; })(packSave);
+packLoad = (orig => function (d) { PKX.ik = []; PK.slot.length = 0; PKX.rej[0] = PKX.rej[1] = false; PKX.pend = PKX.next = null; PKX.rs = 0; PKX.rsL = d && d.rs ? 1 : 0;
+  PKX.seed = d && Array.isArray(d.ip) ? d.ip : null; PKX.seedK = d && Array.isArray(d.it) ? d.it : null; const r = orig(d); PKX.seed = PKX.seedK = null; return r; })(packLoad);
+{ // the straps (left) and the rod cup + keeper (right), merged into the pack's own two geometries; the telescoped rod (3 sections, ITEM_VM) on the pack
+  const S = 0x2a2a22, mk = P => { const gs = P.map(partGeo), g = mergeGeometries(gs); for (const x of gs) x.dispose(); return g; };
+  const xg = mk([['b', 0.03, 0.02, 0.055, -0.171, -0.42, 0.08, S], ['b', 0.03, 0.02, 0.055, -0.171, -0.15, 0.08, S], ['c', 0.024, 0.06, 8, 0.2, -0.46, 0.08, S], ['b', 0.03, 0.016, 0.04, 0.176, -0.2, 0.08, S]]);
+  for (const key of ['geoC', 'geoO']) { const o = PK[key], n = mergeGeometries([o, xg]); if (PK.mesh.geometry === o) PK.mesh.geometry = n; PK[key] = n; o.dispose(); } xg.dispose();
+  const G = PKX.rodG = new THREE.Group(); G.position.set(PKX_ROD.p[0], PKX_ROD.p[1], PKX_ROD.p[2]); G.rotation.set(0, 0, PKX_ROD.rz); G.visible = false; PK.mesh.add(G);
+  const B = 0x2a3a2a, F = 0x8a9098;
+  for (const P of [[['c', 0.011, 0.03, 8, 0, 0.015, 0, 0x2a2a2a], ['c', 0.013, 0.17, 8, 0, 0.115, 0, 0xb08a5a], ['c', 0.011, 0.04, 8, 0, 0.22, 0, 0x2a2e33], ['c', 0.024, 0.026, 10, 0.035, 0.22, 0, 0x2a2e33, 0, 0, Math.PI / 2],
+    ['b', 0.022, 0.008, 0.008, 0.016, 0.22, 0, 0x2a2e33], ['c', 0.0075, 0.21, 6, 0, 0.345, 0, B], ['c', 0.009, 0.01, 6, 0, 0.445, 0, F]],
+    [['c', 0.0058, 0.4, 6, 0, 0.245, 0, B], ['c', 0.0072, 0.008, 6, 0, 0.441, 0, F]], [['c', 0.0042, 0.4, 6, 0, 0.25, 0, B], ['c', 0.006, 0.01, 6, 0, 0.452, 0, F]]]) {
+    const m = new THREE.Mesh(mk(P), ITEM_VM); m.userData.noBatch = true; m.frustumCulled = false; G.add(m); PKX.rodS.push(m);
+    m.onBeforeRender = (r, sc, cam, geo) => { if (PK.st !== 'worn') return; const e = cam.matrixWorld.elements, c = camera.matrixWorld.elements, dx = e[12] - c[12], dy = e[13] - c[13], dz = e[14] - c[14];
+      if (dx * dx + dy * dy + dz * dz < 0.0625) { geo.drawRange.count = 0; m.userData.hid = true; } };   // like the worn pack: not in your own eyes
+    m.onAfterRender = (r, sc, cam, geo) => { if (m.userData.hid) { geo.drawRange.count = Infinity; m.userData.hid = false; } }; }
+  pkGeo(pkOpen());
+  let d = null; try { if (!NOSAVE && SV_HAD) { const s = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); d = s && s.pack; } } catch (e) { /* no storage */ }   // gameLoad() ran before this block
+  PKX.ik = []; PK.slot.length = 0; PKX.seed = d && Array.isArray(d.ip) ? d.ip : null; PKX.seedK = d && Array.isArray(d.it) ? d.it : null; pkContents(); PKX.seed = PKX.seedK = null; PKX.rsL = d && d.rs ? 1 : 0; }
+// <<< V3 PACK END
 // >>> V3 FEEL BEGIN (feel.js via /workspace/v3-feel/apply.py)
 // V3 FEEL (lead items 10, 11). Game-side only: nothing in PHYSICS START..END is touched (physics-test.mjs md5 unchanged).
 // (10) heavier items, on top of the v0.92 Item weight spring (WT / wtItem / wtTick; still drawn only - every grab, drop, load and stack test keeps the

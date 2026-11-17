@@ -2,6 +2,18 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v1.11.17 – backpack rework: free placement inside, side slots for the rod and rifle (VR Dev 3)
+
+- **Free placement inside the open pack:** an item you let go inside the bag stays exactly where you put it, at the angle you held it. Tilted more than 45° it lies on its side. If it pokes through a wall it gets pushed back in, and if it clips another item it gets nudged up to 5 cm clear. When there is no room it stays in your hand with a buzz and NO ROOM THERE; move it somewhere free or take it back out of the opening.
+- **Honest capacity:** the old litre limit is gone. The bag's real inner space (a 16.5 L box) decides what fits. Opening the pack says how much the items take up and how full the bag is (for example "6 ITEMS (4.2 L, THE BAG 38 % FULL)").
+- When nobody places an item (auto-stow, the supply crate, older saves), it is packed into the lowest free spot, upright where it fits.
+- **Side slots, which ride with the pack (worn, held or on the ground):**
+  - **Right side:** the fishing rod, telescoped down to 0.45 m. Grip it there to take it out at full length; let it go anywhere and it snaps back in.
+  - **Left side:** the rifle, strapped upright with the muzzle up. Let it go near the strap to strap it, and grip it there to take it. The over-the-shoulder sling still works as before.
+- Things the cabin or Polaroid module takes when you let go (for example a print pinned in the cabin) still go there first. Prints let go inside the pack go in like any other item.
+- Saves keep each item's place in the pack and whether the rifle is strapped to it. Older saves load and are packed automatically.
+- No new draw programs and no per-frame garbage.
+
 ## v1.11.16 – hunting knife field dressing and a 4x rifle scope (VR Dev 2); binocular and zoom view fixes
 
 - **Field dressing:** carry a knife and a deer with no job can be dressed where it lies: 4 strokes give 4 venison cuts on the grass. A hunting job still takes the carcass and leaves 1 cut for you.
