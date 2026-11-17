@@ -2,6 +2,20 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v1.11.14 – doors fixed (Neil), lean in through an open door, and the papers' home spots show where they go
+
+- **The pilot door is back to how it was in v1.11.10.** On foot it's open, with the lower half out at 1.35 rad and the window up under the wing; it shuts when you sit in. v1.11.11's fold-right-down version clipped through the wing struts.
+- **Rear right side: a passenger door and a new baggage door, with one pillar between them.**
+  - The passenger door is beside the rear seat, from the B-pillar back to a single vertical pillar at the seat back. It's a lower half that hinges down and a window that hinges up.
+  - The baggage door is behind that pillar, beside the baggage bay. It's a tall door that runs from just under the wing down to the bay floor, hinged on its aft edge, and swings out.
+  - Nothing crosses either opening any more: the rear-window posts, the sill, the diagonal and the wood stringers on that side are gone, so each opening is clear from top to bottom.
+  - The cabin's flat sides now run back to the baggage bulkhead, and the rear fuselage taper starts there.
+- **Opening and closing:** on foot, one squeeze at a door opens or shuts it. That's the passenger door's handle or its window's lower edge, or the baggage door's handle at its front edge. Sitting in shuts both rear doors.
+- **Cargo** goes in through any open opening, the baggage door included.
+- **Lean in:** with a door open, your head can go into the cabin through that opening, up to about 27 cm past the skin, so you can look inside or reach for cargo. Your body stays outside, so you still can't walk through the fuselage. While you're leaning in, your head stays within that opening, and a shut door or the pillar keeps it out.
+- **Papers going home:** while you hold the checklist card, the clipboard or the map near its home spot, a ghost outline of it shows there. Once it's close enough to snap home, the ghost and the yellow ring turn bright green and you feel one tick in that hand. Let go and it snaps home.
+- **Cost:** no per-frame garbage in the new code, no new shader programs (the ghost reuses the ring's material type), and the physics checksum is unchanged.
+
 ## v1.11.13 – a Polaroid camera and a cozy home cabin (VR Dev 2)
 
 - **The home cabin has an inside now:** the cabin by the strip is a log cabin you can walk into. The door in the east wall faces the road and stands open, and the west window looks out at the strip, the Cub and the mountain. The walls are solid, so you go in through the door.
