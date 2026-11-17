@@ -2,6 +2,20 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v1.11.15 – tackle box and the bush pilot's field guide (VR Dev 2)
+
+- **Tackle box:** a tackle box comes with your first lure. It goes in your pack, or at your feet if the pack is full, and older saves that own lures get one when they load. It shows what you actually own (lures, line, bobber, split shot), with the shop's names and prices.
+  - Hold it and pull the trigger to open it in your hand: five lure trays in front, spools, bobbers and split shot behind, and a card in the lid.
+  - With your free hand, squeeze in a tray to take a lure, then touch it to the rod tip, line or lure to tie it on (the rod must be idle). Or dip the dangling lure into a tray.
+  - Squeeze a spool, bobber or split shot to rig it. This is the same setting as the Settings menu rows, which still work.
+  - Let go of an open box to set it down open, on the ground or the cabin table; squeeze its rim to pick it up. Let go of it in the pack opening to pack it.
+- **Field guide:** a 12-chapter handbook in your starter kit, with a second copy on the cabin table. It covers the hangar note, flying the Cub, checklists, jobs and cargo, weight and balance, pack/rig/belt, fishing and tackle, hunting, food/water/rest, crashes and the flare, and battery and weather.
+  - Hold it and pull the trigger to open it facing you. The trigger again turns to the next spread, and it closes after the last one.
+  - Your other hand's trigger on the right or left page turns forward or back.
+- **Desktop (on foot):** L opens or puts away the guide (or takes the cabin copy within 2.5 m), and , / . turn its pages. \ shows the open tackle box, and \ again ties on the next lure you own.
+- **Cost:** no per-frame garbage, and the pages are redrawn only when you open or turn them. Draws: +2 with the box or book open in VR, +4 mid-turn, +0 set down or far away. No new programs after loading. The load warm-up now also compiles the shadow depth variants, so turning shadows on later stays flat. The physics checksum is unchanged.
+- **Garbage fixes:** the cockpit latch drawing no longer makes about 60 B of garbage every frame (it rebuilt its key list and a lookup name for each window and door every frame). Holding the checklist card no longer makes a new string every frame.
+
 ## v1.11.14 – doors fixed (Neil), lean in through an open door, and the papers' home spots show where they go
 
 - **The pilot door is back to how it was in v1.11.10.** On foot it's open, with the lower half out at 1.35 rad and the window up under the wing; it shuts when you sit in. v1.11.11's fold-right-down version clipped through the wing struts.

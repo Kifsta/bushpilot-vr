@@ -636,7 +636,7 @@ const hyp = (a, b, c = 0) => Math.sqrt(a * a + b * b + c * c);   // v0.59 Math.h
 
 // ======================= RENDERING =======================
 // v0.35 settings (persist in localStorage 'bp_gfx'; ?gfx=shadows:2,grass:1 overrides for testing). Defaults = the v0.34 look and cost.
-const BP_VERSION = 'v1.11.14';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
+const BP_VERSION = 'v1.11.15';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
 { const e = document.getElementById('ver'); if (e) e.textContent = BP_VERSION; } window.__bpVer = BP_VERSION; bootLog('game module running ' + BP_VERSION + ' (three r' + THREE.REVISION + ')' + (/[?&]safe(=|&|$)/.test(location.search) ? ' - SAFE MODE: default graphics, no shadows / ULTRA / life / vistas / music' : ''));
 const GFX_DEF = { shadows: 0, scale: 1, fov: 1, dist: 1, trees: 1, grass: 0, clouds: 1, fog: 1, msaa: 1, hz: 90, vig: 0, turn: 0, fps: 0, tod: 11, stk: 1, tips: 1, terr: 1, dyn: 1, glove: 0, hand: 0, wt: 1, volM: 1, volMu: 0.5, volE: 1, volA: 1, volF: 1, wx: 1, forest: 0, ground: 0, gtex: 0, cvl: 1, water: 1, dayl: 48, flure: 0, fline: 8, fdrag: 4, fbob: 0, fsink: 0, ultra: 0, sfxr: 1 };   // v0.68.1 dominant hand, volumes. v0.48 BALANCED: 90 % scale, 72 Hz, fast terrain shading, auto resolution; v0.49.1 the stick stays where you let go of it
 const GFX = Object.assign({}, GFX_DEF);
@@ -2427,7 +2427,7 @@ renderer.xr.addEventListener('sessionend', () => { bootLog('XR session ended', t
 renderer.xr.addEventListener('sessionend', () => { xrOffset.position.set(0, 0, 0); xrOffset.quaternion.identity(); camera.position.set(0, 0, 0); });
 
 function handGrab(g) {   // on foot: the map (ground / cockpit holder / other edge) or the pump nozzle at a filler cap
-  g.getWorldPosition(_a);
+  g.getWorldPosition(_a); if (gdGrab(g, _a)) return;
   if (storyGrab(g, _a)) return;   // v0.99 Walt's logbook / the photo
   if (mapGrab(g, _a)) return;
   if (fuelGrab(g, _a)) return;
@@ -2442,7 +2442,7 @@ function handRelease(g) {       // called every frame the grip is up: keep it ch
   const hs = HX.st(g); if (hs.armed) { hs.armed = false; if (MAP.g === g || FUELP.g === g) HX.pulse(g, 0.15, 12, 'release'); }
   upgRelease(g);   // v0.57
   dlvRelease(g);   // v0.50 let go of cargo   // v0.24 let-go tap, once per squeeze
-  mapRelease(g); fuelRelease(g); huntRelease(g); fishRelease(g); storyRelease(g); packRelease(g);
+  mapRelease(g); fuelRelease(g); huntRelease(g); fishRelease(g); storyRelease(g); packRelease(g); gdRelease(g);
 }
 
 // desktop
@@ -4610,14 +4610,15 @@ box(0.034, 0.025, 0.08, dark, -0.035, 0.525, -0.2, door);
 const rcgH = new THREE.Object3D(); rcgH.position.set(-0.035, 0.515, 0.72); cdoor.add(rcgH); box(0.034, 0.025, 0.08, dark, -0.035, 0.515, 0.72, cdoor);   // v0.77.13 cargo door handle (inside, near its top edge)
 function winSet(k, v) { WIN[k] = clamp(v, 0, 1); }
 // v0.44 latch handles: one instanced lever beside each window / door handle (1 draw call), turned by wrist roll. v0.66: x (handle frame) puts the right-side pivots on their panes
-const LATCHV = { x: { rup: 0.025, rlo: 0.009, rcg: 0.009 }, a: { rup: 0, rlo: 0, lf: 0, lr: 0, rcg: 0 }, o: { rup: [rupH, -1], rlo: [rloH, -1], lf: [LWF.hp, 1], lr: [LWR.hp, 1], rcg: [rcgH, -1] } };
+const LATCH_K = ['rup', 'rlo', 'lf', 'lr', 'rcg'], LATCH_LK = { rup: 'Lrup', rlo: 'Lrlo', lf: 'Llf', lr: 'Llr', rcg: 'Lrcg' };   // v1.11.15 the latch keys + their CKX.vis names, made once
+const LATCHV = { x: { rup: 0.025, rlo: 0.009, lf: 0.016, lr: 0.016, rcg: 0.009 }, a: { rup: 0, rlo: 0, lf: 0, lr: 0, rcg: 0 }, o: { rup: [rupH, -1], rlo: [rloH, -1], lf: [LWF.hp, 1], lr: [LWR.hp, 1], rcg: [rcgH, -1] } };
 LATCHV.mesh = new THREE.InstancedMesh(ckGeo([['b', 0.008, 0.009, 0.05, 0, 0, -0.02, 0x8d9094], ['c', 0.009, 0.012, 8, 0, 0, 0, 0x55585c, 0, 0, Math.PI / 2], ['b', 0.012, 0.013, 0.014, 0, 0, -0.045, 0x161616]]), CKVM.clone(), 5);   // v0.47: own copy - sharing CKVM with plain meshes flipped its shader program every frame
 LATCHV.mesh.frustumCulled = false; plane.add(LATCHV.mesh);
 const _lvM = new THREE.Matrix4(), _lvR = new THREE.Matrix4(), _lvI = new THREE.Matrix4();
 function latchDraw() {
   plane.updateWorldMatrix(true, false); _lvI.copy(plane.matrixWorld).invert(); let i = 0;
-  for (const k of ['rup', 'rlo', 'lf', 'lr', 'rcg']) { const [o, sx] = LATCHV.o[k]; o.updateWorldMatrix(true, false);
-    _lvM.multiplyMatrices(_lvI, o.matrixWorld).multiply(_lvR.makeTranslation(LATCHV.x[k] ?? sx * 0.016, k === 'rlo' || k === 'rcg' ? -0.03 : 0.03, 0.05)).multiply(_lvR.makeRotationX(-LATCHV.a[k]));
+  for (const k of LATCH_K) { const e = LATCHV.o[k], o = e[0]; o.updateWorldMatrix(true, false);   // v1.11.15 no per-frame array / destructure / computed x (zero garbage)
+    _lvM.multiplyMatrices(_lvI, o.matrixWorld).multiply(_lvR.makeTranslation(LATCHV.x[k], k === 'rlo' || k === 'rcg' ? -0.03 : 0.03, 0.05)).multiply(_lvR.makeRotationX(-LATCHV.a[k]));
     LATCHV.mesh.setMatrixAt(i++, _lvM); }
   LATCHV.mesh.instanceMatrix.needsUpdate = true;
 }
@@ -4638,15 +4639,16 @@ PEDAL.mesh.frustumCulled = false; plane.add(PEDAL.mesh);
 { const bar = new THREE.Mesh(ckGeo([['c', 0.01, 0.36, 6, 0, -0.355, -0.66, 0x55585c, 0, 0, Math.PI / 2], ['b', 0.03, 0.025, 0.03, -0.17, -0.355, -0.66, 0x3a3c40], ['b', 0.03, 0.025, 0.03, 0.17, -0.355, -0.66, 0x3a3c40]]), CKVM); bar.userData.noBatch = true; plane.add(bar); }   // the torque tube across the floor
 function pedalDraw() { if (mode !== 'plane') { PEDAL.mesh.visible = false; return; } PEDAL.mesh.visible = true; const rud = ctl.rud, br = ctl.brake;
   for (let s = 0; s < 2; s++) { const x = s ? 1 : -1, pit = 0.42 + 0.12 * br, sp = Math.sin(pit), cp = Math.cos(pit), pz = -0.645 - x * 0.035 * rud;   // the heel on the floor (y -0.332), the plate under the ball of the foot
-    PEDAL.M.makeRotationX(pit); PEDAL.M.setPosition(x * 0.125, -0.332 + 0.1 * sp - 0.012 * cp, pz - 0.1 * cp - 0.097 * sp); PEDAL.mesh.setMatrixAt(s, PEDAL.M); }
+    const e = PEDAL.M.elements; e[0] = 1; e[1] = 0; e[2] = 0; e[3] = 0; e[4] = 0; e[5] = cp; e[6] = sp; e[7] = 0; e[8] = 0; e[9] = -sp; e[10] = cp; e[11] = 0;   // v1.11.15 makeRotationX + setPosition written in place (no doubles boxed into calls: zero garbage)
+    e[12] = x * 0.125; e[13] = -0.332 + 0.1 * sp - 0.012 * cp; e[14] = pz - 0.1 * cp - 0.097 * sp; e[15] = 1; PEDAL.mesh.setMatrixAt(s, PEDAL.M); }
   PEDAL.mesh.instanceMatrix.needsUpdate = true; }
 const WIN_K = ['rup', 'rlo', 'lf', 'lr', 'rcg', 'rbg'];
 function updateWindows(dt) {
-  for (const k in LATCH) { if (WIN.tgt[k] > 0 || WIN[k] > 0.03) LATCH[k] = 0;   // v0.44: keys 1-4 / the exit work the latch for you
+  for (const k of LATCH_K) { if (WIN.tgt[k] > 0 || WIN[k] > 0.03) LATCH[k] = 0;   // v0.44: keys 1-4 / the exit work the latch for you
     else if (!LATCH[k] && WIN[k] === 0 && WIN.tgt[k] === undefined && !ckhHas(k)) { LATCH[k] = 1; if (mode === 'plane') sfx('clack'); }
-    LATCHV.a[k] = CKX.vis['L' + k] ?? (LATCH[k] ? 0 : 1.0); }
+    LATCHV.a[k] = CKX.vis[LATCH_LK[k]] ?? (LATCH[k] ? 0 : 1.0); }
   for (const k of WIN_K) if (WIN.tgt[k] !== undefined) { WIN[k] = approach(WIN[k], WIN.tgt[k], 1.2, dt); if (WIN[k] === WIN.tgt[k]) delete WIN.tgt[k]; }
-  doorT = approach(doorT, mode === 'foot' ? 1 : 0, 1.5, dt);
+  { const d = approach(doorT, mode === 'foot' ? 1 : 0, 1.5, dt); if (d !== doorT) doorT = d; }   // v1.11.15 store only on a change (a double in a script slot is a new heap number each time)
   if (mode !== WIN.md) { if (mode === 'plane') { if (WIN.rcg > 0 || WIN.tgt.rcg) WIN.tgt.rcg = 0; if (WIN.rbg > 0 || WIN.tgt.rbg) WIN.tgt.rbg = 0; } WIN.md = mode; }   // v1.11.3 you sat in: the rear door + window swing shut; v1.11.14 the baggage door too   // v1.11.3 you sat in: the rear door + window swing shut
   door.rotation.z = -WIN_MAX.rlo * Math.max(doorT, WIN.rlo); win.rotation.z = WIN_MAX.rup * Math.max(doorT, WIN.rup); cdoor.rotation.z = -WIN_MAX.rcg * WIN.rcg; rwin.rotation.z = WIN_MAX.rup * WIN.rcg; bdoor.rotation.y = -WIN_MAX.rbg * WIN.rbg;
   pedalDraw();
@@ -4679,14 +4681,20 @@ const CARD = { home: new THREE.Vector3(0.22, -0.225 + CK.y, -0.6005 + CK.z), g: 
 }
 const _cq = new THREE.Vector3(), _cr = new THREE.Vector3(), _cm = new THREE.Matrix4(), _cz = new THREE.Vector3(), _cy = new THREE.Vector3();
 function cardHome() { CARD.g = null; CARD.desk = false; plane.add(CARD.mesh); CARD.mesh.position.copy(CARD.home); CARD.mesh.rotation.set(0, 0, 0); CARD.mesh.scale.setScalar(1); }
+const _m4dM = new THREE.Matrix4();
+function m4Decomp(m, p, q, sc) {   // v1.11.15 Matrix4.decompose without the boxed determinant() / length() returns (zero garbage)
+  const e = m.elements; let sx = Math.sqrt(e[0] * e[0] + e[1] * e[1] + e[2] * e[2]); const sy = Math.sqrt(e[4] * e[4] + e[5] * e[5] + e[6] * e[6]), sz = Math.sqrt(e[8] * e[8] + e[9] * e[9] + e[10] * e[10]);
+  if (e[0] * (e[5] * e[10] - e[6] * e[9]) - e[4] * (e[1] * e[10] - e[2] * e[9]) + e[8] * (e[1] * e[6] - e[2] * e[5]) < 0) sx = -sx;
+  p.set(e[12], e[13], e[14]); const f = _m4dM.elements; for (let i = 0; i < 16; i++) f[i] = e[i];
+  f[0] /= sx; f[1] /= sx; f[2] /= sx; f[4] /= sy; f[5] /= sy; f[6] /= sy; f[8] /= sz; f[9] /= sz; f[10] /= sz; q.setFromRotationMatrix(_m4dM); sc.set(sx, sy, sz); }
 function updateCard() {
   if (CARD.desk && !renderer.xr.isPresenting) { camera.add(CARD.mesh); CARD.mesh.position.set(0, -0.01, -0.3); CARD.mesh.rotation.set(0, 0, 0); CARD.mesh.scale.setScalar(1.25); return; }
   if (CARD.desk) cardHome();
   if (!CARD.g) return;
-  { const pk = 'card' + (CARD.g.userData.src?.handedness === 'left' ? 'L' : 'R'); if (POSE_LAB[pk]) {   // v0.87.1 Neil's Pose Lab hold: the card rides the hand where he put it (no turning to face you)
-    CARD.g.updateWorldMatrix(true, false); _cm.multiplyMatrices(CARD.g.matrixWorld, HOFF).multiply(plW(pk, _plWM)).multiply(plT(pk, _plRM)); scene.add(CARD.mesh); _cm.decompose(CARD.mesh.position, CARD.mesh.quaternion, _cr); CARD.mesh.scale.setScalar(1.3); return; } }
+  { const pk = CARD.g.userData.src?.handedness === 'left' ? 'cardL' : 'cardR'; if (POSE_LAB[pk]) {   // v1.11.15 no string built per frame   // v0.87.1 Neil's Pose Lab hold: the card rides the hand where he put it (no turning to face you)
+    CARD.g.updateWorldMatrix(true, false); _cm.multiplyMatrices(CARD.g.matrixWorld, HOFF).multiply(plW(pk, _plWM)).multiply(plT(pk, _plRM)); if (CARD.mesh.parent !== scene) scene.add(CARD.mesh); m4Decomp(_cm, CARD.mesh.position, CARD.mesh.quaternion, _cr); CARD.mesh.scale.setScalar(1.3); return; } }
   const E = eyeWorld(0); _eye.setFromMatrixPosition(E); CARD.g.getWorldPosition(_cq); _cq.y += 0.05;
-  scene.add(CARD.mesh); CARD.mesh.position.copy(_cq); CARD.mesh.scale.setScalar(1.3);
+  if (CARD.mesh.parent !== scene) scene.add(CARD.mesh); CARD.mesh.position.copy(_cq); CARD.mesh.scale.setScalar(1.3);   // v1.11.15 add() re-parents (a splice) even when it is already there
   _cz.subVectors(_eye, _cq).normalize(); _cr.crossVectors(_up, _cz).normalize(); _cy.crossVectors(_cz, _cr); _cm.makeBasis(_cr, _cy, _cz); CARD.mesh.quaternion.setFromRotationMatrix(_cm);
 }
 
@@ -6667,7 +6675,16 @@ PK_K.bar = ['CHOCOLATE BAR', 0.2, 0.1, [0.055, 0.13, 0.018], [['b', 0.052, 0.125
 PK_K.cigs = ['CIGARETTES + LIGHTER', 0.15, 0.1, [0.08, 0.09, 0.024], [['b', 0.054, 0.085, 0.022, -0.012, 0, 0, 0xe8e2d2], ['b', 0.055, 0.022, 0.023, -0.012, 0.03, 0, 0xa82420], ['b', 0.022, 0.05, 0.012, 0.03, -0.017, 0, 0x2a5aa0], ['b', 0.018, 0.008, 0.01, 0.03, 0.012, 0, 0x9a9a9a]]];
 PK_K.flare = ['SIGNAL FLARE', 0.4, 0.2, [0.045, 0.2, 0.045], [['c', 0.017, 0.17, 10, 0, -0.01, 0, 0xc82018], ['c', 0.019, 0.03, 10, 0, 0.085, 0, 0xe8e4d8], ['c', 0.0175, 0.012, 10, 0, -0.03, 0, 0x2a2a2a]]];
 // <<< V2 SURVIVAL ITEMS END
-const PK_ROOM = 14, PK_EMPTY = 3, PK_HEAVY = 30, PK_START = ['tarp', 'rope', 'firstaid', 'torch', 'jerky', 'jerky'], PK_SL0 = [null, null, 'canteen', 'knife'];   // v1.11.1 a new game: the canteen on your belt, the knife in its sheath   // litres, lb (the empty pack), lb (a warning, never a block)
+// >>> V2 GUIDE ITEMS BEGIN (items.js via /workspace/v2-guide/apply.py)
+// ======================= V2 GUIDE ITEMS: two new pack kinds - the tackle box and the bush pilot's field guide (V2 GUIDE block) =======================
+// Same format as PK_K: [name, lb, litres, [w h d] in the pack (m), parts (partGeo, centred on the item)]. Here (before the pack's KG table and packLoad)
+// so a saved pack keeps them. Each stays well under the held / falling batch limit (400 vertices): tackle box 216, field guide 180.
+PK_K.tackle = ['TACKLE BOX', 1.6, 1.2, [0.22, 0.1, 0.12], [['b', 0.22, 0.06, 0.12, 0, -0.012, 0, 0x3a6a4a], ['b', 0.224, 0.022, 0.124, 0, 0.029, 0, 0x2e5a3e], ['b', 0.03, 0.028, 0.006, 0, 0.012, 0.063, 0xc8c8c0],
+  ['b', 0.08, 0.012, 0.016, 0, 0.05, 0, 0x2a2a2a], ['b', 0.01, 0.012, 0.012, -0.035, 0.044, 0, 0x2a2a2a], ['b', 0.01, 0.012, 0.012, 0.035, 0.044, 0, 0x2a2a2a]]];
+PK_K.guide = ['FIELD GUIDE', 0.6, 0.4, [0.15, 0.205, 0.03], [['b', 0.15, 0.205, 0.004, 0, 0, 0.0125, 0x5a3a22], ['b', 0.15, 0.205, 0.004, 0, 0, -0.0125, 0x5a3a22], ['b', 0.006, 0.205, 0.029, -0.072, 0, 0, 0x4a2e1a],
+  ['b', 0.142, 0.197, 0.021, 0.003, 0, 0, 0xe8dcc0], ['b', 0.09, 0.03, 0.001, 0.005, 0.05, 0.0148, 0xd8b048]]];
+// <<< V2 GUIDE ITEMS END
+const PK_ROOM = 14, PK_EMPTY = 3, PK_HEAVY = 30, PK_START = ['tarp', 'rope', 'firstaid', 'torch', 'jerky', 'jerky', 'guide'], PK_SL0 = [null, null, 'canteen', 'knife'];   // v1.11.1 a new game: the canteen on your belt, the knife in its sheath   // litres, lb (the empty pack), lb (a warning, never a block)
 const PK_SPLIT = -0.08, PK_DROPY = 0.2, PK_AWAY = 3.5, PK_GRAB = 0.15;   // v1.11.2 lying on its front, back panel up (the handle 0.2 m up); walk this far off and it goes back on; the grab: this close to the pack's top edge   // head-yaw frame x: with the rifle slung, right of this is the rifle's reach; the handle above the pack's bottom
 const PK = { st: 'worn', g: null, it: PK_START.slice(), gnd: [], hk: [null, null], hm: [], fm: [], fall: [], v: GV3(0, 0, 0), ry: 0, lb: 0, vol: 0, hid: false, mouthT: 0, n: 0,
   hp: [GV3(0, 0, 0), GV3(0, 0, 0)], hv: [GV3(0, 0, 0), GV3(0, 0, 0)], hin: [false, false], slot: [], KG: {}, mesh: null, cm: null, gm: null, geoC: null, geoO: null };
@@ -6739,7 +6756,7 @@ function pkDrop(k, p, v, ry) { const F = PK.fall.find(f => !f.on);
   if (!F) { PK.gnd.push([k, p.x, groundY(p.x, p.z) + PK_K[k][3][1] / 2, p.z, ry]); pkGround(); saveSoon(); return; }
   const j = PK.fall.indexOf(F), m = PK.fm[j]; F.on = true; F.k = k; F.p.copy(p); F.v.copy(v); F.ry = ry; pkDone(m.geometry, pkWrite(m.geometry, 0, k, 0, 0, 0, 0)); m.position.copy(p); m.rotation.set(0, ry, 0); m.visible = true; }
 function pkLetItem(i) { const g = grips[i], k = PK.hk[i], m = PK.hm[i]; m.getWorldPosition(_pkV); PK.hk[i] = null; m.visible = false; scene.add(m);
-  if (cabLet(i, _pkV, k)) return; if (slPut(i, _pkV, k)) return;   // v1.11.1 near an empty slot that takes it: snapped in
+  if (cabLet(i, _pkV, k)) return; if (gdLet(i, _pkV, k)) return; if (slPut(i, _pkV, k)) return;   // v1.11.1 near an empty slot that takes it: snapped in
   if (pkOpenFor(g) && pkInOpening(_pkV, 0.03) && pkPut(k)) { HX.pulse(g, 0.2, 14, 'release'); return; }
   pkDrop(k, _pkV, PK.hv[i], headYaw()); pkWeigh(); HX.pulse(g, 0.15, 12, 'release'); }
 function pkLetPack(g) { const i = grips.indexOf(g); g.getWorldPosition(_pkV);
@@ -10318,7 +10335,7 @@ function cubParked() { return !ac.crashed && acGS() < 1 && ac.gs.some(g => g.Fn 
 function saveGame(why) {
   if (NOSAVE || SV.off) return false;
   if (cubParked()) SV.cub = { p: ac.pos.map(r3), q: ac.q.map(v => Math.round(v * 1e6) / 1e6) };
-  const d = { v: 55, surv: survSave(), cab: cabSave(), at: Date.now(), cub: SV.cub, fuel: r3(fuel), h: r3(DAY.h), mode, foot: mode === 'foot' ? [r3(footRig.position.x), r3(footRig.position.z), r3(bodyYaw)] : null, dlv: dlvSave(), hunt: huntSave(), eco: ecoSave(), upg: upgSave(), emg: emgSave(), fish: fishSave(), pack: packSave(), story: storySave(), disc: discSave(), fog: fogSave(), wx: wxSave(), meta: { cash: DLV.cash, loc: svPlace() } };   // v0.68.1 meta: the menu's slot label. v0.55 + the Cub's log (tach, oil, wear, damage)   // v0.53 + rifle / ammo   // v0.50: + wallet, jobs, cargo, straps
+  const d = { v: 55, gd: gdSave(), surv: survSave(), cab: cabSave(), at: Date.now(), cub: SV.cub, fuel: r3(fuel), h: r3(DAY.h), mode, foot: mode === 'foot' ? [r3(footRig.position.x), r3(footRig.position.z), r3(bodyYaw)] : null, dlv: dlvSave(), hunt: huntSave(), eco: ecoSave(), upg: upgSave(), emg: emgSave(), fish: fishSave(), pack: packSave(), story: storySave(), disc: discSave(), fog: fogSave(), wx: wxSave(), meta: { cash: DLV.cash, loc: svPlace() } };   // v0.68.1 meta: the menu's slot label. v0.55 + the Cub's log (tach, oil, wear, damage)   // v0.53 + rifle / ammo   // v0.50: + wallet, jobs, cargo, straps
   try { localStorage.setItem(SAVE_KEY, JSON.stringify(d)); } catch (e) { return false; }
   SV.last = Date.now(); SV.n++; SV.why = why || ''; SV.t = 30; SV.due = -1; return true;
 }
@@ -10340,7 +10357,7 @@ function gameLoad() {
   if (d.mode === 'foot' && Array.isArray(d.foot) && d.foot.slice(0, 3).every(isFinite)) { exitPlane(); const [x, z, yaw] = d.foot; footRig.position.set(x, groundY(x, z) + EYE, z); footRig.rotation.set(0, yaw, 0); bodyYaw = yaw; }   // v0.59.1 checked (a damaged foot entry stopped the page loading)
   upgLoad(d.upg || null);   // v0.57 before the cargo (the pod)
   emgLoad(d.emg || null);   // v0.58 before the cargo (a patient aboard finds their job)
-  wxLoad(d.wx || null); dlvLoad(d.v >= 50 ? d.dlv : null); huntLoad(d.v >= 53 ? d.hunt : null); fishLoad(d.fish || null); packLoad(d.pack || null); survLoad(d.surv || null); cabLoad(d.cab || null); storyLoad(d.story || null); discLoad(d.disc || null); fogLoad(d.fog || null); dropLoadFix(); ecoLoad(d.v >= 55 ? d.eco : null); emgFix();   // v0.54 a save taken mid-drop: the last bundle down settles the job
+  wxLoad(d.wx || null); dlvLoad(d.v >= 50 ? d.dlv : null); huntLoad(d.v >= 53 ? d.hunt : null); fishLoad(d.fish || null); packLoad(d.pack || null); gdLoad(d.gd || null); survLoad(d.surv || null); cabLoad(d.cab || null); storyLoad(d.story || null); discLoad(d.disc || null); fogLoad(d.fog || null); dropLoadFix(); ecoLoad(d.v >= 55 ? d.eco : null); emgFix();   // v0.54 a save taken mid-drop: the last bundle down settles the job
   msgT = 0; SV.last = d.at || 0; return true;
 }
 MYS_SITES.clear();   // the whole world is built now: clear trees and rocks off the strips and sites
@@ -13938,6 +13955,285 @@ sfx = (orig => function (kind, pos, delay = 0) {   // the pack first (same HX co
 updateAudio = (orig => function (dt) { orig(dt); SFXP.tick(dt); })(updateAudio);
 window.SFXP = SFXP; SFXP.enable(GFX.sfxr > 0);   // v1.11.12 the setting (RECORDED by default)
 // <<< SFX PACK END
+// >>> V2 GUIDE BEGIN (guide.js via /workspace/v2-guide/apply.py)
+// ======================= V2 GUIDE: a tackle box for the lures you buy + the bush pilot's field guide (a book you read in your hands) =======================
+// TACKLE (how you get at what the tackle counters sell): the lures / bait, line and terminal tackle you buy are the fishing code's own inventory
+// (FISH.lures counts, FISH.line spools, FISH.own sinker / bobber; names and prices from FTK, so the box agrees with the v1.10.9 price tags). The first
+// lure you own comes with a TACKLE BOX (PK_K.tackle) in your pack (an older save that owns lures gets one too). Hold it and pull the trigger: it opens
+// in your hand, tilted to you - five lure trays in front (spoon, spinner, soft plastic, dry fly, worms) with what you own lying in them, line spools,
+// bobbers and split shot behind, and a card in the lid (name, HAVE n, $ a pack, what is tied on). Tie one on: take a lure out with your free hand
+// (squeeze in its tray) and touch it to the rod's line or tip, or dip the dangling lure at the rod tip into a tray. Squeeze a spool / the bobbers /
+// the split shot to put that on. Let go of the box while it is open and it is set down open where you are (the ground, the cabin table) so both hands
+// are free: rod in one, lures with the other. Squeeze the box's rim to pick it up again. What is tied on is the game's own setting (GFX.flure / fline /
+// fbob / fsink: the menu rows still work); the set-down box and the box you were given are saved with the game (d.gd).
+// FIELD GUIDE (PK_K.guide): in a new game's starter kit and on the home cabin's table (V2 CABIN's table when that module is in, else a stump by the
+// cabin). Hold it, trigger: it opens facing you; trigger again turns the page (or your other hand's trigger at the right / left page), after the last
+// page it closes. Pages are canvas text drawn only when a page turns (two spread canvases, uploaded through texDirty), never per frame.
+// Desktop: L opens / closes the guide (, and . turn the pages); \ opens the tackle box in front of you and ties on the next lure you own.
+// Draws: open book 3 (+2 during a 0.45 s page turn), open box 3, a lure in a hand 1, the cabin copy 1 within 45 m. No lights, no shadow casters.
+// Zero garbage per frame: numbers in typed arrays, vectors / matrices preallocated, strings only on events.
+var gdPend, gdReady;   // gameLoad() runs before this block: what it hands gdLoad() waits here (no initialiser: a var assigned now would wipe it)
+function gdSave() { return gdReady ? GDE.save() : gdPend || undefined; }
+function gdLoad(d) { if (!gdReady) { gdPend = d || null; return; } GDE.load(d || null); }
+function gdLet(i, p, k) { return gdReady ? GDE.let(i, p, k) : false; }   // pkLetItem: an open box let go is set down open (true = handled)
+function gdGrab(g, p) { return gdReady ? GDE.grab(g, p) : false; }   // handGrab (first): a lure / spool in the open box, the set-down box, the cabin copy
+function gdRelease(g) { if (gdReady) GDE.release(g); }   // handRelease (every frame the grip is up)
+const GDE = (() => {
+  const PI = Math.PI, NEAR = 45, TURN = 0.45, PW = 0.155, PH = 0.21, CW = 1024, CH = 672;
+  const v1 = GV3(0, 0, 0), v2 = GV3(0, 0, 0), v3 = GV3(0, 0, 0), vUp = GV3(0, 1, 0), q1 = new THREE.Quaternion(), m1 = new THREE.Matrix4();
+  const TILT = new THREE.Quaternion().setFromAxisAngle(GV3(1, 0, 0), 0.5), TILTD = new THREE.Quaternion().setFromAxisAngle(GV3(1, 0, 0), 0.75);
+  const F = new Float64Array(24);   // 0 given box, 1 cabin copy taken, 2 set down, 3-5 set pos, 6 set yaw, 7 spread, 8 turn t, 9 turn dir, 10 desk view (1 book 2 box), 11 desk t,
+  // 12 1 Hz timer, 13 / 23 card keys (lures + line / rig), 14 box open in hand (0 none, 1 hand 0, 2 hand 1), 15 book open in hand (same), 16 cull t, 17 shadows seen, 18 hint t, 19 renders, 20 uploads, 21 batch key, 22 tie count
+  const PICK = new Int8Array(2).fill(-1), TRP = new Uint8Array(2), HK = new Int8Array(2);   // the lure a hand holds (FLURE_IDS index), trigger was down, what the hand held last (0 / 1 tackle / 2 guide)
+  const mk = P => { const gs = P.map(partGeo), g = mergeGeometries(gs); for (const x of gs) x.dispose(); return g; };
+  const mesh = (g, m, par) => { const o = new THREE.Mesh(g, m); o.userData.noBatch = true; o.castShadow = o.receiveShadow = false; o.visible = false; (par || scene).add(o); return o; };
+  const has = k => PK.it.includes(k) || RIG.k.includes(k) || PK.hk[0] === k || PK.hk[1] === k;
+  const lureN = j => FISH.lures[FLURE_IDS[j]] | 0;
+  const anyLure = () => { for (let j = 0; j < 5; j++) if (lureN(j) > 0) return true; return false; };
+  const opt = f => { try { return !!f(); } catch (e) { return false; } };
+  const bare = id => FTK[id][0].replace(/ \(.*/, '');
+  // ---------------- the tackle box (open): body + trays (static), what you own in them (a batch rebuilt on a change), the lid card (canvas) ----------------
+  const BOX = new THREE.Group(); BOX.name = 'GD_BOX'; BOX.visible = false; scene.add(BOX);
+  const TX = j => -0.12 + 0.06 * j, TZF = 0.038, TZB = -0.038, HING = [0.06, -0.08], LID = 1.745;
+  const lc = [0, HING[0] + 0.08 * Math.sin(LID), HING[1] + 0.08 * Math.cos(LID)];
+  { const G = 0x3a6a4a, D = 0x2e5a3e, P = [['b', 0.3, 0.008, 0.16, 0, 0.004, 0, G], ['b', 0.3, 0.06, 0.008, 0, 0.03, 0.076, G], ['b', 0.3, 0.06, 0.008, 0, 0.03, -0.076, G], ['b', 0.008, 0.06, 0.16, -0.146, 0.03, 0, G], ['b', 0.008, 0.06, 0.16, 0.146, 0.03, 0, G],
+      ['b', 0.284, 0.003, 0.144, 0, 0.0095, 0, 0xd8d0b8], ['b', 0.284, 0.04, 0.004, 0, 0.03, 0, 0xc8c0a8], ['b', 0.3, 0.01, 0.16, lc[0], lc[1], lc[2], D, -LID], ['b', 0.03, 0.028, 0.006, 0, 0.045, 0.081, 0xc8c8c0]];
+    for (let k = 0; k < 4; k++) P.push(['b', 0.004, 0.04, 0.072, TX(k) + 0.03, 0.03, TZF, 0xc8c0a8], ['b', 0.004, 0.04, 0.072, TX(k) + 0.03, 0.03, TZB, 0xc8c0a8]);
+    BOX.userData.body = mesh(mk(P), ITEM_VM, BOX); BOX.userData.body.visible = true; }
+  const KG = {};   // kind -> { p, n, c, cnt } (vertex arrays) for the tray batch
+  const kg = (k, g) => { KG[k] = { p: g.attributes.position.array.slice(), n: g.attributes.normal.array.slice(), c: g.attributes.color.array.slice(), cnt: g.attributes.position.count }; };
+  for (const k of FLURE_IDS) kg(k, FLM[k].geometry); kg('bobber', FLM.bobber.geometry);
+  { const sp = c => [['c', 0.017, 0.02, 10, 0, 0.022, 0, c, 0, 0, PI / 2], ['c', 0.007, 0.024, 8, 0, 0.022, 0, 0x6a5030, 0, 0, PI / 2]];
+    for (const [k, c] of [['l4', 0xc8e0ea], ['l8', 0x6aa8c8], ['l14', 0x2a6a98]]) { const g = mk(sp(c)); kg(k, g); g.dispose(); }
+    let g = mk([['d', 0.0045, 1, 1, -0.012, 0.016, -0.01, 0x505860], ['d', 0.0045, 1, 1, 0.006, 0.016, -0.014, 0x505860], ['d', 0.0045, 1, 1, -0.004, 0.016, 0.008, 0x505860], ['d', 0.0045, 1, 1, 0.012, 0.016, 0.012, 0x505860]]); kg('sinker', g); g.dispose();
+    g = mk([['b', 0.05, 0.004, 0.005, 0, 0.062, 0.081, 0xf0c020]]); kg('mark', g); g.dispose(); g = mk([['b', 0.05, 0.005, 0.006, 0, 0.0505, 0, 0x40c040]]); kg('markL', g); g.dispose(); }
+  const BG = new THREE.BufferGeometry(); for (const a of ['position', 'normal', 'color']) BG.setAttribute(a, new THREE.BufferAttribute(new Float32Array(4000 * 3), 3)); BG.setDrawRange(0, 0);
+  const BM = mesh(BG, ITEM_VM, BOX); BM.frustumCulled = false; BM.visible = true;
+  function bw(o, k, x, y, z) { const K = KG[k], P = BG.attributes.position.array, N = BG.attributes.normal.array, C = BG.attributes.color.array; if ((o + K.cnt) * 3 > P.length) return o;
+    for (let i = 0; i < K.cnt * 3; i += 3) { const J = o * 3 + i; P[J] = x + K.p[i]; P[J + 1] = y + K.p[i + 1]; P[J + 2] = z + K.p[i + 2]; N[J] = K.n[i]; N[J + 1] = K.n[i + 1]; N[J + 2] = K.n[i + 2]; C[J] = K.c[i]; C[J + 1] = K.c[i + 1]; C[J + 2] = K.c[i + 2]; }
+    return o + K.cnt; }
+  const CPY = [0, -0.017, 0.017];
+  function batch() { let n = 0;
+    for (let j = 0; j < 5; j++) { const id = FLURE_IDS[j], h = Math.min(3, lureN(j)), y = id === 'fly' ? 0.019 : 0.015; for (let c = 0; c < h; c++) n = bw(n, id, TX(j) + CPY[c], y, TZF); }
+    const tj = GFX.flure | 0; if (lureN(tj) > 0) n = bw(n, 'mark', TX(tj), 0, 0);
+    const L = ['l4', 'l8', 'l14']; for (let j = 0; j < 3; j++) if (FISH.line[L[j]]) n = bw(n, L[j], TX(j), 0, TZB);
+    const lj = GFX.fline === 4 ? 0 : GFX.fline === 14 ? 2 : 1; if (FISH.line[L[lj]]) n = bw(n, 'markL', TX(lj), 0, 0);
+    if (FISH.own.bobber) { n = bw(n, 'bobber', TX(3), 0.012, TZB); if (GFX.fbob > 0) n = bw(n, 'markL', TX(3), 0, 0); }
+    if (FISH.own.sinker) { n = bw(n, 'sinker', TX(4), 0, TZB); if (GFX.fsink > 0) n = bw(n, 'markL', TX(4), 0, 0); }
+    BG.setDrawRange(0, n); for (const a of ['position', 'normal', 'color']) BG.attributes[a].needsUpdate = true; }
+  const CC = document.createElement('canvas'); CC.width = 640; CC.height = 330; const cx = CC.getContext('2d');
+  const CT = new THREE.CanvasTexture(CC); CT.colorSpace = THREE.SRGBColorSpace; CT.anisotropy = 4;
+  const CARD = mesh(new THREE.PlaneGeometry(0.27, 0.139).rotateX(-0.1745), new THREE.MeshBasicMaterial({ map: CT, color: 0xd8d8d8 }), BOX); CARD.visible = true;
+  { const nx = 0, ny = Math.cos(LID), nz = -Math.sin(LID); CARD.position.set(lc[0] - nx * 0.0062, lc[1] - ny * 0.0062, lc[2] - nz * 0.0062); }   // just off the lid's inner face
+  function card() {
+    const x = cx, tj = GFX.flure | 0, tid = FLURE_IDS[tj]; x.fillStyle = '#efe6cc'; x.fillRect(0, 0, 640, 330); x.strokeStyle = '#2e5a3e'; x.lineWidth = 8; x.strokeRect(4, 4, 632, 322);
+    x.fillStyle = '#1e3a28'; x.textAlign = 'left'; x.font = 'bold 30px sans-serif'; x.fillText('TACKLE', 20, 40);
+    x.textAlign = 'right'; x.font = 'bold 24px sans-serif'; x.fillStyle = lureN(tj) > 0 ? '#8a5a00' : '#a42a1e'; x.fillText('TIED ON: ' + (lureN(tj) > 0 ? bare(tid) : 'NOTHING - PICK ONE'), 620, 40);
+    for (let j = 0; j < 5; j++) { const id = FLURE_IDS[j], h = lureN(j), y = 78 + j * 36; x.textAlign = 'left'; x.font = (j === tj && h ? 'bold ' : '') + '24px sans-serif'; x.fillStyle = h ? '#2a2a1a' : '#8a8470';
+      x.fillText((j === tj && h ? '> ' : '') + bare(id), 22, y); x.textAlign = 'right'; x.fillStyle = h ? '#2a6a2a' : '#8a8470'; x.fillText(h ? 'HAVE ' + h : 'NONE', 500, y); x.fillStyle = '#a42a1e'; x.fillText('$' + FTK[id][1] + ' / ' + FTK[id][3].n, 620, y); }
+    const ln = [4, 8, 14].filter(lb => FISH.line['l' + lb]).map(lb => lb + (GFX.fline === lb ? '*' : '')).join(' / ');
+    x.textAlign = 'left'; x.fillStyle = '#2a2a1a'; x.font = '22px sans-serif'; x.fillText('LINE: ' + (ln ? ln + ' LB' : 'NONE (TACKLE COUNTER)') + '   BOBBER: ' + (FISH.own.bobber ? (GFX.fbob > 0 ? 'ON ' + GFX.fbob + ' M' : 'OFF') : '-') + '   SHOT: ' + (FISH.own.sinker ? (GFX.fsink > 0 ? 'ON' : 'OFF') : '-'), 22, 272);
+    x.fillStyle = '#5a4630'; x.font = 'italic 20px sans-serif'; x.fillText('TOUCH A LURE TO THE LINE TO TIE IT ON - SQUEEZE A SPOOL, BOBBER OR SHOT', 22, 308);
+    texDirty(CT); F[19]++; }
+  // two small-integer keys (each well inside the Smi range, so no HeapNumber is boxed per call even before the optimizer runs): lure counts + line, then rig state
+  const ckeyA = () => { let k = 0; for (let j = 0; j < 5; j++) k = k * 21 + Math.min(20, lureN(j)); return k * 8 + (FISH.line.l4 ? 1 : 0) + (FISH.line.l8 ? 2 : 0) + (FISH.line.l14 ? 4 : 0); };
+  const ckeyB = () => (((FISH.own.bobber ? 1 : 0) + (FISH.own.sinker ? 2 : 0)) * 5 + (GFX.flure | 0)) * 64 + (GFX.fline | 0) * 4 + (GFX.fbob > 0 ? 2 : 0) + (GFX.fsink > 0 ? 1 : 0);
+  function boxRefresh(force) { const ka = ckeyA(), kb = ckeyB(); if (!force && ka === F[13] && kb === F[23]) return; F[13] = ka; F[23] = kb; batch(); card(); }
+  // a lure in a hand (taken from a tray): the fishing code's own lure geometry, at the fingertips
+  const HL = [0, 1].map(() => mesh(FLM.spoon.geometry, ITEM_VM));
+  // ---------------- the field guide (open): boards + page blocks (static), the two pages and the turning leaf (canvas spreads) ----------------
+  const BOOK = new THREE.Group(); BOOK.name = 'GD_BOOK'; BOOK.visible = false; scene.add(BOOK);
+  { const C = 0x5a3a22; const b = mesh(mk([['b', 0.165, 0.225, 0.004, -0.083, 0, -0.011, C], ['b', 0.165, 0.225, 0.004, 0.083, 0, -0.011, C], ['b', 0.158, 0.215, 0.008, -0.08, 0, -0.005, 0xe8dcc0],
+      ['b', 0.158, 0.215, 0.008, 0.08, 0, -0.005, 0xe8dcc0], ['b', 0.01, 0.225, 0.012, 0, 0, -0.008, 0x4a2e1a], ['b', 0.004, 0.006, 0.002, 0.0, 0.1, 0.0, 0xa42a1e]]), ITEM_VM, BOOK); b.visible = true; BOOK.userData.body = b; }
+  const CV = [0, 1].map(() => { const c = document.createElement('canvas'); c.width = CW; c.height = CH; const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; t.generateMipmaps = true; return { c, x: c.getContext('2d'), t }; });
+  const pg = half => { const g = new THREE.PlaneGeometry(PW, PH), uv = g.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setX(i, half * 0.5 + uv.getX(i) * 0.5); return g; };
+  const MAT = [0, 1, 2, 3].map(() => new THREE.MeshBasicMaterial({ map: CV[0].t, color: 0xe0e0e0 }));
+  const PL_ = mesh(pg(0).translate(-PW / 2 - 0.0025, 0, 0.0008), MAT[0], BOOK), PR_ = mesh(pg(1).translate(PW / 2 + 0.0025, 0, 0.0008), MAT[1], BOOK); PL_.visible = PR_.visible = true;
+  const LEAF = new THREE.Group(); LEAF.position.set(0, 0, 0.0022); BOOK.add(LEAF); LEAF.visible = false;
+  const LF = mesh(pg(1).translate(PW / 2 + 0.0025, 0, 0.0004), MAT[2], LEAF), LB = mesh(pg(0).translate(-PW / 2 - 0.0025, 0, 0.0004).rotateY(PI), MAT[3], LEAF); LF.visible = LB.visible = true;
+  // (LB: the left-half picture, turned to face -z over the right page; the leaf's half turn brings it down over the left page the right way round)
+  let FRONT = 0;   // which spread canvas the steady pages show
+  // ---------------- the pages (bush pilot's handbook voice; facts from CONTROLS.md / CHANGELOG.md / the V2 SURVIVAL README) ----------------
+  function pages() {
+    const wx = opt(() => WX3), hunt = opt(() => H2), surv = opt(() => SURV.R), crash = opt(() => CRX);   // eslint-disable-line no-undef -- optional modules (V3 WX, V2 HUNT, V2 SURVIVAL, V3 CRASH), read when the book first opens
+    return [
+      { t: 'BUSH PILOT\'S FIELD GUIDE', s: 'MacRae Air Service - read it before the valley teaches you', toc: 1, b: ['CONTENTS', '1  The note on the hangar', '2  Flying the Cub', '3  Checklists', '4  Jobs and cargo', '5  Weight and balance', '6  Pack, rig and belt', '7  Fishing and tackle', '8  Hunting and the knife', '9  Food, water and rest', '10 Crashes, the flare, recovery', '11 Battery and weather'] },
+      { t: 'THE NOTE ON THE HANGAR', b: ['Valley Credit holds a $40,000 note on MacRae Air Service. They want it before the FIRST SNOW: 14 days, Sep 1 to Sep 14.', '', 'Pay at Walt\'s board on the hangar back wall: poke PAY $500, $1,000 or $5,000 (desktop: 1 / 2 / 3 at the board).', '', 'The snow is not the end. Eleanor Voss gives a 10-day winter extension: free if half is paid and two towns know you, otherwise a $2,000 fee.', '', 'Every job, every fish and every deer goes on the note. Read the bank\'s letter on clipboard page 5; your journal is page 6.'] },
+      { t: 'FLYING THE CUB', b: ['STICK: put a hand on it and squeeze. Let go and it stays put.', 'RUDDER: left thumbstick (W S A D, Q E on a desk).', 'THROTTLE: the knob on the left wall. Squeeze, push, pull.', 'FLAPS 0-15-30-50: the T-grip on the roof, pull down a notch at a time.', 'TRIM: the roof crank. Anticlockwise is nose up.', 'BRAKES: the trigger of the hand not on the stick.', '', 'Taxi with the stick back: the tail wheel steers with the rudder. Full brakes with the stick forward stands her on her nose.', '', 'Stopped and idling? Y gets you out.'] },
+      { t: 'CHECKLISTS', b: ['START', ' Fuel ON - Master ON', ' Mixture RICH - Carb heat COLD', ' Prime 2-3 strokes cold, 0-1 warm', ' Throttle cracked, about 10 %', ' Mags BOTH, hold START to ~700 rpm', 'FLOODED: throttle full, crank, pull it back when she fires.', '', 'SHUTDOWN', ' Throttle idle - Mixture CUTOFF', ' Mags OFF - Master OFF - Fuel OFF', '', 'The card under the right of the panel has it all. Squeeze it to read.'] },
+      { t: 'JOBS AND CARGO', b: ['Boards at HOME, RIDGE STRIP, LODGE and DRY FORK. Poke ACCEPT. Three jobs at once.', 'Squeeze a box to carry it, set it in the Cub, then strap it: squeeze the rear-seat buckle or the cargo-net anchor.', 'Deliver: every piece on the yellow pad at the far end. Paid when the last one lands.', 'Deadlines are game minutes (a minute is a minute). Late is half pay.', '', 'FRAGILE: land soft, never drop it.', 'PERISHABLE: the clock runs half speed above 150 m.', 'LIVE ANIMALS: fly smooth, they calm down.'] },
+      { t: 'WEIGHT AND BALANCE', b: ['Every piece has a weight and a station. The Cub flies the real mass and CG.', ' Rear seat +37 in', ' Floor about +25 in', ' Baggage +57 in, 50 lb limit', 'Full fuel plus you leaves about 317 lb before max gross, 1,750 lb.', '', 'The W&B card on the clipboard plots the dot. LOOSE in red means not strapped.', 'Loose cargo slides on hard braking and landings and the CG goes with it. Strap it.', '', 'Your pack, pockets and what is in your hands count too.'] },
+      { t: 'PACK, RIG AND BELT', b: ['The pack rides on your back: 14 litres. Reach over a shoulder and squeeze to swing it round. Let go by the shoulder to put it back on, anywhere else and it drops.', 'Held or on the ground it is open: reach in and squeeze to take a thing, let go in the opening to put it back. Over 30 lb it warns HEAVY.', '', 'Chest pockets: small things (knife, torch, jerky).', 'Belt: canteen at the left back, knife on the right hip, cartridges front right, binoculars left hip.', '', 'Desktop: I sets the pack down open.'] },
+      { t: 'FISHING AND TACKLE', b: ['Rod, reel, line and lures at the TACKLE counter in Cutler (the lot) or the Dry Fork bench (the basics).', 'Your first lures come with a TACKLE BOX in the pack. Trigger opens it. Take a lure with your free hand and touch it to the line, or dip the dangling lure into a tray. Let go of the open box to set it down.', 'CAST: hold trigger, flick, let go at one o\'clock. Crank the reel. Lift sharp to set the hook, keep the rod up and let the drag work.', 'Spoons deep for lake trout, flies for grayling, 14 lb line for pike. Dawn and dusk bite best.'] },
+      { t: 'HUNTING AND THE KNIFE', b: ['The carbine hangs on the cabin rack: 7 in the tube, 1 up. Ammo: Dry Fork hardware, $35 for 20.', 'Deer herd in six forests. They see you at about 35 m upright: crouch (C), keep still. A gunshot inside about 320 m spooks the herd.', 'Hunting jobs on the boards want one deer. The map circles the herd.', hunt ? 'KNIFE: draw it from the sheath and slice across a downed deer (4 strokes) or a landed fish (3). Venison and fillets are food and sell at the tackle scales.' : 'FIELD DRESS: squeeze and hold on a downed deer for 3 s (only with a job). Carry the carcass in two hands.', hunt ? 'A 4x scope is $120 at the Dry Fork hardware counter.' : '', 'Shoot clean. Waste nothing.'] },
+      { t: 'FOOD, WATER AND REST', b: surv ? ['Watch the gauges under your wrist watch: FOOD, WATER, REST, HEALTH.', 'They run down slowly: from full you are fine for about a day.', 'WATER: the canteen to your mouth, a sip a time. Dip it in a lake or river to fill it.', 'FOOD: jerky, beans, chocolate, a fish. Raise it to your mouth. The supply crate by the cabin sells them.', 'REST: the cot at the home cabin (grip the blanket) or the tarp anywhere. Asleep at night you wake about 06:00.', 'Worn out, the edges close in and you blink. Hungry or thirsty, you heal slower.'] : ['Eat when you can: fish, jerky. Below 10 % food you walk slower.', 'The canteen rides on your belt: raise it to drink.', 'Sleep when the light goes.'] },
+      { t: 'CRASHES, THE FLARE, RECOVERY', b: [crash ? 'Hit the ground at about 16 m/s (15 g) and it is over: you wake 14 hours later on the cot in Walt\'s hangar at 25 %, and the clinic bills $900.' : 'A crash costs salvage and a ferry home: $250 plus $80 a km.', crash ? 'Softer, and you are hurt but alive. The FLARE GUN is on the glare shield: grip it, trigger (desktop G). A rancher sees it; 3 hours on a flatbed brings you and the Cub home. Recovery plus $35 for the flare.' : '', crash ? 'Y climbs out of the wreck, Y climbs back in.' : '', 'The hangar fixes what is bent. A first aid kit patches you up (+40).', '', 'Fly so you never need this page.'] },
+      { t: 'BATTERY AND WEATHER', b: (wx ? ['BATTERY: watch the voltmeter. The alternator charges above about 1,000 rpm. The landing light is the big drain. Under 11 V the radio dies, under 7.8 V she will not crank. Parked by the hangar or a fuel pump, it charges.', 'CARB ICE: damp air from -4 to 18 C, worst at low power. Rough running and lost rpm: carb heat HOT, about 20 s clears it.', 'IMC: in cloud you see nothing. Turn back or stay under before you go in.'] : ['MASTER ON before the start, OFF at shutdown.', 'CARB HEAT IN RAIN! says the placard. Rough running in wet air: pull it HOT.']).concat(['Rain fronts drift in from the west-northwest under dark bases; above the base, about 760 m, it is dry. Fog banks come at dawn.']) },
+    ]; }
+  // a page: title, a rule, word-wrapped lines (one font for all body text: legible in the headset at arm's length)
+  function pageDraw(x, ox, P, n) {
+    x.fillStyle = '#f1e8d0'; x.fillRect(ox, 0, CW / 2, CH); x.fillStyle = 'rgba(90,60,30,0.10)'; x.fillRect(n % 2 ? ox : ox + CW / 2 - 18, 0, 18, CH);
+    if (!P) { x.fillStyle = '#8a7a5a'; x.font = 'italic 26px serif'; x.textAlign = 'center'; x.fillText('NOTES', ox + CW / 4, 90); x.strokeStyle = 'rgba(90,70,40,0.25)'; x.lineWidth = 2; for (let y = 140; y < CH - 40; y += 38) { x.beginPath(); x.moveTo(ox + 40, y); x.lineTo(ox + CW / 2 - 40, y); x.stroke(); } return; }
+    const L = ox + 34, R = ox + CW / 2 - 34, W = R - L; x.textAlign = 'left'; x.fillStyle = '#3a2612'; x.font = 'bold 30px serif';
+    let y = 54; for (const ln of wrap(x, P.t, W)) { x.fillText(ln, L, y); y += 34; }
+    if (P.s) { x.font = 'italic 22px serif'; x.fillStyle = '#6a4a2a'; x.fillText(P.s, L, y); y += 30; }
+    x.strokeStyle = '#8a5a2a'; x.lineWidth = 3; x.beginPath(); x.moveTo(L, y - 18); x.lineTo(R, y - 18); x.stroke(); y += 12;
+    x.font = '25px serif'; x.fillStyle = '#20160c';
+    for (const para of P.b) { if (!para) { y += 14; continue; } for (const ln of wrap(x, para, W)) { if (y > CH - 46) break; x.fillText(ln, L, y); y += 30; } y += P.toc ? 0 : 6; }
+    x.font = 'italic 20px serif'; x.fillStyle = '#7a6040'; x.textAlign = 'center'; x.fillText(String(n + 1), ox + CW / 4, CH - 18); }
+  function wrap(x, s, W) { const out = []; let cur = ''; for (const w of s.split(' ')) { const t = cur ? cur + ' ' + w : w; if (x.measureText(t).width > W && cur) { out.push(cur); cur = w; } else cur = t; } if (cur || !out.length) out.push(cur); return out; }
+  let PG = null; const NS = () => Math.ceil((PG ? PG.length : 12) / 2);
+  function spread(ci, s) { if (!PG) PG = pages(); const C = CV[ci], x = C.x; pageDraw(x, 0, PG[s * 2], s * 2); pageDraw(x, CW / 2, PG[s * 2 + 1], s * 2 + 1); texDirty(C.t); F[19]++; F[20]++; }
+  function show(ci) { MAT[0].map = MAT[1].map = CV[ci].t; FRONT = ci; }
+  // ---------------- the cabin copy: on V2 CABIN's table when that module is in, else on a stump by the home cabin ----------------
+  const CAB = (() => { const H0 = window.HCAB, H = H0 && typeof H0.OX === 'number' && typeof H0.OZ === 'number' ? H0 : null;   // the cabin module is optional (guarded hook: window.HCAB)
+    const x = H ? H.OX - 2.56 : 29.35, z = H ? H.OZ - 1.02 : -11.75, top = H ? 0.78 : groundY(29.35, -11.75) + 0.5, P = [];
+    if (!H) P.push(['c', 0.2, 0.5, 9, 0, -0.25, 0, 0x6e5236], ['c', 0.19, 0.012, 9, 0, 0.003, 0, 0xb89a6a]);
+    const book = PK_K.guide[4].map(p => { const q = p.slice(); const [, , , , px, py, pz] = q; q[4] = px; q[5] = pz + 0.0147; q[6] = -py; q[8] = (q[8] || 0) - PI / 2; return q; });   // lying flat, cover up
+    const m = mesh(mk(P.concat(book)), ITEM_VM); m.position.set(x, top, z); m.rotation.y = 0.35; m.name = 'GD_CABIN'; m.updateMatrix(); m.matrixAutoUpdate = false;
+    return { m, x, y: top + 0.02, z, cabin: !!H }; })();
+  // ---------------- poses ----------------
+  function faceYaw(o, p, tilt) { camera.getWorldPosition(v2); const y = Math.atan2(v2.x - p.x, v2.z - p.z); o.quaternion.setFromAxisAngle(vUp, y).multiply(tilt); }
+  function boxPose(i) { const g = grips[i]; g.getWorldPosition(v1); faceYaw(BOX, v1, TILT); v3.set(i ? -0.155 : 0.155, -0.035, 0).applyQuaternion(BOX.quaternion); BOX.position.copy(v1).add(v3); }   // held by its near side wall (left hand: the left wall)
+  function bookPose(i) { const g = grips[i]; g.getWorldPosition(v1); camera.getWorldPosition(v2); BOOK.position.copy(v1);   // the hand under the bottom edge, by the spine
+    for (let k = 0; k < 4; k++) { m1.lookAt(v2, BOOK.position, vUp); BOOK.quaternion.setFromRotationMatrix(m1); v3.set(i ? -0.05 : 0.05, 0.145, 0.025).applyQuaternion(BOOK.quaternion); BOOK.position.copy(v1).add(v3); } }   // the pages (not the hand) face the eye
+  function deskPose() { camera.getWorldPosition(v2); camera.getWorldDirection(v3);
+    if (F[10] === 1) { v1.copy(v2).addScaledVector(v3, 0.36); v1.y -= 0.02; BOOK.position.copy(v1); m1.lookAt(v2, v1, vUp); BOOK.quaternion.setFromRotationMatrix(m1); }
+    else { v3.y = 0; v3.normalize(); v1.copy(v2).addScaledVector(v3, 0.34); v1.y -= 0.2; BOX.position.copy(v1); faceYaw(BOX, v1, TILTD); } }
+  // ---------------- tying on ----------------
+  function rodOk(quiet) { if (FISH.rod === 'pack') { if (!quiet) say('THE ROD IS IN ITS TUBE - HOLD IT, THEN TOUCH THE LURE TO THE LINE'); return false; }
+    if (FISH.st !== 'idle') { if (!quiet) say('REEL IN FIRST - THE LURE HAS TO BE AT THE ROD TIP TO CHANGE IT'); return false; } return true; }
+  function tie(j, g) { const id = FLURE_IDS[j]; if (!(lureN(j) > 0)) { say('NO ' + bare(id) + ' IN THE BOX - $' + FTK[id][1] + ' FOR ' + FTK[id][3].n + ' AT A TACKLE COUNTER'); return false; }
+    gfxSet('flure', j, true); if (FISH.rod !== 'pack' && FISH.st === 'idle') FISH.rig = fRig(); F[22]++; sfx('click'); if (g) HX.pulse(g, 0.35, 18, 'ui');
+    say('TIED ON: ' + bare(id) + ' (' + lureN(j) + ' IN THE BOX)'); boxRefresh(true); saveSoon(); return true; }
+  function rigSet(j, g) {   // the back row: line spools, the bobbers, the split shot
+    if (j < 3) { const lb = [4, 8, 14][j]; if (!FISH.line['l' + lb]) { say('NO ' + lb + ' LB LINE - $' + FTK['l' + lb][1] + ' AT A TACKLE COUNTER'); return true; } if (FISH.rod !== 'pack' && !rodOk(false)) return true; gfxSet('fline', lb, true); say('SPOOLED ' + lb + ' LB LINE'); }
+    else if (j === 3) { if (!FISH.own.bobber) { say('NO BOBBERS - $' + FTK.bobber[1] + ' AT A TACKLE COUNTER'); return true; } gfxSet('fbob', GFX.fbob > 0 ? 0 : 1, true); say(GFX.fbob > 0 ? 'BOBBER ON, 1 M UP THE LINE' : 'BOBBER OFF'); }
+    else { if (!FISH.own.sinker) { say('NO SPLIT SHOT - $' + FTK.sinker[1] + ' AT A TACKLE COUNTER'); return true; } gfxSet('fsink', GFX.fsink > 0 ? 0 : 1, true); say(GFX.fsink > 0 ? 'SPLIT SHOT PINCHED ON' : 'SPLIT SHOT OFF'); }
+    if (FISH.rod !== 'pack' && FISH.st === 'idle') FISH.rig = fRig(); sfx('click'); if (g) HX.pulse(g, 0.3, 14, 'ui'); boxRefresh(true); saveSoon(); return true; }
+  function tray(p) {   // world point -> tray code (0-4 lures, 5-9 back row) or -1; in the open box's frame
+    if (!BOX.visible) return -1; BOX.updateWorldMatrix(true, false); BOX.worldToLocal(v3.copy(p)); if (v3.y < -0.01 || v3.y > 0.075 || Math.abs(v3.x) > 0.142 || Math.abs(v3.z) > 0.074) return -1;
+    const j = Math.max(0, Math.min(4, Math.round((v3.x + 0.12) / 0.06))); return v3.z >= 0 ? j : 5 + j; }
+  function nearRod(p) { if (FISH.rod !== 'vr' || !FISH.hand) return false; if (p.distanceTo(FISH.tip) < 0.12 || p.distanceTo(FISH.lure) < 0.1) return true;
+    FISH.hand.getWorldPosition(v2); return fSegD(p, v2, FISH.tip) < 0.05; }
+  // ---------------- open / close ----------------
+  function boxOpen(i, on) { if (on) { F[14] = i + 1; PK.hm[i].visible = false; boxRefresh(true); BOX.visible = true; boxPose(i); sfx('clack'); HX.pulse(grips[i], 0.2, 12, 'ui'); if (!anyLure()) say('THE TACKLE BOX IS EMPTY - LURES AT A TACKLE COUNTER'); }
+    else { if (F[14] === i + 1) { F[14] = 0; if (F[2]) setPose(); else if (F[10] !== 2) BOX.visible = false; } if (PK.hk[i] === 'tackle') PK.hm[i].visible = true; sfx('clack'); } }
+  function bookOpen(i, on) { if (on) { F[15] = i + 1; PK.hm[i].visible = false; if (!PG) PG = pages(); spread(FRONT, F[7]); show(FRONT); LEAF.visible = false; F[8] = 0; BOOK.visible = true; bookPose(i); sfx('paper'); HX.pulse(grips[i], 0.2, 12, 'ui');
+      if (F[7] === 0) say('THE FIELD GUIDE - TRIGGER TURNS THE PAGE (OR YOUR OTHER HAND\'S TRIGGER AT A PAGE)'); }
+    else { if (F[15] === i + 1) { F[15] = 0; if (F[10] !== 1) BOOK.visible = false; LEAF.visible = false; F[8] = 0; } if (PK.hk[i] === 'guide') PK.hm[i].visible = true; } }
+  function turn(dir) {   // dir +1 next, -1 previous; a turn already running finishes first
+    if (!PG) PG = pages(); if (F[8] > 0) { finish(); }
+    const ns = F[7] + dir; if (ns < 0) return false; if (ns >= NS()) return false;
+    const B = 1 - FRONT; spread(B, ns); F[9] = dir; F[8] = TURN; F[7] = ns;
+    if (dir > 0) { MAT[0].map = CV[FRONT].t; MAT[1].map = CV[B].t; MAT[2].map = CV[FRONT].t; MAT[3].map = CV[B].t; LEAF.rotation.y = 0; }
+    else { MAT[0].map = CV[B].t; MAT[1].map = CV[FRONT].t; MAT[2].map = CV[B].t; MAT[3].map = CV[FRONT].t; LEAF.rotation.y = -PI; }
+    LEAF.visible = true; sfx('paper'); return true; }
+  function finish() { F[8] = 0; LEAF.visible = false; show(1 - FRONT); }
+  function trigHeld(i) {   // the holding hand's trigger
+    const k = PK.hk[i];
+    if (k === 'tackle') { boxOpen(i, F[14] !== i + 1); return true; }
+    if (k === 'guide') { if (F[15] !== i + 1) { bookOpen(i, true); return true; } if (!turn(1)) { F[7] = 0; bookOpen(i, false); say('FIELD GUIDE CLOSED'); } saveSoon(); return true; }
+    if (!k && F[15] && F[15] !== i + 1) { grips[i].getWorldPosition(v1); if (v1.distanceTo(BOOK.position) < 0.22) { BOOK.worldToLocal(v3.copy(v1)); turn(v3.x >= 0 ? 1 : -1); saveSoon(); return true; } }
+    return false; }
+  // ---------------- grab / release / let go (hooks) ----------------
+  function grab(g, p) { const i = grips.indexOf(g); if (i < 0 || mode !== 'foot') return false;
+    if (PICK[i] >= 0) return true; if (PK.hk[i] || pkBusy(g) || (PK.st === 'held' && PK.g === g)) return false;
+    const t = tray(p);
+    if (t >= 0 && t < 5) { if (!(lureN(t) > 0)) { say('NO ' + bare(FLURE_IDS[t]) + ' - $' + FTK[FLURE_IDS[t]][1] + ' FOR ' + FTK[FLURE_IDS[t]][3].n + ' AT A TACKLE COUNTER'); return true; }
+      PICK[i] = t; HL[i].geometry = FLM[FLURE_IDS[t]].geometry; HL[i].visible = true; sfx('pick'); HX.pulse(g, 0.2, 10, 'ui'); if (FISH.rod === 'pack') say(bare(FLURE_IDS[t]) + ' - HOLD THE ROD IN YOUR OTHER HAND AND TOUCH IT TO THE LINE'); return true; }
+    if (t >= 5) return rigSet(t - 5, g);
+    if (F[2] && BOX.visible && F[14] === 0) { BOX.worldToLocal(v3.copy(p)); if (Math.abs(v3.x) < 0.18 && v3.y > -0.03 && v3.y < 0.12 && Math.abs(v3.z) < 0.11) { F[2] = 0; pkTake(i, 'tackle'); HK[i] = 1; boxOpen(i, true); saveSoon(); return true; } }   // the set-down box's rim
+    if (!F[1] && CAB.m.visible && Math.hypot(p.x - CAB.x, p.y - CAB.y, p.z - CAB.z) < 0.14) { F[1] = 1; CAB.m.visible = false; pkTake(i, 'guide'); HK[i] = 2; say('THE FIELD GUIDE - TRIGGER OPENS IT'); saveSoon(); return true; }
+    return false; }
+  function release(g) { const i = g === grips[0] ? 0 : g === grips[1] ? 1 : -1; if (i < 0 || PICK[i] < 0) return; PICK[i] = -1; HL[i].visible = false; }   // not tied: back in its tray
+  function letGo(i, p, k) {
+    if (k === 'tackle' && F[14] === i + 1) { F[14] = 0; if (pkOpenFor(grips[i]) && pkInOpening(p, 0.03)) { BOX.visible = F[10] === 2; return false; }   // closed into the open pack
+      const H = CAB.cabin ? window.HCAB : null, lx = H ? p.x - H.OX : 0, lz = H ? p.z - H.OZ : 0;
+      const onT = H && lx > -2.8 && lx < -2.04 && lz > -1.87 && lz < -0.73 && p.y > 0.7, y = onT ? 0.78 : groundY(p.x, p.z);
+      F[2] = 1; F[3] = p.x; F[4] = y; F[5] = p.z; camera.getWorldPosition(v2); F[6] = Math.atan2(v2.x - p.x, v2.z - p.z); setPose(); sfx('thud', BOX.position); HX.pulse(grips[i], 0.15, 12, 'release');
+      say('TACKLE BOX SET DOWN OPEN - ROD IN ONE HAND, LURES WITH THE OTHER (SQUEEZE THE RIM TO PICK IT UP)'); saveSoon(); return true; }
+    if (k === 'guide' && F[15] === i + 1) bookOpen(i, false);
+    return false; }
+  function setPose() { BOX.position.set(F[3], F[4], F[5]); BOX.quaternion.setFromAxisAngle(vUp, F[6]); BOX.visible = true; }
+  // ---------------- desktop: L the guide, \ the tackle box ----------------
+  function deskBook() { if (F[10] === 1) { F[10] = 0; BOOK.visible = !!F[15]; say('FIELD GUIDE PUT AWAY'); return; }
+    if (!has('guide')) { camera.getWorldPosition(v1); if (!F[1] && v1.distanceTo(v2.set(CAB.x, CAB.y, CAB.z)) < 2.5) { if (!pkPut('guide', true)) { say('NO ROOM IN THE PACK FOR THE FIELD GUIDE'); return; } F[1] = 1; CAB.m.visible = false; saveSoon(); }
+      else { say(F[1] ? 'NO FIELD GUIDE ON YOU' : 'NO FIELD GUIDE ON YOU - ONE LIES ' + (CAB.cabin ? 'ON THE CABIN TABLE' : 'ON THE STUMP BY THE CABIN')); return; } }
+    if (F[10] === 2) F[10] = 0; F[10] = 1; if (!PG) PG = pages(); spread(FRONT, F[7]); show(FRONT); LEAF.visible = false; F[8] = 0; BOOK.visible = true; deskPose(); sfx('paper'); say('FIELD GUIDE - , AND . TURN THE PAGES, L PUTS IT AWAY'); }
+  function deskBox() { if (!has('tackle') && !F[2]) { say(anyLure() ? 'NO TACKLE BOX ON YOU' : 'NO TACKLE YET - LURES AT A TACKLE COUNTER COME WITH A BOX'); return; }
+    if (F[10] !== 2) { if (F[10] === 1) BOOK.visible = !!F[15]; F[10] = 2; F[11] = 8; boxRefresh(true); BOX.visible = true; deskPose(); sfx('clack'); say('TACKLE BOX - \\ AGAIN TIES ON THE NEXT LURE YOU HAVE'); return; }
+    F[11] = 8; if (!anyLure()) { say('NO LURES IN THE BOX'); return; } if (!rodOk(true) && FISH.rod !== 'pack') { rodOk(false); return; }
+    for (let s = 1; s <= 5; s++) { const j = ((GFX.flure | 0) + s) % 5; if (lureN(j) > 0) { tie(j, null); return; } } }
+  addEventListener('keydown', e => { if (e.repeat || mode !== 'foot' || renderer.xr.isPresenting || (typeof SETP !== 'undefined' && SETP.open)) return;
+    if (e.code === 'KeyL') { e.stopImmediatePropagation(); deskBook(); }
+    else if (e.code === 'Backslash') { e.stopImmediatePropagation(); deskBox(); }
+    else if (F[10] === 1 && (e.code === 'Comma' || e.code === 'Period')) { e.stopImmediatePropagation(); if (!turn(e.code === 'Period' ? 1 : -1)) say(e.code === 'Period' ? 'THE LAST PAGE - L PUTS IT AWAY' : 'THE FIRST PAGE'); saveSoon(); } }, true);
+  // ---------------- per frame ----------------
+  function tick(dt, vr) {
+    const foot = mode === 'foot';
+    for (let i = 0; i < 2; i++) { const k = PK.hk[i], h = k === 'tackle' ? 1 : k === 'guide' ? 2 : 0;
+      if (h !== HK[i]) { if (HK[i] === 1 && F[14] === i + 1) { F[14] = 0; if (!F[2] && F[10] !== 2) BOX.visible = false; } if (HK[i] === 2 && F[15] === i + 1) { F[15] = 0; if (F[10] !== 1) BOOK.visible = false; LEAF.visible = false; } HK[i] = h; }
+      const src = vr ? grips[i].userData.src : null, gp = src ? src.gamepad : null, tr = gp && gp.buttons[0] ? gp.buttons[0].pressed : false;
+      if (tr && !TRP[i] && foot) trigHeld(i); TRP[i] = tr ? 1 : 0;
+      if (PICK[i] >= 0) { if (!foot || !vr || PK.hk[i]) { PICK[i] = -1; HL[i].visible = false; continue; }
+        const g = grips[i]; g.getWorldPosition(v1); HL[i].position.copy(v1); HL[i].position.y -= 0.01; HL[i].quaternion.copy(g.getWorldQuaternion(q1));
+        if (nearRod(v1) && rodOk(true)) { const j = PICK[i]; PICK[i] = -1; HL[i].visible = false; tie(j, g); }
+        else if (nearRod(v1) && FISH.st !== 'idle' && (F[18] -= dt) < 0) { F[18] = 3; rodOk(false); } } }
+    if (F[14]) boxPose(F[14] - 1);
+    if (F[15]) bookPose(F[15] - 1);
+    if (F[10]) { if (!foot || renderer.xr.isPresenting) { F[10] = 0; BOOK.visible = !!F[15]; BOX.visible = !!F[14] || !!F[2]; } else { deskPose(); if (F[10] === 2 && (F[11] -= dt) <= 0) { F[10] = 0; BOX.visible = !!F[14] || !!F[2]; if (F[2]) setPose(); } } }
+    if (F[8] > 0) { F[8] -= dt; const a = Math.max(0, F[8]) / TURN, th = F[9] > 0 ? PI * (1 - a) : PI * a; LEAF.rotation.y = -th; LEAF.position.z = 0.0022 + 0.03 * Math.sin(th); if (F[8] <= 0) finish(); }
+    // the lure dangling at the rod tip dipped into a tray of the open box (both hands busy: rod + box, or the box set down)
+    if (BOX.visible && FISH.rod === 'vr' && FISH.st === 'idle') { const t = tray(FISH.lure); if (t >= 0 && t < 5 && t !== (GFX.flure | 0) && lureN(t) > 0) tie(t, FISH.hand); }
+    if ((F[12] -= dt) <= 0) { F[12] = 1;   // 1 Hz: the box that comes with your first lures, the card when something changed, the shadow warm-up
+      if (!F[0] && anyLure()) { F[0] = 1; if (!has('tackle') && !F[2] && !PK.gnd.some(e => e[0] === 'tackle')) { if (pkPut('tackle', true)) say('A TACKLE BOX CAME WITH THE LURES - IT\'S IN YOUR PACK (TRIGGER OPENS IT)'); else { camera.getWorldPosition(v1); pkDrop('tackle', v1, v2.set(0, 0, 0), 0); say('A TACKLE BOX CAME WITH THE LURES - NO ROOM IN THE PACK, IT\'S AT YOUR FEET'); } } saveSoon(); }
+      if (BOX.visible) boxRefresh(false);
+      if (GFX.shadows > 0 && !F[17]) { F[17] = 1; WARM.jobs.push(prewarm); warmUI(); } }
+    if ((F[16] -= dt) <= 0) { F[16] = 0.25; camera.getWorldPosition(v1);   // 4 Hz cull, plain local arithmetic: no double passed to / returned from a call (those box a HeapNumber below the top tier)
+      let dx = v1.x - CAB.x, dy = v1.y - CAB.y, dz = v1.z - CAB.z; CAB.m.visible = !F[1] && dx * dx + dy * dy + dz * dz < NEAR * NEAR;
+      if (F[2] && !F[14] && F[10] !== 2) { dx = v1.x - F[3]; dy = v1.y - F[4]; dz = v1.z - F[5]; BOX.visible = dx * dx + dy * dy + dz * dz < NEAR * NEAR; } }
+  }
+  // ---------------- save / load ----------------
+  const r3_ = v => Math.round(v * 1000) / 1000;
+  function save() { return { v: 1, tb: F[0] ? 1 : 0, cb: F[1] ? 1 : 0, set: F[2] ? [r3_(F[3]), r3_(F[4]), r3_(F[5]), r3_(F[6])] : 0, pg: F[7] | 0 }; }
+  function load(d) {   // null: a new game or a save from before V2 GUIDE (no box given yet - one comes if you own lures; the cabin copy is on the table)
+    const ok = v => typeof v === 'number' && isFinite(v);
+    F[0] = d && d.tb ? 1 : 0; F[1] = d && d.cb ? 1 : 0; F[2] = 0; F[7] = d && ok(d.pg) ? Math.max(0, Math.min(5, d.pg | 0)) : 0; F[14] = F[15] = F[10] = 0; BOX.visible = BOOK.visible = false;
+    if (d && Array.isArray(d.set) && d.set.length === 4 && d.set.every(ok)) { F[2] = 1; F[3] = d.set[0]; F[4] = d.set[1]; F[5] = d.set[2]; F[6] = d.set[3]; setPose(); }
+    for (let i = 0; i < 2; i++) { PICK[i] = -1; HL[i].visible = false; HK[i] = 0; } CAB.m.visible = !F[1]; F[12] = 0; }
+  // ---------------- warm-up: every new mesh with each PL / SL combination; then the GAME's depth programs at every light count (DoubleSide casters too) ----------------
+  let dRT = null;
+  function warmDepth() {   // a DoubleSide GAME caster (141824) was only warmed with PL+SL on; the desktop box looks down and compiled the dir-only variant after WARM.done
+    if (!(GFX.shadows > 0)) return;
+    const L = []; scene.traverse(o => { if (o.isLight && o.castShadow) L.push(o); }); if (!L.length) return;
+    const rep = new Map();
+    scene.traverse(o => { if (!(o.isMesh || o.isPoints || o.isLine)) return; const m = Array.isArray(o.material) ? o.material[0] : o.material, g = o.geometry;
+      const k = [o.isSkinnedMesh, o.isInstancedMesh, !!o.instanceColor, o.isBatchedMesh, o.isPoints, o.isLine, !!(g && g.morphAttributes && g.morphAttributes.position), !!o.customDepthMaterial, m && m.side, m && m.shadowSide, !!(m && m.alphaTest > 0 && (m.map || m.alphaMap)), !!(m && m.displacementMap), !!(m && m.clippingPlanes && m.clippingPlanes.length)].join();
+      if (!rep.has(k)) rep.set(k, o); });
+    const R = [...rep.values()], sv = [];
+    scene.traverse(o => { if (o !== scene && !o.isLight) { sv.push(o, o.visible, o.frustumCulled, o.castShadow); o.visible = false; } });
+    for (const o of [...R, ...L]) { o.visible = true; o.frustumCulled = false; if (o.isMesh || o.isPoints || o.isLine) o.castShadow = true; for (let q = o.parent; q && q !== scene; q = q.parent) q.visible = true; }
+    if (!dRT) dRT = new THREE.WebGLRenderTarget(16, 16); const prev = renderer.getRenderTarget(), plv = PL.visible, slv = SL.visible; renderer.setRenderTarget(dRT);
+    for (let c = 0; c < 4; c++) { PL.visible = !!(c & 1); SL.visible = !!(c & 2); renderer.shadowMap.needsUpdate = true; for (const l of L) l.shadow.needsUpdate = true; renderer.render(scene, camera); }
+    renderer.setRenderTarget(prev); PL.visible = plv; SL.visible = slv;
+    for (let i = 0; i < sv.length; i += 4) { sv[i].visible = sv[i + 1]; sv[i].frustumCulled = sv[i + 2]; sv[i].castShadow = sv[i + 3]; }
+    renderer.shadowMap.needsUpdate = true; for (const l of L) l.shadow.needsUpdate = true; }
+  function prewarm() { const W = [BOX.userData.body, BM, CARD, BOOK.userData.body, PL_, PR_, LF, LB, CAB.m, ...HL], vis = W.map(o => o.visible), pv = PL.visible, sv = SL.visible, bv = BOX.visible, kv = BOOK.visible, lv = LEAF.visible;
+    W.forEach(o => { o.visible = true; }); BOX.visible = BOOK.visible = LEAF.visible = true;
+    for (let c = 0; c < 4; c++) { PL.visible = !!(c & 1); SL.visible = !!(c & 2); for (const o of W) renderer.compile(o, camera, scene); }
+    W.forEach((o, i) => { o.visible = vis[i]; }); PL.visible = pv; SL.visible = sv; BOX.visible = bv; BOOK.visible = kv; LEAF.visible = lv; warmDepth(); }
+  boxRefresh(true); spread(0, 0); PG = null; show(0);   // (the page text is rebuilt when the book first opens: every optional module has run by then)
+  renderer.initTexture(CT); renderer.initTexture(CV[0].t); renderer.initTexture(CV[1].t); prewarm();
+  const API = { F, PICK, HK, BOX, BOOK, LEAF, CARD, BM, HL, CAB, CV, MAT, TX, TZF, TZB, pages: () => PG, fns: { tick, tie, rigSet, tray, turn, trigHeld, boxOpen, bookOpen, spread, deskBook, deskBox, prewarm, warmDepth, boxRefresh, nearRod, card, batch },
+    tick, save, load, grab, release, let: letGo, trig: trigHeld, tie, turn,
+    state() { return { given: F[0], cabinTaken: F[1], setDown: F[2], spread: F[7], spreads: NS(), turning: F[8] > 0, desk: F[10], boxOpen: F[14], bookOpen: F[15], renders: F[19], uploads: F[20], ties: F[22], pick: [PICK[0], PICK[1]], tied: FLURE_IDS[GFX.flure | 0] }; } };
+  gdReady = true; load(gdPend || null);
+  return API;
+})();
+window.GDE = GDE;
+function gdTick(dt, vr) { GDE.tick(dt, vr); }
+// <<< V2 GUIDE END
 warmStart('Preparing graphics'); bootLog('warm-up started: ' + WARM.tot + ' programs to finish, ' + (WARM.par ? 'polling parallel compile' : 'no parallel compile: one at a time'));
 if (window.__ultSkip) setTimeout(() => say('PC ULTRA WAS NOT RESTORED (THE LAST START DID NOT FINISH) - PICK IT AGAIN IN SETTINGS'), 4000);
 const BOOTF = { n: 0, real: 0, xr: 0, pre: 0, lite: 0, xs: 0, xa: [], xl: 0, last: 0 };   // v1.10.1 boot log: frame stages
@@ -13987,7 +14283,7 @@ renderer.setAnimationLoop(() => {
   if ((chunkT += dt) > 0.2) { chunkT = 0; updateChunks(); }
   hxTick(dt);                                // v0.24 haptics (engine / buffet / gear + queued pulses)
   if (xr || HANDS.force) { wtTick(dt); updateHands(dt); setpTick(); jbPoke(); ecoPoke(); upgPoke(); emgPoke(); }
-  bodyTick(dt); vlTick(); batchTick(); cvlApply(); packTick(dt, xr || HANDS.force); survTick(dt, xr || HANDS.force); cabTick(dt, xr || HANDS.force); if (GFX.shadows && FT.n % ((mode !== 'plane' || ac.vel[0] * ac.vel[0] + ac.vel[1] * ac.vel[1] + ac.vel[2] * ac.vel[2] > 0.1) ? DYN.sh : Math.max(2, DYN.sh)) === 0) renderer.shadowMap.needsUpdate = true;   // v0.47 static batches; shadow map at half rate   // v0.23 gloves (after the stick / knobs have their final pose); v0.45 wrist SETTINGS board
+  bodyTick(dt); vlTick(); batchTick(); cvlApply(); packTick(dt, xr || HANDS.force); gdTick(dt, xr || HANDS.force); survTick(dt, xr || HANDS.force); cabTick(dt, xr || HANDS.force); if (GFX.shadows && FT.n % ((mode !== 'plane' || ac.vel[0] * ac.vel[0] + ac.vel[1] * ac.vel[1] + ac.vel[2] * ac.vel[2] > 0.1) ? DYN.sh : Math.max(2, DYN.sh)) === 0) renderer.shadowMap.needsUpdate = true;   // v0.47 static batches; shadow map at half rate   // v0.23 gloves (after the stick / knobs have their final pose); v0.45 wrist SETTINGS board
   if (DIRTY_TEX.size) { DIRTY_TEX.forEach(texInit); DIRTY_TEX.clear(); } if (WARM.done && !WARM.jobs.length) binoRender();   // v0.53 the 7x view (only while raised); v0.81 the textures upload first
   if (xr || HANDS.force) wtApply(); BOOTF.pre = performance.now(); BOOTF.wl = xr && BOOTF.lite > 0; if (BOOTF.wl && BOOTF.lite === 2) warmStart('Entering VR');
   const _wr = warmTick() && !(xr && BOOTF.lite > 0); if (xr && BOOTF.lite > 0) BOOTF.lite--; if (_wr && !BOOTF.real) bootLog('first scene frame: drawing (first draw can still link a few programs)');
