@@ -154,6 +154,10 @@ v0.44 latches: every window and the door are latched while shut. Squeeze the han
 | Pack: walk off (v1.11.2) | Leave the pack on the ground and walk about 3.5 m away: it goes back on your back by itself. Take it off your back by reaching right to its top edge behind your shoulder. It opens at the back (clamshell): reach in through the side that faces you | I sets it down / puts it back on |
 | Rear door + window (v1.11.3) | On foot: squeeze once at the cargo door handle or at the rear window to open both (the door folds down, the window swings up). Squeeze again to shut them. They shut by themselves when you sit in | 5 (in the seat) |
 | Load cargo (v1.11.3) | Through the open main door, or the open rear door. The Cub is solid: a held item that pushes through the side is stopped, and let go there it drops outside | – |
+| Eat / drink / smoke (v1.11.5) | Raise the canteen, jerky, beans, chocolate or cigarettes to your mouth. Dip the canteen under water to refill it | U eats or drinks from the pack or belt |
+| Use an item (v1.11.5) | Trigger: first aid kit, flashlight on / off, rest under the tarp, signal flare (after a crash) | O toggles the flashlight |
+| Sleep / buy supplies (v1.11.5) | Grip the cot blanket by the home cabin to sleep. Grip an item on the supply crate with a free hand to buy it | K by the cot sleeps; K by the crate buys beans |
+| Survival gauges (v1.11.5) | Turn the watch toward you: FOOD / WATER / REST / HEALTH under MENU | – |
 
 ## On foot
 | | VR | Desktop |

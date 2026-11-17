@@ -2,6 +2,20 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v1.11.5 – survival: food, water, rest and usable items (VR Dev 2)
+
+- **Food, water and rest:** water falls about 3.6 % an hour, food about 3.6 % an hour and you get tired faster at night. All of it runs on the game clock. Starting full at 08:00, nothing is critical within a day. When you are hungry, thirsty or exhausted, you heal more slowly. With no food or water left your health sinks to 10 % but never kills you. You get a message when you are thirsty or tired. Tiredness above 70 % closes a vignette in, and when you are exhausted you get heavy blinks.
+- **Wrist gauges:** a small FOOD / WATER / REST / HEALTH plate under the watch's MENU button. It only shows while the watch faces you, and it flashes when a value is critical.
+- **Eating, drinking and smoking:**
+  - Raise the canteen to your mouth to drink. Dip it under a lake or river to refill it; its level is saved.
+  - Raise jerky, a tin of beans or a chocolate bar to eat it.
+  - Raise the cigarettes to your mouth to light one: a lighter flick, about 10 s of smoke, and less tiredness.
+- **Items you trigger:** a first aid kit heals over 5 s. A flashlight turns on and off, using the game's one spotlight, so it adds no new light. A tarp lets you rest anywhere. A signal flare is for after a crash: until the crash module ships it only says so and stays in your hand.
+- **Sleep:** grip the blanket on the new camp cot by the home cabin. At night you sleep until about 06:00: the screen fades out, the clock moves on, and it fades back in.
+- **Supply crate** by the home cabin: beans $3, chocolate $2, jerky $4, cigarettes $6, first aid kit $25 and flare $15. Grip an item with a free hand to buy it into that hand.
+- **Saves:** older saves load with water at 80 %, a fresh rest and a full canteen.
+- **Cost:** no garbage per frame, no shader compiles in flight (the gauges, cot, crate and items are warmed at load, and with shadows on as well), at most one extra draw call, and the physics checksum is unchanged.
+
 ## v1.11.4 – Neil's second left-hand rod grip
 
 - **Rod grip:** the fishing rod in your left hand now sits exactly as in Neil's second Pose Lab code. The rod is 10 mm lower and 27 mm further forward in the fist, and it is tilted 27.6° forward. The finger joints are his: middle and ring fingers wrapped further round the cork, the index finger's tip relaxed. A rod in the right hand uses the mirror of the same grip. The crank stays on the side away from the rod hand, with its knob facing out.

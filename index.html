@@ -636,7 +636,7 @@ const hyp = (a, b, c = 0) => Math.sqrt(a * a + b * b + c * c);   // v0.59 Math.h
 
 // ======================= RENDERING =======================
 // v0.35 settings (persist in localStorage 'bp_gfx'; ?gfx=shadows:2,grass:1 overrides for testing). Defaults = the v0.34 look and cost.
-const BP_VERSION = 'v1.11.4';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
+const BP_VERSION = 'v1.11.5';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
 { const e = document.getElementById('ver'); if (e) e.textContent = BP_VERSION; } window.__bpVer = BP_VERSION; bootLog('game module running ' + BP_VERSION + ' (three r' + THREE.REVISION + ')' + (/[?&]safe(=|&|$)/.test(location.search) ? ' - SAFE MODE: default graphics, no shadows / ULTRA / life / vistas / music' : ''));
 const GFX_DEF = { shadows: 0, scale: 1, fov: 1, dist: 1, trees: 1, grass: 0, clouds: 1, fog: 1, msaa: 1, hz: 90, vig: 0, turn: 0, fps: 0, tod: 11, stk: 1, tips: 1, terr: 1, dyn: 1, glove: 0, hand: 0, wt: 1, volM: 1, volMu: 0.5, volE: 1, volA: 1, volF: 1, wx: 1, forest: 0, ground: 0, gtex: 0, cvl: 1, water: 1, dayl: 48, flure: 0, fline: 8, fdrag: 4, fbob: 0, fsink: 0, ultra: 0 };   // v0.68.1 dominant hand, volumes. v0.48 BALANCED: 90 % scale, 72 Hz, fast terrain shading, auto resolution; v0.49.1 the stick stays where you let go of it
 const GFX = Object.assign({}, GFX_DEF);
@@ -6607,6 +6607,16 @@ const PK_K = {   // kind: [name, lb, litres, [w h d] in the pack (m), parts (par
   rope: ['ROPE', 2.2, 1.5, [0.17, 0.06, 0.17], [['r', 0.06, 0.022, 10, 0, -0.01, 0, 0xb09060], ['r', 0.058, 0.02, 10, 0, 0.015, 0, 0xa08050]]],
   jerky: ['JERKY', 0.25, 0.3, [0.105, 0.145, 0.03], [['b', 0.1, 0.14, 0.02, 0, 0, 0, 0x8a3a2a], ['b', 0.102, 0.03, 0.022, 0, 0.06, 0, 0xd8c8a0]]],
   tarp: ['TARP', 2.0, 2.5, [0.25, 0.105, 0.105], [['c', 0.05, 0.22, 8, 0, 0, 0, 0x3a5a7a, 0, 0, Math.PI / 2], ['c', 0.052, 0.02, 8, 0.07, 0, 0, 0x2a2a2a, 0, 0, Math.PI / 2], ['c', 0.052, 0.02, 8, -0.07, 0, 0, 0x2a2a2a, 0, 0, Math.PI / 2]]] };
+// >>> V2 SURVIVAL ITEMS BEGIN (items.js via /workspace/v2-survival/apply.py)
+// ======================= V2 SURVIVAL ITEMS: three new pack / pocket kinds for the survival module (eaten / smoked at the mouth) =======================
+// (+ a signal flare: trigger fires it via the crash module, CRX.flareUse(), only during a minor crash; inert without crash.js)
+// Same format as PK_K: [name, lb, litres, [w h d] in the pack (m), parts (partGeo, centred on the item)]. Here (before the pack's KG table and packLoad)
+// so a saved pack keeps them. Bought at the supply crate by the home cabin (V2 SURVIVAL block); cigarettes and the chocolate fit a chest pocket.
+PK_K.beans = ['TIN OF BEANS', 0.9, 0.45, [0.075, 0.105, 0.075], [['c', 0.036, 0.1, 10, 0, 0, 0, 0xb4b8bc], ['c', 0.0365, 0.064, 10, 0, -0.004, 0, 0xb8452c], ['c', 0.0335, 0.006, 10, 0, 0.051, 0, 0xd0d4d8]]];
+PK_K.bar = ['CHOCOLATE BAR', 0.2, 0.1, [0.055, 0.13, 0.018], [['b', 0.052, 0.125, 0.014, 0, 0, 0, 0x4a2418], ['b', 0.054, 0.05, 0.016, 0, 0.01, 0, 0xd8b048]]];
+PK_K.cigs = ['CIGARETTES + LIGHTER', 0.15, 0.1, [0.08, 0.09, 0.024], [['b', 0.054, 0.085, 0.022, -0.012, 0, 0, 0xe8e2d2], ['b', 0.055, 0.022, 0.023, -0.012, 0.03, 0, 0xa82420], ['b', 0.022, 0.05, 0.012, 0.03, -0.017, 0, 0x2a5aa0], ['b', 0.018, 0.008, 0.01, 0.03, 0.012, 0, 0x9a9a9a]]];
+PK_K.flare = ['SIGNAL FLARE', 0.4, 0.2, [0.045, 0.2, 0.045], [['c', 0.017, 0.17, 10, 0, -0.01, 0, 0xc82018], ['c', 0.019, 0.03, 10, 0, 0.085, 0, 0xe8e4d8], ['c', 0.0175, 0.012, 10, 0, -0.03, 0, 0x2a2a2a]]];
+// <<< V2 SURVIVAL ITEMS END
 const PK_ROOM = 14, PK_EMPTY = 3, PK_HEAVY = 30, PK_START = ['tarp', 'rope', 'firstaid', 'torch', 'jerky', 'jerky'], PK_SL0 = [null, null, 'canteen', 'knife'];   // v1.11.1 a new game: the canteen on your belt, the knife in its sheath   // litres, lb (the empty pack), lb (a warning, never a block)
 const PK_SPLIT = -0.08, PK_DROPY = 0.2, PK_AWAY = 3.5, PK_GRAB = 0.15;   // v1.11.2 lying on its front, back panel up (the handle 0.2 m up); walk this far off and it goes back on; the grab: this close to the pack's top edge   // head-yaw frame x: with the rifle slung, right of this is the rifle's reach; the handle above the pack's bottom
 const PK = { st: 'worn', g: null, it: PK_START.slice(), gnd: [], hk: [null, null], hm: [], fm: [], fall: [], v: GV3(0, 0, 0), ry: 0, lb: 0, vol: 0, hid: false, mouthT: 0, n: 0,
@@ -6721,8 +6731,8 @@ function packTick(dt, vr) {   // after bodyTick: the worn pose, falling things, 
   for (let i = 0; i < 2; i++) { const g = grips[i]; let on = false;
     if (vr && foot && g.userData.src && PK.st === 'worn' && !PK.hk[i] && !pkBusy(g)) on = pkReach(PK.hp[i]);
     if (on && !PK.hin[i]) HX.pulse(g, 0.3, 18, 'ui'); PK.hin[i] = on; }
-  if ((PK.mouthT -= dt) < 0) for (let i = 0; i < 2; i++) { const k = PK.hk[i]; if (k !== 'canteen' && k !== 'jerky') continue; PK.hm[i].getWorldPosition(_pkV); camera.getWorldPosition(_pkL);
-    if (_pkV.distanceTo(_pkL) < 0.14) { PK.mouthT = 4; if (k === 'canteen') { say('A DRINK OF COLD WATER'); sfx('pick'); } else { PK.hk[i] = null; PK.hm[i].visible = false; pkWeigh(); say('JERKY - ONE LESS IN THE PACK'); sfx('pick'); saveSoon(); } } } }
+  if ((PK.mouthT -= dt) < 0) for (let i = 0; i < 2; i++) { const k = PK.hk[i]; if (k !== 'canteen' && k !== 'jerky' && !survMouthK(k)) continue; PK.hm[i].getWorldPosition(_pkV); camera.getWorldPosition(_pkL);
+    if (_pkV.distanceTo(_pkL) < 0.14) { PK.mouthT = 4; if (survMouth(i, k)) continue; if (k === 'canteen') { say('A DRINK OF COLD WATER'); sfx('pick'); } else { PK.hk[i] = null; PK.hm[i].visible = false; pkWeigh(); say('JERKY - ONE LESS IN THE PACK'); sfx('pick'); saveSoon(); } } } }
 function packSave() { const r = v => Math.round(v * 1000) / 1000, st = PK.st === 'ground' || PK.st === 'fall' ? 'ground' : 'worn', it = PK.it.slice();
   for (const k of PK.hk) if (k) it.push(k); for (const F of PK.fall) if (F.on) it.push(F.k);
   return { st, p: st === 'ground' ? [r(PK.mesh.position.x), r(PK.mesh.position.y), r(PK.mesh.position.z)] : undefined, ry: st === 'ground' ? r(PK.ry) : undefined, it, gnd: PK.gnd.map(e => [e[0], r(e[1]), r(e[2]), r(e[3]), r(e[4])]), sl: slSave() }; }
@@ -10248,7 +10258,7 @@ function cubParked() { return !ac.crashed && acGS() < 1 && ac.gs.some(g => g.Fn 
 function saveGame(why) {
   if (NOSAVE || SV.off) return false;
   if (cubParked()) SV.cub = { p: ac.pos.map(r3), q: ac.q.map(v => Math.round(v * 1e6) / 1e6) };
-  const d = { v: 55, at: Date.now(), cub: SV.cub, fuel: r3(fuel), h: r3(DAY.h), mode, foot: mode === 'foot' ? [r3(footRig.position.x), r3(footRig.position.z), r3(bodyYaw)] : null, dlv: dlvSave(), hunt: huntSave(), eco: ecoSave(), upg: upgSave(), emg: emgSave(), fish: fishSave(), pack: packSave(), story: storySave(), disc: discSave(), fog: fogSave(), wx: wxSave(), meta: { cash: DLV.cash, loc: svPlace() } };   // v0.68.1 meta: the menu's slot label. v0.55 + the Cub's log (tach, oil, wear, damage)   // v0.53 + rifle / ammo   // v0.50: + wallet, jobs, cargo, straps
+  const d = { v: 55, surv: survSave(), at: Date.now(), cub: SV.cub, fuel: r3(fuel), h: r3(DAY.h), mode, foot: mode === 'foot' ? [r3(footRig.position.x), r3(footRig.position.z), r3(bodyYaw)] : null, dlv: dlvSave(), hunt: huntSave(), eco: ecoSave(), upg: upgSave(), emg: emgSave(), fish: fishSave(), pack: packSave(), story: storySave(), disc: discSave(), fog: fogSave(), wx: wxSave(), meta: { cash: DLV.cash, loc: svPlace() } };   // v0.68.1 meta: the menu's slot label. v0.55 + the Cub's log (tach, oil, wear, damage)   // v0.53 + rifle / ammo   // v0.50: + wallet, jobs, cargo, straps
   try { localStorage.setItem(SAVE_KEY, JSON.stringify(d)); } catch (e) { return false; }
   SV.last = Date.now(); SV.n++; SV.why = why || ''; SV.t = 30; SV.due = -1; return true;
 }
@@ -10270,7 +10280,7 @@ function gameLoad() {
   if (d.mode === 'foot' && Array.isArray(d.foot) && d.foot.slice(0, 3).every(isFinite)) { exitPlane(); const [x, z, yaw] = d.foot; footRig.position.set(x, groundY(x, z) + EYE, z); footRig.rotation.set(0, yaw, 0); bodyYaw = yaw; }   // v0.59.1 checked (a damaged foot entry stopped the page loading)
   upgLoad(d.upg || null);   // v0.57 before the cargo (the pod)
   emgLoad(d.emg || null);   // v0.58 before the cargo (a patient aboard finds their job)
-  wxLoad(d.wx || null); dlvLoad(d.v >= 50 ? d.dlv : null); huntLoad(d.v >= 53 ? d.hunt : null); fishLoad(d.fish || null); packLoad(d.pack || null); storyLoad(d.story || null); discLoad(d.disc || null); fogLoad(d.fog || null); dropLoadFix(); ecoLoad(d.v >= 55 ? d.eco : null); emgFix();   // v0.54 a save taken mid-drop: the last bundle down settles the job
+  wxLoad(d.wx || null); dlvLoad(d.v >= 50 ? d.dlv : null); huntLoad(d.v >= 53 ? d.hunt : null); fishLoad(d.fish || null); packLoad(d.pack || null); survLoad(d.surv || null); storyLoad(d.story || null); discLoad(d.disc || null); fogLoad(d.fog || null); dropLoadFix(); ecoLoad(d.v >= 55 ? d.eco : null); emgFix();   // v0.54 a save taken mid-drop: the last bundle down settles the job
   msgT = 0; SV.last = d.at || 0; return true;
 }
 MYS_SITES.clear();   // the whole world is built now: clear trees and rocks off the strips and sites
@@ -12335,6 +12345,295 @@ const BODY = (() => {
 })();
 function bodyTick(dt) { BODY.tick(dt); }
 // <<< V2 BODY END
+// >>> V2 SURVIVAL BEGIN (survival.js via /workspace/v2-survival/apply.py)
+// ======================= V2 SURVIVAL: food, water, fatigue, health + usable items (torch, first aid, cigarettes, food, canteen, tarp) =======================
+// Survival (no stamina): WATER and FATIGUE live here, FOOD is the game's own FISH.food (fClockTick takes 5 %/h; this block gives 1.4 %/h back, so the net
+// is the same 3.6 %/h as water). All rates are per in-game hour (DAY.h; GFX.dayl real minutes a day), so a stopped clock stops them. From full, nothing is
+// serious (<= 10 % food / water, >= 90 % fatigue) for about a day. Effects are gentle: slower healing when hungry / thirsty / exhausted, a vignette that
+// closes in and heavy blinks when exhausted (the game's comfort-vignette mesh, VIG), the game's own slower walk when starving. Never death: with food or
+// water at 0 health sinks to a 10 % floor and SURV.onDepleted / onCritical fire - death / wake-at-home belongs to the crash module (V3 CRASH, which calls
+// SURV.reset() on waking). Health is window.HEALTH (the crash module's shape: hp, max, regen /game h, hurt, heal, set, kill, onDeath[], onWake[], dead());
+// if it is not there yet a compatible minimal one is made here and the crash module reuses it (either block order). This block only scales HEALTH.regen
+// (hungry / thirsty / exhausted) and heals through HEALTH.heal; it never kills (SURV.R.lethal = true would call HEALTH.kill('starvation' / 'dehydration')).
+// Items (in a hand, from the pack, a chest pocket or the belt; the game's hand-to-mouth check in packTick, 0.14 m from the eye, does the mouth):
+//   canteen  - mouth: a drink (0.25 L, +25 water); dip it under a river / lake surface to fill it (1.0 L). Level saved.
+//   jerky / beans / chocolate - mouth: eaten (+15 / +30 / +12 food; chocolate -4 fatigue).   cigarettes - mouth: lighter flick + a cigarette for ~10 s, smoke
+//   puffs (the game's puff() sprites), -6 fatigue and the vignette eases; 10 a pack.   first aid kit - trigger: +40 health over 5 s (HEALTH.heal; one use).
+//   flashlight - trigger: on / off; the light is the game's one SpotLight SL (no new light, no shadow), the beam along the torch.   tarp - trigger: rest
+//   under it anywhere (up to 4 h, 60 % as good as the cot).   Home cabin: a camp cot (grip the blanket / desktop K: sleep, to ~06:00 at night) and a
+//   supply crate (grip an item: bought with the wallet into that hand; desktop K buys a tin of beans into the pack). Desktop U eats / drinks from the pack.
+//   signal flare - trigger (also seated): CRX.flareUse() if the crash module is there and you are in a minor crash (one use), else it stays in your hand.
+// Gauges: a small canvas plate under the wrist watch's MENU button (child of the watch: shown only while the watch faces you) - FOOD, WATER, REST, HEALTH.
+// Draws: the gauge plate +1 while the watch shows; the cot + crate are static (the game's batching merges them); torch / smoke / vignette reuse game objects.
+// Zero garbage per frame: numbers in Float64Arrays, vectors preallocated, no closures / strings / arrays per frame (strings only on events).
+var survPend, survReady;   // gameLoad() runs before this block: what it hands survLoad() waits here (no initialiser: a var assigned now would wipe it)
+function survSave() { return survReady ? SURV.save() : survPend || undefined; }
+function survLoad(d) { if (!survReady) { survPend = d || null; return; } SURV.load(d || null); }
+function survMouthK(k) { return k === 'beans' || k === 'bar' || k === 'cigs'; }   // packTick: the kinds besides canteen / jerky that answer the mouth check
+function survMouth(i, k) { return survReady ? SURV.mouth(i, k) : false; }
+const SURV = (() => {
+  const R = { water: 3.6, foodGame: 5, foodNet: 3.6, fatDay: 3.2, fatNight: 4.6, regen: 3, starve: 3, floor: 10, lethal: false, outH: 8,
+    sleepFat: 12.5, sleepFood: 1.5, sleepWater: 1.8, sleepHp: 4, tarpQ: 0.6, tarpMax: 4, cotMax: 10, drink: 25, sip: 0.25, cant: 1.0, kitHp: 40, kitS: 5, cigFat: 6, cigN: 10 };
+  const CRIT = { food: 10, water: 10, fatigue: 90, health: 25 };
+  const FOOD = { jerky: 15, beans: 30, bar: 12 };
+  const S = new Float64Array(40);   // 0 water, 1 fatigue, 2 health, 3 canteen L, 4 clock prev (h, -1 none), 5 heal left, 6 heal rate/s, 7 smoke t, 8 puff t, 9 sleep phase,
+  // 10 sleep t, 11 next blink, 12 blink t, 13 cigs left in the open pack, 14 sleep quality, 15 sleep max h, 16 desk torch, 17 vignette k, 18 gauge key, 19 gauge t, 20 hours slept (last), 21 smoke hand, 22 hours this frame, 23 flash clock, 24 first-aid points pending, 25-26 refill check t
+  const SP = new Uint8Array(16);    // 0-1 trigger was down, 2-3 squeeze was down, 4-5 torch on per hand, 6 crit bits, 7 depleted bits, 8 warn water, 9 warn fat, 10 hint kind change, 11 sleep where (1 cot 2 tarp), 12-13 last kind code
+  const KC = { canteen: 1, knife: 2, firstaid: 3, torch: 4, rope: 5, jerky: 6, tarp: 7, beans: 8, bar: 9, cigs: 10, flare: 11 };
+  const HOOK = { crit: [], dep: [], sleep: [] };
+  const v1 = new THREE.Vector3(), v2 = new THREE.Vector3(), v3 = new THREE.Vector3();
+  const TQ = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -Math.PI / 2), TP = new THREE.Vector3(0, -0.018, -0.035);   // the flashlight in the fist, lens forward (grip -z)
+  const SMK = { a0: 0.32, life: 3.2, s0: 0.06, s1: 0.4, out: 1.3, up: 0.12, rnd: 0.08, drag: 1.3 };   // a breath of smoke (the game's puff() sprites; they fade in from 0.3 m off your eyes)
+  const SPK = { v: new THREE.Vector3(0, 0.25, 0), rnd: 0.25, s0: 0.006, s1: 0.003, life: 0.35, drag: 1, grav: -0.3, spin: 10 };
+  const clampv = (x, a, b) => (x < a ? a : x > b ? b : x);
+  const KQ = [null]; for (let j = 0; j <= 300; j++) KQ.push(j / 100);   // vignette strengths 0..3 by 0.01, boxed once (a generic array: a read hands out the same number, no new one per frame)
+  // ---------------- stats ----------------
+  // ---------------- health: window.HEALTH (the crash module's; or a compatible minimal one made here that it reuses) ----------------
+  const H = (window.HEALTH && typeof window.HEALTH === 'object') ? window.HEALTH : {};
+  if (!(H.max > 0)) H.max = 100; if (!(H.hp >= 0)) H.hp = H.max; if (!(H.regen >= 0)) H.regen = R.regen; H.onDeath = H.onDeath || []; H.onWake = H.onWake || [];
+  const myHurt = (n, why) => { if (!(n > 0) || S[9] > 0) return H.hp; H.hp = Math.max(0, H.hp - n); if (H.hp <= 0) H.kill(why || 'injuries'); return H.hp; };
+  if (typeof H.hurt !== 'function') {   // no crash module (yet): gentle - 'death' is passing out for R.outH hours, waking on the spot at 25 % (SURV.reset)
+    H.hurt = myHurt; H.heal = n => { if (n > 0) H.hp = Math.min(H.max, H.hp + n); return H.hp; }; H.set = v => { H.hp = Math.min(H.max, Math.max(0, +v || 0)); return H.hp; };
+    H.kill = why => { if (S[9] > 0 && SP[11] === 3) return; for (const f of H.onDeath) { try { f(why || 'unknown'); } catch (e) { console.warn('HEALTH onDeath', e); } }
+      S[9] = 1; S[10] = 0; SP[11] = 3; S[14] = 1; S[15] = R.outH; say('YOU BLACK OUT (' + String(why || 'unknown').toUpperCase() + ')'); };
+    H.dead = () => S[9] > 0 && SP[11] === 3; }
+  window.HEALTH = H;
+  const own = () => H.hurt === myHurt;   // still ours (the crash module replaces hurt / heal / set / kill / dead and runs the regen itself)
+  const getHp = () => H.hp;
+  const setHp = v => { H.set(v); };
+  const food = () => FISH.food;
+  const setFood = v => { FISH.food = clampv(v, 0, 100); };
+  function fire(list, stat, v) { for (let i = 0; i < list.length; i++) { try { list[i](stat, v); } catch (e) { console.warn('SURV hook', e); } } }
+  function checks() {   // thresholds -> hooks + a word (only on a change of state)
+    const f = FISH.food, w = S[0], t = S[1], h = H.hp;
+    const c = (f <= CRIT.food ? 1 : 0) | (w <= CRIT.water ? 2 : 0) | (t >= CRIT.fatigue ? 4 : 0) | (h <= CRIT.health ? 8 : 0);
+    const d = (f <= 0 ? 1 : 0) | (w <= 0 ? 2 : 0) | (t >= 100 ? 4 : 0) | (h <= 0 ? 8 : 0);
+    const nc = c & ~SP[6], nd = d & ~SP[7];
+    if (nc) { if (nc & 1) fire(HOOK.crit, 'food', f); if (nc & 2) fire(HOOK.crit, 'water', w); if (nc & 4) fire(HOOK.crit, 'fatigue', t); if (nc & 8) fire(HOOK.crit, 'health', h); }
+    if (nd) { if (nd & 1) fire(HOOK.dep, 'food', 0); if (nd & 2) fire(HOOK.dep, 'water', 0); if (nd & 4) fire(HOOK.dep, 'fatigue', 100); if (nd & 8) fire(HOOK.dep, 'health', 0); }
+    SP[6] = (SP[6] & c) | nc | (SP[6] & ~c & ((f < CRIT.food + 5 ? 1 : 0) | (w < CRIT.water + 5 ? 2 : 0) | (t > CRIT.fatigue - 5 ? 4 : 0) | (h < CRIT.health + 5 ? 8 : 0)));   // 5 % hysteresis
+    SP[7] = d;
+    const lw = w < 10 ? 2 : w < 30 ? 1 : 0; if (lw > SP[8]) say(lw === 2 ? 'YOU\'RE PARCHED (WATER ' + Math.round(w) + ' %) - DRINK FROM YOUR CANTEEN' : 'GETTING THIRSTY (WATER ' + Math.round(w) + ' %) - RAISE YOUR CANTEEN TO DRINK'); SP[8] = lw;
+    const lf = t > 90 ? 2 : t > 75 ? 1 : 0; if (lf > SP[9]) say(lf === 2 ? 'EXHAUSTED (REST ' + Math.round(100 - t) + ' %) - SLEEP ON THE COT AT THE CABIN OR REST UNDER YOUR TARP' : 'YOU\'RE TIRED (REST ' + Math.round(100 - t) + ' %) - THE COT AT THE CABIN, OR YOUR TARP'); SP[9] = lf;
+  }
+  function hours() {   // S[22] in-game hours awake (0 < d < 2; in a slot, not an argument: a double argument would box)
+    const d = S[22], h = DAY.h, night = h >= 21 || h < 5;
+    S[0] = clampv(S[0] - R.water * d, 0, 100);
+    if (FISH.food > 0) setFood(FISH.food + (R.foodGame - R.foodNet) * d);   // fClockTick took 5 %/h this frame (it runs first): give 1.4 back (never lifts it off 0)
+    S[1] = clampv(S[1] + (night ? R.fatNight : R.fatDay) * d, 0, 100);
+    const f = FISH.food, w = S[0], hp = H.hp;
+    let k = 1; if (f < 25) k *= 0.5; if (w < 25) k *= 0.5; if (S[1] > 75) k *= 0.6; if (f <= 0 || w <= 0) k = 0;
+    const rg = R.regen * k; if (H.regen !== rg) H.regen = rg;   // slower healing hungry / thirsty / exhausted: through HEALTH's regen (the crash module applies it per frame; else below)
+    if (k === 0) { if (R.lethal) { H.hp = Math.max(0, hp - R.starve * d); if (H.hp <= 0) H.kill(w <= 0 ? 'dehydration' : 'starvation'); } else if (hp > R.floor) H.set(Math.max(R.floor, hp - R.starve * d)); }
+    else if (own() && hp > 0 && hp < H.max) { const v = hp + rg * d; H.hp = v < H.max ? v : H.max; }   // our own minimal HEALTH: its regen applied here
+    checks();
+  }
+  // ---------------- props at the home cabin: a camp cot and a supply crate (static: batched by the game) ----------------
+  const COT = { x: 28.45, z: -16.35, L: 1.9, W: 0.72, H: 0.42 }, CRATE = { x: 28.55, z: -12.85, ry: 0 };
+  const SHOP = [['beans', 3], ['bar', 2], ['jerky', 4], ['cigs', 6], ['firstaid', 25], ['flare', 15]];
+  const SHOPP = SHOP.map(() => new THREE.Vector3());
+  { const mk = P => { const gs = P.map(partGeo), g = mergeGeometries(gs); for (const x of gs) x.dispose(); return g; };
+    const gy = Math.min(groundY(COT.x - 0.3, COT.z - 0.9), groundY(COT.x + 0.3, COT.z + 0.9), groundY(COT.x, COT.z));
+    const W = 0x6a5a3a, C = 0x4a5a3a, B = 0x7a2a22, L = 0x3a3a34, P = [];
+    for (const sx of [-1, 1]) { P.push(['b', 0.035, 0.035, COT.L, sx * COT.W / 2, COT.H - 0.02, 0, W]); for (const sz of [-1, 0, 1]) P.push(['b', 0.03, COT.H, 0.03, sx * (COT.W / 2 - 0.02), COT.H / 2, sz * (COT.L / 2 - 0.05), W]); }
+    P.push(['b', COT.W - 0.02, 0.03, COT.L - 0.02, 0, COT.H - 0.01, 0, C], ['b', COT.W - 0.06, 0.05, COT.L * 0.62, 0, COT.H + 0.03, 0.22, B], ['b', COT.W - 0.12, 0.08, 0.3, 0, COT.H + 0.05, -COT.L / 2 + 0.22, 0xd8d0b8],
+      ['b', COT.W - 0.08, 0.012, 0.06, 0, COT.H + 0.06, -0.12, L]);
+    const cot = new THREE.Mesh(mk(P), ITEM_VM); cot.position.set(COT.x, gy, COT.z); cot.name = 'SURV_COT'; cot.castShadow = cot.receiveShadow = true; scene.add(cot); COT.y = gy; COT.m = cot;
+    const cy = groundY(CRATE.x, CRATE.z), D = 0x7a5a32, K = 0x5a4024, Q = [['b', 0.62, 0.42, 0.44, 0, 0.21, 0, D], ['b', 0.64, 0.04, 0.46, 0, 0.1, 0, K], ['b', 0.64, 0.04, 0.46, 0, 0.32, 0, K], ['b', 0.5, 0.06, 0.004, 0, 0.3, -0.222, 0xd8c8a0]];
+    const off = [[-0.21, -0.08], [-0.06, -0.08], [0.09, -0.08], [0.22, -0.08], [0.0, 0.1], [0.2, 0.1]];
+    SHOP.forEach(([k], j) => { const h = PK_K[k][3][1], o = off[j]; for (const p of PK_K[k][4]) { const pp = p.slice(); pp[5] = p[5] + 0.42 + h / 2; pp[4] = p[4] + o[0]; pp[6] = p[6] + o[1]; Q.push(pp); }
+      SHOPP[j].set(CRATE.x + o[0], cy + 0.42 + h / 2, CRATE.z + o[1]); });
+    const cr = new THREE.Mesh(mk(Q), ITEM_VM); cr.position.set(CRATE.x, cy, CRATE.z); cr.name = 'SURV_CRATE'; cr.castShadow = cr.receiveShadow = true; scene.add(cr); CRATE.y = cy; CRATE.m = cr;
+    // a lit cigarette (between the fingers, in front of the pack in that hand) for the hand batch while smoking
+    const ca = -(Math.PI / 2 - 0.2), cz = -0.078, cgy = 0.03;   // out of the front of the fist, tipped up a little
+    const g = mk([['c', 0.0045, 0.075, 6, 0, cgy, cz, 0xf0eee6, ca, 0, 0], ['c', 0.0048, 0.007, 6, 0, cgy + 0.0405 * Math.sin(0.2), cz - 0.0405 * Math.cos(0.2), 0xff6a1a, ca, 0, 0]]);
+    PK.KG._cig = { p: g.attributes.position.array.slice(), n: g.attributes.normal.array.slice(), c: g.attributes.color.array.slice(), cnt: g.attributes.position.count }; g.dispose(); }
+  // ---------------- the wrist gauges: a canvas plate under the watch's MENU button ----------------
+  const GC = document.createElement('canvas'); GC.width = 192; GC.height = 80; const gx = GC.getContext('2d');
+  const GT = new THREE.CanvasTexture(GC); GT.colorSpace = THREE.SRGBColorSpace; GT.generateMipmaps = false; GT.minFilter = THREE.LinearFilter;
+  const GM = new THREE.Mesh(new THREE.PlaneGeometry(0.072, 0.03), new THREE.MeshBasicMaterial({ map: GT })); GM.position.set(0, -0.0665, 0.0012); GM.name = 'SURV_GAUGES'; wrist.add(GM);
+  const GCOL = ['#e0a040', '#4aa0f0', '#b090f0', '#f05040'], GDIM = ['#5a4018', '#1a3a5a', '#3e3058', '#5a2018'];
+  function icon(j, y) { const x = gx; x.fillStyle = GCOL[j]; x.strokeStyle = GCOL[j]; x.lineWidth = 3; x.beginPath();
+    if (j === 0) { x.arc(14, y + 1, 6, 0, 6.283); x.fill(); x.fillRect(12, y - 9, 4, 5); }   // an apple
+    else if (j === 1) { x.moveTo(14, y - 8); x.quadraticCurveTo(22, y + 2, 14, y + 7); x.quadraticCurveTo(6, y + 2, 14, y - 8); x.fill(); }   // a drop
+    else if (j === 2) { x.arc(14, y, 7, 0.6, 5.7); x.arc(18, y - 1, 5.5, 5.4, 0.9, true); x.fill(); }   // a moon
+    else { x.fillRect(11, y - 8, 6, 16); x.fillRect(6, y - 3, 16, 6); } }   // a cross
+  function gauges(force) {   // redrawn only when a rounded value (or the flash) changes
+    const f = FISH.food, w = S[0], r = 100 - S[1], h = H.hp, fl = S[23] % 1 < 0.5 ? 1 : 0;
+    const crit = f <= CRIT.food || w <= CRIT.water || r <= 100 - CRIT.fatigue || h <= CRIT.health;
+    const key = (((Math.round(f) * 101 + Math.round(w)) * 101 + Math.round(r)) * 101 + Math.round(h)) * 2 + (crit ? fl : 0);
+    if (key === S[18] && !force) return; S[18] = key; draw(f, w, r, h, fl); }
+  function gkey() {   // per frame while the watch shows (cheap, in the hot path): redraw only on a change
+    const f = FISH.food, w = S[0], r = 100 - S[1], h = H.hp, fl = S[23] % 1 < 0.5 ? 1 : 0, crit = f <= CRIT.food || w <= CRIT.water || r <= 100 - CRIT.fatigue || h <= CRIT.health;
+    return (((Math.round(f) * 101 + Math.round(w)) * 101 + Math.round(r)) * 101 + Math.round(h)) * 2 + (crit ? fl : 0); }
+  function draw(f, w, r, h, fl) {
+    const x = gx; x.fillStyle = '#141414'; x.fillRect(0, 0, 192, 80); x.strokeStyle = '#5a5040'; x.lineWidth = 2; x.strokeRect(1, 1, 190, 78);
+    for (let j = 0; j < 4; j++) { const v = j === 0 ? f : j === 1 ? w : j === 2 ? r : h, y = 11 + j * 19, lo = j === 3 ? v <= CRIT.health : v <= 10;
+      icon(j, y); x.fillStyle = GDIM[j]; x.fillRect(30, y - 6, 154, 12); x.fillStyle = lo && fl ? '#ffffff' : GCOL[j]; x.fillRect(30, y - 6, Math.round(154 * clampv(v, 0, 100) / 100), 12);
+      x.fillStyle = '#141414'; x.fillRect(30 + 38, y - 6, 2, 12); x.fillRect(30 + 76, y - 6, 2, 12); x.fillRect(30 + 115, y - 6, 2, 12); }   // quarter ticks
+    texDirty(GT); }
+  // ---------------- sleep / rest ----------------
+  function sleepStart(where) {   // 1 cot, 2 tarp
+    if (S[9] > 0) return false;
+    if (mode !== 'foot') { say('CLIMB OUT FIRST'); return false; }
+    if (S[1] < 15) { say('YOU\'RE NOT TIRED (REST ' + Math.round(100 - S[1]) + ' %)'); return false; }
+    S[9] = 1; S[10] = 0; SP[11] = where; S[14] = where === 2 ? R.tarpQ : 1; S[15] = where === 2 ? R.tarpMax : R.cotMax; sfx('leaf'); return true; }
+  function sleepApply() {   // at full black: the hours pass
+    if (SP[11] === 3) { const h0 = DAY.h; DAY.h = (h0 + R.outH) % 24; S[4] = DAY.h; if (FISH.hPrev !== null && FISH.hPrev !== undefined) FISH.hPrev = DAY.h;   // blacked out (minimal HEALTH)
+      H.hp = Math.max(1, Math.round(H.max * 0.25)); try { API.reset(); } catch (e) { console.warn('SURV reset', e); }
+      for (const f of H.onWake) { try { f(); } catch (e) { console.warn('HEALTH onWake', e); } } say('YOU COME TO ' + R.outH + ' H LATER - ' + dayClock() + ' - HEALTH ' + Math.round(H.hp) + ' %'); S[20] = R.outH; return; }
+    const q = S[14], h0 = DAY.h; let hrs = clampv(S[1] / (R.sleepFat * q), 1, S[15]);
+    if (SP[11] === 1 && (h0 >= 20 || h0 < 5)) { const toDawn = (h0 >= 20 ? 30 - h0 : 6 - h0); hrs = clampv(Math.max(hrs, toDawn), 1, S[15]); }   // at night on the cot: up at ~06:00
+    S[1] = clampv(S[1] - R.sleepFat * q * hrs, 0, 100); S[0] = clampv(S[0] - R.sleepWater * hrs, 0, 100); setFood(food() - R.sleepFood * hrs);
+    if (food() > 0 && S[0] > 0) H.heal(R.sleepHp * hrs);
+    DAY.h = (h0 + hrs) % 24; S[4] = DAY.h; if (FISH.hPrev !== null && FISH.hPrev !== undefined) FISH.hPrev = DAY.h; S[20] = hrs;
+    SP[9] = S[1] > 90 ? 2 : S[1] > 75 ? 1 : 0; checks(); fire(HOOK.sleep, SP[11] === 1 ? 'cot' : 'tarp', hrs);
+    say((SP[11] === 1 ? 'SLEPT ' : 'RESTED UNDER THE TARP ') + hrs.toFixed(1) + ' H - ' + dayClock() + ' - REST ' + Math.round(100 - S[1]) + ' %, WATER ' + Math.round(S[0]) + ' %, FOOD ' + Math.round(food()) + ' %'); saveSoon(); }
+  // ---------------- item use ----------------
+  function consume(i) { PK.hk[i] = null; PK.hm[i].visible = false; pkWeigh(); saveSoon(); }
+  function mouth(i, k) {   // the game's mouth check fired for hand i holding kind k: true = handled here
+    if (k === 'canteen') {
+      if (S[3] < 0.01) { say('CANTEEN EMPTY - DIP IT IN A RIVER OR LAKE TO FILL IT'); sfx('dry'); return true; }
+      if (S[0] >= 99) { say('NOT THIRSTY (WATER ' + Math.round(S[0]) + ' %) - CANTEEN ' + S[3].toFixed(2) + ' L'); return true; }
+      const a = Math.min(R.sip, S[3]); S[3] -= a; S[0] = clampv(S[0] + R.drink * a / R.sip, 0, 100); sfx('pour'); HX.pulse(grips[i], 0.25, 30, 'cargo');
+      say('A DRINK OF COLD WATER - WATER ' + Math.round(S[0]) + ' % - CANTEEN ' + S[3].toFixed(2) + ' L'); checks(); saveSoon(); return true; }
+    if (k === 'jerky' || k === 'beans' || k === 'bar') {
+      if (food() >= 98) { say('NOT HUNGRY (FOOD ' + Math.round(food()) + ' %)'); return true; }
+      setFood(food() + FOOD[k]); if (k === 'bar') S[1] = clampv(S[1] - 4, 0, 100); FISH.hungry = 0; consume(i); sfx('crunch'); HX.pulse(grips[i], 0.2, 25, 'cargo');
+      say(PK_K[k][0] + ' - FOOD ' + Math.round(food()) + ' %' + (k === 'jerky' ? ' (ONE LESS IN THE PACK)' : '')); checks(); return true; }
+    if (k === 'cigs') {
+      if (S[7] > 0) return true;
+      if (S[13] < 1) S[13] = R.cigN;
+      S[13]--; S[7] = 10; S[8] = 1.4; S[21] = i; sfx('click'); PK.hm[i].getWorldPosition(v1); emit(5, v1, 0xffb030, SPK); HX.pulse(grips[i], 0.15, 12, 'ui');
+      S[1] = clampv(S[1] - R.cigFat, 0, 100); cigDraw(i, true);
+      say('A SMOKE - ' + (S[13] > 0 ? S[13] + ' LEFT IN THE PACK' : 'THE LAST ONE: THE PACK\'S EMPTY')); checks(); return true; }
+    return false; }
+  function cigDraw(i, on) { const m = PK.hm[i], g = m.geometry; let n = pkWrite(g, 0, 'cigs', 0, 0, 0, 0); if (on) n = pkWrite(g, n, '_cig', 0, 0, 0, 0); pkDone(g, n); }
+  function trigger(i, k) {
+    if (k === 'torch') { SP[4 + i] = SP[4 + i] ? 0 : 1; sfx('click'); HX.pulse(grips[i], 0.15, 10, 'ui'); return; }
+    if (k === 'firstaid') { const h = getHp();
+      if (h >= 99.5) { say('YOU\'RE NOT HURT (HEALTH ' + Math.round(h) + ' %) - KEEP THE KIT'); return; }
+      S[5] = R.kitHp; S[6] = R.kitHp / R.kitS; consume(i); sfx('strap'); HX.pulse(grips[i], 0.3, 30, 'cargo'); say('FIRST AID - PATCHED UP (+' + R.kitHp + ' HEALTH OVER ' + R.kitS + ' S)'); return; }
+    if (k === 'tarp') { if (sleepStart(2)) say('YOU STRING UP THE TARP AND REST'); return; }
+    if (k === 'flare') { const X = typeof CRX !== 'undefined' ? CRX : null;   // eslint-disable-line no-undef -- the V3 CRASH module's flare (optional): only answers during a minor crash
+      if (X && typeof X.flareUse === 'function' && X.flareUse()) { consume(i); HX.pulse(grips[i], 0.5, 40, 'cargo'); } else { sfx('click'); say('SIGNAL FLARE - FOR AFTER A CRASH: FIRE IT SO A RANCHER SEES YOU'); } } }
+  const HINT = { torch: 'FLASHLIGHT - TRIGGER: ON / OFF', firstaid: 'FIRST AID KIT - PULL THE TRIGGER TO USE IT', tarp: 'TARP - TRIGGER: REST UNDER IT (UP TO 4 H)',
+    beans: 'TIN OF BEANS - RAISE IT TO EAT', flare: 'SIGNAL FLARE - TRIGGER: FIRE IT (ONLY AFTER A CRASH)', bar: 'CHOCOLATE BAR - RAISE IT TO EAT', cigs: 'CIGARETTES - RAISE THE PACK TO YOUR MOUTH TO LIGHT ONE' };
+  // ---------------- the grab: the cot's blanket, an item off the crate (after the game's own grab found nothing for that hand) ----------------
+  function freeHand(i) { const g = grips[i]; return !PK.hk[i] && PK.g !== g && !pkBusy(g); }
+  function nearCot(p, m) { const dx = p.x - COT.x, dz = p.z - COT.z; return Math.abs(dx) < COT.W / 2 + m && Math.abs(dz) < COT.L / 2 + m && p.y < COT.y + COT.H + 0.35 + m && p.y > COT.y - 0.1; }
+  function buy(j, i) { const [k, pr] = SHOP[j];
+    if (DLV.cash < pr) { say('NOT ENOUGH CASH - ' + PK_K[k][0] + ' IS $' + pr + ' (WALLET ' + ecoMoney(DLV.cash) + ')'); if (i >= 0) HX.pulse(grips[i], 0.2, 10, 'ui'); return false; }
+    if (i < 0 && !pkPut(k)) return false;
+    DLV.cash -= pr; DLV.spent = (DLV.spent || 0) + pr; sfx('cash'); if (i >= 0) pkTake(i, k);
+    say('SUPPLY CRATE: ' + PK_K[k][0] + ' -$' + pr + ' (WALLET ' + ecoMoney(DLV.cash) + ')' + (i < 0 ? ' - IN YOUR PACK' : '')); saveSoon(); return true; }
+  function grab(i) { const g = grips[i]; g.getWorldPosition(v1);
+    if (nearCot(v1, 0.1)) { if (sleepStart(1)) HX.pulse(g, 0.3, 30, 'cargo'); return; }
+    let b = -1, bd = 0.12; for (let j = 0; j < SHOP.length; j++) { const d = SHOPP[j].distanceTo(v1); if (d < bd) { bd = d; b = j; } }
+    if (b >= 0) buy(b, i); }
+  // ---------------- per frame ----------------
+  function tick(dt, vr) {
+    const foot = mode === 'foot', h = DAY.h; let d = S[4] < 0 ? 0 : h - S[4]; if (d < -12) d += 24; S[4] = h;
+    if (d > 0 && d < 2 && S[9] === 0) { S[22] = d; hours(); }
+    if (S[5] > 0) { const a = Math.min(S[5], S[6] * dt); S[5] -= a; S[24] += a; if (S[24] >= 2 || S[5] <= 0) { const n = Math.round(S[24]); S[24] = 0; if (n > 0) H.heal(n); if (S[5] <= 0) checks(); } }   // HEALTH.heal in 2-point steps (integers: no boxed argument per frame)
+    // hands: hints, triggers, the flashlight's pose, the canteen under water, the free-hand grab
+    let lit = -1;
+    for (let i = 0; i < 2; i++) { const k = PK.hk[i], kc = k ? KC[k] || 0 : 0, src = grips[i].userData.src, gp = vr && src ? src.gamepad : null;
+      const tr = gp && gp.buttons[0] ? gp.buttons[0].pressed : false, sq = gp && gp.buttons[1] ? gp.buttons[1].pressed : false;
+      if (kc !== SP[12 + i]) { SP[12 + i] = kc; if (k && HINT[k]) say(k === 'cigs' && S[13] > 0 ? HINT[k] + ' (' + S[13] + ' LEFT)' : HINT[k]); if (k === 'canteen') say('CANTEEN ' + S[3].toFixed(2) + ' L - RAISE IT TO DRINK, DIP IT IN WATER TO FILL'); if (S[7] > 0 && S[21] === i) S[7] = 0; }
+      if (k !== 'torch') SP[4 + i] = 0;
+      if (k && tr && !SP[i] && (foot || kc === 11)) trigger(i, k);
+      if (k === 'torch') { const m = PK.hm[i]; m.position.copy(TP); m.quaternion.copy(TQ); if (SP[4 + i] && lit < 0) lit = i; }
+      if (k === 'canteen' && S[3] < R.cant - 0.01 && (S[25 + i] -= dt) <= 0) { S[25 + i] = 0.125; PK.hm[i].getWorldPosition(v1); camera.getWorldPosition(v2); const w = v1.y < v2.y - 0.95 ? waterH(v1.x, v1.z) : null;   // reached down: is it under a lake / river surface
+        if (w !== null && v1.y < w + 0.03) { S[3] = R.cant; sfx('splash'); HX.pulse(grips[i], 0.4, 40, 'cargo'); say('CANTEEN FILLED - ' + R.cant.toFixed(1) + ' L OF COLD WATER'); saveSoon(); } }
+      if (foot && vr && sq && !SP[2 + i] && freeHand(i)) grab(i);
+      SP[i] = tr ? 1 : 0; SP[2 + i] = sq ? 1 : 0; }
+    // the flashlight: the game's SpotLight SL (updateDay zeroed it this frame; it is the Cub's landing light otherwise)
+    LIGHTS.torch = lit >= 0 || (S[16] > 0 && foot);
+    if (foot && lit >= 0) { const m = PK.hm[lit]; m.updateWorldMatrix(true, false); v1.set(0, 0.09, 0).applyMatrix4(m.matrixWorld); v2.set(0, 1, 0).transformDirection(m.matrixWorld); torchAt(v1, v2); }
+    else if (foot && S[16] > 0) { camera.getWorldPosition(v1); camera.getWorldDirection(v2); v1.y -= 0.25; torchAt(v1, v2); }
+    // a cigarette: smoke from the mouth every couple of seconds
+    if (S[7] > 0) { S[7] -= dt; const i = S[21] | 0;
+      if (PK.hk[i] !== 'cigs') S[7] = 0;
+      else if ((S[8] -= dt) <= 0) { S[8] = 2.2 + Math.random(); camera.getWorldPosition(v1); camera.getWorldDirection(v2); v1.addScaledVector(v2, 0.26); v1.y -= 0.07; puff(2, v1, v2, SMK);
+        PK.hm[i].getWorldPosition(v3); v3.y += 0.08; puff(1, v3, null, SMK); }
+      if (S[7] <= 0) { S[7] = 0; if (PK.hk[i] === 'cigs') { cigDraw(i, false); if (S[13] < 1) { consume(i); say('PACK EMPTY'); } } } }
+    // sleep phases + the vignette (the game's comfort ring, VIG: its own value is already applied this frame; ours only on top)
+    let k = 0;
+    if (S[9] > 0) { S[10] += dt;
+      if (S[9] === 1) { k = 2.6 * Math.min(1, S[10] / 1.2); if (S[10] >= 1.2) { sleepApply(); S[9] = 2; S[10] = 0; } }
+      else if (S[9] === 2) { k = 2.6; if (S[10] >= 1.2) { S[9] = 3; S[10] = 0; } }
+      else { k = 2.6 * Math.max(0, 1 - S[10] / 1.5); if (S[10] >= 1.5) { S[9] = 0; S[10] = 0; } } }
+    else if (foot || mode === 'plane') { const t = S[1], calm = S[7] > 0 ? 0.6 : 1;
+      if (t > 70) k = 0.75 * (t - 70) / 30 * calm; if (S[0] <= CRIT.water) k = Math.max(k, 0.25);
+      if (t >= CRIT.fatigue) { if ((S[11] -= dt) <= 0 && S[12] <= 0) { S[12] = 0.6; S[11] = 12 + 8 * Math.random(); }
+        if (S[12] > 0) { S[12] -= dt; k = Math.max(k, 2.2 * Math.sin(Math.PI * clampv(1 - S[12] / 0.6, 0, 1))); } } }
+    S[17] = k;
+    if (k > VIG.m.material.uniforms.k.value) { VIG.m.visible = true; VIG.m.material.uniforms.k.value = KQ[1 + Math.round(k * 100)]; VIG.m.scale.setScalar(k > 1 ? 1 : 0.42); } else if (VIG.m.scale.x !== 0.42) VIG.m.scale.setScalar(0.42);
+    if (!DQ[0] && GFX.shadows > 0) depthQueue();   // shadows switched on later: the depth programs, on the game's warm-up
+    S[23] += dt; if (S[23] > 1e6) S[23] = 0; if (wrist.visible && gkey() !== S[18]) gauges(false);   // a redraw only when a rounded value (or the 1 Hz critical flash) changes
+  }
+  function torchAt(p, dir) { SL.position.copy(p); SL.target.position.copy(p).addScaledVector(dir, 10); SL.distance = 32; SL.angle = 0.36; SL.penumbra = 0.6; SL.intensity = 22; SL.target.updateMatrixWorld(); SL.visible = true; }
+  // ---------------- desktop: K at the cot sleeps / at the crate buys beans; U eats or drinks from the pack / belt; O the flashlight (if you carry one) ----------------
+  function has(k) { return PK.it.includes(k) || RIG.k.includes(k) || PK.hk[0] === k || PK.hk[1] === k; }
+  function take(k) { let j = RIG.k.indexOf(k); if (j >= 0) { RIG.k[j] = null; slWrite(); pkWeigh(); return true; } j = PK.it.indexOf(k); if (j >= 0) { PK.it.splice(j, 1); pkContents(); return true; } return false; }
+  addEventListener('keydown', e => { if (e.repeat || mode !== 'foot' || renderer.xr.isPresenting || (typeof SETP !== 'undefined' && SETP.open)) return;
+    if (e.code === 'KeyK') { camera.getWorldPosition(v1); if (Math.hypot(v1.x - COT.x, v1.z - COT.z) < 2.5) sleepStart(1); else if (Math.hypot(v1.x - CRATE.x, v1.z - CRATE.z) < 2.2) buy(0, -1); else say('K: SLEEP AT THE COT BY THE CABIN, OR BUY AT ITS SUPPLY CRATE'); }
+    else if (e.code === 'KeyU') { if (S[0] < 70 && (has('canteen'))) { if (S[3] < 0.01) say('CANTEEN EMPTY - FILL IT AT A RIVER OR LAKE (VR: DIP IT IN)'); else { const a = Math.min(R.sip, S[3]); S[3] -= a; S[0] = clampv(S[0] + R.drink * a / R.sip, 0, 100); sfx('pour'); say('A DRINK - WATER ' + Math.round(S[0]) + ' % - CANTEEN ' + S[3].toFixed(2) + ' L'); checks(); saveSoon(); } return; }
+      for (const k of ['beans', 'jerky', 'bar']) if (food() < 80 && take(k)) { setFood(food() + FOOD[k]); sfx('crunch'); say(PK_K[k][0] + ' - FOOD ' + Math.round(food()) + ' %'); checks(); saveSoon(); return; }
+      say('U: NOTHING YOU NEED (FOOD ' + Math.round(food()) + ' %, WATER ' + Math.round(S[0]) + ' %)'); }
+    else if (e.code === 'KeyO') { if (!has('torch')) { say('NO FLASHLIGHT ON YOU'); return; } S[16] = S[16] ? 0 : 1; sfx('click'); } });
+  // ---------------- save / load / API ----------------
+  function save() { const r = v => Math.round(v * 100) / 100; return { v: 1, w: r(S[0]), t: r(S[1]), hp: own() ? r(H.hp) : undefined, c: r(S[3]), cg: S[13] | 0 }; }
+  function load(d) {   // null (a new game or a save from before v2 survival): fresh
+    const n = (v, a, b, def) => typeof v === 'number' && isFinite(v) ? clampv(v, a, b) : def;
+    S[0] = n(d && d.w, 0, 100, 80); S[1] = n(d && d.t, 0, 100, 10); if (own() && d && typeof d.hp === 'number') H.set(n(d.hp, 1, H.max, H.max)); S[3] = n(d && d.c, 0, R.cant, R.cant); S[13] = n(d && d.cg, 0, R.cigN, 0);
+    S[4] = -1; S[5] = S[7] = S[9] = S[10] = S[12] = 0; S[11] = 10; SP[6] = SP[7] = SP[8] = SP[9] = 0; SP[8] = S[0] < 10 ? 2 : S[0] < 30 ? 1 : 0; SP[9] = S[1] > 90 ? 2 : S[1] > 75 ? 1 : 0; S[18] = -1; }
+  const API = {
+    R, CRIT, FOOD, COT, CRATE, SHOP, S, SP, gm: GM, fns: { tick, hours, checks, gkey, torchAt, freeHand }, tick, mouth, save, load, sleep: sleepStart, gauges, shopP: j => SHOPP[j],
+    get food() { return food(); }, set food(v) { setFood(+v); checks(); },
+    get water() { return S[0]; }, set water(v) { S[0] = clampv(+v, 0, 100); checks(); },
+    get fatigue() { return S[1]; }, set fatigue(v) { S[1] = clampv(+v, 0, 100); checks(); },
+    get health() { return getHp(); }, set health(v) { setHp(+v); checks(); },
+    get canteen() { return S[3]; }, set canteen(v) { S[3] = clampv(+v, 0, R.cant); },
+    get sleeping() { return S[9] > 0; }, get torch() { return LIGHTS.torch; },
+    hurt(n, why) { H.hurt(Math.max(0, +n || 0), why); checks(); return H.hp; },
+    heal(n) { H.heal(Math.max(0, +n || 0)); checks(); return H.hp; }, get H() { return H; }, own,
+    onCritical(fn) { HOOK.crit.push(fn); return fn; }, onDepleted(fn) { HOOK.dep.push(fn); return fn; }, onSleep(fn) { HOOK.sleep.push(fn); return fn; },
+    off(fn) { for (const L of [HOOK.crit, HOOK.dep, HOOK.sleep]) { const i = L.indexOf(fn); if (i >= 0) L.splice(i, 1); } },
+    reset(o) { o = o || {}; setFood(o.food ?? 70); S[0] = clampv(o.water ?? 70, 0, 100); S[1] = clampv(o.fatigue ?? 20, 0, 100); if (typeof o.health === 'number') H.set(o.health);   // health is left to HEALTH (the crash module's wake sets it)
+      if (o.canteen !== false) S[3] = R.cant; S[5] = S[7] = S[9] = S[12] = 0; SP[6] = SP[7] = 0; SP[8] = SP[9] = 0; S[4] = -1; checks(); saveSoon(); },
+    state() { return { food: food(), water: S[0], fatigue: S[1], health: getHp(), canteen: S[3], sleeping: S[9] > 0, torch: LIGHTS.torch, cigs: S[13] }; },
+  };
+  // ---------------- warm-up: the gauge plate, the vignette ring, the lit-by-the-flashlight variants of what is near you (PL / SL combinations) ----------------
+  function prewarm() { const W = [GM, VIG.m, COT.m, CRATE.m, ...PK.hm, ...RIG.m, ...GLOVE.gm.filter(Boolean)], vis = W.map(o => o.visible), pv = PL.visible, sv = SL.visible;
+    gauges(true); W.forEach(o => { o.visible = true; });
+    for (let c = 0; c < 4; c++) { PL.visible = !!(c & 1); SL.visible = !!(c & 2); for (const o of W) renderer.compile(o, camera, scene); }
+    W.forEach((o, i) => { o.visible = vis[i]; }); PL.visible = pv; SL.visible = sv; GM.visible = true; }
+  prewarm();
+  // the shadow pass's depth programs (compile() can't make them; the flashlight on foot adds a spot light to their key): one caster of each depth kind
+  // (skinned / instanced / batched / morphed / side / alpha-tested...), alone, one tiny render per PL / SL combination - at load if shadows are on, and
+  // queued on the game's warm-up jobs when they are switched on later (as the body module does)
+  const DQ = new Uint8Array(2); let dRT = null;   // 0 made, 1 queued
+  function warmDepth() { const L = []; scene.traverse(o => { if (o.isLight && o.castShadow) L.push(o); }); if (!L.length) { DQ[1] = 0; return; }
+    const rep = new Map(); scene.traverse(o => { if (!o.castShadow || !(o.isMesh || o.isPoints || o.isLine)) return; const m = Array.isArray(o.material) ? o.material[0] : o.material, g = o.geometry;
+      const k = [o.isSkinnedMesh, o.isInstancedMesh, !!o.instanceColor, o.isBatchedMesh, o.isPoints, o.isLine, !!(g && g.morphAttributes && g.morphAttributes.position), !!o.customDepthMaterial, m && m.side, m && m.shadowSide, !!(m && m.alphaTest > 0 && (m.map || m.alphaMap)), !!(m && m.displacementMap), !!(m && m.clippingPlanes && m.clippingPlanes.length)].join();
+      if (!rep.has(k)) rep.set(k, o); });
+    const R2 = [...rep.values()], sv = []; scene.traverse(o => { if (o !== scene && !o.isLight) { sv.push(o, o.visible, o.frustumCulled); o.visible = false; } });
+    for (const o of [...R2, ...L]) { o.visible = true; o.frustumCulled = false; for (let q = o.parent; q && q !== scene; q = q.parent) q.visible = true; }
+    if (!dRT) dRT = new THREE.WebGLRenderTarget(16, 16); const prev = renderer.getRenderTarget(), pv = PL.visible, slv = SL.visible; renderer.setRenderTarget(dRT);
+    for (let c = 0; c < 4; c++) { PL.visible = !!(c & 1); SL.visible = !!(c & 2); renderer.shadowMap.needsUpdate = true; for (const l of L) l.shadow.needsUpdate = true; renderer.render(scene, camera); }
+    renderer.setRenderTarget(prev); PL.visible = pv; SL.visible = slv; for (let i = 0; i < sv.length; i += 3) { sv[i].visible = sv[i + 1]; sv[i].frustumCulled = sv[i + 2]; }
+    renderer.shadowMap.needsUpdate = true; for (const l of L) l.shadow.needsUpdate = true; DQ[0] = 1; DQ[1] = 0; }
+  const J1 = () => { prewarm(); warmDepth(); }, J2 = () => warmStart(WARM.label || 'Preparing graphics');
+  function depthQueue() { if (DQ[0] || DQ[1] || !(GFX.shadows > 0)) return; DQ[1] = 1; WARM.jobs.push(J1, J2); warmUI(); }
+  if (GFX.shadows > 0) warmDepth();
+  load(survPend || null); survReady = true;
+  return API;
+})();
+window.SURV = SURV;
+function survTick(dt, vr) { SURV.tick(dt, vr); }
+// <<< V2 SURVIVAL END
 warmStart('Preparing graphics'); bootLog('warm-up started: ' + WARM.tot + ' programs to finish, ' + (WARM.par ? 'polling parallel compile' : 'no parallel compile: one at a time'));
 if (window.__ultSkip) setTimeout(() => say('PC ULTRA WAS NOT RESTORED (THE LAST START DID NOT FINISH) - PICK IT AGAIN IN SETTINGS'), 4000);
 const BOOTF = { n: 0, real: 0, xr: 0, pre: 0, lite: 0, xs: 0, xa: [], xl: 0, last: 0 };   // v1.10.1 boot log: frame stages
@@ -12384,7 +12683,7 @@ renderer.setAnimationLoop(() => {
   if ((chunkT += dt) > 0.2) { chunkT = 0; updateChunks(); }
   hxTick(dt);                                // v0.24 haptics (engine / buffet / gear + queued pulses)
   if (xr || HANDS.force) { wtTick(dt); updateHands(dt); setpTick(); jbPoke(); ecoPoke(); upgPoke(); emgPoke(); }
-  bodyTick(dt); vlTick(); batchTick(); cvlApply(); packTick(dt, xr || HANDS.force); if (GFX.shadows && FT.n % ((mode !== 'plane' || ac.vel[0] * ac.vel[0] + ac.vel[1] * ac.vel[1] + ac.vel[2] * ac.vel[2] > 0.1) ? DYN.sh : Math.max(2, DYN.sh)) === 0) renderer.shadowMap.needsUpdate = true;   // v0.47 static batches; shadow map at half rate   // v0.23 gloves (after the stick / knobs have their final pose); v0.45 wrist SETTINGS board
+  bodyTick(dt); vlTick(); batchTick(); cvlApply(); packTick(dt, xr || HANDS.force); survTick(dt, xr || HANDS.force); if (GFX.shadows && FT.n % ((mode !== 'plane' || ac.vel[0] * ac.vel[0] + ac.vel[1] * ac.vel[1] + ac.vel[2] * ac.vel[2] > 0.1) ? DYN.sh : Math.max(2, DYN.sh)) === 0) renderer.shadowMap.needsUpdate = true;   // v0.47 static batches; shadow map at half rate   // v0.23 gloves (after the stick / knobs have their final pose); v0.45 wrist SETTINGS board
   if (DIRTY_TEX.size) { DIRTY_TEX.forEach(texInit); DIRTY_TEX.clear(); } if (WARM.done && !WARM.jobs.length) binoRender();   // v0.53 the 7x view (only while raised); v0.81 the textures upload first
   if (xr || HANDS.force) wtApply(); BOOTF.pre = performance.now(); BOOTF.wl = xr && BOOTF.lite > 0; if (BOOTF.wl && BOOTF.lite === 2) warmStart('Entering VR');
   const _wr = warmTick() && !(xr && BOOTF.lite > 0); if (xr && BOOTF.lite > 0) BOOTF.lite--; if (_wr && !BOOTF.real) bootLog('first scene frame: drawing (first draw can still link a few programs)');
