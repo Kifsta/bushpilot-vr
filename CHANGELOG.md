@@ -2,6 +2,24 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v1.14.1 – one rod tip, fish hang straight, left-shoulder stow, a haptics verdict, a bigger pack that keeps things where you put them
+
+Neil's 5 points (t252). The physics block is untouched (md5 `eee6637e…`). v1.14.0 saves load (see Saves below); no story restart needed.
+
+- **Rod tip:** under heavy tension the bend used to pile up in the last fifth of the blank and curl through 90°, so the tip hooked back and read as a second tip. The bend is now spread along the blank as one smooth arc and capped at 60°.
+- **Fish:**
+  - A fish lifted out of the water hangs straight down off the hook, head up the line, its back away from you. It used to lie level.
+  - With a landed fish in your hand (or the net), letting go of the rod, or stowing it, no longer makes the fish vanish. The rod drops (or stows), and the fish stays in your hand until you let go of it (then it's kept or released as before).
+- **Left-shoulder stow:** let the rod go behind or over your left shoulder and it goes into the pack's side slot. Let the rifle go there and it's strapped to the side of the pack (with no pack on, it's slung).
+- **Haptics:** Neil's panel showed `oculus-touch` with XR NONE / VA NONE on both hands. That profile name is the one Chrome/Edge on a **PC** report over Link / Air Link / SteamVR (the Quest Browser reports `meta-quest-touch-plus` / `oculus-touch-v3`). Chromium's PC OpenXR code exposes no vibration motor to web pages, so no page can buzz there.
+  - The test panel now shows the browser, the 'in' checks on each live gamepad (`IN H-` / `-V` / `--`) and a verdict line. **NO WEBXR HAPTICS IN THIS (PC) BROWSER - PLAY IN THE QUEST BROWSER** means use the headset's own browser. MOTORS FOUND means it should buzz.
+  - As a last resort, a buzz also tries any plain gamepad (`navigator.getGamepads()`) with a rumble motor on that hand.
+- **Pack:**
+  - The pack is 40% bigger: 18% wider and 18% taller (the same depth on your back). The side slots and the swag moved out with it.
+  - Exact placement: an item you let go inside stays exactly where it is and at its turn. It's only nudged by up to the 1.5 cm overlap allowance (plus the 3 mm gap). It's no longer pushed in from a wall by up to 5 cm or turned 90° automatically. If it doesn't fit there it stays in your hand: NO ROOM THERE. The green fit tint is unchanged.
+  - Held items hang from your grip and swing (a damped pendulum). This covers the canteen, first-aid kit, rope, tarp, food, tackle box, meat and the swag. Tools you aim or read stay rigid: knife, flashlight, flare, scope, Polaroid, photo, guide, cigarettes. Over the open pack the swing eases off, so your hand sets the angle you place it at.
+- **Saves:** v1.14.0 (and older) saves load. A v1.14.0 pack layout keeps every item's x, z, turn and side. Each item is lowered by 8.4 cm so the layout sits on the bigger pack's floor (new saves carry `pack.pk2`). No new top-level save keys.
+
 ## v1.14.0 – fishing without the stretch, drops that stay put, hand swaps, pack fit, a haptics test, job board bearings, darker overcast nights and storms
 
 Neil's 8 points (t249). The physics block is untouched (md5 `eee6637e…`). Saves load as before; no story restart needed.
