@@ -638,7 +638,7 @@ const hyp = (a, b, c = 0) => Math.sqrt(a * a + b * b + c * c);   // v0.59 Math.h
 
 // ======================= RENDERING =======================
 // v0.35 settings (persist in localStorage 'bp_gfx'; ?gfx=shadows:2,grass:1 overrides for testing). Defaults = the v0.34 look and cost.
-const BP_VERSION = 'v1.14.1';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
+const BP_VERSION = 'v1.14.2';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
 { const e = document.getElementById('ver'); if (e) e.textContent = BP_VERSION; } window.__bpVer = BP_VERSION; bootLog('game module running ' + BP_VERSION + ' (three r' + THREE.REVISION + ')' + (/[?&]safe(=|&|$)/.test(location.search) ? ' - SAFE MODE: default graphics, no shadows / ULTRA / life / vistas / music' : ''));
 const GFX_DEF = { shadows: 0, scale: 1, fov: 1, dist: 1, trees: 1, grass: 0, clouds: 1, fog: 1, msaa: 1, hz: 90, vig: 0, turn: 0, fps: 0, tod: 11, stk: 1, tips: 1, terr: 1, dyn: 1, glove: 0, hand: 0, wt: 1, volM: 1, volMu: 0.5, volE: 1, volA: 1, volF: 1, volS: 1, volW: 1, wx: 1, forest: 0, ground: 0, gtex: 0, cvl: 1, water: 1, dayl: 48, flure: 0, fline: 8, fdrag: 4, fbob: 0, fsink: 0, ultra: 0, sfxr: 1 };   // v0.68.1 dominant hand, volumes. v0.48 BALANCED: 90 % scale, 72 Hz, fast terrain shading, auto resolution; v0.49.1 the stick stays where you let go of it
 const GFX = Object.assign({}, GFX_DEF);
@@ -5543,7 +5543,7 @@ const PL_CK = {}, PL_PKI = {}, PL_PKO = { tackle: 'pk_tackleOpen', guide: 'pk_gu
 const plCK = (id, g) => (PL_CK[id] || (PL_CK[id] = [id + 'L', id + 'R']))[g.userData.src?.handedness === 'left' ? 0 : 1];
 const plPkId = k => PL_PKI[k] || (PL_PKI[k] = 'pk_' + k);
 function plCarryKey(i) {   // this hand's carried-thing lab key, or null
-  const g = grips[i]; if (PK.st === 'held' && PK.g === g) return plCK('pack', g); const k = PK.hk[i]; if (!k) return null;
+  const g = grips[i]; { const fk = fLabK(g); if (fk) return fk; } if (PK.st === 'held' && PK.g === g) return plCK('pack', g); const k = PK.hk[i]; if (!k) return null;
   return plCK(PL_PKO[k] && !PK.hm[i].visible ? PL_PKO[k] : plPkId(k), g); }
 const _plCM = new THREE.Matrix4();
 function plCarry(i) {   // the held pack item on its grip: HOFF * plW * plT (false: no lab hold - the game's own placement stands)
@@ -5578,7 +5578,7 @@ function handTargets(i, g, st) {                 // decide pose + world matrix f
   else if (HOSE.held === g && HOSE.noz.visible) { gripOn(st, 'noz', right ? 1 : -1); st.mode = 'ck'; st.jx = 0.35 * trig; }   // v0.77.7 the nozzle's pistol grip, the index on the lever
   else if (huntHandK(g) || binoHandK(g)) { const hk = huntHandK(g) || binoHandK(g); gripOn(st, hk, right ? 1 : -1); st.mode = 'ck'; st.jx = hk === 'rgrip' ? 0.3 * trig : 0; }   // v0.67 the trigger finger squeezes   // v0.53 rifle grips, v0.65 binoculars
   else if (fishGripK(g)) { gripOn(st, fishGripK(g), right ? 1 : -1); st.mode = 'ck'; }   // v1.10 the rod's cork grip (glove on the controller) / the reel's crank knob
-  else if (FUELP.g === g || huntHold(g) || fishHold(g) || packHold(g)) { st.tc[0] = st.tc[1] = st.tc[2] = st.tc[3] = 0.6; st.tth = 0.3; st.ttw = 0.5; st.mode = 'hold';
+  else if (FUELP.g === g || huntHold(g) || fishHold(g) || packHold(g) || fLabK(g)) { st.tc[0] = st.tc[1] = st.tc[2] = st.tc[3] = 0.6; st.tth = 0.3; st.ttw = 0.5; st.mode = 'hold';
     const rk = RFL.round.has(g) && !DROP.held.has(g) && BINO.g !== g && BINO.g2 !== g ? plRoundKey(g) : null, L = rk && POSE_LAB[rk];   // v0.87.1 a round in Neil's Pose Lab hold: its per-joint fingers
     if (L) { st.plJ = L.J || null; if (L.w) st.W.multiply(plW(rk, _plWM)); }
     else { const ck = plCarryKey(i), C = ck && POSE_LAB[ck]; if (C) { st.plJ = C.J || null; if (C.w) st.W.multiply(plW(ck, _plWM)); } } }   // v1.12.0 a carried thing in its Pose Lab hold
@@ -8788,7 +8788,7 @@ function udTick(dt) {
 }
 function fishTick(dt, vrOn) {
   udTick(dt); hsTick(dt); FISH.dtF = dt; camera.getWorldPosition(_fT); fShopHint(_fT, vrOn); fWornTick(vrOn); fClockTick(dt); fOrderTick(); fDeckTick(); fNetTick(dt, vrOn); fWaterFx(dt);
-  if (FISH.rod === 'pack') { FROD.m.visible = FREEL.m.visible = FLINE.l.visible = false; if (FISH.st === 'landed') fFishDraw(); return; }
+  if (FISH.rod === 'pack') { FROD.m.visible = FREEL.m.visible = FLINE.l.visible = false; if (FISH.st === 'landed' || FHU.vis) fFishDraw(); return; }   // v1.14.2 (|| drawn last frame: a fish filleted / eaten / kept is hidden)
   if (mode !== 'foot') { fishBoard(); return; }
   if (FISH.rod === 'ground') { fRodGround(dt); fFishDraw(); return; }   // v1.14.0 lying where you dropped it (v1.14.1 a fish in your hand still drawn)
   if (FISH.rod === 'vr' && !FISH.hand?.userData.src) { fStow(''); return; }
@@ -9007,10 +9007,10 @@ function fFishStep(dt) {
     if (f.t > f.win) { if (FISH.rig.bob && FISH.rig.id === 'bait' && Math.random() < 0.15) { FISH.st = 'fight'; FISH.ready = false; f.t = 0; say('IT TOOK THE BAIT AND HOOKED ITSELF - FISH ON!'); } else fMiss('IT LET GO - LIFT THE ROD SHARPLY WHEN THE ' + (FISH.rig.bob ? 'BOBBER DIPS' : 'TIP TWITCHES')); } return; }
   if (FISH.st === 'fight') fFightStep(dt); }
 function fLiftVR() { return FISH.tipV.y > 1.6 || FISH.tipV.dot(_fk1.subVectors(FISH.tip, FISH.lure).setY(0).normalize()) > 2.0; }   // a sharp lift / sweep away from the fish
-const FHU = { u: new THREE.Vector3(0, 1, 0) };   // v1.14.1 the fish's 'up' (its back) while it hangs
+const FHU = { u: new THREE.Vector3(0, 1, 0), vis: false };   // v1.14.1 the fish's 'up' (its back) while it hangs
 function fFishDraw() {
-  for (const k in FMESH) FMESH[k].visible = false; const f = FISH.fish; if (!f || (FISH.st !== 'fight' && FISH.st !== 'landed')) return;
-  const m = FMESH[f.sp], len = fLenM(f); m.visible = true; m.scale.setScalar(len);
+  for (const k in FMESH) FMESH[k].visible = false; FHU.vis = false; const f = FISH.fish; if (!f || (FISH.st !== 'fight' && FISH.st !== 'landed')) return;
+  const m = FMESH[f.sp], len = fLenM(f); m.visible = true; FHU.vis = true; m.scale.setScalar(len);
   { const ld = FISH.st === 'landed', tr = f.stam < 0.12; f.wph = (f.wph || 0) + (FISH.dtF || 0.011) * (ld ? 13 : tr ? 3.5 : 7 + 9 * f.stam); const W = m.geometry.attributes.iW; W.setXYZ(0, f.wph, ld ? 0.1 * Math.max(0.25, 1 - (f.ldT = (f.ldT || 0) + (FISH.dtF || 0.011)) / 12) : tr ? 0.03 : 0.05 + 0.05 * f.stam, 0); W.needsUpdate = true; }   // v1.10 the tail beats (a landed fish flaps, then tires)
   if (FISH.st === 'landed') { m.position.copy(FISH.landP); m.quaternion.copy(FISH.landQ); return; }
   _fk1.subVectors(FISH.tip, FISH.lure); _fk1.y = 0; const th = Math.hypot(_fk1.x, _fk1.z); if (th > 1e-4) { _fk1.x /= th; _fk1.z /= th; }   // toward you (level)
@@ -9132,13 +9132,19 @@ function fNetGrab(g, p) {
   return false; }
 function fNetRelease(g) { if (FISH.netG === g) { FISH.netG = null; if (UD.on && mode === 'foot' && FNET.m.visible) { g.getWorldPosition(UD.a); if (UD.a.distanceTo(fWorn(F_NET_OFF, UD.b)) > 0.25) { udStart(UD.net, FNET.m, udHandV(g)); HX.pulse(g, 0.15, 12, 'release'); } }   /* v1.14.0 dropped (at the belt: hung back on it) */ if (FISH.st === 'landed' && FISH.held === null) fRelease('LET THE NET GO - THE FISH SLIPPED BACK IN'); }
   if (FISH.held === g) { FISH.held = null; if (h2Lay(g)) return; if (FISH.st === 'landed') { if (FISH.landHow === 'hand' || FISH.netG === null) fKeepOrRelease(); } } }
+const FLAB = { L: 0.4, M: new THREE.Matrix4(), N: new THREE.Matrix4(), P: new THREE.Vector3(), S: new THREE.Vector3(), F: new Float64Array(2) };   // v1.14.2 the fish in your hand: Neil's Pose Lab hold
+function fLabK(g) { if (FISH.held !== g || !FISH.fish) return null; const k = plCK('fish', g); return POSE_LAB[k] ? k : null; }
+function fLabHeld(g) { const key = fLabK(g); if (!key) return false; g.updateWorldMatrix(true, false);
+  FLAB.N.copy(plW(key, _plWM)).multiply(plT(key, _plM)); FLAB.M.multiplyMatrices(g.matrixWorld, HOFF).multiply(FLAB.N);   // grip * HOFF * w * T: the reference fish exactly where the lab put it
+  FLAB.N.invert(); FLAB.P.setFromMatrixPosition(FLAB.N); FLAB.F[0] = 1 - fLenM(FISH.fish) / FLAB.L; FLAB.P.x *= FLAB.F[0]; FLAB.P.y *= FLAB.F[0]; FLAB.P.z *= FLAB.F[0];   // your hand in the fish's frame: that point stays in your grip
+  FLAB.P.applyMatrix4(FLAB.M); FLAB.M.decompose(FISH.landP, FISH.landQ, FLAB.S); FISH.landP.copy(FLAB.P); return true; }
 function fNetTick(dt, vrOn) { const m = FNET.m; m.visible = false; if (UD.net.on && !FISH.netG) { m.position.copy(UD.net.p); m.quaternion.copy(UD.net.q); m.visible = true; }
   if (FISH.netG && FISH.netG.userData.src) { const g = FISH.netG; g.updateWorldMatrix(true, false); _fkM.multiplyMatrices(g.matrixWorld, HOFF); _fkM.decompose(m.position, m.quaternion, _fk3); m.translateZ(-0.38); m.visible = true;
     if (FISH.st === 'fight' && FISH.ready && fHoop(_fk1).distanceTo(FISH.lure) < 0.4) fLanded('net', g); }
   else if (FISH.netG) FISH.netG = null;
   if (FISH.st !== 'landed') return;
   // where the landed fish is: in the hoop, in a hand, or lying by you (desktop)
-  if (FISH.held && FISH.held.userData.src) { const g = FISH.held; g.updateWorldMatrix(true, false); _fkM.multiplyMatrices(g.matrixWorld, HOFF); _fkM.decompose(FISH.landP, FISH.landQ, _fk3); FISH.landQ.multiply(_fkQ.setFromAxisAngle(_rx, Math.PI / 2)); }
+  if (FISH.held && FISH.held.userData.src) { const g = FISH.held; if (!fLabHeld(g)) { g.updateWorldMatrix(true, false); _fkM.multiplyMatrices(g.matrixWorld, HOFF); _fkM.decompose(FISH.landP, FISH.landQ, _fk3); FISH.landQ.multiply(_fkQ.setFromAxisAngle(_rx, Math.PI / 2)); } }
   else if (FISH.netG) { fHoop(FISH.landP); FISH.landQ.copy(FNET.m.quaternion).multiply(_fkQ.setFromAxisAngle(_ry, Math.PI / 2)); }
   if (vrOn && (FISH.held || FISH.netG)) {   // gestures: to the creel = keep, down into the water = let go, up to your mouth = eat
     const p = FISH.landP, cp = fWorn(F_CREEL_OFF, _fk2), w = fWaterAt(p.x, p.z);
@@ -14191,30 +14197,24 @@ packTick = (orig => function (dt, vr) { orig(dt, vr);
   const on = pkxRodOn(); if (on && PKX.rodWas !== 'pack' && PKX.rodWas !== '') PKX.tel = 1; PKX.rodWas = FISH.rod;   // just stowed: it telescopes down
   if (PKX.tel > 0) { PKX.tel = Math.max(0, PKX.tel - dt / PKX_ROD.tel); const u = PKX.tel * PKX.tel; PKX.rodS[1].position.y = u * PKX_ROD.ext[0]; PKX.rodS[2].position.y = u * PKX_ROD.ext[1]; }
   PKX.rodG.visible = on && PK.mesh.visible; pkxTintTick(); })(packTick);
-const PKP = { k: ['', ''], P: [new THREE.Vector3(), new THREE.Vector3()], pv: [new THREE.Vector3(), new THREE.Vector3()], vp: [new THREE.Vector3(), new THREE.Vector3()], d: [new THREE.Vector3(), new THREE.Vector3()],
-  w: [new THREE.Vector3(), new THREE.Vector3()], p0: [new THREE.Vector3(), new THREE.Vector3()], r0: [new THREE.Vector3(), new THREE.Vector3()], L: new Float64Array(2), q0: [new THREE.Quaternion(), new THREE.Quaternion()], A: new THREE.Vector3(), B: new THREE.Vector3(), U: new THREE.Vector3(),
-  Q: new THREE.Quaternion(), Q2: new THREE.Quaternion(), Q3: new THREE.Quaternion(), W: new THREE.Vector3(), b: new Float64Array([1, 1]), F: new Float64Array(10), BR: 4, off: 0, DAMP: 4, AMAX: 40, LMIN: 0.1,
-  NO: { torch: 1, knife: 1, flare: 1, scope: 1, polaroid: 1, photo: 1, guide: 1, cigs: 1 } };   // v1.14.1 held pack items hang from the grip and swing (damped); the tools you aim / read stay rigid
-function pkPend(dt) {   // the pivot: your grip (the palm); the arm: grip -> the item's centre as the hold put it (gripped right at its centre: its own down)
-  for (let i = 0; i < 2; i++) { const k = PK.hk[i], m = PK.hm[i], g = grips[i];
-    if (!k || PKP.off || PKP.NO[k] || !m.visible || m.parent !== g || mode !== 'foot' || !(dt > 0)) { PKP.k[i] = ''; continue; }
-    const P = PKP.P[i], d = PKP.d[i], w = PKP.w[i], A = PKP.A, U = PKP.U, r0 = PKP.r0[i], p0 = PKP.p0[i], q0 = PKP.q0[i];
-    g.updateWorldMatrix(true, false); const gq = g.getWorldQuaternion(PKP.Q);
-    if (PKP.k[i] !== k) { PKP.k[i] = k; p0.copy(m.position); q0.copy(m.quaternion); const lr = p0.length(); PKP.L[i] = Math.max(PKP.LMIN, lr);
-      if (lr >= 0.015) r0.copy(p0).divideScalar(lr); else r0.set(0, -1, 0).applyQuaternion(q0);
-      P.setFromMatrixPosition(g.matrixWorld); PKP.pv[i].copy(P); PKP.vp[i].set(0, 0, 0); d.copy(r0).applyQuaternion(gq); w.set(0, 0, 0); PKP.b[i] = 1; continue; }
-    P.setFromMatrixPosition(g.matrixWorld); const pv = PKP.pv[i], vp = PKP.vp[i], F = PKP.F, id = 1 / dt;   // (inline maths: no doubles passed to calls - no boxed numbers)
-    F[0] = (P.x - pv.x) * id; F[1] = (P.y - pv.y) * id; F[2] = (P.z - pv.z) * id; pv.copy(P);   // the grip's velocity -> its acceleration
-    F[3] = (F[0] - vp.x) * id; F[4] = (F[1] - vp.y) * id; F[5] = (F[2] - vp.z) * id; vp.x = F[0]; vp.y = F[1]; vp.z = F[2];
-    F[6] = Math.sqrt(F[3] * F[3] + F[4] * F[4] + F[5] * F[5]); if (F[6] > PKP.AMAX) { F[6] = PKP.AMAX / F[6]; F[3] *= F[6]; F[4] *= F[6]; F[5] *= F[6]; }
-    F[0] = -F[3]; F[1] = -9.81 - F[4]; F[2] = -F[5]; F[6] = F[0] * d.x + F[1] * d.y + F[2] * d.z; F[7] = 1 / PKP.L[i];   // gravity less the hand's acceleration, across the arm
-    w.x += (F[0] - F[6] * d.x) * F[7] * dt; w.y += (F[1] - F[6] * d.y) * F[7] * dt; w.z += (F[2] - F[6] * d.z) * F[7] * dt;
-    F[6] = w.x * d.x + w.y * d.y + w.z * d.z; F[7] = Math.exp(-PKP.DAMP * dt); w.x = (w.x - F[6] * d.x) * F[7]; w.y = (w.y - F[6] * d.y) * F[7]; w.z = (w.z - F[6] * d.z) * F[7];
-    d.x += w.x * dt; d.y += w.y * dt; d.z += w.z * dt; F[6] = Math.sqrt(d.x * d.x + d.y * d.y + d.z * d.z) || 1; d.x /= F[6]; d.y /= F[6]; d.z /= F[6];
-    m.getWorldPosition(PKP.W); F[8] = pkOpenFor(g) && pkInOpening(PKP.W, 0.03) ? 0 : 1; F[9] = PKP.BR * dt;   // in the pack's opening: your hand turns it again (to place it), out of it: it hangs
-    if (PKP.b[i] < F[8]) { PKP.b[i] += F[9]; if (PKP.b[i] > F[8]) PKP.b[i] = F[8]; } else if (PKP.b[i] > F[8]) { PKP.b[i] -= F[9]; if (PKP.b[i] < F[8]) PKP.b[i] = F[8]; }
-    U.copy(d).applyQuaternion(PKP.Q2.copy(gq).invert()); PKP.Q3.setFromUnitVectors(r0, U); m.quaternion.set(0, 0, 0, 1); if (PKP.b[i] >= 1) m.quaternion.copy(PKP.Q3); else if (PKP.b[i] > 0) m.quaternion.slerp(PKP.Q3, PKP.b[i]); m.position.copy(p0).applyQuaternion(m.quaternion); m.quaternion.multiply(q0); } }
-packTick = (orig => function (dt, vr) { pkPend(dt); orig(dt, vr); })(packTick);
+const PKB = { g: null, d: new THREE.Vector3(), w: new THREE.Vector3(), pv: new THREE.Vector3(), vp: new THREE.Vector3(), t: new THREE.Vector3(), Q: new THREE.Quaternion(), F: new Float64Array(10), dt: 0, off: 0,
+  c: new THREE.Vector3(0, -0.296, 0.095), W2: 9.81 / 0.31, DAMP: 2.6, AMAX: 40, JUMP: 0.4, LIM: 1.2 };   // v1.14.2 the pack held by its top handle swings from it (the bag only: what you hold out of it stays rigid)
+function pkSwing() {   // after the hold placed it (Pose Lab packL/R or the hang): a damped pendulum about the handle (the mesh origin), its rest = that hold
+  const M = PK.mesh, d = PKB.d, w = PKB.w, t = PKB.t, pv = PKB.pv, vp = PKB.vp, F = PKB.F, dt = PKB.dt;
+  t.copy(PKB.c).applyQuaternion(M.quaternion).normalize();   // the hold's handle -> bag-centre direction
+  if (PKB.off || PKB.g !== PK.g || mode !== 'foot' || !(dt > 0) || M.position.distanceToSquared(pv) > PKB.JUMP * PKB.JUMP) { PKB.g = PK.g; d.copy(t); w.set(0, 0, 0); pv.copy(M.position); vp.set(0, 0, 0); return; }   // picked up / a jump: at rest on the hold
+  const id = 1 / dt; F[0] = (M.position.x - pv.x) * id; F[1] = (M.position.y - pv.y) * id; F[2] = (M.position.z - pv.z) * id; pv.copy(M.position);   // (inline maths: no boxed doubles)
+  F[3] = (F[0] - vp.x) * id; F[4] = (F[1] - vp.y) * id; F[5] = (F[2] - vp.z) * id; vp.x = F[0]; vp.y = F[1]; vp.z = F[2];   // the handle's acceleration
+  F[6] = Math.sqrt(F[3] * F[3] + F[4] * F[4] + F[5] * F[5]); if (F[6] > PKB.AMAX) { F[6] = PKB.AMAX / F[6]; F[3] *= F[6]; F[4] *= F[6]; F[5] *= F[6]; }
+  F[7] = 1 / 0.31; F[0] = PKB.W2 * (t.x - d.x) - F[3] * F[7]; F[1] = PKB.W2 * (t.y - d.y) - F[4] * F[7]; F[2] = PKB.W2 * (t.z - d.z) - F[5] * F[7];   // back toward the hold (g / L), the hand's acceleration throws it
+  F[6] = F[0] * d.x + F[1] * d.y + F[2] * d.z; w.x += (F[0] - F[6] * d.x) * dt; w.y += (F[1] - F[6] * d.y) * dt; w.z += (F[2] - F[6] * d.z) * dt;
+  F[6] = w.x * d.x + w.y * d.y + w.z * d.z; F[8] = Math.exp(-PKB.DAMP * dt); w.x = (w.x - F[6] * d.x) * F[8]; w.y = (w.y - F[6] * d.y) * F[8]; w.z = (w.z - F[6] * d.z) * F[8];
+  d.x += w.x * dt; d.y += w.y * dt; d.z += w.z * dt; F[6] = Math.sqrt(d.x * d.x + d.y * d.y + d.z * d.z) || 1; d.x /= F[6]; d.y /= F[6]; d.z /= F[6];
+  F[9] = d.x * t.x + d.y * t.y + d.z * t.z; if (F[9] < Math.cos(PKB.LIM)) { w.set(0, 0, 0); }   // (a hard yank: it stops at ~70 degrees)
+  if (F[9] > 0.9999999999 && w.x * w.x + w.y * w.y + w.z * w.z < 1e-10) { d.copy(t); w.set(0, 0, 0); return; }   // settled: exactly the hold
+  M.quaternion.premultiply(PKB.Q.setFromUnitVectors(t, d)); }   // turned about the handle (the origin stays in your grip)
+pkHeldPose = (orig => function () { orig(); pkSwing(); })(pkHeldPose);
+packTick = (orig => function (dt, vr) { PKB.dt = dt; orig(dt, vr); PKB.dt = 0; })(packTick);
 function pkxSeedIp(d) { return d && Array.isArray(d.ip) ? (d.pk2 ? d.ip : d.ip.map(q => Array.isArray(q) ? [q[0], q[1] + PKX_DY, q[2], q[3], q[4]] : q)) : null; }   // v1.14.1 a v1.14.0 layout (the smaller pack): dropped onto the new floor
 packSave = (orig => function () { const d = orig(), r = v => Math.round(v * 1e4) / 1e4; d.ip = PK.slot.map(s => [r(s[0]), r(s[1]), r(s[2]), r(s[3]), s[4] ? 1 : 0]); if (PKX.rs || PKX.rsL) d.rs = 1; d.pk2 = 1; return d; })(packSave);
 packLoad = (orig => function (d) { PKX.ik = []; PK.slot.length = 0; PKX.rej[0] = PKX.rej[1] = false; PKX.pend = PKX.next = null; PKX.rs = 0; PKX.rsL = d && d.rs ? 1 : 0;
@@ -15405,7 +15405,7 @@ function h2Lay(g) { if (FISH.st !== 'landed' || !FISH.fish || !g || !g.userData.
   p.y = gy + 0.03; FISH.landQ.setFromAxisAngle(_ry, headYaw() + Math.PI / 2); FISH.landHow = 'ground'; HX.pulse(g, 0.3, 15, 'fish');
   say('LAID THE ' + FSP[FISH.fish.sp].nm + ' ON THE GRASS - DRAW YOUR KNIFE AND SLICE ALONG IT TO FILLET (' + H2.NEED.fish + ' STROKES), OR PICK IT BACK UP'); return true; }
 function h2Fillet(i) { const f = FISH.fish; if (!f) return; const n = clamp(Math.round(f.kg / 0.8), 1, 4), held = FISH.held, hi = held ? grips.indexOf(held) : -1;
-  _h2c.copy(FISH.landP); FISH.stat.filleted = (FISH.stat.filleted || 0) + 1; H2.stat.fish++; fClearLanded(); let inPack = 0, onGnd = 0;
+  _h2c.copy(FISH.landP); FISH.stat.filleted = (FISH.stat.filleted || 0) + 1; H2.stat.fish++; fClearLanded(); fFishDraw(); let inPack = 0, onGnd = 0;
   for (let k = 0; k < n; k++) { if (k === 0 && hi >= 0 && !PK.hk[hi]) { pkTake(hi, 'fillets'); continue; } if (pkPut('fillets', true)) inPack++; else { onGnd++; PK.gnd.push(['fillets', _h2c.x + 0.1 * k, groundY(_h2c.x, _h2c.z) + 0.02, _h2c.z, 0]); } }
   if (onGnd) pkGround(); pkWeigh(); sfx('flesh'); if (i >= 0) HX.pulse(grips[i], 0.7, 40, 'landed');
   say('FILLETED THE ' + FSP[f.sp].nm + ' (' + f.kg.toFixed(1) + ' KG): ' + n + (n > 1 ? ' PAIRS' : ' PAIR') + ' OF FILLETS' + (hi >= 0 ? ' - ONE IN YOUR HAND' : '') + (inPack ? ', ' + inPack + ' IN THE PACK' : '') + (onGnd ? ', ' + onGnd + ' AT YOUR FEET' : '') + ' (FOOD, OR $' + H2.SELL.fillets + ' A PAIR AT A TACKLE COUNTER)'); saveSoon(); }

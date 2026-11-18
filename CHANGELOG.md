@@ -2,6 +2,14 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v1.14.2 – a filleted fish is gone, only the pack swings, fish in the Pose Lab
+
+Neil's 3 points (t253). The physics block is untouched (md5 `eee6637e…`). v1.14.1 saves load unchanged (same pack, same layout); no story restart needed.
+
+- **Filleting:** with the rod stowed (so the knife could be in your other hand), a filleted fish stayed in your hand or on the grass. The fish draw was skipped once the fish was gone, so its mesh never got hidden. Now it's hidden at once, whether the fish was in your hand, laid on the ground, or filleted on desktop (L). The fillets go to your hand, the pack or your feet as before. The same fix covers a fish kept in the creel or eaten with the rod stowed. Creel fish are only counted (nothing is drawn), so there's nothing there to fillet.
+- **Swing:** pack and belt items in your hand are rigid on their Pose Lab holds again; the v1.14.1 swing is gone. Only the backpack swings now, when you carry it by its top handle. It's a damped pendulum about the handle in your grip, so the handle stays in your hand. It settles back exactly onto its Pose Lab hold (packL / packR). The 40% bigger pack and exact placement are kept.
+- **Pose Lab: fish.** The landed fish is a holdable in the Pose Lab (FISHING > FISH (LANDED), left and right hands). It's a 0.4 m trout, and its default is the game's own hold. A saved code becomes `POSE_LAB.fishL` / `fishR`, and the game then holds the fish exactly there: fish at grip × HOFF × w × T, the glove on w, the fingers from the code's joints. A bigger or smaller fish is scaled about the point in your grip, so that point stays in your hand. With no entry the fish is held as before. The Pose Lab is refreshed (anchors primeL 0.00272 / flapR 0.175).
+
 ## v1.14.1 – one rod tip, fish hang straight, left-shoulder stow, a haptics verdict, a bigger pack that keeps things where you put them
 
 Neil's 5 points (t252). The physics block is untouched (md5 `eee6637e…`). v1.14.0 saves load (see Saves below); no story restart needed.
