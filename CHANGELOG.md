@@ -2,6 +2,34 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v1.14.0 – fishing without the stretch, drops that stay put, hand swaps, pack fit, a haptics test, job board bearings, darker overcast nights and storms
+
+Neil's 8 points (t249). The physics block is untouched (md5 `eee6637e…`). Saves load as before; no story restart needed.
+
+- **Fishing:**
+  - Pulling the rod back under tension now moves the hook, with a fish on or snagged. The line no longer stretches out for ever. It only pays out drag while a fish is actually running away. Otherwise the line holds its length and the fish comes toward you.
+  - After a haul there is 1.5 s to reel up the slack before the hook can pull out.
+  - A snag pulled past the drag is dragged along the bottom toward you, and works loose after about 0.6 m (DRAGGED IT OFF THE SNAG). Reeling against a snag that won't move still snaps the line, as before.
+  - No net needed: wind any fish right up to the tip (down to 0.5 m of line) and grab it by hand, any size. The 3 kg hand limit is gone, and the net still works.
+- **Drops and auto-return:**
+  - Letting go of the rod, the landing net, the binoculars, the rifle or a pack tool away from its holder drops it. It falls (onto a table or prop under it, or the ground) and lies there.
+  - Pick it up again by grabbing it.
+  - Walk about 8 m away, or leave it out of sight more than 2.5 m away for 4 s, and it goes back to its holder: the rod to the pack, the net to the belt, the binoculars to their case, the rifle to your shoulder (the Cub's holder if you're in the Cub), and a pack tool to a free belt or chest slot or into the pack.
+  - Letting go at the holder still puts it straight in.
+  - The supports grid no longer counts the things you carry. A held rod used to become a "table" that its own drop landed on.
+- **Hand swap:** grip a held item with your free hand and it moves to that hand, on that hand's own Pose Lab grip. The first hand can then let go. This works for pack items (a switched-on flashlight stays on), the rod (on the blank, not the reel), the net and a landed fish. Each hand must have held the item for 0.3 s first, so it can't ping-pong. The binoculars and the rifle keep their two-hand holds.
+- **Backpack:**
+  - Items packed by hand may overlap by up to about 1.5 cm. Auto-packing still leaves its gap.
+  - An item held over the open pack where it would fit takes a very subtle green tint. The tint is written into the item's own vertex colours, so there is no new shader.
+- **Haptics:**
+  - Every buzz now goes out on every API the controller has: the WebXR `hapticActuators[0].pulse` and the Gamepad `vibrationActuator.playEffect('dual-rumble')`. The effect dictionary is reused.
+  - Settings > Controls has a **HAPTICS TEST**. It buzzes each hand on XR PULSE, RUMBLE, VA PULSE and LIVE SOURCE in turn, one a second, and announces each one. It then lists what each call returned, plus the controller profile and actuator counts.
+  - **API: ALL / XR PULSE / RUMBLE** picks the path, and it is remembered.
+- **Job boards:** each offer shows the destination's direction (cardinal plus true bearing) and its elevation in feet, where known. A bush site you haven't found yet shows the bearing to its search area and no elevation. Airdrops show the bearing and elevation of their X.
+- **Cockpit:** the map light's knob gets the yellow interact ring and a 4.5 cm reach. The park brake's ring and grab zone grow from 5 to 6.5 cm.
+- **Radio mic cord:** the jack moved from mid-air (5 cm proud of the panel) to under the lower-right corner of the info screen's bezel. It sits on a small block bracket tucked against the panel.
+- **Weather:** overcast nights are very dark. Cloud cover hides the stars and moon, cuts the moonlight and sky light, and darkens the sky and the clouds. Thunderstorms, with their lightning and distance-delayed thunder, can now build out of any weather, day or night (a 9 % chance at each change).
+
 ## v1.13.1 – the 22 left-hand Pose Lab grips mirrored onto the right hand
 
 Neil: "Can you mirror all the hand poses we just did to the right hand also". The physics block is untouched (md5 `eee6637e…`).

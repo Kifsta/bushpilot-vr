@@ -10,6 +10,7 @@ v0.50 turns it into a **bush delivery** game: take a job off a strip's job board
 - **v0.79 rain fronts:** two lines of rain shafts, each under a dark cloud base, drift slowly across the map with the clouds (from the west-northwest, 5–9 m/s). From a distance you see grey curtains of rain hanging under them. Fly or stand under one and it rains: streaks, rain sound, a greyer sky and visibility down to about 4 km. Fly out of it and it clears. Above the cloud base (about 760 m) it's dry. There is still no wind: the rain moves, the air doesn't push the Cub. The clipboard METAR shows VCSH when a front is within about 9 km of home and -SHRA when one is over it. The fronts are saved, are off with Weather OFF, and don't show with a forced `?wx=` (use `?front=x,z` to put a shaft somewhere).
 - The weather changes slowly by itself: **clear** (most of the time), **haze**, **light overcast**, **low cloud + mist** in the valleys, **light rain**, and at dawn (EARLY time of day) the odd **fog bank**. A change takes 4-6 minutes and a state lasts 8-25 minutes.
 - It only changes what you see and hear: how far you see (strips are harder to pick out, but you always see 2 km+), the sky and light, a lower cloud deck, mist patches lying in valleys (never on a strip), rain streaks round you and a rain hiss. **No wind, and the flight model is untouched.**
+- v1.14.0: **overcast nights are very dark.** The cloud cover hides the stars and the moon, cuts the moonlight and the sky light, and the sky goes near black. **Thunderstorms**, with lightning flashes and thunder that arrives later the further off the strike is, can now build out of any weather (not only overcast or rain), day or night.
 - The weather is saved with the game. Turn the effects off in Settings > GRAPHICS > **Weather**.
 
 ## The strips (v0.76)
@@ -173,12 +174,14 @@ v0.44 latches: every window and the door are latched while shut. Squeeze the han
 | Crouch (v1.11.19) | Right stick down: crouch as far as you push it (linear); up = hop | C = full crouch |
 | Buttons B / Y (v1.11.19 audit) | Right B - cockpit: restart hint (restart is in the wrist menu); on foot: rifle lever on the rifle hand, else tap = hint, hold = grab ray. Left Y - cockpit: climb out; on foot: rifle lever on the rifle hand (left-handed), else climb in. A / X: recentre, or load the round in that hand | - |
 | Haptics (v1.11.19) | Ticks when a hand reaches something it can take, on grabs, let-gos and when you are hurt; Settings > Haptics sets the strength (and says NO MOTOR FOUND if the controllers have none) | - |
+| Haptics test (v1.14.0) | Settings > Controls: **HAPTICS TEST** buzzes each hand on each vibration API in turn (XR PULSE, RUMBLE, VA PULSE, LIVE SOURCE), one a second, and announces each one. The panel then shows what each call returned. **API** picks what every buzz uses: ALL (the default: every API the controller has), XR PULSE or RUMBLE | - |
+| Pack fit (v1.14.0) | Items you pack by hand may overlap each other by up to about 1.5 cm. While you hold an item over the open pack where it would fit, it takes on a very subtle green tint | - |
 | Swag camp (v1.12.0) | VR: grip the swag strapped under the worn pack; trigger rolls it out in front of you (flat, dry ground). A hand on it + trigger = sleep when tired: REST back, through to dawn, then it saves (SAVED AT YOUR CAMP). Grip it to roll it up; let it go at the pack's bottom to strap it on | Shift+I: unroll / sleep (tired) / roll up |
 | Pack: left shoulder (v1.12.0) | Reach back over your LEFT shoulder (a wide zone behind and above it) and grip: the pack comes off. With the rifle slung the right side stays the rifle's | - |
 | Lean in / Cub rifle (v1.12.0) | Through an open door you can lean about 20 cm further in, and the rifle in the Cub's floor holder takes a hand up to about 25 cm off it | - |
 | Things come to rest (v1.12.0) | Dropped or thrown things land on tables, stumps, counters and the Cub (floor, wings, cargo bay), not just the ground; lost ones (under the ground, out of the world) come back to your feet | same |
 | Title screen (v1.12.0) | Before play (flat screen only - the headset never sees it): CONTINUE, NEW STORY, SETTINGS, ENTER VR over slow shots of the Cub. ?notitle skips it | Enter = continue |
-| Map light (v1.11.18, moved v1.13.0) | In the cockpit: the small lamp is up by the flap handle, its warm cone aimed down at your lap (the map, kneeboard and papers). Grip its knob and twist to dim it; a quick squeeze switches it off / back on. Needs the master switch | Shift+K: OFF / 25 / 50 / 100 % |
+| Map light (v1.11.18, moved v1.13.0) | In the cockpit: the small lamp is up by the flap handle, its warm cone aimed down at your lap (the map, kneeboard and papers). Grip its knob and twist to dim it; a quick squeeze switches it off / back on. Needs the master switch. v1.14.0: the yellow ring shows on its knob when your hand is in reach | Shift+K: OFF / 25 / 50 / 100 % |
 | Night reading (v1.11.18) | At night signs, boards and papers are only readable in light: shine your torch on them, stand by a lantern at home, or use the map light / panel lights in the cockpit | (same) |
 | Pack: free placement (v1.11.17) | With the pack open, let an item go inside: it stays where and how you put it (tilted over 45 deg it lies on its side). No room there: it stays in your hand with a buzz - move it or take it out. Opening the pack shows how full the bag really is | U / E pack as before (auto-packed) |
 | Pack side slots (v1.11.17) | Right side: the rod, telescoped - grip it to take it, let it go to stow it. Left side: let the rifle go by the strap to strap it upright, grip it there to take it (the shoulder sling still works) | T slings the rifle as before |
@@ -202,6 +205,8 @@ Town walls and the fences at the depot, checkpoint and lab are solid. You walk r
 
 ## Delivery jobs (v0.50)
 Four strips have a **job board** (a wooden notice board on two posts) and a **yellow pad** with a black X beside it: HOME STRIP (about 20 m to the right of where the Cub parks, by the cabin), RIDGE STRIP, LODGE (north side) and DRY FORK (east side, south of the hangar).
+
+v1.14.0: each offer shows the destination's direction from the board's strip (cardinal plus true bearing, e.g. NE 050°) and its elevation in feet (the altimeter's datum, home = 0 ft), where known. A bush site you haven't found yet shows the bearing to its search area and no elevation. Airdrops show the bearing and the elevation of their X.
 
 | | VR (Quest) | Desktop (on foot) |
 |---|---|---|
@@ -324,12 +329,15 @@ Buy a rod, reel, line and lures at a tackle shop. The **Cutler** store has the f
 
 | | VR (Quest) | Desktop |
 |---|---|---|
-| Take / put away the rod | Grip behind your right hip / let go of the rod | **Q** (**T** puts it away for the rifle) |
+| Take / put away the rod | Grip behind your right hip (the rod slot on your pack) / let go of the rod at that slot. v1.14.0: let go anywhere else and it drops and lies there; grip its blank to pick it up. Walk about 8 m away, or leave it out of sight more than 2.5 m away for 4 s, and it goes back on your pack by itself | **Q** (**T** puts it away for the rifle) |
 | Cast | Hold the trigger (bail open, line pinned), flick the rod forward and let go of the trigger around one o'clock. Distance comes from tip speed and lure weight | Hold **LMB** to charge (0.8 s), release |
 | Reel | Grip the reel knob with your other hand and crank it in circles (0.78 m per turn) | Hold **RMB** (1.6 turns/s; **Shift** 2.6) |
 | Drag | Settings > CONTROLS > Fishing: drag | **−** / **=** |
 | Set the hook | Lift the rod sharply when the bobber dips or the tip twitches (haptic tap) | **LMB** |
-| Net / land | Grip the net behind your left hip and scoop the fish once it's tired and close. Fish of 3 kg or less can be lipped by hand | **E** when it says ready |
+| Net / land | Grip the net behind your left hip and scoop the fish once it's tired and close. v1.14.0: the net is optional. Wind any fish right up to the rod tip (down to 0.5 m of line) and grab it with your free hand, any size | **E** when it says ready |
+| Pull it in (v1.14.0) | Pulling the rod back past the drag no longer pays out line while the fish isn't running: the line holds its length and the fish (or a snagged hook) comes toward you. Then reel in the slack. A snagged hook dragged about 0.6 m along the bottom works loose. A fish running away still takes drag | Walk back / lift (**LMB**) |
+| Drop a utility item (v1.14.0) | Let go of the rod, the landing net, the binoculars, the rifle or a pack tool (knife, flashlight, canteen, first aid, rope, tarp, camera, tackle box, field guide, flare, scope) away from its holder: it falls and lies where it lands. Let go at the holder: it goes straight in, as before. Walk about 8 m away, or leave it out of sight for 4 s, and it goes back to its holder by itself (pack tools go to their belt / chest slot or into the pack) | - |
+| Swap hands (v1.14.0) | Grip an item you hold with your other, empty hand: it moves across to that hand on that hand's grip, and the first hand can let go. This works for pack items (a flashlight stays on), the rod (on its blank, not the reel), the net and a landed fish. Each hand must have held the item for 0.3 s first. The binoculars and the rifle keep their two-hand holds | - |
 | Keep | Take it from the net and put it in the creel on your pack | **E** |
 | Release | Lift it out, then dip it back in the water | **Q** |
 | Eat | Hold it to your mouth for 1.2 s | **H** (also eats a kept fish) |
@@ -576,5 +584,6 @@ A customer stands at every job board. Walk up to them for a hello: their rep tie
 ## Parking brake (v0.77.11)
 - v0.84: it sits on a small black bracket plate hung from the switch strip's lower edge (it used to float in mid-air), and it gets the yellow ring like every other control.
 - A black T-handle under the left of the panel. VR (v0.84.5): grip the T-bar with either hand. Your glove closes round it and the handle slides with your hand along its shaft, up to 5 cm out of its sleeve. Past 80 % it clicks in to the set detent; push it back under 20 % and it releases. Let go part-way and it springs to the nearest detent of the state it's in. The yellow ring follows the handle as you pull it out (v0.85). Desktop: **\\** toggles it in the seat.
+- v1.14.0: its yellow ring and grab zone reach 6.5 cm (was 5 cm), with a slightly bigger ring.
 - A red lamp beside it and PARK BRAKE on the status line show it's set. It's off by default and isn't saved.
 - It holds both main wheels only with weight on them. In the air it does nothing. A full rudder pedal still frees that side a little (the toe brakes are differential).

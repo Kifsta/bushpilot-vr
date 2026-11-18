@@ -638,7 +638,7 @@ const hyp = (a, b, c = 0) => Math.sqrt(a * a + b * b + c * c);   // v0.59 Math.h
 
 // ======================= RENDERING =======================
 // v0.35 settings (persist in localStorage 'bp_gfx'; ?gfx=shadows:2,grass:1 overrides for testing). Defaults = the v0.34 look and cost.
-const BP_VERSION = 'v1.13.1';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
+const BP_VERSION = 'v1.14.0';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
 { const e = document.getElementById('ver'); if (e) e.textContent = BP_VERSION; } window.__bpVer = BP_VERSION; bootLog('game module running ' + BP_VERSION + ' (three r' + THREE.REVISION + ')' + (/[?&]safe(=|&|$)/.test(location.search) ? ' - SAFE MODE: default graphics, no shadows / ULTRA / life / vistas / music' : ''));
 const GFX_DEF = { shadows: 0, scale: 1, fov: 1, dist: 1, trees: 1, grass: 0, clouds: 1, fog: 1, msaa: 1, hz: 90, vig: 0, turn: 0, fps: 0, tod: 11, stk: 1, tips: 1, terr: 1, dyn: 1, glove: 0, hand: 0, wt: 1, volM: 1, volMu: 0.5, volE: 1, volA: 1, volF: 1, volS: 1, volW: 1, wx: 1, forest: 0, ground: 0, gtex: 0, cvl: 1, water: 1, dayl: 48, flure: 0, fline: 8, fdrag: 4, fbob: 0, fsink: 0, ultra: 0, sfxr: 1 };   // v0.68.1 dominant hand, volumes. v0.48 BALANCED: 90 % scale, 72 Hz, fast terrain shading, auto resolution; v0.49.1 the stick stays where you let go of it
 const GFX = Object.assign({}, GFX_DEF);
@@ -2483,8 +2483,22 @@ renderer.xr.addEventListener('sessionstart', () => { BOOTF.lite = 3; BOOTF.xs = 
 renderer.xr.addEventListener('sessionend', () => { bootLog('XR session ended', true); setTimeout(winResize, 0); });
 renderer.xr.addEventListener('sessionend', () => { xrOffset.position.set(0, 0, 0); xrOffset.quaternion.identity(); camera.position.set(0, 0, 0); });
 
+const HSW = { R: 0.1, MIN: 0.3, t: new Float64Array(2), n: 0, V: new THREE.Vector3() };   // v1.14.0 within R m of the item; each hand held it MIN s first (no ping-pong)
+function hsBusy(g) { const i = grips.indexOf(g); return !!(PK.hk[i] || (PK.st === 'held' && PK.g === g) || pkBusy(g) || FISH.held === g || (typeof STORY !== 'undefined' && STORY.heldG === g)); }
+function hsDone(i, j, what) { HSW.t[i] = 0; HSW.n++; for (const st of HANDS.st) if (st) st.gk = null; HX.pulse(grips[i], 0.3, 18, 'swap'); HX.pulse(grips[j], 0.12, 10, 'swap'); say(what + ' - OTHER HAND'); }
+function hsSwap(g, p) {   // g (free, squeezing now) takes what the other hand holds
+  if (mode !== 'foot' || !g.userData.src) return false; const i = grips.indexOf(g); if (i < 0) return false; const j = 1 - i, o = grips[j]; if (!o || HSW.t[j] < HSW.MIN || hsBusy(g)) return false;
+  if (PK.hk[j] && PK.hm[j].visible && PK.hm[j].getWorldPosition(HSW.V).distanceTo(p) < HSW.R) { const k = PK.hk[j], S = window.SURV && SURV.SP; PK.hk[j] = null; PK.hm[j].visible = false;
+    pkTake(i, k); if (S && k === 'torch') { S[4 + i] = S[4 + j]; S[4 + j] = 0; } hsDone(i, j, PK_K[k][0]); return true; }
+  if (FISH.rod === 'vr' && FISH.hand === o && FISH.crankG !== g && udNearRod(p) && p.distanceTo(fKnob(HSW.V)) > 0.12 && p.distanceTo(FREEL.m.getWorldPosition(HSW.V)) > 0.1) {
+    FISH.hand = g; if (FISH.crankG === g) FISH.crankG = null; fRodFrame(0, true); fRodDraw(FISH.rig || (FISH.rig = fRig())); hsDone(i, j, 'FISHING ROD'); return true; }
+  if (FISH.netG === o) { FNET.m.updateMatrixWorld(true); const v = FNET.m.worldToLocal(HSW.V.copy(p)); if (v.z > -0.05 && v.z < 0.45 && v.x * v.x + v.y * v.y < 0.0064) { FISH.netG = g; hsDone(i, j, 'LANDING NET'); return true; } }
+  if (FISH.held === o && FISH.st === 'landed' && FISH.landP.distanceTo(p) < 0.2) { FISH.held = g; hsDone(i, j, 'THE FISH'); return true; }
+  return false; }
+function hsTick(dt) { for (let i = 0; i < 2; i++) { const g = grips[i]; HSW.t[i] = hsBusy(g) ? HSW.t[i] + dt : 0; } }
 function handGrab(g) {   // on foot: the map (ground / cockpit holder / other edge) or the pump nozzle at a filler cap
-  g.getWorldPosition(_a); if (gdGrab(g, _a)) return;
+  g.getWorldPosition(_a); if (hsSwap(g, _a)) return;   // v1.14.0 the other hand's item
+  if (gdGrab(g, _a)) return;
   if (storyGrab(g, _a)) return;   // v0.99 Walt's logbook / the photo
   if (mapGrab(g, _a)) return;
   if (fuelGrab(g, _a)) return;
@@ -4938,7 +4952,7 @@ function updateKb() {
 }
 
 // ---- v0.82 the hand mic: a push-to-talk handset on a clip under the right of the panel, its coiled cord a light verlet chain swung by the Cub's accelerations (visual only: no physics) ----
-const MIC = { clip: new THREE.Vector3(0.235, -0.225 + CK.y, PANEL_Z + 0.04), jack: new THREE.Vector3(0.1, -0.0215, PANEL_Z + 0.05), N: 12, SEG: 0.028, TURNS: 3, SPT: 6, RC: 0.0075, RW: 0.0021,
+const MIC = { clip: new THREE.Vector3(0.235, -0.225 + CK.y, PANEL_Z + 0.04), jack: new THREE.Vector3(0.3145, -0.0034, PANEL_Z + 0.0165), N: 12, SEG: 0.028, TURNS: 3, SPT: 6, RC: 0.0075, RW: 0.0021,
   g: null, back: 0, rp: new THREE.Vector3(), rq: new THREE.Quaternion(), pv: null, acc: new THREE.Vector3(0, -9.81, 0), P: [], O: [], m: null, cord: null, floor: CK.y - 0.6, stretch: 0 };
 const MIC_EXIT = new THREE.Vector3(0, -0.047, 0), MIC_HOLD = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -Math.PI / 2);   // the cord leaves the handset's foot; in the fist its top points along the grip's -Z
 const _mq = new THREE.Quaternion(), _mq2 = new THREE.Quaternion(), _mv = new THREE.Vector3(), _mv2 = new THREE.Vector3(), _mg = new THREE.Vector3();
@@ -4946,8 +4960,8 @@ const _mq = new THREE.Quaternion(), _mq2 = new THREE.Quaternion(), _mv = new THR
   box(0.05, 0.078, 0.028, dk, 0, 0, 0, G); box(0.036, 0.03, 0.004, mat(0x4a4a4c), 0, 0.017, 0.015, G); box(0.006, 0.026, 0.014, mat(0x8a1a12), -0.027, -0.004, 0, G);   // body, grille, the red PTT bar on its left side
   { const sr = new THREE.Mesh(new THREE.CylinderGeometry(0.005, 0.007, 0.012, 6), dk); sr.position.set(0, -0.044, 0); G.add(sr); }   // the strain relief
   const C = box(0.03, 0.012, 0.016, mat(0x707478), MIC.clip.x, MIC.clip.y + 0.034, MIC.clip.z - 0.016, plane); C.userData.noBatch = true;   // the clip on the panel lip
-  const J = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.014, 6), mat(0x707478)); J.position.copy(MIC.jack); J.position.y += 0.0075; plane.add(J);   // the jack, its socket facing down
-  const BR = box(0.036, 0.004, 0.03, mat(0x55585c), MIC.jack.x, -0.002, MIC.jack.z, plane), BR2 = box(0.004, 0.012, 0.03, mat(0x55585c), MIC.jack.x + 0.016, -0.008, MIC.jack.z, plane); BR.userData.noBatch = BR2.userData.noBatch = true; MIC.br = BR;   // v1.13.0 the L bracket screwed under the dash: the cord's anchor, no longer hanging in the air
+  const J = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.014, 6), mat(0x707478)); J.position.copy(MIC.jack); J.position.y += 0.007; plane.add(J);   // the jack, its socket facing down
+  const BR = box(0.02, 0.014, 0.0115, mat(0x2a2b2e), MIC.jack.x, MIC.jack.y + 0.007, PANEL_Z + 0.0083, plane), BR2 = box(0.026, 0.003, 0.018, mat(0x2a2b2e), MIC.jack.x, MIC.jack.y + 0.0155, PANEL_Z + 0.0115, plane); BR.userData.noBatch = BR2.userData.noBatch = true; MIC.br = BR;   // v1.14.0 the jack's block, screwed to the panel face under the bezel (its lip along the bezel's bottom edge)   // v1.13.0 the L bracket screwed under the dash: the cord's anchor, no longer hanging in the air
   G.traverse(o => { o.userData.noBatch = true; }); J.userData.noBatch = true;
   for (let i = 0; i <= MIC.N; i++) { const p = MIC.jack.clone().lerp(MIC.clip.clone().add(MIC_EXIT), i / MIC.N); p.y -= Math.sin(Math.PI * i / MIC.N) * 0.08; MIC.P.push(p); MIC.O.push(p.clone()); }
   const S = MIC.N * MIC.TURNS * MIC.SPT + 1, pos = new Float32Array(S * 3 * 3), nrm = new Float32Array(S * 3 * 3), idx = [];
@@ -5002,7 +5016,7 @@ const CK_R = 0.035, WIN_R = 0.075;
 function ckTargets() {   // [id, worldPos, radius]
   const out = [];
   for (const id in SW) out.push([id, plane.localToWorld(_cw.copy(SW[id].p)).clone(), CK_R]);
-  out.push(['ldg', plane.localToWorld(_cw.copy(LDG_SW)).clone(), CK_R], ['pbrk', PB.H.getWorldPosition(new THREE.Vector3()), 0.05]);
+  out.push(['ldg', plane.localToWorld(_cw.copy(LDG_SW)).clone(), CK_R], ['pbrk', PB.H.getWorldPosition(new THREE.Vector3()), 0.065]);
   if (UPG.gk === 'floats') out.push(['gear', plane.localToWorld(_cw.copy(GEAR_SW)).clone(), CK_R]);   // v0.90
   if (UPG.radio && EMG.call) out.push(['radio', plane.localToWorld(_cw.copy(UPG_M.radio.p)).clone(), 0.07]);   // v0.84
   out.push(['card', CARD.mesh.getWorldPosition(_cw).clone(), 0.07], ['kb', KB.m.getWorldPosition(_cw).clone(), 0.1], ['mic', MIC.m.getWorldPosition(_cw).clone(), 0.06]);   // v0.82 the hand mic
@@ -5572,6 +5586,7 @@ function handTargets(i, g, st) {                 // decide pose + world matrix f
 }
 const knobOut = id => CKX.vis[id] !== undefined && id in PULL ? CKX.vis[id] : id === 'mix' ? (ENG.mix < 0.5 ? PULL.mix : 0) : id === 'carb' ? (ENG.carb ? PULL.carb : 0) : 0;   // pulled-out knobs ring where they are
 const _rP = new THREE.Vector3(), _rT = new THREE.Vector3(), _rG = new THREE.Vector3(), RING_HYST = 0.008;
+const NL_KR = 0.045;   // v1.14.0 the map light knob's reach (ring + grab)
 const HRS = { prev: null, best: null, bd: 1e9, br: 0.02, L: null };   // v0.81 hoverRing's candidate state
 function hrCand(k, lp, r, d) { const C = HRS; if (k === C.prev) d -= RING_HYST; if (d < C.bd) { C.bd = d; C.best = k; _hd.copy(lp); C.br = r; } }
 function hrNear(p) { return Math.min(p.distanceTo(_rT), p.distanceTo(_rP), p.distanceTo(_rG) < CK_R ? p.distanceTo(_rG) - 0.02 : 1); }
@@ -5585,10 +5600,11 @@ function hoverRing(tips) {                       // v0.24.1: one ring per free h
     for (const id in SW) { _hx.copy(SW[id].p).setZ(SWP.z + 0.012 + knobOut(id)); const d = near(_hx); if (d < 0.045) cand(id, _hx, id === 'master' ? 0.021 : 0.017, d); }
     { _hx.copy(LDG_SW).setZ(LDG_SW.z + 0.014); const d = near(_hx); if (d < 0.045) cand('ldg', _hx, 0.015, d); }
     if (UPG.gk === 'floats') { _hx.copy(GEAR_SW).setZ(GEAR_SW.z + 0.014); const d = near(_hx); if (d < 0.045) cand('gear', _hx, 0.015, d); }   // v0.90
-    const HL = HRS.L || (HRS.L = [['rup', rupH, WIN_R], ['rlo', rloH, WIN_R], ['rcg', rcgH, WIN_R], ['lf', LWF.hp, WIN_R], ['lr', LWR.hp, WIN_R], ['card', CARD.mesh, 0.07], ['kb', KB.m, 0.1], ['mic', MIC.m, 0.06], ['pbrk', PB.H, 0.05]]);   // v0.81 built once; v0.82 the hand mic; v0.84 the parking brake (it had no ring)
+    const HL = HRS.L || (HRS.L = [['rup', rupH, WIN_R], ['rlo', rloH, WIN_R], ['rcg', rcgH, WIN_R], ['lf', LWF.hp, WIN_R], ['lr', LWR.hp, WIN_R], ['card', CARD.mesh, 0.07], ['kb', KB.m, 0.1], ['mic', MIC.m, 0.06], ['pbrk', PB.H, 0.065]]);   // v0.81 built once; v0.82 the hand mic; v0.84 the parking brake (it had no ring)
     if (UPG.radio && EMG.call) { _hx.copy(UPG_M.radio.p); const d = near(_hx); if (d < 0.07) cand('radio', _hx, 0.035, d); }   // v0.84 the COM radio's face takes a call-out with the grip (was a fingertip poke)
     for (let q = 0; q < HL.length; q++) { const k = HL[q][0], o = HL[q][1], r = HL[q][2];
-      o.getWorldPosition(_hx); plane.worldToLocal(_hx); const d = _hx.distanceTo(_rG); if (d < r) cand(k, _hx, 0.03, d + 0.02); }
+      o.getWorldPosition(_hx); plane.worldToLocal(_hx); const d = _hx.distanceTo(_rG); if (d < r) cand(k, _hx, k === 'pbrk' ? 0.04 : 0.03, d + 0.02); }
+    if (NL.knob) { _hx.copy(NL.KN); const d = _hx.distanceTo(_rG); if (d < NL_KR) cand('nlm', _hx, 0.02, d); }   // v1.14.0 the map light's dimmer knob (its own grab, below)
     { let fd = 1e9; for (let q = 0; q < 2; q++) { const k = q ? 'thr' : 'stick', o = q ? throttleKnob : knob, fr = q ? 0.05 : 0.06, hg = k === 'stick' ? vr.stickG : vr.thrG; if (hg && hg !== g) continue;   // v0.61 either hand: stick and throttle, unless the other hand has it
       o.getWorldPosition(_hx); plane.worldToLocal(_hx); const d = _hx.distanceTo(_rG); if (d < fr && d < fd) { fd = d; force = k; } if (d < 0.09) cand(k, _hx, 0.03, d + 0.03); } }   // hand actually on the stick / throttle: it wins
     for (let q = 0; q < 2; q++) { const k = q ? 'trim' : 'flap', fn = q ? trimW : flapW, r = q ? 0.07 : FLAP_REACH, rr = q ? 0.02 : 0.045; fn(_hx); plane.worldToLocal(_hx); const d = Math.min(_hx.distanceTo(_rG), _hx.distanceTo(_rP));   // v0.42 overhead: either hand
@@ -6435,6 +6451,11 @@ function jbStatus(j) {
 }
 function fitText(x, L, X, Y, mw) { const f0 = x.font, px = parseFloat(f0.match(/(\d+)px/)[1]);   // v0.59.1 the first variant that fits, then the same 2 px smaller, else squeeze the shortest
   for (const d of [0, 2]) { x.font = f0.replace(/\d+px/, (px - d) + 'px'); for (const t of L) if (x.measureText(t).width <= mw) { x.fillText(t, X, Y); x.font = f0; return; } } x.fillText(L[L.length - 1], X, Y, mw); x.font = f0; }
+const JB_CARD = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
+function jbDirXZ(S, x, z) { const sx = S.pad ? S.pad[0] : S.x, sz = S.pad ? S.pad[1] : S.z, a = ((Math.atan2(x - sx, -(z - sz)) * 180 / Math.PI) + 360) % 360, d = Math.round(a) % 360;   // v1.14.0 true bearing from the board's pad (north = -z, as the compass)
+  return JB_CARD[Math.floor((a + 11.25) / 22.5) % 16] + ' ' + String(d).padStart(3, '0') + '\u00b0'; }
+function jbFt(x, z) { return Math.round(Math.max(0, groundY(x, z)) * 3.28084 / 10) * 10; }   // ground elevation, ft MSL (the altimeter's datum)
+function jbDir(S, T) { const hid = T.site && !T.found; return jbDirXZ(S, hid && T.B.hx != null ? T.B.hx : T.pad ? T.pad[0] : T.x, hid && T.B.hz != null ? T.B.hz : T.pad ? T.pad[1] : T.z) + (hid ? '' : ' ' + jbFt(T.pad ? T.pad[0] : T.x, T.pad ? T.pad[1] : T.z).toLocaleString('en-US') + ' FT'); }
 function jbDraw(S) {
   if (S.lock) return jbLocked(S);   // v0.56
   const x = S.cx, L = DLV.offers[S.id], act = dlvActive().length;
@@ -6450,9 +6471,9 @@ function jbDraw(S) {
       x.fillStyle = j.req ? '#b08010' : j.hunt ? '#c06010' : j.drop ? '#2a5aa0' : H ? '#8a2a1a' : '#5a7a5a'; x.fillRect(b0, Y + 9, bw, 19); x.fillStyle = '#fff'; x.fillText(t, b0 + 5, Y + 23); }
     const T = dlvS(j.to), n = {}; for (const it of j.items) n[it.k] = (n[it.k] || 0) + 1;
     { const st = '  ' + repStars(repOf(repKey(j))), fd = T.site && !T.found ? ' (FIND IT)' : '', lb = dlvLb(j) + ' LB'; x.fillStyle = '#333'; x.font = '15px sans-serif';
-      fitText(x, j.drop ? ['AIRDROP TO THE ' + DROPS[j.drop.s].who + ' AT ' + DROPS[j.drop.s].name + ' (NO STRIP) ' + dropKm(j, S).toFixed(1) + ' KM - ' + j.drop.n + ' BUNDLES ' + lb + st, 'AIRDROP: ' + DROPS[j.drop.s].who + ' AT ' + DROPS[j.drop.s].name + ' - ' + dropKm(j, S).toFixed(1) + ' KM - ' + j.drop.n + ' BUNDLES' + st]
-        : j.hunt ? ['TO ' + T.name + fd + ' - 1 DEER (~100-150 LB) - HUNT AREA ON THE MAP: ' + DEER_HERDS[j.hunt.h].name + st, 'TO ' + T.name + fd + ' - 1 DEER (~100-150 LB) - HUNT AREA: ' + DEER_HERDS[j.hunt.h].name + st, 'TO ' + T.name + fd + ' - 1 DEER - HUNT AREA: ' + DEER_HERDS[j.hunt.h].name + st]
-        : ['TO ' + T.name + fd + ' ' + dlvKm(S, T).toFixed(1) + ' KM - ' + lb + ' (' + Object.entries(n).map(([k, c]) => c + ' ' + CARGO_K[k].n + (c > 1 ? 'S' : '')).join(', ') + ')' + st, 'TO ' + T.name + fd + ' ' + dlvKm(S, T).toFixed(1) + ' KM - ' + lb + ' - ' + j.items.length + (j.items.length > 1 ? ' PIECES' : ' PIECE') + st], 34, Y + 46, JB_W - 56); }   // v0.59.1 shorter line before squeezing
+      fitText(x, j.drop ? ['AIRDROP TO THE ' + DROPS[j.drop.s].who + ' AT ' + DROPS[j.drop.s].name + ' (NO STRIP) ' + dropKm(j, S).toFixed(1) + ' KM ' + jbDirXZ(S, DROPS[j.drop.s].cx, DROPS[j.drop.s].cz) + ' ' + jbFt(DROPS[j.drop.s].cx, DROPS[j.drop.s].cz).toLocaleString('en-US') + ' FT - ' + j.drop.n + ' BUNDLES ' + lb + st, 'AIRDROP: ' + DROPS[j.drop.s].who + ' AT ' + DROPS[j.drop.s].name + ' - ' + dropKm(j, S).toFixed(1) + ' KM ' + jbDirXZ(S, DROPS[j.drop.s].cx, DROPS[j.drop.s].cz) + ' ' + jbFt(DROPS[j.drop.s].cx, DROPS[j.drop.s].cz).toLocaleString('en-US') + ' FT - ' + j.drop.n + ' BUNDLES' + st]
+        : j.hunt ? ['TO ' + T.name + fd + ' ' + jbDir(S, T) + ' - 1 DEER (~100-150 LB) - HUNT AREA ON THE MAP: ' + DEER_HERDS[j.hunt.h].name + st, 'TO ' + T.name + fd + ' - 1 DEER (~100-150 LB) - HUNT AREA: ' + DEER_HERDS[j.hunt.h].name + st, 'TO ' + T.name + fd + ' - 1 DEER - HUNT AREA: ' + DEER_HERDS[j.hunt.h].name + st]
+        : ['TO ' + T.name + fd + ' ' + dlvKm(S, T).toFixed(1) + ' KM ' + jbDir(S, T) + ' - ' + lb + ' (' + Object.entries(n).map(([k, c]) => c + ' ' + CARGO_K[k].n + (c > 1 ? 'S' : '')).join(', ') + ')' + st, 'TO ' + T.name + fd + ' ' + dlvKm(S, T).toFixed(1) + ' KM ' + jbDir(S, T) + ' - ' + lb + ' - ' + j.items.length + (j.items.length > 1 ? ' PIECES' : ' PIECE') + st], 34, Y + 46, JB_W - 56); }   // v0.59.1 shorter line before squeezing
     if (mine) { const [a, t, onPad] = jbStatus(j); x.fillStyle = t.includes('LATE') ? '#b8301e' : '#2a5a22'; x.font = 'bold 14px sans-serif'; x.fillText((j.sp ? '' : 'ACCEPTED - ') + a + t, 34, Y + 68);
       if (onPad) { x.fillStyle = '#8a8a80'; x.fillRect(JB_W - 126, Y + 50, 100, 26); x.fillStyle = '#fff'; x.textAlign = 'center'; x.fillText('CANCEL', JB_W - 76, Y + 68); x.textAlign = 'left'; } }
     else if (!j.hunt && dlvLb(j) > dlvRoom()) { x.fillStyle = '#b8301e'; x.font = 'bold 14px sans-serif'; x.fillText('OVER PAYLOAD AT ' + Math.round(WBS.fuelGal) + ' GAL: MAX ' + Math.max(0, dlvRoom()) + ' LB', 34, Y + 68, JB_W - 170);   // v0.52
@@ -6956,6 +6977,7 @@ const supKey = (ix, iz) => (ix + 4096) * 8192 + iz + 4096;
 function supBuild() {   // once: every static prop near the ground into the grid; the Cub's own meshes into P
   const t0 = performance.now(); SUP.on = true; SUP.G.clear(); SUP.O.length = 0; SUP.B.length = 0; SUP.P.length = 0; scene.updateMatrixWorld(true);
   const skip = new Set([footRig, xrOffset, camera]); for (const g of grips) skip.add(g); for (const m of PK.hm) skip.add(m); for (const m of PK.fm) skip.add(m); skip.add(PK.mesh); if (PK.gm) skip.add(PK.gm);
+  for (const o of [FROD.f, FNET.m, BINO.m, RFL.g, FLINE.l]) if (o) skip.add(o); for (const k in FWORN) if (FWORN[k] && FWORN[k].isObject3D) skip.add(FWORN[k]); for (const k in FMESH) skip.add(FMESH[k]); for (const k in FLM) skip.add(FLM[k]);   // v1.14.0 (carried things)
   const walk = (o, cub) => { if (skip.has(o) || !o.visible || SUP_SKIPN.has(o.name)) return; if (o === plane) cub = true;
     if (supOk(o)) { if (cub) SUP.P.push(o); else { const b = SUP.bx.setFromObject(o), sx = b.max.x - b.min.x, sz = b.max.z - b.min.z;
       if (sx <= 14 && sz <= 14 && sx >= 0.1 && sz >= 0.1 && isFinite(b.max.y)) { const gy = groundY((b.min.x + b.max.x) / 2, (b.min.z + b.max.z) / 2);
@@ -7955,7 +7977,7 @@ function rflRelease(g) {
   RFL.g.getWorldPosition(_rp2); const rk = rflNearRack(_rp2); camera.getWorldPosition(_rp3);   // (rflNearRack uses _rp3)
   if (rk) { rflPut(rk); sfx('clack'); say('RIFLE ' + rflRackLabel(rk)); }
   else if (_rp2.y > _rp3.y - 0.45 && hyp(_rp2.x - _rp3.x, _rp2.z - _rp3.z) < 0.32 && RFL.g.localToWorld(_rp.copy(RF.fore)).y > _rp2.y) { rflPut('back'); sfx('pick'); say('RIFLE SLUNG - REACH OVER YOUR RIGHT SHOULDER FOR IT'); }   // let go by your head, muzzle up: slung
-  else { rflPut('ground', _rp2.x, _rp2.z, headYaw()); sfx('thud', _rp2); }
+  else { const y0 = _rp2.y; rflPut('ground', _rp2.x, _rp2.z, headYaw()); const F = UD.rfl; F.on = true; F.st = 0; F.t = 0; F.v.set(0, 0, 0); F.y0 = Math.max(y0, RFL.gp[1]); RFL.g.position.y = F.y0; }   // v1.14.0 it falls (thud when it lands)
   HX.pulse(g, 0.15, 12, 'release'); saveSoon();
 }
 function rflTrigger(g) { if (RFL.place === 'vr' && RFL.hand === g && !RFL.free && !SETP.open) rflShoot(); }   // (v0.68.1 not while the menu is up: the trigger points at it)
@@ -8331,7 +8353,7 @@ function binoGrab(g, p) {
   const at = BINO.place === 'hip' ? binoHip(_bv).setY(_bv.y + 0.04) : BINO.m.getWorldPosition(_bv); if (at.distanceTo(p) > 0.16) return false;
   BINO.place = 'hand'; BINO.g = g; scene.add(BINO.m); sfx('pick'); tick(g); say('BINOCULARS - RAISE THEM TO YOUR EYES'); return true;
 }
-function binoRelease(g) { if (BINO.g2 === g) { BINO.g2 = null; return; } if (BINO.g !== g) return; if (BINO.g2) { BINO.g = BINO.g2; BINO.g2 = null; return; } binoPut(mode === 'plane' ? 'cub' : 'hip'); HX.pulse(g, 0.15, 12, 'release'); }   // v0.77.6 the other hand just keeps its own barrel (no regrip)
+function binoRelease(g) { if (BINO.g2 === g) { BINO.g2 = null; return; } if (BINO.g !== g) return; if (BINO.g2) { BINO.g = BINO.g2; BINO.g2 = null; return; } if (UD.on && mode === 'foot' && binoHip(UD.b).distanceTo(BINO.m.getWorldPosition(UD.a)) > 0.25) { udStart(UD.bino, BINO.m, udHandV(g)); binoPut('ground'); } else binoPut(mode === 'plane' ? 'cub' : 'hip'); HX.pulse(g, 0.15, 12, 'release'); }   // v1.14.0 dropped unless at its case   // v0.77.6 the other hand just keeps its own barrel (no regrip)
 // ---- glue: hands, boarding, the frame, save ----
 { const S = KB_HOLD_S, pin = (hw, hh, sx) => GV3(sx * (hw - PAPER_IN), -(hh - PAPER_IN), 0);   // v0.77.3 the clipboard and the map: one corner pinch per hand
   const mh = MAP_SHEET_B[0] / 2, mv = MAP_SHEET_B[1] / 2;
@@ -8616,7 +8638,7 @@ function fTake(g) {   // VR: the rod out of its tube
   FISH.rod = g ? 'vr' : 'desk'; FISH.hand = g || null; FISH.st = 'idle'; FISH.bail = false; FISH.pinch = false; FISH.rig = fRig(); FRD.ang = 0.55; FISH.T = 0;
   fRodFrame(0, !!g); fRodDraw(FISH.rig); fLineReset(0.45); sfx('pick'); if (g) HX.pulse(g, 0.4, 20, 'rod');
   say((FISH.kind === 'rodH' ? 'CASTING ROD' : 'SPINNING ROD') + ' - ' + FTK[FISH.rig.id][0].replace(/ \(.*/, '') + (FISH.rig.bob ? ' UNDER A BOBBER' : '') + ', ' + FISH.rig.lb + ' LB, DRAG ' + GFX.fdrag + (g ? ' - TRIGGER: OPEN THE BAIL + HOLD THE LINE, FLICK, LET GO' : ' - HOLD LMB, LET GO TO CAST, RMB REELS')); return true; }
-function fStow(why) { if (FISH.rod === 'pack') return; if (FISH.st === 'landed' && FISH.fish) fKeepOrRelease(); FISH.rod = 'pack'; FISH.hand = FISH.crankG = null; FISH.st = 'idle'; FISH.snag = null; FISH.charging = false; FISH.fish = null; FISH.T = 0; FISH.ready = false;
+function fStow(why) { if (FISH.rod === 'pack') return; UD.rod.on = false; if (FISH.st === 'landed' && FISH.fish) fKeepOrRelease(); FISH.rod = 'pack'; FISH.hand = FISH.crankG = null; FISH.st = 'idle'; FISH.snag = null; FISH.charging = false; FISH.fish = null; FISH.T = 0; FISH.ready = false;
   FROD.m.visible = FREEL.m.visible = FLINE.l.visible = false; for (const k in FLM) FLM[k].visible = false; for (const k in FMESH) FMESH[k].visible = false; sfx('clack'); if (why) say(why); }
 function fishBoard() { FISH.deck = false; if (FISH.rod !== 'pack') fStow(FISH.st === 'idle' ? '' : 'LINE REELED IN, ROD IN ITS TUBE'); }
 // ---- each frame ----
@@ -8649,7 +8671,7 @@ function fLureStep(dt) {
       if (!(r.L.float && !r.snk)) { const d1 = lu.distanceTo(FISH.tip), ref = Math.max(FISH.L, sw0); if (d1 > ref + 1e-5) { const tg = FISH.bail ? ref + 0.4 * (d1 - ref) : ref; _fSw.subVectors(lu, FISH.tip).multiplyScalar(tg / d1); lu.copy(FISH.tip).add(_fSw); lu.y = Math.min(lu.y, surf - 0.03); if (FISH.bail) FISH.L = Math.min(100, Math.max(FISH.L, tg)); } }   // v1.11.10 the line holds it: it sinks on an arc toward under the tip
       FISH.dep = surf - lu.y; }
     if (!r.bob && !(r.L.float && !r.snk) && FISH.spd > 0.3 && lu.y < bot + 0.06) lu.y = Math.min(surf - 0.03, bot + 0.06);   // v1.10.8 rides over the bed
-    if (!r.bob && !(r.L.float && !r.snk) && lu.y <= bot + 0.003 && moved > 0 && FISH.spd < 0.6 && !FISH.noSnag && Math.random() < dt * 0.35 * fSnagK() * (FISH.snagX || 1)) { FISH.snag = { x: lu.x, y: lu.y, z: lu.z, cd: 0.3, load: 0, tries: 0 }; FISH.stat.snags = (FISH.stat.snags || 0) + 1; sfx('tick'); if (FISH.hand) HX.pulse(FISH.hand, 0.6, 40, 'snag'); say('SNAGGED ON THE BOTTOM - ' + (FISH.rod === 'vr' ? 'JERK THE ROD UP' : 'CLICK (A SHARP LIFT)') + ' TO FREE IT; KEEP REELING AND IT BREAKS OFF'); }
+    if (!r.bob && !(r.L.float && !r.snk) && lu.y <= bot + 0.003 && moved > 0 && FISH.spd < 0.6 && !FISH.noSnag && Math.random() < dt * 0.35 * fSnagK() * (FISH.snagX || 1)) { FISH.snag = { x: lu.x, y: lu.y, z: lu.z, cd: 0.3, load: 0, tries: 0, drag: 0, mv: 0 }; FISH.stat.snags = (FISH.stat.snags || 0) + 1; sfx('tick'); if (FISH.hand) HX.pulse(FISH.hand, 0.6, 40, 'snag'); say('SNAGGED ON THE BOTTOM - ' + (FISH.rod === 'vr' ? 'JERK THE ROD UP' : 'CLICK (A SHARP LIFT)') + ' TO FREE IT; KEEP REELING AND IT BREAKS OFF'); }
     if (FISH.L <= 0.6 || (lu.y > surf + 0.05)) { fBackToTip(); return; }
     { const th = FISH.tip.y - surf, hh = hyp(FISH.tip.x - lu.x, FISH.tip.z - lu.z); if (!FISH.bail && !FISH.snag && th > 0.3 && hh < Math.max(0.8, th * 0.9) && moved > 0) { fLiftOut(Math.min(d, th) - 0.3); return; } }
     if (fWaterAt(lu.x, lu.z) === null && moved > 0) { FISH.st = 'ground'; } }
@@ -8708,10 +8730,61 @@ function htagTick(dt, vrOn) { const M = HTAG.m;
   if (!vrOn || HTAG.t <= 0 || !HTAG.g) { if (M.visible) M.visible = false; HTAG.t = 0; return; }
   HTAG.t -= dt; const s = Math.max(0.001, Math.min(1, HTAG.t / 0.2, (HTAG.LIFE - HTAG.t) / 0.1 + 0.3));
   HTAG.g.getWorldPosition(M.position); M.position.y += 0.11; camera.getWorldQuaternion(M.quaternion); M.scale.setScalar(s); M.visible = true; }
+const UD = { on: true, FAR: 8, NEAR: 2.5, SEEN: 0.5, T: 4, HOLD: 0.25, cp: GV3(0, 0, 0), cf: GV3(0, 0, 0), a: GV3(0, 0, 0), b: GV3(0, 0, 0), m: new THREE.Matrix4(), q: new THREE.Quaternion(),
+  rod: { on: false, st: 0, p: GV3(0, 0, 0), v: GV3(0, 0, 0), q: new THREE.Quaternion(), ft: 0, t: 0, hy: 0.035, up: 0 }, net: { on: false, st: 0, p: GV3(0, 0, 0), v: GV3(0, 0, 0), q: new THREE.Quaternion(), ft: 0, t: 0, hy: 0.02, up: 1 },
+  bino: { on: false, st: 0, p: GV3(0, 0, 0), v: GV3(0, 0, 0), q: new THREE.Quaternion(), ft: 0, t: 0, hy: 0.035, up: 1 }, rfl: { on: false, st: 0, p: GV3(0, 0, 0), v: GV3(0, 0, 0), q: new THREE.Quaternion(), ft: 0, t: 0, hy: 0, up: 1, y0: 0 },
+  pk: new Float64Array(256), pkN: -1, n: 0, K: { knife: 1, torch: 1, canteen: 1, firstaid: 1, rope: 1, tarp: 1, polaroid: 1, tackle: 1, guide: 1, flare: 1, scope: 1 } };   // v1.14.0
+window.UD = UD;
+function udStart(c, o, v) {   // c drops from object o's world pose with velocity v (or still)
+  o.updateWorldMatrix(true, false); o.matrixWorld.decompose(c.p, c.q, UD.a); if (v) c.v.copy(v); else c.v.set(0, 0, 0); c.on = true; c.st = 0; c.ft = 0; c.t = 0; c.supX = undefined; }
+function udLie(c) {   // resting: its long axis (local z) level, kept pointing the same way round; up = its local y (or x: the rod, its reel to the side)
+  const Z = UD.a.set(0, 0, 1).applyQuaternion(c.q); Z.y = 0; if (Z.lengthSq() < 1e-6) Z.set(0, 0, 1); Z.normalize(); const U = UD.b.set(0, 1, 0);
+  if (c.up) { const X = _fk2.crossVectors(U, Z); UD.m.makeBasis(X, U, Z); } else { const Y = _fk2.crossVectors(Z, U); UD.m.makeBasis(U, Y, Z); } c.q.setFromRotationMatrix(UD.m); }
+function udFall(c, dt) {   // gravity onto whatever is under it (supRest), then it lies there
+  if (c.st) return; c.v.y -= 9.81 * dt; c.p.x += c.v.x * dt; c.p.y += c.v.y * dt; c.p.z += c.v.z * dt; c.ft += dt;
+  if (supLost(c.p, c.ft)) { supHome(c.p); c.p.y += c.hy; c.v.set(0, 0, 0); c.supX = undefined; }
+  const gy = supRest(c, c.p.x, c.p.z, c.p.y - c.hy, true) + c.hy; if (c.p.y <= gy) { c.p.y = gy; c.v.set(0, 0, 0); c.st = 1; udLie(c); sfx('thud', c.p); } }
+function udAway(c, dt) {   // walked off from it, or left it behind out of sight: back to its holder
+  const dx = c.p.x - UD.cp.x, dy = c.p.y - UD.cp.y, dz = c.p.z - UD.cp.z, d2 = dx * dx + dy * dy + dz * dz;
+  if (d2 > UD.FAR * UD.FAR) return true; if (mode !== 'foot') return false; if (d2 < UD.NEAR * UD.NEAR) { c.t = 0; return false; }   // (in the Cub: only once you are away from it)
+  const d = Math.sqrt(d2), dot = (dx * UD.cf.x + dy * UD.cf.y + dz * UD.cf.z) / d; if (dot > UD.SEEN) { c.t = 0; return false; } c.t += dt; return c.t > UD.T; }
+function udHandV(g) { const i = grips.indexOf(g); return i >= 0 ? PK.hv[i] : null; }
+// ---- the rod: dropped (FISH.rod 'ground'), picked up again by its handle, back on the pack when you walk off
+function udRodHolder(p) {   // let go at the pack's rod slot (or the old hip-tube spot with the pack on): straight in
+  if (PK.mesh.visible && typeof PKX_ROD !== 'undefined') { const v = pkLocal(p), R = PKX_ROD, dx = -Math.sin(R.rz), dy = Math.cos(R.rz), t = clamp((v.x - R.p[0]) * dx + (v.y - R.p[1]) * dy, 0, R.len), ex = v.x - R.p[0] - dx * t, ey = v.y - R.p[1] - dy * t, ez = v.z - R.p[2]; if (ex * ex + ey * ey + ez * ez < 0.04) return true; }
+  return PK.st === 'worn' && p.distanceTo(fWorn(F_ROD_OFF, UD.b)) < 0.2; }
+function fDrop(g) {
+  g.getWorldPosition(UD.a); if (!UD.on || mode !== 'foot' || udRodHolder(UD.a)) { fStow(FISH.st === 'idle' ? '' : 'ROD BACK ON YOUR PACK - LINE REELED IN'); return; }
+  if (FISH.st === 'fight' && FISH.fish) fLose('YOU LET GO OF THE ROD - THE FISH THREW THE HOOK', false); if (FISH.st === 'landed' && FISH.fish) fKeepOrRelease();
+  fBackToTip(); FISH.st = 'idle'; FISH.bail = false; FISH.pinch = false; FISH.charging = false; FISH.fish = null; FISH.ready = false; FISH.T = 0; FISH.crankG = null; FISH.crankA = null;
+  udStart(UD.rod, FROD.f, udHandV(g)); FISH.rod = 'ground'; FISH.hand = null; FLINE.l.visible = false; for (const k in FLM) FLM[k].visible = false; for (const k in FMESH) FMESH[k].visible = false; HX.pulse(g, 0.15, 12, 'release'); }
+function fRodGround(dt) { const c = UD.rod; udFall(c, dt); FROD.f.position.copy(c.p); FROD.f.quaternion.copy(c.q); FROD.f.updateMatrixWorld(true); fRodDraw(FISH.rig || (FISH.rig = fRig())); FROD.m.visible = FREEL.m.visible = true; FLINE.l.visible = false; }
+function udNearRod(p) {   // a hand on the lying rod: within 9 cm of its blank, from the butt to 0.6 m up
+  const e = FROD.f.matrixWorld.elements, ox = e[12], oy = e[13], oz = e[14], ax = -e[8], ay = -e[9], az = -e[10], px = p.x - ox, py = p.y - oy, pz = p.z - oz; let t = px * ax + py * ay + pz * az; t = t < -0.32 ? -0.32 : t > 0.6 ? 0.6 : t;
+  const qx = px - ax * t, qy = py - ay * t, qz = pz - az * t; return qx * qx + qy * qy + qz * qz < 0.0081; }
+function fPickUp(g) { UD.rod.on = false; FISH.rod = 'vr'; FISH.hand = g; FISH.st = 'idle'; FISH.bail = false; FISH.pinch = false; FISH.rig = fRig(); FRD.ang = 0.55; FISH.T = 0; fRodFrame(0, true); fRodDraw(FISH.rig); fLineReset(0.45); sfx('pick'); HX.pulse(g, 0.4, 20, 'rod'); }
+// ---- every frame (from fishTick): falls, and the walk-away returns
+function udTick(dt) {
+  { const e = camera.matrixWorld.elements; const P = UD.cp, F = UD.cf; P.x = e[12]; P.y = e[13]; P.z = e[14]; const fx = -e[8], fy = -e[9], fz = -e[10], fl = Math.sqrt(fx * fx + fy * fy + fz * fz) || 1; F.x = fx / fl; F.y = fy / fl; F.z = fz / fl; }   // (read, not updated: no matrix refresh mid-frame)
+  if (UD.rod.on && FISH.rod !== 'ground') UD.rod.on = false;
+  if (FISH.rod === 'ground' && udAway(UD.rod, dt)) { fStow(''); UD.rod.on = false; if (mode === 'foot') say('FISHING ROD BACK ON YOUR PACK'); }
+  const N = UD.net; if (N.on) { if (FISH.netG || !fHas('net')) N.on = false; else { udFall(N, dt); if (udAway(N, dt)) { N.on = false; FNET.m.visible = false; if (mode === 'foot') say('LANDING NET BACK ON YOUR BELT'); } } }
+  const B = UD.bino; if (B.on) { if (BINO.place !== 'ground') B.on = false; else { udFall(B, dt); BINO.m.position.copy(B.p); BINO.m.quaternion.copy(B.q); if (udAway(B, dt)) { B.on = false; binoPut(mode === 'plane' ? 'cub' : 'hip'); if (mode === 'foot') say('BINOCULARS BACK IN THEIR CASE'); } } }
+  else if (BINO.place === 'ground') binoPut(mode === 'plane' ? 'cub' : 'hip');
+  const F = UD.rfl; if (RFL.place === 'ground' && RFL.g && RFL.gp) { if (F.on && !F.st) { F.v.y -= 9.81 * dt; F.y0 += F.v.y * dt; if (F.y0 <= RFL.gp[1]) { F.y0 = RFL.gp[1]; F.st = 1; sfx('thud', RFL.g.position); } RFL.g.position.y = F.y0; }
+    { const fp = F.p, gp = RFL.gp; fp.x = gp[0]; fp.y = gp[1]; fp.z = gp[2]; } if (udAway(F, dt)) { F.on = false; rflPut(mode === 'foot' ? 'back' : 'cub'); if (mode === 'foot') say('RIFLE BACK ON YOUR SHOULDER'); saveSoon(); } } else F.on = false;
+  // pack-item tools lying about
+  const G = PK.gnd; if (G.length !== UD.pkN) { UD.pkN = G.length; UD.pk.fill(0); }
+  for (let j = G.length - 1; j >= 0; j--) { const e = G[j], k = e[0]; if (UD.K[k] !== 1 || j >= 256) continue; const c = UD.rfl, cp = c.p; cp.x = e[1]; cp.y = e[2]; cp.z = e[3]; c.t = UD.pk[j]; const away = udAway(c, dt); UD.pk[j] = c.t; if (!away) continue;
+    let s = -1; for (let q = 3; q >= 0; q--) if (!RIG.k[q] && SL_D[q][3](k)) { s = q; break; }
+    if (s >= 0) { G.splice(j, 1); RIG.k[s] = k; slWrite(); pkWeigh(); } else if (pkPut(k, true)) G.splice(j, 1); else continue;
+    UD.pkN = G.length; UD.pk.fill(0); pkGround(); saveSoon(); if (mode === 'foot') say(PK_K[k][0] + ' BACK ' + (s >= 0 ? 'IN YOUR ' + SL_D[s][4] : 'IN YOUR PACK')); }
+}
 function fishTick(dt, vrOn) {
-  FISH.dtF = dt; camera.getWorldPosition(_fT); fShopHint(_fT, vrOn); fWornTick(vrOn); fClockTick(dt); fOrderTick(); fDeckTick(); fNetTick(dt, vrOn); fWaterFx(dt);
+  udTick(dt); hsTick(dt); FISH.dtF = dt; camera.getWorldPosition(_fT); fShopHint(_fT, vrOn); fWornTick(vrOn); fClockTick(dt); fOrderTick(); fDeckTick(); fNetTick(dt, vrOn); fWaterFx(dt);
   if (FISH.rod === 'pack') { FROD.m.visible = FREEL.m.visible = FLINE.l.visible = false; return; }
   if (mode !== 'foot') { fishBoard(); return; }
+  if (FISH.rod === 'ground') { fRodGround(dt); return; }   // v1.14.0 lying where you dropped it
   if (FISH.rod === 'vr' && !FISH.hand?.userData.src) { fStow(''); return; }
   const r = FISH.rig || (FISH.rig = fRig()); fRodFrame(dt, vrOn); fRodDraw(r);
   if (dt > 0) { FISH.tipV.lerp(_fk2.subVectors(FISH.tip, FISH.tipP || FISH.tip).multiplyScalar(1 / dt), 0.6); } FISH.tipP = (FISH.tipP || GV3(0, 0, 0)).copy(FISH.tip);
@@ -8721,18 +8794,19 @@ function fishTick(dt, vrOn) {
   fLureStep(dt); if (typeof fFishStep === 'function') fFishStep(dt);
   fLineStep(dt); fLureDraw(dt); if (typeof fFishDraw === 'function') fFishDraw(); FROD.m.visible = FREEL.m.visible = FLINE.l.visible = true; }
 function fWornTick(vrOn) { const W = FWORN, on = vrOn && mode === 'foot';
-  W.tube.visible = on && (fHas('rodL') || fHas('rodH')); W.net.visible = on && fHas('net') && FISH.netG === null; W.creel.visible = on && fHas('creel');
+  W.tube.visible = on && (fHas('rodL') || fHas('rodH')); W.net.visible = on && fHas('net') && FISH.netG === null && !UD.net.on; W.creel.visible = on && fHas('creel');
   if (W.tube.visible) { fWorn(F_ROD_OFF, W.tube.position); W.tube.rotation.set(0, headYaw(), 0.18); }
   if (W.net.visible) { fWorn(F_NET_OFF, W.net.position); W.net.rotation.set(0.3, headYaw(), -0.2); }
   if (W.creel.visible) { fWorn(F_CREEL_OFF, W.creel.position); W.creel.rotation.set(0, headYaw() + Math.PI / 2, 0); } }
 // ---- hands, keys, mouse ----
 function fishGrab(g, p) { if (mode !== 'foot') return false;
+  if (FISH.rod === 'ground' && udNearRod(p)) { fPickUp(g); return true; }   // v1.14.0 the dropped rod
   if (fScaleGrab(g, p) || fShopGrab(g, p)) return true;
   if (FISH.rod === 'vr' && g !== FISH.hand) { if (p.distanceTo(fKnob(_fk1)) < 0.12 || p.distanceTo(FREEL.m.getWorldPosition(_fk2)) < 0.1) { FISH.crankG = g; FISH.crankA = null; HX.pulse(g, 0.2, 10, 'crank'); return true; } }
   if (typeof fNetGrab === 'function' && fNetGrab(g, p)) return true;
   if (FISH.rod === 'pack' && (fHas('rodL') || fHas('rodH')) && p.distanceTo(fWorn(F_ROD_OFF, _fk1)) < 0.15) return fTake(g) || true;
   return false; }
-function fishRelease(g) { if (FISH.crankG === g) { FISH.crankG = null; FISH.crankA = null; } if (FISH.rod === 'vr' && FISH.hand === g) fStow(FISH.st === 'idle' ? '' : 'ROD BACK IN ITS TUBE - LINE REELED IN'); if (typeof fNetRelease === 'function') fNetRelease(g); }
+function fishRelease(g) { if (FISH.crankG === g) { FISH.crankG = null; FISH.crankA = null; } if (FISH.rod === 'vr' && FISH.hand === g) fDrop(g); if (typeof fNetRelease === 'function') fNetRelease(g); }
 function fishHold(g) { return (FISH.rod === 'vr' && FISH.hand === g) || FISH.crankG === g || FISH.netG === g; }
 function fishKey(e) { if (mode !== 'foot') return false;
   if (e.code === 'KeyT' && FISH.rod === 'desk') { fStow(''); return false; }   // the rifle instead: the rod goes away first
@@ -8857,6 +8931,7 @@ function fLose(why, lure) { const r = FISH.rig, f = FISH.fish; FISH.fish = null;
   if (lure) { FISH.lures[r.id] = Math.max(0, (FISH.lures[r.id] || 0) - 1); FISH.L = 0.45; fBackToTip(); sfx('pop'); say(why + ' - LURE GONE (' + (FISH.lures[r.id] || 0) + ' LEFT)'); }
   else { FISH.st = 'water'; FISH.plop = 3; say(why); } void f; }
 // ---- the fight ----
+const FTW = { RUN: 0.25, MINL: 0.5, LIFTL: 2.0, TIPL: 1.0, SNAGK: 1, FREE: 0.6, w: new Float64Array(2) };   /* w: [line towed in (m), tow slack grace (s)] (typed: no per-frame boxes) */   // v1.14.0 the drag slips only while the fish swims away faster than RUN m/s; reel down to MINL m; lifts out of the water inside LIFTL m; grab-able inside TIPL m of the tip
 function fFightStep(dt) {
   const f = FISH.fish, sp = FSP[f.sp], r = FISH.rig, lu = FISH.lure, surf = FISH.surf, depth = FISH.depth; f.t += dt;
   camera.getWorldPosition(_fA); _fB.set(lu.x - _fA.x, 0, lu.z - _fA.z); const away = _fB.length(); if (away > 1e-3) _fB.multiplyScalar(1 / away);
@@ -8875,17 +8950,21 @@ function fFightStep(dt) {
     _fk1.subVectors(FISH.tip, lu); const D = _fk1.length(), dir = D > 1e-4 ? _fk1.multiplyScalar(1 / D) : _fk1.set(0, 1, 0);
     const sinA = Math.sqrt(Math.max(0, 1 - Math.pow(dir.dot(FRD.A), 2))), kr = r.R.full / (0.42 * r.R.len) / Math.max(0.15, sinA), kl = r.rate / (0.22 * Math.max(3, FISH.L)), k = 1 / (1 / kl + 1 / kr);
     let st = D - FISH.L; T = st > 0 ? st * k : 0;
-    if (T > r.drag) { const dl = st - r.drag / k; FISH.L += dl; FISH.slip = (FISH.slip || 0) + dl; T = r.drag; }   // the drag gives line
-    const air = f.jumpT > 0; f.jumpT = Math.max(0, f.jumpT - h);
+    if (T > r.drag) { const dl = st - r.drag / k, vo = f.v.x * dir.x + f.v.y * dir.y + f.v.z * dir.z;
+      if (lu.y < surf && vo < -FTW.RUN) { FISH.L += dl; FISH.slip = (FISH.slip || 0) + dl; }   // the fish runs: the drag gives line
+      else { lu.x += dir.x * dl; lu.y += dir.y * dl; lu.z += dir.z * dl; if (vo < 0) { f.v.x -= vo * dir.x; f.v.y -= vo * dir.y; f.v.z -= vo * dir.z; } FTW.w[0] += dl; FTW.w[1] = 1.5; }   // v1.14.0 you pull (or it hangs): the line holds its length, the fish comes with it
+      T = r.drag; }
+    const air = f.jumpT > 0 || lu.y > surf + 0.03; f.jumpT = Math.max(0, f.jumpT - h);   // v1.14.0 lifted out (hanging off the tip): no swimming, no water drag
     const ax = (fx * (air ? 0 : 1) + T * dir.x - cw * f.v.x * (air ? 0.05 : 1)) / m, az = (fz * (air ? 0 : 1) + T * dir.z - cw * f.v.z * (air ? 0.05 : 1)) / m;
     const ay = air || lu.y > surf ? -9.81 + T * dir.y / m : (T * dir.y + (want - lu.y) * f.kg * 6 - cw * 1.5 * f.v.y) / m;
     f.v.x += ax * h; f.v.y += ay * h; f.v.z += az * h; lu.addScaledVector(f.v, h);
     if (!air && !FISH.beached && lu.y < surf - depth + 0.08) { lu.y = surf - depth + 0.08; f.v.y = Math.max(0, f.v.y); }
-    if (!air && lu.y > surf && f.v.y > 0 && f.jumpT <= 0) { lu.y = Math.min(lu.y, surf); if (f.v.y > 0) f.v.y *= 0.3; }
+    if (!air && lu.y > surf && f.v.y > 0 && f.jumpT <= 0 && !(tired || FISH.L < FTW.LIFTL)) { lu.y = Math.min(lu.y, surf); if (f.v.y > 0) f.v.y *= 0.3; }   // (played out, or wound in close: the line lifts it out)
     if (f.jumpT <= 0 && lu.y < surf && f.out) { f.out = 0; } }
   if (lu.y > surf + 0.1 && !f.out) { f.out = 1; }
   FISH.beached = false; const dh = fDepRaw(lu.x, lu.z); let atBank = false;   // v1.10 the banks (its own swimming keeps to fMinDep: the steer above)
-  if (tired && away < 7 && dh < 0.3) { if (dh < 0) { lu.y = groundY(lu.x, lu.z) + 0.04; f.v.set(0, 0, 0); FISH.beached = true; } }   // played out and led up the shallows at your feet: it lies there (landing)
+  if (lu.y > surf + 0.1) { f.gx = lu.x; f.gz = lu.z; }   // v1.14.0 hanging off the rod tip: no bank
+  else if (tired && away < 7 && dh < 0.3) { if (dh < 0) { lu.y = groundY(lu.x, lu.z) + 0.04; f.v.set(0, 0, 0); FISH.beached = true; } }   // played out and led up the shallows at your feet: it lies there (landing)
   else if (dh < 0.12) { atBank = true;   // never into the bank (your pull may lead it into the shallows, never ashore): no speed into it, back out to 12 cm of water, sliding along it
     if (!fGrad(lu.x, lu.z, _fG)) { _fG.set((f.gx ?? lu.x) - lu.x, 0, (f.gz ?? lu.z) - lu.z); const l = Math.hypot(_fG.x, _fG.z); if (l > 1e-4) _fG.multiplyScalar(1 / l); }
     const vin = f.v.x * _fG.x + f.v.z * _fG.z; if (vin < 0) { f.v.x -= vin * _fG.x; f.v.z -= vin * _fG.z; }
@@ -8899,16 +8978,16 @@ function fFightStep(dt) {
       if (f.frees >= 4) { fLose('IT WRAPPED THE LINE ROUND THE BANK AND SLIPPED THE HOOK', false); return; }
       if (fGrad(lu.x, lu.z, _fG)) { lu.x += _fG.x * 1.4; lu.z += _fG.z * 1.4; } f.v.set(0, 0, 0); f.ph = 0; f.phT = 2; sfx('splash', lu); say(f.frees === 1 ? 'IT CAME OFF THE BANK - KEEP IT COMING, ROD TIP OUT OVER THE WATER' : 'IT\'S HUGGING THE BANK - WALK ALONG TO GET A BETTER ANGLE'); } }
   if (atBank) f.bk = true;
-  if (FISH.L < 1.2) FISH.L = 1.2;
+  if (FISH.L < FTW.MINL) FISH.L = FTW.MINL;   // v1.14.0 wind it right up to the tip (was 1.2 m)
   if (FISH.L > 100) { fLose('SPOOLED - IT TOOK ALL 100 M OF LINE', true); return; }   // the fish stops at the rod tip-top
   FISH.T = T; FISH.dep = Math.max(0, surf - lu.y); FISH.spd = f.v.length();
   f.stam = Math.max(0, f.stam - dt * (0.006 + 0.022 * T / (f.kg * 9.81)) * sp.tire * (f.ph === 1 ? 1.6 : 1));
   // break, pull out, bite off
   if (T > r.rate * 0.995) { f.over += dt; if (f.over > 0.25) { fLose('SNAP! THE ' + r.lb + ' LB LINE BROKE (' + T.toFixed(0) + ' N) - LOOSEN THE DRAG (-) OR GIVE IT LINE', true); return; } } else f.over = Math.max(0, f.over - dt * 2);
-  if (T < 0.3) { f.slackT += dt; if (f.slackT > (f.jumpT > 0 || f.out ? 0.6 : 1.2) && Math.random() < dt * 2) { fLose('SLACK LINE - THE HOOK PULLED OUT', false); return; } } else f.slackT = Math.max(0, f.slackT - dt * 3);
+  FTW.w[1] = FTW.w[1] > 0 ? FTW.w[1] - dt : 0; if (T < 0.3 && FTW.w[1] <= 0) { f.slackT += dt; if (f.slackT > (f.jumpT > 0 || f.out ? 0.6 : 1.2) && Math.random() < dt * 2) { fLose('SLACK LINE - THE HOOK PULLED OUT', false); return; } } else f.slackT = Math.max(0, f.slackT - dt * 3);
   if (f.sp === 'pike' && r.lb < 14 && f.ph === 3 && Math.random() < dt * 0.05) { fLose('THE PIKE BIT THROUGH THE ' + r.lb + ' LB LINE (TEETH: USE 14 LB)', true); return; }
-  FISH.ready = tired && (FISH.beached ? away < 8 : away < 3.2 && lu.y > surf - 0.3);
-  if (tired && !f.saidT) { f.saidT = 1; say((FISH.fish.kg > 3 || fHas('net') ? 'IT\'S ON ITS SIDE - BRING IT IN AND NET IT' : 'IT\'S ON ITS SIDE - BRING IT IN, GRAB IT') + ' (' + FSP[f.sp].nm + ')'); }
+  FISH.ready = (tired && (FISH.beached ? away < 8 : away < 3.2 && lu.y > surf - 0.3)) || (FISH.L <= FTW.TIPL && lu.distanceTo(FISH.tip) < FISH.L + 0.3);   // v1.14.0 or wound in to the tip
+  if (tired && !f.saidT) { f.saidT = 1; say((fHas('net') ? 'IT\'S ON ITS SIDE - NET IT, OR WIND IT UP TO THE TIP AND GRAB IT' : 'IT\'S ON ITS SIDE - WIND IT UP TO THE TIP AND GRAB IT') + ' (' + FSP[f.sp].nm + ')'); }
   // haptics + the drag's clicks
   if ((FISH.hzT = (FISH.hzT || 0) - dt) <= 0) { FISH.hzT = 0.08; if (FISH.hand) HX.pulse(FISH.hand, 0.1 + 0.5 * Math.min(1, T / r.rate), 30, 'fight'); }
   if (FISH.slip > 0.04) { FISH.slip = 0; sfx('tick'); if (FISH.crankG) HX.pulse(FISH.crankG, 0.15, 8, 'drag'); }
@@ -9006,8 +9085,11 @@ function fZoneK(id, bd, wk) { if (wk !== 'lake') return 1; return id === 'laker'
 function fSnagK() { const lu = FISH.lure; if (fRiver(lu.x, lu.z)) return 1; const d = FISH.depth; return d > 1.3 && d < 4.5 ? 0.9 : 0.25; }   // river beds + the lakes' gravel slope are stony
 function fSnagTick(dt, r, d) {   // called from the lure step while snagged: the lure stays put; reeling only loads the rod; a sharp lift may free it; reel on and it breaks
   const S = FISH.snag, lu = FISH.lure; lu.set(S.x, S.y, S.z); S.cd = Math.max(0, S.cd - dt);
-  const kr = r.R.full / (0.42 * r.R.len), kl = r.rate / (0.22 * Math.max(3, FISH.L)), k = 1 / (1 / kl + 1 / kr), st = d - FISH.L; let T = st > 0 ? st * k : 0; if (T > r.drag) { FISH.L = d - r.drag / k; T = r.drag; }   // the rod + line as one spring (as in a fight)
-  T = FISH.T + (T - FISH.T) * Math.min(1, dt * 8); FISH.T = T; FISH.spd = 0; if (T >= Math.min(r.drag, r.rate) * 0.85) S.load += dt; else S.load = Math.max(0, S.load - dt * 0.5);
+  const kr = r.R.full / (0.42 * r.R.len), kl = r.rate / (0.22 * Math.max(3, FISH.L)), k = 1 / (1 / kl + 1 / kr), st = d - FISH.L; let T = st > 0 ? st * k : 0;   // the rod + line as one spring (as in a fight)
+  if (T > r.drag) { const dl = (st - r.drag / k) * FTW.SNAGK, tx = FISH.tip.x - S.x, tz = FISH.tip.z - S.z, hl = Math.sqrt(tx * tx + tz * tz);   // v1.14.0 past the drag the hook drags along the bottom toward the tip (was: line paid out for ever)
+    if (hl > 0.05) { const nx = S.x + tx / hl * dl, nz = S.z + tz / hl * dl, sw = fWaterAt(nx, nz); if (sw !== null) { S.x = nx; S.z = nz; S.y = Math.min(sw - 0.03, sw - fDepthAt(nx, nz, sw) + 0.04); lu.set(S.x, S.y, S.z); } } S.drag = (S.drag || 0) + dl; S.mv = 0.4;   /* (up the bank: it still works loose) */
+    T = r.drag; if ((S.drag || 0) > FTW.FREE) { FISH.snag = null; FISH.T = 0; lu.y += 0.15; sfx('tick'); say('DRAGGED IT OFF THE SNAG - THE LURE IS FREE'); FISH.stat.unsnag = (FISH.stat.unsnag || 0) + 1; return; } }
+  T = FISH.T + (T - FISH.T) * Math.min(1, dt * 8); FISH.T = T; FISH.spd = 0; if (T >= Math.min(r.drag, r.rate) * 0.85 && !(S.mv > 0)) S.load += dt; else S.load = Math.max(0, S.load - dt * 0.5); S.mv = S.mv > 0 ? S.mv - dt : 0;
   const lift = FISH.rod === 'vr' ? fLiftVR() : FISH.lift > 0.9;
   if (lift && S.cd <= 0) { S.cd = 0.7; S.tries++; FISH.lift = 0; if (Math.random() < (FISH.snagFree ?? 0.4)) { FISH.snag = null; lu.y += 0.25; FISH.T = 0; sfx('tick'); say('FREED IT - THE LURE CAME OFF THE BOTTOM'); FISH.stat.unsnag = (FISH.stat.unsnag || 0) + 1; return; } else { sfx('tick'); if (FISH.hand) HX.pulse(FISH.hand, 0.5, 30, 'snag'); } }
   if (S.load > 3 || T > r.rate * 0.99) { FISH.snag = null; FISH.stat.snagLost = (FISH.stat.snagLost || 0) + 1; FISH.lures[r.id] = Math.max(0, (FISH.lures[r.id] || 0) - 1); FISH.L = 0.45; fBackToTip(); sfx('pop');
@@ -9031,14 +9113,15 @@ const FNET = { m: null };
 FISH.netG = null; FISH.held = null; FISH.landP = GV3(0, 0, 0); FISH.landQ = new THREE.Quaternion(); FISH.clock = 0; FISH.hPrev = null; FISH.eatT = 0;
 function fHoop(out) { return FNET.m.localToWorld(out.set(0, -0.06, -0.18)); }
 function fNetGrab(g, p) {
+  if (UD.net.on && FISH.netG === null) { FNET.m.updateMatrixWorld(true); const v = FNET.m.worldToLocal(UD.a.copy(p)); if (v.z > -0.05 && v.z < 0.6 && v.x * v.x + v.y * v.y < 0.0064) { UD.net.on = false; FISH.netG = g; sfx('pick'); HX.pulse(g, 0.3, 15, 'net'); return true; } }   // v1.14.0 the dropped net, by its handle
   if (FISH.st === 'landed' && FISH.held === null && FISH.netG === null && FISH.landP.distanceTo(p) < 0.25) { FISH.held = g; sfx('flesh'); HX.pulse(g, 0.4, 25, 'fish'); return true; }   // take a landed fish out of the net / off the ground
   if (fHas('net') && FISH.netG === null && p.distanceTo(fWorn(F_NET_OFF, _fk1)) < 0.15) { FISH.netG = g; sfx('pick'); HX.pulse(g, 0.3, 15, 'net'); return true; }
   if (FISH.st === 'fight' && FISH.ready && g !== FISH.hand && FISH.netG === null && p.distanceTo(FISH.lure) < 0.3) {   // no net: lip it
-    if (FISH.fish.kg > 3 && !FISH.beached) { say('TOO BIG TO LIFT BY HAND (' + FISH.fish.kg.toFixed(1) + ' KG) - NET IT'); HX.pulse(g, 0.2, 10, 'ui'); return true; } fLanded('hand', g); return true; }
+    fLanded('hand', g); return true; }   // v1.14.0 any size by hand (the net is optional)
   return false; }
-function fNetRelease(g) { if (FISH.netG === g) { FISH.netG = null; if (FISH.st === 'landed' && FISH.held === null) fRelease('LET THE NET GO - THE FISH SLIPPED BACK IN'); }
+function fNetRelease(g) { if (FISH.netG === g) { FISH.netG = null; if (UD.on && mode === 'foot' && FNET.m.visible) { g.getWorldPosition(UD.a); if (UD.a.distanceTo(fWorn(F_NET_OFF, UD.b)) > 0.25) { udStart(UD.net, FNET.m, udHandV(g)); HX.pulse(g, 0.15, 12, 'release'); } }   /* v1.14.0 dropped (at the belt: hung back on it) */ if (FISH.st === 'landed' && FISH.held === null) fRelease('LET THE NET GO - THE FISH SLIPPED BACK IN'); }
   if (FISH.held === g) { FISH.held = null; if (h2Lay(g)) return; if (FISH.st === 'landed') { if (FISH.landHow === 'hand' || FISH.netG === null) fKeepOrRelease(); } } }
-function fNetTick(dt, vrOn) { const m = FNET.m; m.visible = false;
+function fNetTick(dt, vrOn) { const m = FNET.m; m.visible = false; if (UD.net.on && !FISH.netG) { m.position.copy(UD.net.p); m.quaternion.copy(UD.net.q); m.visible = true; }
   if (FISH.netG && FISH.netG.userData.src) { const g = FISH.netG; g.updateWorldMatrix(true, false); _fkM.multiplyMatrices(g.matrixWorld, HOFF); _fkM.decompose(m.position, m.quaternion, _fk3); m.translateZ(-0.38); m.visible = true;
     if (FISH.st === 'fight' && FISH.ready && fHoop(_fk1).distanceTo(FISH.lure) < 0.4) fLanded('net', g); }
   else if (FISH.netG) FISH.netG = null;
@@ -9120,7 +9203,7 @@ function fDeckTick() { if (!FISH.deck) return; if (mode !== 'foot') { FISH.deck 
   if (cx !== l.x || cz !== l.z) { const w = plane.localToWorld(_fk3.set(cx, l.y, cz)); footRig.position.x += w.x - _fk1.x; footRig.position.z += w.z - _fk1.z; } }
 // ---- desktop keys ----
 function fDeskE() { if (FISH.st === 'landed') { fKeepOrRelease(); return true; }
-  if (FISH.st === 'fight' && FISH.ready) { const big = FISH.fish.kg > 3 && !FISH.beached; if (big && !fHas('net')) { say('TOO BIG TO LIFT BY HAND (' + FISH.fish.kg.toFixed(1) + ' KG) - YOU NEED A NET'); return true; } fLanded(FISH.beached ? 'beach' : fHas('net') ? 'net' : 'hand', null); return true; }
+  if (FISH.st === 'fight' && FISH.ready) { fLanded(FISH.beached ? 'beach' : fHas('net') ? 'net' : 'hand', null); return true; }
   if (FISH.st === 'fight') { say('NOT READY - TIRE IT OUT FIRST (' + FSP[FISH.fish.sp].nm + ')'); return true; }
   camera.getWorldPosition(_fk1); for (const S of FISH.shop) if (S.scale && _fk1.distanceTo(S.scale) < 1.6) { camera.getWorldDirection(_fk2); _fk3.subVectors(S.scale, _fk1).normalize(); if (_fk3.dot(_fk2) > 0.9) return fSell(S); }
   return false; }
@@ -11570,13 +11653,18 @@ function wxMist(k) {   // grow / shrink the patches with the mist amount (only w
   if (!MIST.im.visible || Math.abs(k - WX.mistK) < 0.02) return; WX.mistK = k; const f = 0.5 + 0.5 * k; MIST.im.material.opacity = 0.45 * k;
   MIST.L.forEach((c, i) => { _m4.compose(_v.set(c.x, c.y, c.z), _q.setFromAxisAngle(_up, c.ry), _s.set(c.sx * f, c.sy * f, c.sz * f)); MIST.im.setMatrixAt(i, _m4); }); MIST.im.instanceMatrix.needsUpdate = true;
 }
+const WXN = { COV: 1 / 0.45, SKY: 0.18, HEMI: 0.8, MOON: 0.9, STARS: 1.25, MOONV: 0.97, CLD: 0.7, STORM_P: 0.09 };   // v1.14.0 overcast nights: how far full cover cuts each (x night); a storm's chance at any weather change
+let _wxR = (Date.now() ^ 0x5bd1e995) >>> 0 || 1; function wxRnd() { _wxR ^= _wxR << 13; _wxR >>>= 0; _wxR ^= _wxR >>> 17; _wxR ^= _wxR << 5; _wxR >>>= 0; return _wxR / 4294967296; }   // its own stream: Math.random's sequence (seeded tests, replays) is unchanged
 function wxTick(dt) {   // after updateDay (it sets the clear-sky colours and lights every frame), before gfxTick (fog distance)
   if (!WX.forced && (WX.t -= dt) <= 0) wxSet(WX.nx);
   const T = WX_S[WX.s], a = 1 - Math.exp(-dt / WX_TAU); for (let i = 0; i < WX_K.length; i++) { const k = WX_K[i]; WX.P[k] += (T[k] - WX.P[k]) * a; }   // v1.11.8 indexed loops: no iterator objects per frame
   const on = GFX.wx > 0; for (let i = 0; i < WX_K.length; i++) { const k = WX_K[i]; WX.E[k] = on ? WX.P[k] : (k === 'vis' ? 1 : 0); }
   const E = WX.E; frTick(dt, on && (!WX.forced || FR.force)); WX.vis = E.vis;   // v0.79 the rain fronts add their rain where they are
-  if (E.grey > 0.002) { _wxc.copy(WX_GREY).multiplyScalar(0.2 + 0.8 * Math.max(TOD.day, 0.3 * (1 - TOD.night))); scene.background.lerp(_wxc, E.grey); scene.fog.color.copy(scene.background); SKYD.z.lerp(_wxc, E.grey); SKYD.k *= 1 - E.grey; }
-  if (E.dim > 0.002) { hemi.intensity *= 1 - E.dim * 0.7; sun.intensity *= 1 - E.dim; CLOUDS.im.material.color.multiplyScalar(1 - 0.35 * E.grey); CLOUDS.im.material.emissive.multiplyScalar(1 - 0.3 * E.grey); }
+  if (E.grey > 0.002) { _wxc.copy(WX_GREY).multiplyScalar(0.2 - WXN.SKY * TOD.night + 0.8 * Math.max(TOD.day, 0.3 * (1 - TOD.night)));   /* v1.14.0 an overcast night sky is near black, not a grey glow */ scene.background.lerp(_wxc, E.grey); scene.fog.color.copy(scene.background); SKYD.z.lerp(_wxc, E.grey); SKYD.k *= 1 - E.grey; }
+  { const cv = E.grey * WXN.COV, oc = cv > 1 ? 1 : cv, n = TOD.night, cn = oc > 0.002 && n > 0.002 ? oc * n : 0, dm = E.dim > 0.002 ? E.dim : 0;   /* v1.14.0 cloud cover 0..1 at night cuts sky light / moonlight / cloud glow, folded into the dim factors: one store per light, no per-frame garbage */
+    if (dm > 0 || cn > 0) { const kc = 1 - WXN.CLD * cn; hemi.intensity *= (1 - dm * 0.7) * (1 - WXN.HEMI * cn); sun.intensity *= (1 - dm) * (sunDir.y <= 0 ? 1 - WXN.MOON * cn : 1);
+      CLOUDS.im.material.color.multiplyScalar((dm > 0 ? 1 - 0.35 * E.grey : 1) * kc); CLOUDS.im.material.emissive.multiplyScalar((dm > 0 ? 1 - 0.3 * E.grey : 1) * kc); }
+    if (cn > 0 && stars.visible) { const so = 1 - WXN.STARS * oc; stars.material.opacity *= so > 0 ? so : 0; moon.material.opacity *= 1 - WXN.MOONV * oc; } }
   CLOUDS.st.dy = E.low; wxMist(E.mist);
   RAIN.visible = E.rain > 0.03;
   if (RAIN.visible) { const u = RAIN.material.uniforms; WX.rainT += dt; u.uT.value = WX.rainT % 1000; camera.getWorldPosition(u.uC.value); u.uO.value = E.rain; u.uL.value = 0.3 + 0.7 * TOD.day; }
@@ -11699,7 +11787,7 @@ function setpDraw() {
   else if (T === 'comfort') { setpBtn(x, 30, 300, 440, 64, 'RECENTRE + SET HEIGHT', SETP.lit === 'recentre');
     x.font = '15px Georgia, serif'; x.fillStyle = '#6a5638'; ['Stand or sit the way you will play, look ahead, then poke:', 'your view and eye height reset to the seat / your feet. (A or X too.)'].forEach((l, i) => x.fillText(l, 30, 392 + i * 22)); }
   else if (T === 'controls') { x.fillStyle = '#2e2418'; x.font = 'bold 20px Georgia, serif'; x.fillText('QUEST CONTROLLERS', 527, 96); x.font = '16px monospace'; x.fillStyle = '#3a2e20'; MENU_HELP.forEach((l, i) => x.fillText(l, 527, 128 + i * 30, 470));
-    x.font = '15px Georgia, serif'; x.fillStyle = '#6a5638'; ['Dominant hand: the watch and its MENU button go on', 'the other wrist; your dominant finger pokes them.'].forEach((l, i) => x.fillText(l, 30, 220 + i * 22)); }
+    x.font = '15px Georgia, serif'; x.fillStyle = '#6a5638'; ['Dominant hand: the watch and its MENU button go on', 'the other wrist; your dominant finger pokes them.'].forEach((l, i) => x.fillText(l, 30, 220 + i * 22)); hxtDraw(x); }
   else if (T === 'audio') { x.font = '15px Georgia, serif'; x.fillStyle = '#6a5638'; x.fillText('Master scales the other three.', 30, 300); }
   else if (T === 'resume') { setpBtn(x, 262, 200, 500, 120, 'RESUME', SETP.lit === 'close'); x.font = '17px Georgia, serif'; x.fillStyle = '#6a5638'; x.textAlign = 'center'; x.fillText('Back to the game. The tabs above hold saves and settings (all kept in this browser).', 512, 380); x.textAlign = 'left'; }
   setpBtn(x, 822, 580, 172, 44, 'CLOSE', false, '#5a4630');
@@ -11713,6 +11801,7 @@ function setpHit(u, v) {   // canvas px -> a GFX_OPT row index, a button id, 'ta
   if (T === 'save') { if (inB(30, 84, 440, 64)) return 'save:now'; if (inB(30, 168, 440, 64)) return 'save:load'; if (inB(30, 470, 215, 64)) return 'new'; if (inB(255, 470, 215, 64)) return 'new:free';
     for (let n = 1; n <= 3; n++) { const Y0 = MENU_SLOT(n); if (inB(534, Y0 + 50, 210, 56)) return 'slot:' + n; if (inB(770, Y0 + 50, 210, 56)) return 'load:' + n; } return null; }
   if (T === 'comfort' && inB(30, 300, 440, 64)) return 'recentre';
+  if (T === 'controls') { if (inB(527, 420, 230, 56)) return 'hxtest'; if (inB(767, 420, 227, 56)) return 'hxapi'; }   // v1.14.0
   if (T === 'resume') return inB(262, 200, 500, 120) ? 'close' : null;
   const R = setpRows(); for (let i = 0; i < R.length; i++) { const { X, Y } = SETP_ROW(i); if (u > X - 6 && u < X + 462 && v > Y - 30 && v < Y + 18) return R[i]; }
   return null;
@@ -11730,6 +11819,8 @@ function setpPoke(r) {
   if (r === 'close') { setpOpen(false); return; }
   if (typeof r === 'string' && r.startsWith('tab:')) { const t = r.slice(4); if (t === 'resume' && SETP.tab === 'resume') { setpOpen(false); return; } SETP.tab = t; SETP.lit = -1; SETP.conf = null; try { localStorage.setItem('bp_menutab', t); } catch (e) { } sfx('click'); setpDraw(); return; }
   if (r in GFX_PRESET) { SETP.lit = r; gfxPreset(r); setpDraw(); return; }
+  if (r === 'hxtest') { SETP.lit = r; if (!HXT.on) hxtStart(); sfx('click'); setpDraw(); return; }   // v1.14.0
+  if (r === 'hxapi') { SETP.lit = r; HX.api = HX.API_L[(HX.API_L.indexOf(HX.api) + 1) % HX.API_L.length]; try { localStorage.setItem('bp_hxapi', HX.api); } catch (e) { } for (const g of grips) HX.pulse(g, 0.6, 40, 'cfg'); say('HAPTICS API: ' + HX.API_N[HX.api]); sfx('click'); setpDraw(); return; }
   if (r === 'recentre') { SETP.lit = r; recenter(); say('RECENTRED - VIEW AND HEIGHT SET'); sfx('click'); setpDraw(); return; }
   if (r === 'save:now') { SETP.lit = r; say(saveGame('manual') ? 'GAME SAVED - ' + svPlace() : NOSAVE ? 'SAVING IS OFF (?nosave)' : 'COULD NOT SAVE'); sfx('click'); setpDraw(); return; }
   if (r === 'save:load') { if (!svInfo(SAVE_KEY)) { say('NO SAVE YET'); return; } SV.off = true; say('LOADING THE LAST SAVE'); SV_RELOAD(); return; }
@@ -13094,7 +13185,7 @@ const BODY = (() => {
   function obstacle() { Q[12] = 0;
     if (typeof RFL !== 'undefined' && RFL.g && (RFL.place === 'vr' || RFL.place === 'desk') && RFL.g.visible) { RFL.g.updateWorldMatrix(true, false); oA.set(0, -0.02, 0.33).applyMatrix4(RFL.g.matrixWorld).applyMatrix4(MINV);
       oD.set(0, -0.01, -0.05).applyMatrix4(RFL.g.matrixWorld).applyMatrix4(MINV); oD.sub(oA); Q[13] = Math.sqrt(oD.x * oD.x + oD.y * oD.y + oD.z * oD.z); { const k = 1 / Math.max(Q[13], 1e-6); oD.x *= k; oD.y *= k; oD.z *= k; } Q[12] = 1; return; }
-    if (typeof FROD !== 'undefined' && FROD.m.visible && typeof FISH !== 'undefined' && FISH.rod !== 'pack') {   // the rod's butt + rear grip (v1.10: FROD.f, fist at the origin, butt cap at z +0.3)
+    if (typeof FROD !== 'undefined' && FROD.m.visible && typeof FISH !== 'undefined' && FISH.rod !== 'pack' && FISH.rod !== 'ground') {   // the rod's butt + rear grip (v1.10: FROD.f, fist at the origin, butt cap at z +0.3)
       const F = FROD.f || FREEL.m, z0 = FROD.f ? 0.3 : 0.27, y0 = FROD.f ? 0 : 0.04; F.updateWorldMatrix(true, false); oA.set(0, y0, z0).applyMatrix4(F.matrixWorld).applyMatrix4(MINV);
       oD.set(0, y0, FROD.f ? 0.04 : -0.05).applyMatrix4(F.matrixWorld).applyMatrix4(MINV); oD.sub(oA); Q[13] = Math.sqrt(oD.x * oD.x + oD.y * oD.y + oD.z * oD.z); { const k = 1 / Math.max(Q[13], 1e-6); oD.x *= k; oD.y *= k; oD.z *= k; } Q[12] = 1; } }
   // rifle in the shoulder (VR): blade the chest (yaw toward the rifle side) and slide the torso so the shoulder pocket sits behind the butt plate
@@ -13932,10 +14023,10 @@ rflRoundHint = function () {   // (was: touch it to the gate or press A / X)
 // Draws: rod 3 (while stowed; the old tube 1 is gone), the straps + rod cup are merged into the pack's own geometry (0 more). ITEM_VM: no new program.
 // Per frame: no allocation (scratch typed arrays / vectors); the box search runs only on a put / take / load.
 const PKX_IN = [-0.148, 0.148, -0.458, -0.036, 0.012, 0.144];   // the inner volume, bag-local x0 x1 y0 y1 z0 z1 (inside the walls, floor, lid, back liner)
-const PKX_GAP = 0.003, PKX_NUDGE = 0.05, PKX_EPS = 1e-4, PKX_MAX = 64;   // m between items, the furthest a let-go item is nudged, tolerance, the most items
+const PKX_GAP = 0.003, PKX_NUDGE = 0.05, PKX_EPS = 1e-4, PKX_MAX = 64, PKX_TOL = 0.015;   // v1.14.0 TOL: m two items let go by hand may overlap   // m between items, the furthest a let-go item is nudged, tolerance, the most items
 const PKX_ROD = { p: [0.2, -0.49, 0.08], rz: -0.08, len: 0.45, r: 0.08, ext: [0.38, 0.76], tel: 0.35 };   // right side: butt, lean, telescoped length, grab radius, section travel, collapse s
 const PKX_RFL = { p: [-0.19, -0.16, 0.08], rz: 0.1, grab: 0.1, snap: 0.2 };   // left side: the rifle's wrist, lean (muzzle out), grab radius, snap radius
-const PKX = { ik: [], hint: -1, pend: null, next: null, seed: null, seedK: null, rej: [false, false], rs: 0, rsL: 0, tel: 0, rodWas: '', clash: -1, ver: 0, verL: new Int32Array(2), L: new Float64Array(10),
+const PKX = { tol: 0, tint: new Float64Array(2), tk: new Float64Array(10), tc: new Float64Array(2), TINT: [0.36, 1.0, 0.45, 0.16], ik: [], hint: -1, pend: null, next: null, seed: null, seedK: null, rej: [false, false], rs: 0, rsL: 0, tel: 0, rodWas: '', clash: -1, ver: 0, verL: new Int32Array(2), L: new Float64Array(10),
   OB: new Float64Array(6 * PKX_MAX), OI: new Int32Array(PKX_MAX), nb: 0, R: new Float64Array(5), E: new Float64Array(3), C: new Float64Array(6), P: new Float64Array(5), T: new Float64Array(5), XS: new Float64Array(2 * PKX_MAX + 2), YS: new Float64Array(2 * PKX_MAX + 2), ZS: new Float64Array(2 * PKX_MAX + 2),
   RM: new THREE.Matrix4(), M: new THREE.Matrix4(), V: GV3(0, 0, 0), W: GV3(0, 0, 0), U: GV3(0, 0, 0), S: GV3(0, 0, 0), Q: new THREE.Quaternion(), Q2: new THREE.Quaternion(), rodG: null, rodS: [] };
 PKX.RM.makeRotationZ(PKX_RFL.rz).multiply(new THREE.Matrix4().makeRotationX(Math.PI / 2)).setPosition(PKX_RFL.p[0], PKX_RFL.p[1], PKX_RFL.p[2]);   // rifle -z (muzzle) -> bag +y, its top -> bag +z
@@ -13951,8 +14042,8 @@ function pkxOthers(K, S, skip) {   // the boxes to keep clear of (items K with p
   PKX.nb = n; }
 function pkxAtC() {   // the box PKX.C (centre, half extents): -2 out of the inner volume, the first box it clips (index into OB), or -1: free
   const C = PKX.C, x = C[0], y = C[1], z = C[2], ex = C[3], ey = C[4], ez = C[5], I = PKX_IN; if (x - ex < I[0] - PKX_EPS || x + ex > I[1] + PKX_EPS || y - ey < I[2] - PKX_EPS || y + ey > I[3] + PKX_EPS || z - ez < I[4] - PKX_EPS || z + ez > I[5] + PKX_EPS) return -2;
-  const O = PKX.OB; for (let b = 0; b < PKX.nb; b++) { const o = b * 6;
-    if (Math.abs(x - O[o]) < ex + O[o + 3] + PKX_GAP - PKX_EPS && Math.abs(y - O[o + 1]) < ey + O[o + 4] + PKX_GAP - PKX_EPS && Math.abs(z - O[o + 2]) < ez + O[o + 5] + PKX_GAP - PKX_EPS) return b; }
+  const O = PKX.OB, tl = PKX_GAP - PKX_EPS - PKX.tol; for (let b = 0; b < PKX.nb; b++) { const o = b * 6;
+    if (Math.abs(x - O[o]) < ex + O[o + 3] + tl && Math.abs(y - O[o + 1]) < ey + O[o + 4] + tl && Math.abs(z - O[o + 2]) < ez + O[o + 5] + tl) return b; }
   return -1; }
 function pkxPlace(k, x, y, z, ry, tip) { const P = PKX.P; P[0] = x; P[1] = y; P[2] = z; P[3] = ry; P[4] = tip ? 1 : 0; return pkxPlaceP(k); }
 function pkxPlaceP(k) {   // a let-go item at bag-local PKX.P (x, y, z, ry, tip): pushed inside the walls, then nudged clear (<= PKX_NUDGE) -> PKX.R; false: rejected
@@ -13962,7 +14053,7 @@ function pkxPlaceP(k) {   // a let-go item at bag-local PKX.P (x, y, z, ry, tip)
   R[3] = ry; R[4] = tip ? 1 : 0; let b0 = (C[0] = x, C[1] = y, C[2] = z, C[3] = ex, C[4] = ey, C[5] = ez, pkxAtC()); if (b0 === -1) { R[0] = x; R[1] = y; R[2] = z; return true; }
   PKX.clash = b0 >= 0 ? PKX.OI[b0] : -2; let bd = PKX_NUDGE + PKX_EPS, ok = false; const O = PKX.OB, D = 1e-5;
   for (let b = 0; b < PKX.nb; b++) { const o = b * 6;   // every box it clips, each of its 6 faces: one push; still clipping another: a second push off that one
-    if (!(Math.abs(x - O[o]) < ex + O[o + 3] + PKX_GAP - PKX_EPS && Math.abs(y - O[o + 1]) < ey + O[o + 4] + PKX_GAP - PKX_EPS && Math.abs(z - O[o + 2]) < ez + O[o + 5] + PKX_GAP - PKX_EPS)) continue;
+    const tl = PKX_GAP - PKX_EPS - PKX.tol; if (!(Math.abs(x - O[o]) < ex + O[o + 3] + tl && Math.abs(y - O[o + 1]) < ey + O[o + 4] + tl && Math.abs(z - O[o + 2]) < ez + O[o + 5] + tl)) continue;
     for (let a = 0; a < 6; a++) { const ax = a >> 1, sg = a & 1 ? -1 : 1, v = O[o + ax] + sg * (O[o + 3 + ax] + E[ax] + PKX_GAP + D);
       const cx = ax === 0 ? v : x, cy = ax === 1 ? v : y, cz = ax === 2 ? v : z, d1 = Math.abs(v - (ax === 0 ? x : ax === 1 ? y : z)); if (d1 >= bd) continue;
       const r1 = (C[0] = cx, C[1] = cy, C[2] = cz, C[3] = ex, C[4] = ey, C[5] = ez, pkxAtC()); if (r1 === -1) { bd = d1; ok = true; R[0] = cx; R[1] = cy; R[2] = cz; continue; } if (r1 < 0) continue;
@@ -14027,10 +14118,23 @@ pkLetItem = (orig => function (i) {   // let go inside the opening: at that spot
   pkxPoseOf(m); const ry = PKX.R[3], tip = PKX.R[4], L = PKX.L, o = i * 5;   // rejected and hovering: tried again only once it moved 5 mm / turned 3 deg (or the contents changed)
   if (PKX.rej[i] && PKX.ver === PKX.verL[i] && Math.abs(PKX.V.x - L[o]) < 0.005 && Math.abs(PKX.V.y - L[o + 1]) < 0.005 && Math.abs(PKX.V.z - L[o + 2]) < 0.005 && Math.abs(ry - L[o + 3]) < 0.05 && tip === L[o + 4]) return;
   L[o] = PKX.V.x; L[o + 1] = PKX.V.y; L[o + 2] = PKX.V.z; L[o + 3] = ry; L[o + 4] = tip; PKX.verL[i] = PKX.ver; pkxOthers(PK.it, PK.slot, -1);
-  const P = PKX.P; P[0] = PKX.V.x; P[1] = PKX.V.y; P[2] = PKX.V.z; P[3] = ry; P[4] = tip; let fit = pkxPlaceP(k);   // too big the way it is held (a rope coil held flat): the nearest way round that fits there
+  const P = PKX.P; P[0] = PKX.V.x; P[1] = PKX.V.y; P[2] = PKX.V.z; P[3] = ry; P[4] = tip; PKX.tol = PKX_TOL; let fit = pkxPlaceP(k);   // too big the way it is held (a rope coil held flat): the nearest way round that fits there
   for (let w = 1; !fit && PKX.clash === -2 && w < 4; w++) { P[3] = ry + (w >> 1) * Math.PI / 2; P[4] = w & 1 ? 1 - tip : tip; fit = pkxPlaceP(k); }
+  PKX.tol = 0;
   if (fit) { PKX.pend = pkxR(); PKX.rej[i] = false; const r = orig(i); PKX.pend = null; return r; }
   if (!PKX.rej[i]) { PKX.rej[i] = true; HX.pulse(g, 0.6, 40, 'ui'); say('NO ROOM THERE - THE ' + PK_K[k][0] + (PKX.clash >= 0 ? ' WOULD CLIP THE ' + PK_K[PK.it[PKX.clash]][0] : ' DOES NOT FIT THAT WAY') + ' - MOVE IT'); } })(pkLetItem);
+function pkxFits(i) {   // would hand i's item go in where it is held now (same test as letting go there)
+  const g = grips[i], k = PK.hk[i], m = PK.hm[i]; if (!k || !m.visible || !pkOpenFor(g)) return false; m.getWorldPosition(PKX.W); if (slNear(PKX.W, false, k) >= 0 || !pkInOpening(PKX.W, 0.03)) return false;
+  pkxPoseOf(m); const ry = PKX.R[3], tip = PKX.R[4], T = PKX.tk, o = i * 5;
+  if (PKX.tc[i] === PKX.ver + 1 && Math.abs(PKX.V.x - T[o]) < 0.005 && Math.abs(PKX.V.y - T[o + 1]) < 0.005 && Math.abs(PKX.V.z - T[o + 2]) < 0.005 && Math.abs(ry - T[o + 3]) < 0.05 && tip === T[o + 4]) return PKX.tint[i] > 0;
+  T[o] = PKX.V.x; T[o + 1] = PKX.V.y; T[o + 2] = PKX.V.z; T[o + 3] = ry; T[o + 4] = tip; PKX.tc[i] = PKX.ver + 1;
+  pkxOthers(PK.it, PK.slot, -1); const P = PKX.P;   /* (as pkLetItem does: no pkxSync here) */ P[0] = PKX.V.x; P[1] = PKX.V.y; P[2] = PKX.V.z; P[3] = ry; P[4] = tip; PKX.tol = PKX_TOL; let fit = pkxPlaceP(k);
+  for (let w = 1; !fit && PKX.clash === -2 && w < 4; w++) { P[3] = ry + (w >> 1) * Math.PI / 2; P[4] = w & 1 ? 1 - tip : tip; fit = pkxPlaceP(k); } PKX.tol = 0; return fit; }
+function pkxTint(i, on) {   // the hand item's colours: its own (pkWrite's) or lerped a little toward green
+  const a = on ? 1 : 0; if (PKX.tint[i] === a) return; PKX.tint[i] = a; const k = PK.hk[i]; if (!k) return; const K = PK.KG[k], C = PK.hm[i].geometry.attributes.color, A = C.array, n = K.cnt * 3, G = PKX.TINT, t = on ? G[3] : 0;
+  if (n > A.length) return; for (let j = 0; j < n; j += 3) { A[j] = K.c[j] + (G[0] - K.c[j]) * t; A[j + 1] = K.c[j + 1] + (G[1] - K.c[j + 1]) * t; A[j + 2] = K.c[j + 2] + (G[2] - K.c[j + 2]) * t; } C.needsUpdate = true; }
+function pkxTintTick() { for (let i = 0; i < 2; i++) { if (!PK.hk[i]) { PKX.tint[i] = 0; continue; } pkxTint(i, mode === 'foot' && pkxFits(i)); } }
+pkTake = (orig => function (i, k) { PKX.tint[i] = 0; return orig(i, k); })(pkTake);   // (pkTake writes the item's own colours)
 pkHold = (orig => function (g) { orig(g); say('PACK ' + Math.round(PK.lb) + ' LB - ' + PK.it.length + ' ITEMS - PUT THINGS IN ANYWHERE INSIDE, LET GO BY YOUR SHOULDER TO PUT IT ON'); })(pkHold);
 // ---- side slots ----
 const pkxRs = () => PKX.rs && RFL.g && RFL.place === 'back' && (PK.st !== 'worn' || mode === 'foot');   // the rifle drawn on the pack side now
@@ -14066,7 +14170,7 @@ packTick = (orig => function (dt, vr) { orig(dt, vr);
   if (pkxRs()) pkxRiflePose();
   const on = pkxRodOn(); if (on && PKX.rodWas !== 'pack' && PKX.rodWas !== '') PKX.tel = 1; PKX.rodWas = FISH.rod;   // just stowed: it telescopes down
   if (PKX.tel > 0) { PKX.tel = Math.max(0, PKX.tel - dt / PKX_ROD.tel); const u = PKX.tel * PKX.tel; PKX.rodS[1].position.y = u * PKX_ROD.ext[0]; PKX.rodS[2].position.y = u * PKX_ROD.ext[1]; }
-  PKX.rodG.visible = on && PK.mesh.visible; })(packTick);
+  PKX.rodG.visible = on && PK.mesh.visible; pkxTintTick(); })(packTick);
 packSave = (orig => function () { const d = orig(), r = v => Math.round(v * 1e4) / 1e4; d.ip = PK.slot.map(s => [r(s[0]), r(s[1]), r(s[2]), r(s[3]), s[4] ? 1 : 0]); if (PKX.rs || PKX.rsL) d.rs = 1; return d; })(packSave);
 packLoad = (orig => function (d) { PKX.ik = []; PK.slot.length = 0; PKX.rej[0] = PKX.rej[1] = false; PKX.pend = PKX.next = null; PKX.rs = 0; PKX.rsL = d && d.rs ? 1 : 0;
   PKX.seed = d && Array.isArray(d.ip) ? d.ip : null; PKX.seedK = d && Array.isArray(d.it) ? d.it : null; const r = orig(d); PKX.seed = PKX.seedK = null; return r; })(packLoad);
@@ -14241,6 +14345,8 @@ const WX3 = (() => {
   { const q = new URLSearchParams(location.search).get('wx'); if (q === 'storm') { wxSet('storm', true); WX.forced = true; } }
   wxPick = (orig => function (from) { const r = orig(from);   // fog banks can also roll in after dark (they were dawn-only)
     return r !== 'fog' && DAY.h >= 20.5 && from !== 'drizzle' && from !== 'storm' && Math.random() < 0.12 ? 'fog' : r; })(wxPick);
+  wxPick = (orig => function (from) { const r = orig(from);   // v1.14.0 a thunderstorm can build out of any weather (not only overcast / rain), day or night
+    return r !== 'storm' && from !== 'storm' && from !== 'fog' && wxRnd() < WXN.STORM_P ? 'storm' : r; })(wxPick);
   wxSave = (orig => function () { const o = orig(); o.x3 = { b: Math.round(F[SOC] * 1000) / 1000, i: Math.round(F[ICE] * 100) / 100 }; return o; })(wxSave);
   const x3Load = d => { if (d && d.x3 && isFinite(d.x3.b)) F[SOC] = clamp(+d.x3.b, 0, 1); if (d && d.x3 && isFinite(d.x3.i)) F[ICE] = clamp(+d.x3.i, 0, 1); };
   wxLoad = (orig => function (d) { x3Load(d); return orig(d); })(wxLoad);
@@ -15500,7 +15606,7 @@ ckHand = (orig => function (g, squeeze, id) {
     else say('MAP LIGHT ' + (NLM.lv > 0 ? Math.round(NLM.lv * 100) + ' %' : 'OFF'));
     if (i >= 0) NLM.pv[i] = false; saveSoon(); return orig(g, false, id); }
   const edge = i >= 0 && squeeze && !NLM.pv[i]; if (i >= 0) NLM.pv[i] = squeeze;
-  if (edge && !CKH.get(g) && mode === 'plane') { g.getWorldPosition(NL.V); plane.localToWorld(NL.W.copy(NL.KN)); if (NL.V.distanceToSquared(NL.W) < 0.045 * 0.045) {
+  if (edge && !CKH.get(g) && mode === 'plane') { g.getWorldPosition(NL.V); plane.localToWorld(NL.W.copy(NL.KN)); if (HANDS.hovH[i] === 'nlm' || NL.V.distanceToSquared(NL.W) < NL_KR * NL_KR) {   // v1.14.0 the ring shows it
       NLM.g = g; g.getWorldQuaternion(NLM.q0); NLM.lv0 = NLM.lv; NLM.th = 0; NLM.tw = 0; HX.pulse(g, 0.3, 12, 'ui'); return true; } }
   return orig(g, squeeze, id); })(ckHand);
 addEventListener('keydown', e => { if (e.repeat || e.code !== 'KeyK' || !e.shiftKey || mode !== 'plane' || (typeof SETP !== 'undefined' && SETP.open)) return; e.stopImmediatePropagation();
@@ -15526,21 +15632,60 @@ const INP = { RT: 0.12, CR_DZ: 0.15, CR_FULL: 0.9, B_HOLD: 0.2, RAY: 3.0, NEAR: 
 INP.hp[0] = -1;
 HX.MIN_MS = 14; HX.MIN_A = 0.1; HX.path = '-'; HX.fails = 0;
 HX.act = g => { if (!g || g === 'desk') return null; const gp = g.userData?.src?.gamepad; if (!gp) return null; const hs = gp.hapticActuators; return (hs && hs.length && hs[0]) || gp.vibrationActuator || null; };
+HX.API_L = ['all', 'xr', 'va']; HX.API_N = { all: 'ALL', xr: 'XR PULSE', va: 'RUMBLE' };
+HX.api = (() => { try { const v = localStorage.getItem('bp_hxapi'); return HX.API_L.includes(v) ? v : 'all'; } catch (e) { return 'all'; } })();   // v1.14.0 which API(s) a buzz goes out on
+HX.EO = { startDelay: 0, duration: 20, strongMagnitude: 0.5, weakMagnitude: 0.5 };   // v1.14.0 one playEffect dictionary, reused (the browser copies it)
 HX.send = (g, a, ms, tag) => {
   HX.n++; if (!g || g === 'desk') return false; const src = g.userData.src, gp = src && src.gamepad; if (!gp) return false;
   a *= HX.gain; if (a > 1) a = 1; if (a < 0.01) return false; if (a < HX.MIN_A) a = HX.MIN_A; if (ms < HX.MIN_MS) ms = HX.MIN_MS;
-  const hs = gp.hapticActuators, h = hs && hs.length ? hs[0] : null, v = gp.vibrationActuator;
+  const hs = gp.hapticActuators, h = hs && hs.length ? hs[0] : null, v = gp.vibrationActuator, api = HX.api; let sent = 0;
   try {
-    if (h && typeof h.pulse === 'function') { h.pulse(a, ms); HX.path = 'pulse'; }
-    else if (v && typeof v.playEffect === 'function') { const r = v.playEffect('dual-rumble', { startDelay: 0, duration: ms, strongMagnitude: a, weakMagnitude: a }); if (r && r.catch) r.catch(hxFail); HX.path = 'effect'; }
-    else if (v && typeof v.pulse === 'function') { v.pulse(a, ms); HX.path = 'pulse'; }
-    else { HX.path = 'none'; return false; }
+    const hp = h && typeof h.pulse === 'function', ve = v && typeof v.playEffect === 'function', vp = v && typeof v.pulse === 'function';
+    if (hp && (api !== 'va' || !(ve || vp))) { h.pulse(a, ms); sent |= 1; }   // WebXR (Quest Browser): gamepad.hapticActuators[0].pulse(0..1, ms)
+    if ((ve || vp) && (api !== 'xr' || !sent)) { if (ve) { const E = HX.EO; E.duration = ms; E.strongMagnitude = a; E.weakMagnitude = a; const r = v.playEffect('dual-rumble', E); if (r && r.then && !HX.vaOk) r.then(hxOk, hxFail); sent |= 2; } else { v.pulse(a, ms); sent |= 1; } }   // Gamepad API
+    if (!sent) { HX.path = 'none'; return false; }
+    HX.path = sent === 3 ? 'both' : sent === 2 ? 'effect' : 'pulse';
   } catch (e) { HX.fails++; HX.path = 'error'; return false; }
   HX.sent++; if (a > HX.maxA) HX.maxA = a; if (HX.log) HX.log.push([tag || 'fx', +a.toFixed(3), ms, src.handedness, HX.path]);
   return true; };
 function hxFail() { HX.fails++; }
-function hxPathLabel() { let p = HX.path; if (p === '-') for (const g of grips) { const a = HX.act(g); if (a) { p = a.pulse ? 'pulse' : 'effect'; break; } } return p === 'pulse' || p === 'effect' ? '' : p === '-' ? '' : ' (NO MOTOR FOUND)'; }
+function hxOk() { HX.vaOk = 1; }   // v1.14.0 rumble answered once: stop chaining a handler on every buzz (no per-buzz promise garbage)
+function hxPathLabel() { let p = HX.path; if (p === '-') for (const g of grips) { const a = HX.act(g); if (a) { p = a.pulse ? 'pulse' : 'effect'; break; } } return p === 'pulse' || p === 'effect' || p === 'both' || p === '-' ? '' : ' (NO MOTOR FOUND)'; }
 HX.cycle = (orig => () => { orig(); if (HX.gain > 0) say('HAPTICS ' + Math.round(HX.gain * 100) + '%' + hxPathLabel()); })(HX.cycle);
+// ---- v1.14.0 Settings > Controls: HAPTICS TEST. Each path on each hand in turn, announced, 1 s apart; what each call did is shown (return / promise result / throw).
+// Paths: 1 XR = gamepad.hapticActuators[0].pulse (Quest Browser's WebXR one), 2 RUMBLE = gamepad.vibrationActuator.playEffect('dual-rumble'), 3 VA PULSE = vibrationActuator.pulse,
+// 4 LIVE = the session's own inputSources (not the one cached at 'connected'), hapticActuators then vibrationActuator. Tap whichever buzzed into HAPTICS API (ALL works for both).
+const HXT = { on: false, i: 0, t: 0, S: [], R: {}, env: '', PN: ['XR PULSE', 'RUMBLE', 'VA PULSE', 'LIVE SOURCE'], last: '' };
+function hxtSrc(hand) { for (const g of grips) { const s = g.userData.src; if (s && s.handedness === hand) return s; } return null; }
+function hxtLive(hand) { const ses = renderer.xr.isPresenting ? renderer.xr.getSession() : null; if (!ses) return null; for (const s of ses.inputSources) if (s.handedness === hand && s.gamepad) return s; return null; }
+function hxtEnv() { const ses = renderer.xr.isPresenting ? renderer.xr.getSession() : null, L = [];
+  L.push('VR ' + (ses ? 'YES' : 'NO') + (ses ? '  SOURCES ' + ses.inputSources.length : '') + '  GAIN ' + Math.round(HX.gain * 100) + '%  SENT ' + HX.sent + '/' + HX.n + '  FAILS ' + HX.fails + '  LAST ' + HX.path);
+  for (const hand of ['left', 'right']) { const s = hxtSrc(hand), gp = s && s.gamepad, hs = gp && gp.hapticActuators, v = gp && gp.vibrationActuator, lv = hxtLive(hand);
+    L.push(hand.toUpperCase() + ': ' + (!s ? 'NO CONTROLLER' : (s.profiles && s.profiles[0] || '?') + (gp ? '' : ' NO GAMEPAD') + '  XR ' + (hs ? hs.length + (hs[0] && hs[0].pulse ? '' : ' (no pulse)') : 'NONE') + '  VA ' + (v ? (v.type || '?') + (v.effects ? ' [' + Array.from(v.effects).join(',') + ']' : '') : 'NONE') + (ses ? (lv === s ? '' : lv ? '  CACHED SOURCE STALE' : '  NOT IN SESSION') : ''))); }
+  return L; }
+function hxtFire(hand, p) {   // -> a result string now, or a promise of one
+  const s = p === 3 ? hxtLive(hand) : hxtSrc(hand), gp = s && s.gamepad; if (!gp) return p === 3 && !renderer.xr.isPresenting ? 'NOT IN VR' : 'NO GAMEPAD';
+  const hs = gp.hapticActuators, h = hs && hs.length ? hs[0] : null, v = gp.vibrationActuator;
+  try { let r;
+    if (p === 0 || (p === 3 && h && h.pulse)) { if (!h || typeof h.pulse !== 'function') return 'NOT THERE'; r = h.pulse(0.9, 300); }
+    else if (p === 1 || p === 3) { if (!v || typeof v.playEffect !== 'function') return 'NOT THERE'; r = v.playEffect('dual-rumble', { startDelay: 0, duration: 300, strongMagnitude: 0.9, weakMagnitude: 0.9 }); }
+    else { if (!v || typeof v.pulse !== 'function') return 'NOT THERE'; r = v.pulse(0.9, 300); }
+    if (r && typeof r.then === 'function') return r.then(x => 'OK ' + String(x).toUpperCase(), e => 'REJECTED ' + ((e && e.name) || e));
+    return 'SENT (' + String(r) + ')'; } catch (e) { return 'THREW ' + ((e && e.name) || e); } }
+function hxtStart() { HXT.S.length = 0; HXT.R = {}; for (const hand of ['left', 'right']) for (let p = 0; p < 4; p++) HXT.S.push([hand, p]); HXT.on = true; HXT.i = 0; HXT.t = HX.t + 0.6; HXT.env = hxtEnv();
+  say('HAPTICS TEST: 8 BUZZES, ONE A SECOND - NOTE WHICH ONES YOU FEEL'); }
+function hxtTick() { if (!HXT.on || HX.t < HXT.t) return; if (HXT.i >= HXT.S.length) { HXT.on = false; HXT.env = hxtEnv(); say('HAPTICS TEST DONE - RESULTS ON THE CONTROLS TAB'); hxtRedraw(); return; }
+  const [hand, p] = HXT.S[HXT.i++], k = hand + p; HXT.t = HX.t + 1.0; say('HAPTICS TEST ' + HXT.i + '/8: ' + hand.toUpperCase() + ' - ' + HXT.PN[p]);
+  const r = hxtFire(hand, p); if (typeof r === 'string') HXT.R[k] = r; else { HXT.R[k] = '...'; r.then(x => { HXT.R[k] = x; hxtRedraw(); }); } hxtRedraw(); }
+function hxtRedraw() { if (SETP.open && SETP.tab === 'controls') setpDraw(); }
+function hxtDraw(x) {
+  setpBtn(x, 527, 420, 230, 56, HXT.on ? 'TESTING ' + HXT.i + '/8' : 'HAPTICS TEST', SETP.lit === 'hxtest'); setpBtn(x, 767, 420, 227, 56, 'API: ' + HX.API_N[HX.api], SETP.lit === 'hxapi');
+  x.font = '13px monospace'; x.fillStyle = '#3a2e20'; const L = HXT.env || ['TEST: each API on each hand, 1 s apart.', 'API: what every buzz uses (ALL = all that exist).'];
+  for (let i = 0; i < L.length && i < 3; i++) x.fillText(L[i], 527, 494 + i * 17, 470);
+  if (HXT.S.length) for (let p = 0; p < 4; p++) x.fillText((p + 1) + ' ' + HXT.PN[p].padEnd(11) + ' L ' + (HXT.R['left' + p] || '-').padEnd(15) + ' R ' + (HXT.R['right' + p] || '-'), 527, 545 + p * 15, 290);
+}
+HX.tick = (orig => dt => { orig(dt); if (HXT.on) hxtTick(); })(HX.tick);
+
 // ---- what a hand holds (for the grab / let-go ticks and the ray)
 function inHeld(g) { return pkBusy(g) || packHold(g) || STORY.heldG === g; }
 // ---- reach zones on foot: 0 none, else an id (slot 10+, pack item 20+, ground item 40+, the pack 39, rifle 60, map 61, story 62+, cargo 100+)
