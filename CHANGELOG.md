@@ -2,6 +2,42 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v1.13.0 – a large build: the mic jack, the map light by the flap handle, a dimmer, a bigger mouth zone, the hose on the Cub, more music, call-outs all over the map, sitting townsfolk
+
+Neil: "1. Move the cub radio mic coil attachment to the aircraft be under the dash, not floating. 2. Move the map light up next to the flap handel shining at the player lap (like the torch beam). 3. The cub panel light knob, make it incrementle as opposed to off, low, high. 4. The interaction area for eating and drinking is quite small. Improve the sounds as well if you can. 5. Have the fuel hose physics interact with the cub (wing/wheel etc). 6. Like the music, can we have a few different tracks that play. 7. Make the SAR and Medivac procedurally generatted over the whole map." and "Can you create a sitting animation for the townsfolk". The physics block is untouched (md5 `eee6637e…`).
+
+- **Radio mic cord:** the coiled cord now plugs into a jack on a small L bracket screwed under the dash, instead of ending in mid-air. The cord physics are unchanged.
+- **Map light:** the lamp is now up by the flap handle, and its shade points down at your lap. It throws a warm spot cone, like the torch beam, so the map, the kneeboard and the papers on your lap are lit. It uses the cockpit's spot light when the landing light and the torch are off; otherwise it falls back to the old point light. No new lights or shader programs.
+- **Panel light dimmer:** the PANEL LT knob is now a smooth dimmer instead of OFF / DIM / BRIGHT.
+  - Twisting from OFF gives a click and a buzz, then a light tick every 10 %, with a stop at each end.
+  - A quick squeeze switches it off, or back to where it was.
+  - The gauges, the glow and the battery draw follow the level. K steps through OFF / 25 / 50 / 75 / 100 %.
+- **Eating and drinking:** the mouth zone is now an egg shape round your mouth and chin. It reaches about 20 cm in front and out to the cheeks, but not your chest, collar or forehead. It covers the pack items, the canteen, venison and fillets. Each food has its own synthesised sounds, with no new files:
+  - the canteen: gulps;
+  - jerky: a tear, then chewing;
+  - chocolate: a wrapper, a bite, then chewing;
+  - beans: a spoon in the tin;
+  - meat: a bite, then chewing.
+- **Fuel hose and the Cub:** the hose now lies against, over and round the fuselage, the struts, the gear legs, the tyres, the tail wheel and the tail feathers, as well as the wing. The tyres follow the gear and the tundra or float option.
+  - The colliders are simple shapes: 12 fuselage sections, 11 capsules, 2 tyre cylinders and 2 tail boxes, culled by one bounding box.
+  - The full check runs on every other solver pass (the last pass included); the wing alone runs on the passes between. It only runs on foot near a fuel drum, with no per-frame garbage.
+- **Music:** four tracks in the same procedural style now take turns in shuffled order: HOME VALLEY (the original), HIGH COUNTRY, LONG SHADOWS and RIVER BEND. A track changes after 16–24 chords, at the end of a chord (every 2–4 minutes). Settings > AUDIO > Music still sets the volume, and OFF still stops it.
+- **Call-outs all over the map:**
+  - Medevac: about two in five are at a meadow out in the bush instead of an airstrip. A meadow is 2.5–13 km from the Dry Fork clinic, with 160 m of flat, dry, landable ground (end slope under 5 %, cross slope under 7 %, no water within 15 m, clear approaches out to 400 m). It is marked by four orange panels and a windsock, and trees are cleared while the call is live. It is named like "MEADOW SW OF HOME STRIP" and pays a little more.
+  - SAR: about two in three are a procedurally placed party, 2–12 km from Home, with pay scaled by distance. A party is either hikers on dry, flat ground or a canoe party on a river or lake bank, never on a cliff or in a lake.
+  - Story calls stay where they were, and saves with the old fixed call-outs load as before.
+- **Sitting townsfolk:** the townsfolk now have authored sitting animations, with gentle breathing and a seated wave. The 62-bone pack has no sit clip, so they are posed in the page with leg and arm IK.
+  - The medevac patient in the Cub's rear seat is now the animated figure, with a blanket over the knees and the rear belt across the lap.
+  - A casualty waiting at a site sits up on the stretcher.
+  - There are bench sitters by the boards at Dry Fork and the Lodge, who wave as you walk past.
+  - They use the shared material and the prewarmed skinned program. Every clip (idle, walk, wave and the sitting ones) is baked to a pose table at load (30 frames a second) and played back by a small player that blends between frames and cross-fades between clips without making garbage, still throttled with distance.
+- **Townsfolk models:** the standing townsfolk are now the skinned Farmer, Worker and Casual Character from Quaternius's Ultimate Modular Men Pack (CC0 1.0, credited in `models/CREDITS.md`), recoloured to the game's 1950s work clothes, with idle, walk and wave clips. They load from `assets/npc/folk.bin` (about 650 KB); if it fails to load, the old box townsfolk are kept.
+- **Left-hand grips:** 22 pack items now have a proper left-hand grip in the game and in the Pose Lab, mirrored to match the right hand instead of reusing it: the open and closed tackle box, the fillets, the knife, the venison, the scope, the field guide (closed and open), the photo, the polaroid, the swag, the pack, the torch, the canteen, the first aid kit, the jerky, the beans, the chocolate bar, the cigarettes, the flare, the rope and the tarp. The Pose Lab's defaults and item meshes are refreshed from the game (anchors unchanged: primeL 0.00272, flapR 0.175).
+- **Smoother frames:**
+  - The cloud cards are compiled for every panel-glow / spot light combination behind the loading screen, so switching on the map light or landing light no longer compiles shaders mid-flight (6 more programs at load, none after).
+  - The wing's surface lookup no longer allocates, which removes about 5 KB a frame of garbage while the fuel hose lies on a wing.
+  - The townsfolk, the bench sitters, the casualty and the Cub's patient make no per-frame garbage: three's animation mixer (about 120 bytes per update per figure) is replaced by the baked player, and each figure's timers live in a typed array. The medevac condition check and the EMERGENCY sign check no longer build arrays or strings every frame.
+
 ## v1.12.0 – one large build: new story in VR, things rest on tables, the Cub's rifle in reach, a swag camp, sound sliders, positional sound, switch sounds, a title screen, input, clouds + rifle
 
 - **New story / load without leaving VR:** in a headset, the menu's NEW STORY, NEW FREE PLAY and LOAD used to reload the page, which ended the VR session. They now reset the game in place: your hands let go, every system starts fresh (or loads the save), you stand at the start and the view recentres. On desktop it still reloads.

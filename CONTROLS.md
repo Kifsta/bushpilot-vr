@@ -48,7 +48,7 @@ Nine holds now come from Neil's Pose Lab codes, each mirrored for the other hand
 - **Map in both hands (v0.87.2):** the sheet sits between your two pinches, level and facing you.
 
 ## Hand mic (v0.82)
-- A push-to-talk handset hangs on a clip under the right end of the panel, on a coiled cord to the radio. Grab it with either hand (grip) and the cord stretches after it. Let go and it snaps back onto the clip. The cord swings with the Cub in turns, bumps and turbulence. It doesn't transmit anything yet.
+- A push-to-talk handset hangs on a clip under the right end of the panel, on a coiled cord to the radio (v1.13.0: the cord plugs into a jack on a small bracket under the dash, not in mid-air). Grab it with either hand (grip) and the cord stretches after it. Let go and it snaps back onto the clip. The cord swings with the Cub in turns, bumps and turbulence. It doesn't transmit anything yet.
 
 ## Engine start / shutdown (v0.19: the plane starts cold and dark)
 | | VR (Quest) | Desktop |
@@ -82,7 +82,7 @@ v0.24.1 grip on the ring: point your fingertip at a switch or knob, and a yellow
 
 v0.44 cockpit: toggles (MASTER, landing light) snap over with a click, whether you flick them with a fingertip or squeeze them. The cabin has its steel tube frame, stringers, a headliner, a front-seat harness and placards. They are only scenery.
 
-v0.43 cockpit: PANEL LT knob (switch strip, far right) - twist it, or press K in the plane, to step OFF / DIM / BRIGHT. It needs the MASTER on. The OIL gauge (right of the tach) shows oil pressure on top and temperature below. The wet compass on the windscreen swings and settles after turns like a real one.
+v0.43 cockpit: PANEL LT knob (switch strip, far right) - twist it, or press K in the plane, to step OFF / DIM / BRIGHT (v1.13.0: a smooth dimmer, see Lights). It needs the MASTER on. The OIL gauge (right of the tach) shows oil pressure on top and temperature below. The wet compass on the windscreen swings and settles after turns like a real one.
 
 v0.42 cockpit: your glove stops on the instrument panel instead of going through it (the switches still feel your real finger). A small label by your hand names the control your hand is on or ringed and its state (MASTER ON, FLAPS 30°, THROTTLE 45%, TRIM NOSE UP 3...); turn it off with Settings > CONTROL LABELS. The flap handle and trim crank work with either hand.
 
@@ -122,7 +122,7 @@ v0.44 latches: every window and the door are latched while shut. Squeeze the han
 | Walt's logbook, the photo (his desk) | Grip to pick up, trigger turns the page, let go puts it back | Look at it + E; , / . turn pages; E puts it down |
 | New story / new free play | Settings > SAVE / LOAD: NEW STORY or NEW FREE PLAY, poke twice | same, click twice |
 | Town trust (v1.00) | Walk up to a strip's board: its keeper greets you; fuel there is 5 / 10 / 15 % off at KNOWS YOU / TRUSTED / REGULAR | same |
-| Music (v1.00) | Settings > AUDIO > Music: OFF-100 % | same |
+| Music (v1.00) | Settings > AUDIO > Music: OFF-100 %. v1.13.0: four tracks in the same style (HOME VALLEY, HIGH COUNTRY, LONG SHADOWS, RIVER BEND) take turns in shuffled order, changing every few minutes at the end of a chord | same |
 | Free a snagged lure (v1.00.1) | Jerk the rod up sharply | Click (LMB) |
 | Walt's corkboard (v1.01) | Hangar back wall over his bench: the clues pinned up, red string, CLUES n / 10 | same |
 | Journal (v1.01) | Clipboard page 6, LOG | Hold the clipboard up (N), . to page 6 |
@@ -178,11 +178,11 @@ v0.44 latches: every window and the door are latched while shut. Squeeze the han
 | Lean in / Cub rifle (v1.12.0) | Through an open door you can lean about 20 cm further in, and the rifle in the Cub's floor holder takes a hand up to about 25 cm off it | - |
 | Things come to rest (v1.12.0) | Dropped or thrown things land on tables, stumps, counters and the Cub (floor, wings, cargo bay), not just the ground; lost ones (under the ground, out of the world) come back to your feet | same |
 | Title screen (v1.12.0) | Before play (flat screen only - the headset never sees it): CONTINUE, NEW STORY, SETTINGS, ENTER VR over slow shots of the Cub. ?notitle skips it | Enter = continue |
-| Map light (v1.11.18) | In the cockpit: grip the knob of the small lamp on the left wall by your shoulder and twist to dim it; a quick squeeze switches it off / back on. Needs the master switch | Shift+K: OFF / 25 / 50 / 100 % |
+| Map light (v1.11.18, moved v1.13.0) | In the cockpit: the small lamp is up by the flap handle, its warm cone aimed down at your lap (the map, kneeboard and papers). Grip its knob and twist to dim it; a quick squeeze switches it off / back on. Needs the master switch | Shift+K: OFF / 25 / 50 / 100 % |
 | Night reading (v1.11.18) | At night signs, boards and papers are only readable in light: shine your torch on them, stand by a lantern at home, or use the map light / panel lights in the cockpit | (same) |
 | Pack: free placement (v1.11.17) | With the pack open, let an item go inside: it stays where and how you put it (tilted over 45 deg it lies on its side). No room there: it stays in your hand with a buzz - move it or take it out. Opening the pack shows how full the bag really is | U / E pack as before (auto-packed) |
 | Pack side slots (v1.11.17) | Right side: the rod, telescoped - grip it to take it, let it go to stow it. Left side: let the rifle go by the strap to strap it upright, grip it there to take it (the shoulder sling still works) | T slings the rifle as before |
-| Eat / drink / smoke (v1.11.5) | Raise the canteen, jerky, beans, chocolate or cigarettes to your mouth. Dip the canteen under water to refill it | U eats or drinks from the pack or belt |
+| Eat / drink / smoke (v1.11.5) | Raise the canteen, jerky, beans, chocolate or cigarettes to your mouth (v1.13.0: anywhere round your mouth and chin, up to about 20 cm in front of it and out to the cheeks; not your chest or collar). Each has its own sound: gulps, a torn bite and chewing, a wrapper, a spoon in the tin. Dip the canteen under water to refill it | U eats or drinks from the pack or belt |
 | Use an item (v1.11.5) | Trigger: first aid kit, flashlight on / off, rest under the tarp, signal flare (after a crash) | O toggles the flashlight |
 | Sleep / buy supplies (v1.11.5) | Grip the cot blanket by the home cabin to sleep. Grip an item on the supply crate with a free hand to buy it | K by the cot sleeps; K by the crate buys beans |
 | Survival gauges (v1.11.5) | Turn the watch toward you: FOOD / WATER / REST / HEALTH under MENU | – |
@@ -387,7 +387,7 @@ Every customer remembers you: the town or crew at each strip, each bush camp's c
 - Two wing tanks hold 36 gal (136 L). Burn scales with power: full throttle empties them in about 25 minutes. Below 3 % the engine sputters, and at empty it quits. The fuel gauge and the W&B card show what's aboard.
 - **Refuel at a red drum.** Since v0.55 there are four, and you pay for fuel as it flows. Prices: **HOME $6.40**/gal (left of the Cub's parking spot), **RIDGE STRIP $7.30**, **LODGE $8.90** and **DRY FORK $5.80** (the town depot, the cheapest). The drums away from home sit by the job board, and the paper map prints each price under the strip's JOBS square. Taxi to within 15 m of a drum, stop, and shut the engine down. Then:
   - VR (v0.73): get out and take the **nozzle** off the red drum (squeeze grip on it). It's on a 9 m hose that sags and lies on the ground. Carry it to a wing-root filler cap (the silver caps on top of the wing, either side of the cabin). Put the nozzle in and **squeeze the trigger** to pump, at about 3 L/s, paid as it flows. Let go of the trigger to stop. Let go of the grip and the nozzle stays in the cap; take it again to carry on. Pull it out and you get the receipt. Past 9 m it slips out of your hand. Drop it anywhere and pick it up off the ground, or let go by the drum to hang it back up.
-  - VR (v0.77.7): the nozzle is a pistol grip (body, spout, red trigger lever, guard). Your hand holds it by the grip, fixed in your fist, with the spout pointing where your fingers point and a little down. The lever squeezes with the trigger. The hose drapes over the wing's leading edge and top and never passes through the wing.
+  - VR (v0.77.7): the nozzle is a pistol grip (body, spout, red trigger lever, guard). Your hand holds it by the grip, fixed in your fist, with the spout pointing where your fingers point and a little down. The lever squeezes with the trigger. The hose drapes over the wing's leading edge and top and never passes through the wing. v1.13.0: it also lies against, over and round the fuselage, struts, gear legs, tyres, tail wheel and tail feathers instead of passing through them.
   - Can't reach the cap? (v0.72) Climb the Cub: walk into the dark **step plate** on the main-gear leg (44 cm up), then on to the **tyre top** (80 cm up). You step up on your own, eased over a moment. From the tyre, the cap is at chest height. Walk off and you drop back down. A hop (right stick up / Space) is a little higher next to the Cub (55 cm instead of 40).
   - Desktop: stand by a filler cap and press G. G again (or walking away) stops it.
 - A reset (R, or the wrist menu's RESTART FLIGHT) keeps the fuel you have (and your cash). With under 5 gal aboard (main + aux) it tops up to 5 gal at the home drum price ($6.40/gal, at most $32), on the hangar account if you're broke (v0.79.2).
@@ -460,6 +460,8 @@ A customer stands at every job board. Walk up to them for a hello: their rep tie
 | Spot a search party | Binoculars | **V** |
 | Drop supplies | Push a bundle out the door | **G** |
 
+- **Where they are (v1.13.0):** call-outs come from all over the map now. A medevac is either at an airstrip or at a meadow out in the bush: 160 m of flat, dry, landable ground with clear approaches, marked by four orange panels at its corners and a windsock (named like MEADOW NE OF RIDGE STRIP). A search party is hikers on dry, flat ground or a canoe party on a river or lake bank, 2-12 km from Home. Pay grows with the distance (a meadow pays a little more). Story calls stay where they were, and saved call-outs load as before.
+- The patient (v1.13.0) sits in the rear seat as a person (belt across their lap, blanket over their knees); a casualty waiting at the site sits up on the stretcher.
 - **Medevac:** the patient boards only with the Cub stopped, the engine off and the rear seat clear. Their weight is on the W&B card. Their condition drops with time, faster with rough flying or no belt. Shut down within 90 m of the Dry Fork pad and Nurse Okafor takes over. Pay follows their condition.
 - **Search-and-rescue:** the map and kneeboard show a 450 m search circle. Fly within 150 m below 260 m AGL, or use the binoculars, to spot the party (a red X on the map). Then drop a supply bundle within 60 m of them (not in the water) for 60 % of the pay. Or land nearby and walk up: one climbs aboard, and you fly them to the clinic for the full pay.
 
@@ -490,7 +492,7 @@ A customer stands at every job board. Walk up to them for a hello: their rep tie
 
 ## Lights and time of day
 - Landing light: grip the toggle under the panel (VR) or press L.
-- Panel lights: the PANEL LT knob on the switch strip, far right (twist it, or press K). It needs the MASTER on.
+- Panel lights: the PANEL LT knob on the switch strip, far right. It needs the MASTER on. v1.13.0: it is a smooth dimmer. Twist it from OFF (a click) up to full: a light tick every 10 %, a stop at each end. A quick squeeze switches it off / back to where it was. K steps OFF / 25 / 50 / 75 / 100 %.
 - Time of day is fixed, so there is no clock and no dusk to beat. Pick it in Settings → **Time of day** (EARLY / MORNING / AFTERNOON / LATE / SUNSET / NIGHT). A saved game keeps its time.
 
 - **Day and night (v0.96):** the clock runs. **Settings > Day length** is 24 / 48 (default) / 96 real minutes for a whole day and night, or FIXED. **Time of day** sets the clock. The time is on your wrist, after the speed.

@@ -33,7 +33,7 @@ Desktop - on foot: WASD walk, Shift run, C crouch, Space hop, F climb in, G refu
   Running costs: fuel is paid at the red drums (4 strips, 4 prices); oil, tyres + brakes, repairs and the 100-hour service at the home HANGAR board (1-4 there).
 VR - in the cockpit: grip the stick (right) and throttle (left), left stick = rudder, left trigger = brakes, reach up and pull the flap handle down
   a notch at a time, wind the trim crank, turn knobs / the mag key / the primer / the fuel valve with your hand; every cockpit control needs the grip (yellow ring = what it takes); the parking brake T-handle: grip it and pull it out along its shaft to set, push it in to release. Binoculars: the 7x view comes up inside 12 cm of your eyes and drops past 16 cm (v0.84.7: fixed in the headset).
-  Grip the clipboard on your thigh to lift it, its hand's trigger turns the page. Map light (left wall by your shoulder): grip its knob and twist to dim, a quick squeeze switches it off / on. At night signs and papers need light: your torch, a lantern, the map light. A / X recentre, Y climb out (restart a flight: wrist MENU > RESUME > RESTART FLIGHT). Turn your left wrist to your face and poke its MENU button with your right finger for SETTINGS.
+  Grip the clipboard on your thigh to lift it, its hand's trigger turns the page. Map light (up by the flap handle, aimed at your lap): grip its knob and twist to dim, a quick squeeze switches it off / on. At night signs and papers need light: your torch, a lantern, the map light. A / X recentre, Y climb out (restart a flight: wrist MENU > RESUME > RESTART FLIGHT). Turn your left wrist to your face and poke its MENU button with your right finger for SETTINGS.
 VR - on foot: left stick walks (click = run), right stick turns (snap / smooth in Settings), right stick down = crouch (as far as you push it), up = hop, hold B = a 3 m grab ray (squeeze grip to pull what it lights),
   Y climb in, take the nozzle off a red drum, put it in a wing filler cap and hold the trigger to refuel from the pump, grab the map off its cockpit holder.
   Jobs: poke ACCEPT on a strip's job board, grip cargo to carry it, let go over the rear seat / baggage bay, grab the belt buckle / net to strap.
@@ -638,7 +638,7 @@ const hyp = (a, b, c = 0) => Math.sqrt(a * a + b * b + c * c);   // v0.59 Math.h
 
 // ======================= RENDERING =======================
 // v0.35 settings (persist in localStorage 'bp_gfx'; ?gfx=shadows:2,grass:1 overrides for testing). Defaults = the v0.34 look and cost.
-const BP_VERSION = 'v1.12.0';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
+const BP_VERSION = 'v1.13.0';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
 { const e = document.getElementById('ver'); if (e) e.textContent = BP_VERSION; } window.__bpVer = BP_VERSION; bootLog('game module running ' + BP_VERSION + ' (three r' + THREE.REVISION + ')' + (/[?&]safe(=|&|$)/.test(location.search) ? ' - SAFE MODE: default graphics, no shadows / ULTRA / life / vistas / music' : ''));
 const GFX_DEF = { shadows: 0, scale: 1, fov: 1, dist: 1, trees: 1, grass: 0, clouds: 1, fog: 1, msaa: 1, hz: 90, vig: 0, turn: 0, fps: 0, tod: 11, stk: 1, tips: 1, terr: 1, dyn: 1, glove: 0, hand: 0, wt: 1, volM: 1, volMu: 0.5, volE: 1, volA: 1, volF: 1, volS: 1, volW: 1, wx: 1, forest: 0, ground: 0, gtex: 0, cvl: 1, water: 1, dayl: 48, flure: 0, fline: 8, fdrag: 4, fbob: 0, fsink: 0, ultra: 0, sfxr: 1 };   // v0.68.1 dominant hand, volumes. v0.48 BALANCED: 90 % scale, 72 Hz, fast terrain shading, auto resolution; v0.49.1 the stick stays where you let go of it
 const GFX = Object.assign({}, GFX_DEF);
@@ -1943,9 +1943,9 @@ function aiMatrix(pitch, roll) {   // circle uv -> card canvas px (same mapping 
 let fuelKey = '', infoKey = '', infoT = 1;
 const OIL = { t: 60, p: 0 }, PTINT = { key: '', m: [] };
 function panelTint() {   // v0.43: faces + needles are lit by daylight, or by the panel lights (PANEL LT knob, needs the master) after dark
-  const lit = ENG.master ? [0, 0.55, 1][LIGHTS.pl] : 0, day = TOD.day, base = 0.06 + 0.9 * day, n = 1 - day;
+  const lit = ENG.master && LIGHTS.pl ? LIGHTS.plv : 0, day = TOD.day, base = 0.06 + 0.9 * day, n = 1 - day;
   const r = Math.min(1, base + lit * 0.95 * n), g = Math.min(1, base + lit * 0.74 * n), b = Math.min(1, base + lit * 0.5 * n);
-  const key = (r * 200 | 0) + ',' + (g * 200 | 0) + ',' + (b * 200 | 0); if (key === PTINT.key) return; PTINT.key = key;
+  const key = ((r * 200 | 0) * 201 + (g * 200 | 0)) * 201 + (b * 200 | 0); if (key === PTINT.key) return; PTINT.key = key;
   for (const m of PTINT.m) m.color.setRGB(r, g, b);
 }
 const PB = { on: false, P: null, G: null, H: null, L: null };   // v0.77.11 the Cub's parking brake (off by default, not saved): ground braking only, through the brake input (the physics is untouched)
@@ -2114,6 +2114,19 @@ const MUS = { ok: false, I: 0.2, tgt: 0.2, sw: 0, swT: 0, duck: 1, nextC: 0, nex
 const MUS_DAY = [[50, 57, 64, 69, 73], [47, 54, 62, 66, 71], [43, 50, 57, 62, 66], [45, 52, 59, 64, 68], [52, 59, 64, 68, 71], [43, 50, 59, 66, 69]];   // Dmaj9, Bm9, Gmaj7#11, A(add9), E9sus, Gmaj9
 const MUS_NIGHT = [[47, 54, 62, 66, 69], [43, 50, 59, 62, 66], [40, 47, 55, 59, 62], [45, 52, 57, 64, 67]];   // Bm11, Gmaj7, Em9, Am9
 const MUS_PENT = [62, 64, 66, 69, 71, 74, 76, 78, 81, 83];   // D major pentatonic (bells)
+// v1.13.0 the tracks: 0 is the original (D major); three more in the same voice. A shuffle bag picks the next after 16-24 chords, at a chord's end
+const MUS_TR = [
+  { name: 'HOME VALLEY', day: MUS_DAY, night: MUS_NIGHT, pent: MUS_PENT, dur: 9, pad: ['sine', 0.06, -6, 'triangle', 0.035, 7], bass: 0.04, arp: 0 },
+  { name: 'HIGH COUNTRY', day: [[45, 52, 59, 61, 64], [43, 50, 57, 59, 64], [50, 57, 64, 66, 69], [42, 49, 57, 61, 64], [40, 47, 57, 59, 64]],   // A mixolydian: Aadd9, G6/9, Dadd9, F#m7, Esus4
+    night: [[42, 49, 56, 57, 61], [38, 45, 54, 57, 61], [47, 54, 57, 62, 64], [40, 47, 54, 57, 61]], pent: [57, 59, 61, 64, 66, 69, 71, 73, 76, 78], dur: 8, pad: ['triangle', 0.045, -5, 'sine', 0.05, 9], bass: 0.045, arp: 0 },
+  { name: 'LONG SHADOWS', day: [[41, 48, 57, 59, 64], [41, 50, 55, 59, 62], [45, 52, 55, 60, 64], [48, 55, 59, 62, 64], [38, 45, 53, 57, 64]],   // F lydian, slower: Fmaj7#11, G/F, Am7, Cmaj9, Dm9
+    night: [[38, 45, 53, 57, 64], [46, 53, 57, 62, 64], [45, 52, 55, 62, 64], [41, 48, 52, 57, 60]], pent: [60, 62, 65, 67, 69, 72, 74, 77, 79, 81], dur: 11, pad: ['sine', 0.065, -9, 'sine', 0.03, 9], bass: 0.05, arp: 0 },
+  { name: 'RIVER BEND', day: [[40, 47, 54, 55, 62], [45, 52, 55, 59, 61], [48, 55, 59, 62, 64], [43, 50, 57, 59, 62], [50, 57, 59, 62, 64]],   // E dorian, bells walking up each chord: Em9, A9, Cmaj7, Gadd9, D6/9
+    night: [[40, 47, 50, 55, 57], [36, 43, 52, 55, 59], [45, 52, 55, 60, 64], [47, 54, 57, 62, 64]], pent: [59, 62, 64, 67, 69, 71, 74, 76, 79, 81], dur: 9, pad: ['sine', 0.055, -6, 'triangle', 0.03, 6], bass: 0.04, arp: 1 }];
+MUS.tr = 0; MUS.tc = 0; MUS.tn = 20; MUS.bag = []; MUS.trN = 0;
+function musNext() {   // the shuffle bag: every track once before any repeats, never the same twice running
+  if (!MUS.bag.length) { for (let i = 0; i < MUS_TR.length; i++) if (i !== MUS.tr) MUS.bag.push(i); for (let i = MUS.bag.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)), x = MUS.bag[i]; MUS.bag[i] = MUS.bag[j]; MUS.bag[j] = x; } MUS.bag.push(MUS.tr); }
+  let n = MUS.bag.shift(); if (n === MUS.tr) { MUS.bag.push(n); n = MUS.bag.shift(); } MUS.tr = n; MUS.tc = 0; MUS.tn = 16 + Math.floor(Math.random() * 9); MUS.ci = -1; MUS.trN++; }
 const musHz = n => 440 * Math.pow(2, (n - 69) / 12);
 function musInit() {
   if (MUS.ok || !SND.ok || !actx || BP_SAFE) return; const A = actx; MUS.ok = true; bootLog('music started');   // v1.10.1 ?safe: no music
@@ -2135,10 +2148,13 @@ function musBell(n, t0, peak) {   // a soft bell: sine + a quiet octave partial,
   for (const [k, p, dc] of [[1, 1, 3.2], [2.0, 0.22, 1.4], [3.01, 0.06, 0.7]]) { const o = A.createOscillator(), e = A.createGain(); o.frequency.value = f * k;
     e.gain.setValueAtTime(0, t0); e.gain.linearRampToValueAtTime(peak * p, t0 + 0.012); e.gain.exponentialRampToValueAtTime(0.0001, t0 + dc); o.connect(e).connect(MUS.bus); o.start(t0); o.stop(t0 + dc + 0.05); MUS.n++; o.onended = () => { MUS.n--; e.disconnect(); }; }
 }
-function musChord(t0) {   // the next chord of the walk (day or night palette), 9 s, voiced as a pad + a bass note
-  const P = MUS.set === 'night' ? MUS_NIGHT : MUS_DAY; MUS.ci = (MUS.ci + 1 + (Math.random() < 0.3 ? 1 : 0)) % P.length; const C = P[MUS.ci], dur = 9;
-  for (let i = 1; i < C.length; i++) { musVoice(musHz(C[i]), t0, dur, 0.06, 'sine', -6); musVoice(musHz(C[i]), t0 + 0.05, dur, 0.035, 'triangle', 7); }
-  musVoice(musHz(C[0] - 12), t0, dur, 0.04, 'sine', 0); MUS.last = MUS.set + MUS.ci; return dur;
+function musChord(t0) {   // the next chord of the walk (day or night palette), voiced as a pad + a bass note. v1.13.0 from the current track
+  if (++MUS.tc > MUS.tn) musNext();
+  const T = MUS_TR[MUS.tr], P = MUS.set === 'night' ? T.night : T.day; MUS.ci = (MUS.ci + 1 + (Math.random() < 0.3 ? 1 : 0)) % P.length; const C = P[MUS.ci], dur = T.dur, V = T.pad;
+  for (let i = 1; i < C.length; i++) { musVoice(musHz(C[i]), t0, dur, V[1], V[0], V[2]); musVoice(musHz(C[i]), t0 + 0.05, dur, V[4], V[3], V[5]); }
+  musVoice(musHz(C[0] - 12), t0, dur, T.bass, 'sine', 0); MUS.last = MUS.set + MUS.tr + ':' + MUS.ci;
+  if (T.arp && MUS.I > 0.12) for (let i = 1; i < C.length; i++) musBell(C[i] + 12, t0 + 1.2 + (i - 1) * 0.45, 0.018 + 0.03 * MUS.I);   // River Bend: the chord walked up in bells
+  return dur;
 }
 function musStinger(kind) {   // a discovery / story beat: a rising bell figure over the pad, and a swell
   if (!MUS.ok || GFX.volMu <= 0) { MUS.st.push(kind); return; } const t0 = actx.currentTime + 0.05, run = kind === 'story' ? [62, 69, 74, 78, 81] : [69, 74, 76, 81];
@@ -2170,7 +2186,7 @@ function musTick(dt) {
   MUS.lp.frequency.setTargetAtTime(900 + 2600 * MUS.I, t, 1.5);
   if (!on) { MUS.nextC = t + 0.5; MUS.nextB = t + 3; return; }   // OFF: nothing scheduled
   if (t > MUS.nextC - 0.25) MUS.nextC = Math.max(MUS.nextC, t) + musChord(Math.max(MUS.nextC, t)) * 0.92;
-  if (t > MUS.nextB) { const dens = 0.15 + 0.85 * MUS.I; if (Math.random() < dens) { const n = MUS_PENT[Math.floor(Math.random() * (MUS.set === 'night' ? 6 : MUS_PENT.length))]; musBell(n, t + 0.05, 0.03 + 0.05 * MUS.I); if (MUS.I > 0.6 && Math.random() < 0.5) musBell(n + (Math.random() < 0.5 ? 5 : 7), t + 0.4, 0.03); }
+  if (t > MUS.nextB) { const dens = 0.15 + 0.85 * MUS.I; if (Math.random() < dens) { const PT = MUS_TR[MUS.tr].pent, n = PT[Math.floor(Math.random() * (MUS.set === 'night' ? 6 : PT.length))]; musBell(n, t + 0.05, 0.03 + 0.05 * MUS.I); if (MUS.I > 0.6 && Math.random() < 0.5) musBell(n + (Math.random() < 0.5 ? 5 : 7), t + 0.4, 0.03); }
     MUS.nextB = t + (MUS.I > 0.6 ? 1.1 : 2.6) + Math.random() * (MUS.I > 0.6 ? 1.6 : 4); }
 }
 
@@ -2323,6 +2339,15 @@ function sfx(kind, pos, delay = 0) {
   else if (kind === 'swPrime') { burst(0.16, 1, 0.16, 'bandpass', 640); ping(260, 0.05, 0.07, 0.12); }   // the plunger: a swish + its stop
   else if (kind === 'swCarb') { burst(0.09, 1, 0.18, 'bandpass', 1250); burst(0.02, 1, 0.24, 'highpass', 2800, 0.08); }   // a cable knob: slide + seat
   else if (kind === 'swMix') { burst(0.07, 1, 0.2, 'bandpass', 880); ping(610, 0.03, 0.08, 0.06, 'triangle'); }   // the red knob
+  else if (kind === 'chew') { const n = 4 + (Math.random() * 2 | 0); for (let j = 0; j < n; j++) { const at = j * (0.26 + Math.random() * 0.06), f = 650 + Math.random() * 500;   // v1.13.0 eating: muffled jaw crunches, softer each time, a wet click
+      burst(0.07 + Math.random() * 0.04, 1, 0.2 * (1 - j * 0.12), 'bandpass', f, at); burst(0.05, 1, 0.1 * (1 - j * 0.12), 'lowpass', 260, at + 0.01); if (j % 2) ping(1700 + Math.random() * 600, 0.012, 0.025, at + 0.06); } }
+  else if (kind === 'bite') { burst(0.05, 1, 0.32, 'bandpass', 1500); burst(0.06, 1, 0.18, 'lowpass', 320, 0.008); burst(0.04, 1, 0.12, 'highpass', 3000, 0.02); }   // a soft bite (meat)
+  else if (kind === 'tear') { for (let j = 0; j < 5; j++) burst(0.03 + Math.random() * 0.02, 1, 0.14 + Math.random() * 0.08, 'bandpass', 1800 + j * 260 + Math.random() * 300, j * 0.028); burst(0.06, 1, 0.16, 'lowpass', 300, 0.02); }   // jerky torn off: a short fibrous rip
+  else if (kind === 'wrapper') { for (let j = 0; j < 14; j++) burst(0.008 + Math.random() * 0.014, 1, 0.05 + Math.random() * 0.09, 'highpass', 3500 + Math.random() * 4500, Math.random() * 0.34); burst(0.12, 1, 0.05, 'bandpass', 2600, 0.12); }   // a crinkly foil / paper wrapper
+  else if (kind === 'tin') { ping(2930, 0.18, 0.07, 0, 'triangle'); ping(4410, 0.12, 0.035, 0.002, 'sine'); burst(0.09, 1, 0.08, 'bandpass', 2400, 0.04); ping(2650, 0.1, 0.04, 0.2, 'triangle'); burst(0.07, 1, 0.12, 'lowpass', 500, 0.22); }   // a spoon in the tin: clink, scrape, a wet scoop
+  else if (kind === 'gulp') { burst(0.25, 1, 0.12, 'lowpass', 700); burst(0.18, 1, 0.05, 'bandpass', 1300, 0.05);   // the canteen tipped: a slosh, then gulps (a dropping throat thump + wet click), a breath out
+    for (let j = 0; j < 3; j++) { const at = 0.35 + j * (0.42 + Math.random() * 0.08); tone('sine', 210, 95, 0.13, 0.32, at, 0); burst(0.07, 1, 0.14, 'lowpass', 420, at); ping(1300 + Math.random() * 300, 0.02, 0.03, at + 0.07); burst(0.1, 1, 0.04, 'bandpass', 900, at + 0.1); }
+    burst(0.45, 1, 0.05, 'bandpass', 1100, 1.75); }
   else if (kind === 'swPlt') { burst(0.014, 1, 0.24, 'highpass', 4300); ping(3100, 0.015, 0.05); }   // the rotary rheostat
   else if (kind === 'swLdg') { burst(0.02, 1, 0.42, 'highpass', 3000); ping(820, 0.022, 0.1, 0, 'square'); }   // a snap toggle
   else if (kind === 'swStart') { burst(0.06, 1, 0.55, 'lowpass', 420); ping(92, 0.11, 0.24, 0, 'square'); burst(0.02, 1, 0.2, 'bandpass', 2000, 0.02); }   // the starter solenoid
@@ -2888,7 +2913,7 @@ function hoseTick(dt) {
     else { HOSE.rest = 'free'; HOSE.inCap = -1; pin = false; } }
   const calm = !HOSE.held && HOSE.rest === 'hook' && !FUELP.on && pin;   // v0.81 hanging still on its hook: after 30 still frames the rope sleeps (no sim, the last matrices stay)
   if (calm && HOSE.calm >= 30) { if (HOSE.lever) HOSE.lever.rotation.x = 0; return; }
-  const h = Math.min(dt, 1 / 30) / 2, g2 = 9.81 * h * h; plane.updateMatrixWorld(); _hsWi.copy(plane.matrixWorld).invert(); _hsB.copy(HOSE.E).applyMatrix4(_hsWi); const wingNear = Math.abs(_hsB.x) < TIP_X + HOSE.L && Math.abs(_hsB.z) < HOSE.L + 2;
+  const h = Math.min(dt, 1 / 30) / 2, g2 = 9.81 * h * h; plane.updateMatrixWorld(); hoseCubGear(); _hsWi.copy(plane.matrixWorld).invert(); _hsB.copy(HOSE.E).applyMatrix4(_hsWi); const wingNear = Math.abs(_hsB.x) < TIP_X + HOSE.L && Math.abs(_hsB.z) < HOSE.L + 2;
   for (let sub = 0; sub < 2; sub++) {
     for (let i = 1; i <= N; i++) { if (i === N && pin) continue; const p = P[i], q = Q[i]; _hsB.subVectors(p, q).multiplyScalar(0.985); q.copy(p); p.add(_hsB); p.y -= g2; }
     for (let i = 1; i <= N; i++) HOSE.gy[i] = groundY(P[i].x, P[i].z) + 0.012;   // v0.81 the ground under each node once per sub-step (it was 14x: the hottest garbage source on foot)
@@ -2897,7 +2922,7 @@ function hoseTick(dt) {
       for (let i = 0; i < N; i++) { const a = P[i], b = P[i + 1]; _hsB.subVectors(b, a); const d = _hsB.length(); if (d <= seg || d < 1e-6) continue; const k = (d - seg) / d;
         const wa = i === 0 ? 0 : 1, wb = i + 1 === N && pin ? 0 : 1, w = wa + wb; if (!w) continue; a.addScaledVector(_hsB, k * wa / w); b.addScaledVector(_hsB, -k * wb / w); }
       for (let i = 1; i <= N; i++) { const p = P[i], gy = HOSE.gy[i]; if (p.y < gy) { p.y = gy; Q[i].x += (p.x - Q[i].x) * 0.5; Q[i].z += (p.z - Q[i].z) * 0.5; Q[i].y = p.y; } }   // lies on the ground (with a little friction)
-      if (wingNear) for (let i = 1; i <= N; i++) if (!(i === N && pin)) hoseWing(P[i], Q[i]);   // v0.77.7 drapes over the wing, never through it
+      if (wingNear) for (let i = 1; i <= N; i++) if (!(i === N && pin)) { if (it & 1) hoseCub(P[i], Q[i]); else hoseWing(P[i], Q[i]); }   // v0.77.7 drapes over the wing, never through it. v1.13.0 and over / round the rest of the Cub (the full set on every other pass, the last one included; the wing alone between)
     } }
   { let mv = 0; for (let i = 1; i <= N; i++) mv = Math.max(mv, P[i].distanceToSquared(Q[i])); HOSE.calm = calm && mv < 1e-8 ? HOSE.calm + 1 : 0; }
   if (!pin) { HOSE.E.copy(P[N]); HOSE.dir.subVectors(P[N], P[N - 1]).normalize(); HOSE.tip.copy(HOSE.E).addScaledVector(HOSE.dir, 0.15); }
@@ -2912,13 +2937,56 @@ function nozInHand(sx, out) {   // v0.77.7 the nozzle in hand space: its grip al
   _hsL.set(sx * (0.0155 - NOZ.r), -0.045, 0).sub(_hsC.copy(NOZ.H).applyMatrix4(_hsR)); return out.copy(_hsR).setPosition(_hsL);
 }
 function wingTopT(f) {   // the wing section's upper surface over the flat bottom (fraction of chord -> m), from AFT
-  for (let k = 1; k < 7; k++) if (f <= AFT[k][0]) { const [f0, t0] = AFT[k - 1], [f1, t1] = AFT[k]; return t0 + (t1 - t0) * (f - f0) / (f1 - f0); } return AFT[6][1];
+  for (let k = 1; k < 7; k++) { const B = AFT[k]; if (f <= B[0]) { const A = AFT[k - 1]; return A[1] + (B[1] - A[1]) * (f - A[0]) / (B[0] - A[0]); } } return AFT[6][1];   // v1.13.0 (no destructuring: no allocation)
 }
 function hoseWing(p, q) {   // v0.77.7 push a hose particle out of the wing (plane space): over the top, or under the flat bottom, whichever side it came from; a little friction on top
   _hsL.copy(p).applyMatrix4(_hsWi); const ax = Math.abs(_hsL.x); if (ax > TIP_X + 0.2) return; const f = (_hsL.z - LE_Z) / CHORD; if (f < -0.01 || f > 1.01) return;
   const r = 0.016, yb = wy(Math.max(ax, ROOT_X), _hsL.z), yt = yb + wingTopT(clamp(f, 0, 1)); if (_hsL.y <= yb - r || _hsL.y >= yt + r) return;
   _hsC.copy(q).applyMatrix4(_hsWi); const top = _hsC.y >= (yb + yt) / 2; _hsL.y = top ? yt + r : yb - r; p.copy(_hsL).applyMatrix4(plane.matrixWorld);
   if (top) { q.x += (p.x - q.x) * 0.4; q.z += (p.z - q.z) * 0.4; }
+}
+// ---- v1.13.0 the hose against the rest of the Cub (plane space, all in typed arrays: no allocation per frame)
+//   sections: the fuselage as [z, half width, top, bottom] stations (the nose to the sternpost), linear between; capsules [a, b, r]: lift struts, gear legs, the tail wheel;
+//   cylinders along x [cx, cy, cz, half width, radius]: the main tyres (axle height follows the bungees); boxes [c, half sizes]: stabiliser, fin. Pushed out the shortest way.
+const HCC = { HR: 0.016, sec: Float64Array.from([-1.86, 0.27, 0.40, -0.19, -1.76, 0.35, 0.44, -0.23, -1.45, 0.40, 0.48, -0.26, -1.11, 0.35, 0.535, -0.28, 0.17, 0.35, 0.96, -0.35, 1.10, 0.35, 0.96, -0.23,
+  1.66, 0.296, 0.89, -0.15, 2.27, 0.236, 0.85, -0.04, 2.88, 0.177, 0.83, 0.05, 3.49, 0.117, 0.80, 0.16, 4.00, 0.068, 0.78, 0.24, 4.39, 0.03, 0.76, 0.31]),
+  cap: new Float64Array(7 * 12), nc: 0, cyl: new Float64Array(5 * 2), box: Float64Array.from([0, 0.66, 3.97, 1.45, 0.03, 0.42, 0, 1.295, 3.945, 0.035, 0.535, 0.445]), ok: false, n: 0, w: new Float64Array(8) };
+function hoseCubInit() {   // (once: the strut ends need wy, the legs D2B)
+  const C = HCC.cap; let j = 0; const put = (a, b, r) => { C[j] = a[0]; C[j + 1] = a[1]; C[j + 2] = a[2]; C[j + 3] = b[0]; C[j + 4] = b[1]; C[j + 5] = b[2]; C[j + 6] = r; j += 7; };
+  for (const sx of [-1, 1]) { for (const z of [-0.25, 0.55]) put([sx * 0.35, -0.33, 0.17], [sx * 3.27, wy(3.27, z), z], 0.026);
+    for (const P of [D2B(sx * 0.30, -0.75, -0.30), D2B(sx * 0.30, 0.10, -0.33), D2B(sx * 0.04, -0.36, -0.40)]) put(P.toArray(), [sx * 0.74, -0.91, -0.45], 0.03); }
+  put([0, -0.12, 4.3], [0, -0.3, 4.45], 0.1);   // the tail wheel + its spring
+  HCC.nc = j / 7; HCC.ok = true; }
+function hoseCubGear() {   // per hose tick: the leg ends + the tyres at the axle's height now
+  if (!HCC.ok) hoseCubInit(); const C = HCC.cap, Y = HCC.cyl, R = 0.44 + (UPG.tyres ? UPG_TD : 0);
+  for (let s = 0; s < 2; s++) { const ay = -0.91 + ac.gs[s].s, sx = s ? 1 : -1; for (let k = 0; k < 3; k++) C[(s * 5 + 2 + k) * 7 + 4] = ay;
+    const o = s * 5; Y[o] = sx * 0.95; Y[o + 1] = ay; Y[o + 2] = -0.45; Y[o + 3] = 0.22; Y[o + 4] = UPG.gk === 'floats' ? 0 : R; } }
+function hoseCub(p, q) {   // one hose particle out of the wing and the rest of the Cub
+  const L = _hsL.copy(p).applyMatrix4(_hsWi), r = HCC.HR; let hit = 0, top = 0;
+  { const ax = Math.abs(L.x), f = (L.z - LE_Z) / CHORD;   // the wing (v0.77.7: over the top or under the flat bottom, the side it came from)
+    if (ax <= TIP_X + 0.2 && f >= -0.01 && f <= 1.01) { const yb = wy(Math.max(ax, ROOT_X), L.z), yt = yb + wingTopT(f < 0 ? 0 : f > 1 ? 1 : f);
+      if (L.y > yb - r && L.y < yt + r) { _hsC.copy(q).applyMatrix4(_hsWi); const up = _hsC.y >= (yb + yt) / 2; L.y = up ? yt + r : yb - r; hit = 1; top = up ? 1 : 0; } } }
+  if (L.x > -3.45 && L.x < 3.45 && L.y > -1.5 && L.y < 1.9 && L.z > -2.0 && L.z < 4.6) {
+    const S = HCC.sec;   // the fuselage
+    if (L.z > S[0] && L.z < S[S.length - 4]) { let k = 4; while (k < S.length - 4 && S[k] < L.z) k += 4; const t = (L.z - S[k - 4]) / (S[k] - S[k - 4]), hw = S[k - 3] + (S[k + 1] - S[k - 3]) * t + r, yt = S[k - 2] + (S[k + 2] - S[k - 2]) * t + r, yb = S[k - 1] + (S[k + 3] - S[k - 1]) * t - r;
+      const ax = Math.abs(L.x); if (ax < hw && L.y < yt && L.y > yb) { const dT = yt - L.y, dB = L.y - yb, dS = hw - ax;
+        if (dT <= dB && dT <= dS) { L.y = yt; top = 1; } else if (dB <= dS) L.y = yb; else L.x = L.x < 0 ? -hw : hw; hit = 1; } }
+    const C = HCC.cap;   // struts, legs, the tail wheel
+    for (let c = 0; c < HCC.nc; c++) { const o = c * 7, ax = C[o], ay = C[o + 1], az = C[o + 2], ex = C[o + 3] - ax, ey = C[o + 4] - ay, ez = C[o + 5] - az, R = C[o + 6] + r;
+      const px = L.x - ax, py = L.y - ay, pz = L.z - az, ee = ex * ex + ey * ey + ez * ez; let u = ee > 0 ? (px * ex + py * ey + pz * ez) / ee : 0; u = u < 0 ? 0 : u > 1 ? 1 : u;
+      const dx = px - ex * u, dz = pz - ez * u; let dy = py - ey * u, d2 = dx * dx + dy * dy + dz * dz; if (d2 < 1e-12) { dy = 1e-6; d2 = 1e-12; }   // (on the axis: out upward)
+      if (d2 < R * R) { const s = R / Math.sqrt(d2); L.x = ax + ex * u + dx * s; L.y = ay + ey * u + dy * s; L.z = az + ez * u + dz * s; hit = 1; if (dy > 0) top = 1; } }
+    const Y = HCC.cyl;   // the tyres (axis along x)
+    for (let o = 0; o < 10; o += 5) { const R = Y[o + 4] + r; if (R <= r) continue; const dx = L.x - Y[o]; if (dx > Y[o + 3] + r || dx < -Y[o + 3] - r) continue;
+      const dz = L.z - Y[o + 2]; let dy = L.y - Y[o + 1], d2 = dy * dy + dz * dz; if (d2 >= R * R) continue; if (d2 < 1e-12) { dy = 1e-6; d2 = 1e-12; }
+      const dr = R - Math.sqrt(d2), dsd = Y[o + 3] + r - Math.abs(dx);
+      if (dsd < dr) L.x = Y[o] + (dx < 0 ? -1 : 1) * (Y[o + 3] + r); else { const s = R / Math.sqrt(d2); L.y = Y[o + 1] + dy * s; L.z = Y[o + 2] + dz * s; if (dy > 0) top = 1; } hit = 1; }
+    const B = HCC.box;   // stabiliser, fin
+    for (let o = 0; o < B.length; o += 6) { const dx = L.x - B[o], dy = L.y - B[o + 1], dz = L.z - B[o + 2], hx = B[o + 3] + r, hy = B[o + 4] + r, hz = B[o + 5] + r;
+      if (dx > -hx && dx < hx && dy > -hy && dy < hy && dz > -hz && dz < hz) { const qx = hx - Math.abs(dx), qy = hy - Math.abs(dy), qz = hz - Math.abs(dz);
+        if (qy <= qx && qy <= qz) { L.y = B[o + 1] + (dy < 0 ? -hy : hy); if (dy >= 0) top = 1; } else if (qx <= qz) L.x = B[o] + (dx < 0 ? -hx : hx); else L.z = B[o + 2] + (dz < 0 ? -hz : hz); hit = 1; } } }
+  if (!hit) return; p.copy(L).applyMatrix4(plane.matrixWorld); HCC.n++;
+  if (top) { q.x += (p.x - q.x) * 0.4; q.z += (p.z - q.z) * 0.4; }   // a little friction where it rests on top
 }
 // ---- v0.17 low-poly part builder: [kind, a, b, c, x, y, z, col, rx, ry, rz] -> one vertex-coloured, flat-shaded piece (cockpit knobs, switches) ----
 const ITEM_VM = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true }), DEER_IVM = ITEM_VM.clone();   // v0.59 instanced users get their own copy (one program each, no switching)
@@ -4319,7 +4387,9 @@ SKYD.m.renderOrder = -10;   // 7 km: inside the nearest far plane (7.3 km) - a 9
  SKYD.m.frustumCulled = false; SKYD.m.userData.noBatch = true; SKYD.m.userData.noCast = true; scene.add(SKYD.m);
 SKYD.m.onBeforeRender = () => { SKYD.u.uH.value.copy(scene.background); SKYD.u.uZ.value.copy(SKYD.z); SKYD.u.uG.value.copy(SKYD.G).multiplyScalar(SKYD.k); };
 // max two dynamic lights, always in the scene (no shader recompiles): PL = lantern or cockpit panel glow, SL = torch or landing light
-const LIGHTS = { lit: false, torch: false, landing: false, pl: 2 };   // v0.43 pl: panel lights 0 off / 1 dim / 2 bright
+const LIGHTS = { lit: false, torch: false, landing: false, pl: 2, plv: 1, plast: 1 };   // v0.43 pl: panel lights 0 off / 1 dim / 2 bright. v1.13.0 plv: the dimmer, 0..1 (pl follows it)
+function pltSet(v) { v = v < 0.025 ? 0 : v > 1 ? 1 : v; LIGHTS.plv = v; LIGHTS.pl = v === 0 ? 0 : v < 0.7 ? 1 : 2; if (v > 0) LIGHTS.plast = v; }
+function pltSay() { say('PANEL LIGHTS ' + (LIGHTS.pl ? Math.round(LIGHTS.plv * 100) + ' %' : 'OFF') + (ENG.master ? '' : ' (MASTER IS OFF)')); }
 const PL = new THREE.PointLight(0xffc06a, 0, 16, 1.5); scene.add(PL);
 const SL = new THREE.SpotLight(0xfff2da, 0, 70, 0.42, 0.45, 1.3); scene.add(SL, SL.target);
 const LDG_SW = new THREE.Vector3(0.10, -0.135 + CK.y, PANEL_Z + 0.012);
@@ -4377,7 +4447,7 @@ function updateDay(dt) {   // sun / sky / fog colour from the time of day, plus 
   // lights: panel glow (PANEL LT knob + master) and the landing light
   const dark = 1 - TOD.day;
   PL.intensity = 0; SL.intensity = 0;
-  if (mode === 'plane' && dark > 0.3 && ENG.master && LIGHTS.pl) { plane.localToWorld(PL.position.set(0, 0.25 + CK.y, -0.42 + CK.z)); PL.distance = 1.3; PL.color.setHex(0xff9a50); PL.intensity = 0.35 * dark * (LIGHTS.pl === 2 ? 1 : 0.55); }
+  if (mode === 'plane' && dark > 0.3 && ENG.master && LIGHTS.pl) { plane.localToWorld(PL.position.set(0, 0.25 + CK.y, -0.42 + CK.z)); PL.distance = 1.3; PL.color.setHex(0xff9a50); PL.intensity = 0.35 * dark * (0.1 + 0.9 * LIGHTS.plv); }
   if (LIGHTS.landing) { plane.localToWorld(SL.position.set(-1.6, 0.80, -0.42)); plane.localToWorld(SL.target.position.set(-1.6, -2.2, -30)); SL.distance = UPG.light ? 450 : 260; SL.angle = UPG.light ? 0.42 : 0.3; SL.intensity = UPG.light ? 520 : 220; }
   SL.target.updateMatrixWorld();
   PL.visible = PL.intensity > 0; SL.visible = SL.intensity > 0;   // v0.47: both programs are compiled at load (LIGHTS_WARM), so switching is hitch-free
@@ -4401,6 +4471,7 @@ function engWhyNot() {
   if (E.wet < need * 0.85) return E.temp < 0.5 ? 'COLD: PRIME 2-3 STROKES' : 'GIVE IT A PRIME';
   return 'KEEP CRANKING';
 }
+const PLT_STEP = [0, 0.25, 0.5, 0.75, 1];
 function engSet(k, v) {   // all switch / knob changes go through here (VR grabs and desktop keys)
   const E = ENG;
   if (k === 'valve') { E.valve = v ?? !E.valve; say('FUEL VALVE ' + (E.valve ? 'ON' : 'OFF')); }
@@ -4408,7 +4479,7 @@ function engSet(k, v) {   // all switch / knob changes go through here (VR grabs
   if (k === 'mix') { E.mix = v ?? (E.mix > 0.5 ? 0 : 1); say('MIXTURE ' + (E.mix > 0.5 ? 'RICH' : 'CUTOFF')); }
   if (k === 'carb') { E.carb = v ?? !E.carb; say('CARB HEAT ' + (E.carb ? 'HOT' : 'COLD')); }
   if (k === 'mags') { E.mags = v ?? (E.mags + 1) % 4; say('MAGS ' + MAG_N[E.mags]); }
-  if (k === 'plt') { LIGHTS.pl = v ?? (LIGHTS.pl + 1) % 3; say('PANEL LIGHTS ' + ['OFF', 'DIM', 'BRIGHT'][LIGHTS.pl] + (E.master ? '' : ' (MASTER IS OFF)')); }   // v0.43
+  if (k === 'plt') { if (v !== undefined) pltSet(v); else { const S = PLT_STEP; let j = S.findIndex(x => x > LIGHTS.plv + 1e-3); pltSet(j < 0 ? 0 : S[j]); } pltSay(); }   // v0.43. v1.13.0 K steps the dimmer 0 / 25 / 50 / 75 / 100 %
   if (k === 'prime') { E.primeT = 0.5; if (E.valve && fuel > 0) { E.wet += 0.9; say('PRIMED' + (E.wet > engNeed() + ENG_FLOOD ? ' - TOO MUCH?' : '')); } else say('PRIMER: NO FUEL (VALVE OFF)'); }
   sfx(SW_SND[k] || 'click');   // v1.12.0 its own sound
 }
@@ -4463,7 +4534,8 @@ const SW_DEF = [   // id, x, y (control centre, strip-local): a 4 x 2 grid of 7.
   [px, py] = C('valve'); T('FUEL', px, 228); T('ON', px + 24, py - 28, 13, '#bbb'); T('OFF', px - 40, py, 13, '#bbb');
   [px, py] = C('mix'); T('MIXTURE', px, 136); T('IN RICH - OUT CUT', px, 228, 12, '#bbb');
   [px, py] = C('carb'); T('CARB HEAT', px, 136, 19); T('IN COLD - OUT HOT', px, 228, 12, '#bbb');
-  [px, py] = C('plt'); T('PANEL LT', px, 136, 19); for (const [s2, a] of [['OFF', 0.9], ['DIM', 0], ['BRT', -0.9]]) T(s2, px - Math.sin(a) * 40, py - Math.cos(a) * 34, 13, '#bbb');
+  [px, py] = C('plt'); T('PANEL LT', px, 136, 19); for (const [s2, a] of [['OFF', 0.9], ['BRT', -0.9]]) T(s2, px - Math.sin(a) * 40, py - Math.cos(a) * 34, 13, '#bbb');
+  for (let j = 1; j < 8; j++) { const a = 0.9 - 1.8 * j / 8, r = 2 + j * 0.45; x.fillStyle = '#bbb'; x.beginPath(); x.arc(px - Math.sin(a) * 30, py - Math.cos(a) * 26, r, 0, 6.3); x.fill(); }   // v1.13.0 a dimmer: dots growing OFF to BRT
   const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
   SWP.cv = cv;   // v0.43: drawn into the panel atlas (one draw call for the whole panel)
 }
@@ -4614,7 +4686,7 @@ function updateSwitches(dt) {
   S.mags.mesh.rotation.z = snapTo('mags', ROT.mags[E.mags], dt);
   S.start.mesh.position.z = SWP.z - (E.starter ? 0.006 : 0);
   S.prime.mesh.position.z = SWP.z + 0.04 * Math.sin(Math.PI * (1 - E.primeT / 0.5)) * (E.primeT > 0 ? 1 : 0);
-  S.valve.mesh.rotation.z = snapTo('valve', E.valve ? 0 : Math.PI / 2, dt); S.plt.mesh.rotation.z = ROT.plt[LIGHTS.pl];
+  S.valve.mesh.rotation.z = snapTo('valve', E.valve ? 0 : Math.PI / 2, dt); S.plt.mesh.rotation.z = LIGHTS.pl ? 0.9 - 1.8 * LIGHTS.plv : 0.9;
   S.prime.mesh.rotation.z = CKX.vis.primeR !== undefined ? CKX.vis.primeR : snapTo('primeR', PRIME.lock ? 0 : Math.PI / 2, dt);
   S.mix.mesh.position.z = SWP.z + (E.mix > 0.5 ? 0 : 0.03);
   S.carb.mesh.position.z = SWP.z + (E.carb ? 0.03 : 0);
@@ -4866,7 +4938,7 @@ function updateKb() {
 }
 
 // ---- v0.82 the hand mic: a push-to-talk handset on a clip under the right of the panel, its coiled cord a light verlet chain swung by the Cub's accelerations (visual only: no physics) ----
-const MIC = { clip: new THREE.Vector3(0.235, -0.225 + CK.y, PANEL_Z + 0.04), jack: new THREE.Vector3(0.1, -0.272 + CK.y, PANEL_Z + 0.05), N: 12, SEG: 0.028, TURNS: 3, SPT: 6, RC: 0.0075, RW: 0.0021,
+const MIC = { clip: new THREE.Vector3(0.235, -0.225 + CK.y, PANEL_Z + 0.04), jack: new THREE.Vector3(0.1, -0.0215, PANEL_Z + 0.05), N: 12, SEG: 0.028, TURNS: 3, SPT: 6, RC: 0.0075, RW: 0.0021,
   g: null, back: 0, rp: new THREE.Vector3(), rq: new THREE.Quaternion(), pv: null, acc: new THREE.Vector3(0, -9.81, 0), P: [], O: [], m: null, cord: null, floor: CK.y - 0.6, stretch: 0 };
 const MIC_EXIT = new THREE.Vector3(0, -0.047, 0), MIC_HOLD = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -Math.PI / 2);   // the cord leaves the handset's foot; in the fist its top points along the grip's -Z
 const _mq = new THREE.Quaternion(), _mq2 = new THREE.Quaternion(), _mv = new THREE.Vector3(), _mv2 = new THREE.Vector3(), _mg = new THREE.Vector3();
@@ -4874,7 +4946,8 @@ const _mq = new THREE.Quaternion(), _mq2 = new THREE.Quaternion(), _mv = new THR
   box(0.05, 0.078, 0.028, dk, 0, 0, 0, G); box(0.036, 0.03, 0.004, mat(0x4a4a4c), 0, 0.017, 0.015, G); box(0.006, 0.026, 0.014, mat(0x8a1a12), -0.027, -0.004, 0, G);   // body, grille, the red PTT bar on its left side
   { const sr = new THREE.Mesh(new THREE.CylinderGeometry(0.005, 0.007, 0.012, 6), dk); sr.position.set(0, -0.044, 0); G.add(sr); }   // the strain relief
   const C = box(0.03, 0.012, 0.016, mat(0x707478), MIC.clip.x, MIC.clip.y + 0.034, MIC.clip.z - 0.016, plane); C.userData.noBatch = true;   // the clip on the panel lip
-  const J = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.014, 6), mat(0x707478)); J.position.copy(MIC.jack); plane.add(J);   // the jack under the radio
+  const J = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.014, 6), mat(0x707478)); J.position.copy(MIC.jack); J.position.y += 0.0075; plane.add(J);   // the jack, its socket facing down
+  const BR = box(0.036, 0.004, 0.03, mat(0x55585c), MIC.jack.x, -0.002, MIC.jack.z, plane), BR2 = box(0.004, 0.012, 0.03, mat(0x55585c), MIC.jack.x + 0.016, -0.008, MIC.jack.z, plane); BR.userData.noBatch = BR2.userData.noBatch = true; MIC.br = BR;   // v1.13.0 the L bracket screwed under the dash: the cord's anchor, no longer hanging in the air
   G.traverse(o => { o.userData.noBatch = true; }); J.userData.noBatch = true;
   for (let i = 0; i <= MIC.N; i++) { const p = MIC.jack.clone().lerp(MIC.clip.clone().add(MIC_EXIT), i / MIC.N); p.y -= Math.sin(Math.PI * i / MIC.N) * 0.08; MIC.P.push(p); MIC.O.push(p.clone()); }
   const S = MIC.N * MIC.TURNS * MIC.SPT + 1, pos = new Float32Array(S * 3 * 3), nrm = new Float32Array(S * 3 * 3), idx = [];
@@ -5369,6 +5442,29 @@ const POSE_LAB = {
   rodL: { p: [-0.002, -0.0287, -0.0669], q: [-0.2383, 0, 0, 0.97119], J: PL_ROD_J, dev: 0 },   // v1.11.4 Neil's second code (FISHING ROD, left hand, joints): pos mm [-2, -28.7, -66.9], euler [-27.6, 0, 0] in gripFrame('rod') = FROD.f
   rodR: { p: [0.002, -0.0287, -0.0669], q: [-0.2383, 0, 0, 0.97119], J: PL_ROD_J, dev: 0 },   // mirrored
   rifleSupR: { p: [-0.1466, 0.2477, 0.1598], q: [-0.4873, 0.1252, 0.5826, 0.6383], J: PL_SUP_J, dev: 0.6 },   // mirrored
+  // t239 Neil's left-hand carried holds (Pose Lab v2 codes, /workspace/poses/t239-left-grips.txt): the left hand only - the right keeps the game's own placement
+  pk_tackleOpenL: { p: [0.1448, 0.0282, -0.0093], q: [-0.5707, 0.0424, 0.1044, 0.81339], J: [[0, 0.0048, -0.475, 0.88], [0, 0.0048, -0.4794, 0.8776], [0, 0.0048, -0.435, 0.9004], [0, 0, -0.5354, 0.8446], [0, 0, -0.4794, 0.8776], [0, 0, -0.435, 0.9004], [0, 0, -0.7068, 0.7074], [0, 0, -0.4794, 0.8776], [0, 0, -0.435, 0.9004], [0.0045, -0.0045, -0.7345, 0.6785], [0, -0.0048, -0.4794, 0.8776], [0, -0.0048, -0.435, 0.9004], [-0.1155, -0.4428, 0.0289, 0.8887], [0.0249, -0.0547, 0.1691, 0.9838], [-0.0628, 0, -0.4347, 0.8984]], dev: 0 },   // t239 Neil's code (TACKLE BOX (open) [FISHING], left hand, every joint): pos mm [144.8, 28.2, -9.3], euler [-69.8, -2.9, 12.6]
+  pk_tackleL: { p: [0.0907, -0.015, 0.0224], q: [-0.29551, 0, 0, 0.95534], J: [[-0.0048, 0.0048, -0.4838, 0.8752], [0, 0.0049, -0.2955, 0.9553], [0, 0.0049, -0.2667, 0.9638], [0, 0, -0.4838, 0.8752], [0, 0, -0.2955, 0.9553], [0, 0, -0.2667, 0.9638], [0, 0, -0.4838, 0.8752], [0, 0, -0.2955, 0.9553], [0, 0, -0.2667, 0.9638], [0.0048, -0.0048, -0.4838, 0.8752], [0, -0.0049, -0.2955, 0.9553], [0, -0.0049, -0.2667, 0.9638], [-0.3795, -0.4357, -0.0656, 0.8135], [0.179, 0, -0.0199, 0.9836], [0.1975, 0, -0.6199, 0.7594]], dev: 0 },   // t239 Neil's code (TACKLE BOX (closed) [FISHING], left hand, every joint): pos mm [90.7, -15, 22.4], euler [-34.4, 0, 0]
+  pk_filletsL: { p: [0.0194, -0.0428, -0.0183], q: [-0.2078, -0.67932, 0.21011, 0.67172], J: [[-0.0048, 0.0048, -0.4882, 0.8727], [0, 0.0049, -0.2955, 0.9553], [0, 0.0049, -0.2667, 0.9638], [0, 0, -0.6012, 0.7991], [0, 0, -0.2955, 0.9553], [0, 0, -0.2667, 0.9638], [0.0046, 0, -0.6556, 0.7551], [0, 0, -0.2955, 0.9553], [0, 0, -0.2667, 0.9638], [0.0089, 0, -0.7446, 0.6674], [0, -0.0049, -0.2955, 0.9553], [0, -0.0049, -0.2667, 0.9638], [-0.3795, -0.4357, -0.0656, 0.8135], [0.179, 0, -0.0199, 0.9836], [0.1975, 0, -0.6199, 0.7594]], dev: 0 },   // t239 Neil's code (FISH FILLETS (A PAIR) [HUNTING], left hand, every joint): pos mm [19.4, -42.8, -18.3], euler [146, -89.4, -179.6]
+  pk_knifeL: { p: [-0.0004, -0.0344, -0.0165], q: [-0.0044, 0.65243, -0.75783, 0.0038], J: [[-0.0048, 0.0048, -0.4838, 0.8752], [0, 0.0044, -0.7833, 0.6216], [-0.0038, 0.0038, -0.9391, 0.3436], [-0.0144, 0.0096, -0.4573, 0.8891], [-0.0084, 0.0126, -0.8414, 0.5402], [0.1574, -0.029, -0.849, 0.5036], [0, 0, -0.4838, 0.8752], [0, 0, -0.8748, 0.4845], [0, 0, -0.7345, 0.6786], [0.0048, -0.0048, -0.4838, 0.8752], [0, -0.0045, -0.7174, 0.6967], [0, -0.0044, -0.7546, 0.6562], [-0.3795, -0.4357, -0.0656, 0.8135], [0.179, 0, -0.0199, 0.9836], [0.1975, 0, -0.6199, 0.7594]], dev: 0 },   // t239 Neil's code (SHEATH KNIFE (drawn) [HUNTING], left hand, every joint): pos mm [-0.4, -34.4, -16.5], euler [81.5, 0.7, -180]
+  pk_venisonL: { p: [0.0092, -0.0429, -0.0185], q: [-0.20929, 0.67438, -0.20859, 0.67668], J: [[-0.0048, 0.0048, -0.4838, 0.8752], [0, 0.0049, -0.2955, 0.9553], [0, 0.0049, -0.2667, 0.9638], [0, 0, -0.4838, 0.8752], [0, 0, -0.2955, 0.9553], [0, 0, -0.949, 0.3153], [0, 0, -0.4838, 0.8752], [0, 0, -0.2955, 0.9553], [0, 0, -0.9594, 0.2819], [0.0048, -0.0048, -0.4838, 0.8752], [0, -0.0049, -0.2955, 0.9553], [0.004, -0.004, -0.9044, 0.4266], [-0.5221, -0.4177, -0.1453, 0.7293], [0.179, 0, -0.0199, 0.9836], [0.1975, 0, -0.6199, 0.7594]], dev: 0 },   // t239 Neil's code (VENISON (2 LB CUT) [HUNTING], left hand, every joint): pos mm [9.2, -42.9, -18.5], euler [-34.1, 89.8, -0.3]
+  pk_scopeL: { p: [0.0083, -0.0429, -0.0184], q: [-0.2078, -0.67932, 0.21011, 0.67172], J: [[-0.0048, 0.0048, -0.4838, 0.8752], [0, 0.0049, -0.2955, 0.9553], [0, 0.0049, -0.2667, 0.9638], [0, 0, -0.4838, 0.8752], [0, 0, -0.2955, 0.9553], [0, 0, -0.2667, 0.9638], [0, 0, -0.4838, 0.8752], [0, 0, -0.2955, 0.9553], [0, 0, -0.2667, 0.9638], [0.0048, -0.0048, -0.4838, 0.8752], [0, -0.0049, -0.2955, 0.9553], [0, -0.0049, -0.2667, 0.9638], [-0.3795, -0.4357, -0.0656, 0.8135], [0.179, 0, -0.0199, 0.9836], [0.1975, 0, -0.6199, 0.7594]], dev: 0 },   // t239 Neil's code (4X RIFLE SCOPE (loose) [HUNTING], left hand, every joint): pos mm [8.3, -42.9, -18.4], euler [146, -89.4, -179.6]
+  pk_guideL: { p: [0.0605, -0.0411, -0.0519], q: [-0.85429, 0, 0, 0.51979], J: [[-0.0048, 0.0048, -0.4882, 0.8727], [0, 0.0048, -0.5055, 0.8628], [0, 0.0049, -0.2619, 0.9651], [0, 0, -0.4838, 0.8752], [0, 0, -0.6288, 0.7776], [0, 0, -0.2377, 0.9713], [0, 0, -0.4838, 0.8752], [0, 0, -0.7208, 0.6931], [0, 0, -0.2667, 0.9638], [0.0048, -0.0048, -0.4838, 0.8752], [0.0043, -0.0043, -0.7895, 0.6137], [0, -0.0049, -0.2667, 0.9638], [-0.3795, -0.4357, -0.0656, 0.8135], [0.179, 0, -0.0199, 0.9836], [0.1975, 0, -0.6199, 0.7594]], dev: 0 },   // t239 Neil's code (FIELD GUIDE (closed) [PAPERS], left hand, every joint): pos mm [60.5, -41.1, -51.9], euler [-117.4, 0, 0]
+  pk_photoL: { p: [0.0614, -0.0531, -0.07], q: [-0.86689, 0, 0, 0.4985], J: [[-0.0046, 0, -0.6171, 0.7869], [0, 0.0049, -0.394, 0.9191], [0, 0.0049, -0.2667, 0.9638], [0, 0, -0.4838, 0.8752], [0, 0, -0.7739, 0.6333], [0, 0, -0.2667, 0.9638], [0.0044, 0, -0.7643, 0.6448], [0, 0, -0.8935, 0.4491], [0, 0, -0.2667, 0.9638], [0.0081, 0, -0.8889, 0.458], [0, -0.0045, -0.7139, 0.7003], [0, -0.0049, -0.2667, 0.9638], [-0.3795, -0.4357, -0.0656, 0.8135], [0.179, 0, -0.0199, 0.9836], [0.1975, 0, -0.6199, 0.7594]], dev: 0 },   // t239 Neil's code (POLAROID PRINT (print) [PAPERS], left hand, every joint): pos mm [61.4, -53.1, -70], euler [-120.2, 0, 0]
+  pk_guideOpenL: { p: [0.0822, -0.0684, -0.11], q: [-0.83743, -0.18371, -0.0585, 0.51142], J: [[-0.0048, 0.0048, -0.4618, 0.887], [0, 0.0047, -0.5932, 0.8051], [0, 0.0049, -0.2667, 0.9638], [0, 0, -0.4838, 0.8752], [0, 0, -0.6556, 0.7551], [0, 0, -0.2667, 0.9638], [0, 0, -0.4838, 0.8752], [0, 0, -0.9636, 0.2675], [0, 0, -0.2667, 0.9638], [0.0048, -0.0048, -0.4838, 0.8752], [0.0037, -0.0037, -0.9635, 0.2675], [0, -0.0049, -0.2667, 0.9638], [-0.3795, -0.4357, -0.0656, 0.8135], [0.179, 0, -0.0199, 0.9836], [0.1975, 0, -0.6199, 0.7594]], dev: 0 },   // t239 Neil's code (FIELD GUIDE (open) [PAPERS], left hand, every joint): pos mm [82.2, -68.4, -110], euler [-118.2, -5.2, -21.7]
+  pk_polaroidL: { p: [0.0644, -0.0132, 0.0022], q: [-0.99983, 0, 0, 0.0187], J: [[-0.0048, 0.0048, -0.4838, 0.8752], [0, 0.0048, -0.475, 0.88], [0, 0.005, -0.2231, 0.9748], [0, 0, -0.4838, 0.8752], [0, 0, -0.4439, 0.8961], [0, 0, -0.2667, 0.9638], [0, 0, -0.4838, 0.8752], [0, 0, -0.4305, 0.9026], [0, 0, -0.2667, 0.9638], [0.0048, -0.0048, -0.4838, 0.8752], [0, -0.0049, -0.2955, 0.9553], [0, -0.0049, -0.2667, 0.9638], [-0.4316, -0.38, 0.0422, 0.817], [0.179, -0.005, 0.0149, 0.9837], [0.1975, 0, -0.6199, 0.7594]], dev: 0 },   // t239 Neil's code (POLAROID CAMERA [CAMP], left hand, every joint): pos mm [64.4, -13.2, 2.2], euler [-177.9, 0, 0]
+  pk_swagL: { p: [0.0497, -0.0397, -0.0116], q: [-0.0977, 0.71559, -0.1085, 0.68309], J: [[-0.0049, 0.0049, -0.2522, 0.9676], [0, 0.0049, -0.2955, 0.9553], [0, 0.0049, -0.2667, 0.9638], [0, 0, -0.3193, 0.9477], [0, 0, -0.2955, 0.9553], [0, 0, -0.2667, 0.9638], [0, 0, -0.3476, 0.9376], [0, 0, -0.2955, 0.9553], [0, 0, -0.2667, 0.9638], [0.0049, -0.0049, -0.3335, 0.9427], [0, -0.0049, -0.2955, 0.9553], [0, -0.0049, -0.2667, 0.9638], [-0.6946, -0.3622, -0.2471, 0.5704], [0.179, 0, -0.0199, 0.9836], [0.1975, 0, -0.6199, 0.7594]], dev: 0 },   // t239 Neil's code (SWAG (BEDROLL) (rolled) [CAMP], left hand, every joint): pos mm [49.7, -39.7, -11.6], euler [153.2, 87.2, -170]
+  packL: { p: [0.0141, -0.0141, -0.0061], q: [0.35019, -0.51519, 0.46019, 0.63259], J: [[-0.0045, 0.0045, -0.7345, 0.6785], [0, 0.0046, -0.6594, 0.7518], [0, 0.0048, -0.435, 0.9004], [0, 0, -0.7345, 0.6786], [0, 0, -0.648, 0.7616], [0, 0, -0.435, 0.9004], [0, 0, -0.7345, 0.6786], [0, 0, -0.6743, 0.7385], [0, 0, -0.435, 0.9004], [0.0045, -0.0045, -0.7345, 0.6785], [0, -0.0048, -0.5141, 0.8577], [0, -0.0048, -0.435, 0.9004], [-0.4139, -0.4279, -0.1256, 0.7936], [0.1641, 0, -0.0647, 0.9843], [0.177, 0, -0.6625, 0.7279]], dev: 0 },   // t239 Neil's code (PACK (by the handle) [CAMP], left hand, every joint): pos mm [14.1, -14.1, -6.1], euler [76.3, -19.2, 87.2]
+  pk_torchL: { p: [0, -0.0197, -0.029], q: [-0.88448, 0, 0, 0.46659], J: [[-0.0048, 0.0048, -0.4838, 0.8752], [-0.0039, 0.0039, -0.932, 0.3623], [0, 0.0049, -0.2667, 0.9638], [0, 0, -0.4838, 0.8752], [0, 0, -0.9636, 0.2675], [0, 0, -0.2667, 0.9638], [0, 0, -0.4838, 0.8752], [0, 0, -0.9458, 0.3248], [0, 0, -0.2667, 0.9638], [0.0048, -0.0048, -0.4838, 0.8752], [0.0039, -0.0039, -0.9374, 0.3483], [0, -0.0049, -0.2667, 0.9638], [-0.3795, -0.4357, -0.0656, 0.8135], [0.179, 0, -0.0199, 0.9836], [0.1975, 0, -0.6199, 0.7594]], dev: 0 },   // t239 Neil's code (FLASHLIGHT [SURVIVAL], left hand, every joint): pos mm [0, -19.7, -29], euler [-124.4, 0, 0]
+  pk_canteenL: { p: [0.0183, -0.0172, -0.0218], q: [-0.76359, 0, 0, 0.6457], J: [[-0.0048, 0.0048, -0.4838, 0.8752], [0, 0.0048, -0.4573, 0.8893], [0, 0.0049, -0.3848, 0.923], [0, 0, -0.4838, 0.8752], [0, 0, -0.5098, 0.8603], [0, 0, -0.4706, 0.8823], [0, 0, -0.4838, 0.8752], [0, 0, -0.5227, 0.8525], [0, 0, -0.4662, 0.8847], [0.0048, -0.0048, -0.4838, 0.8752], [0, -0.0048, -0.4925, 0.8703], [0, -0.0049, -0.3476, 0.9376], [-0.6133, -0.3927, -0.1985, 0.6559], [0.179, 0, -0.0199, 0.9836], [0.1975, 0, -0.6199, 0.7594]], dev: 0 },   // t239 Neil's code (CANTEEN [SURVIVAL], left hand, every joint): pos mm [18.3, -17.2, -21.8], euler [-99.6, 0, 0]
+  pk_firstaidL: { p: [0.0506, -0.0264, -0.0206], q: [-0.59431, 0.60161, 0.36891, 0.38571], J: [[-0.0048, 0.0048, -0.4838, 0.8752], [0, 0.0049, -0.2955, 0.9553], [0, 0.0049, -0.2667, 0.9638], [0, 0, -0.4838, 0.8752], [0, 0, -0.2955, 0.9553], [0, 0, -0.2667, 0.9638], [0, 0, -0.4838, 0.8752], [0, 0, -0.2955, 0.9553], [0, 0, -0.2667, 0.9638], [0.0048, -0.0048, -0.4838, 0.8752], [0, -0.0049, -0.2955, 0.9553], [0, -0.0049, -0.2667, 0.9638], [-0.6661, -0.5237, 0.0293, 0.5303], [0.179, 0, -0.0199, 0.9836], [0.1975, 0, -0.6199, 0.7594]], dev: 0 },   // t239 Neil's code (FIRST AID KIT [SURVIVAL], left hand, every joint): pos mm [50.6, -26.4, -20.6], euler [-115.5, 1.5, 89.8]
+  pk_jerkyL: { p: [0.038, -0.0279, -0.0419], q: [-0.7735, 0, 0, 0.6338], J: [[-0.0048, 0.0048, -0.4838, 0.8752], [0, 0.0047, -0.5564, 0.8309], [0, 0.0049, -0.2667, 0.9638], [0, 0, -0.4838, 0.8752], [0, 0, -0.6365, 0.7712], [0, 0, -0.2667, 0.9638], [0, 0, -0.4838, 0.8752], [0, 0, -0.6631, 0.7485], [0, 0, -0.2667, 0.9638], [0.0048, -0.0048, -0.4838, 0.8752], [0, -0.0045, -0.7174, 0.6967], [0, -0.0049, -0.2667, 0.9638], [-0.3795, -0.4357, -0.0656, 0.8135], [0.179, 0, -0.0199, 0.9836], [0.1975, 0, -0.6199, 0.7594]], dev: 0 },   // t239 Neil's code (JERKY (food) [SURVIVAL], left hand, every joint): pos mm [38, -27.9, -41.9], euler [-101.3, 0, 0]
+  pk_beansL: { p: [0.0182, -0.0348, -0.0137], q: [-0.76969, -0.0089, 0.0311, 0.63759], J: [[-0.0048, 0.0048, -0.4838, 0.8752], [0, 0.0049, -0.2955, 0.9553], [0, 0.0049, -0.2667, 0.9638], [0, 0, -0.4838, 0.8752], [0, 0, -0.2955, 0.9553], [0, 0, -0.2667, 0.9638], [0, 0, -0.4838, 0.8752], [0, 0, -0.2955, 0.9553], [0, 0, -0.2667, 0.9638], [0.0048, -0.0048, -0.4838, 0.8752], [0, -0.0049, -0.2955, 0.9553], [0, -0.0049, -0.2667, 0.9638], [-0.3795, -0.4357, -0.0656, 0.8135], [-0.3831, -0.1018, -0.1212, 0.91], [0.0914, -0.2453, -0.38, 0.8872]], dev: 0 },   // t239 Neil's code (TIN OF BEANS (food) [SURVIVAL], left hand, every joint): pos mm [18.2, -34.8, -13.7], euler [-100.7, -3.4, 1.5]
+  pk_barL: { p: [0.0322, -0.0471, -0.0498], q: [-0.85981, 0, 0, 0.51061], J: [[-0.0048, 0.0048, -0.4838, 0.8752], [0, 0.0047, -0.548, 0.8365], [0, 0.0049, -0.2667, 0.9638], [0, 0, -0.4838, 0.8752], [0, 0, -0.6594, 0.7518], [0, 0, -0.2667, 0.9638], [0, 0, -0.4838, 0.8752], [0, 0, -0.7546, 0.6562], [0, 0, -0.2667, 0.9638], [0.0048, -0.0048, -0.4838, 0.8752], [0.0038, -0.0038, -0.949, 0.3153], [0, -0.0049, -0.2667, 0.9638], [-0.3795, -0.4357, -0.0656, 0.8135], [0.179, 0, -0.0199, 0.9836], [0.1975, 0, -0.6199, 0.7594]], dev: 0 },   // t239 Neil's code (CHOCOLATE BAR (food) [SURVIVAL], left hand, every joint): pos mm [32.2, -47.1, -49.8], euler [-118.6, 0, 0]
+  pk_cigsL: { p: [0.0532, -0.0412, -0.0438], q: [-0.809, 0, 0, 0.5878], J: [[-0.0048, 0.0048, -0.4838, 0.8752], [0, 0.0047, -0.5396, 0.8419], [0, 0.0049, -0.2667, 0.9638], [0, 0, -0.4838, 0.8752], [0, 0, -0.6171, 0.7869], [0, 0, -0.2667, 0.9638], [0, 0, -0.4838, 0.8752], [0, 0, -0.7956, 0.6058], [0, 0, -0.2667, 0.9638], [0.0048, -0.0048, -0.4838, 0.8752], [0.0037, -0.0037, -0.9635, 0.2675], [0, -0.0049, -0.2667, 0.9638], [-0.3795, -0.4357, -0.0656, 0.8135], [0.179, 0, -0.0199, 0.9836], [0.1975, 0, -0.6199, 0.7594]], dev: 0 },   // t239 Neil's code (CIGARETTES + LIGHTER [SURVIVAL], left hand, every joint): pos mm [53.2, -41.2, -43.8], euler [-108, 0, 0]
+  pk_flareL: { p: [0, -0.0557, -0.0546], q: [-0.90561, 0, 0, 0.42411], J: [[-0.0048, 0.0048, -0.4838, 0.8752], [0, 0.0045, -0.7174, 0.6967], [0, 0.005, -0.06, 0.9982], [0, 0, -0.4838, 0.8752], [0, 0, -0.9302, 0.367], [0, 0, -0.2667, 0.9638], [0, 0, -0.4838, 0.8752], [0, 0, -0.9441, 0.3295], [0, 0, -0.2667, 0.9638], [0.0048, -0.0048, -0.4838, 0.8752], [0.0037, -0.0037, -0.9635, 0.2675], [0, -0.0049, -0.2667, 0.9638], [-0.3795, -0.4357, -0.0656, 0.8135], [0.179, 0, -0.0199, 0.9836], [0.1975, 0, -0.6199, 0.7594]], dev: 0 },   // t239 Neil's code (SIGNAL FLARE [SURVIVAL], left hand, every joint): pos mm [0, -55.7, -54.6], euler [-129.8, 0, 0]
+  pk_ropeL: { p: [0.0017, -0.0718, 0.0001], q: [0.4604, 0.4608, -0.5815, 0.4874], J: [[-0.0048, 0.0048, -0.4838, 0.8752], [0, 0.0049, -0.2955, 0.9553], [0, 0.0049, -0.2667, 0.9638], [0, 0, -0.4838, 0.8752], [0, 0, -0.2955, 0.9553], [0, 0, -0.2667, 0.9638], [0, 0, -0.4838, 0.8752], [0, 0, -0.2955, 0.9553], [0, 0, -0.2667, 0.9638], [0.0048, -0.0048, -0.4838, 0.8752], [0, -0.0049, -0.2955, 0.9553], [0, -0.0049, -0.2667, 0.9638], [-0.3795, -0.4357, -0.0656, 0.8135], [0.179, 0, -0.0199, 0.9836], [0.1975, 0, -0.6199, 0.7594]], dev: 0 },   // t239 Neil's code (ROPE [SURVIVAL], left hand, every joint): pos mm [1.7, -71.8, 0.1], euler [81.3, -4.9, -95.8]
+  pk_tarpL: { p: [0.0143, -0.0383, -0.0056], q: [-0.0308, 0.73472, -0.0663, 0.67442], J: [[-0.0048, 0.0048, -0.4838, 0.8752], [0, 0.0049, -0.2955, 0.9553], [0, 0.0049, -0.2667, 0.9638], [0, 0, -0.4838, 0.8752], [0, 0, -0.2955, 0.9553], [0, 0, -0.2667, 0.9638], [0, 0, -0.4838, 0.8752], [0, 0, -0.2955, 0.9553], [0, 0, -0.2667, 0.9638], [0.0048, -0.0048, -0.4838, 0.8752], [0, -0.0049, -0.2955, 0.9553], [0, -0.0049, -0.2667, 0.9638], [-0.5063, -0.4197, -0.1323, 0.7416], [0.179, 0, -0.0199, 0.9836], [0.1975, 0, -0.6199, 0.7594]], dev: 0 },   // t239 Neil's code (TARP [SURVIVAL], left hand, every joint): pos mm [14.3, -38.3, -5.6], euler [145.6, 84.3, -153.5]
 };
 const PL_KEY = { rgrip: 'rifle', rfore: 'rifleSup', rlev: 'rlev', bR: 'binoR', bL: 'binoL', kbR: 'clipR', kbL: 'clipL', mpR: 'mapR', mpL: 'mapL' };   // gripSolve's GDEF key -> the lab's item id (the rest are the same); a per-hand frame (bR / bL ...) names its hand: only that hand takes the lab pose
 const plKey = (k, sx) => { const n = PL_KEY[k] || k, h = sx < 0 ? 'L' : 'R'; return /[LR]$/.test(n) ? (n.slice(-1) === h ? n : null) : n + h; };
@@ -5511,7 +5607,7 @@ function tipState(k) {
   const E = ENG;
   switch (k) {
     case 'master': return E.master ? 'ON' : 'OFF'; case 'mags': return CKX.keyStart ? 'START' : MAG_N[E.mags]; case 'start': return E.starter ? 'CRANKING' : 'PUSH + HOLD'; case 'prime': return PRIME.lock ? 'LOCKED - TWIST' : 'PULL + PUSH';
-    case 'plt': return ['OFF', 'DIM', 'BRIGHT'][LIGHTS.pl];
+    case 'plt': return LIGHTS.pl ? Math.round(LIGHTS.plv * 100) + ' %' : 'OFF';
     case 'valve': return E.valve ? 'ON' : 'OFF'; case 'mix': return E.mix > 0.5 ? 'RICH' : 'CUTOFF'; case 'carb': return E.carb ? 'HOT' : 'COLD'; case 'ldg': return LIGHTS.landing ? 'ON' : 'OFF'; case 'gear': return ac.gdn ? 'WHEELS DOWN' : 'WHEELS UP';
     case 'rup': case 'rlo': case 'rcg': case 'lf': case 'lr': return WIN[k] < 0.03 && LATCH[k] ? 'LATCHED - TWIST' : WIN[k] > 0.5 ? 'OPEN' : 'SHUT';
     case 'thr': return Math.round(ctl.throttle * 20) * 5 + '%'; case 'flap': return FLAP_DEG[flapNotch] + '\u00b0';
@@ -5576,12 +5672,22 @@ function twistAbout(q0, q1, n) { _tw1.copy(q1).multiply(_tw0.copy(q0).invert());
 function ckGrabStart(g, h) {
   const k = h.k; g.getWorldPosition(_ch); plane.worldToLocal(_ch); h.p0 = _ch.clone(); h.moved = false;
   if (k === 'prime') { h.q0 = g.getWorldQuaternion(new THREE.Quaternion()); h.pt = 0; }
-  if (k in ROT) { h.q0 = g.getWorldQuaternion(new THREE.Quaternion()); h.i0 = k === 'mags' ? ENG.mags : k === 'plt' ? LIGHTS.pl : ENG.valve ? 1 : 0; h.i = h.i0; }
+  if (k in ROT) { h.q0 = g.getWorldQuaternion(new THREE.Quaternion()); h.i0 = k === 'mags' ? ENG.mags : k === 'plt' ? LIGHTS.pl : ENG.valve ? 1 : 0; h.i = h.i0; h.v0 = LIGHTS.pl ? LIGHTS.plv : 0; h.tk = Math.floor(h.v0 * 10 + 1e-6); }
   if (k in PULL) { h.o0 = k === 'mix' ? (ENG.mix > 0.5 ? 0 : PULL.mix) : k === 'carb' ? (ENG.carb ? PULL.carb : 0) : 0; h.arm = false; }
   if (k === 'master' || k === 'ldg' || k === 'gear') { k === 'master' ? engSet('master') : k === 'gear' ? gearSet() : toggleLanding(); h.moved = h.fl = true; hap(g, 0.6, 18); }   // v0.24.1: grip flips a toggle at once
 }
 function ckGrabMove(g, h) {
   const k = h.k; g.getWorldPosition(_ch); plane.worldToLocal(_ch); const dp = _ch.clone().sub(h.p0);
+  if (k === 'plt') {   // v1.13.0 a smooth dimmer: twist from OFF (a click) to full; a light tick every 10 %
+    const tw = twistAbout(h.q0, g.getWorldQuaternion(_hq), _twn.set(0, 0, 1).applyQuaternion(plane.quaternion)); h.tw = tw;
+    const raw = 0.9 - 1.8 * h.v0 + tw, ang = raw < -1.0 ? -1.0 : raw > 1.0 ? 1.0 : raw; let v = (0.9 - ang) / 1.8; v = v < 0.025 ? 0 : v > 1 ? 1 : v;
+    const was = LIGHTS.pl ? LIGHTS.plv : 0;
+    if (Math.abs(v - was) > 1e-4) { h.moved = true; const off0 = was === 0, off1 = v === 0; pltSet(v);
+      if (off0 !== off1) { sfx(SW_SND.plt || 'click'); hap(g, 0.5, 16); h.tk = Math.floor(v * 10 + 1e-6); }
+      else { const tk = Math.floor(v * 10 + 1e-6); if (tk !== h.tk) { h.tk = tk; hap(g, 0.12, 5); } } }
+    const stop = raw < -1.0 || raw > 1.0; if (stop && !h.stop) hap(g, 0.3, 8); h.stop = stop;
+    CKX.vis[k] = 0.9 - 1.8 * (LIGHTS.pl ? LIGHTS.plv : 0); return;
+  }
   if (k in ROT) {
     const A = ROT[k], tw = twistAbout(h.q0, g.getWorldQuaternion(_hq), _twn.set(0, 0, 1).applyQuaternion(plane.quaternion)); h.tw = tw;
     const lo = Math.min(A[0], A[A.length - 1]) - 0.1, hi = Math.max(A[0], A[A.length - 1]) + 0.1, raw = A[h.i0] + tw, ang = clamp(raw, lo, hi);
@@ -5624,7 +5730,9 @@ function ckGrabMove(g, h) {
 function ckGrabEnd(g, h) {
   const k = h.k; delete CKX.vis[k]; if (k === 'prime') delete CKX.vis.primeR;
   if (k === 'mags' && CKX.keyStart) { CKX.keyStart = false; starterSync(); sfx('tick'); hap(g, 0.35, 12); return; }   // v0.44: let go in START = springs back to BOTH
+  if (k === 'plt' && h.moved) { pltSay(); return; }
   if (h.moved) return;
+  if (k === 'plt') { if (Math.abs(h.tw || 0) < 0.12) { pltSet(LIGHTS.pl ? 0 : LIGHTS.plast); sfx(SW_SND.plt || 'click'); hap(g, 0.45, 14); pltSay(); } return; }   // v1.13.0 a tap: off / back to the last level
   if (k in ROT && Math.abs(h.tw || 0) < 0.12) engSet(k);
   else if (k in PULL) { if (k === 'prime') engSet('prime'); else engSet(k); }
   else if (k === 'master') engSet('master');
@@ -5972,7 +6080,7 @@ function bushFind(S, quiet) {   // a bush site goes on the map
 function bushTick() {   // flown over low (within ~400 m, under ~250 m above it) or walked up to: found
   for (const S of DLV_STRIPS) if (S.site && !S.found && hyp(PP.x - S.x, PP.z - S.z) < 400 && PP.y - groundY(S.x, S.z) < 250) bushFind(S);
 }
-const dlvS = id => DLV_STRIPS.find(S => S.id === id) || (id === 'NSHELF' ? ST_SITE : undefined);   // v1.05 + the story cache's site (a var, below)
+const dlvS = id => DLV_STRIPS.find(S => S.id === id) || (id === 'NSHELF' ? ST_SITE : typeof id === 'string' && id.startsWith('EP:') ? emgSite(id) : undefined);   // v1.13.0 + a procedural medevac meadow ('EP:x:z:axis')   // v1.05 + the story cache's site (a var, below)
 const dlvKm = (a, b) => hyp(a.x - b.x, a.z - b.z) / 1000;
 function dlvInPad(S, x, z) { const dx = x - S.pad[0], dz = z - S.pad[1], c = Math.cos(S.ry), s = Math.sin(S.ry), lx = dx * c - dz * s, lz = dx * s + dz * c; return Math.abs(lx) < DLV_PAD && Math.abs(lz) < DLV_PAD; }
 function dlvPadAt(x, z) { for (const S of DLV_STRIPS) if (dlvInPad(S, x, z)) return S; return null; }
@@ -6143,7 +6251,7 @@ const LBL_WU = [2 / LBL.W, 1 - 6 / LBL.H];   // uv of the white strip
 const LBL_WD = 1 - 12 / LBL.H;   // v0.60 the same strip, one row lower: marks a piece's tape / tag / trim parts
 function lblDest(job, T) {   // v1.11.7 where the piece is going: an airdrop's site, a search's area (they were labelled with the strip they left from)
   if (job.drop && DROPS[job.drop.s]) return DROPS[job.drop.s].name;
-  if (job.emg && job.emg.t === 'sar' && SAR_A[job.emg.a]) return SAR_A[job.emg.a].name;
+  if (job.emg && job.emg.t === 'sar' && sarA(job)) return sarA(job).name;
   return T.name.replace(' STRIP', ''); }
 function lblDraw(slot, job, lb) {   // destination in big letters, the job colour, the weight, the special-cargo icon
   const x = LBL.x, X = (slot % 4) * 256, Y = 16 + Math.floor(slot / 4) * 128, T = dlvS(job.to), col = '#' + DLV_COL[job.id % DLV_COL.length].toString(16).padStart(6, '0');
@@ -6179,7 +6287,7 @@ function dlvItemGeo(k, col, slot) {
   return mergeGeometries(gs);
 }
 function dlvGeo(k, col) {
-  const key = k + ':' + col + (k === 'patient' ? JSON.stringify(folkPatLook()) : ''); let g = DLV_GEO.get(key); if (g) return g;
+  const key = k + ':' + col + (k === 'patient' ? JSON.stringify(folkPatLook()) + (FOLK.sk ? 'S' : '') : ''); let g = DLV_GEO.get(key); if (g) return g;
   const [w, h, d] = CARGO_K[k].sz, P = [];
   if (k === 'parcel') P.push(['b', w, h, d, 0, 0, 0, 0xb08552], ['b', 0.05, 0.004, d + 0.004, 0, h / 2, 0, 0xd9c79a], ['b', 0.05, h + 0.004, 0.004, 0, 0, d / 2, 0xd9c79a], ['b', 0.05, h + 0.004, 0.004, 0, 0, -d / 2, 0xd9c79a],
     ['b', 0.08, 0.005, 0.055, w / 4, h / 2, -d / 5, 0xf2f0e6]);
@@ -6240,8 +6348,12 @@ function dlvMake(job, k, lb, n) {
   const sz = CARGO_K[k].sz, m = new THREE.Mesh(dlvItemGeo(k, DLV_COL[job.id % DLV_COL.length], slot), CARGO_M); m.userData.noBatch = true; m.castShadow = true; m.receiveShadow = true;
   const it = { id: DLV.iseq++, job: job.id, k, lb, n, sz, h: sz[1], mesh: m, st: 'ground', cz: null, cv: new THREE.Vector3(), vy: 0, g: null, dmg: 0, slot };
   if (k === 'dog' || k === 'hens') { it.pet = new THREE.Mesh(dlvPetGeo(k), ITEM_VM); it.pet.userData.noBatch = true; it.pet.position.y = k === 'dog' ? -sz[1] / 2 + 0.03 : -sz[1] / 2 + 0.02; m.add(it.pet); it.ph = Math.random() * 6; }   // v0.51 the animals (one extra mesh, animated)
+  if (k === 'patient') folkSeatAdd(it);   // v1.13.0
   DLV.items.push(it); return it;
 }
+function folkSeatAdd(it) {   // v1.13.0 the medevac patient: the skinned figure on the rear seat (sitC), facing forward, mixer ticked while you're near (FOLK.seat)
+  if (!FOLK.sk || it.seat) return; const L = folkPatLook(), I = folkInst(L), s = L.s || 1;
+  I.act.idle.stop(); I.act.sitC.play(); I.mx.update(0); I.root.rotation.y = Math.PI; I.root.position.set(0, -it.sz[1] / 2 - 0.2 * s, 0.06); it.mesh.add(I.root); it.seat = I; FOLK.seat.push(it); }
 function dlvGroundY(x, z) { const S = dlvPadAt(x, z); return Math.max(groundY(x, z), S ? S.padY : -1e9); }
 const CG_MAT = { parcel: 'card', fbox: 'card', bundle: 'soft', sack: 'soft', cement: 'soft', feed: 'soft', deer: 'soft', crate: 'wood', hens: 'wood', dog: 'wood', nails: 'metal', fuel: 'metal', outboard: 'metal', generator: 'metal', medkit: 'case', cooler: 'case' };   // v0.83 what a piece sounds like
 function cargoSfx(it, act, p) { SND.cg[0] = CG_MAT[it.k] || 'card'; SND.cg[1] = clamp((it.lb || 20) / 120, 0, 1); SND.cg[2] = act; sfx('cargo', p); }
@@ -6252,7 +6364,7 @@ function dlvSpawn(job) {   // the cargo appears on the origin pad, in a row
   job.items.forEach((d, i) => { const it = dlvMake(job, d.k, d.lb, i), lx = -0.9 + (i % 3) * 0.9, lz = -0.6 + Math.floor(i / 3) * 0.7 + (job.id % 3 - 1) * 0.45;
     dlvSetGround(it, S.pad[0] + lx * c + lz * s, S.pad[1] - lx * s + lz * c, S.ry); });
 }
-function dlvRemove(it) { if (it.up) for (let p = it.up, q; p; p = q) { q = p.up; p.mesh.updateMatrixWorld(true); scene.attach(p.mesh); dlvUnstack(p); p.st = 'fall'; p.vy = 0; }   // v0.88.1 what rode on it drops
+function dlvRemove(it) { if (it.seat) { const i = FOLK.seat.indexOf(it); if (i >= 0) FOLK.seat.splice(i, 1); }   // v1.13.0 if (it.up) for (let p = it.up, q; p; p = q) { q = p.up; p.mesh.updateMatrixWorld(true); scene.attach(p.mesh); dlvUnstack(p); p.st = 'fall'; p.vy = 0; }   // v0.88.1 what rode on it drops
   if (it.on || it.up) dlvUnstack(it); it.mesh.removeFromParent(); if (it.slot >= 0) { it.mesh.geometry.dispose(); LBL.free.push(it.slot); it.slot = -1; } for (const [g, h] of DLV.held) if (h === it) DLV.held.delete(g); if (DLV.desk === it) DLV.desk = null; const i = DLV.items.indexOf(it); if (i >= 0) DLV.items.splice(i, 1); }
 // ---- the boards ----
 function jbAccept(S, i) {
@@ -6431,7 +6543,8 @@ function cgTop(zn) { let y = CZ[zn].y(zn === 'bag' ? CZ.bag.zc : REAR_ZC); for (
 function cgStraps() {
   let rH = false, bH = false; for (const it of DLV.items) if (it.st === 'cargo') { if (it.cz === 'rear') rH = true; else if (it.cz === 'bag') bH = true; }   // v0.51: no cargo there = no strap drawn (2 draw calls saved)
   DLV.rH = rH; DLV.bH = bH; BELT.on.visible = rH && DLV.belt; BELT.off.visible = rH && !DLV.belt; NET.on.visible = bH && DLV.net; NET.off.visible = bH && !DLV.net;
-  BELT.on.position.set(0, cgTop('rear') + 0.008, REAR_ZC - 0.02); BELT.off.position.set(0, CZ.rear.y() + 0.007, REAR_ZC);
+  const pat = DLV.items.find(o => o.st === 'cargo' && o.cz === 'rear' && o.seat);   // v1.13.0 the seated patient: a lap belt over the blanket
+  if (pat) BELT.on.position.set(0, CZ.rear.y() + 0.262, REAR_ZC - 0.03); else BELT.on.position.set(0, cgTop('rear') + 0.008, REAR_ZC - 0.02); BELT.off.position.set(0, CZ.rear.y() + 0.007, REAR_ZC);
   NET.on.position.set(0, cgTop('bag') + 0.006, CZ.bag.zc); NET.off.position.set(0.17, CZ.bag.y(CZ.bag.z1 - 0.06) + 0.025, CZ.bag.z1 - 0.06);
 }
 function cgStrapPoints() { return [['belt', (DLV.belt ? BELT.on : BELT.off).localToWorld(new THREE.Vector3(DLV.belt ? 0 : 0.24, 0, DLV.belt ? 0 : -0.07))], ['net', NET[DLV.net ? 'on' : 'off'].localToWorld(new THREE.Vector3())]]; }
@@ -6974,8 +7087,8 @@ function packTick(dt, vr) { swgTick(vr);   // after bodyTick: the worn pose, fal
   for (let i = 0; i < 2; i++) { const g = grips[i]; let on = false;
     if (vr && foot && g.userData.src && PK.st === 'worn' && !PK.hk[i] && !pkBusy(g)) on = pkReach(PK.hp[i]);
     if (on && !PK.hin[i]) HX.pulse(g, 0.3, 18, 'ui'); PK.hin[i] = on; }
-  if ((PK.mouthT -= dt) < 0) for (let i = 0; i < 2; i++) { const k = PK.hk[i]; if (k !== 'canteen' && k !== 'jerky' && !survMouthK(k)) continue; PK.hm[i].getWorldPosition(_pkV); camera.getWorldPosition(_pkL);
-    if (_pkV.distanceTo(_pkL) < 0.14) { PK.mouthT = 4; if (survMouth(i, k)) continue; if (k === 'canteen') { say('A DRINK OF COLD WATER'); sfx('pick'); } else { PK.hk[i] = null; PK.hm[i].visible = false; pkWeigh(); say('JERKY - ONE LESS IN THE PACK'); sfx('pick'); saveSoon(); } } } }
+  if ((PK.mouthT -= dt) < 0) for (let i = 0; i < 2; i++) { const k = PK.hk[i]; if (k !== 'canteen' && k !== 'jerky' && !survMouthK(k)) continue; PK.hm[i].getWorldPosition(_pkV);
+    if (mouthAt(_pkV)) { PK.mouthT = 4; if (survMouth(i, k)) continue; if (k === 'canteen') { say('A DRINK OF COLD WATER'); eatSnd(k); } else { PK.hk[i] = null; PK.hm[i].visible = false; pkWeigh(); say('JERKY - ONE LESS IN THE PACK'); eatSnd(k); saveSoon(); } } } }
 function packSave() { const r = v => Math.round(v * 1000) / 1000, st = PK.st === 'ground' || PK.st === 'fall' ? 'ground' : 'worn', it = PK.it.slice();
   for (const k of PK.hk) if (k) it.push(k); for (const F of PK.fall) if (F.on) it.push(F.k);
   return { st, p: st === 'ground' ? [r(PK.mesh.position.x), r(PK.mesh.position.y), r(PK.mesh.position.z)] : undefined, ry: st === 'ground' ? r(PK.ry) : undefined, it, gnd: PK.gnd.map(e => [e[0], r(e[1]), r(e[2]), r(e[3]), r(e[4])]), sl: slSave() }; }
@@ -9601,6 +9714,207 @@ const FOLK_ST = {
     { rep: 80, n: 'YOU\'RE THE FIRST CALL NOW, NOT THE LAST. THANKS, {P}.', g: 'FIRST CALL, {P}.', r: 'KOWALSKI: GOOD FLYING OUT THERE.' }],
 };
 const folkP = s => s.replace(/\{P\}/g, PILOT);
+// ---- npc-proto: Quaternius Ultimate Modular Men (CC0) as skinned townsfolk (sit pose stays boxes) ----
+// Geometry lives in assets/npc/folk.bin (skeleton + Idle/Walk/Wave + 3 merged outfits). Too large to bake into this file the way pack items are; loaded the same way as the deer GLBs. Boxes stay if the fetch fails.
+const FOLK_MS = new Float64Array(1); FOLK.pend = []; FOLK.frame = 0; FOLK.nid = 0; FOLK.sk = null; FOLK.seat = []; FOLK.sit = [];   // v1.13.0 seat: patients aboard; sit: the bench sitters
+function folkOutfit(L) { return L.hat === 'hard' ? 'worker' : (L.hat === 'none' || L.hat === 'bun' || L.hat === 'long') ? 'casual' : 'farmer'; }
+function folkHex(arr, i, hex) { arr[i * 3] = ((hex >> 16) & 255) / 255; arr[i * 3 + 1] = ((hex >> 8) & 255) / 255; arr[i * 3 + 2] = (hex & 255) / 255; }
+function folkMute(hex) {   // vest / band: pull the palette toward dusty olive, not hi-vis
+  const r = ((hex >> 16) & 255) / 255, g = ((hex >> 8) & 255) / 255, b = (hex & 255) / 255;
+  return (Math.round((r * 0.5 + 0.22) * 255) << 16) | (Math.round((g * 0.5 + 0.24) * 255) << 8) | Math.round((b * 0.5 + 0.16) * 255);
+}
+function folkPaint(src, L) {
+  const n = src.attributes.position.count, rg = src.attributes.region.array, col = new Float32Array(n * 3);
+  const sh = L.sh, sk = L.sk, hc = L.hc, vest = folkMute(sh), band = folkMute(hc), beard = L.beard || 0x3a2a20;
+  const map = [sk, sh, L.tr, hc, hc, 0x1a1612, 0x2a2018, 0x2a2218, 0x6a4a32, vest, 0xc8c0b4, band, beard];
+  for (let i = 0; i < n; i++) folkHex(col, i, map[rg[i]] || sk);
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', src.attributes.position); g.setAttribute('normal', src.attributes.normal);
+  g.setAttribute('skinIndex', src.attributes.skinIndex); g.setAttribute('skinWeight', src.attributes.skinWeight);
+  g.setAttribute('color', new THREE.BufferAttribute(col, 3)); g.setIndex(src.index); return g;
+}
+function folkUnpack(ab) {
+  const buf = new Uint8Array(ab), dv = new DataView(ab);
+  let o = 0;
+  const magic = String.fromCharCode(buf[0], buf[1], buf[2], buf[3]); o = 4;
+  if (magic !== 'BPF1') throw new Error('folk.bin magic');
+  o += 2;
+  const nBones = dv.getUint16(o, true); o += 2;
+  const dec = new TextDecoder();
+  const str = () => { const n = buf[o++]; const s = dec.decode(buf.subarray(o, o + n)); o += n; return s; };
+  const bones = [];
+  for (let i = 0; i < nBones; i++) {
+    const name = str(), parent = dv.getInt16(o, true); o += 2;
+    const p = [dv.getFloat32(o, true), dv.getFloat32(o + 4, true), dv.getFloat32(o + 8, true)]; o += 12;
+    const q = [dv.getFloat32(o, true), dv.getFloat32(o + 4, true), dv.getFloat32(o + 8, true), dv.getFloat32(o + 12, true)]; o += 16;
+    const s = [dv.getFloat32(o, true), dv.getFloat32(o + 4, true), dv.getFloat32(o + 8, true)]; o += 12;
+    bones.push({ name, parent, p, q, s });
+  }
+  const ibm = [];
+  for (let i = 0; i < nBones; i++) { const a = new Float32Array(16); for (let k = 0; k < 16; k++, o += 4) a[k] = dv.getFloat32(o, true); ibm.push(new THREE.Matrix4().fromArray(a)); }
+  const wq = [dv.getFloat32(o, true), dv.getFloat32(o + 4, true), dv.getFloat32(o + 8, true), dv.getFloat32(o + 12, true)]; o += 16;
+  const ws = [dv.getFloat32(o, true), dv.getFloat32(o + 4, true), dv.getFloat32(o + 8, true)]; o += 12;
+  const nClips = buf[o++], clips = {};
+  for (let c = 0; c < nClips; c++) {
+    const name = str(), dur = dv.getFloat32(o, true); o += 4;
+    const nT = dv.getUint16(o, true); o += 2;
+    const tracks = [];
+    for (let t = 0; t < nT; t++) {
+      const bi = buf[o++], typ = buf[o++], nK = dv.getUint16(o, true); o += 2;
+      const times = new Float32Array(nK), els = typ === 2 ? 4 : 3, values = new Float32Array(nK * els);
+      for (let i = 0; i < nK; i++, o += 4) times[i] = dv.getFloat32(o, true);
+      for (let i = 0; i < values.length; i++, o += 4) values[i] = dv.getFloat32(o, true);
+      const prop = typ === 1 ? 'position' : typ === 2 ? 'quaternion' : 'scale';
+      const Ctor = typ === 2 ? THREE.QuaternionKeyframeTrack : THREE.VectorKeyframeTrack;
+      tracks.push(new Ctor(bones[bi].name + '.' + prop, times, values));
+    }
+    clips[name] = new THREE.AnimationClip(name, dur, tracks);
+  }
+  const nOut = buf[o++], outfits = {};
+  for (let u = 0; u < nOut; u++) {
+    const name = str(), nV = dv.getUint32(o, true); o += 4;
+    const nI = dv.getUint32(o, true); o += 4;
+    const PS = dv.getFloat32(o, true); o += 4;
+    const pos = new Float32Array(nV * 3);
+    for (let i = 0; i < nV * 3; i++, o += 2) pos[i] = dv.getInt16(o, true) / PS;
+    const skinIndex = new Uint16Array(nV * 4), skinWeight = new Float32Array(nV * 4), region = new Uint8Array(nV);
+    for (let i = 0; i < nV * 4; i++, o++) skinIndex[i] = buf[o];
+    for (let i = 0; i < nV * 4; i++, o++) skinWeight[i] = buf[o] / 255;
+    for (let i = 0; i < nV; i++, o++) region[i] = buf[o];
+    const index = new Uint16Array(nI);
+    for (let i = 0; i < nI; i++, o += 2) index[i] = dv.getUint16(o, true);
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    g.setAttribute('skinIndex', new THREE.BufferAttribute(skinIndex, 4));
+    g.setAttribute('skinWeight', new THREE.BufferAttribute(skinWeight, 4));
+    g.setAttribute('region', new THREE.BufferAttribute(region, 1));
+    g.setIndex(new THREE.BufferAttribute(index, 1)); g.computeVertexNormals(); outfits[name] = g;
+  }
+  FOLK.sk = { bones, ibm, wq, ws, clips, outfits }; folkSitBuild(); folkBake();   // v1.13.0 + the seated clips, then every clip baked
+}
+function folkInst(L, real) {
+  const S = FOLK.sk, root = new THREE.Group(), arm = new THREE.Group(), wrap = new THREE.Group();
+  arm.quaternion.fromArray(S.wq); arm.scale.fromArray(S.ws); wrap.quaternion.fromArray(S.wq); wrap.scale.fromArray(S.ws);
+  const bones = S.bones.map(r => { const b = new THREE.Bone(); b.name = r.name; b.position.fromArray(r.p); b.quaternion.fromArray(r.q); b.scale.fromArray(r.s); return b; });
+  S.bones.forEach((r, i) => { if (r.parent < 0) arm.add(bones[i]); else bones[r.parent].add(bones[i]); });
+  const mesh = new THREE.SkinnedMesh(folkPaint(S.outfits[folkOutfit(L)], L), ITEM_VM);
+  mesh.castShadow = true; mesh.receiveShadow = false; mesh.userData.noBatch = true; wrap.add(mesh);
+  root.add(arm, wrap); root.scale.setScalar(L.s || 1); root.userData.noBatch = true; root.updateMatrixWorld(true);
+  mesh.bind(new THREE.Skeleton(bones, S.ibm), new THREE.Matrix4());
+  let mx, act;
+  if (real || !FOLK.bk) { mx = new THREE.AnimationMixer(arm); act = { idle: mx.clipAction(S.clips.idle), walk: mx.clipAction(S.clips.walk), wave: mx.clipAction(S.clips.wave) };
+    for (const k of FOLK_SITK) if (S.clips[k]) act[k] = mx.clipAction(S.clips[k]); }   // v1.13.0 the seated clips (made at load: no new actions per frame)
+  else { mx = folkPlayer(mesh.skeleton.bones); act = mx.act; }   // v1.13.0 the baked player (no allocation per frame)
+  act.idle.play(); const dummy = new THREE.Object3D(); dummy.visible = false;
+  return { root, mesh, mx, act, dummy, arm };
+}
+// ---- v1.13.0 the baked clip player (see folkBake)
+const FOLK_BF = 30;   // bake rate (frames / s)
+function folkBake() {   // once, after the seated clips exist: every clip sampled by a real mixer into one Float32Array (frame x bone x [qx qy qz qw px py pz])
+  const S = FOLK.sk; if (!S || FOLK.bk) return; const I = folkInst({ sk: 0xe0b090, sh: 0x888888, tr: 0x333333, hat: 'none', hc: 0, s: 1 }, true), B = I.mesh.skeleton.bones, nb = B.length;
+  const rest = B.map(b => [b.quaternion.clone(), b.position.clone()]), bk = {};
+  for (const k in S.clips) { const c = S.clips[k], n = Math.max(2, Math.ceil(c.duration * FOLK_BF) + 1), d = new Float32Array(n * nb * 7);
+    I.mx.stopAllAction(); B.forEach((b, i) => { b.quaternion.copy(rest[i][0]); b.position.copy(rest[i][1]); }); const a = I.mx.clipAction(c); a.reset(); a.play();
+    for (let f = 0; f < n; f++) { I.mx.setTime(Math.min(f / FOLK_BF, c.duration)); for (let i = 0; i < nb; i++) { const o = (f * nb + i) * 7, q = B[i].quaternion, p = B[i].position; d[o] = q.x; d[o + 1] = q.y; d[o + 2] = q.z; d[o + 3] = q.w; d[o + 4] = p.x; d[o + 5] = p.y; d[o + 6] = p.z; } }
+    a.stop(); bk[k] = { d, n, dur: c.duration, nb }; }
+  I.mx.stopAllAction(); FOLK.bk = bk; }
+function folkPlayer(bones) {   // a mixer-shaped stub over the baked clips. T: [time, previous clip's time, fade elapsed, fade length, -, dt in]
+  const P = { B: bones, k: 'idle', kp: null, T: new Float64Array(6), act: {} };
+  const A = k => ({ k, enabled: true, play() { if (P.k !== k) { P.kp = P.k; P.T[1] = P.T[0]; P.T[2] = 0; P.T[3] = 0; P.k = k; P.T[0] = 0; } return this; },
+    stop() { if (P.k === k) P.kp = null; return this; }, reset() { return this; }, setEffectiveWeight() { return this; }, setEffectiveTimeScale() { return this; }, getEffectiveWeight() { return P.k === k ? 1 : 0; },
+    crossFadeTo(n, d) { P.T[3] = d; P.T[2] = 0; return this; }, isRunning() { return P.k === k; }, getClip() { return { duration: FOLK.bk[k].dur }; },
+    get time() { return P.k === k ? P.T[0] : 0; }, set time(v) { if (P.k === k) P.T[0] = v; } });
+  for (const k in FOLK.bk) P.act[k] = A(k);
+  P.update = dt => { P.T[5] = dt; folkAdv(P); }; P.stopAllAction = () => {}; return P; }
+function folkAdv(P) {   // advance by P.T[5] and pose the bones (nlerp between baked frames, and from the last clip over a cross-fade)
+  const T = P.T, dt = T[5], C = FOLK.bk[P.k], B = P.B, nb = C.nb; T[5] = 0;
+  T[0] += dt; if (T[0] >= C.dur) T[0] = C.dur > 0 ? T[0] % C.dur : 0; T[1] += dt; T[2] += dt;
+  const Cp = P.kp && T[3] > 0 && T[2] < T[3] ? FOLK.bk[P.kp] : null; if (!Cp && T[3] > 0) { T[3] = 0; P.kp = null; }
+  const fa = T[0] * FOLK_BF, ia = Math.min(Math.floor(fa), C.n - 2), ua = Math.min(1, fa - ia), D = C.d;
+  let Dp = null, ib = 0, ub = 0, w = 1; if (Cp) { if (T[1] >= Cp.dur) T[1] = T[1] % Cp.dur; const fb = T[1] * FOLK_BF; ib = Math.min(Math.floor(fb), Cp.n - 2); ub = Math.min(1, fb - ib); Dp = Cp.d; w = T[2] / T[3]; }
+  for (let i = 0; i < nb; i++) { const o0 = (ia * nb + i) * 7, o1 = o0 + nb * 7;
+    let qx = D[o0], qy = D[o0 + 1], qz = D[o0 + 2], qw = D[o0 + 3]; let s = qx * D[o1] + qy * D[o1 + 1] + qz * D[o1 + 2] + qw * D[o1 + 3] < 0 ? -1 : 1;
+    qx += (s * D[o1] - qx) * ua; qy += (s * D[o1 + 1] - qy) * ua; qz += (s * D[o1 + 2] - qz) * ua; qw += (s * D[o1 + 3] - qw) * ua;
+    let px = D[o0 + 4] + (D[o1 + 4] - D[o0 + 4]) * ua, py = D[o0 + 5] + (D[o1 + 5] - D[o0 + 5]) * ua, pz = D[o0 + 6] + (D[o1 + 6] - D[o0 + 6]) * ua;
+    if (Dp) { const p0 = (ib * nb + i) * 7, p1 = p0 + nb * 7; let rx = Dp[p0], ry = Dp[p0 + 1], rz = Dp[p0 + 2], rw = Dp[p0 + 3]; const t = rx * Dp[p1] + ry * Dp[p1 + 1] + rz * Dp[p1 + 2] + rw * Dp[p1 + 3] < 0 ? -1 : 1;
+      rx += (t * Dp[p1] - rx) * ub; ry += (t * Dp[p1 + 1] - ry) * ub; rz += (t * Dp[p1 + 2] - rz) * ub; rw += (t * Dp[p1 + 3] - rw) * ub;
+      s = rx * qx + ry * qy + rz * qz + rw * qw < 0 ? -1 : 1; qx = rx + (s * qx - rx) * w; qy = ry + (s * qy - ry) * w; qz = rz + (s * qz - rz) * w; qw = rw + (s * qw - rw) * w;
+      px = Dp[p0 + 4] + (Dp[p1 + 4] - Dp[p0 + 4]) * ub + (px - Dp[p0 + 4] - (Dp[p1 + 4] - Dp[p0 + 4]) * ub) * w; py = Dp[p0 + 5] + (Dp[p1 + 5] - Dp[p0 + 5]) * ub + (py - Dp[p0 + 5] - (Dp[p1 + 5] - Dp[p0 + 5]) * ub) * w; pz = Dp[p0 + 6] + (Dp[p1 + 6] - Dp[p0 + 6]) * ub + (pz - Dp[p0 + 6] - (Dp[p1 + 6] - Dp[p0 + 6]) * ub) * w; }
+    const l = Math.sqrt(qx * qx + qy * qy + qz * qz + qw * qw) || 1, q = B[i].quaternion, p = B[i].position; q._x = qx / l; q._y = qy / l; q._z = qz / l; q._w = qw / l; p.x = px; p.y = py; p.z = pz; } }
+// ---- v1.13.0 SITTING: the Modular Men pack has no sit clip (its Sit is on the other, 31-bone rig), so the seated poses are built here, once, on the 62-bone rig:
+//   from the Idle's first frame, the hips moved down / back, two-bone IK for the legs (feet planted) and arms (hands on the thighs / in the lap), a slight lean, breathing in the chest.
+//   sit = a bench / chair (seat 0.45 m), sitC = the Cub's rear seat (low, knees up), sitG = on the ground / a stretcher (legs out). Each + a W variant: the left arm waves (the Wave clip's own arm).
+const FOLK_SIT = {
+  sit: { hipY: 0.5, hipZ: 0, lean: 0.12, foot: [0.13, 0.05, 0.44], kp: [0.15, 0.5, 1], wr: [0.16, 0.62, 0.27], ep: [1, -0.2, -0.6], fp: 0, head: 0.08 },
+  sitC: { hipY: 0.36, hipZ: 0, lean: 0.06, foot: [0.17, 0.06, 0.58], kp: [0.35, 0.6, 1], wr: [0.17, 0.5, 0.22], ep: [1, -0.2, -0.5], fp: 0.15, head: 0.12 },
+  sitG: { hipY: 0.11, hipZ: -0.05, lean: 0.05, foot: [0.13, 0.08, 0.88], kp: [0.1, 1, 0.3], wr: [0.15, 0.27, 0.3], ep: [1, -0.3, -0.4], fp: -0.9, head: 0.1 } };
+const FOLK_SITK = ['sit', 'sitW', 'sitC', 'sitCW', 'sitG', 'sitGW'], FOLK_POSE_K = { sit: 'sitG', bench: 'sit', seat: 'sitC' };   // pose -> clip: 'sit' = on the ground / a stretcher (the casualties), 'bench', 'seat' (the Cub)
+function folkSitBuild() {
+  const S = FOLK.sk; if (!S || S.clips.sit) return;
+  const I = folkInst({ sk: 0xe0b090, sh: 0x888888, tr: 0x333333, hat: 'none', hc: 0, s: 1 }, true); I.mx.update(0); I.root.updateMatrixWorld(true);
+  const bones = I.mesh.skeleton.bones, B = {}; for (const b of bones) B[b.name] = b;
+  const V = () => new THREE.Vector3(), Q = () => new THREE.Quaternion(), X = new THREE.Vector3(1, 0, 0);
+  const wp = b => b.getWorldPosition(V()), wq = b => b.getWorldQuaternion(Q());
+  const setWQ = (b, q) => { b.quaternion.copy(b.parent.getWorldQuaternion(Q()).invert().multiply(q)); b.updateMatrixWorld(true); };
+  const setWP = (b, p) => { b.parent.updateMatrixWorld(true); b.position.copy(b.parent.worldToLocal(p.clone())); b.updateMatrixWorld(true); };
+  const rotW = (b, ax, a) => setWQ(b, Q().setFromAxisAngle(ax, a).multiply(wq(b)));
+  const aim = (b, cur, to) => { const c = wp(b), d0 = cur.clone().sub(c).normalize(), d1 = to.clone().sub(c).normalize(); setWQ(b, Q().setFromUnitVectors(d0, d1).multiply(wq(b))); };
+  const ik = (a, m, eL, T, pole) => {   // a -> m -> the effector (eL: in m's frame, from the standing pose); T: target; pole: the knee / elbow side. Returns where the effector ends up
+    const A = wp(a), M = wp(m), eW = m.localToWorld(eL.clone()), la = A.distanceTo(M), lb = M.distanceTo(eW), d = Math.min(A.distanceTo(T), (la + lb) * 0.995), u = T.clone().sub(A).normalize();
+    const x = (la * la - lb * lb + d * d) / (2 * d), h = Math.sqrt(Math.max(0, la * la - x * x)), pn = pole.clone().addScaledVector(u, -pole.dot(u)).normalize(), K = A.clone().addScaledVector(u, x).addScaledVector(pn, h);
+    aim(a, M, K); aim(m, m.localToWorld(eL.clone()), A.clone().addScaledVector(u, d)); return m.localToWorld(eL.clone()); };
+  const snap = () => bones.map(b => [b.quaternion.clone(), b.position.clone()]), put = s => { bones.forEach((b, i) => { b.quaternion.copy(s[i][0]); b.position.copy(s[i][1]); }); I.root.updateMatrixWorld(true); };
+  const rest = snap(), idlePos = new Set(S.clips.idle.tracks.filter(t => t.name.endsWith('.position')).map(t => t.name.split('.')[0]));
+  for (const n of ['Body', 'FootL', 'FootR']) idlePos.add(n);
+  const wave = S.clips.wave, armR = new Set(bones.filter(b => /L$/.test(b.name) && !/Leg|Foot|PTL/.test(b.name)).map(b => b.name));
+  const out = {};
+  const EL = {}; for (const s of ['L', 'R']) { EL['f' + s] = B['LowerLeg' + s].worldToLocal(wp(B['Foot' + s])); EL['w' + s] = B['LowerArm' + s].worldToLocal(wp(B['Wrist' + s])); }   // the feet are the Root's children: carry them in the shins' frames
+  for (const k in FOLK_SIT) { const C = FOLK_SIT[k]; put(rest);
+    { const m = wp(B.UpperLegL).add(wp(B.UpperLegR)).multiplyScalar(0.5); setWP(B.Body, wp(B.Body).add(V().set(-m.x, C.hipY - m.y, C.hipZ - m.z))); }
+    rotW(B.Abdomen, X, C.lean);
+    for (const [sx, s] of [[1, 'L'], [-1, 'R']]) { const F = B['Foot' + s], fq = wq(F), T = V().set(sx * C.foot[0], C.foot[1], C.foot[2]);
+      const e = ik(B['UpperLeg' + s], B['LowerLeg' + s], EL['f' + s], T, V().set(sx * C.kp[0], C.kp[1], C.kp[2])); setWP(F, e); setWQ(F, fq); if (C.fp) rotW(F, X, C.fp);
+      ik(B['UpperArm' + s], B['LowerArm' + s], EL['w' + s], V().set(sx * C.wr[0], C.wr[1], C.wr[2]), V().set(sx * C.ep[0], C.ep[1], C.ep[2])); }
+    rotW(B.Neck, X, C.head);
+    const pose = snap(); rotW(B.Chest, X, -0.035); rotW(B.Neck, X, 0.02); const br = snap(); put(pose);
+    const dur = 4.2, tr = [];
+    bones.forEach((b, i) => { const q0 = pose[i][0], q1 = br[i][0], moving = b.name === 'Chest' || b.name === 'Neck';
+      tr.push(new THREE.QuaternionKeyframeTrack(b.name + '.quaternion', moving ? [0, dur / 2, dur] : [0], moving ? [...q0.toArray(), ...q1.toArray(), ...q0.toArray()] : q0.toArray()));
+      if (idlePos.has(b.name)) tr.push(new THREE.VectorKeyframeTrack(b.name + '.position', [0], pose[i][1].toArray())); });
+    out[k] = new THREE.AnimationClip(k, dur, tr);
+    const wt = wave.tracks.filter(t => armR.has(t.name.split('.')[0])), keep = tr.filter(t => !armR.has(t.name.split('.')[0]));
+    out[k + 'W'] = new THREE.AnimationClip(k + 'W', wave.duration, keep.map(t => { if (t.times.length === 1) return t; const n = new THREE.QuaternionKeyframeTrack(t.name, [0, wave.duration / 2, wave.duration], t.values); return n; }).concat(wt)); }
+  Object.assign(S.clips, out); I.mx.stopAllAction();
+}
+function folkPrewarm() {
+  if (!FOLK.sk) return;
+  const I = folkInst(FOLK_L.HOME); I.root.position.set(0, -2000, 0); I.root.visible = true; scene.add(I.root);
+  const pv = PL.visible, sv = SL.visible;
+  for (let c = 0; c < 4; c++) { PL.visible = !!(c & 1); SL.visible = !!(c & 2); renderer.compile(I.root, camera, scene); }
+  PL.visible = pv; SL.visible = sv; I.root.removeFromParent(); I.mx.stopAllAction();
+}
+function folkSitStart(f) { const a = f.act[f.sitK]; if (!a) return; f.act.idle.stop(); a.reset(); a.setEffectiveWeight(1); a.play(); a.time = (f.fi || 0) * 0.73 % a.getClip().duration; f.mx.update(0); f.cur = a; f.ak = f.sitK; if (f.lift) f.sk.root.position.y = f.lift; }
+function folkSkin(f) {
+  if (!FOLK.sk || !f || f.sk) return;
+  const G = f.g, props = G.userData.props;
+  for (const ch of G.children.slice()) if (ch !== props) G.remove(ch);
+  const I = folkInst(f.L); G.add(I.root); G.add(I.dummy); if (props) G.add(props);
+  f.arm = I.dummy; f.sk = I; f.mx = I.mx; f.act = I.act; f.acc = 0; f.ak = 'idle'; f.cur = I.act.idle;
+  if (f.sitK) folkSitStart(f);
+}
+function folkAssets(tries = 3) {
+  if (location.protocol === 'file:') return;
+  fetch('assets/npc/folk.bin').then(r => { if (!r.ok) throw new Error('folk.bin ' + r.status); return r.arrayBuffer(); }).then(ab => {
+    folkUnpack(ab);
+    for (const f of FOLK.pend.splice(0, FOLK.pend.length)) folkSkin(f);
+    for (const f of FOLK.figs) folkSkin(f);
+    for (const f of EMG.vis) folkSkin(f);
+    for (const f of FOLK.sit) folkSkin(f);
+    for (const it of DLV.items) if (it.k === 'patient' && !it.seat) { const j = dlvJob(it.job); EMG.lookNow = j && j.emg ? emgLook(j) : null; if (it.slot >= 0) it.mesh.geometry.dispose(); it.mesh.geometry = dlvItemGeo('patient', DLV_COL[it.job % DLV_COL.length], it.slot); folkSeatAdd(it); EMG.lookNow = null; }
+    folkPrewarm();
+  }).catch(e => { console.warn('folk.bin', e); if (--tries > 0) setTimeout(() => folkAssets(tries), 1000); });
+}
+setTimeout(folkAssets, 0);
 // ---- the figure: low-poly boxes in vertex colour (one merged body + one arm that waves), origin at the feet, facing +z ----
 function folkParts(L, pose) {
   const s = L.s || 1, P = [], B = 0x2a2018, sk = L.sk, sh = L.sh, tr = L.tr;
@@ -9630,15 +9944,25 @@ function folkGeo(L, pose, arm) {
   const k = JSON.stringify(L) + pose + (arm ? 'a' : ''); let g = FOLK_GEO.get(k); if (g) return g;
   const gs = (arm ? folkArmParts(L, pose).P : folkParts(L, pose)).map(partGeo); g = mergeGeometries(gs); for (const x of gs) x.dispose(); FOLK_GEO.set(k, g); return g;
 }
-function folkMake(L, pose, x, z, ry, extra) {   // a Group at (x, ground, z): body + waving arm (+ props in the same frame)
-  const G = new THREE.Group(), body = new THREE.Mesh(folkGeo(L, pose), ITEM_VM), ap = folkArmParts(L, pose), arm = new THREE.Mesh(folkGeo(L, pose, true), ITEM_VM);
-  body.castShadow = arm.castShadow = true; body.userData.noBatch = arm.userData.noBatch = true; arm.position.fromArray(ap.at); G.add(body, arm);
+function folkMake(L, pose, x, z, ry, extra) {   // a Group at (x, ground, z): body + waving arm (+ props); stand uses the skinned model once folk.bin is in
+  const G = new THREE.Group(); let arm = null, sk = null, mx = null, act = null;
+  if (FOLK.sk) {
+    const I = folkInst(L); G.add(I.root); arm = I.dummy; G.add(arm); sk = I; mx = I.mx; act = I.act;
+  } else if (FOLK_POSE_K[pose] && pose !== 'sit') { arm = new THREE.Object3D(); arm.visible = false; G.add(arm);   // v1.13.0 bench / seat: no box version (the bench alone until the rig is in)
+  } else {
+    const body = new THREE.Mesh(folkGeo(L, pose), ITEM_VM), ap = folkArmParts(L, pose); arm = new THREE.Mesh(folkGeo(L, pose, true), ITEM_VM);
+    body.castShadow = arm.castShadow = true; body.userData.noBatch = arm.userData.noBatch = true; arm.position.fromArray(ap.at); G.add(body, arm);
+  }
   if (extra && extra.length) { const gs = extra.map(partGeo), m = new THREE.Mesh(mergeGeometries(gs), ITEM_VM); for (const q of gs) q.dispose(); m.userData.noBatch = true; m.castShadow = true; G.add(m); G.userData.props = m; }
-  G.position.set(x, groundY(x, z), z); G.rotation.y = ry; G.userData.noBatch = true; scene.add(G); return { g: G, arm, x, z, ry, ry0: ry, wave: 0, ph: Math.random() * 6, L, pose };
+  G.position.set(x, groundY(x, z), z); G.rotation.y = ry; G.userData.noBatch = true; scene.add(G);
+  const f = { g: G, arm, x, z, ry, ry0: ry, wave: 0, ph: Math.random() * 6, L, pose, sk, mx, act, acc: 0, ak: '', cur: null, fi: FOLK.nid++ };
+  f.sitK = FOLK_POSE_K[pose] || null; if (sk && f.sitK) folkSitStart(f);
+  if (!sk) FOLK.pend.push(f); return f;
 }
 function folkPatLook() { return EMG.lookNow || (emgActive() ? emgLook(emgActive()) : FOLK_L.RANGER); }
 function folkSeatP(w, h, d) {   // v0.58 the patient on the rear seat (cargo piece 'patient'): seated, blanket over the legs, a white dressing; the box is the seat footprint
   const L = folkPatLook(), y = -h / 2, P = [];
+  if (FOLK.sk) { P.push(['b', 0.36, 0.05, 0.36, 0, y + 0.245, -0.12, 0x2f5f8f, 0.18, 0, 0], ['b', 0.36, 0.22, 0.04, 0, y + 0.125, -0.31, 0x2f5f8f]); return P; }   // v1.13.0 the skinned figure sits in it (folkSeatAdd): just the blanket over the knees
   for (const sx of [-0.09, 0.09]) P.push(['b', 0.13, 0.13, 0.36, sx, y + 0.07, -0.1, L.tr], ['b', 0.12, 0.34, 0.13, sx, y - 0.12, -0.3, L.tr]);
   P.push(['b', 0.34, 0.06, 0.4, 0, y + 0.15, -0.1, 0x2f5f8f], ['b', 0.36, 0.46, 0.22, 0, y + 0.37, 0.1, L.sh], ['b', 0.1, 0.42, 0.12, -0.24, y + 0.33, 0.08, L.sh], ['b', 0.1, 0.42, 0.12, 0.24, y + 0.33, 0.08, L.sh],
     ['b', 0.1, 0.06, 0.1, 0, y + 0.63, 0.1, L.sk], ['b', 0.21, 0.25, 0.23, 0, y + 0.78, 0.1, L.sk], ['b', 0.16, 0.1, 0.18, 0.12, y + 0.2, -0.05, 0xf4f4f0]);
@@ -9649,6 +9973,10 @@ function folkSeatP(w, h, d) {   // v0.58 the patient on the rear seat (cargo pie
 { for (const S of DLV_STRIPS) { const L = FOLK_L[S.id]; if (!L) continue; const [bx, bz, ry] = S.board, rx = Math.cos(ry), rz = -Math.sin(ry), nx = Math.sin(ry), nz = Math.cos(ry);
     const f = folkMake(L, 'stand', bx + rx * 1.35 + nx * 0.9, bz + rz * 1.35 + nz * 0.9, ry - 0.35); f.id = S.id; f.S = S; FOLK.figs.push(f); }
   const D = dlvS('DRYFORK'), ry = D.board[2], rx = Math.cos(ry), rz = -Math.sin(ry), f = folkMake(FOLK_L.NURSE, 'stand', D.pad[0] - rx * 2.6, D.pad[1] - rz * 2.6, ry + 0.4); f.id = 'NURSE'; f.S = D; FOLK.figs.push(f); }
+{ const W = 0x8a6a48, Dk = 0x5a4430, BP = [['b', 1.5, 0.05, 0.36, 0, 0.43, -0.13, W], ['b', 1.5, 0.12, 0.03, 0, 0.72, -0.31, W], ['b', 1.5, 0.08, 0.03, 0, 0.88, -0.31, W]];   // v1.13.0 a bench by the board (Dry Fork, the Lodge), someone on it
+  for (const sx of [-0.65, 0.65]) BP.push(['b', 0.05, 0.41, 0.05, sx, 0.205, -0.01, Dk], ['b', 0.05, 0.41, 0.05, sx, 0.205, -0.27, Dk], ['b', 0.05, 0.5, 0.04, sx, 0.66, -0.31, Dk]);
+  for (const [id, L, o] of [['DRYFORK', { sk: 0xc89068, sh: 0xc0a020, tr: 0x3a3226, hat: 'cap', hc: 0x8a2a1a }, -0.3], ['LODGE', { sk: 0x8a5a3a, sh: 0x4a8a4a, tr: 0x3a3a32, hat: 'none', hc: 0x1a1612, s: 0.97 }, 0.3]]) { const S = dlvS(id); if (!S || !S.board) continue; const [bx, bz, ry] = S.board, rx = Math.cos(ry), rz = -Math.sin(ry), nx = Math.sin(ry), nz = Math.cos(ry);
+    const x = bx - rx * 3.4 + nx * 1.5, z = bz - rz * 3.4 + nz * 1.5, P = BP.map(p => { const q = p.slice(); q[4] += o; return q; }), f = folkMake(L, 'bench', x, z, ry, P); f.id = 'SIT' + id; f.wd = 0; FOLK.sit.push(f); } }
 function folkLine(id) {   // what they say when you walk up
   const st = FOLK_ST[id], b = FOLK.b[id] || 0, v = repOf(id), t = folkP(FOLK_TIER[repTier(v)[1]] || 'HELLO.');
   if (id === 'NURSE') { const a = EMG.jobs.find(j => j.emg.got); return a ? 'BRING THEM IN - I\'M READY.' : (FOLK.b.DRYFORK || 0) >= 3 ? 'THE VALLEY CLINIC\'S OPEN, ' + PILOT + '. FLY THEM IN, I\'LL DO THE REST.' : 'JUST VISITING FROM THE COUNTY - MAE WANTS A CLINIC HERE.'; }
@@ -9672,16 +10000,30 @@ function folkChat() {   // a COM radio line from someone whose story you're in (
 function folkTick(dt) {
   const P = playerPos(), foot = mode === 'foot';
   if (FOLK.q.length && (FOLK.q[0].w -= dt) <= 0) { const n = FOLK.q.shift(); if (!n.soft || msgT < 0.5) { say(n.t); msgT = Math.max(msgT, n.soft ? 5 : 7); } }
-  let near = null, nd = 4;
-  for (const f of FOLK.figs) { const dx = P.x - f.x, dz = P.z - f.z, d = hyp(dx, dz), vis = d < 200 && !(f.id === 'CREEK' && EMG.jobs.some(j => j.emg.joe)); f.g.visible = vis; if (!vis) continue;
-    if (foot && d < 12) { const want = Math.atan2(dx, dz); let e = want - f.g.rotation.y; e = Math.atan2(Math.sin(e), Math.cos(e)); f.g.rotation.y += e * Math.min(1, dt * 3); } else { let e = f.ry0 - f.g.rotation.y; e = Math.atan2(Math.sin(e), Math.cos(e)); f.g.rotation.y += e * Math.min(1, dt * 1.5); }
+  let near = null, nd = 4, creek = false; for (let i = 0; i < EMG.jobs.length; i++) if (EMG.jobs[i].emg.joe) creek = true;
+  for (let fi = 0; fi < FOLK.figs.length; fi++) { const f = FOLK.figs[fi], dx = P.x - f.x, dz = P.z - f.z, d = Math.sqrt(dx * dx + dz * dz), vis = d < 200 && !(creek && f.id === 'CREEK'); f.g.visible = vis; (f.N || folkN(f))[3] = d; if (!vis) continue;
+    { const R = f.g.rotation; let e = (foot && d < 12 ? Math.atan2(dx, dz) : f.ry0) - R._y; e = Math.atan2(Math.sin(e), Math.cos(e)); if (e > 1e-7 || e < -1e-7) { R._y += e * Math.min(1, dt * (foot && d < 12 ? 3 : 1.5)); R._onChangeCallback(); } }
     if (foot && d < nd) { nd = d; near = f; } folkArm(f, dt); }
   if (near && FOLK.near !== near) { FOLK.near = near; near.wave = 2.2; FOLK.q.push({ t: folkName(near.id) + ': "' + folkLine(near.id) + '"', w: 1.2, soft: 1 }); FOLK.met[near.id] = 1; }   // (a hello waits for a quiet moment)
-  else if (!near && FOLK.near) { const f = FOLK.near; if (hyp(P.x - f.x, P.z - f.z) > 9 || !foot) FOLK.near = null; }
+  else if (!near && FOLK.near) { const f = FOLK.near, ex = P.x - f.x, ez = P.z - f.z; if (ex * ex + ez * ez > 81 || !foot) FOLK.near = null; }
+  for (let i = 0; i < FOLK.sit.length; i++) { const f = FOLK.sit[i], dx = P.x - f.x, dz = P.z - f.z, d = Math.sqrt(dx * dx + dz * dz), vis = d < 160; f.g.visible = vis; (f.N || folkN(f))[3] = d; if (!vis || !f.sk) continue;   // v1.13.0 the bench sitters: a wave as you walk past
+    if (foot && d < 7) { if (!f.wd) { f.wd = 1; f.wave = 2.4; } } else if (d > 12) f.wd = 0; folkArm(f, dt); }
+  for (let i = 0; i < FOLK.seat.length; i++) { const it = FOLK.seat[i], I = it.seat; if (!it.mesh.parent) continue; const A = I.mx.T; A[4] += dt; if ((FOLK.frame & 1) === 0) { A[5] = A[4]; A[4] = 0; folkAdv(I.mx); } }   // the patient breathing (every other frame)
 }
-function folkArm(f, dt) {   // idle: hangs, sways a little; waving: up and side to side
-  f.ph += dt; if (f.wave > 0) f.wave -= dt; const w = f.wave > 0 || f.waveOn ? 1 : 0; f.wk = (f.wk || 0) + (w - (f.wk || 0)) * Math.min(1, dt * 6);
-  f.arm.rotation.z = f.wk * (2.5 + Math.sin(f.ph * 9) * 0.35) + (1 - f.wk) * (0.06 + Math.sin(f.ph * 1.3) * 0.03);
+const FOLK_SITW = { sit: 'sitW', sitC: 'sitCW', sitG: 'sitGW' };
+function folkN(f) { const N = f.N = new Float64Array(5); N[0] = f.ph || 0; N[3] = f._d || 0; return N; }   // f.N: 0 arm phase, 1 wave blend, 2 mixer time owed, 3 distance to you, 4 wave timer
+function folkArm(f, dt) {   // boxes: rotate the arm; skinned: Idle / Walk / Wave, mixer throttled by distance
+  const N = f.N || folkN(f); if (f.wave) { N[4] = f.wave; f.wave = 0; }   // (a wave set as a plain field is taken over)
+  N[0] += dt; if (N[4] > 0) N[4] -= dt; const w = N[4] > 0 || f.waveOn ? 1 : 0; N[1] += (w - N[1]) * Math.min(1, dt * 6); const wk = N[1];
+  if (f.mx) {
+    const key = f.sitK ? (wk > 0.2 ? FOLK_SITW[f.sitK] : f.sitK) : f.walkOn ? 'walk' : (wk > 0.2 ? 'wave' : 'idle'), n = f.act[key] || f.act.idle, d = N[3];   // v1.13.0 seated: sit / sit + wave
+    if (f.ak !== key) { n.reset(); n.setEffectiveWeight(1); n.play(); if (f.cur && f.cur !== n) f.cur.crossFadeTo(n, 0.25, false); f.cur = n; f.ak = key; }
+    N[2] += dt;
+    if (d > 200 && !f.waveOn) return;
+    if (d < 35 || f.walkOn || (FOLK.frame + (f.fi || 0)) % (d < 80 ? 2 : 3) === 0) { const t0 = performance.now(); if (f.mx.T) { f.mx.T[5] = N[2]; folkAdv(f.mx); } else f.mx.update(N[2]); N[2] = 0; FOLK_MS[0] += performance.now() - t0; }
+    return;
+  }
+  if (f.arm && f.arm.rotation) { const R = f.arm.rotation; R._z = wk * (2.5 + Math.sin(N[0] * 9) * 0.35) + (1 - wk) * (0.06 + Math.sin(N[0] * 1.3) * 0.03); R._onChangeCallback(); }
 }
 // ---- search-and-rescue areas: 3 spots each, found at load (hikers: the flattest dry ground; canoe parties: on a river / lake bank), trees cleared round them ----
 const SAR_A = [
@@ -9699,7 +10041,7 @@ for (const A of SAR_A) { A.sp = [];
         let f = 0; for (const [dx, dz] of [[4, 0], [-4, 0], [0, 4], [0, -4]]) f = Math.max(f, Math.abs(groundY(x + dx, z + dz) - groundY(x, z))); if (!best || f < best[2]) best = [x, z, f]; } }
     A.sp.push([best[0], best[1]]); } }
 { const c58 = MYS_SITES.clear; MYS_SITES.clear = () => { c58();   // clear trees / bushes / rocks round every SAR spot (12 m) and the figures at the boards (3 m)
-    const off = (x, z) => SAR_A.some(A => A.sp.some(([sx, sz]) => (x - sx) ** 2 + (z - sz) ** 2 < 144)) || FOLK.figs.some(f => (x - f.x) ** 2 + (z - f.z) ** 2 < 9);
+    const off = (x, z) => SAR_A.some(A => A.sp.some(([sx, sz]) => (x - sx) ** 2 + (z - sz) ** 2 < 144)) || FOLK.figs.some(f => (x - f.x) ** 2 + (z - f.z) ** 2 < 9) || FOLK.sit.some(f => (x - f.x) ** 2 + (z - f.z) ** 2 < 9);
     for (const k of CHUNKS) for (let i = 0; i < k.n; i++) if (off(k.xz[i * 3], k.xz[i * 3 + 2])) k.full.fill(0, i * 16, i * 16 + 16);
     scene.traverse(m => { if (!m.isInstancedMesh || CHUNKS.some(k => k.im === m)) return; const A = m.instanceMatrix.array; let hit = false;
       for (let i = 0; i < m.count; i++) if (A[i * 16 + 15] && off(A[i * 16 + 12], A[i * 16 + 14])) { A.fill(0, i * 16, i * 16 + 16); hit = true; } if (hit) m.instanceMatrix.needsUpdate = true; });
@@ -9711,15 +10053,79 @@ const EMG_WHO = ['A LOGGER', 'A HIKER', 'A YOUNG GUEST', 'A FISHERMAN', 'THE CAM
 const EMG_LOOKS = [{ sk: 0xe0b090, sh: 0x3a6a9a, tr: 0x2a2e3a, hat: 'beanie', hc: 0x2a2a2a }, { sk: 0xc89068, sh: 0xc0a020, tr: 0x3a3226, hat: 'cap', hc: 0x8a2a1a }, { sk: 0xf0c8a8, sh: 0x8a3a6a, tr: 0x2a3a5a, hat: 'long', hc: 0x3a2a1a, s: 0.94 }, { sk: 0x8a5a3a, sh: 0x4a8a4a, tr: 0x3a3a32, hat: 'none', hc: 0x1a1612 }];
 const emgClinic = () => dlvS('DRYFORK');
 const emgKm = (ax, az, bx, bz) => hyp(ax - bx, az - bz) / 1000;
+// ---- v1.13.0 procedural call-outs over the whole map ----
+// medevac: a meadow 2.5-13 km from the clinic with 160 m of landable ground (end-to-end slope < 5 %, bumps < 0.5 m off the line, cross slope < 7 %, no water within 15 m,
+//   both approaches under a 1:9 climb out to 400 m, few trees: a 50 m tree-count grid), orange panels at its corners, trees / bushes in it cleared while the call is live.
+// SAR: a party 2-12 km from home: hikers on dry, flat ground (no cliffs), canoe / kayak parties on a river or lake bank. Named from the nearest town. Story calls stay fixed.
+const EP = { grid: null, G: 50, X0: -5000, Z0: -3750, NX: 200, NZ: 150, ms: 0, n: 0, fail: 0 };
+function epGrid() { if (EP.grid) return EP.grid; const g = new Uint16Array(EP.NX * EP.NZ);
+  for (const k of CHUNKS) { if (!k.tree) continue; const F = k.full; for (let i = 0; i < k.n; i++) { if (!F[i * 16 + 15]) continue; const cx = Math.floor((k.xz[i * 3] - EP.X0) / EP.G), cz = Math.floor((k.xz[i * 3 + 2] - EP.Z0) / EP.G);
+    if (cx >= 0 && cz >= 0 && cx < EP.NX && cz < EP.NZ && g[cz * EP.NX + cx] < 65535) g[cz * EP.NX + cx]++; } }
+  return EP.grid = g; }
+function epTrees(x, z, a, hl, hw) { const g = epGrid(), ux = Math.sin(a), uz = Math.cos(a); let n = 0, last = -1;
+  for (let s = -hl; s <= hl; s += 20) for (let l = -hw; l <= hw; l += hw) { const px = x + ux * s + uz * l, pz = z + uz * s - ux * l, cx = Math.floor((px - EP.X0) / EP.G), cz = Math.floor((pz - EP.Z0) / EP.G), c = cz * EP.NX + cx;
+    if (cx < 0 || cz < 0 || cx >= EP.NX || cz >= EP.NZ) return 1e9; if (c !== last) { n += g[c]; last = c; } } return n; }
+function epNear(x, z, d) { const d2 = d * d; for (const S of DLV_STRIPS) if ((S.pad[0] - x) ** 2 + (S.pad[1] - z) ** 2 < d2) return true; for (const T of TOWNS) if ((T.x - x) ** 2 + (T.z - z) ** 2 < d2) return true; return false; }
+function epWet(x, z, r) { if (waterDist(x, z) < r) return true; const V = window.VISTA; if (V && V.lakeAt) { if (V.lakeAt(x, z) || V.lakeAt(x + r, z) || V.lakeAt(x - r, z) || V.lakeAt(x, z + r) || V.lakeAt(x, z - r)) return true; } return false; }
+function epStrip(x, z, a) {   // 160 m of landable ground along heading a, centred on (x, z)?
+  const ux = Math.sin(a), uz = Math.cos(a), lx = uz, lz = -ux, h0 = groundY(x - ux * 80, z - uz * 80), h1 = groundY(x + ux * 80, z + uz * 80);
+  if (Math.abs(h1 - h0) > 160 * 0.05) return false;
+  for (let s = -80; s <= 80; s += 10) { const px = x + ux * s, pz = z + uz * s, h = groundY(px, pz), lin = h0 + (h1 - h0) * (s + 80) / 160; if (Math.abs(h - lin) > 0.5) return false;
+    if (Math.abs(groundY(px + lx * 6, pz + lz * 6) - groundY(px - lx * 6, pz - lz * 6)) > 12 * 0.07) return false; }
+  for (let s = -100; s <= 100; s += 25) if (epWet(x + ux * s, z + uz * s, 15)) return false;
+  for (let sg = -1; sg <= 1; sg += 2) { const he = sg < 0 ? h0 : h1; for (let d = 40; d <= 320; d += 40) if (groundY(x + ux * sg * (80 + d), z + uz * sg * (80 + d)) > he + d * 0.11) return false; }
+  return true; }
+function epTown(x, z) { let b = null, bd = 1e18; for (const S of DLV_STRIPS) { if (S.site || S.lock) continue; const d = (S.pad[0] - x) ** 2 + (S.pad[1] - z) ** 2; if (d < bd) { bd = d; b = S; } } return b; }
+function epDir(T, x, z) { const a = (Math.atan2(x - T.pad[0], -(z - T.pad[1])) * 180 / Math.PI + 360 + 22.5) % 360; return ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'][Math.floor(a / 45)]; }
+function epMed(r) {   // -> [x, z, axis mrad] or null
+  const t0 = performance.now(), T = emgClinic();
+  for (let t = 0; t < 160; t++) { const x = -4500 + r() * 9000, z = -3300 + r() * 6600, km = emgKm(x, z, T.pad[0], T.pad[1]); if (km < 2.5 || km > 13 || epNear(x, z, 450) || epWet(x, z, 40)) continue;
+    const a0 = r() * Math.PI; for (let k = 0; k < 4; k++) { const a = (a0 + k * Math.PI / 4) % Math.PI; if (epTrees(x, z, a, 100, 15) > 12) continue;
+      if (epStrip(x, z, a)) { EP.ms = performance.now() - t0; EP.n++; return [Math.round(x), Math.round(z), Math.round(a * 1000)]; } } }
+  EP.ms = performance.now() - t0; EP.fail++; return null; }
+function emgSite(id) {   // the medevac meadow for an 'EP:x:z:axis' id (cached; works straight from a save)
+  const C = emgSite.C || (emgSite.C = new Map()); let S = C.get(id); if (S) return S; const p = id.split(':'), x = +p[1], z = +p[2], a = +p[3] / 1000; if (p.length !== 4 || !isFinite(x) || !isFinite(z) || !isFinite(a)) return undefined;
+  const ux = Math.sin(a), uz = Math.cos(a), lx = uz, lz = -ux, px = x + lx * 13 + ux * 50, pz = z + lz * 13 + uz * 50, T = epTown(x, z);
+  S = { id, ep: 1, x, z, a, name: 'MEADOW ' + epDir(T, x, z) + ' OF ' + T.name, town: T.id, pad: [px, pz], ry: Math.atan2(-lz, lx), fry: Math.atan2(-lx, -lz), site: false, lock: false, key: '' }; S.board = [px, pz, S.ry]; C.set(id, S); return S; }
+function epClear(x0, z0, x1, z1, f) {   // trees / bushes / rocks inside f (bbox first) out of the chunks: the next chunk pass re-uploads them (one pass, at a call's start / a load)
+  let n = 0; for (const k of CHUNKS) { const F = k.full, xz = k.xz; let hit = false; for (let i = 0; i < k.n; i++) { const x = xz[i * 3], z = xz[i * 3 + 2]; if (x < x0 || x > x1 || z < z0 || z > z1 || !F[i * 16 + 15] || !f(x, z)) continue; F.fill(0, i * 16, i * 16 + 16); hit = true; n++; } if (hit) k.ok = 0; }
+  for (let i = TREES.length - 1; i >= 0; i--) { const t = TREES[i]; if (t[0] >= x0 && t[0] <= x1 && t[2] >= z0 && t[2] <= z1 && f(t[0], t[2])) TREES.splice(i, 1); }
+  if (n) { EP.grid = null; updateChunks(true); } return n; }
+function epLZ(S) {   // the meadow's orange corner panels + a windsock by the casualty; its trees cleared
+  const ux = Math.sin(S.a), uz = Math.cos(S.a), lx = uz, lz = -ux, P = [];
+  epClear(S.x - 110, S.z - 110, S.x + 110, S.z + 110, (x, z) => { const dx = x - S.x, dz = z - S.z, s = dx * ux + dz * uz, l = dx * lx + dz * lz; return (Math.abs(s) < 105 && Math.abs(l) < 16) || (x - S.pad[0]) ** 2 + (z - S.pad[1]) ** 2 < 144; });
+  for (const s of [-80, 80]) for (const l of [-9, 9]) { const x = S.x + ux * s + lx * l, z = S.z + uz * s + lz * l; P.push(['b', 0.8, 0.06, 2.4, x, groundY(x, z) + 0.03, z, 0xff5a10, 0, S.a, 0]); }
+  { const x = S.pad[0] + lx * 4, z = S.pad[1] + lz * 4, y = groundY(x, z); P.push(['c', 0.04, 3.2, 6, x, y + 1.6, z, 0xd8d8d8], ['c', 0.12, 0.7, 8, x + 0.35, y + 3.0, z, 0xff6a10, 0, 0, Math.PI / 2]); }
+  const gs = P.map(partGeo), m = new THREE.Mesh(mergeGeometries(gs), ITEM_VM); for (const g of gs) g.dispose(); m.userData.noBatch = true; m.userData.disp = 1; m.castShadow = false; scene.add(m); EMG.vis.push({ g: m }); }
+const EP_WHO = [['OVERDUE HIKER', 1], ['LOST HUNTER', 1], ['OVERDUE HIKERS', 2], ['INJURED CLIMBER', 1], ['LOST BERRY PICKERS', 2]], EP_WHOC = [['OVERDUE CANOE PARTY', 2], ['MISSING CANOEIST', 1], ['OVERDUE KAYAKERS', 2], ['STRANDED FISHERMAN', 1]];
+function epSar(r) {   // -> { x, z, canoe } or null
+  const t0 = performance.now(), H = dlvS('HOME'), canoe = r() < 0.4, flat = (x, z) => { const h = groundY(x, z); let f = 0; for (let k = 0; k < 4; k++) { const d = Math.abs(groundY(x + (k === 0 ? 4 : k === 1 ? -4 : 0), z + (k === 2 ? 4 : k === 3 ? -4 : 0)) - h); if (d > f) f = d; } return f; };
+  for (let t = 0; t < 80; t++) { let x, z;
+    if (canoe) { if (r() < 0.75 && WATERWAYS.length) { const w = WATERWAYS[Math.floor(r() * WATERWAYS.length)], P = w.pts, i = Math.floor(r() * (P.length - 1)), a = P[i], b = P[i + 1], dx = b[0] - a[0], dz = b[1] - a[1], d = Math.hypot(dx, dz) || 1, sd = r() < 0.5 ? -1 : 1, o = w.hw + 5 + r() * 3;
+        x = a[0] - dz / d * sd * o; z = a[1] + dx / d * sd * o; } else { const L = LAKES[Math.floor(r() * LAKES.length)], an = r() * 6.283; x = L.x + Math.cos(an) * (L.r + 6); z = L.z + Math.sin(an) * (L.r + 6); }
+      const wd = waterDist(x, z); if (wd < 3 || wd > 10) continue; }
+    else { x = -4500 + r() * 9000; z = -3300 + r() * 6600; if (epWet(x, z, 25)) continue; }
+    const km = emgKm(x, z, H.pad[0], H.pad[1]); if (km < 2 || km > 12 || Math.abs(x) > 4700 || Math.abs(z) > 3500 || epNear(x, z, 350)) continue;
+    if (flat(x, z) > 0.7) continue;   // not on a cliff / scree
+    EP.ms = performance.now() - t0; EP.n++; return { x: Math.round(x * 10) / 10, z: Math.round(z * 10) / 10, canoe }; }
+  EP.ms = performance.now() - t0; EP.fail++; return null; }
+const sarA = j => (j.emg.a < 0 && j.emg.pa) || SAR_A[j.emg.a];   // a fixed area, or a procedural party's own { name, who, kind, ppl }
 function emgGen(sc) {   // one call-out (seeded by its number, so a save reloads the same one); sc: a story beat's scripted call
   const id = 900000 + EMG.seq++, r = dlvRng(id * 7331 + 58), H = dlvS('HOME'), t = sc ? sc.emg.t : r() < 0.55 ? 'med' : 'sar';
   if (t === 'med') {
-    const C = DLV_STRIPS.filter(S => S.id !== 'DRYFORK' && S.id !== 'HOME' && !S.lock), S = sc ? dlvS(sc.emg.at) : C[Math.floor(r() * C.length)], T = emgClinic();
+    const C = DLV_STRIPS.filter(S => S.id !== 'DRYFORK' && S.id !== 'HOME' && !S.lock), T = emgClinic(); let S = sc ? dlvS(sc.emg.at) : null;
+    if (!S && r() < 0.65) { const e = epMed(r); if (e) S = emgSite('EP:' + e.join(':')); }   // v1.13.0 off-airport: a meadow anywhere on the map
+    if (!S) S = C[Math.floor(r() * C.length)];
     const name = sc ? sc.emg.name : EMG_WHO[Math.floor(r() * EMG_WHO.length)] + ' AT ' + S.name, inj = sc ? sc.emg.inj : EMG_INJ[Math.floor(r() * EMG_INJ.length)], lb = Math.round(140 + r() * 60);
     const km = emgKm(S.pad[0], S.pad[1], T.pad[0], T.pad[1]), out = emgKm(H.pad[0], H.pad[1], S.pad[0], S.pad[1]), look = sc && sc.emg.look ? sc.emg.look : null, lk = Math.floor(r() * EMG_LOOKS.length);
-    return { id, from: S.id, to: T.id, title: 'MEDEVAC - ' + inj, items: [{ k: 'patient', lb }], pay: Math.round(320 + 70 * km + 30 * out), dl: 0, due: 0, st: 'call', wc: 'L', sp: 'med', life: Math.ceil(30 + 2 * (km + out)), fresh: 1, stress: 0,
-      emg: { t, who: sc ? sc.id : S.id, name, inj, look, lk, got: 0, sc: sc ? sc.id : null, joe: sc && sc.emg.joe ? 1 : 0, exp: 0 } };
+    return { id, from: S.id, to: T.id, title: 'MEDEVAC - ' + inj, items: [{ k: 'patient', lb }], pay: Math.round(320 + 70 * km + 30 * out + (S.ep ? 90 : 0)), dl: 0, due: 0, st: 'call', wc: 'L', sp: 'med', life: Math.ceil(30 + 2 * (km + out)), fresh: 1, stress: 0,
+      emg: { t, who: sc ? sc.id : S.ep ? S.town : S.id, name, inj, look, lk, got: 0, sc: sc ? sc.id : null, joe: sc && sc.emg.joe ? 1 : 0, exp: 0 } };
   }
+  if (!sc && r() < 0.7) { const P = epSar(r); if (P) {   // v1.13.0 a procedural party anywhere on the map
+      const H = dlvS('HOME'), T0 = epTown(P.x, P.z), W = P.canoe ? EP_WHOC[Math.floor(r() * EP_WHOC.length)] : EP_WHO[Math.floor(r() * EP_WHO.length)], ca = r() * 6.283, cr = 60 + r() * 220, km = emgKm(H.pad[0], H.pad[1], P.x, P.z);
+      const pa = { name: (P.canoe ? 'SHORE ' : 'WOODS ') + epDir(T0, P.x, P.z) + ' OF ' + T0.name, who: W[0], kind: P.canoe ? 'canoe' : 'hiker', ppl: W[1] }, items = [{ k: 'bundle', lb: Math.round(15 + r() * 10) }, { k: 'bundle', lb: Math.round(15 + r() * 10) }];
+      return { id, from: 'HOME', to: emgClinic().id, title: 'SAR - ' + pa.who, items, pay: Math.round(400 + 65 * km), dl: 0, due: 0, st: 'call', wc: 'L', sp: 'med', life: 75, fresh: 1, stress: 0,
+        emg: { t: 'sar', who: 'RANGER', name: pa.who, a: -1, pa, si: 0, x: P.x, z: P.z, cx: P.x + Math.cos(ca) * cr, cz: P.z + Math.sin(ca) * cr, cr: 450, ppl: pa.ppl, seen: 0, got: 0, look: null, lk: Math.floor(r() * EMG_LOOKS.length), sc: null, exp: 0 } }; } }
   const ai = sc ? SAR_A.findIndex(A => A.id === sc.emg.a) : Math.floor(r() * SAR_A.length), A = SAR_A[ai], si = Math.floor(r() * 3), [x, z] = A.sp[si], ca = r() * 6.283, cr = 60 + r() * 220;
   const ppl = sc && sc.emg.ppl ? sc.emg.ppl : A.ppl, km = emgKm(H.pad[0], H.pad[1], x, z), items = [{ k: 'bundle', lb: Math.round(15 + r() * 10) }, { k: 'bundle', lb: Math.round(15 + r() * 10) }];
   return { id, from: 'HOME', to: emgClinic().id, title: 'SAR - ' + (sc ? sc.emg.name : A.who), items, pay: Math.round(380 + 60 * km), dl: 0, due: 0, st: 'call', wc: 'L', sp: 'med', life: 75, fresh: 1, stress: 0,
@@ -9727,7 +10133,7 @@ function emgGen(sc) {   // one call-out (seeded by its number, so a save reloads
 }
 const emgLook = j => (j.emg.look && FOLK_L[j.emg.look]) || EMG_LOOKS[j.emg.lk % EMG_LOOKS.length];
 const emgActive = () => EMG.jobs.find(j => j.st === 'active') || null;
-function emgCallText(j) { return (j.emg.t === 'med' ? 'MEDEVAC: ' + j.emg.name + ' - ' + j.emg.inj + ', FLY THEM TO THE DRY FORK CLINIC' : 'SEARCH + RESCUE: ' + j.emg.name + ' (' + j.emg.ppl + ') SOMEWHERE NEAR ' + SAR_A[j.emg.a].name) + ' - UP TO $' + j.pay; }
+function emgCallText(j) { return (j.emg.t === 'med' ? 'MEDEVAC: ' + j.emg.name + ' - ' + j.emg.inj + ', FLY THEM TO THE DRY FORK CLINIC' : 'SEARCH + RESCUE: ' + j.emg.name + ' (' + j.emg.ppl + ') SOMEWHERE NEAR ' + sarA(j).name) + ' - UP TO $' + j.pay; }
 function emgNewCall() {
   const sc = EMG.story.length ? EMG.story[0] : null, scd = sc ? { id: sc.id, emg: FOLK_ST[sc.id][sc.i].emg } : null;
   const j = emgGen(scd); j.emg.exp = scd ? 0 : DLV.gt + EMG_EXP; if (sc) EMG.story.shift(); EMG.call = j; EMG.key = ''; MAP.key = '';
@@ -9751,18 +10157,20 @@ function emgAccept(from) {   // from: the strip whose sign you poked, or null (b
 function emgVis(j) {   // the casualty (and their camp / companions) in the world
   emgVisClear(); const L = emgLook(j);
   if (j.emg.t === 'med') { const S = dlvS(j.from), ry = S.ry, rx = Math.cos(ry), rz = -Math.sin(ry), x = S.pad[0] + rx * 2.6, z = S.pad[1] + rz * 2.6;
-    const f = folkMake(L, 'sit', x, z, ry, [['b', 0.62, 0.1, 2.0, 0, 0.07, 0.35, 0x9a9a9a], ['b', 0.56, 0.06, 1.0, 0, 0.13, 0.7, 0x2f5f8f], ['b', 0.04, 0.04, 2.3, -0.3, 0.06, 0.35, 0x6a6e72], ['b', 0.04, 0.04, 2.3, 0.3, 0.06, 0.35, 0x6a6e72]]);
-    f.g.children[0].position.y += 0.12; f.g.children[1].position.y += 0.12; f.cas = 1; EMG.vis.push(f); EMG.cas = { f, x, z, st: j.emg.got ? 'aboard' : 'wait' }; if (j.emg.got) f.g.visible = false; return; }
-  const A = SAR_A[j.emg.a], x = j.emg.x, z = j.emg.z, ry = Math.atan2(-x, -z), canoe = A.kind === 'canoe';
+    if (S.ep) epLZ(S);   // v1.13.0 the meadow: panels + windsock, cleared
+    const f = folkMake(L, 'sit', x, z, S.fry ?? ry, [['b', 0.62, 0.1, 2.0, 0, 0.07, 0.35, 0x9a9a9a], ['b', 0.56, 0.06, 1.0, 0, 0.13, 0.7, 0x2f5f8f], ['b', 0.04, 0.04, 2.3, -0.3, 0.06, 0.35, 0x6a6e72], ['b', 0.04, 0.04, 2.3, 0.3, 0.06, 0.35, 0x6a6e72]]);
+    f.g.children[0].position.y += 0.12; f.g.children[1].position.y += 0.12; f.lift = 0.12; f.cas = 1; EMG.vis.push(f); EMG.cas = { f, x, z, st: j.emg.got ? 'aboard' : 'wait' }; if (j.emg.got) f.g.visible = false; return; }
+  const A = sarA(j), x = j.emg.x, z = j.emg.z, ry = Math.atan2(-x, -z), canoe = A.kind === 'canoe';
+  if (j.emg.a < 0) epClear(x - 13, z - 13, x + 13, z + 13, (tx, tz) => (tx - x) ** 2 + (tz - z) ** 2 < 144);   // v1.13.0 a procedural party: the trees round them cleared (12 m), like the fixed spots
   const props = canoe ? [['b', 0.8, 0.35, 4.4, 2.2, 0.18, 0.4, 0x3a8a4a, 0, 0.4], ['b', 2.6, 0.04, 2.0, -1.8, 0.03, -0.6, 0xff6a10], ['b', 0.5, 0.3, 0.3, 1.0, 0.15, -1.6, 0x5a4a3a], ['b', 0.05, 0.05, 2.2, 3.0, 0.03, -0.6, 0xc8a050, 0, 0.3]]
     : [['b', 1.6, 0.9, 2.0, -2.0, 0.45, -1.4, 0xff6a10], ['b', 1.7, 0.06, 2.1, -2.0, 0.92, -1.4, 0xd85a10], ['b', 0.45, 0.6, 0.3, 0.9, 0.3, -0.9, 0x3a5a8a], ['b', 2.4, 0.03, 1.6, 1.5, 0.02, 1.6, 0xff6a10]];
   const f = folkMake(L, 'sit', x, z, ry, props); f.cas = 1; EMG.vis.push(f); EMG.cas = { f, x, z, st: j.emg.got ? 'aboard' : 'wait' }; if (j.emg.got) f.g.children[0].visible = f.g.children[1].visible = false;
   for (let k = 1; k < j.emg.ppl; k++) { const a = ry + 1.2 + k * 0.9, f2 = folkMake(EMG_LOOKS[(j.emg.lk + k) % EMG_LOOKS.length], 'stand', x + Math.sin(a) * 1.8, z + Math.cos(a) * 1.8, ry); f2.waveOn = false; EMG.vis.push(f2); }
 }
-function emgVisClear() { for (const f of EMG.vis) f.g.removeFromParent(); EMG.vis.length = 0; EMG.cas = null; }
+function emgVisClear() { for (const f of EMG.vis) { f.g.removeFromParent(); if (f.g.userData.disp) f.g.geometry.dispose(); } EMG.vis.length = 0; EMG.cas = null; }
 function emgSpot(j, how) {
   if (j.emg.seen) return; j.emg.seen = 1; MAP.key = ''; KB.key = ''; sfx('clack'); const P = playerPos(), d = hyp(j.emg.x - P.x, j.emg.z - P.z);
-  say('SPOTTED: ' + j.emg.name + ' - ' + j.emg.ppl + (j.emg.ppl > 1 ? ' PEOPLE WAVING' : ' PERSON WAVING') + ' AT ' + SAR_A[j.emg.a].name + ', ' + Math.round(d / 10) * 10 + ' M' + (how ? ' (' + how + ')' : '') + ' - ON YOUR MAP: DROP THE BUNDLES ON THEM OR LAND NEARBY'); msgT = 7; saveSoon();
+  say('SPOTTED: ' + j.emg.name + ' - ' + j.emg.ppl + (j.emg.ppl > 1 ? ' PEOPLE WAVING' : ' PERSON WAVING') + ' AT ' + sarA(j).name + ', ' + Math.round(d / 10) * 10 + ' M' + (how ? ' (' + how + ')' : '') + ' - ON YOUR MAP: DROP THE BUNDLES ON THEM OR LAND NEARBY'); msgT = 7; saveSoon();
 }
 function emgBino(look) { const j = emgActive(); if (j && j.emg.t === 'sar' && !j.emg.seen) look(j.emg.x, groundY(j.emg.x, j.emg.z) + 1, j.emg.z, { sar: j }); }
 function emgBundle(it, p) {   // a SAR supply bundle came down at p: on them = done
@@ -9797,17 +10205,17 @@ function emgBoard(j) {   // the casualty at the door: onto the rear seat
   wbUpdate(); MAP.key = ''; KB.key = ''; saveSoon(); return '';
 }
 function emgCasTick(dt, j) {   // the casualty: waits; walk up (3.5 m) and they lean on you and follow; at the Cub's door they climb onto the rear seat
-  const C = EMG.cas; if (!C || C.st === 'aboard') return; const f = C.f, P = playerPos(), foot = mode === 'foot', d = hyp(P.x - C.x, P.z - C.z);
+  const C = EMG.cas; if (!C || C.st === 'aboard') return; const f = C.f, P = playerPos(), foot = mode === 'foot', ex = P.x - C.x, ez = P.z - C.z, d = Math.sqrt(ex * ex + ez * ez);
   if (C.st === 'wait') { if (foot && d < 3.5) { C.st = 'follow'; if (f.pose === 'sit') { const L = f.L, nf = folkMake(L, 'stand', C.x, C.z, f.g.rotation.y); if (f.g.userData.props) { const pm = f.g.userData.props; f.g.remove(pm); pm.position.set(C.x, groundY(C.x, C.z), C.z); pm.rotation.y = f.g.rotation.y; scene.add(pm); EMG.vis.push({ g: pm }); } f.g.removeFromParent(); EMG.vis[EMG.vis.indexOf(f)] = nf; nf.cas = 1; C.f = nf; }
       say(j.emg.name + ': "THANK GOD. HELP ME TO THE PLANE."' + ' - THEY LEAN ON YOU: WALK TO THE CUB\'S DOOR'); msgT = Math.max(msgT, 5); } return; }
-  if (!foot || d > 40) { C.st = 'wait'; return; }
-  const F = C.f, tx = P.x, tz = P.z, dd = hyp(tx - C.x, tz - C.z); if (dd > 1.6) { const sp = Math.min(dd - 1.6, 1.25 * dt); C.x += (tx - C.x) / dd * sp; C.z += (tz - C.z) / dd * sp; }
+  if (!foot || d > 40) { C.st = 'wait'; if (C.f) C.f.walkOn = 0; return; }
+  const F = C.f, tx = P.x, tz = P.z, dd = hyp(tx - C.x, tz - C.z); if (dd > 1.6) { const sp = Math.min(dd - 1.6, 1.25 * dt); C.x += (tx - C.x) / dd * sp; C.z += (tz - C.z) / dd * sp; F.walkOn = 1; } else F.walkOn = 0;
   F.x = C.x; F.z = C.z; F.g.position.set(C.x, groundY(C.x, C.z), C.z); F.g.rotation.y = Math.atan2(tx - C.x, tz - C.z); F.ry0 = F.g.rotation.y;
   const dp = qRot(ac.q, EMG_DOOR), dx = ac.pos[0] + dp[0] - C.x, dz = ac.pos[2] + dp[2] - C.z;
   if (hyp(dx, dz) < 3.2 && acGS() < 0.5) { const why = emgBoard(j); if (why && (EMG.sayT -= dt) <= 0) { EMG.sayT = 4; say(why); sfx('tick'); } }
 }
 function emgCond(j, dt) {   // the patient's condition: drains with time; rough flying and no belt make it worse; waiting on the ground half as fast
-  const its = DLV.items.filter(it => it.job === j.id && it.k === 'patient'), aboard = its.some(it => it.st === 'cargo'), air = mode === 'plane' && !ac.gs.some(g => g.Fn > 0);
+  let aboard = false, air = mode === 'plane'; for (let i = 0; i < DLV.items.length; i++) { const it = DLV.items[i]; if (it.job === j.id && it.k === 'patient' && it.st === 'cargo') aboard = true; } for (let i = 0; air && i < ac.gs.length; i++) if (ac.gs[i].Fn > 0) air = false;
   let k = aboard ? 1 : 0.5; if (aboard && air) { k += 4 * Math.max(0, (DLV.ag || 0) - 0.2); if (!DLV.belt) k += 0.5; }
   const f0 = j.fresh; j.fresh = Math.max(0, j.fresh - dt / 60 / j.life * k); j.stress = Math.max(j.stress * 0.999, aboard && air ? Math.max(0, (DLV.ag || 0) - 0.2) : 0);
   if (aboard && air && (DLV.ag || 0) > 0.45 && (EMG.sayT -= dt) <= 0) { EMG.sayT = 8; say(j.emg.name.split(',')[0] + ' CRIES OUT - FLY SMOOTHER (CONDITION ' + Math.round(100 * j.fresh) + '%)'); }
@@ -9816,17 +10224,18 @@ function emgCond(j, dt) {   // the patient's condition: drains with time; rough 
   return aboard;
 }
 function emgTick(dt) {
-  const t0 = performance.now(), j = emgActive();
+  const t0 = performance.now(), j = emgActive(); FOLK.frame++; FOLK_MS[0] = 0;
   if (j) { const aboard = emgCond(j, dt); emgCasTick(dt, j);
     if (j.emg.t === 'sar' && !j.emg.seen) { const P = playerPos(), d = hyp(j.emg.x - P.x, j.emg.z - P.z), agl = P.y - groundY(P.x, P.z); if ((mode === 'plane' && d < EMG_SEE_R && agl < 260) || (mode === 'foot' && d < 60)) emgSpot(j); }
     if (aboard && j.emg.got) { const T = dlvS(j.to); if (acGS() < 0.5 && !ENG.running && hyp(ac.pos[0] - T.pad[0], ac.pos[2] - T.pad[1]) < 90) emgHandOver(j); }
-    for (const f of EMG.vis) if (f.arm) { const P = playerPos(), d = hyp(P.x - f.x, P.z - f.z); f.waveOn = !(EMG.cas && EMG.cas.f === f && EMG.cas.st !== 'wait') && ((mode === 'plane' && d < 900) || (mode === 'foot' && d < 25 && d > 4)); folkArm(f, dt); } }
+    for (let vi = 0; vi < EMG.vis.length; vi++) { const f = EMG.vis[vi]; if (!f.arm) continue; const P = playerPos(), ex = P.x - f.x, ez = P.z - f.z, d = Math.sqrt(ex * ex + ez * ez); (f.N || folkN(f))[3] = d; f.waveOn = !(EMG.cas && EMG.cas.f === f && EMG.cas.st !== 'wait') && ((mode === 'plane' && d < 900) || (mode === 'foot' && d < 25 && d > 4)); folkArm(f, dt); } }
   else if (!EMG.call && DLV.gt >= EMG.nextT) emgNewCall();
   if (EMG.call && EMG.call.emg.exp && DLV.gt > EMG.call.emg.exp) { const c = EMG.call; EMG.call = null; EMG.nextT = DLV.gt + EMG_GAP[0]; EMG.key = '';
     if (mode === 'plane' && UPG.radio && ENG.master) say('RADIO - RANGER KOWALSKI: "THE STATE HELICOPTER HAS THE ' + (c.emg.t === 'med' ? 'MEDEVAC' : 'SEARCH') + ' - STAND DOWN"'); }
   if (EMG.call && EMG.heard !== EMG.call.id && mode === 'plane' && UPG.radio && ENG.master) { EMG.heard = EMG.call.id; sfx('static'); say('RADIO - RANGER KOWALSKI: "ALL PILOTS, ' + emgCallText(EMG.call) + '" (C TO TAKE IT)'); msgT = Math.max(msgT, 7); }
   if (UPG.radio && mode === 'plane' && ENG.master && (FOLK.chatT -= dt) <= 0) { FOLK.chatT = 140 + Math.random() * 80; const c = folkChat(); if (c && !EMG.call) { sfx('static'); say('RADIO - ' + c); } }
-  if ((EMG.signT -= dt) <= 0) { EMG.signT = 0.5; const k = emgSignKey(); if (k !== EMG.key) { EMG.key = k; emgSignDraw(); } const P = playerPos(); for (const s of EMG_SIGNS) s.m.visible = hyp(P.x - s.x, P.z - s.z) < 400; }
+  if (emgSignMoved() || EMG.key === '') { const k = emgSignKey(); if (k !== EMG.key) { EMG.key = k; emgSignDraw(); } }   // (checked every frame: hot, so it stays optimised and boxes nothing)
+  if ((EMG.signT -= dt) <= 0) { EMG.signT = 0.5; const P = playerPos(); for (let i = 0; i < EMG_SIGNS.length; i++) { const s = EMG_SIGNS[i], ex = P.x - s.x, ez = P.z - s.z; s.m.visible = ex * ex + ez * ez < 160000; } }
   folkTick(dt); EMG.ms = performance.now() - t0;
 }
 // ---- the red EMERGENCY signs: one shared canvas, beside the four town boards (the reader's left) ----
@@ -9838,6 +10247,11 @@ const EMG_PW = 0.66, EMG_PH = 0.44;
   for (const S of DLV_STRIPS) { if (S.site || S.id === 'HALV') continue; const [bx, bz, ry] = S.board, rx = Math.cos(ry), rz = -Math.sin(ry), x = bx - rx * 1.25, z = bz - rz * 1.25, G = new THREE.Group();
     G.position.set(x, groundY(x, z), z); G.rotation.y = ry; scene.add(G); box(0.07, 1.75, 0.07, post, 0, 0.85, -0.03, G); box(EMG_PW + 0.06, EMG_PH + 0.06, 0.03, red, 0, 1.42, 0, G);
     const m = new THREE.Mesh(new THREE.PlaneGeometry(EMG_PW, EMG_PH), M); m.position.set(0, 1.42, 0.017); m.userData.noBatch = true; G.add(m); EMG_SIGNS.push({ S, m, x, z }); } }
+const EMG_SK = new Float64Array(9); EMG_SK[0] = -2;
+function emgSignMoved() { const j = emgActive(), c = EMG.call, K = EMG_SK, gt = DLV.gt; let m = false;
+  const v0 = c ? c.id : -1, v1 = c ? Math.ceil(c.emg.exp - gt) : 0, v2 = j ? j.id : -1, v3 = j && j.emg.got ? 1 : 0, v4 = j && j.emg.seen ? 1 : 0, v5 = j ? Math.ceil(100 * j.fresh) : 0, v6 = j ? Math.ceil(j.due - gt) : 0, v7 = Math.ceil(EMG.nextT - gt), v8 = UPG.radio ? 1 : 0;
+  if (K[0] !== v0) { K[0] = v0; m = true; } if (K[1] !== v1) { K[1] = v1; m = true; } if (K[2] !== v2) { K[2] = v2; m = true; } if (K[3] !== v3) { K[3] = v3; m = true; } if (K[4] !== v4) { K[4] = v4; m = true; }
+  if (K[5] !== v5) { K[5] = v5; m = true; } if (K[6] !== v6) { K[6] = v6; m = true; } if (K[7] !== v7) { K[7] = v7; m = true; } if (K[8] !== v8) { K[8] = v8; m = true; } return m; }
 function emgSignKey() { const j = emgActive(), c = EMG.call; return (c ? 'c' + c.id + Math.ceil(c.emg.exp - DLV.gt) : '') + (j ? 'a' + j.id + j.emg.got + j.emg.seen + Math.ceil(100 * j.fresh) + Math.ceil(j.due - DLV.gt) : '') + '|' + Math.ceil(EMG.nextT - DLV.gt) + (UPG.radio ? 'r' : ''); }
 function emgSignDraw() {
   const x = EMG_CX, W = EMG_SIGN_W, H = EMG_SIGN_H, j = emgActive(), c = EMG.call;
@@ -9851,7 +10265,7 @@ function emgSignDraw() {
     T('UP TO $' + j.pay, H - 30, 'bold 18px sans-serif', '#1e6a2a'); }
   else if (c) { T(c.emg.t === 'med' ? 'MEDEVAC' : 'SEARCH + RESCUE', 72, 'bold 18px sans-serif', '#7a1410');
     const md = c.emg.t === 'med', y = md ? 18 : 0;   // v0.59.1 medevac: the name and the injury on their own lines (they ran together and got squeezed)
-    T(md ? c.emg.name : c.emg.name + ' (' + c.emg.ppl + ') - ' + SAR_A[c.emg.a].name, 98, 'bold 15px sans-serif'); if (md) T(c.emg.inj, 116, 'bold 15px sans-serif', '#b8201a');
+    T(md ? c.emg.name : c.emg.name + ' (' + c.emg.ppl + ') - ' + sarA(c).name, 98, 'bold 15px sans-serif'); if (md) T(c.emg.inj, 116, 'bold 15px sans-serif', '#b8201a');
     T(md ? 'PICK UP AT ' + dlvS(c.from).name + ' > DRY FORK CLINIC' : 'FIND THEM, DROP SUPPLIES OR FLY ONE OUT', 122 + y);
     T(md ? 'TIME-CRITICAL: CONDITION + SMOOTH FLYING SET THE PAY' : '2 SUPPLY BUNDLES ON THE PAD - BINOCULARS (V) HELP', 144 + y, '14px sans-serif', '#555');
     if (c.emg.exp) T('OPEN FOR ' + Math.max(0, Math.ceil(c.emg.exp - DLV.gt)) + ' MIN', 166 + y, '13px sans-serif', '#555');
@@ -9891,13 +10305,13 @@ function emgKb(j, P) {
   const dx = tgt[0] - P[0], dz = tgt[1] - P[2], km = hyp(dx, dz) / 1000, hdg = Math.round(((Math.atan2(dx, -dz) * 180 / Math.PI) + 360) % 360 / 5) * 5 % 360, cond = 'CONDITION ' + Math.round(100 * j.fresh) + '%';
   const nav = (got ? 'CLINIC ' : j.emg.t === 'med' ? 'PICKUP ' : j.emg.seen ? 'PARTY ' : 'SEARCH ') + (km < 10 ? km.toFixed(1) : Math.round(km)) + ' KM  HDG ' + String(hdg).padStart(3, '0');
   const b = its.filter(i => i.k === 'bundle').length;
-  return { col: '#c01e14', t: j.emg.t === 'med' ? 'MEDEVAC' : 'SEARCH + RESCUE', sp: null, rt: (j.emg.t === 'med' ? dlvS(j.from).name : SAR_A[j.emg.a].name) + ' > DRY FORK CLINIC', nav, pcs: (j.emg.t === 'med' ? j.title.slice(10) + ' - ' + j.emg.name : j.emg.name).slice(0, 34) + (j.emg.t === 'sar' && b ? ' - ' + b + ' BUNDLES' : ''), pay: 'UP TO $' + j.pay,
+  return { col: '#c01e14', t: j.emg.t === 'med' ? 'MEDEVAC' : 'SEARCH + RESCUE', sp: null, rt: (j.emg.t === 'med' ? dlvS(j.from).name : sarA(j).name) + ' > DRY FORK CLINIC', nav, pcs: (j.emg.t === 'med' ? j.title.slice(10) + ' - ' + j.emg.name : j.emg.name).slice(0, 34) + (j.emg.t === 'sar' && b ? ' - ' + b + ' BUNDLES' : ''), pay: 'UP TO $' + j.pay,
     due: left < 0 ? 'LATE - HALF PAY' : 'DUE IN ' + Math.ceil(left) + ' MIN', st: got ? (DLV.belt ? 'ABOARD, BELTED - ' : 'ABOARD - BELT THEM IN! ') + cond : (j.emg.t === 'sar' && !j.emg.seen ? 'NOT FOUND YET - ' : 'WAITING - ') + cond, warn: left < 0 || j.fresh < 0.5 || (got && !DLV.belt) };
 }
 // ---- save / load ----
 function emgSaveJ(j) { const r3 = v => Math.round(v * 1000) / 1000; return { ...j, due: r3(j.due), fresh: r3(j.fresh), stress: r3(j.stress), items: j.items.map(i => ({ ...i })), emg: { ...j.emg } }; }
 function emgSave() { return { seq: EMG.seq, nextT: Math.round(EMG.nextT * 1000) / 1000, done: EMG.done, story: EMG.story.map(s => ({ ...s })), call: EMG.call ? emgSaveJ(EMG.call) : null, jobs: EMG.jobs.filter(j => j.st === 'active').map(emgSaveJ), fb: { ...FOLK.b } }; }
-function emgOkJ(j) { return j && typeof j === 'object' && j.emg && (j.emg.t === 'med' || j.emg.t === 'sar') && dlvS(j.to) && dlvS(j.from) && Array.isArray(j.items) && j.items.every(i => CARGO_K[i?.k]) && isFinite(j.pay) && (j.emg.t === 'med' || SAR_A[j.emg.a]); }
+function emgOkJ(j) { return j && typeof j === 'object' && j.emg && (j.emg.t === 'med' || j.emg.t === 'sar') && dlvS(j.to) && dlvS(j.from) && Array.isArray(j.items) && j.items.every(i => CARGO_K[i?.k]) && isFinite(j.pay) && (j.emg.t === 'med' || !!sarA(j)); }
 function emgLoad(d) {   // before dlvLoad (so the patient / bundles in the save find their job); null = a fresh start
   emgVisClear(); EMG.call = null; EMG.jobs = []; EMG.seq = 1; EMG.nextT = EMG_FIRST; EMG.done = 0; EMG.story = []; EMG.key = ''; EMG.heard = 0; FOLK.b = {}; FOLK.q = []; FOLK.near = null;
   if (!d || typeof d !== 'object') return;
@@ -10766,6 +11180,10 @@ const GQ = { sig: '', xrRates: null, fogK: -1, fogV: -1, fpsT: 0, menu: null, sh
 function ultOn() { return GFX.ultra > 0 && GQ.pc; }
 const ULT = { far: null, ex: null, patched: false, t: 0, cx: 1e9, cz: 1e9, dir: new THREE.Vector3(), d: new THREE.Vector3(), nk: '', warmMs: 0, SPRN: 1100, was: false };
 const WARM = { done: false, n: 0, tot: 0, i: 0, list: [], jobs: [], par: false, el: null, sc: new THREE.Scene(), label: '', t0: 0, ms: 0, doneT: 0, ub: false, jd: 0 };
+WARM.jobs.push(() => { epGrid(); });   // v1.13.0 the call-outs' tree-count grid, built behind the loading screen
+function cldWarm(o) { if (!o || o.userData.w4) return; o.userData.w4 = 1; const v = o.visible, pv = PL.visible, sv = SL.visible; o.visible = true;
+  for (let c = 0; c < 4; c++) { PL.visible = !!(c & 1); SL.visible = !!(c & 2); renderer.compile(o, camera, scene); } PL.visible = pv; SL.visible = sv; o.visible = v; }
+WARM.jobs.push(() => { if (CLOUDS.im) cldWarm(CLOUDS.im); if (FR.cl) cldWarm(FR.cl); });   // v1.13.0
 WARM.sc.background = new THREE.Color(0x30404c);
 
 function gfxLabel(k) { if (k === 'hx') return HX.gain ? Math.round(HX.gain * 100) + '%' : 'OFF'; const o = GFX_OPT.find(r => r[0] === k), i = o[2].findIndex(v => Math.abs(v - GFX[k]) < 1e-6); return i >= 0 ? o[3][i] : GFX[k] > o[2][o[2].length - 1] ? 'ULTRA' : String(GFX[k]); }
@@ -13109,7 +13527,7 @@ function cabTick(dt, vr) { HCAB.tick(dt, vr); }
 // SURV.reset() on waking). Health is window.HEALTH (the crash module's shape: hp, max, regen /game h, hurt, heal, set, kill, onDeath[], onWake[], dead());
 // if it is not there yet a compatible minimal one is made here and the crash module reuses it (either block order). This block only scales HEALTH.regen
 // (hungry / thirsty / exhausted) and heals through HEALTH.heal; it never kills (SURV.R.lethal = true would call HEALTH.kill('starvation' / 'dehydration')).
-// Items (in a hand, from the pack, a chest pocket or the belt; the game's hand-to-mouth check in packTick, 0.14 m from the eye, does the mouth):
+// Items (in a hand, from the pack, a chest pocket or the belt; the game's hand-to-mouth check in packTick, mouthAt (v1.13.0: the zone under the eyes, round the chin), does the mouth):
 //   canteen  - mouth: a drink (0.25 L, +25 water); dip it under a river / lake surface to fill it (1.0 L). Level saved.
 //   jerky / beans / chocolate - mouth: eaten (+15 / +30 / +12 food; chocolate -4 fatigue).   cigarettes - mouth: lighter flick + a cigarette for ~10 s, smoke
 //   puffs (the game's puff() sprites), -6 fatigue and the vignette eases; 10 a pack.   first aid kit - trigger: +40 health over 5 s (HEALTH.heal; one use).
@@ -13123,6 +13541,16 @@ function cabTick(dt, vr) { HCAB.tick(dt, vr); }
 var survPend, survReady;   // gameLoad() runs before this block: what it hands survLoad() waits here (no initialiser: a var assigned now would wipe it)
 function survSave() { return survReady ? SURV.save() : survPend || undefined; }
 function survLoad(d) { if (!survReady) { survPend = d || null; return; } SURV.load(d || null); }
+const MOUTH = { c: new THREE.Vector3(0, -0.07, -0.07), r: new THREE.Vector3(0.16, 0.11, 0.17), v: new THREE.Vector3(), q: new Float64Array(1) };   // v1.13.0 head-local: centre below / ahead of the eyes; half-axes x / y / z (m)
+function mouthAt(p) {   // world point p in the mouth zone? (no allocation, boolean)
+  const v = MOUTH.v; camera.updateWorldMatrix(true, false); camera.worldToLocal(v.copy(p)); v.sub(MOUTH.c); const x = v.x / MOUTH.r.x, y = v.y / MOUTH.r.y, z = v.z / MOUTH.r.z;
+  MOUTH.q[0] = x * x + y * y + z * z; return MOUTH.q[0] < 1; }
+function eatSnd(k) {   // v1.13.0 eating / drinking: procedural layers (the bite itself still the CC0 recording when the pack is on)
+  if (k === 'canteen') sfx('gulp');
+  else if (k === 'jerky') { sfx('tear'); sfx('chew', null, 0.32); }
+  else if (k === 'bar') { sfx('wrapper'); sfx('crunch', null, 0.42); sfx('chew', null, 0.78); }
+  else if (k === 'beans') { sfx('tin'); sfx('chew', null, 0.42); }
+  else { sfx('bite'); sfx('chew', null, 0.3); } }
 function survMouthK(k) { return k === 'beans' || k === 'bar' || k === 'cigs'; }   // packTick: the kinds besides canteen / jerky that answer the mouth check
 function survMouth(i, k) { return survReady ? SURV.mouth(i, k) : false; }
 const SURV = (() => {
@@ -13249,11 +13677,11 @@ const SURV = (() => {
     if (k === 'canteen') {
       if (S[3] < 0.01) { say('CANTEEN EMPTY - DIP IT IN A RIVER OR LAKE TO FILL IT'); sfx('dry'); return true; }
       if (S[0] >= 99) { say('NOT THIRSTY (WATER ' + Math.round(S[0]) + ' %) - CANTEEN ' + S[3].toFixed(2) + ' L'); return true; }
-      const a = Math.min(R.sip, S[3]); S[3] -= a; S[0] = clampv(S[0] + R.drink * a / R.sip, 0, 100); sfx('pour'); HX.pulse(grips[i], 0.25, 30, 'cargo');
+      const a = Math.min(R.sip, S[3]); S[3] -= a; S[0] = clampv(S[0] + R.drink * a / R.sip, 0, 100); eatSnd(k); HX.pulse(grips[i], 0.25, 30, 'cargo');
       say('A DRINK OF COLD WATER - WATER ' + Math.round(S[0]) + ' % - CANTEEN ' + S[3].toFixed(2) + ' L'); checks(); saveSoon(); return true; }
     if (k === 'jerky' || k === 'beans' || k === 'bar') {
       if (food() >= 98) { say('NOT HUNGRY (FOOD ' + Math.round(food()) + ' %)'); return true; }
-      setFood(food() + FOOD[k]); if (k === 'bar') S[1] = clampv(S[1] - 4, 0, 100); FISH.hungry = 0; consume(i); sfx('crunch'); HX.pulse(grips[i], 0.2, 25, 'cargo');
+      setFood(food() + FOOD[k]); if (k === 'bar') S[1] = clampv(S[1] - 4, 0, 100); FISH.hungry = 0; consume(i); eatSnd(k); HX.pulse(grips[i], 0.2, 25, 'cargo');
       say(PK_K[k][0] + ' - FOOD ' + Math.round(food()) + ' %' + (k === 'jerky' ? ' (ONE LESS IN THE PACK)' : '')); checks(); return true; }
     if (k === 'cigs') {
       if (S[7] > 0) return true;
@@ -13422,7 +13850,7 @@ function fixCardVS(vs, attr) {   // after the projection: the puff's depth = the
     '    vec4 fixP = projectionMatrix * fixO; gl_Position.z = mix(gl_Position.z, (fixP.z / fixP.w - ' + tie + ' * fixRk) * gl_Position.w, fixW); } }\n#endif');
 }
 { const m = CLOUDS.im.material, ob = m.onBeforeCompile; m.onBeforeCompile = sh => { ob(sh); sh.vertexShader = fixCardVS(sh.vertexShader, false); }; m.customProgramCacheKey = () => 'v3fix-cld'; m.needsUpdate = true; }
-frBuild = (orig => function () { const r = orig.apply(this, arguments); if (FR.cl && !FR.cl.material.userData.fix) { const m = FR.cl.material; m.userData.fix = 1; m.onBeforeCompile = sh => { sh.vertexShader = fixCardVS(sh.vertexShader, true); }; m.customProgramCacheKey = () => 'v3fix-frcl'; m.needsUpdate = true; } return r; })(frBuild);
+frBuild = (orig => function () { const r = orig.apply(this, arguments); if (FR.cl && !FR.cl.material.userData.fix) { const m = FR.cl.material; m.userData.fix = 1; m.onBeforeCompile = sh => { sh.vertexShader = fixCardVS(sh.vertexShader, true); }; m.customProgramCacheKey = () => 'v3fix-frcl'; m.needsUpdate = true; } if (FR.cl && WARM.done) cldWarm(FR.cl); return r; })(frBuild);
 // ---- (2) rifle ----
 const FIX_E0 = GUN.stockEngage;   // the base engage distance (0.08)
 function fixStock() {   // the zone: the base curve inside FIX_STOCK.knee, its outer ramp (knee -> 8 cm) stretched out to FIX_STOCK.engage - through GUN.stockEngage, set for this frame
@@ -13800,7 +14228,7 @@ const WX3 = (() => {
   X.flat = () => { crankCalc(); return F[CRV] < K.CRANK_MIN; };
   function elecTick(dt) {
     const E = ENG, m = E.master; let L = 0, A = 0;
-    if (m) { L = K.A_BASE + (UPG.radio ? K.A_RADIO : 0) + (LIGHTS.pl === 2 ? K.A_PANEL[2] : LIGHTS.pl === 1 ? K.A_PANEL[1] : 0) + (LIGHTS.landing ? (UPG.light ? K.A_LDG_LED : K.A_LDG) : 0) + (window.NLM && NLM.on ? NLM.A_MAP * NLM.lv : 0) + (E.cranking ? K.A_START : 0); }   // v1.11.18 + the map light
+    if (m) { L = K.A_BASE + (UPG.radio ? K.A_RADIO : 0) + (LIGHTS.pl ? K.A_PANEL[2] * LIGHTS.plv : 0) + (LIGHTS.landing ? (UPG.light ? K.A_LDG_LED : K.A_LDG) : 0) + (window.NLM && NLM.on ? NLM.A_MAP * NLM.lv : 0) + (E.cranking ? K.A_START : 0); }   // v1.11.18 + the map light
     if (m && E.running) { const u = (E.rpm - K.ALT_RPM0) / (K.ALT_RPM1 - K.ALT_RPM0); A = K.ALT_A * (u < 0 ? 0 : u > 1 ? 1 : u); }
     F[LOAD] = L; F[ALT] = A; const s = F[SOC], r = K.R0 + K.R1 * (1 - s) * (1 - s), ocv = K.OCV0 + (K.OCV1 - K.OCV0) * s;   // battery current lives in F[I] (no float phi to box)
     if (m && A > 0 && A >= L) { F[I] = Math.min(A - L, 4 + 30 * (1 - s)); const q = 1 - (A - L) / 6; F[V] = K.ALT_V - 0.5 * (q < 0 ? 0 : q > 1 ? 1 : q); }
@@ -14811,7 +15239,7 @@ function h2Food() { const V = window.SURV; return V && V.S ? V.food : FISH.food;
 function h2Eat(i, k) { const V = window.SURV, v = (V && V.FOOD && V.FOOD[k]) || H2.FOOD[k];
   if (h2Food() >= 98) { say('NOT HUNGRY (FOOD ' + Math.round(h2Food()) + ' %)'); return; }
   if (V && V.S) V.food = Math.min(100, V.food + v); else FISH.food = Math.min(100, FISH.food + v); FISH.hungry = 0;
-  if (i >= 0) { PK.hk[i] = null; PK.hm[i].visible = false; HX.pulse(grips[i], 0.2, 25, 'cargo'); } pkWeigh(); sfx('crunch');
+  if (i >= 0) { PK.hk[i] = null; PK.hm[i].visible = false; HX.pulse(grips[i], 0.2, 25, 'cargo'); } pkWeigh(); eatSnd(k);
   say((k === 'venison' ? 'VENISON STEAK, SEARED OVER A SMALL FIRE' : 'FISH FILLETS, PAN-FRIED') + ' - FOOD ' + Math.round(h2Food()) + ' %'); saveSoon(); }
 // ---- selling at the tackle counters' scale (fSell calls this first): every cut / pair in the pack and in your hands ----
 function h2Sell(S) { if (h2On !== true) return 0; const k = S && S.name === 'CUTLER' ? 1 : 0.8; let $ = 0, nv = 0, nf = 0;
@@ -14907,8 +15335,8 @@ function h2Tick(dt, vr) { if (h2On !== true) return; const S = H2.st, foot = mod
       if (spd < 0.2 || H2.tv.dot(H2.sd[i]) < 0) H2.arm[i] = 1;   // re-armed by slowing down or by the stroke back
       if (H2.arm[i] && spd >= 0.45) { S[i] += spd * dt; if (S[i] >= 0.1) { S[i] = 0; H2.arm[i] = 0; H2.sd[i].copy(H2.tv); h2Stroke(i, tgt === FISH ? 1 : 0, H2.bp[hp]); } } else if (spd < 0.45) S[i] = 0;
       continue; }
-    if ((k === 'venison' || k === 'fillets') && vr && foot) { m.getWorldPosition(_h2a); camera.getWorldPosition(_h2b);
-      if (_h2a.distanceTo(_h2b) < 0.15) { if ((H2.mt[i] += dt) > 0.7) { H2.mt[i] = -3; h2Eat(i, k); } } else if (H2.mt[i] > 0) H2.mt[i] = 0; else H2.mt[i] = Math.min(0, H2.mt[i] + dt); }
+    if ((k === 'venison' || k === 'fillets') && vr && foot) { m.getWorldPosition(_h2a);
+      if (mouthAt(_h2a)) { if ((H2.mt[i] += dt) > 0.7) { H2.mt[i] = -3; h2Eat(i, k); } } else if (H2.mt[i] > 0) H2.mt[i] = 0; else H2.mt[i] = Math.min(0, H2.mt[i] + dt); }
     if (k === 'scope' && RFL.g && H2.att) { m.getWorldPosition(_h2a); RFL.g.localToWorld(_h2b.copy(SC.mount));
       if (_h2a.distanceTo(_h2b) < 0.12) { PK.hk[i] = null; m.visible = false; pkWeigh(); h2Fit(true); HX.pulse(grips[i], 0.7, 35, 'cargo'); say('SCOPE FITTED - EYE ON ITS AXIS A HAND BEHIND THE EYEPIECE: 4X, ZEROED AT ' + H2.ZR + ' M'); saveSoon(); } } } }
 // ---- the 4x view (after the binoculars' view, before the frame is drawn): only while an eye is in the eye box ----
@@ -14947,7 +15375,7 @@ h2On = true; H2.ready = true; h2Apply();
 //     Each one's colour is now its own colour x the light where it is, per channel: the sky + sun / moon as the game's other unlit things work it out (0.5 hemi + 0.28 sun,
 //     the sun term x0.6 for facing), plus PL (point) and SL (spot: torch / landing light) with three's own falloff, plus the lanterns. Full daylight = exactly the old look.
 //     So at night a sign is only readable when something lights it: your torch, the landing light, a lantern, the panel glow, the map light.
-// (2) Cockpit map light: a small warm lamp on the left wall by your shoulder. VR: squeeze its knob and twist (dimmer; detent ticks every quarter), a short squeeze
+// (2) Cockpit map light: a small warm lamp (v1.13.0: up by the flap handle, a spot cone on the lap). VR: squeeze its knob and twist (dimmer; detent ticks every quarter), a short squeeze
 //     with no twist switches it off / back to the last level. Desktop: Shift+K steps OFF / 25 / 50 / 100 %. Needs the master switch; draws up to 0.3 A from the battery; it dims
 //     with the bus like the panel lights. It is PL (moved to the lamp; the panel glow adds in), so the cockpit's lit parts take it too.
 // (3) Lanterns round home: five on posts (cabin door x2, the path, the strip board, the tie-down pad). Glass glows from dusk; the nearest one within 16 m is the real PL
@@ -14958,14 +15386,16 @@ const NLM = { lv: 0, last: 1, g: null, q0: new THREE.Quaternion(), lv0: 0, th: 0
 const NL = { E: [], C: new Float64Array(3), V: GV3(0, 0, 0), W: GV3(0, 0, 0), Q: new THREE.Quaternion(), Q2: new THREE.Quaternion(), Q3: new THREE.Quaternion(), P2: GV3(0, 0, 0), SC: GV3(1, 1, 1), N: GV3(0, 0, 0), LP: [], LK: 3.0, LD: 8, LANT: null, lamp: null, knob: null,
   KN: new THREE.Vector3(), LAMP_P: null, hc: new THREE.Color(), sc: new THREE.Color(), dark: 0, f: 0, sagOn: false, SG: [], li: -1, scanned: false, nch: -1, R: new Float64Array(3), B: new Float64Array(3 * 512) };
 { const h = new THREE.Color(0xd8eaff), u = new THREE.Color(0xfff1dc); NL.R[0] = 1 / (0.6 * h.r + 0.336 * u.r); NL.R[1] = 1 / (0.6 * h.g + 0.336 * u.g); NL.R[2] = 1 / (0.6 * h.b + 0.336 * u.b); }   // the noon sky (GRADE: hemi 1.2, sun 2.0)
-// ---- the lamp: on the left wall by the pilot's shoulder (drawing frame x -0.3, station -0.14, y 0.66), shining down at the lap
-NL.LAMP_P = D2B(-0.3, -0.14, 0.66);
-{ const G = new THREE.Group(); G.position.copy(NL.LAMP_P); plane.add(G); NL.lamp = G;
+// ---- the lamp: v1.13.0 up by the flap handle (left of its pivot, under the wing root), its shade aimed down at the pilot's lap like the torch beam
+NL.LAMP_P = new THREE.Vector3(-0.305, 0.735, -0.395); NL.AIM = new THREE.Vector3(0.02, 0.1, -0.33); NL.DIR = NL.AIM.clone().sub(NL.LAMP_P).normalize();   // plane-local
+NL.GL = new THREE.Vector3(); NL.SP = { on: false }; NL.SLC = SL.color.clone(); NL.WC = new THREE.Color(0xffc27a);
+{ const G = new THREE.Group(); G.position.copy(NL.LAMP_P); G.quaternion.setFromUnitVectors(new THREE.Vector3(0, -1, 0), NL.DIR); plane.add(G); NL.lamp = G;
+  { const A = new THREE.Mesh(partGeo(['b', 0.01, 0.05, 0.01, 0, 0.025, 0, 0x2a2a2c]), ITEM_VM); A.userData.noBatch = true; A.userData.noCast = true; A.position.copy(NL.LAMP_P); A.position.y += 0.008; plane.add(A); NL.arm = A; }   // the swivel post up to the flap quadrant's plate
   G.add(new THREE.Mesh(mergeGeometries([['b', 0.05, 0.012, 0.04, 0, 0.012, 0, 0x2a2a2c], ['c', 0.016, 0.03, 10, 0, -0.008, 0, 0x3a3a3c], ['c', 0.004, 0.012, 6, 0.03, 0.006, 0, 0x6a6a6e, 0, 0, Math.PI / 2]].map(partGeo)), ITEM_VM));
   NL.glass = new THREE.Mesh(new THREE.CircleGeometry(0.013, 12).rotateX(Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0x40382c })); NL.glass.position.y = -0.0235; G.add(NL.glass);
   NL.knob = new THREE.Mesh(partGeo(['c', 0.008, 0.01, 10, 0, 0, 0, 0xb0a890, 0, 0, Math.PI / 2]), ITEM_VM); NL.knob.position.set(0.041, 0.006, 0); G.add(NL.knob);
   G.traverse(o => { o.userData.noBatch = true; o.userData.noCast = true; }); }
-NL.KN.copy(NL.LAMP_P).add(GV3(0.041, 0.006, 0));
+NL.lamp.updateMatrix(); NL.KN.set(0.041, 0.006, 0).applyMatrix4(NL.lamp.matrix); NL.GL.set(0, -0.026, 0).applyMatrix4(NL.lamp.matrix);   // v1.13.0 the knob / the glass, plane-local
 // ---- lanterns round home (world x, z): cabin door both sides, the path, the HOME STRIP board, the tie-down pad
 NL.LP = [[35.55, -12.95], [35.55, -14.95], [26.2, -17.2], [18.7, -27.1], [16.6, -19.2]].map(([x, z]) => { const y = groundY(x, z); return [x, y + 1.62, z, y]; });
 { const P = [], Q = []; for (const [x, yl, z, y] of NL.LP) { const h = yl - y;
@@ -15018,9 +15448,13 @@ function nlSag() {   // bend the held map: dz = -A (r / R)^2 from the holding ha
 function nlTick(dt) {
   { const dk = 1 - TOD.day; NL.dark = dk < 0 ? 0 : dk > 1 ? 1 : dk; } const bus = ENG.master ? WX3.F[5] : 0, lv = NLM.lv * bus;
   NLM.on = NLM.lv > 0 && ENG.master;
-  // the map light: PL at the lamp (the panel glow folded in)
-  if (lv > 0.001) { const pi = PL.intensity > 0 && mode === 'plane' && LIGHTS.pl ? PL.intensity : 0; plane.localToWorld(PL.position.copy(NL.LAMP_P)); PL.position.y -= 0.03; PL.color.setHex(0xffb468); PL.distance = 1.8;
+  // the map light: v1.13.0 a warm spot cone on the lap (SL, when the landing light / torch don't have it), else PL at the lamp as before (the panel glow folded in)
+  NL.SP.on = false;
+  if (lv > 0.001 && !SL.visible && mode === 'plane') { plane.localToWorld(SL.position.copy(NL.GL)); plane.localToWorld(SL.target.position.copy(NL.GL).add(NL.DIR)); SL.color.copy(NL.WC); SL.distance = 2.2; SL.angle = 0.62; SL.penumbra = 0.55;
+    SL.intensity = 2.6 * lv; SL.target.updateMatrixWorld(); SL.visible = true; NL.SP.on = true; }
+  else if (lv > 0.001) { const pi = PL.intensity > 0 && mode === 'plane' && LIGHTS.pl ? PL.intensity : 0; plane.localToWorld(PL.position.copy(NL.GL)); PL.color.setHex(0xffb468); PL.distance = 1.8;
     PL.intensity = 1.2 * lv + pi; PL.visible = true; }
+
   { const c = NL.glass.material.color; c.r = 0.25 + 0.75 * lv; c.g = 0.22 + 0.6 * lv; c.b = 0.17 + 0.35 * lv; }   // (no double call arguments: zero garbage un-inlined too)
   // lanterns: the glass, and the nearest one as PL when it is free
   NL.li = -1;
@@ -15049,7 +15483,7 @@ ckHand = (orig => function (g, squeeze, id) {
 addEventListener('keydown', e => { if (e.repeat || e.code !== 'KeyK' || !e.shiftKey || mode !== 'plane' || (typeof SETP !== 'undefined' && SETP.open)) return; e.stopImmediatePropagation();
   const S = [0, 0.25, 0.5, 1]; let j = S.findIndex(v => v > NLM.lv + 1e-3); if (j < 0) j = 0; NLM.nv = S[j]; nlStep(null); sfx('click'); NL.knob.rotation.x = -NLM.lv * 2.6;
   say(NLM.lv > 0 ? 'MAP LIGHT ' + Math.round(NLM.lv * 100) + ' %' + (ENG.master ? '' : ' (MASTER IS OFF)') : 'MAP LIGHT OFF'); saveSoon(); }, true);
-updateDay = (orig => function (dt) { const r = orig.call(this, dt); if (WARM.done && scene.children.length !== NL.nch) { NL.nch = scene.children.length; nlScan(); } nlTick(dt || 0); return r; })(updateDay);   // (re)scan once loaded and when the scene's top level changes
+updateDay = (orig => function (dt) { if (NL.SP.on) SL.color.copy(NL.SLC); const r = orig.call(this, dt); if (WARM.done && scene.children.length !== NL.nch) { NL.nch = scene.children.length; nlScan(); } nlTick(dt || 0); return r; })(updateDay);   // (re)scan once loaded and when the scene's top level changes
 // <<< V1.11.18 NIGHT LIGHT END
 // >>> V1.12.0 INPUT BEGIN (in.js via /workspace/v11290)
 // v1.11.19 INPUT: haptics that reach the Quest 3 controllers, reach / grab / let-go / hurt ticks, analog crouch, a hold-B grab ray (3 m). Game-side only.
