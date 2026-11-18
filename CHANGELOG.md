@@ -2,6 +2,16 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v1.13.1 – the 22 left-hand Pose Lab grips mirrored onto the right hand
+
+Neil: "Can you mirror all the hand poses we just did to the right hand also". The physics block is untouched (md5 `eee6637e…`).
+
+- **Right-hand grips:** the 22 pack items that got Neil's left-hand Pose Lab grips in v1.13.0 now use the same grips in the right hand, mirrored: the open and closed tackle box, the fillets, the knife, the venison, the scope, the field guide (closed and open), the photo, the polaroid, the swag, the pack, the torch, the canteen, the first aid kit, the jerky, the beans, the chocolate bar, the cigarettes, the flare, the rope and the tarp.
+  - They are mirrored the way the Pose Lab's MIRROR TO button does it, and the same way as the fishing rod's grips: the item's sideways offset and the y / z parts of its rotation are flipped, and every finger joint is the same.
+  - The left hand is unchanged, and each hand only ever uses its own grip.
+  - The Pose Lab's defaults are refreshed from the game, so the Lab draws each right-hand grip exactly as the game does.
+- **Smoother frames:** the finger pose for a Pose Lab grip no longer makes a little garbage every frame when the browser doesn't inline the call. The numbers are the same.
+
 ## v1.13.0 – a large build: the mic jack, the map light by the flap handle, a dimmer, a bigger mouth zone, the hose on the Cub, more music, call-outs all over the map, sitting townsfolk
 
 Neil: "1. Move the cub radio mic coil attachment to the aircraft be under the dash, not floating. 2. Move the map light up next to the flap handel shining at the player lap (like the torch beam). 3. The cub panel light knob, make it incrementle as opposed to off, low, high. 4. The interaction area for eating and drinking is quite small. Improve the sounds as well if you can. 5. Have the fuel hose physics interact with the cub (wing/wheel etc). 6. Like the music, can we have a few different tracks that play. 7. Make the SAR and Medivac procedurally generatted over the whole map." and "Can you create a sitting animation for the townsfolk". The physics block is untouched (md5 `eee6637e…`).
