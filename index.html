@@ -638,7 +638,7 @@ const hyp = (a, b, c = 0) => Math.sqrt(a * a + b * b + c * c);   // v0.59 Math.h
 
 // ======================= RENDERING =======================
 // v0.35 settings (persist in localStorage 'bp_gfx'; ?gfx=shadows:2,grass:1 overrides for testing). Defaults = the v0.34 look and cost.
-const BP_VERSION = 'v1.14.2';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
+const BP_VERSION = 'v1.14.3';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
 { const e = document.getElementById('ver'); if (e) e.textContent = BP_VERSION; } window.__bpVer = BP_VERSION; bootLog('game module running ' + BP_VERSION + ' (three r' + THREE.REVISION + ')' + (/[?&]safe(=|&|$)/.test(location.search) ? ' - SAFE MODE: default graphics, no shadows / ULTRA / life / vistas / music' : ''));
 const GFX_DEF = { shadows: 0, scale: 1, fov: 1, dist: 1, trees: 1, grass: 0, clouds: 1, fog: 1, msaa: 1, hz: 90, vig: 0, turn: 0, fps: 0, tod: 11, stk: 1, tips: 1, terr: 1, dyn: 1, glove: 0, hand: 0, wt: 1, volM: 1, volMu: 0.5, volE: 1, volA: 1, volF: 1, volS: 1, volW: 1, wx: 1, forest: 0, ground: 0, gtex: 0, cvl: 1, water: 1, dayl: 48, flure: 0, fline: 8, fdrag: 4, fbob: 0, fsink: 0, ultra: 0, sfxr: 1 };   // v0.68.1 dominant hand, volumes. v0.48 BALANCED: 90 % scale, 72 Hz, fast terrain shading, auto resolution; v0.49.1 the stick stays where you let go of it
 const GFX = Object.assign({}, GFX_DEF);
@@ -2177,7 +2177,7 @@ function musTick(dt) {
   MUS.tgt = base; MUS.I += (MUS.tgt - MUS.I) * Math.min(1, dt / (MUS.tgt > MUS.I ? 4 : 7));
   MUS.set = TOD.night > 0.55 ? 'night' : 'day';
   // story beats (the letter, the logbook's last page, the photo, the first snow, paid in full, a town's memory of Gordon): a stinger each
-  if (STORY.on) { const b = Object.keys(STORY.read).length + (STORY.snow ? 1 : 0) + (storyOwed() <= 0 ? 1 : 0) + Object.keys(STORY.said).filter(k => k.startsWith('g_')).length;
+  if (STORY.on) { let b = (STORY.snow ? 1 : 0) + (storyOwed() <= 0 ? 1 : 0); for (const k in STORY.read) if (Object.prototype.hasOwnProperty.call(STORY.read, k)) b++; for (const k in STORY.said) if (Object.prototype.hasOwnProperty.call(STORY.said, k) && k.startsWith('g_')) b++;   // v1.14.3 counted in place (no key arrays)
     if (MUS.beat < 0) { MUS.beat = b; if (!MUS.sb) { MUS.sb = 1; musSwell('story', 40); } } else if (b > MUS.beat) { MUS.beat = b; musStinger('story'); } } else MUS.beat = -1;
   // ducking: the COM radio call-out (unanswered), a story line on screen
   const dk = EMG.call && UPG.radio ? 0.35 : 1, dk2 = msgT > 0 && msgA === 0 && /^(RADIO|VOSS|WALT|THE NOTE|GORDON)|\| [A-Z .]+: "/.test(msg) ? 0.5 : 1; MUS.duck += (Math.min(dk, dk2) - MUS.duck) * Math.min(1, dt * 1.5);
@@ -4422,7 +4422,8 @@ function pbHold(g, h, start) {   // v0.84.5 the hand pulls the T-handle along it
   PB.G.worldToLocal(g.getWorldPosition(_ch)); if (start) { h.z0 = _ch.z; h.v0 = PB.x = PB.H.position.z / PB_TRAV; return; }
   const x = clamp(h.v0 + (_ch.z - h.z0) / PB_TRAV, 0, 1); PB.x = x; if (!PB.on && x > 0.8) pbSet(true, g); else if (PB.on && x < 0.2) pbSet(false, g);
 }
-function pbTick(dt) { const g = [...CKH].find(e => e[1].k === 'pbrk'); if (g) { const s = SNAP.pbrk || (SNAP.pbrk = { v: 0, w: 0 }); s.v = PB.x * PB_TRAV; s.w = 0; PB.H.position.z = s.v; } else PB.H.position.z = snapTo('pbrk', PB.on ? PB_TRAV : 0, dt); PB.L.material.color.setHex(PB.on ? 0xff2a1a : 0x401010); }
+const PBH = { on: false, f: v => { if (v.k === 'pbrk') PBH.on = true; } };   // v1.14.3
+function pbTick(dt) { PBH.on = false; CKH.forEach(PBH.f); if (PBH.on) { const s = SNAP.pbrk || (SNAP.pbrk = { v: 0, w: 0 }); s.v = PB.x * PB_TRAV; s.w = 0; PB.H.position.z = s.v; } else PB.H.position.z = snapTo('pbrk', PB.on ? PB_TRAV : 0, dt); PB.L.material.color.setHex(PB.on ? 0xff2a1a : 0x401010); }
 function pbApply() { if (PB.on && ECO.wow) ctl.brake = 1; }   // both wheels, only with weight on them
 function toggleLanding() { LIGHTS.landing = !LIGHTS.landing; sfx('swLdg'); say(LIGHTS.landing ? 'LANDING LIGHT ON' : 'LANDING LIGHT OFF'); }
 ldgTog.rotation.x = 0.5;
@@ -4435,6 +4436,8 @@ function gearSet(dn) { if (UPG.gk !== 'floats') return; ac.gdn = dn === undefine
 function dayAngle(h) { return h >= 6 && h <= 19 ? (h - 6) / 13 * Math.PI : Math.PI * (1 + (((h - 19) % 24 + 24) % 24) / 11); }   // v0.96 13 h of day (0..pi), 11 h of night (pi..2 pi): no jump at midnight
 function dayClock(h = DAY.h) { const m = Math.floor(((h % 24) + 24) % 24 * 60); return String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0'); }
 const NIGHT_DK = 0.3;   // v1.12.0 how much darker a full night is (the sky light + moonlight)
+const CLDC = { m: null, c: null, e: null, fm: null, fc: null, fe: null, um: null, u: null };   // v1.14.3 cached material colours (see frTick / wxTick)
+function cldC() { const m = CLOUDS.im.material; if (CLDC.m !== m) { CLDC.m = m; CLDC.c = m.color; CLDC.e = m.emissive; } return CLDC; }
 function updateDay(dt) {   // sun / sky / fog colour from the time of day, plus the two dynamic lights
   if (GFX.dayl > 0 && dt > 0) DAY.h = (DAY.h + dt * 24 / (GFX.dayl * 60)) % 24;
   if (dt > 0) { SWAY.t.value = (SWAY.t.value + Math.min(dt, 0.1)) % 2400;   // v1.07.2 the breeze
@@ -4449,7 +4452,7 @@ function updateDay(dt) {   // sun / sky / fog colour from the time of day, plus 
   hemi.intensity = grLerp(el, 5) * (1 - NIGHT_DK * TOD.night);   /* v1.12.0 darker nights */ grLerp(el, 3, hemi.color); grLerp(el, 4, hemi.groundColor);
   if (el > -0.05) { grLerp(el, 6, sun.color); sun.intensity = grLerp(el, 7) * clamp((el + 0.05) / 0.05, 0, 1); sun.position.copy(sunDir).multiplyScalar(500); }
   if (el <= -0.05 || sun.intensity < 0.45 * (1 - NIGHT_DK) * TOD.night) { moonDir.set(-sunDir.x, 0.15 - 0.85 * sunDir.y, -0.35).normalize(); sun.color.copy(MOON_C); sun.intensity = 0.45 * (1 - NIGHT_DK) * TOD.night; sun.position.copy(moonDir).multiplyScalar(500); }   // v1.07 a little more moonlight
-  grLerp(el, 8, CLOUDS.im.material.color); grLerp(el, 9, CLOUDS.im.material.emissive);
+  { const C = cldC(); grLerp(el, 8, C.c); grLerp(el, 9, C.e); }
   camera.getWorldPosition(_a);
   stars.visible = moon.visible = TOD.night > 0.02;
   if (stars.visible) { stars.position.copy(_a); stars.rotation.y = DAY.h / 24 * 6.283; stars.material.opacity = TOD.night;   // v0.96 the sky turns through the night
@@ -4707,8 +4710,9 @@ function updateSwitches(dt) {
   const V = CKX.vis;                       // v0.23: knobs follow the hand while held (detents still decide the state)
   if (V.mags !== undefined) { S.mags.mesh.rotation.z = V.mags; SNAP.mags = { v: V.mags, w: 0 }; }
   if (V.valve !== undefined) { S.valve.mesh.rotation.z = V.valve; SNAP.valve = { v: V.valve, w: 0 }; } if (V.plt !== undefined) S.plt.mesh.rotation.z = V.plt;
-  for (const k of ['mix', 'carb', 'prime']) if (V[k] !== undefined) S[k].mesh.position.z = SWP.z + V[k];
+  for (let n = 0; n < SW_PK.length; n++) { const k = SW_PK[n]; if (V[k] !== undefined) S[k].mesh.position.z = SWP.z + V[k]; }
 }
+const SW_PK = ['mix', 'carb', 'prime'];   // v1.14.3
 
 // ---- windows: right upper hinges up under the wing (latches), right lower door folds down, left front / rear slide on outer tracks ----
 const WIN = { rup: 0, rlo: 0, lf: 0, lr: 0, rcg: 0, rbg: 0, tgt: {}, open: 0 };   // v1.11.14 rbg: the baggage door
@@ -11063,11 +11067,15 @@ function frBuild() {   // two draw calls for every front: the see-through shafts
 function frTick(dt, on) {   // v0.79 move the fronts, draw them, and rain on you when you're under one (on top of the map-wide weather)
   for (let j = 0; j < FR.L.length; j++) { const F = FR.L[j]; F.a += F.v * dt; if (F.a > FR.WRAP) { F.a -= 2 * FR.WRAP; F.b = (FR.r() - 0.5) * 6000; } }   // v1.11.8 indexed: no iterators per frame
   if (!on) { if (FR.im) FR.im.visible = FR.cl.visible = false; FR.f = 0; return; }
-  if (!FR.im) frBuild(); FR.im.visible = FR.cl.visible = true; const P = _frP; let i = 0;
-  for (let j = 0; j < FR.L.length; j++) { const F = FR.L[j]; for (let n = 0; n < F.sh.length; n++) { const sh = F.sh[n]; frPos(F, sh, P); _m4.compose(_v.set(P[0], -60, P[1]), _q.identity(), _s.set(sh.r, FR.H + 60, sh.r)); FR.im.setMatrixAt(i, _m4);
-    for (let c = 0; c < 2; c++) { _m4.compose(_v.set(P[0] + (c - 0.5) * sh.r * 0.8, FR.H + 30 + c * 25, P[1] + (c - 0.5) * sh.r * 0.3), _q.setFromAxisAngle(_up, sh.o + c), _s.set(sh.r * 1.5, sh.r * 0.32, sh.r * 1.1)); FR.cl.setMatrixAt(i * 2 + c, _m4); } i++; } }
+  if (!FR.im) frBuild(); FR.im.visible = FR.cl.visible = true; const P = _frP, A = FR.im.instanceMatrix.array, B = FR.cl.instanceMatrix.array; let i = 0;   // v1.14.3 the same matrices written in place (no compose / boxed arguments)
+  for (let j = 0; j < FR.L.length; j++) { const F = FR.L[j]; for (let n = 0; n < F.sh.length; n++) { const sh = F.sh[n]; frPos(F, sh, P); const r = sh.r; let o = i * 16;
+    A[o] = r; A[o + 1] = 0; A[o + 2] = 0; A[o + 3] = 0; A[o + 4] = 0; A[o + 5] = FR.H + 60; A[o + 6] = 0; A[o + 7] = 0; A[o + 8] = 0; A[o + 9] = 0; A[o + 10] = r; A[o + 11] = 0; A[o + 12] = P[0]; A[o + 13] = -60; A[o + 14] = P[1]; A[o + 15] = 1;
+    for (let c = 0; c < 2; c++) { const t = sh.o + c, cs = Math.cos(t), sn = Math.sin(t); o = (i * 2 + c) * 16;   // (a turn about +y, scaled: compose(p, setFromAxisAngle(up, t), s))
+      B[o] = cs * r * 1.5; B[o + 1] = 0; B[o + 2] = -sn * r * 1.5; B[o + 3] = 0; B[o + 4] = 0; B[o + 5] = r * 0.32; B[o + 6] = 0; B[o + 7] = 0; B[o + 8] = sn * r * 1.1; B[o + 9] = 0; B[o + 10] = cs * r * 1.1; B[o + 11] = 0;
+      B[o + 12] = P[0] + (c - 0.5) * r * 0.8; B[o + 13] = FR.H + 30 + c * 25; B[o + 14] = P[1] + (c - 0.5) * r * 0.3; B[o + 15] = 1; } i++; } }
   FR.im.instanceMatrix.needsUpdate = true; FR.cl.instanceMatrix.needsUpdate = true;
-  FR.cl.material.emissive.setRGB(0.17, 0.2, 0.22).multiplyScalar(0.15 + 0.85 * TOD.day); FR.cl.material.color.setRGB(0.55, 0.58, 0.6).multiplyScalar(0.3 + 0.7 * TOD.day); FR.im.material.uniforms.uC.value.setRGB(0.49, 0.52, 0.56).multiplyScalar(0.25 + 0.75 * TOD.day);
+  const C = CLDC, frM = FR.cl.material, frN = FR.im.material; if (C.fm !== frM) { C.fm = frM; C.fc = frM.color; C.fe = frM.emissive; } if (C.um !== frN) { C.um = frN; C.u = frN.uniforms.uC.value; }   // v1.14.3 (cached: see CLDC)
+  C.fe.setRGB(0.17, 0.2, 0.22).multiplyScalar(0.15 + 0.85 * TOD.day); C.fc.setRGB(0.55, 0.58, 0.6).multiplyScalar(0.3 + 0.7 * TOD.day); C.u.setRGB(0.49, 0.52, 0.56).multiplyScalar(0.25 + 0.75 * TOD.day);
   camera.getWorldPosition(_v); const f = FR.f = frAt(_v.x, _v.z, _v.y), E = WX.E; if (f <= 0) return;   // under a shaft: rain, greyer, darker, shorter visibility (no wind)
   E.rain = Math.max(E.rain, f); E.mist = Math.max(E.mist, 0.3 * f); E.grey = Math.max(E.grey, 0.62 * f); E.dim = Math.max(E.dim, 0.3 * f); E.vis = Math.min(E.vis, 1 - 0.62 * f); }
 function frNear(x, z) { let d = 1e9; const P = _frP; for (const F of FR.L) for (const sh of F.sh) { frPos(F, sh, P); d = Math.min(d, hyp(x - P[0], z - P[1]) - sh.r); } return d; }   // distance to the nearest shaft's edge (m)
@@ -11675,13 +11683,15 @@ const WXN = { COV: 1 / 0.45, SKY: 0.18, HEMI: 0.8, MOON: 0.9, STARS: 1.25, MOONV
 let _wxR = (Date.now() ^ 0x5bd1e995) >>> 0 || 1; function wxRnd() { _wxR ^= _wxR << 13; _wxR >>>= 0; _wxR ^= _wxR >>> 17; _wxR ^= _wxR << 5; _wxR >>>= 0; return _wxR / 4294967296; }   // its own stream: Math.random's sequence (seeded tests, replays) is unchanged
 function wxTick(dt) {   // after updateDay (it sets the clear-sky colours and lights every frame), before gfxTick (fog distance)
   if (!WX.forced && (WX.t -= dt) <= 0) wxSet(WX.nx);
-  const T = WX_S[WX.s], a = 1 - Math.exp(-dt / WX_TAU); for (let i = 0; i < WX_K.length; i++) { const k = WX_K[i]; WX.P[k] += (T[k] - WX.P[k]) * a; }   // v1.11.8 indexed loops: no iterator objects per frame
-  const on = GFX.wx > 0; for (let i = 0; i < WX_K.length; i++) { const k = WX_K[i]; WX.E[k] = on ? WX.P[k] : (k === 'vis' ? 1 : 0); }
+  const T = WX_S[WX.s], a = 1 - Math.exp(-dt / WX_TAU), wP = WX.P, wE = WX.E;   // v1.14.3 the WX_K keys written out (vis grey dim low rain mist): named in-place stores, no boxing
+  wP.vis += (T.vis - wP.vis) * a; wP.grey += (T.grey - wP.grey) * a; wP.dim += (T.dim - wP.dim) * a; wP.low += (T.low - wP.low) * a; wP.rain += (T.rain - wP.rain) * a; wP.mist += (T.mist - wP.mist) * a;
+  const on = GFX.wx > 0; wE.vis = on ? wP.vis : 1; wE.grey = on ? wP.grey : 0; wE.dim = on ? wP.dim : 0; wE.low = on ? wP.low : 0; wE.rain = on ? wP.rain : 0; wE.mist = on ? wP.mist : 0;
+  for (let i = 6; i < WX_K.length; i++) { const k = WX_K[i]; if (k === 'storm') { wP.storm += (T.storm - wP.storm) * a; wE.storm = on ? wP.storm : 0; } else { wP[k] += (T[k] - wP[k]) * a; wE[k] = on ? wP[k] : 0; } }   // keys added later (v1.14.0 storm)
   const E = WX.E; frTick(dt, on && (!WX.forced || FR.force)); WX.vis = E.vis;   // v0.79 the rain fronts add their rain where they are
   if (E.grey > 0.002) { _wxc.copy(WX_GREY).multiplyScalar(0.2 - WXN.SKY * TOD.night + 0.8 * Math.max(TOD.day, 0.3 * (1 - TOD.night)));   /* v1.14.0 an overcast night sky is near black, not a grey glow */ scene.background.lerp(_wxc, E.grey); scene.fog.color.copy(scene.background); SKYD.z.lerp(_wxc, E.grey); SKYD.k *= 1 - E.grey; }
   { const cv = E.grey * WXN.COV, oc = cv > 1 ? 1 : cv, n = TOD.night, cn = oc > 0.002 && n > 0.002 ? oc * n : 0, dm = E.dim > 0.002 ? E.dim : 0;   /* v1.14.0 cloud cover 0..1 at night cuts sky light / moonlight / cloud glow, folded into the dim factors: one store per light, no per-frame garbage */
     if (dm > 0 || cn > 0) { const kc = 1 - WXN.CLD * cn; hemi.intensity *= (1 - dm * 0.7) * (1 - WXN.HEMI * cn); sun.intensity *= (1 - dm) * (sunDir.y <= 0 ? 1 - WXN.MOON * cn : 1);
-      CLOUDS.im.material.color.multiplyScalar((dm > 0 ? 1 - 0.35 * E.grey : 1) * kc); CLOUDS.im.material.emissive.multiplyScalar((dm > 0 ? 1 - 0.3 * E.grey : 1) * kc); }
+      { const C = cldC(); C.c.multiplyScalar((dm > 0 ? 1 - 0.35 * E.grey : 1) * kc); C.e.multiplyScalar((dm > 0 ? 1 - 0.3 * E.grey : 1) * kc); } }
     if (cn > 0 && stars.visible) { const so = 1 - WXN.STARS * oc; stars.material.opacity *= so > 0 ? so : 0; moon.material.opacity *= 1 - WXN.MOONV * oc; } }
   CLOUDS.st.dy = E.low; wxMist(E.mist);
   RAIN.visible = E.rain > 0.03;
@@ -14536,7 +14546,7 @@ const WX3 = (() => {
   function stormTick(dt) {
     const E = WX.E; F[SS] = GFX.wx > 0 ? E.storm : 0; const S = F[SS];
     if (S > 0.002) { if (RAIN.visible) RAIN.material.uniforms.uO.value = LV[(Math.min(1.6, E.rain * (1 + 0.6 * S)) * 128 + 0.5) | 0];   // pre-boxed levels: a uniform's .value is a tagged field (a fresh double there = a new HeapNumber each frame)
-      const c = CLOUDS.im.material.color, em = CLOUDS.im.material.emissive, kc = 1 - 0.4 * S, ke = 1 - 0.5 * S; c.r *= kc; c.g *= kc; c.b *= kc; em.r *= ke; em.g *= ke; em.b *= ke; }
+      const c = cldC().c, em = CLDC.e, kc = 1 - 0.4 * S, ke = 1 - 0.5 * S; c.r *= kc; c.g *= kc; c.b *= kc; em.r *= ke; em.g *= ke; em.b *= ke; }
     if (S > 0.35 && (F[LT] -= dt) <= 0) { F[LT] = (K.STRIKE_MIN + Math.random() * (K.STRIKE_MAX - K.STRIKE_MIN)) / S; X.strike(); }
     F[FTT] += dt; const t = F[FTT], t1 = FLT[1], t2 = FLT[2];
     F[FLASH] = FLT[0] * (Math.exp(-t / 0.05) + (t >= t1 ? 0.8 * Math.exp(-(t - t1) / 0.05) : 0) + (t >= t2 ? FLT[3] * 0.6 * Math.exp(-(t - t2) / 0.05) : 0));

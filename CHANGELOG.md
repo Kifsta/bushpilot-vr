@@ -2,6 +2,14 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v1.14.3 – less garbage per frame (no behaviour change)
+
+A small performance build (t256). Nothing you see, hear or save changes; v1.14.2 saves load as they are. The physics block is untouched (md5 `eee6637e…`).
+
+- **Weather (overcast nights, storms, rain fronts):** the cloud and rain-front material colours are now read through cached references. Reading them every frame kept knocking the front, weather and sky updates out of the optimiser, so they ran slowly and created ~2 KB of garbage a frame. The weather's per-key fade now uses plain field writes. Result: the weather update drops from ~1.4 KB to ~35 B a frame and the sky update from ~650 B to ~70 B. The rain-front shafts write their matrices in place, bit-identical to before.
+- **Cockpit switches:** the park-brake hand check and the knob loop no longer build a new array every frame (~145 B down to ~25 B).
+- **Music:** the story-beat count no longer builds key arrays every frame.
+
 ## v1.14.2 – a filleted fish is gone, only the pack swings, fish in the Pose Lab
 
 Neil's 3 points (t253). The physics block is untouched (md5 `eee6637e…`). v1.14.1 saves load unchanged (same pack, same layout); no story restart needed.
