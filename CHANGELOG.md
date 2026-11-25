@@ -2,6 +2,15 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v1.15.0 – trees, wildlife and camp from Quaternius CC0 packs
+
+A large build (t260): Neil asked for all three. The physics block is untouched (md5 `eee6637e…`). v1.14.3 saves load as they are; no new save fields.
+
+- **Trees and ground cover:** varied pines, birches, dead snags, stumps, fallen logs, rocks, ferns and bushes (Ultimate Nature Pack, June 2019, CC0) replace the simple trunk-and-cone trees around the home strip and dress lakeshores, bush sites and the cabin yard. They are instanced and distance-culled (and the MIXED / 2D-ONLY forest sprites are unchanged, so the dense-forest setting behaves as before). They stay off runways and the ski-shelf landing, and they add no new collision — a wing still only meets a tree at Tall Timber's spruce wall. Packed as `assets/world/veg.bin`.
+- **Wildlife:** hunting still uses the deer and stag (hitboxes, jobs and the t_rifle / hunt tests are the same) but their animation is a baked 20 fps pose table like the townsfolk, with no per-frame garbage from a mixer. Ambient elk (a slightly larger stag — Quaternius has no moose), wolves, foxes and rabbits wander and graze, and they flee when you walk up or buzz them in the Cub. Birds wheel over the valley and flush when approached. Packed as `assets/animals/fauna.bin` (Ultimate Animated Animals, July 2021, CC0; the rabbit is a Quaternius CC0 model from Poly Pizza).
+- **Wolves at a swag camp:** at night, with the swag rolled out (and you not in town or at the cabin), a pair of wolves keep a fair distance (~38 m), circle and howl. Walk up within 16 m, fire a shot, or buzz them and they bolt. They do not attack.
+- **Camp props:** a tent, campfire, sitting logs, crates and tools (Survival Pack, September 2020, CC0, plus two Quaternius CC0 crates) dress the home cabin yard, the hunting cabin, Walt's ski shelf (off the landing centre, inside the wands), the airdrop camps and the bush sites.
+
 ## v1.14.3 – less garbage per frame (no behaviour change)
 
 A small performance build (t256). Nothing you see, hear or save changes; v1.14.2 saves load as they are. The physics block is untouched (md5 `eee6637e…`).

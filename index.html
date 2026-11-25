@@ -638,7 +638,7 @@ const hyp = (a, b, c = 0) => Math.sqrt(a * a + b * b + c * c);   // v0.59 Math.h
 
 // ======================= RENDERING =======================
 // v0.35 settings (persist in localStorage 'bp_gfx'; ?gfx=shadows:2,grass:1 overrides for testing). Defaults = the v0.34 look and cost.
-const BP_VERSION = 'v1.14.3';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
+const BP_VERSION = 'v1.15.0';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
 { const e = document.getElementById('ver'); if (e) e.textContent = BP_VERSION; } window.__bpVer = BP_VERSION; bootLog('game module running ' + BP_VERSION + ' (three r' + THREE.REVISION + ')' + (/[?&]safe(=|&|$)/.test(location.search) ? ' - SAFE MODE: default graphics, no shadows / ULTRA / life / vistas / music' : ''));
 const GFX_DEF = { shadows: 0, scale: 1, fov: 1, dist: 1, trees: 1, grass: 0, clouds: 1, fog: 1, msaa: 1, hz: 90, vig: 0, turn: 0, fps: 0, tod: 11, stk: 1, tips: 1, terr: 1, dyn: 1, glove: 0, hand: 0, wt: 1, volM: 1, volMu: 0.5, volE: 1, volA: 1, volF: 1, volS: 1, volW: 1, wx: 1, forest: 0, ground: 0, gtex: 0, cvl: 1, water: 1, dayl: 48, flure: 0, fline: 8, fdrag: 4, fbob: 0, fsink: 0, ultra: 0, sfxr: 1 };   // v0.68.1 dominant hand, volumes. v0.48 BALANCED: 90 % scale, 72 Hz, fast terrain shading, auto resolution; v0.49.1 the stick stays where you let go of it
 const GFX = Object.assign({}, GFX_DEF);
@@ -1059,6 +1059,8 @@ function gtRun(set) { GT.want = set; GT.job = null; if (!set) { gtNext(); return
 const FOREST2 = { n: 0, n2: 0, con: null, u: { sprNear: { value: 380 }, sprL: { value: 2600 }, sprTD: { value: 1 } } };   // v0.78 the sprite forest (count); v0.88 + the 2D-only extras (n2), the v0.7 conifers (con) for 2D ONLY, the sprite shader's uniforms
 const sprH = (a, b, k, c) => { const fr = v => v - Math.floor(v), f32 = Math.fround; let x = fr(f32(a * k)), y = fr(f32(b * k)), z = fr(f32(a * k)); const d = x * (y + c) + y * (z + c) + z * (x + c); x = fr(x + d); y = fr(y + d); z = fr(z + d); return fr((x + y) * z); };   // v0.88 the sprite shader's per-tree hash (Hoskins hash12), on the CPU for the superset test
 const TREES = [];   // home-valley trees [x, y, z, scale] (the ambient birdsong listens for them)
+const VEG = { on: false, ok: false, geo: {}, imOldT: null, imOldC: null, sd: 0x11500, placed: 0 };
+const FAUNA = { ok: false, src: {}, amb: [], pool: {}, birds: [], MAX: 10, bf: 20 };
 {
   grainTexture([4, 52]);   // v0.63: still drawn for its rand() calls (the world stays the same)
   const strip = new THREE.Mesh(conformStrip({ x: 0, z: -145, a: Math.PI }, 155, 12, 0.03),
@@ -1198,8 +1200,8 @@ const HOLLOW = { x: -430, z: -20 };
     if (Math.abs(x) < 45 && z > -340 && z < 40) continue; if (Math.abs(z - HOLLOW.z) < 5) continue;
     TREES.push([x, groundY(x, z), z, 0.6 + r() * 0.7]); }
 }
-instanced(new THREE.CylinderGeometry(0.25, 0.35, 3, 5), mat(0x4a3520), TREES.map(([x, y, z, sc]) => [x, y + 1.5 * sc, z, 0, sc, sc, sc]), { far: 3000, tree: 1 });   // strip trees (distance-culled in v0.10)
-instanced(new THREE.ConeGeometry(2.2, 7, 6), swayMat(mat(0x2f5a2c), 7, 0.07, -3.5), TREES.map(([x, y, z, sc]) => [x, y + 6 * sc, z, 0, sc, sc, sc]), { lod: 4000, tree: 1 });
+VEG.imOldT = instanced(new THREE.CylinderGeometry(0.25, 0.35, 3, 5), mat(0x4a3520), TREES.map(([x, y, z, sc]) => [x, y + 1.5 * sc, z, 0, sc, sc, sc]), { far: 3000, tree: 1 });   // strip trees (distance-culled in v0.10)
+VEG.imOldC = instanced(new THREE.ConeGeometry(2.2, 7, 6), swayMat(mat(0x2f5a2c), 7, 0.07, -3.5), TREES.map(([x, y, z, sc]) => [x, y + 6 * sc, z, 0, sc, sc, sc]), { lod: 4000, tree: 1 });
 const onStrip = (x, z, m = 0) => Math.abs(x) < 16 + m && z > -315 - m && z < 25 + m;
 const nearStrip = (rMax, rMin = 25) => { const a = rand() * Math.PI * 2, d = rMin + rMax * Math.pow(rand(), 1.8); return [Math.cos(a) * d, Math.sin(a) * d - 145]; };
 const ROAD_NS = [[780, -2600], [760, -1200], [800, -300], [780, 80], [740, 900], [820, 2200]];
@@ -8050,7 +8052,7 @@ function deerLow(g, q) {   // v0.59 vertex clustering: snap to a q-metre grid, d
 }
 function attrPlain(a) { if (!a.isInterleavedBufferAttribute) return a.clone(); const n = a.count, k = a.itemSize, st = a.data.stride, D = a.data.array, A = new D.constructor(n * k);   // v1.10.1 de-interleave by hand (no clone warning)
   for (let i = 0; i < n; i++) for (let j = 0; j < k; j++) A[i * k + j] = D[i * st + a.offset + j]; return new THREE.BufferAttribute(A, k, a.normalized); }
-function deerSrc(sp, gl) {
+function deerSrc(sp, gl) { if (FAUNA.ok && FAUNA.src[sp]) return;
   const root = gl.scene; root.updateMatrixWorld(true); const b = new THREE.Box3().setFromObject(root, true), k = DSP[sp].h / (b.max.y - b.min.y);
   const S = DEER.src[sp] = { scene: root, clips: gl.animations, k, y0: -b.min.y * k, pool: [] };
   let sk = null; root.traverse(o => { if (o.isSkinnedMesh && !sk) sk = o; });
@@ -8068,6 +8070,7 @@ function deerSrc(sp, gl) {
     const pv = PL.visible, sv = SL.visible; for (const q of ['deer', 'stag']) { const I = deerMake(q); I.g.visible = true; for (let c = 0; c < 4; c++) { PL.visible = !!(c & 1); SL.visible = !!(c & 2); renderer.compile(I.g, camera, scene); } I.g.visible = false; } PL.visible = pv; SL.visible = sv; }   // v0.59 prewarm the skinned-deer shader (was a ~200 ms link the first time a herd came within 160 m)
 }
 function deerMake(sp) {
+  if (FAUNA.ok && FAUNA.src[sp] && DEER.src[sp]) { const I = faunaMake(sp, true); if (I) { const S = DEER.src[sp]; I.g.scale.setScalar(S.k); I.g.rotation.y = Math.PI; I.g.position.y = S.y0; I.g.visible = false; S.pool.push(I); DEER.inst.push(I); I.id = DEER.inst.length - 1; return I; } }
   const S = DEER.src[sp], m = HUNT.SU.clone(S.scene), g = new THREE.Group();
   m.scale.setScalar(S.k); m.rotation.y = Math.PI; m.position.y = S.y0; g.add(m); scene.add(g); g.userData.noBatch = true;
   m.traverse(o => { o.userData.noBatch = true; if (o.isMesh) { o.material = ITEM_VM; o.castShadow = o.receiveShadow = false; } });
@@ -8139,7 +8142,7 @@ const turnTo = (a, b, k) => { let d = ((b - a + Math.PI) % 6.283185 + 6.283185) 
 function losClear(ax, ay, az, bx, by, bz) { for (let i = 1; i < 6; i++) { const t = i / 6, x = ax + (bx - ax) * t, z = az + (bz - az) * t; if (groundY(x, z) > ay + (by - ay) * t - 0.3) return false; } return true; }
 function deerScare(a, sx, sz) { if (a.state === 'dead' || a.state === 'gone') return; if (a.state !== 'flee' && a.cd < 250) sfx('hoof', _bv.set(a.x, a.y + 0.5, a.z)); a.state = 'flee'; a.t = 7 + Math.random() * 3; a.fx = sx; a.fz = sz; }
 function deerScareHerd(hi, sx, sz) { for (const a of DEER.list) if (a.h === hi) deerScare(a, sx, sz); }
-function deerNoise(p, r, lag) {   // lag: a startle delay plus the sound's travel time (a gunshot), so the bullet gets there before the herd bolts
+function deerNoise(p, r, lag) { if (typeof faunaScareAround === 'function') { if (!lag) faunaScareAround(p.x, p.z, r); }   // lag: a startle delay plus the sound's travel time (a gunshot), so the bullet gets there before the herd bolts
   const hs = new Map(); for (const a of DEER.list) { const d = hyp(a.x - p.x, a.z - p.z); if (a.state !== 'dead' && a.state !== 'gone' && d < r && !(hs.get(a.h) < d)) hs.set(a.h, d); }
   for (const [h, d] of hs) { if (lag) DEER.pend.push({ t: lag + d / 340, h, x: p.x, z: p.z }); else deerScareHerd(h, p.x, p.z); }
 }
@@ -9238,7 +9241,7 @@ for (const S of FISH.shop) { const it = S.items[0], g = mergeGeometries([['c', 0
 function fScaleGrab(g, p) { for (const S of FISH.shop) if (S.scale && p.distanceTo(S.scale) < 0.18) { fSell(S); HX.pulse(g, 0.4, 20, 'sell'); return true; } return false; }
 fOrderNew();
 function huntExit() { binoPut('hip'); }
-function huntTick(dt, vrOn) { rflTick(dt, vrOn); deerTick(dt); binoTick(dt, vrOn); }
+function huntTick(dt, vrOn) { rflTick(dt, vrOn); deerTick(dt); if (typeof faunaTick === 'function') faunaTick(dt); binoTick(dt, vrOn); }
 function huntSave() { return { rp: RFL.place === 'desk' || RFL.place === 'vr' ? 'back' : RFL.place, gp: RFL.place === 'ground' ? RFL.gp.map(r3) : undefined, gry: RFL.place === 'ground' ? r3(RFL.gry) : undefined,
   tube: RFL.tube, ch: RFL.ch ? 1 : 0, ck: RFL.cocked ? 1 : 0, sp: RFL.spare, k: HUNT.kills, sb: STORE.n }; }   // v0.70 sb: boxes waiting on the Dry Fork counter
 function huntLoad(d) {
@@ -9255,7 +9258,7 @@ setTimeout(function huntAssets(tries = 3) {   // the rifle + deer models: after 
     try { rflBuild44(); } catch (e) { HUNT.err.push('rifle: ' + e); console.warn('rifle model', e); }   // v0.84.4 the v0.44 model, built here (no file)
     if (location.protocol === 'file:') { HUNT.err.push('file:// - models skipped'); HUNT.deerFail = true; return; }   // v1.09.1 the v0.44 rifle (built above) stays; no deer
     L.load('assets/lever-rifle.glb', g => { try { if (RFL.g) rflSkin(g.scene); } catch (e) { HUNT.err.push('rifle skin: ' + e); console.warn('rifle skin', e); } }, undefined, e => HUNT.err.push('rifle skin: ' + (e?.message || e)));   // v0.85 its look on top
-    for (const sp of ['deer', 'stag']) L.load('assets/animals/' + DSP[sp].file + '.glb', g => { try { deerSrc(sp, g); } catch (e) { HUNT.err.push(sp + ': ' + e); console.warn(sp + ' model', e); } }, undefined, e => { HUNT.err.push(sp + ': ' + (e?.message || e)); if (!HUNT.deerFail) { HUNT.deerFail = true; console.warn('deer models did not load - no deer this session'); } });
+    if (!FAUNA.ok) for (const sp of ['deer', 'stag']) L.load('assets/animals/' + DSP[sp].file + '.glb', g => { if (FAUNA.ok) return; try { deerSrc(sp, g); } catch (e) { HUNT.err.push(sp + ': ' + e); console.warn(sp + ' model', e); } }, undefined, e => { if (FAUNA.ok) return; HUNT.err.push(sp + ': ' + (e?.message || e)); if (!HUNT.deerFail) { HUNT.deerFail = true; console.warn('deer models did not load - no deer this session'); } });
   }).catch(e => { if (--tries > 0) return setTimeout(() => huntAssets(tries), 1000); HUNT.err.push(String(e)); });
 }, 400);
 // ================= v0.54 AIRDROPS: streamer bundles pushed out of the open door to people where no strip is - scored by distance to the X and the bundle's condition =================
@@ -10043,6 +10046,489 @@ function folkAssets(tries = 3) {
   }).catch(e => { console.warn('folk.bin', e); if (--tries > 0) setTimeout(() => folkAssets(tries), 1000); });
 }
 setTimeout(folkAssets, 0);
+
+// ================= v1.15.0 Quaternius CC0 trees, wildlife, camp (veg.bin + fauna.bin) =================
+function vegR() { VEG.sd = VEG.sd * 16807 % 2147483647; return VEG.sd / 2147483647; }
+function vegHash(x, z) { let n = Math.imul((Math.floor(x * 10) + 12345 | 0), 1103515245) + Math.imul((Math.floor(z * 10) - 67890 | 0), 134775813); n = (n ^ (n >>> 16)) >>> 0; return n / 4294967296; }
+function vegUnpack(ab) {
+  const buf = new Uint8Array(ab), dv = new DataView(ab); let o = 0;
+  if (String.fromCharCode(buf[0], buf[1], buf[2], buf[3]) !== 'BPV1') throw new Error('veg.bin magic'); o = 4;
+  o += 2; const nM = dv.getUint16(o, true); o += 2;
+  const dec = new TextDecoder(), str = () => { const n = buf[o++]; const s = dec.decode(buf.subarray(o, o + n)); o += n; return s; };
+  const geo = {};
+  for (let m = 0; m < nM; m++) {
+    const name = str(), kind = str();
+    const bmin = [dv.getFloat32(o, true), dv.getFloat32(o + 4, true), dv.getFloat32(o + 8, true)]; o += 12;
+    const bmax = [dv.getFloat32(o, true), dv.getFloat32(o + 4, true), dv.getFloat32(o + 8, true)]; o += 12;
+    const nV = dv.getUint32(o, true); o += 4; const nI = dv.getUint32(o, true); o += 4;
+    const pos = new Float32Array(nV * 3), nrm = new Float32Array(nV * 3), col = new Float32Array(nV * 3);
+    for (let i = 0; i < nV; i++) for (let k = 0; k < 3; k++, o += 2) {
+      const t = (dv.getInt16(o, true) + 32767) / 65534; pos[i * 3 + k] = bmin[k] + t * (bmax[k] - bmin[k]); }
+    for (let i = 0; i < nV; i++) for (let k = 0; k < 3; k++, o++) { const v = buf[o] > 127 ? buf[o] - 256 : buf[o]; nrm[i * 3 + k] = v / 127; }
+    for (let i = 0; i < nV * 3; i++, o++) col[i] = buf[o] / 255;
+    const idx = new Uint16Array(nI); for (let i = 0; i < nI; i++, o += 2) idx[i] = dv.getUint16(o, true);
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    g.setAttribute('normal', new THREE.BufferAttribute(nrm, 3));
+    g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    g.setIndex(new THREE.BufferAttribute(idx, 1));
+    g.computeBoundingBox(); g.computeBoundingSphere();
+    geo[name] = g; VEG.kind = VEG.kind || {}; VEG.kind[name] = kind;
+  }
+  VEG.geo = geo; VEG.ok = true;
+}
+function faunaUnpack(ab) {
+  const buf = new Uint8Array(ab), dv = new DataView(ab); let o = 0;
+  if (String.fromCharCode(buf[0], buf[1], buf[2], buf[3]) !== 'BPA1') throw new Error('fauna.bin magic'); o = 4;
+  o += 2; const nS = buf[o++];
+  const dec = new TextDecoder(), str = () => { const n = buf[o++]; const s = dec.decode(buf.subarray(o, o + n)); o += n; return s; };
+  FAUNA.bf = 20; FAUNA.src = {};
+  for (let s = 0; s < nS; s++) {
+    const name = str(), nBones = dv.getUint16(o, true); o += 2;
+    const bones = [];
+    for (let i = 0; i < nBones; i++) {
+      const nm = str(), parent = dv.getInt16(o, true); o += 2;
+      const p = [dv.getFloat32(o, true), dv.getFloat32(o + 4, true), dv.getFloat32(o + 8, true)]; o += 12;
+      const q = [dv.getFloat32(o, true), dv.getFloat32(o + 4, true), dv.getFloat32(o + 8, true), dv.getFloat32(o + 12, true)]; o += 16;
+      const sc = [dv.getFloat32(o, true), dv.getFloat32(o + 4, true), dv.getFloat32(o + 8, true)]; o += 12;
+      bones.push({ name: nm, parent, p, q, s: sc });
+    }
+    const ibm = [];
+    for (let i = 0; i < nBones; i++) { const a = new Float32Array(16); for (let k = 0; k < 16; k++, o += 4) a[k] = dv.getFloat32(o, true); ibm.push(new THREE.Matrix4().fromArray(a)); }
+    const wq = [dv.getFloat32(o, true), dv.getFloat32(o + 4, true), dv.getFloat32(o + 8, true), dv.getFloat32(o + 12, true)]; o += 16;
+    const ws = [dv.getFloat32(o, true), dv.getFloat32(o + 4, true), dv.getFloat32(o + 8, true)]; o += 12;
+    const nClips = buf[o++]; FAUNA.bf = buf[o++];
+    const bk = {}, once = { die: 1, hit: 1, jump: 1 };
+    for (let c = 0; c < nClips; c++) {
+      const cn = str(), dur = dv.getFloat32(o, true); o += 4; const nF = dv.getUint16(o, true); o += 2; const PS = dv.getFloat32(o, true); o += 4;
+      const d = new Float32Array(nF * nBones * 7);
+      for (let f = 0; f < nF; f++) for (let i = 0; i < nBones; i++) {
+        const bo = (f * nBones + i) * 7;
+        d[bo] = dv.getInt16(o, true) / 32767; d[bo + 1] = dv.getInt16(o + 2, true) / 32767; d[bo + 2] = dv.getInt16(o + 4, true) / 32767; d[bo + 3] = dv.getInt16(o + 6, true) / 32767;
+        d[bo + 4] = dv.getInt16(o + 8, true) / PS; d[bo + 5] = dv.getInt16(o + 10, true) / PS; d[bo + 6] = dv.getInt16(o + 12, true) / PS; o += 14;
+      }
+      bk[cn] = { d, n: nF, dur, nb: nBones, once: !!once[cn] };
+    }
+    const nV = dv.getUint32(o, true); o += 4; const nI = dv.getUint32(o, true); o += 4; const POS_S = dv.getFloat32(o, true); o += 4;
+    const pos = new Float32Array(nV * 3), col = new Float32Array(nV * 3), si = new Float32Array(nV * 4), sw = new Float32Array(nV * 4);
+    for (let i = 0; i < nV * 3; i++, o += 2) pos[i] = dv.getInt16(o, true) / POS_S;
+    for (let i = 0; i < nV * 3; i++, o++) col[i] = buf[o] / 255;
+    for (let i = 0; i < nV * 4; i++, o++) si[i] = buf[o];
+    for (let i = 0; i < nV * 4; i++, o++) sw[i] = buf[o] / 255;
+    const idx = new Uint16Array(nI); for (let i = 0; i < nI; i++, o += 2) idx[i] = dv.getUint16(o, true);
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    g.setAttribute('skinIndex', new THREE.BufferAttribute(si, 4));
+    g.setAttribute('skinWeight', new THREE.BufferAttribute(sw, 4));
+    g.setIndex(new THREE.BufferAttribute(idx, 1));
+    g.computeVertexNormals(); g.computeBoundingBox(); g.computeBoundingSphere();
+    const bb = g.boundingBox, h = bb.max.y - bb.min.y, y0 = -bb.min.y;
+    FAUNA.src[name] = { name, bones, ibm, wq, ws, bk, geo: g, h, y0, pool: [] };
+  }
+  FAUNA.ok = !!FAUNA.src.deer;
+}
+function faunaPlayer(bones, bk) {
+  const P = { B: bones, k: 'idle', kp: null, T: new Float64Array(6), act: {}, bk: bk };
+  const A = k => { const a = { k, _ts: 1, enabled: true,
+    play() { if (P.k !== k) { P.kp = P.k; P.T[1] = P.T[0]; P.T[2] = 0; P.T[3] = 0; P.k = k; P.T[0] = 0; } return this; },
+    stop() { if (P.k === k) P.kp = null; return this; }, reset() { if (P.k === k) P.T[0] = 0; return this; },
+    setEffectiveWeight() { return this; }, setEffectiveTimeScale(v) { a._ts = v; return this; }, getEffectiveWeight() { return P.k === k ? 1 : 0; },
+    crossFadeTo(n, d) { P.T[3] = d; P.T[2] = 0; return this; }, isRunning() { return P.k === k; },
+    getClip() { return { duration: bk[k].dur }; }, get time() { return P.k === k ? P.T[0] : 0; }, set time(v) { if (P.k === k) P.T[0] = v; } }; return a; };
+  for (const k in bk) P.act[k] = A(k);
+  P.update = dt => { const a = P.act[P.k]; P.T[5] = dt * (a && a._ts || 1); faunaAdv(P); };
+  P.stopAllAction = () => {}; return P;
+}
+function faunaAdv(P) {
+  const T = P.T, dt = T[5], C = P.bk[P.k], B = P.B, nb = C.nb, bf = FAUNA.bf; T[5] = 0;
+  T[0] += dt; if (C.once) { if (T[0] > C.dur) T[0] = C.dur; } else if (T[0] >= C.dur) T[0] = C.dur > 0 ? T[0] % C.dur : 0;
+  T[1] += dt; T[2] += dt;
+  const Cp = P.kp && T[3] > 0 && T[2] < T[3] ? P.bk[P.kp] : null; if (!Cp && T[3] > 0) { T[3] = 0; P.kp = null; }
+  const fa = T[0] * bf, ia = Math.min(Math.floor(fa), C.n - 2), ua = Math.min(1, fa - ia), D = C.d;
+  let Dp = null, ib = 0, ub = 0, w = 1; if (Cp) { if (T[1] >= Cp.dur) T[1] = Cp.dur > 0 ? T[1] % Cp.dur : 0; const fb = T[1] * bf; ib = Math.min(Math.floor(fb), Cp.n - 2); ub = Math.min(1, fb - ib); Dp = Cp.d; w = T[2] / T[3]; }
+  for (let i = 0; i < nb; i++) {
+    const o0 = (ia * nb + i) * 7, o1 = o0 + nb * 7;
+    let qx = D[o0], qy = D[o0 + 1], qz = D[o0 + 2], qw = D[o0 + 3]; const s = qx * D[o1] + qy * D[o1 + 1] + qz * D[o1 + 2] + qw * D[o1 + 3] < 0 ? -1 : 1;
+    qx += (s * D[o1] - qx) * ua; qy += (s * D[o1 + 1] - qy) * ua; qz += (s * D[o1 + 2] - qz) * ua; qw += (s * D[o1 + 3] - qw) * ua;
+    let px = D[o0 + 4] + (D[o1 + 4] - D[o0 + 4]) * ua, py = D[o0 + 5] + (D[o1 + 5] - D[o0 + 5]) * ua, pz = D[o0 + 6] + (D[o1 + 6] - D[o0 + 6]) * ua;
+    if (Dp) {
+      const p0 = (ib * nb + i) * 7, p1 = p0 + nb * 7; let rx = Dp[p0], ry = Dp[p0 + 1], rz = Dp[p0 + 2], rw = Dp[p0 + 3]; const t = rx * Dp[p1] + ry * Dp[p1 + 1] + rz * Dp[p1 + 2] + rw * Dp[p1 + 3] < 0 ? -1 : 1;
+      rx += (t * Dp[p1] - rx) * ub; ry += (t * Dp[p1 + 1] - ry) * ub; rz += (t * Dp[p1 + 2] - rz) * ub; rw += (t * Dp[p1 + 3] - rw) * ub;
+      let sx = Dp[p0 + 4] + (Dp[p1 + 4] - Dp[p0 + 4]) * ub, sy = Dp[p0 + 5] + (Dp[p1 + 5] - Dp[p0 + 5]) * ub, sz = Dp[p0 + 6] + (Dp[p1 + 6] - Dp[p0 + 6]) * ub;
+      const u = rx * qx + ry * qy + rz * qz + rw * qw < 0 ? -1 : 1;
+      qx = rx + (u * qx - rx) * w; qy = ry + (u * qy - ry) * w; qz = rz + (u * qz - rz) * w; qw = rw + (u * qw - rw) * w;
+      px = sx + (px - sx) * w; py = sy + (py - sy) * w; pz = sz + (pz - sz) * w;
+    }
+    const l = Math.sqrt(qx * qx + qy * qy + qz * qz + qw * qw) || 1, q = B[i].quaternion, p = B[i].position;
+    q._x = qx / l; q._y = qy / l; q._z = qz / l; q._w = qw / l; p._x = px; p._y = py; p._z = pz; B[i].matrixWorldNeedsUpdate = true;
+  }
+}
+function faunaMake(sp, hide) {
+  const S = FAUNA.src[sp]; if (!S) return null;
+  const root = new THREE.Group(), wrap = new THREE.Group();
+  wrap.quaternion.fromArray(S.wq); wrap.scale.fromArray(S.ws);
+  const bones = S.bones.map(r => { const b = new THREE.Bone(); b.name = r.name; b.position.fromArray(r.p); b.quaternion.fromArray(r.q); b.scale.fromArray(r.s); return b; });
+  S.bones.forEach((r, i) => { if (r.parent < 0) wrap.add(bones[i]); else bones[r.parent].add(bones[i]); });
+  const mesh = new THREE.SkinnedMesh(S.geo, ITEM_VM);
+  mesh.castShadow = mesh.receiveShadow = false; mesh.userData.noBatch = true; wrap.add(mesh); root.add(wrap); root.userData.noBatch = true;
+  root.updateMatrixWorld(true);
+  mesh.bind(new THREE.Skeleton(bones, S.ibm), new THREE.Matrix4());
+  const mx = faunaPlayer(mesh.skeleton.bones, S.bk), act = mx.act;
+  if (act.idle) act.idle.play();
+  const bn = {}; for (let i = 0; i < bones.length; i++) if (BONE_N.includes(bones[i].name)) bn[bones[i].name] = bones[i];
+  scene.add(root); if (hide) root.visible = false;
+  return { sp, g: root, m: mesh, mx, act, bn, cur: act.idle || null, key: 'idle', a: null, acc: 0, id: 0, wrap };
+}
+function faunaMeasure(sp) {
+  const S = FAUNA.src[sp]; if (!S || S.worldH) return S;
+  const I = faunaMake(sp, true); if (!I) return S;
+  I.g.position.set(0, 0, 0); I.g.rotation.set(0, 0, 0); I.g.scale.setScalar(1);
+  I.g.updateMatrixWorld(true);
+  const b = new THREE.Box3().setFromObject(I.g, true);
+  S.worldH = Math.max(1e-3, b.max.y - b.min.y); S.worldY0 = -b.min.y;
+  scene.remove(I.g);
+  return S;
+}
+function faunaDeerSrc() {
+  if (!FAUNA.ok || !DEER) return;
+  for (const sp of ['deer', 'stag']) {
+    const S = faunaMeasure(sp); if (!S) continue;
+    const D = DSP[sp], k = D.h / S.worldH, y0 = S.worldY0 * k;
+    DEER.src[sp] = { scene: null, clips: null, k, y0, pool: [], tris: S.geo.index.count / 3 };
+    // bind-pose instanced far mesh: skinned bind in game axes (nose -z), same as deerSrc
+    const I0 = faunaMake(sp, true); I0.g.position.set(0, 0, 0); I0.g.rotation.set(0, 0, 0); I0.g.scale.setScalar(1); I0.g.updateMatrixWorld(true);
+    const mesh = I0.m, n = mesh.geometry.attributes.position.count, P = new Float32Array(n * 3), v = new THREE.Vector3();
+    for (let i = 0; i < n; i++) { mesh.getVertexPosition(i, v); v.applyMatrix4(mesh.matrixWorld); P[i * 3] = -v.x * k; P[i * 3 + 1] = v.y * k + y0; P[i * 3 + 2] = -v.z * k; }
+    const imG = new THREE.BufferGeometry(); imG.setAttribute('position', new THREE.BufferAttribute(P, 3)); if (mesh.geometry.attributes.color) imG.setAttribute('color', mesh.geometry.attributes.color.clone()); if (mesh.geometry.index) imG.setIndex(mesh.geometry.index.clone());
+    imG.computeVertexNormals();
+    const im = new THREE.InstancedMesh(imG, DEER_IVM, DEER.list.length); im.count = 0; im.visible = false; im.frustumCulled = false; im.userData.noBatch = true; scene.add(im); DEER.im[sp] = im;
+    const gl = deerLow(imG, 0.16), imL = new THREE.InstancedMesh(gl, DEER_IVM, DEER.list.length); imL.count = 0; imL.visible = false; imL.frustumCulled = false; imL.userData.noBatch = true; scene.add(imL); DEER.imL[sp] = imL;
+    DEER.src[sp].trisL = gl.attributes.position.count / 3;
+    scene.remove(I0.g);
+    const I = faunaMake(sp, true); if (I) {
+      I.g.scale.setScalar(k); I.g.rotation.y = Math.PI; I.g.position.y = y0; I.g.updateMatrixWorld(true);
+      const bn = {}; I.m.skeleton.bones.forEach(b => { bn[b.name] = b; });
+      if (BONE_N.every(n => bn[n])) {
+        const flip = v => v.set(-v.x * k, v.y * k + y0, -v.z * k);
+        const u = sphParts(D, (n, v) => flip(v.setFromMatrixPosition(bn[n].matrixWorld)), v => { v.setFromMatrixColumn(bn.Head.matrixWorld, 1).normalize(); return v.set(-v.x, v.y, -v.z); });
+        DEER.src[sp].sph = { u, g: u.map(q => q[4] === 'head' ? [0, q[3] * 1.2, q[2] * 0.8, q[3], 'head'] : q) };
+      }
+      scene.remove(I.g);
+    }
+  }
+  if (DEER.src.deer && DEER.src.stag) { HUNT.deerOk = true; HUNT.deerMs = Math.round(performance.now() - (HUNT.t0 || performance.now())); faunaPrewarmDeer(); }
+}
+function faunaPrewarmDeer() {
+  const pv = PL.visible, sv = SL.visible;
+  for (const q of ['deer', 'stag']) { const I = deerMake(q); if (!I) continue; I.g.visible = true; I.g.scale.setScalar(DEER.src[q].k); I.g.position.y = DEER.src[q].y0;
+    for (let c = 0; c < 4; c++) { PL.visible = !!(c & 1); SL.visible = !!(c & 2); renderer.compile(I.g, camera, scene); } I.g.visible = false; }
+  PL.visible = pv; SL.visible = sv;
+}
+function vegBlocked(x, z, r) {
+  if (typeof onStrip === 'function' && onStrip(x, z, r)) return true;
+  if (typeof MEADOW !== 'undefined' && hyp(x - MEADOW.x, z - MEADOW.z) < 260 + r) return true;
+  if (typeof PAD !== 'undefined' && hyp(x - PAD.x, z - PAD.z) < 220 + r) return true;
+  if (typeof LODGE !== 'undefined' && typeof segD === 'function' && segD(x, z, [LODGE.x - Math.sin(LODGE.a) * 420, LODGE.z - Math.cos(LODGE.a) * 420, LODGE.x + Math.sin(LODGE.a) * 420, LODGE.z + Math.cos(LODGE.a) * 420]) < 40 + r) return true;
+  if (typeof DRYFORK_STRIP !== 'undefined' && typeof segD === 'function' && segD(x, z, [DRYFORK_STRIP.x, DRYFORK_STRIP.z - DRYFORK_STRIP.hl - 200, DRYFORK_STRIP.x, DRYFORK_STRIP.z + DRYFORK_STRIP.hl + 200]) < 45 + r) return true;
+  if (typeof dlvInPad === 'function' && typeof DLV_STRIPS !== 'undefined') { for (let i = 0; i < DLV_STRIPS.length; i++) { const S = DLV_STRIPS[i]; if (S.pad && hyp(x - S.pad[0], z - S.pad[1]) < (S.hl ? S.hl * 0.15 : 30) + r) { if (typeof dlvInPad === 'function' && dlvInPad(S, x, z)) return true; if (S.hl && S.hw) { const dx = x - S.x, dz = z - S.z, c = Math.cos(S.a || S.ry || 0), s = Math.sin(S.a || S.ry || 0), lx = dx * c - dz * s, lz = dx * s + dz * c; if (Math.abs(lx) < S.hw + r && Math.abs(lz) < S.hl + r) return true; } } } }
+  if (typeof inTown === 'function' && inTown(x, z, 15 + r)) return true;
+  if (typeof waterDist === 'function' && waterDist(x, z) < 4 + r * 0.2) return true;
+  if (typeof inLake === 'function' && inLake(x, z)) return true;
+  if (typeof SH_X !== 'undefined' && Math.abs(x - SH_X) < 24 && Math.abs(z - SH_Z) < (typeof SH_HL === 'number' ? SH_HL - 30 : 200)) return true;   // ski shelf: keep the landing centre clear
+  if (typeof ROADS !== 'undefined' && typeof segD === 'function') { for (let i = 0; i < ROADS.length; i++) { const rd = ROADS[i]; for (let j = 1; j < rd.length; j++) if (segD(x, z, [rd[j - 1][0], rd[j - 1][1], rd[j][0], rd[j][1]]) < 8 + r * 0.15) return true; } }
+  return false;
+}
+function vegPush(lists, name, x, y, z, ry, s) {
+  const L = lists[name] || (lists[name] = []);
+  L.push([x, y, z, ry, s, s, s]);
+}
+function vegPlace() {
+  if (!VEG.ok || VEG.on || !VEG.geo.pine1) return; VEG.on = true; VEG.sd = 0x11500;
+  const G = VEG.geo, lists = {};
+  const hideOld = im => { if (!im) return; im.visible = false; im.count = 0; for (const k of CHUNKS) if (k.im === im) { k.ok = 0; k.n = 0; k.im.visible = false; } };
+  hideOld(VEG.imOldT); hideOld(VEG.imOldC);
+  // 1. replace home-valley TREES with pines / birches / snags at the same positions
+  for (let i = 0; i < TREES.length; i++) {
+    const t = TREES[i], x = t[0], y = t[1], z = t[2], sc = t[3], h = groundY(x, z), u = vegHash(x, z);
+    const wet = typeof waterDist === 'function' ? waterDist(x, z) : 99;
+    let name = 'pine' + (1 + (u * 4 | 0));
+    if (wet < 28) name = 'birch' + (1 + (u * 3 | 0));
+    else if (u > 0.88) name = 'snag' + (1 + (u * 30 % 3 | 0));
+    else if (h < 40 && u > 0.62) name = 'birch' + (1 + (u * 3 | 0));
+    const s = (name[0] === 's' ? 8 : 11) * sc;
+    if (vegBlocked(x, z, 2.5)) continue;
+    vegPush(lists, name, x, y, z, u * 6.283, s);
+  }
+  // 2. extra trees + cover around strips, lakeshores, sites (own RNG, world rand() untouched)
+  const addRing = (cx, cz, r0, r1, n, kinds, sc0, sc1, rad) => {
+    for (let k = 0; k < n; k++) {
+      const a = vegR() * 6.283, d = r0 + vegR() * (r1 - r0), x = cx + Math.cos(a) * d, z = cz + Math.sin(a) * d;
+      if (vegBlocked(x, z, rad)) continue;
+      const ny = typeof terrainNormal === 'function' ? terrainNormal(x, z)[1] : 1; if (ny < 0.72) continue;
+      const name = kinds[vegR() * kinds.length | 0], s = sc0 + vegR() * (sc1 - sc0);
+      vegPush(lists, name, x, groundY(x, z), z, vegR() * 6.283, s);
+    }
+  };
+  const pines = ['pine1', 'pine2', 'pine3', 'pine4'], birches = ['birch1', 'birch2', 'birch3'], snags = ['snag1', 'snag2', 'snag3'];
+  const coverT = pines.concat(birches);
+  if (typeof LODGE !== 'undefined') addRing(LODGE.x, LODGE.z, 50, 140, 70, coverT, 9, 16, 4);
+  if (typeof DRYFORK_STRIP !== 'undefined') addRing(DRYFORK_STRIP.x, DRYFORK_STRIP.z, 55, 150, 80, pines.concat(snags), 10, 16, 4);
+  if (typeof MEADOW !== 'undefined') addRing(MEADOW.x, MEADOW.z, 80, 200, 50, coverT, 9, 15, 4);
+  if (typeof DLV_STRIPS !== 'undefined') for (const S of DLV_STRIPS) {
+    if (S.id === 'HOME') continue;
+    addRing(S.x, S.z, (S.hw || 20) + 16, (S.hl || 80) + 90, 36, S.type === 'shore' || S.type === 'sandbar' ? birches.concat(pines) : coverT.concat(snags), 8, 15, 3.5);
+    addRing(S.x, S.z, (S.hw || 16) + 10, (S.hl || 60) + 50, 40, ['stump', 'stumpMoss', 'log', 'logMoss', 'rock1', 'rock2', 'rock3', 'rockMoss1', 'bush1', 'bush2', 'fern1', 'fern2', 'fern3'], 0.4, 1.3, 1.2);
+  }
+  if (typeof LAKES !== 'undefined') for (const L of LAKES) {
+    addRing(L.x, L.z, (L.r || 80) + 6, (L.r || 80) + 36, 55, birches.concat(['pine1', 'pine2']), 8, 13, 3);
+    addRing(L.x, L.z, (L.r || 80) + 4, (L.r || 80) + 22, 80, ['rock1', 'rock2', 'rock3', 'rockMoss1', 'rockMoss2', 'log', 'fern1', 'fern2', 'fern3', 'fern4', 'bush1', 'berries'], 0.35, 1.1, 1);
+  }
+  // sites: home cabin yard, hunt cabin, wreck, ranch edge (not the strip)
+  addRing(32, -15, 10, 28, 24, ['pine1', 'pine2', 'birch1', 'snag1'], 8, 13, 2.5);
+  addRing(32, -15, 6, 22, 30, ['stump', 'log', 'rock1', 'rock2', 'bush1', 'fern1', 'fern2'], 0.4, 1.0, 1);
+  addRing(-1300, 2850, 8, 30, 22, pines.concat(['log', 'stump', 'rockMoss1', 'bush2']), 0.5, 12, 1.5);
+  // 3. camp dressing (fixed, not random on the world stream)
+  const prop = (name, x, z, s, ry) => { if (!G[name] || vegBlocked(x, z, 0.4) && name !== 'tent' && name !== 'fire' && name !== 'crate') { /* still place camp props if only the loose runway test tripped at a yard */ }
+    vegPush(lists, name, x, groundY(x, z), z, ry, s); };
+  // home cabin: fire, sitting logs, crates, tools, a lean-to of logs + tent off the door (door is east)
+  prop('fire', 27.2, -20.5, 0.85, 0.3); prop('fireLit', 27.2, -20.5, 0.85, 0.3);
+  prop('sitLog', 28.6, -21.6, 0.55, 1.2); prop('sitLog', 25.8, -21.2, 0.5, -0.4);
+  prop('crate', 36.4, -12.2, 0.5, 0.2); prop('crate2', 37.0, -12.8, 0.42, 0.7);
+  prop('axe', 36.6, -13.4, 0.9, 1.1); prop('shovel', 29.4, -18.8, 0.85, 0.4);
+  prop('tent', 24.0, -10.5, 2.3, -0.6);
+  // hunt cabin porch side
+  prop('fire', -1294, 2844, 0.8, 0.2); prop('fireLit', -1294, 2844, 0.8, 0.2);
+  prop('sitLog', -1292, 2846.5, 0.55, 0.8); prop('crate', -1296, 2855, 0.5, 0.1); prop('axe', -1297, 2854.4, 0.85, 0.5);
+  // Walt's ski shelf: cache on the east shoulder, inside the wands, off the landing centre
+  if (typeof SH_X !== 'undefined') {
+    const cx = SH_X + 38, cz = SH_Z + 190;
+    prop('tent', cx, cz, 2.2, 0.15); prop('crate', cx + 2.2, cz + 1.1, 0.5, 0.4); prop('crate2', cx + 2.6, cz + 0.3, 0.45, -0.3);
+    prop('gas', cx + 1.6, cz + 2.0, 0.7, 0.2); prop('gas', cx + 2.0, cz + 2.4, 0.7, 0.8);
+    prop('sitLog', cx - 2.0, cz + 1.2, 0.5, 1.0); prop('shovel', cx + 3.0, cz + 1.6, 0.85, 0.5); prop('axe', cx + 3.2, cz + 0.8, 0.85, -0.4);
+  }
+  // drop camps: a real tent + fire + log at each cache
+  if (typeof DROPS !== 'undefined') for (const D of DROPS) {
+    const x = D.kx, z = D.kz; if (x == null) continue;
+    prop('tent', x, z, 2.2, 0.6); prop('fire', x + 3.2, z + 1.4, 0.75, 0); prop('fireLit', x + 3.2, z + 1.4, 0.75, 0);
+    prop('sitLog', x + 4.2, z + 0.4, 0.5, 0.9); prop('crate', x + 2.0, z - 1.6, 0.48, 0.2);
+  }
+  if (typeof BUSH !== 'undefined') for (const B of BUSH) {
+    const s = Math.sin(B.a || 0), c = Math.cos(B.a || 0), x = B.x + c * ((B.hw || 12) + 18), z = B.z - s * ((B.hw || 12) + 18);
+    if (vegBlocked(x, z, 2)) continue;
+    prop('tent', x, z, 2.1, (B.a || 0) + 0.4); prop('fire', x + 2.5, z + 1.2, 0.7, 0); prop('fireLit', x + 2.5, z + 1.2, 0.7, 0);
+    prop('sitLog', x + 3.4, z + 0.2, 0.5, 1.1); prop('crate', x + 1.4, z - 1.5, 0.48, 0.3);
+  }
+  // instance everything (CHUNKS + clearTrees + distance lod)
+  const treeSet = { pine1: 1, pine2: 1, pine3: 1, pine4: 1, birch1: 1, birch2: 1, birch3: 1, snag1: 1, snag2: 1, snag3: 1 };
+  const tm = swayMat(ITEM_VM.clone(), 1, 0.035, 0, 1.15);
+  VEG.matT = tm; VEG.matP = ITEM_VM;
+  let draws = 0, inst = 0, tris = 0;
+  for (const name in lists) {
+    const L = lists[name], g = G[name]; if (!g || !L.length) continue;
+    const isTree = !!treeSet[name], lod = isTree ? 700 : (name === 'fern1' || name === 'fern2' || name === 'fern3' || name === 'fern4' || name === 'bush1' || name === 'bush2' || name === 'berries' ? 160 : 420);
+    const n0 = CHUNKS.length;
+    instanced(g, isTree ? tm : ITEM_VM, L, { lod: lod, far: isTree ? 900 : 500, tree: isTree ? 1 : 0 });
+    for (let i = n0; i < CHUNKS.length; i++) { CHUNKS[i].veg = name; if (CHUNKS[i].im) CHUNKS[i].im.userData.veg = name; }
+    draws++; inst += L.length; tris += (g.index ? g.index.count / 3 : g.attributes.position.count / 3) * L.length;
+  }
+  VEG.stats = { draws, inst, tris, kinds: Object.keys(lists).length };
+  VEG.placed = inst;
+  // prewarm the tree sway + prop batches (light combos)
+  const pv = PL.visible, sv = SL.visible;
+  for (const k of CHUNKS) if (k.im && (k.im.material === tm || (k.lm === tm))) {
+    k.im.visible = true; for (let c = 0; c < 4; c++) { PL.visible = !!(c & 1); SL.visible = !!(c & 2); renderer.compile(k.im, camera, scene); }
+  }
+  PL.visible = pv; SL.visible = sv;
+  faunaSpawn();
+}
+function faunaSpawn() {
+  if (!FAUNA.ok || FAUNA.spawned) return; FAUNA.spawned = true;
+  FAUNA.dsp = {
+    elk: { name: 'ELK', h: 2.4, walk: 0.35, run: 8.5, wRef: 1.2, rRef: 8, see: 40, mesh: 'stag' },
+    wolf: { name: 'WOLF', h: 0.85, walk: 0.7, run: 9, wRef: 1.3, rRef: 8, see: 26, mesh: 'wolf' },
+    fox: { name: 'FOX', h: 0.42, walk: 0.55, run: 8, wRef: 1.1, rRef: 7, see: 20, mesh: 'fox' },
+    rabbit: { name: 'RABBIT', h: 0.26, walk: 0.45, run: 7, wRef: 0.9, rRef: 6, see: 14, mesh: 'rabbit' },
+    bird: { name: 'BIRD', h: 0.16, walk: 0, run: 11, wRef: 1, rRef: 8, see: 18, mesh: 'bird' }
+  };
+  FAUNA.amb = []; FAUNA.pool = {}; FAUNA.poolK = []; FAUNA._near = new Array(64); FAUNA.wolfT = 0; FAUNA.howlT = 8; FAUNA.birds = [];
+  const put = (sp, x, z, pack) => {
+    if (vegBlocked(x, z, 2) && sp !== 'bird') { /* try a nudge */ x += 8; z += 6; if (vegBlocked(x, z, 2) && sp !== 'bird') return; }
+    const a = { sp, x, z, y: groundY(x, z), yaw: vegR() * 6.283, state: 'graze', t: vegR() * 5, spd: 0, cd: 1e9, fx: 0, fz: 0, hx: x, hz: z, inst: null, pack: pack || 0 };
+    FAUNA.amb.push(a);
+  };
+  // elk: a small band at Elk Meadow and two other open spots (ambient, not hunted)
+  if (typeof DEER_HERDS !== 'undefined') {
+    const H = DEER_HERDS.find(h => h.id === 'ELKM') || DEER_HERDS[DEER_HERDS.length - 1];
+    for (let k = 0; k < 3; k++) put('elk', H.x0 + (vegR() - 0.5) * 40, H.z0 + (vegR() - 0.5) * 40, 0);
+  }
+  put('elk', 200, -1600, 0); put('elk', -900, -400, 0);
+  // wolves: a few packs in the woods (not on strips)
+  const wolfDen = [[-600, -900], [1100, -2000], [-2000, -200], [1800, 800], [-400, 1600]];
+  for (let p = 0; p < wolfDen.length; p++) for (let k = 0; k < 2; k++) put('wolf', wolfDen[p][0] + (vegR() - 0.5) * 30, wolfDen[p][1] + (vegR() - 0.5) * 30, p);
+  // foxes + rabbits near lakes and woods edges
+  if (typeof LAKES !== 'undefined') for (const L of LAKES) {
+    for (let k = 0; k < 2; k++) put('fox', L.x + (vegR() - 0.5) * (L.r + 80), L.z + (vegR() - 0.5) * (L.r + 80), 0);
+    for (let k = 0; k < 4; k++) put('rabbit', L.x + (vegR() - 0.5) * (L.r + 60), L.z + (vegR() - 0.5) * (L.r + 60), 0);
+  }
+  put('fox', 100, 400, 0); put('fox', 900, -600, 0); put('fox', -800, 900, 0);
+  for (let k = 0; k < 8; k++) put('rabbit', (vegR() - 0.5) * 2000, (vegR() - 0.5) * 2000, 0);
+  put('rabbit', 80, 90, 0); put('rabbit', -90, 180, 0); put('rabbit', 220, -120, 0);
+  // birds: a handful of procedural flyers (static mesh from veg.bin)
+  if (VEG.geo.bird) {
+    const g = VEG.geo.bird, im = new THREE.InstancedMesh(g, ITEM_VM, 10);
+    im.frustumCulled = false; im.userData.noBatch = true; im.count = 10; scene.add(im); FAUNA.birdIm = im;
+    for (let i = 0; i < 10; i++) {
+      const x = (vegR() - 0.5) * 3000, z = (vegR() - 0.5) * 2800, y = groundY(x, z) + 8 + vegR() * 18;
+      FAUNA.birds.push({ x, y, z, yaw: vegR() * 6.283, spd: 7 + vegR() * 5, t: vegR() * 10, a: 0, homeX: x, homeZ: z, y0: y });
+    }
+  }
+  FAUNA.live = 0; FAUNA.MAX = 10;
+  const srcK = Object.keys(FAUNA.src); for (let i = 0; i < srcK.length; i++) faunaMeasure(srcK[i]);
+  faunaPrewarmAmb();
+  faunaDeerSrc();
+}
+function faunaPrewarmAmb() {
+  const pv = PL.visible, sv = SL.visible;
+  const kinds = ['wolf', 'fox', 'rabbit', 'stag'];
+  for (let i = 0; i < kinds.length; i++) {
+    const sp = kinds[i]; if (!FAUNA.src[sp]) continue;
+    const I = faunaMake(sp, true); if (!I) continue;
+    I.g.visible = true; I.g.position.set(0, -20, 0);
+    for (let c = 0; c < 4; c++) { PL.visible = !!(c & 1); SL.visible = !!(c & 2); renderer.compile(I.g, camera, scene); }
+    scene.remove(I.g);
+  }
+  if (FAUNA.birdIm) {
+    for (let c = 0; c < 4; c++) { PL.visible = !!(c & 1); SL.visible = !!(c & 2); renderer.compile(FAUNA.birdIm, camera, scene); }
+  }
+  PL.visible = pv; SL.visible = sv;
+}
+function faunaInstFor(a) {
+  const mesh = (FAUNA.dsp[a.sp] && FAUNA.dsp[a.sp].mesh) || a.sp;
+  if (!FAUNA.src[mesh]) return null;
+  let pool = FAUNA.pool[mesh];
+  if (!pool) { pool = FAUNA.pool[mesh] = []; FAUNA.poolK.push(mesh); }
+  let I = pool.find(q => !q.a);
+  if (!I) { I = faunaMake(mesh, true); if (!I) return null; I.id = pool.length; pool.push(I); }
+  I.a = a; a.inst = I; I.g.visible = true; I.acc = 0;
+  const D = FAUNA.dsp[a.sp], S = faunaMeasure(mesh), k = D.h / (S.worldH || S.h);
+  I.g.scale.setScalar(k); I.k = k; I.y0 = (S.worldY0 != null ? S.worldY0 : S.y0) * k; return I;
+}
+function faunaFree(a) { const I = a.inst; if (!I) return; I.a = null; a.inst = null; I.g.visible = false; I.key = ''; }
+function faunaScare(a, sx, sz) { if (a.state === 'dead' || a.state === 'gone') return; a.state = 'flee'; a.t = 5 + Math.random() * 4; a.fx = sx; a.fz = sz; }
+function faunaScareAround(x, z, r) { for (let i = 0; i < FAUNA.amb.length; i++) { const a = FAUNA.amb[i]; if (hyp(a.x - x, a.z - z) < r) faunaScare(a, x, z); } }
+function faunaHowl(p) {
+  if (!SND.ok) return;
+  const A = actx, t = A.currentTime, out = p ? (mkPanner(8, 1.4) ) : SND.fx;
+  if (p) { setPos(out, p); out.connect(SND.fx); }
+  const o = A.createOscillator(), g = A.createGain(), f = A.createBiquadFilter();
+  o.type = 'sine'; f.type = 'lowpass'; f.frequency.value = 900;
+  o.frequency.setValueAtTime(420, t); o.frequency.exponentialRampToValueAtTime(260, t + 1.6); o.frequency.exponentialRampToValueAtTime(180, t + 2.4);
+  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.18, t + 0.2); g.gain.exponentialRampToValueAtTime(0.0001, t + 2.6);
+  o.connect(f); f.connect(g); g.connect(out); o.start(t); o.stop(t + 2.7);
+  if (typeof sfx === 'function') SND.n.howl = (SND.n.howl || 0) + 1;
+}
+function faunaTick(dt) {
+  if (!FAUNA.ok) return;
+  const pp = playerPos(), foot = mode === 'foot', V = (ac && ac.out && ac.out.V) || 0;
+  // swag-camp wolves at night (fair: they keep their distance, howl, and bolt if you walk up or shoot)
+  const night = (typeof TOD !== 'undefined' && TOD.night > 0.6) && (DAY.h >= 20 || DAY.h < 6);
+  if (night && PK.swC && !FAUNA.campW) {
+    const cx = PK.swC[0], cz = PK.swC[2];
+    if (!(typeof inTown === 'function' && inTown(cx, cz, 40)) && hyp(cx - 32, cz + 15) > 60) {
+      FAUNA.campW = [];
+      for (let k = 0; k < 2; k++) {
+        const a0 = (k * 2.1 + 0.4), r = 36 + k * 8, x = cx - Math.sin(a0) * r, z = cz - Math.cos(a0) * r;
+        const a = { sp: 'wolf', x, z, y: groundY(x, z), yaw: a0 + Math.PI, state: 'camp', t: 4 + k, spd: 0, cd: 1e9, fx: cx, fz: cz, hx: x, hz: z, inst: null, pack: -1, camp: 1 };
+        FAUNA.amb.push(a); FAUNA.campW.push(a);
+      }
+      FAUNA.howlT = 3;
+    }
+  }
+  if (FAUNA.campW && (!night || !PK.swC)) { for (const a of FAUNA.campW) { a.state = 'flee'; a.t = 8; a.camp = 0; } FAUNA.campW = null; }
+  if (FAUNA.campW && PK.swC) {
+    FAUNA.howlT -= dt;
+    if (FAUNA.howlT <= 0) { FAUNA.howlT = 11 + Math.random() * 8; const w = FAUNA.campW[0]; if (w && w.cd < 90) faunaHowl(_fv.set(w.x, w.y + 0.8, w.z)); }
+  }
+  // assign nearest animated models (preallocated, no per-frame arrays)
+  const C = FAUNA._near; let nC = 0;
+  for (let i = 0; i < FAUNA.amb.length; i++) {
+    const a = FAUNA.amb[i]; a.cd = hyp(pp.x - a.x, pp.z - a.z);
+    if (a.cd < 150) { if (nC < C.length) C[nC++] = a; } else if (a.inst) faunaFree(a);
+  }
+  for (let i = 1; i < nC; i++) { const p = C[i]; let j = i; while (j > 0 && C[j - 1].cd > p.cd) { C[j] = C[j - 1]; j--; } C[j] = p; }
+  const nWant = nC < FAUNA.MAX ? nC : FAUNA.MAX;
+  for (let i = 0; i < nC; i++) if (C[i].inst && i >= nWant) faunaFree(C[i]);
+  for (let i = 0; i < nWant; i++) if (!C[i].inst) faunaInstFor(C[i]);
+  // AI
+  for (let i = 0; i < FAUNA.amb.length; i++) {
+    const a = FAUNA.amb[i], D = FAUNA.dsp[a.sp]; if (!D) continue;
+    if (a.cd > 1400 && a.state !== 'flee' && a.state !== 'camp') continue;
+    const planeNear = !foot && hyp(ac.pos[0] - a.x, ac.pos[2] - a.z) < 90 && V > 5 && ac.pos[1] - a.y < 70;
+    if (a.state !== 'flee' && a.state !== 'dead' && ((foot && a.cd < D.see && a.cd < (a.sp === 'wolf' && a.camp ? 16 : D.see)) || planeNear)) faunaScare(a, foot ? pp.x : ac.pos[0], foot ? pp.z : ac.pos[2]);
+    let spd = 0;
+    if (a.state === 'camp') {
+      const cx = PK.swC ? PK.swC[0] : a.fx, cz = PK.swC ? PK.swC[2] : a.fz, d = hyp(a.x - cx, a.z - cz);
+      a.yaw += 0.15 * dt; const wantR = 38;
+      if (d < wantR - 4 || d > wantR + 6) { a.yaw = turnTo(a.yaw, yawTo(a.x, a.z, cx - (a.x - cx) / (d || 1) * wantR, cz - (a.z - cz) / (d || 1) * wantR), 2 * dt); spd = D.walk; }
+      if (foot && a.cd < 16) faunaScare(a, pp.x, pp.z);
+    } else if (a.state === 'flee') {
+      let fy = yawTo(a.x, a.z, 2 * a.x - a.fx, 2 * a.z - a.fz);
+      const hd = hyp(a.x - a.hx, a.z - a.hz); if (hd > 280) fy = turnTo(fy, yawTo(a.x, a.z, a.hx, a.hz), 1.6);
+      a.yaw = turnTo(a.yaw, fy, 4 * dt); spd = D.run;
+      if ((a.t -= dt) <= 0) { a.state = 'graze'; a.t = 3; if (a.camp) a.state = 'flee'; }
+    } else {
+      a.t -= dt; if (a.t <= 0) { a.t = 2 + Math.random() * 6; a.yaw += (Math.random() - 0.5) * 2; a.walk = Math.random() < 0.45; }
+      if (hyp(a.x - a.hx, a.z - a.hz) > 28) a.yaw = turnTo(a.yaw, yawTo(a.x, a.z, a.hx, a.hz), dt);
+      spd = a.walk ? D.walk : 0;
+    }
+    a.spd = spd; a.x -= Math.sin(a.yaw) * spd * dt; a.z -= Math.cos(a.yaw) * spd * dt;
+    if (a._gx !== a.x || a._gz !== a.z) { a._gx = a.x; a._gz = a.z; a.y = groundY(a.x, a.z); }
+  }
+  // pose the assigned models
+  let live = 0;
+  const PKK = FAUNA.poolK;
+  for (let pi = 0; pi < PKK.length; pi++) {
+    const mesh = PKK[pi], pool = FAUNA.pool[mesh]; if (!pool) continue;
+    for (let i = 0; i < pool.length; i++) {
+      const I = pool[i], a = I.a; if (!a) continue; live++;
+      const D = FAUNA.dsp[a.sp], g = I.g, hy = (a.yaw + Math.PI) * 0.5;
+      g.position.set(a.x, a.y + (I.y0 || 0), a.z); g.quaternion.set(0, Math.sin(hy), 0, Math.cos(hy));
+      let key = 'idle', ts = 1;
+      if (a.state === 'flee' || a.spd > D.walk * 1.8) { key = 'run'; ts = 1; } else if (a.spd > 0.05) { key = I.act.walk ? 'walk' : 'idle'; }
+      else if (a.state === 'graze' && I.act.eat && (a.t % 3 < 1.4)) key = 'eat';
+      if (I.act[key] && I.key !== key) { const n = I.act[key]; n.reset(); n.setEffectiveTimeScale(ts); n.setEffectiveWeight(1); n.play(); if (I.cur && I.cur !== n) I.cur.crossFadeTo(n, 0.25, false); I.cur = n; I.key = key; }
+      else if (I.act[key]) I.act[key].setEffectiveTimeScale(ts);
+      I.acc += dt; if (a.cd < 70 || live % 3 === 0) { I.mx.update(I.acc); I.acc = 0; }
+    }
+  }
+  FAUNA.live = live;
+  // birds
+  if (FAUNA.birdIm) {
+    const im = FAUNA.birdIm, B = FAUNA.birds;
+    for (let i = 0; i < B.length; i++) {
+      const b = B[i], scare = hyp(pp.x - b.x, pp.z - b.z) < 28 || (!foot && hyp(ac.pos[0] - b.x, ac.pos[2] - b.z) < 80 && V > 8);
+      if (scare) { b.y = Math.min(b.y + 8 * dt, b.y0 + 25); b.spd = 14; } else { b.y += (b.y0 - b.y) * Math.min(1, dt * 0.4); b.spd = 8; }
+      b.yaw += 0.25 * dt; b.t += dt; b.a += dt * (scare ? 14 : 8);
+      b.x -= Math.sin(b.yaw) * b.spd * dt; b.z -= Math.cos(b.yaw) * b.spd * dt;
+      if (hyp(b.x - b.homeX, b.z - b.homeZ) > 400) b.yaw = turnTo(b.yaw, yawTo(b.x, b.z, b.homeX, b.homeZ), 2 * dt);
+      const flap = 0.35 + 0.45 * Math.sin(b.a * 10);
+      _fq.setFromEuler(_fe.set(flap * 0.25, b.yaw, Math.sin(b.a * 3) * 0.2, 'YXZ'));
+      im.setMatrixAt(i, _fm.compose(_fv.set(b.x, b.y, b.z), _fq, _fs.set(0.18, 0.18, 0.18)));
+    }
+    im.instanceMatrix.needsUpdate = true;
+  }
+}
+function worldAssets(tries = 3) {
+  if (location.protocol === 'file:') return;
+  const load = (url, fn) => fetch(url).then(r => { if (!r.ok) throw new Error(url + ' ' + r.status); return r.arrayBuffer(); }).then(fn);
+  Promise.all([
+    load('assets/world/veg.bin', vegUnpack).catch(e => { console.warn('veg.bin', e); }),
+    load('assets/animals/fauna.bin', faunaUnpack).catch(e => { console.warn('fauna.bin', e); })
+  ]).then(() => { vegPlace(); }).catch(e => { console.warn('world assets', e); if (--tries > 0) setTimeout(() => worldAssets(tries), 1000); });
+}
+setTimeout(worldAssets, 0);
+
 // ---- the figure: low-poly boxes in vertex colour (one merged body + one arm that waves), origin at the feet, facing +z ----
 function folkParts(L, pose) {
   const s = L.s || 1, P = [], B = 0x2a2018, sk = L.sk, sh = L.sh, tr = L.tr;
