@@ -638,9 +638,9 @@ const hyp = (a, b, c = 0) => Math.sqrt(a * a + b * b + c * c);   // v0.59 Math.h
 
 // ======================= RENDERING =======================
 // v0.35 settings (persist in localStorage 'bp_gfx'; ?gfx=shadows:2,grass:1 overrides for testing). Defaults = the v0.34 look and cost.
-const BP_VERSION = 'v1.15.0';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
+const BP_VERSION = 'v1.15.1';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
 { const e = document.getElementById('ver'); if (e) e.textContent = BP_VERSION; } window.__bpVer = BP_VERSION; bootLog('game module running ' + BP_VERSION + ' (three r' + THREE.REVISION + ')' + (/[?&]safe(=|&|$)/.test(location.search) ? ' - SAFE MODE: default graphics, no shadows / ULTRA / life / vistas / music' : ''));
-const GFX_DEF = { shadows: 0, scale: 1, fov: 1, dist: 1, trees: 1, grass: 0, clouds: 1, fog: 1, msaa: 1, hz: 90, vig: 0, turn: 0, fps: 0, tod: 11, stk: 1, tips: 1, terr: 1, dyn: 1, glove: 0, hand: 0, wt: 1, volM: 1, volMu: 0.5, volE: 1, volA: 1, volF: 1, volS: 1, volW: 1, wx: 1, forest: 0, ground: 0, gtex: 0, cvl: 1, water: 1, dayl: 48, flure: 0, fline: 8, fdrag: 4, fbob: 0, fsink: 0, ultra: 0, sfxr: 1 };   // v0.68.1 dominant hand, volumes. v0.48 BALANCED: 90 % scale, 72 Hz, fast terrain shading, auto resolution; v0.49.1 the stick stays where you let go of it
+const GFX_DEF = { shadows: 0, scale: 1, fov: 1, dist: 1, trees: 1, grass: 0, clouds: 1, fog: 1, msaa: 1, hz: 90, vig: 0, turn: 0, fps: 0, tod: 11, stk: 1, tips: 1, terr: 1, dyn: 1, glove: 0, hand: 0, wt: 1, volM: 1, volMu: 0.5, volE: 1, volA: 1, volF: 1, volS: 1, volW: 1, wx: 1, forest: 0, fdens: 0, ground: 0, gtex: 0, cvl: 1, water: 1, dayl: 48, flure: 0, fline: 8, fdrag: 4, fbob: 0, fsink: 0, ultra: 0, sfxr: 1 };   // v0.68.1 dominant hand, volumes. v0.48 BALANCED: 90 % scale, 72 Hz, fast terrain shading, auto resolution; v0.49.1 the stick stays where you let go of it
 const GFX = Object.assign({}, GFX_DEF);
 const BP_SAFE = /[?&]safe(=|&|$)/.test(location.search);   // v1.09.1 ?safe: defaults (BALANCED), saved graphics settings ignored
 try { const o = BP_SAFE ? {} : JSON.parse(localStorage.getItem('bp_gfx') || '{}'); if ((o.v || 0) < 48) { if (o.scale === 1) delete o.scale; if (o.hz === 0) delete o.hz; }   // v0.48: saved copies of the old defaults (100 %, AUTO Hz) move to the new ones once
@@ -1059,7 +1059,7 @@ function gtRun(set) { GT.want = set; GT.job = null; if (!set) { gtNext(); return
 const FOREST2 = { n: 0, n2: 0, con: null, u: { sprNear: { value: 380 }, sprL: { value: 2600 }, sprTD: { value: 1 } } };   // v0.78 the sprite forest (count); v0.88 + the 2D-only extras (n2), the v0.7 conifers (con) for 2D ONLY, the sprite shader's uniforms
 const sprH = (a, b, k, c) => { const fr = v => v - Math.floor(v), f32 = Math.fround; let x = fr(f32(a * k)), y = fr(f32(b * k)), z = fr(f32(a * k)); const d = x * (y + c) + y * (z + c) + z * (x + c); x = fr(x + d); y = fr(y + d); z = fr(z + d); return fr((x + y) * z); };   // v0.88 the sprite shader's per-tree hash (Hoskins hash12), on the CPU for the superset test
 const TREES = [];   // home-valley trees [x, y, z, scale] (the ambient birdsong listens for them)
-const VEG = { on: false, ok: false, geo: {}, imOldT: null, imOldC: null, sd: 0x11500, placed: 0 };
+const VEG = { on: false, ok: false, geo: {}, imOldT: null, imOldC: null, sd: 0x11500, placed: 0, LOD: 110 };
 const FAUNA = { ok: false, src: {}, amb: [], pool: {}, birds: [], MAX: 10, bf: 20 };
 {
   grainTexture([4, 52]);   // v0.63: still drawn for its rand() calls (the world stays the same)
@@ -1125,14 +1125,15 @@ function updateChunks(force) {
   if (!force && hyp(_cp.x - _cpLast.x, _cp.y - _cpLast.y, _cp.z - _cpLast.z) < Math.min(40 + 0.2 * Math.min(agl, 1500), CHS.r)) return; _cpLast.copy(_cp); CHS.r = 40 + 0.2 * Math.min(agl, 1500);   // v0.48: rarer rebuilds up high; v0.88 never further than this rebuild allowed for (CHS.r: the sprite superset's reach)
   const t0 = performance.now(), D = GFX.dist, TD = GFX.trees * DYN.tk, A = clamp((agl - 200) / 1000, 0, 1), LA = (1 - 0.45 * A) * DYN.lk;   // v0.35 draw distance / tree density; v0.48 thinner forest with height + auto resolution steps
   let up = 0;
-  const FM = GFX.forest | 0, R = CHS.r + 5, U = FOREST2.u;   // v0.88 TREES: 0 = 3D ONLY, 1 = MIXED (v0.78 DENSE), 2 = 2D ONLY. R: how far you can go before the next rebuild (the sprite superset covers it)
+  const FM = GFX.forest | 0, FD = GFX.fdens | 0, R = CHS.r + 5, U = FOREST2.u;   // v0.88 TREES: 0 = 3D ONLY, 1 = MIXED (v0.78 DENSE), 2 = 2D ONLY. v1.15.1 FD: 2D density 0..3. R: how far you can go before the next rebuild (the sprite superset covers it)
   U.sprNear.value = FM === 1 ? (GQ.ult ? ULT.SPRN : 380) : 0; U.sprTD.value = TD; U.sprL.value = 2600 * LA * D;   // the sprites' near ring, density and far thinning are drawn per vertex (continuous with distance: nothing pops at a rebuild)
   for (const k of CHUNKS) { if (k.ult && (!GQ.ult || FM !== 1)) { k.im.count = 0; k.im.visible = false; continue; }   // v1.09 the PC ULTRA near forest (MIXED only)
     if ((k.spr && !FM) || (k.tree && !k.spr && FM === 2)) { k.im.count = 0; k.im.visible = false; continue; }   // v0.78 no sprites in 3D ONLY; v0.88 no 3D trees in 2D ONLY
-    if (k.spr) { up += sprChunk(k, FM, TD, D, R); continue; }
+    if (k.spr) { up += sprChunk(k, FM, TD, D, R, FD); continue; }
     const M = k.im.instanceMatrix, Ar = M.array, f = Math.min(k.far, k.tree ? Infinity : k.sz * CH_SZK) * D, f2 = f * f, l = (k.tree ? k.lod * LA : k.lod) * D, l2 = l * l, l4 = 4 * l2; let c = 0, ok = -1;
     if (!(k.tree && TD <= 0)) for (let i = 0; i < k.n; i++) { const dx = k.xz[i * 3] - _cp.x, dy = k.xz[i * 3 + 1] - _cp.y, dz = k.xz[i * 3 + 2] - _cp.z, d2 = dx * dx + dy * dy + dz * dz;   // v0.48: 3D distance (height counts)
       if (d2 > f2 || (d2 > l2 && i % 3) || (d2 > l4 && i % 6)) continue;
+      if (k.lodPair) { const hh = Math.sin(k.xz[i * 3] * 12.9898 + k.xz[i * 3 + 2] * 78.233) * 43758.5453, band = (VEG.LOD || 110) * D * (0.85 + 0.3 * (hh - Math.floor(hh))); if (k.lodPair === 1 ? d2 > band * band : d2 <= band * band) continue; }   // v1.15.1 complementary hi/lo trees (same hash: no holes, no doubles)
       if (k.ih && !ultKeep(k, i, d2, TD)) continue;   // v1.09 exactly the trees the sprites leave out inside their near ring (+45 m overlap)
       if (k.near) { const h = Math.sin(k.xz[i * 3] * 7.13 + k.xz[i * 3 + 2] * 3.71) * 9631.7, nn = k.near * (0.7 + 0.6 * (h - Math.floor(h))); if (d2 < nn * nn) continue; }   // v0.78 sprites only past ~270-500 m (dithered, no hard ring)
       if (k.tree && TD < 1) { const h = Math.sin(k.xz[i * 3] * 12.9898 + k.xz[i * 3 + 2] * 78.233) * 43758.5453; if (h - Math.floor(h) >= TD) continue; }
@@ -1141,11 +1142,11 @@ function updateChunks(force) {
     if (c) { if (M.addUpdateRange) { M.clearUpdateRanges(); M.addUpdateRange(0, c * 16); } M.needsUpdate = true; up += c; } }   // v0.48: upload only what is drawn
   CHS.n++; CHS.ms = performance.now() - t0; CHS.up = up;
 }
-function sprChunk(k, FM, TD, D, R) {   // v0.88 the sprite forest: upload a SUPERSET of what the vertex shader shows from anywhere within R of here (it fades each tree in / out by its own distance every frame)
+function sprChunk(k, FM, TD, D, R, FD) {   // v0.88 the sprite forest: upload a SUPERSET of what the vertex shader shows from anywhere within R of here (it fades each tree in / out by its own distance every frame). v1.15.1 FD: 2D density
   const M = k.im.instanceMatrix, Ar = M.array, F = k.full, f = Math.min(k.far, Infinity) * D, lmax = k.lod * DYN.lk * D, nr = FM === 1 ? (GQ.ult ? ULT.SPRN : 380) * 0.7 - 30 : -1;
   const sm = (a, b, v) => { const t = v <= a ? 0 : v >= b ? 1 : (v - a) / (b - a); return t * t * (3 - 2 * t); }, keep = d => { let q = 1 - 0.6667 * sm(lmax * 0.9, lmax * 1.1, d); q += (0.1667 - q) * sm(lmax * 1.8, lmax * 2.2, d); return q * (1 + (TD - 1) * sm(900, 1100, d)); };   // the shader's q (smoothsteps), at the largest far-thinning range
   let c = 0, ok = -1; const fR2 = (f + R) * (f + R);
-  if (TD > 0) for (let i = 0; i < k.n; i++) { if (k.tag[i] && FM !== 2) continue;   // tag 1: the 2D ONLY extras
+  if (TD > 0) for (let i = 0; i < k.n; i++) { const tg = k.tag[i]; if ((tg === 1 || tg === 2) && FM !== 2) continue; if (tg === 3 && (FD | 0) < 1) continue; if (tg === 4 && (FD | 0) < 2) continue; if (tg === 5 && (FD | 0) < 3) continue;   // tag 1/2: 2D ONLY extras; tag 3/4/5: DENSE / VERY DENSE / MAX
     const dx = k.xz[i * 3] - _cp.x, dy = k.xz[i * 3 + 1] - _cp.y, dz = k.xz[i * 3 + 2] - _cp.z, d2 = dx * dx + dy * dy + dz * dz; if (d2 > fR2) continue; const d = Math.sqrt(d2), dn = Math.max(0, d - R);
     if (dn > f || (nr > 0 && d + R < nr) || keep(dn) + 0.01 < k.h2[i] || (k.tag[i] === 2 && dn > lmax * 1.1)) continue;
     if (c !== i || i >= k.ok) { if (c !== i && ok < 0) ok = c; const s0 = i * 16, d0 = c * 16; for (let e = 0; e < 16; e++) Ar[d0 + e] = F[s0 + e]; } c++; }
@@ -3386,6 +3387,15 @@ await bootYield('strip dressing built');   // v1.10.1 boot stage (v1.09.1 load y
         const s = 1.3 + r2() * 1.5; L[r2() < 0.5 ? 0 : 1].push([x, h - 0.4 * s, z, r2() * 3.14, 4.6 * s, 10.5 * s * (1 + r2() * 0.3), -4.6 * s, 2]); m++; }   // tag 2 (z scale < 0 marks it for the shader: the crossed quads look the same mirrored): only out to the far-thinning range
       for (const G0 of GROVES) for (let k = 0; k < 130; k++) { const a = r2() * 6.283, d = 30 + 230 * Math.sqrt(r2()), x = G0.x + Math.cos(a) * d, z = G0.z + Math.sin(a) * d, h = groundY(x, z);
         if (h > 90 || clearOf(x, z, 12) || waterDist(x, z) < 10) continue; const s = 0.9 + r2() * 0.6; L[r2() < 0.6 ? 2 : 3].push([x, h - 0.2, z, r2() * 3.14, 7.5 * s, 9 * s, -7.5 * s, 2]); } }
+    { let sd3 = 0x151fd; const r3 = () => (sd3 = (sd3 * 16807) % 2147483647) / 2147483647, cn3 = L[0].length + L[1].length;   // v1.15.1 DENSE / VERY DENSE / MAX extras (tags 3/4/5); own RNG, the NORMAL MIXED set above is unchanged
+      const cap = cn3 * 5;   // +1x / +1.5x / +2.5x -> 2x / 3.5x / 6x the NORMAL conifer count at MAX
+      for (let i = 0, m = 0; i < 4000000 && m < cap; i++) { const x = (r3() - 0.5) * 2 * (T_OUT - 100), z = (r3() - 0.5) * 2 * (T_OUT - 100), h = groundY(x, z);
+        if (h < 25 || h > 920 + 80 * Math.sin(x * 0.0021 + z * 0.0013) || nearMeadow(x, z, 60)) continue; const ny = terrainNormal(x, z)[1]; if (ny < 0.70 || ny > 0.997) continue;
+        if (h < 90 && r3() > (h - 25) / 65) continue; if (h < 160 && (clearOf(x, z, 10) || waterDist(x, z) < 8)) continue;
+        const tag = m < cn3 ? 3 : m < cn3 * 2.5 ? 4 : 5, s = 1.3 + r3() * 1.5; L[r3() < 0.5 ? 0 : 1].push([x, h - 0.4 * s, z, r3() * 3.14, 4.6 * s, 10.5 * s * (1 + r3() * 0.3), 4.6 * s, tag]); m++; }
+      for (const G0 of GROVES) for (let k = 0; k < 910; k++) { const a = r3() * 6.283, d = 30 + 230 * Math.sqrt(r3()), x = G0.x + Math.cos(a) * d, z = G0.z + Math.sin(a) * d, h = groundY(x, z);
+        if (h > 90 || clearOf(x, z, 12) || waterDist(x, z) < 10) continue; const tag = k < 260 ? 3 : k < 520 ? 4 : 5, s = 0.9 + r3() * 0.6; L[r3() < 0.6 ? 2 : 3].push([x, h - 0.2, z, r3() * 3.14, 7.5 * s, 9 * s, 7.5 * s, tag]); }
+      FOREST2.nD = L.reduce((t, l) => t + l.filter(o => (o[7] || 0) >= 3).length, 0); }
     for (let c = 0; c < 4; c++) { const im = instanced(cell(c), sm, L[c], { lod: 2600, tree: 1, near: 380, spr: 1, ro: 1 }); im.userData.noBatch = true; }   // v0.81 ro: the alpha-tested sprites draw after every depth-writing opaque (discard breaks early-Z), before the clouds (2)
     FOREST2.n = n1; FOREST2.n2 = L.reduce((t, l) => t + l.length, 0) - n1; }
 }
@@ -8052,7 +8062,7 @@ function deerLow(g, q) {   // v0.59 vertex clustering: snap to a q-metre grid, d
 }
 function attrPlain(a) { if (!a.isInterleavedBufferAttribute) return a.clone(); const n = a.count, k = a.itemSize, st = a.data.stride, D = a.data.array, A = new D.constructor(n * k);   // v1.10.1 de-interleave by hand (no clone warning)
   for (let i = 0; i < n; i++) for (let j = 0; j < k; j++) A[i * k + j] = D[i * st + a.offset + j]; return new THREE.BufferAttribute(A, k, a.normalized); }
-function deerSrc(sp, gl) { if (FAUNA.ok && FAUNA.src[sp]) return;
+function deerSrc(sp, gl) {
   const root = gl.scene; root.updateMatrixWorld(true); const b = new THREE.Box3().setFromObject(root, true), k = DSP[sp].h / (b.max.y - b.min.y);
   const S = DEER.src[sp] = { scene: root, clips: gl.animations, k, y0: -b.min.y * k, pool: [] };
   let sk = null; root.traverse(o => { if (o.isSkinnedMesh && !sk) sk = o; });
@@ -8070,7 +8080,6 @@ function deerSrc(sp, gl) { if (FAUNA.ok && FAUNA.src[sp]) return;
     const pv = PL.visible, sv = SL.visible; for (const q of ['deer', 'stag']) { const I = deerMake(q); I.g.visible = true; for (let c = 0; c < 4; c++) { PL.visible = !!(c & 1); SL.visible = !!(c & 2); renderer.compile(I.g, camera, scene); } I.g.visible = false; } PL.visible = pv; SL.visible = sv; }   // v0.59 prewarm the skinned-deer shader (was a ~200 ms link the first time a herd came within 160 m)
 }
 function deerMake(sp) {
-  if (FAUNA.ok && FAUNA.src[sp] && DEER.src[sp]) { const I = faunaMake(sp, true); if (I) { const S = DEER.src[sp]; I.g.scale.setScalar(S.k); I.g.rotation.y = Math.PI; I.g.position.y = S.y0; I.g.visible = false; S.pool.push(I); DEER.inst.push(I); I.id = DEER.inst.length - 1; return I; } }
   const S = DEER.src[sp], m = HUNT.SU.clone(S.scene), g = new THREE.Group();
   m.scale.setScalar(S.k); m.rotation.y = Math.PI; m.position.y = S.y0; g.add(m); scene.add(g); g.userData.noBatch = true;
   m.traverse(o => { o.userData.noBatch = true; if (o.isMesh) { o.material = ITEM_VM; o.castShadow = o.receiveShadow = false; } });
@@ -9258,7 +9267,7 @@ setTimeout(function huntAssets(tries = 3) {   // the rifle + deer models: after 
     try { rflBuild44(); } catch (e) { HUNT.err.push('rifle: ' + e); console.warn('rifle model', e); }   // v0.84.4 the v0.44 model, built here (no file)
     if (location.protocol === 'file:') { HUNT.err.push('file:// - models skipped'); HUNT.deerFail = true; return; }   // v1.09.1 the v0.44 rifle (built above) stays; no deer
     L.load('assets/lever-rifle.glb', g => { try { if (RFL.g) rflSkin(g.scene); } catch (e) { HUNT.err.push('rifle skin: ' + e); console.warn('rifle skin', e); } }, undefined, e => HUNT.err.push('rifle skin: ' + (e?.message || e)));   // v0.85 its look on top
-    if (!FAUNA.ok) for (const sp of ['deer', 'stag']) L.load('assets/animals/' + DSP[sp].file + '.glb', g => { if (FAUNA.ok) return; try { deerSrc(sp, g); } catch (e) { HUNT.err.push(sp + ': ' + e); console.warn(sp + ' model', e); } }, undefined, e => { if (FAUNA.ok) return; HUNT.err.push(sp + ': ' + (e?.message || e)); if (!HUNT.deerFail) { HUNT.deerFail = true; console.warn('deer models did not load - no deer this session'); } });
+    for (const sp of ['deer', 'stag']) L.load('assets/animals/' + DSP[sp].file + '.glb', g => { try { deerSrc(sp, g); } catch (e) { HUNT.err.push(sp + ': ' + e); console.warn(sp + ' model', e); } }, undefined, e => { HUNT.err.push(sp + ': ' + (e?.message || e)); if (!HUNT.deerFail) { HUNT.deerFail = true; console.warn('deer models did not load - no deer this session'); } });
   }).catch(e => { if (--tries > 0) return setTimeout(() => huntAssets(tries), 1000); HUNT.err.push(String(e)); });
 }, 400);
 // ================= v0.54 AIRDROPS: streamer bundles pushed out of the open door to people where no strip is - scored by distance to the X and the bundle's condition =================
@@ -10047,7 +10056,7 @@ function folkAssets(tries = 3) {
 }
 setTimeout(folkAssets, 0);
 
-// ================= v1.15.0 Quaternius CC0 trees, wildlife, camp (veg.bin + fauna.bin) =================
+// ================= v1.15.0–v1.15.1 Quaternius CC0 trees, wildlife, camp (veg.bin + fauna.bin); v1.15.1 far LOD + zero-alloc faunaTick =================
 function vegR() { VEG.sd = VEG.sd * 16807 % 2147483647; return VEG.sd / 2147483647; }
 function vegHash(x, z) { let n = Math.imul((Math.floor(x * 10) + 12345 | 0), 1103515245) + Math.imul((Math.floor(z * 10) - 67890 | 0), 134775813); n = (n ^ (n >>> 16)) >>> 0; return n / 4294967296; }
 function vegUnpack(ab) {
@@ -10243,6 +10252,23 @@ function vegPush(lists, name, x, y, z, ry, s) {
   const L = lists[name] || (lists[name] = []);
   L.push([x, y, z, ry, s, s, s]);
 }
+
+function vegLodGeo(kind) {   // v1.15.1 unit-height low-poly stand-ins (origin at the base, vertex colours, ~40-70 tris)
+  const P = [], Nrm = [], C = [], Ix = [];
+  const tri = (ax, ay, az, bx, by, bz, cx, cy, cz, r, g, b) => {
+    const i = P.length / 3;
+    P.push(ax, ay, az, bx, by, bz, cx, cy, cz); C.push(r, g, b, r, g, b, r, g, b);
+    let nx = (by - ay) * (cz - az) - (bz - az) * (cy - ay), ny = (bz - az) * (cx - ax) - (bx - ax) * (cz - az), nz = (bx - ax) * (cy - ay) - (by - ay) * (cx - ax);
+    const L = Math.hypot(nx, ny, nz) || 1; nx /= L; ny /= L; nz /= L; Nrm.push(nx, ny, nz, nx, ny, nz, nx, ny, nz); Ix.push(i, i + 1, i + 2);
+  };
+  const ring = (y, rad, segs) => { const L = []; for (let i = 0; i < segs; i++) { const a = i / segs * 6.2831853; L.push([Math.cos(a) * rad, y, Math.sin(a) * rad]); } return L; };
+  const cyl = (y0, y1, r0, r1, segs, r, g, b) => { const A = ring(y0, r0, segs), B = ring(y1, r1, segs); for (let i = 0; i < segs; i++) { const j = (i + 1) % segs; tri(A[i][0], A[i][1], A[i][2], A[j][0], A[j][1], A[j][2], B[j][0], B[j][1], B[j][2], r, g, b); tri(A[i][0], A[i][1], A[i][2], B[j][0], B[j][1], B[j][2], B[i][0], B[i][1], B[i][2], r, g, b); } };
+  const cone = (y0, y1, rad, segs, r, g, b) => { const A = ring(y0, rad, segs); for (let i = 0; i < segs; i++) { const j = (i + 1) % segs; tri(A[i][0], A[i][1], A[i][2], A[j][0], A[j][1], A[j][2], 0, y1, 0, r, g, b); } };
+  if (kind === 'pine') { cyl(0, 0.22, 0.05, 0.035, 5, 0.32, 0.2, 0.1); cone(0.16, 0.55, 0.30, 6, 0.17, 0.32, 0.16); cone(0.40, 0.80, 0.20, 6, 0.19, 0.35, 0.17); cone(0.66, 1.00, 0.11, 6, 0.21, 0.38, 0.19); }
+  else if (kind === 'birch') { cyl(0, 0.70, 0.032, 0.020, 5, 0.82, 0.80, 0.72); cone(0.48, 1.00, 0.24, 6, 0.45, 0.55, 0.22); cone(0.62, 0.90, 0.15, 5, 0.50, 0.58, 0.24); }
+  else { cyl(0, 0.95, 0.028, 0.014, 5, 0.30, 0.22, 0.16); cyl(0.55, 0.72, 0.018, 0.006, 4, 0.28, 0.20, 0.14); }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(Nrm, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(C, 3)); g.setIndex(Ix); return g;
+}
 function vegPlace() {
   if (!VEG.ok || VEG.on || !VEG.geo.pine1) return; VEG.on = true; VEG.sd = 0x11500;
   const G = VEG.geo, lists = {};
@@ -10319,20 +10345,32 @@ function vegPlace() {
     prop('tent', x, z, 2.1, (B.a || 0) + 0.4); prop('fire', x + 2.5, z + 1.2, 0.7, 0); prop('fireLit', x + 2.5, z + 1.2, 0.7, 0);
     prop('sitLog', x + 3.4, z + 0.2, 0.5, 1.1); prop('crate', x + 1.4, z - 1.5, 0.48, 0.3);
   }
-  // instance everything (CHUNKS + clearTrees + distance lod)
+  // instance everything (CHUNKS + clearTrees + distance lod). v1.15.1: high-poly trees get lodPair=1; a cheap low-poly copy (lodPair=2) takes over past VEG.LOD
   const treeSet = { pine1: 1, pine2: 1, pine3: 1, pine4: 1, birch1: 1, birch2: 1, birch3: 1, snag1: 1, snag2: 1, snag3: 1 };
   const tm = swayMat(ITEM_VM.clone(), 1, 0.035, 0, 1.15);
   VEG.matT = tm; VEG.matP = ITEM_VM;
   let draws = 0, inst = 0, tris = 0;
+  const farL = { pine: [], birch: [], snag: [] };
   for (const name in lists) {
     const L = lists[name], g = G[name]; if (!g || !L.length) continue;
     const isTree = !!treeSet[name], lod = isTree ? 700 : (name === 'fern1' || name === 'fern2' || name === 'fern3' || name === 'fern4' || name === 'bush1' || name === 'bush2' || name === 'berries' ? 160 : 420);
     const n0 = CHUNKS.length;
     instanced(g, isTree ? tm : ITEM_VM, L, { lod: lod, far: isTree ? 900 : 500, tree: isTree ? 1 : 0 });
-    for (let i = n0; i < CHUNKS.length; i++) { CHUNKS[i].veg = name; if (CHUNKS[i].im) CHUNKS[i].im.userData.veg = name; }
+    for (let i = n0; i < CHUNKS.length; i++) { CHUNKS[i].veg = name; if (isTree) CHUNKS[i].lodPair = 1; if (CHUNKS[i].im) CHUNKS[i].im.userData.veg = name; }
+    if (isTree) { const key = name.charAt(0) === 'p' ? 'pine' : name.charAt(0) === 'b' ? 'birch' : 'snag'; for (let i = 0; i < L.length; i++) farL[key].push(L[i]); }
     draws++; inst += L.length; tris += (g.index ? g.index.count / 3 : g.attributes.position.count / 3) * L.length;
   }
-  VEG.stats = { draws, inst, tris, kinds: Object.keys(lists).length };
+  VEG.geoLod = { pine: vegLodGeo('pine'), birch: vegLodGeo('birch'), snag: vegLodGeo('snag') };
+  let lodDraws = 0, lodTris = 0;
+  const lodK = ['pine', 'birch', 'snag'];
+  for (let ki = 0; ki < lodK.length; ki++) {
+    const key = lodK[ki], L = farL[key], g = VEG.geoLod[key]; if (!L.length || !g) continue;
+    const n0 = CHUNKS.length;
+    instanced(g, tm, L, { lod: 700, far: 900, tree: 1 });
+    for (let i = n0; i < CHUNKS.length; i++) { CHUNKS[i].veg = key + 'Lod'; CHUNKS[i].lodPair = 2; if (CHUNKS[i].im) CHUNKS[i].im.userData.veg = key + 'Lod'; }
+    lodDraws++; lodTris += (g.index ? g.index.count / 3 : g.attributes.position.count / 3) * L.length;
+  }
+  VEG.stats = { draws: draws + lodDraws, inst, tris, lodDraws, lodTris, kinds: Object.keys(lists).length };
   VEG.placed = inst;
   // prewarm the tree sway + prop batches (light combos)
   const pv = PL.visible, sv = SL.visible;
@@ -10384,6 +10422,12 @@ function faunaSpawn() {
     }
   }
   FAUNA.live = 0; FAUNA.MAX = 10;
+  // preallocated swag-night wolves (activated in place: no per-frame / start alloc)
+  FAUNA.cw = [null, null]; FAUNA.campW = null; FAUNA.campOn = 0;
+  for (let k = 0; k < 2; k++) {
+    const a = { sp: 'wolf', x: 1e8, z: 1e8, y: 0, yaw: 0, state: 'gone', t: 0, spd: 0, cd: 1e9, fx: 0, fz: 0, hx: 1e8, hz: 1e8, inst: null, pack: -1, camp: 0, hold: 1 };
+    FAUNA.amb.push(a); FAUNA.cw[k] = a;
+  }
   const srcK = Object.keys(FAUNA.src); for (let i = 0; i < srcK.length; i++) faunaMeasure(srcK[i]);
   faunaPrewarmAmb();
   faunaDeerSrc();
@@ -10393,10 +10437,12 @@ function faunaPrewarmAmb() {
   const kinds = ['wolf', 'fox', 'rabbit', 'stag'];
   for (let i = 0; i < kinds.length; i++) {
     const sp = kinds[i]; if (!FAUNA.src[sp]) continue;
-    const I = faunaMake(sp, true); if (!I) continue;
-    I.g.visible = true; I.g.position.set(0, -20, 0);
-    for (let c = 0; c < 4; c++) { PL.visible = !!(c & 1); SL.visible = !!(c & 2); renderer.compile(I.g, camera, scene); }
-    scene.remove(I.g);
+    if (!FAUNA.pool[sp]) { FAUNA.pool[sp] = []; FAUNA.poolK.push(sp); }
+    for (let n = 0; n < FAUNA.MAX; n++) {
+      const I = faunaMake(sp, true); if (!I) break;
+      I.id = FAUNA.pool[sp].length; FAUNA.pool[sp].push(I);
+      if (n === 0) { I.g.visible = true; I.g.position.set(0, -20, 0); for (let c = 0; c < 4; c++) { PL.visible = !!(c & 1); SL.visible = !!(c & 2); renderer.compile(I.g, camera, scene); } I.g.visible = false; I.g.position.set(0, 0, 0); }
+    }
   }
   if (FAUNA.birdIm) {
     for (let c = 0; c < 4; c++) { PL.visible = !!(c & 1); SL.visible = !!(c & 2); renderer.compile(FAUNA.birdIm, camera, scene); }
@@ -10408,10 +10454,10 @@ function faunaInstFor(a) {
   if (!FAUNA.src[mesh]) return null;
   let pool = FAUNA.pool[mesh];
   if (!pool) { pool = FAUNA.pool[mesh] = []; FAUNA.poolK.push(mesh); }
-  let I = pool.find(q => !q.a);
+  let I = null; for (let i = 0; i < pool.length; i++) if (!pool[i].a) { I = pool[i]; break; }
   if (!I) { I = faunaMake(mesh, true); if (!I) return null; I.id = pool.length; pool.push(I); }
   I.a = a; a.inst = I; I.g.visible = true; I.acc = 0;
-  const D = FAUNA.dsp[a.sp], S = faunaMeasure(mesh), k = D.h / (S.worldH || S.h);
+  const D = FAUNA.dsp[a.sp], S = FAUNA.src[mesh], k = D.h / (S.worldH || S.h);
   I.g.scale.setScalar(k); I.k = k; I.y0 = (S.worldY0 != null ? S.worldY0 : S.y0) * k; return I;
 }
 function faunaFree(a) { const I = a.inst; if (!I) return; I.a = null; a.inst = null; I.g.visible = false; I.key = ''; }
@@ -10431,29 +10477,33 @@ function faunaHowl(p) {
 function faunaTick(dt) {
   if (!FAUNA.ok) return;
   const pp = playerPos(), foot = mode === 'foot', V = (ac && ac.out && ac.out.V) || 0;
-  // swag-camp wolves at night (fair: they keep their distance, howl, and bolt if you walk up or shoot)
+  // swag-camp wolves at night (fair: they keep their distance, howl, and bolt if you walk up or shoot). Preallocated: no spawn alloc.
   const night = (typeof TOD !== 'undefined' && TOD.night > 0.6) && (DAY.h >= 20 || DAY.h < 6);
-  if (night && PK.swC && !FAUNA.campW) {
+  if (night && PK.swC && !FAUNA.campOn) {
     const cx = PK.swC[0], cz = PK.swC[2];
     if (!(typeof inTown === 'function' && inTown(cx, cz, 40)) && hyp(cx - 32, cz + 15) > 60) {
-      FAUNA.campW = [];
+      FAUNA.campOn = 1; FAUNA.campW = FAUNA.cw;
       for (let k = 0; k < 2; k++) {
-        const a0 = (k * 2.1 + 0.4), r = 36 + k * 8, x = cx - Math.sin(a0) * r, z = cz - Math.cos(a0) * r;
-        const a = { sp: 'wolf', x, z, y: groundY(x, z), yaw: a0 + Math.PI, state: 'camp', t: 4 + k, spd: 0, cd: 1e9, fx: cx, fz: cz, hx: x, hz: z, inst: null, pack: -1, camp: 1 };
-        FAUNA.amb.push(a); FAUNA.campW.push(a);
+        const a0 = (k * 2.1 + 0.4), r = 36 + k * 8, x = cx - Math.sin(a0) * r, z = cz - Math.cos(a0) * r, a = FAUNA.cw[k];
+        a.x = x; a.z = z; a.y = groundY(x, z); a.yaw = a0 + Math.PI; a.state = 'camp'; a.t = 4 + k; a.spd = 0; a.cd = 1e9; a.fx = cx; a.fz = cz; a.hx = x; a.hz = z; a.camp = 1; a.hold = 1;
       }
       FAUNA.howlT = 3;
     }
   }
-  if (FAUNA.campW && (!night || !PK.swC)) { for (const a of FAUNA.campW) { a.state = 'flee'; a.t = 8; a.camp = 0; } FAUNA.campW = null; }
-  if (FAUNA.campW && PK.swC) {
+  if (FAUNA.campOn && (!night || !PK.swC)) {
+    for (let k = 0; k < 2; k++) { const a = FAUNA.cw[k]; a.state = 'flee'; a.t = 8; a.camp = 0; }
+    FAUNA.campOn = 0; FAUNA.campW = null;
+  }
+  if (FAUNA.campOn && PK.swC) {
     FAUNA.howlT -= dt;
-    if (FAUNA.howlT <= 0) { FAUNA.howlT = 11 + Math.random() * 8; const w = FAUNA.campW[0]; if (w && w.cd < 90) faunaHowl(_fv.set(w.x, w.y + 0.8, w.z)); }
+    if (FAUNA.howlT <= 0) { FAUNA.howlT = 11 + Math.random() * 8; const w = FAUNA.cw[0]; if (w && w.cd < 90) faunaHowl(_fv.set(w.x, w.y + 0.8, w.z)); }
   }
   // assign nearest animated models (preallocated, no per-frame arrays)
   const C = FAUNA._near; let nC = 0;
   for (let i = 0; i < FAUNA.amb.length; i++) {
-    const a = FAUNA.amb[i]; a.cd = hyp(pp.x - a.x, pp.z - a.z);
+    const a = FAUNA.amb[i];
+    if (a.state === 'gone') { a.cd = 1e9; if (a.inst) faunaFree(a); continue; }
+    a.cd = hyp(pp.x - a.x, pp.z - a.z);
     if (a.cd < 150) { if (nC < C.length) C[nC++] = a; } else if (a.inst) faunaFree(a);
   }
   for (let i = 1; i < nC; i++) { const p = C[i]; let j = i; while (j > 0 && C[j - 1].cd > p.cd) { C[j] = C[j - 1]; j--; } C[j] = p; }
@@ -10462,7 +10512,7 @@ function faunaTick(dt) {
   for (let i = 0; i < nWant; i++) if (!C[i].inst) faunaInstFor(C[i]);
   // AI
   for (let i = 0; i < FAUNA.amb.length; i++) {
-    const a = FAUNA.amb[i], D = FAUNA.dsp[a.sp]; if (!D) continue;
+    const a = FAUNA.amb[i], D = FAUNA.dsp[a.sp]; if (!D || a.state === 'gone') continue;
     if (a.cd > 1400 && a.state !== 'flee' && a.state !== 'camp') continue;
     const planeNear = !foot && hyp(ac.pos[0] - a.x, ac.pos[2] - a.z) < 90 && V > 5 && ac.pos[1] - a.y < 70;
     if (a.state !== 'flee' && a.state !== 'dead' && ((foot && a.cd < D.see && a.cd < (a.sp === 'wolf' && a.camp ? 16 : D.see)) || planeNear)) faunaScare(a, foot ? pp.x : ac.pos[0], foot ? pp.z : ac.pos[2]);
@@ -10492,8 +10542,9 @@ function faunaTick(dt) {
     const mesh = PKK[pi], pool = FAUNA.pool[mesh]; if (!pool) continue;
     for (let i = 0; i < pool.length; i++) {
       const I = pool[i], a = I.a; if (!a) continue; live++;
-      const D = FAUNA.dsp[a.sp], g = I.g, hy = (a.yaw + Math.PI) * 0.5;
-      g.position.set(a.x, a.y + (I.y0 || 0), a.z); g.quaternion.set(0, Math.sin(hy), 0, Math.cos(hy));
+      const D = FAUNA.dsp[a.sp], g = I.g, hy = (a.yaw + Math.PI) * 0.5, y = a.y + (I.y0 || 0), qy = Math.sin(hy), qw = Math.cos(hy);
+      if (g.position._x !== a.x || g.position._y !== y || g.position._z !== a.z) { g.position._x = a.x; g.position._y = y; g.position._z = a.z; g.matrixWorldNeedsUpdate = true; }
+      if (g.quaternion._y !== qy || g.quaternion._w !== qw || g.quaternion._x !== 0) { g.quaternion._x = 0; g.quaternion._y = qy; g.quaternion._z = 0; g.quaternion._w = qw; g.matrixWorldNeedsUpdate = true; }
       let key = 'idle', ts = 1;
       if (a.state === 'flee' || a.spd > D.walk * 1.8) { key = 'run'; ts = 1; } else if (a.spd > 0.05) { key = I.act.walk ? 'walk' : 'idle'; }
       else if (a.state === 'graze' && I.act.eat && (a.t % 3 < 1.4)) key = 'eat';
@@ -11754,6 +11805,7 @@ const GFX_OPT = [   // key, label, values, value labels, note (shown small under
   ['gtex', 'Ground texture', [0, 1, 2, 3, 4, 5], ['GRAIN', 'MEADOW', 'RED GRAVEL', 'LUSH', 'PAINTERLY', 'DRY GRASS'], 'surface detail (FAST+GRAIN / FULL)'],   // v0.87
   ['trees', 'Tree density', [0, 0.4, 0.7, 1], ['OFF', 'SPARSE', 'MEDIUM', 'FULL'], 'tree density'],
   ['forest', 'Trees', [0, 1, 2], ['3D ONLY', 'MIXED', '2D ONLY'], 'MIXED: 3D near, 2D far; 2D ONLY: all 2D'],   // v0.88 (v0.78 Forest NORMAL / DENSE = 3D ONLY / MIXED)
+  ['fdens', '2D density', [0, 1, 2, 3], ['NORMAL', 'DENSE', 'VERY DENSE', 'MAX'], 'how thick the 2D forest is (MIXED / 2D ONLY); off with 3D ONLY'],   // v1.15.1
   ['dist', 'Draw distance', [0.6, 0.8, 1, 1.3], ['NEAR', 'MEDIUM', 'NORMAL', 'FAR'], 'trees, rocks, haze'],
   ['clouds', 'Clouds', [0, 1, 2], ['OFF', 'NORMAL', 'HIGH'], 'sky detail'],
   ['fog', 'Haze', [0, 1, 2], ['LIGHT', 'NORMAL', 'THICK'], 'how far you can see'],
@@ -11842,7 +11894,7 @@ function gfxApply(k) {
   if ((all || k === 'scale') && !renderer.xr.isPresenting) { renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5) * GFX.scale); renderer.xr.setFramebufferScaleFactor(GFX.scale); }   // v1.10.1 neither while presenting (applied at the session's end)
   if (all || k === 'fov') renderer.xr.setFoveation(DYN.lvl ? Math.max(1, GFX.fov) : GFX.fov);
   if (k === 'dyn' && !GFX.dyn) dynSet(0);
-  if (all || k === 'dist' || k === 'trees' || k === 'forest') updateChunks(true);
+  if (all || k === 'dist' || k === 'trees' || k === 'forest' || k === 'fdens') updateChunks(true);
   if ((all && GFX.shadows) || k === 'shadows') gfxShadows();
   if (all || k === 'clouds') gfxClouds();
   if (all || k === 'hz') gfxRate();
@@ -12243,7 +12295,7 @@ const SETP_ROW = i => ({ X: i < 10 ? 30 : 527, Y: 96 + (i % 10) * 48 });   // v0
 // v0.68.1 the MENU board: tabs along the top (RESUME, SAVE / LOAD, GRAPHICS, COMFORT, CONTROLS, AUDIO), big poke / point targets, CLOSE bottom right.
 // Poke with a fingertip or point either controller at it and pull the trigger. Desktop: the same board in a page overlay (Esc / F2), clicked with the mouse.
 const MENU_TABS = [['resume', 'RESUME'], ['save', 'SAVE / LOAD'], ['gfx', 'GRAPHICS'], ['comfort', 'COMFORT'], ['controls', 'CONTROLS'], ['audio', 'AUDIO']];
-const MENU_ROWS = { gfx: ['scale', 'fov', 'terr', 'ground', 'gtex', 'trees', 'forest', 'dist', 'clouds', 'fog', 'wx', 'shadows', 'grass', 'msaa', 'dyn', 'hz', 'water', 'tod', 'dayl', 'cvl'], comfort: ['vig', 'turn', 'stk', 'tips', 'fps'], controls: ['hand', 'hx', 'wt', 'glove', 'flure', 'fline', 'fdrag', 'fbob', 'fsink'], audio: ['volM', 'volE', 'volW', 'volS', 'volA', 'volF', 'volMu', 'sfxr'] };
+const MENU_ROWS = { gfx: ['scale', 'fov', 'terr', 'ground', 'gtex', 'trees', 'forest', 'fdens', 'dist', 'clouds', 'fog', 'wx', 'shadows', 'grass', 'msaa', 'dyn', 'hz', 'water', 'tod', 'dayl', 'cvl'], comfort: ['vig', 'turn', 'stk', 'tips', 'fps'], controls: ['hand', 'hx', 'wt', 'glove', 'flure', 'fline', 'fdrag', 'fbob', 'fsink'], audio: ['volM', 'volE', 'volW', 'volS', 'volA', 'volF', 'volMu', 'sfxr'] };
 const MENU_TAB = i => ({ X: 22 + i * 146, W: 140 });   // (v0.91.1 narrower: the version sits at the right of the tab row)
 const MENU_SLOT = n => 76 + (n - 1) * 128;   // a manual slot's box top (right column)
 const MENU_HELP = ['TRIGGER  fire / brake / next page', 'GRIP  grab (stick, throttle, knobs, cargo)', 'A / X  recentre + set height', 'B  tap: rifle lever / hold: grab ray', 'Y  climb in / out (left rifle: lever)',

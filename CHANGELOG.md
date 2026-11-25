@@ -2,6 +2,14 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v1.15.1 – lighter far trees, denser 2D forest, quieter fauna tick
+
+A follow-up (t261) after v1.15.0: Neil wanted to keep the 2D trees, and to try them at higher densities, plus the far Quaternius pines were too heavy. The physics block is untouched (md5 `eee6637e…`). v1.15.0 saves load as they are; no new save fields. A v1.15.0 graphics save is unchanged (3D ONLY / MIXED / 2D ONLY stays on the same `forest` key); the new **2D density** row (`fdens`) defaults to NORMAL when the key is missing.
+
+- **Lighter distant trees:** the near Quaternius pines, birches and snags are unchanged. Past about 110 m they switch to a complementary low-poly stand-in (same positions, same sway material, three extra instanced draws) so the triangle count at the home cabin and in thick forest comes back near the v1.14.3 figures. No new shader programs after warm-up.
+- **2D forest density:** MIXED and 2D ONLY still work alongside the new 3D trees (off by default: 3D ONLY). A new Graphics row, **2D density**, goes NORMAL / DENSE / VERY DENSE / MAX — MAX is about 6× the old MIXED sprite count, still four instanced billboard draws. Tree density (OFF / SPARSE / MEDIUM / FULL) still thins both the 3D and 2D sets.
+- **Wildlife tick:** faunaTick no longer allocates on the frame, including when a model is first assigned or the swag-night wolves appear (pre-pooled meshes, preallocated camp wolves, root pose written without `.set()`).
+
 ## v1.15.0 – trees, wildlife and camp from Quaternius CC0 packs
 
 A large build (t260): Neil asked for all three. The physics block is untouched (md5 `eee6637e…`). v1.14.3 saves load as they are; no new save fields.
