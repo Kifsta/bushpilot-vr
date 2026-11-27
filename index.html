@@ -638,7 +638,7 @@ const hyp = (a, b, c = 0) => Math.sqrt(a * a + b * b + c * c);   // v0.59 Math.h
 
 // ======================= RENDERING =======================
 // v0.35 settings (persist in localStorage 'bp_gfx'; ?gfx=shadows:2,grass:1 overrides for testing). Defaults = the v0.34 look and cost.
-const BP_VERSION = 'v1.16.2';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
+const BP_VERSION = 'v1.16.3';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
 { const e = document.getElementById('ver'); if (e) e.textContent = BP_VERSION; } window.__bpVer = BP_VERSION; bootLog('game module running ' + BP_VERSION + ' (three r' + THREE.REVISION + ')' + (/[?&]safe(=|&|$)/.test(location.search) ? ' - SAFE MODE: default graphics, no shadows / ULTRA / life / vistas / music' : ''));
 const GFX_DEF = { shadows: 0, scale: 1, fov: 1, dist: 1, trees: 1, grass: 0, clouds: 1, fog: 1, msaa: 1, hz: 90, vig: 0, turn: 0, fps: 0, tod: 11, stk: 1, tips: 1, terr: 1, dyn: 1, glove: 0, hand: 0, wt: 1, volM: 1, volMu: 0.5, volE: 1, volA: 1, volF: 1, volS: 1, volW: 1, wx: 1, forest: 0, fdens: 0, hints: 1, ground: 0, gtex: 0, cvl: 1, water: 1, dayl: 48, flure: 0, fline: 8, fdrag: 4, fbob: 0, fsink: 0, ultra: 0, sfxr: 1 };   // v0.68.1 dominant hand, volumes. v0.48 BALANCED: 90 % scale, 72 Hz, fast terrain shading, auto resolution; v0.49.1 the stick stays where you let go of it
 const GFX = Object.assign({}, GFX_DEF);
@@ -1120,6 +1120,33 @@ const _cp = new THREE.Vector3(), _cpLast = new THREE.Vector3(1e9, 0, 0);
 const DYN = { on: false, lvl: 0, tk: 1, lk: 1, vs: 1, sh: 1, t: 0, ok: 0, hold: 10, f: 0, vw0: 0, vw: 0, vsOK: null, set: false, n: 0 };   // v0.48 auto resolution state (see dynTick)
 const CH_SZK = 900;   // v0.48: a small thing (bush, rock, post, bale) is drawn out to 900 x its size (about 1.5 px on a Quest 3 at that range)
 const CHS = { n: 0, ms: 0, up: 0, r: 40 };   // stats: rebuilds, last cost, instances uploaded
+const CHB = new Float64Array(6);   // v1.16.3 the packed instances' box (this rebuild)
+function cbSet(k, c) {   // a chunk's culling sphere = its packed instances' box + the shape's reach (largest scale, sway and a margin)
+  if (!c) return; const im = k.im;
+  if (k.cgr === undefined) { const F = k.full; let sm = 0; for (let i = 0; i < k.n; i++) { const o = i * 16; const a = F[o] * F[o] + F[o + 1] * F[o + 1] + F[o + 2] * F[o + 2], b = F[o + 4] * F[o + 4] + F[o + 5] * F[o + 5] + F[o + 6] * F[o + 6], d = F[o + 8] * F[o + 8] + F[o + 9] * F[o + 9] + F[o + 10] * F[o + 10]; const m = a > b ? (a > d ? a : d) : (b > d ? b : d); if (m > sm) sm = m; }
+    const gs = im.geometry.boundingSphere || (im.geometry.computeBoundingSphere(), im.geometry.boundingSphere); k.cgr = (gs.radius + gs.center.length()) * Math.sqrt(sm) * 1.3 + 4; k.cbs = new THREE.Sphere(); }
+  const S = k.cbs, hx = (CHB[3] - CHB[0]) * 0.5, hy = (CHB[4] - CHB[1]) * 0.5, hz = (CHB[5] - CHB[2]) * 0.5; S.center.x = CHB[0] + hx; S.center.y = CHB[1] + hy; S.center.z = CHB[2] + hz; S.radius = Math.sqrt(hx * hx + hy * hy + hz * hz) + k.cgr;
+  im.boundingSphere = S; im.frustumCulled = true; }
+const FC = { L: [], c: 0, scan: 0, hold: 0, n: 0, hid: 0 };   // L: pooled entries (reused on every rescan, no garbage), c = how many are live
+function fcScan() { const L = FC.L; for (let i = 0; i < FC.c; i++) { const e = L[i]; if (e.h && e.o.layers.mask === 0) e.o.layers.mask = 1; e.h = 0; e.o = null; } let c = 0;
+  const ch = scene.children; for (let i = 0; i < ch.length; i++) { const o = ch[i]; if (!o.isMesh || o.isInstancedMesh || o.isSkinnedMesh || !o.visible || !o.frustumCulled || !o.userData.noBatch || o.layers.mask !== 1 || Array.isArray(o.material)) continue;
+    const m = o.material; if (!m || m.fog === false || !(m.isMeshBasicMaterial || m.isMeshLambertMaterial || m.isMeshStandardMaterial || m.isMeshPhongMaterial) || o.onBeforeRender !== THREE.Object3D.prototype.onBeforeRender) continue;
+    const g = o.geometry; if (!g.boundingSphere) g.computeBoundingSphere(); if (!g.boundingSphere || !(g.boundingSphere.radius < 300)) continue;
+    o.updateWorldMatrix(false, false); let e = L[c]; if (!e) L[c] = e = { o: null, r: 0, cx: 0, cy: 0, cz: 0, h: 0 };
+    const W = o.matrixWorld.elements, s2 = Math.max(W[0] * W[0] + W[1] * W[1] + W[2] * W[2], W[4] * W[4] + W[5] * W[5] + W[6] * W[6], W[8] * W[8] + W[9] * W[9] + W[10] * W[10]), bs = g.boundingSphere;
+    e.o = o; e.r = bs.radius * Math.sqrt(s2); e.cx = bs.center.x; e.cy = bs.center.y; e.cz = bs.center.z; e.h = 0; c++; }
+  FC.c = c; }
+function fcAll() { FC.hold = 3; const L = FC.L; for (let i = 0; i < FC.c; i++) { const e = L[i]; if (e.h) { if (e.o.layers.mask === 0) e.o.layers.mask = 1; e.h = 0; } } FC.hid = 0; }
+function fcTick() {
+  if (FC.hold > 0 || !scene.fog || camera.fov < 60 || (typeof BINO !== 'undefined' && (BINO.on || BINO.desk))) { if (FC.hold > 0) FC.hold--; else fcAll(); return; }
+  if (--FC.scan <= 0) { FC.scan = 720; fcScan(); }
+  const E = camera.matrixWorld.elements, px = E[12], py = E[13], pz = E[14], fx = -E[8], fy = -E[9], fz = -E[10], far = scene.fog.far, L = FC.L, n = FC.c; let hid = 0;
+  for (let i = 0; i < n; i++) { const e = L[i], o = e.o, W = o.matrixWorld.elements;
+    if (o.layers.mask !== (e.h ? 0 : 1)) { e.h = 0; continue; }   // someone else set its layers: leave it alone
+    const cx = W[0] * e.cx + W[4] * e.cy + W[8] * e.cz + W[12] - px, cy = W[1] * e.cx + W[5] * e.cy + W[9] * e.cz + W[13] - py, cz = W[2] * e.cx + W[6] * e.cy + W[10] * e.cz + W[14] - pz;
+    const d = Math.sqrt(cx * cx + cy * cy + cz * cz), dep = cx * fx + cy * fy + cz * fz, cull = e.r < 0.0005 * d || dep - e.r > far + 0.08 * d + 60;
+    if (cull) { if (!e.h) { o.layers.mask = 0; e.h = 1; } hid++; } else if (e.h) { o.layers.mask = 1; e.h = 0; } }
+  FC.hid = hid; FC.n = n; }
 function updateChunks(force) {
   camera.getWorldPosition(_cp); const agl = Math.max(0, _cp.y - terrainHeight(_cp.x, _cp.z));
   if (!force && hyp(_cp.x - _cpLast.x, _cp.y - _cpLast.y, _cp.z - _cpLast.z) < Math.min(40 + 0.2 * Math.min(agl, 1500), CHS.r)) return; _cpLast.copy(_cp); CHS.r = 40 + 0.2 * Math.min(agl, 1500);   // v0.48: rarer rebuilds up high; v0.88 never further than this rebuild allowed for (CHS.r: the sprite superset's reach)
@@ -1130,27 +1157,27 @@ function updateChunks(force) {
   for (const k of CHUNKS) { if (k.ult && (!GQ.ult || FM !== 1)) { k.im.count = 0; k.im.visible = false; continue; }   // v1.09 the PC ULTRA near forest (MIXED only)
     if ((k.spr && !FM) || (k.tree && !k.spr && FM === 2)) { k.im.count = 0; k.im.visible = false; continue; }   // v0.78 no sprites in 3D ONLY; v0.88 no 3D trees in 2D ONLY
     if (k.spr) { up += sprChunk(k, FM, TD, D, R, FD); continue; }
-    const M = k.im.instanceMatrix, Ar = M.array, f = Math.min(k.far, k.tree ? Infinity : k.sz * CH_SZK) * D, f2 = f * f, l = (k.tree ? k.lod * LA : k.lod) * D, l2 = l * l, l4 = 4 * l2; let c = 0, ok = -1;
+    const M = k.im.instanceMatrix, Ar = M.array, f = Math.min(k.far, k.tree ? Infinity : k.sz * CH_SZK) * D, f2 = f * f, l = (k.tree ? k.lod * LA : k.lod) * D, l2 = l * l, l4 = 4 * l2; let c = 0, ok = -1; CHB[0] = CHB[1] = CHB[2] = 1e9; CHB[3] = CHB[4] = CHB[5] = -1e9;
     if (!(k.tree && TD <= 0)) for (let i = 0; i < k.n; i++) { const dx = k.xz[i * 3] - _cp.x, dy = k.xz[i * 3 + 1] - _cp.y, dz = k.xz[i * 3 + 2] - _cp.z, d2 = dx * dx + dy * dy + dz * dz;   // v0.48: 3D distance (height counts)
       if (d2 > f2 || (d2 > l2 && i % 3) || (d2 > l4 && i % 6)) continue;
       if (k.lodPair) { const hh = Math.sin(k.xz[i * 3] * 12.9898 + k.xz[i * 3 + 2] * 78.233) * 43758.5453, band = (VEG.LOD || 110) * D * (0.85 + 0.3 * (hh - Math.floor(hh))); if (k.lodPair === 1 ? d2 > band * band : d2 <= band * band) continue; }   // v1.15.1 complementary hi/lo trees (same hash: no holes, no doubles)
       if (k.ih && !ultKeep(k, i, d2, TD)) continue;   // v1.09 exactly the trees the sprites leave out inside their near ring (+45 m overlap)
       if (k.near) { const h = Math.sin(k.xz[i * 3] * 7.13 + k.xz[i * 3 + 2] * 3.71) * 9631.7, nn = k.near * (0.7 + 0.6 * (h - Math.floor(h))); if (d2 < nn * nn) continue; }   // v0.78 sprites only past ~270-500 m (dithered, no hard ring)
       if (k.tree && TD < 1) { const h = Math.sin(k.xz[i * 3] * 12.9898 + k.xz[i * 3 + 2] * 78.233) * 43758.5453; if (h - Math.floor(h) >= TD) continue; }
-      if (c !== i || i >= k.ok) { if (c !== i && ok < 0) ok = c; const F = k.full, s0 = i * 16, d0 = c * 16; for (let e = 0; e < 16; e++) Ar[d0 + e] = F[s0 + e]; } c++; }   // v0.47: no subarray garbage. v0.88 fix: slot i holds tree i only below k.ok (an earlier rebuild may have packed another tree there: that one was drawn twice and tree i not at all)
-    k.ok = ok < 0 ? Math.max(c, k.ok) : ok; k.im.count = c; k.im.visible = c > 0;
+      if (c !== i || i >= k.ok) { if (c !== i && ok < 0) ok = c; const F = k.full, s0 = i * 16, d0 = c * 16; for (let e = 0; e < 16; e++) Ar[d0 + e] = F[s0 + e]; } { const q0 = k.xz[i * 3], q1 = k.xz[i * 3 + 1], q2 = k.xz[i * 3 + 2]; if (q0 < CHB[0]) CHB[0] = q0; if (q0 > CHB[3]) CHB[3] = q0; if (q1 < CHB[1]) CHB[1] = q1; if (q1 > CHB[4]) CHB[4] = q1; if (q2 < CHB[2]) CHB[2] = q2; if (q2 > CHB[5]) CHB[5] = q2; } c++; }   // v0.47: no subarray garbage. v0.88 fix: slot i holds tree i only below k.ok (an earlier rebuild may have packed another tree there: that one was drawn twice and tree i not at all)
+    k.ok = ok < 0 ? Math.max(c, k.ok) : ok; k.im.count = c; k.im.visible = c > 0; cbSet(k, c);
     if (c) { if (M.addUpdateRange) { M.clearUpdateRanges(); M.addUpdateRange(0, c * 16); } M.needsUpdate = true; up += c; } }   // v0.48: upload only what is drawn
   CHS.n++; CHS.ms = performance.now() - t0; CHS.up = up;
 }
 function sprChunk(k, FM, TD, D, R, FD) {   // v0.88 the sprite forest: upload a SUPERSET of what the vertex shader shows from anywhere within R of here (it fades each tree in / out by its own distance every frame). v1.15.1 FD: 2D density
   const M = k.im.instanceMatrix, Ar = M.array, F = k.full, f = Math.min(k.far, Infinity) * D, lmax = k.lod * DYN.lk * D, nr = FM === 1 ? (GQ.ult ? ULT.SPRN : 380) * 0.7 - 30 : -1;
   const sm = (a, b, v) => { const t = v <= a ? 0 : v >= b ? 1 : (v - a) / (b - a); return t * t * (3 - 2 * t); }, keep = d => { let q = 1 - 0.6667 * sm(lmax * 0.9, lmax * 1.1, d); q += (0.1667 - q) * sm(lmax * 1.8, lmax * 2.2, d); return q * (1 + (TD - 1) * sm(900, 1100, d)); };   // the shader's q (smoothsteps), at the largest far-thinning range
-  let c = 0, ok = -1; const fR2 = (f + R) * (f + R);
+  let c = 0, ok = -1; CHB[0] = CHB[1] = CHB[2] = 1e9; CHB[3] = CHB[4] = CHB[5] = -1e9; const fR2 = (f + R) * (f + R);
   if (TD > 0) for (let i = 0; i < k.n; i++) { const tg = k.tag[i]; if ((tg === 1 || tg === 2) && FM !== 2) continue; if (tg === 3 && (FD | 0) < 1) continue; if (tg === 4 && (FD | 0) < 2) continue; if (tg === 5 && (FD | 0) < 3) continue;   // tag 1/2: 2D ONLY extras; tag 3/4/5: DENSE / VERY DENSE / MAX
     const dx = k.xz[i * 3] - _cp.x, dy = k.xz[i * 3 + 1] - _cp.y, dz = k.xz[i * 3 + 2] - _cp.z, d2 = dx * dx + dy * dy + dz * dz; if (d2 > fR2) continue; const d = Math.sqrt(d2), dn = Math.max(0, d - R);
     if (dn > f || (nr > 0 && d + R < nr) || keep(dn) + 0.01 < k.h2[i] || (k.tag[i] === 2 && dn > lmax * 1.1)) continue;
-    if (c !== i || i >= k.ok) { if (c !== i && ok < 0) ok = c; const s0 = i * 16, d0 = c * 16; for (let e = 0; e < 16; e++) Ar[d0 + e] = F[s0 + e]; } c++; }
-  k.ok = ok < 0 ? Math.max(c, k.ok) : ok; k.im.count = c; k.im.visible = c > 0;
+    if (c !== i || i >= k.ok) { if (c !== i && ok < 0) ok = c; const s0 = i * 16, d0 = c * 16; for (let e = 0; e < 16; e++) Ar[d0 + e] = F[s0 + e]; } { const q0 = k.xz[i * 3], q1 = k.xz[i * 3 + 1], q2 = k.xz[i * 3 + 2]; if (q0 < CHB[0]) CHB[0] = q0; if (q0 > CHB[3]) CHB[3] = q0; if (q1 < CHB[1]) CHB[1] = q1; if (q1 > CHB[4]) CHB[4] = q1; if (q2 < CHB[2]) CHB[2] = q2; if (q2 > CHB[5]) CHB[5] = q2; } c++; }
+  k.ok = ok < 0 ? Math.max(c, k.ok) : ok; k.im.count = c; k.im.visible = c > 0; cbSet(k, c);
   if (c) { if (M.addUpdateRange) { M.clearUpdateRanges(); M.addUpdateRange(0, c * 16); } M.needsUpdate = true; } return c;
 }
 function sprAtlas(cv) {   // v0.92.1 the tree atlas with its own mip chain: each level a 2 x 2 box of the one above in premultiplied linear light (the canvas's empty texels are black, which darkened
@@ -2875,7 +2902,7 @@ function fuelPumpTick(dt) {
 // ---- v0.73 the fuel hose: a 9 m verlet rope from the drum's pump to a nozzle you carry; it sags, lies on the ground, and the nozzle slips out of your hand at full stretch ----
 const NOZ = { H: new THREE.Vector3(0, -0.062, -0.04), INLET: new THREE.Vector3(0, -0.11, -0.071), SPOUT: new THREE.Vector3(0, -0.041, 0.2), spoutA: 0.28, rake: 0.53, r: 0.016, hl: 0.05 };   // v0.77.7 nozzle points (its frame: +z spout, +y up): grip centre, hose inlet, spout end; the grip raked back 30 deg
 NOZ.ax = new THREE.Vector3(0, Math.cos(NOZ.rake), Math.sin(NOZ.rake));   // up the grip
-const HOSE = { N: 24, L: 9, P: [], Q: [], held: null, rest: 'hook', inCap: -1, st: null, E: new THREE.Vector3(), tip: new THREE.Vector3(), dir: new THREE.Vector3(0, -1, 0), slipT: 0, gy: new Float32Array(25), calm: 0 };   // v0.81 gy: ground heights per node; calm: still frames on the hook
+const HOSE = { N: 24, L: 9, P: [], Q: [], held: null, rest: 'hook', inCap: -1, st: null, E: new THREE.Vector3(), tip: new THREE.Vector3(), dir: new THREE.Vector3(0, -1, 0), slipT: 0, gy: new Float32Array(25), gx: new Float64Array(25).fill(1e9), gz: new Float64Array(25).fill(1e9), calm: 0 };   // v0.81 gy: ground heights per node; calm: still frames on the hook
 for (let i = 0; i <= HOSE.N; i++) { HOSE.P.push(new THREE.Vector3()); HOSE.Q.push(new THREE.Vector3()); }
 { HOSE.inst = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.012, 0.012, 1, 6), mat(0x1c1c1c), HOSE.N); HOSE.inst.frustumCulled = false; HOSE.inst.userData.noBatch = true; HOSE.inst.visible = false; scene.add(HOSE.inst);
   const nz = new THREE.Group(), dk = mat(0x2a2a2a), al = mat(0x9a9a9a), rd = mat(0xb02a1c); nz.userData.noBatch = true;   // v0.77.7 a pistol-grip fuel nozzle: body along +z, spout bent down at the front, grip below the back, trigger lever under the body inside its guard
@@ -2891,7 +2918,19 @@ for (let i = 0; i <= HOSE.N; i++) { HOSE.P.push(new THREE.Vector3()); HOSE.Q.pus
 const _hsA = new THREE.Vector3(), _hsB = new THREE.Vector3(), _hsC = new THREE.Vector3(), _hsM = new THREE.Matrix4(), _hsQ = new THREE.Quaternion(), _hsU = new THREE.Vector3(0, 1, 0), _hsS = new THREE.Vector3();
 const hoseOut = (F, o) => o.copy(F.p).add(_hsC.set(0.16, 0.9, 0));     // the pump's outlet on the drum lid
 const hoseHook = (F, o) => o.copy(F.p).add(_hsC.set(0.32, 0.74, 0));   // where the nozzle hangs on the drum
-function hoseStation() { camera.getWorldPosition(_hsA); let b = null, bd = 30; for (const F of FUEL_ST) { if (!F.p) continue; const d = hyp(F.p.x - _hsA.x, F.p.z - _hsA.z); if (d < bd) { bd = d; b = F; } } return b; }
+function hsLook(q, v) {   // v1.16.3 Object3D.lookAt(position + v) for a scene child with up = +y, inline (three's maths, no boxed getters / temporaries)
+  let zx = v.x, zy = v.y, zz = v.z, l = zx * zx + zy * zy + zz * zz; if (l === 0) zz = 1; l = Math.sqrt(zx * zx + zy * zy + zz * zz); zx /= l; zy /= l; zz /= l;
+  let xx = zz, xy = 0, xz = -zx; if (xx * xx + xz * xz === 0) { zz += 0.0001; l = Math.sqrt(zx * zx + zy * zy + zz * zz); zx /= l; zy /= l; zz /= l; xx = zz; xz = -zx; }
+  l = Math.sqrt(xx * xx + xy * xy + xz * xz); xx /= l; xy /= l; xz /= l;
+  const yx = zy * xz - zz * xy, yy = zz * xx - zx * xz, yz = zx * xy - zy * xx;
+  const m11 = xx, m12 = yx, m13 = zx, m21 = xy, m22 = yy, m23 = zy, m31 = xz, m32 = yz, m33 = zz, tr = m11 + m22 + m33;
+  let qx, qy, qz, qw;
+  if (tr > 0) { const s = 0.5 / Math.sqrt(tr + 1.0); qx = (m32 - m23) * s; qy = (m13 - m31) * s; qz = (m21 - m12) * s; qw = 0.25 / s; }
+  else if (m11 > m22 && m11 > m33) { const s = 2.0 * Math.sqrt(1.0 + m11 - m22 - m33); qx = 0.25 * s; qy = (m12 + m21) / s; qz = (m13 + m31) / s; qw = (m32 - m23) / s; }
+  else if (m22 > m33) { const s = 2.0 * Math.sqrt(1.0 + m22 - m11 - m33); qx = (m12 + m21) / s; qy = 0.25 * s; qz = (m23 + m32) / s; qw = (m13 - m31) / s; }
+  else { const s = 2.0 * Math.sqrt(1.0 + m33 - m11 - m22); qx = (m13 + m31) / s; qy = (m23 + m32) / s; qz = 0.25 * s; qw = (m21 - m12) / s; }
+  q._x = qx; q._y = qy; q._z = qz; q._w = qw; q._onChangeCallback(); }
+function hoseStation() { camera.getWorldPosition(_hsA); let b = null, bd = 900; for (let i = 0; i < FUEL_ST.length; i++) { const F = FUEL_ST[i]; if (!F.p) continue; const dx = F.p.x - _hsA.x, dz = F.p.z - _hsA.z, d2 = dx * dx + dz * dz; if (d2 < bd) { bd = d2; b = F; } } return b; }   // v1.16.3 no iterator, squared distance
 function hoseFlow() { const g = HOSE.held; if (!g || HOSE.inCap < 0 || HOSE.inCap !== FUELP.cap) return false; const b = g.userData.src?.gamepad?.buttons[0]; return (b?.value ?? (b?.pressed ? 1 : 0)) > 0.5; }
 function hoseGrab(g, p) {
   if (!HOSE.st || HOSE.held || p.distanceTo(HOSE.E) > 0.2) return false;
@@ -2910,7 +2949,7 @@ function hoseIn(c) {   // the nozzle reaches a cap
   FUELP.on = true; FUELP.vr = true; FUELP.cap = c; FUELP.g = HOSE.held; FUELP.fullSaid = false; sfx('click'); if (HOSE.held) HX.pulse(HOSE.held, 0.35, 20, 'fuel');
   say('NOZZLE IN - SQUEEZE THE TRIGGER TO PUMP - $' + fuelPx(FUELP.st).toFixed(2) + '/GAL');
 }
-function hoseReset(F) { HOSE.held = null; HOSE.inCap = -1; HOSE.rest = 'hook'; HOSE.calm = 0; if (!F) return; hoseOut(F, _hsA); hoseHook(F, _hsB);
+function hoseReset(F) { HOSE.held = null; HOSE.inCap = -1; HOSE.rest = 'hook'; HOSE.calm = 0; HOSE.gx.fill(1e9); HOSE.gz.fill(1e9); if (!F) return; hoseOut(F, _hsA); hoseHook(F, _hsB);
   for (let i = 0; i <= HOSE.N; i++) { const t = i / HOSE.N; HOSE.P[i].lerpVectors(_hsA, _hsB, t); HOSE.P[i].y -= Math.sin(t * Math.PI) * 0.35; HOSE.Q[i].copy(HOSE.P[i]); } HOSE.E.copy(_hsB); }
 function hoseTick(dt) {
   const F = mode === 'foot' ? hoseStation() : null;
@@ -2933,19 +2972,20 @@ function hoseTick(dt) {
   const h = Math.min(dt, 1 / 30) / 2, g2 = 9.81 * h * h; plane.updateMatrixWorld(); hoseCubGear(); _hsWi.copy(plane.matrixWorld).invert(); _hsB.copy(HOSE.E).applyMatrix4(_hsWi); const wingNear = Math.abs(_hsB.x) < TIP_X + HOSE.L && Math.abs(_hsB.z) < HOSE.L + 2;
   for (let sub = 0; sub < 2; sub++) {
     for (let i = 1; i <= N; i++) { if (i === N && pin) continue; const p = P[i], q = Q[i]; _hsB.subVectors(p, q).multiplyScalar(0.985); q.copy(p); p.add(_hsB); p.y -= g2; }
-    for (let i = 1; i <= N; i++) HOSE.gy[i] = groundY(P[i].x, P[i].z) + 0.012;   // v0.81 the ground under each node once per sub-step (it was 14x: the hottest garbage source on foot)
+    for (let i = 1; i <= N; i++) { const p = P[i], ex = p.x - HOSE.gx[i], ez = p.z - HOSE.gz[i]; if (ex > 0.03 || ex < -0.03 || ez > 0.03 || ez < -0.03) { HOSE.gx[i] = p.x; HOSE.gz[i] = p.z; GYO[5] = p.x; GYO[6] = p.z; gyRun(); HOSE.gy[i] = GYO[0] + 0.012; } }   // v0.81 the ground under each node once per sub-step; v1.16.3 cached per node (re-read after 3 cm sideways): no boxed groundY results per frame
     for (let it = 0; it < 14; it++) {
       P[0].copy(_hsA); if (pin) P[N].copy(HOSE.E);
-      for (let i = 0; i < N; i++) { const a = P[i], b = P[i + 1]; _hsB.subVectors(b, a); const d = _hsB.length(); if (d <= seg || d < 1e-6) continue; const k = (d - seg) / d;
+      for (let i = 0; i < N; i++) { const a = P[i], b = P[i + 1], bx = b.x - a.x, by = b.y - a.y, bz = b.z - a.z, d = Math.sqrt(bx * bx + by * by + bz * bz); if (d <= seg || d < 1e-6) continue; _hsB.set(bx, by, bz); const k = (d - seg) / d;
         const wa = i === 0 ? 0 : 1, wb = i + 1 === N && pin ? 0 : 1, w = wa + wb; if (!w) continue; a.addScaledVector(_hsB, k * wa / w); b.addScaledVector(_hsB, -k * wb / w); }
       for (let i = 1; i <= N; i++) { const p = P[i], gy = HOSE.gy[i]; if (p.y < gy) { p.y = gy; Q[i].x += (p.x - Q[i].x) * 0.5; Q[i].z += (p.z - Q[i].z) * 0.5; Q[i].y = p.y; } }   // lies on the ground (with a little friction)
       if (wingNear) for (let i = 1; i <= N; i++) if (!(i === N && pin)) { if (it & 1) hoseCub(P[i], Q[i]); else hoseWing(P[i], Q[i]); }   // v0.77.7 drapes over the wing, never through it. v1.13.0 and over / round the rest of the Cub (the full set on every other pass, the last one included; the wing alone between)
     } }
-  { let mv = 0; for (let i = 1; i <= N; i++) mv = Math.max(mv, P[i].distanceToSquared(Q[i])); HOSE.calm = calm && mv < 1e-8 ? HOSE.calm + 1 : 0; }
+  { let mv = 0; for (let i = 1; i <= N; i++) { const p = P[i], q = Q[i], ex = p.x - q.x, ey = p.y - q.y, ez = p.z - q.z, m = ex * ex + ey * ey + ez * ez; if (m > mv) mv = m; } HOSE.calm = calm && mv < 1e-8 ? HOSE.calm + 1 : 0; }
   if (!pin) { HOSE.E.copy(P[N]); HOSE.dir.subVectors(P[N], P[N - 1]).normalize(); HOSE.tip.copy(HOSE.E).addScaledVector(HOSE.dir, 0.15); }
-  for (let i = 0; i < N; i++) { const a = P[i], b = P[i + 1]; _hsB.subVectors(b, a); const d = Math.max(_hsB.length(), 1e-4); _hsQ.setFromUnitVectors(_hsU, _hsB.divideScalar(d)); _hsS.set(1, d, 1); _hsC.addVectors(a, b).multiplyScalar(0.5); _hsM.compose(_hsC, _hsQ, _hsS); HOSE.inst.setMatrixAt(i, _hsM); }
+  for (let i = 0; i < N; i++) { const a = P[i], b = P[i + 1], bx = b.x - a.x, by = b.y - a.y, bz = b.z - a.z, l = Math.sqrt(bx * bx + by * by + bz * bz), d = l > 1e-4 ? l : 1e-4; { const ux = bx / d, uy = by / d, uz = bz / d, r = uy + 1; if (r < Number.EPSILON) _hsQ.set(0, 0, 1, 0); else { const qn = Math.sqrt(uz * uz + ux * ux + r * r); _hsQ.set(uz / qn, 0, -ux / qn, r / qn); } } _hsS.set(1, d, 1); _hsC.addVectors(a, b).multiplyScalar(0.5); _hsM.compose(_hsC, _hsQ, _hsS); HOSE.inst.setMatrixAt(i, _hsM); }
   HOSE.inst.instanceMatrix.needsUpdate = true;
-  if (!HOSE.held) { HOSE.noz.position.copy(HOSE.E); HOSE.noz.lookAt(_hsB.copy(HOSE.E).add(HOSE.dir)); HOSE.noz.updateMatrix(); HOSE.noz.position.sub(_hsC.copy(HOSE.rest === 'cap' || FUELP.on ? NOZ.SPOUT : NOZ.INLET).applyQuaternion(HOSE.noz.quaternion)); if (HOSE.rest === 'cap' || FUELP.on) HOSE.noz.position.add(HOSE.tip).sub(HOSE.E); }   // v0.77.7 resting: the inlet on the hose end (hook / ground) or the spout in the cap
+  if (!HOSE.held) { HOSE.noz.position.copy(HOSE.E); if (HOSE.noz.parent === scene) { _hsB.copy(HOSE.E).add(HOSE.dir); hsLook(HOSE.noz.quaternion, _hsC.subVectors(_hsB, HOSE.E)); } else HOSE.noz.lookAt(_hsB.copy(HOSE.E).add(HOSE.dir)); HOSE.noz.updateMatrix(); { const v = HOSE.rest === 'cap' || FUELP.on ? NOZ.SPOUT : NOZ.INLET, q = HOSE.noz.quaternion, qx = q._x, qy = q._y, qz = q._z, qw = q._w, tx = 2 * (qy * v.z - qz * v.y), ty = 2 * (qz * v.x - qx * v.z), tz = 2 * (qx * v.y - qy * v.x), P0 = HOSE.noz.position;   // v1.16.3 inline rotate (no boxed getters)
+      P0.x -= v.x + qw * tx + qy * tz - qz * ty; P0.y -= v.y + qw * ty + qz * tx - qx * tz; P0.z -= v.z + qw * tz + qx * ty - qy * tx; } if (HOSE.rest === 'cap' || FUELP.on) HOSE.noz.position.add(HOSE.tip).sub(HOSE.E); }   // v0.77.7 resting: the inlet on the hose end (hook / ground) or the spout in the cap
   if (HOSE.lever) HOSE.lever.rotation.x = hoseFlow() || (HOSE.held && (HOSE.held.userData.src?.gamepad?.buttons[0]?.value || 0) > 0.5) ? -0.35 : 0;   // the lever squeezes up toward the body
 }
 const _hsWi = new THREE.Matrix4(), _hsL = new THREE.Vector3(), _hsN = new THREE.Matrix4(), _hsR = new THREE.Matrix4().makeBasis(new THREE.Vector3(-1, 0, 0), new THREE.Vector3(0, Math.sin(NOZ.rake), -Math.cos(NOZ.rake)), new THREE.Vector3(0, -Math.cos(NOZ.rake), -Math.sin(NOZ.rake)));   // nozzle axes in hand space: down the grip = the hand's +z (index at the top), the body 25 deg below the controller's forward
@@ -3538,8 +3578,8 @@ const TOWN_MESH = [];
     TOWN_MESH.push({ m: pole, x: wx, z: wz, far: 2500 }, { m: sock, x: wx, z: wz, far: 2500 }); }
   // floors: groundY() is now terrain + floor slabs inside enterable buildings (your feet stand on the floor)
   const g0 = groundY;
-  groundY = (x, z) => { const h = g0(x, z); for (const T of TOWNS) { const dx = x - T.x, dz = z - T.z; if (dx > 130 || dx < -130 || dz > 130 || dz < -130) continue;
-      for (const b of T.bld) { if (!b.enter) continue; const ex = x - b.x, ez = z - b.z; if (ex > b.R || ex < -b.R || ez > b.R || ez < -b.R) continue;
+  groundY = (x, z) => { const h = g0(x, z); for (let ti = 0; ti < TOWNS.length; ti++) { const T = TOWNS[ti], dx = x - T.x, dz = z - T.z; if (dx > 130 || dx < -130 || dz > 130 || dz < -130) continue;
+      for (let bi = 0; bi < T.bld.length; bi++) { const b = T.bld[bi]; if (!b.enter) continue; const ex = x - b.x, ez = z - b.z; if (ex > b.R || ex < -b.R || ez > b.R || ez < -b.R) continue;
         const c = Math.cos(b.a), s = Math.sin(b.a), lx = ex * c - ez * s, lz = ex * s + ez * c; if (Math.abs(lx) < b.hw && Math.abs(lz) < b.hd) return Math.max(h, b.y); } } return h; };
 }
 // ================= v0.38: the Halvorsen file - medevac crash, quarantine checkpoint, Dry Fork grain elevator, Halvorsen Ag-Bio station + its gravel strip =================
@@ -4016,7 +4056,7 @@ const V40 = { poles: 0, wires: null };   // v0.40 street & roadside dressing (bu
       for (let i = 0; i < m.count; i++) if (A[i * 16 + 15] && off(A[i * 16 + 12], A[i * 16 + 14])) { A.fill(0, i * 16, i * 16 + 16); hit = true; } if (hit) m.instanceMatrix.needsUpdate = true; });
     for (const L of [TREES]) for (let i = L.length - 1; i >= 0; i--) if (off(L[i][0], L[i][2])) L.splice(i, 1); };
 }
-{ const g1 = groundY; groundY = (x, z) => { const h = g1(x, z); for (const D of V39.DECKS) { const dx = x - D.o.x, dz = z - D.o.z; if (dx * dx + dz * dz > 625) continue;   // walk / drive the bridge deck
+{ const g1 = groundY; groundY = (x, z) => { const h = g1(x, z); for (let di = 0; di < V39.DECKS.length; di++) { const D = V39.DECKS[di], dx = x - D.o.x, dz = z - D.o.z; if (dx * dx + dz * dz > 625) continue;   // walk / drive the bridge deck
     const c = Math.cos(D.o.a), s = Math.sin(D.o.a), lx = dx * c - dz * s, lz = dx * s + dz * c; if (lx > D.x0 && lx < D.x1 && lz > D.z0 && lz < D.z1) return Math.max(h, D.y + 0.05); } return h; }; }
 function townPush(c, r = 0.35) {   // circle vs wall segments: slide along walls; returns true if pushed
   let hit = false;
@@ -6266,11 +6306,14 @@ function floatJob(id, fS, to) {
   if (fS && fS.B && fS.B.kit === 'floats' && r() < 0.5) return FLOAT_HOP[Math.floor(r() * FLOAT_HOP.length)];
   const L = FLOAT_J[to.id]; return L[Math.floor(r() * L.length)]; }
 function dlvGen(from, forceH) { const j = repShape(dlvGen0(from, forceH)); let k = 1; try { k = STORY.on && STORY.act < 3 ? STORY_PAYX : 1; } catch (e) { } if (j && k !== 1) j.pay = Math.round(j.pay * k); return j; }   // v0.99 story jobs pay x1.6   // v0.56 priced by rep
+function dlvTrustTo(id, fS, to) {   // v1.16.3 story: lean new offers toward the town you are winning over
+  try { if (!STORY.on || STORY.said.a2 || GOAL.sm || GOAL.si < 0) return to; const S = GOL_S[GOAL.si]; if (!S || S === fS || S.lock || STORY.said[GOL_GK[GOAL.si]] || repOf(S.id) >= REP_UNL) return to;
+    return dlvRng(id * 2654435 + 17)() < 0.34 ? S : to; } catch (e) { return to; } }
 function dlvGen0(from, forceH) {   // one offer from this strip (seeded by the running job number, so a save reloads the same board); forceH: heavy freight
   const id = DLV.seq++; { const rh = dlvRng(id * 49979687 + 11); if (!forceH && rh() < HUNT_P) return huntGen(id, from, rh); }   // v0.53
   { const ra = dlvRng(id * 86028121 + 5); if (!forceH && ra() < DROP_P) return dropGen(id, from, ra); }   // v0.54 airdrops
   const r = dlvRng(id * 7919 + 13), fS = dlvS(from), others = DLV_STRIPS.filter(S => S.id !== from && !S.lock && !(S.B && S.B.kit && !(UPG.kown && UPG.kown[S.B.kit]))), bush = others.filter(S => S.site), main = others.filter(S => !S.site);
-  const pool = bush.length && r() < (fS && fS.site ? 0.25 : 0.5) ? bush : main, to = pool[Math.floor(r() * pool.length)], bx = to.site || (fS && fS.site) ? 1.2 + 0.2 * Math.max(to.B?.diff || 0, fS?.B?.diff || 0) : 1;   // v0.52 bush sites (v0.77 + the tricky ones' difficulty)
+  const pool = bush.length && r() < (fS && fS.site ? 0.25 : 0.5) ? bush : main, to = dlvTrustTo(id, fS, pool[Math.floor(r() * pool.length)]), bx = to.site || (fS && fS.site) ? 1.2 + 0.2 * Math.max(to.B?.diff || 0, fS?.B?.diff || 0) : 1;   // v0.52 bush sites (v0.77 + the tricky ones' difficulty)
   const pick = DLV_T[Math.floor(r() * DLV_T.length)], hk = to.B && to.B.hook, fj = !hk && floatJob(id, fS, to), [title, kinds] = hk ? [hk.t, hk.k] : fj || pick, items = dlvCapL(kinds.map(k => { const [a, b] = CARGO_K[k].lb; return { k, lb: Math.round(a + r() * (b - a)) }; }));
   const lb = items.reduce((s, i) => s + i.lb, 0), km = dlvKm(dlvS(from), to), dl = r() < 0.45 ? Math.ceil(6 + km * 1.5) : 0;
   const r2 = dlvRng(id * 104729 + 7), r3 = dlvRng(id * 15485863 + 3), spc = r2() < 0.35;
@@ -8180,7 +8223,7 @@ function deerTick(dt) {
     let spd = 0;
     if (a.state === 'dead') a.fall = Math.min(1, a.fall + dt * 2.5);
     else if (a.state !== 'gone') {
-      const planeNear = !foot && hyp(ac.pos[0] - a.x, ac.pos[2] - a.z) < 90 && V > 5 && ac.pos[1] - a.y < 70;
+      const planeNear = !foot && (ac.pos[0] - a.x) * (ac.pos[0] - a.x) + (ac.pos[2] - a.z) * (ac.pos[2] - a.z) < 8100 && V > 5 && ac.pos[1] - a.y < 70;
       if (a.state !== 'flee' && ((foot && a.cd < S.see * seeK && (a.cd < 10 || a.los)) || planeNear)) deerScareHerd(a.h, foot ? pp.x : ac.pos[0], foot ? pp.z : ac.pos[2]);
       if (a.state === 'flee') {
         let fy = yawTo(a.x, a.z, 2 * a.x - a.fx, 2 * a.z - a.fz); const hd = hyp(a.x - H.x0, a.z - H.z0);
@@ -8352,7 +8395,7 @@ function binoRender() {
   binoHead(BINO.cam.position, BINO.cam.quaternion); binoHandNudge(); BINO.cam.quaternion.multiply(BINO.hq); BINO.cam.updateMatrixWorld(true);
   const xr = renderer.xr.enabled, su = renderer.shadowMap.autoUpdate, nu = renderer.shadowMap.needsUpdate; renderer.xr.enabled = false; renderer.shadowMap.autoUpdate = false; renderer.shadowMap.needsUpdate = false; BINO.disk.visible = false;
   for (let i = 0; i < PTS_UH.length; i++) { PTS_UH0[i] = PTS_UH[i].value; PTS_UH[i].value = BINO.rt.height * 0.5; }   // v1.11.16 smoke / signal puffs: world size in the 7x view (they were sized for the eye's framebuffer, ~5x too big)
-  zpBegin(); const rt0 = renderer.getRenderTarget(); renderer.setRenderTarget(BINO.rt); renderer.render(scene, BINO.cam); renderer.setRenderTarget(rt0); zpEnd();
+  fcAll(); zpBegin(); const rt0 = renderer.getRenderTarget(); renderer.setRenderTarget(BINO.rt); renderer.render(scene, BINO.cam); renderer.setRenderTarget(rt0); zpEnd();
   for (let i = 0; i < PTS_UH.length; i++) PTS_UH[i].value = PTS_UH0[i]; renderer.xr.enabled = xr; renderer.shadowMap.autoUpdate = su; renderer.shadowMap.needsUpdate = nu; BINO.disk.visible = true;   // v0.84.7 put back the target we found: in a headset that is the XR layer's framebuffer (null drew the rest of the frame to the page canvas, never the headset)
 }
 const _bhM = new THREE.Matrix4(), _bhP = GV3(0, 0, 0), _bhD = GV3(0, 0, 0), _bhT = new THREE.Quaternion(), _bhI = new THREE.Quaternion(), _bhO = new THREE.Quaternion(), B_NUDGE = { k: 0.25, max: 3 * D2R, tau: 0.45 };
@@ -9026,14 +9069,15 @@ function fFishStep(dt) {
   if (FISH.st === 'fight') fFightStep(dt); }
 function fLiftVR() { return FISH.tipV.y > 1.6 || FISH.tipV.dot(_fk1.subVectors(FISH.tip, FISH.lure).setY(0).normalize()) > 2.0; }   // a sharp lift / sweep away from the fish
 const FHU = { u: new THREE.Vector3(0, 1, 0), vis: false };   // v1.14.1 the fish's 'up' (its back) while it hangs
+const FMESH_K = Object.values(FMESH);   // the species meshes (fixed set)
 function fFishDraw() {
-  for (const k in FMESH) FMESH[k].visible = false; FHU.vis = false; const f = FISH.fish; if (!f || (FISH.st !== 'fight' && FISH.st !== 'landed')) return;
+  for (let i = 0; i < FMESH_K.length; i++) FMESH_K[i].visible = false; FHU.vis = false; const f = FISH.fish; if (!f || (FISH.st !== 'fight' && FISH.st !== 'landed')) return;
   const m = FMESH[f.sp], len = fLenM(f); m.visible = true; FHU.vis = true; m.scale.setScalar(len);
   { const ld = FISH.st === 'landed', tr = f.stam < 0.12; f.wph = (f.wph || 0) + (FISH.dtF || 0.011) * (ld ? 13 : tr ? 3.5 : 7 + 9 * f.stam); const W = m.geometry.attributes.iW; W.setXYZ(0, f.wph, ld ? 0.1 * Math.max(0.25, 1 - (f.ldT = (f.ldT || 0) + (FISH.dtF || 0.011)) / 12) : tr ? 0.03 : 0.05 + 0.05 * f.stam, 0); W.needsUpdate = true; }   // v1.10 the tail beats (a landed fish flaps, then tires)
   if (FISH.st === 'landed') { m.position.copy(FISH.landP); m.quaternion.copy(FISH.landQ); return; }
-  _fk1.subVectors(FISH.tip, FISH.lure); _fk1.y = 0; const th = Math.hypot(_fk1.x, _fk1.z); if (th > 1e-4) { _fk1.x /= th; _fk1.z /= th; }   // toward you (level)
+  _fk1.subVectors(FISH.tip, FISH.lure); _fk1.y = 0; const th = Math.sqrt(_fk1.x * _fk1.x + _fk1.z * _fk1.z); if (th > 1e-4) { _fk1.x /= th; _fk1.z /= th; }   // toward you (level)
   const pw = 0.25 + 1.6 * (1 - f.stam) + (FISH.T > 0.2 * FISH.rig.drag ? 0.4 : 0);   // the line turns its head your way as it tires / the line comes tight
-  let hx = f.v.x + _fk1.x * pw, hy = f.v.y * 0.4, hz = f.v.z + _fk1.z * pw, hl = Math.hypot(hx, hy, hz); if (hl < 1e-2) { hx = _fk1.x; hy = 0; hz = _fk1.z; hl = Math.hypot(hx, hz); } if (hl < 1e-6) { hx = 0; hz = -1; hl = 1; }
+  let hx = f.v.x + _fk1.x * pw, hy = f.v.y * 0.4, hz = f.v.z + _fk1.z * pw, hl = Math.sqrt(hx * hx + hy * hy + hz * hz); if (hl < 1e-2) { hx = _fk1.x; hy = 0; hz = _fk1.z; hl = Math.sqrt(hx * hx + hz * hz); } if (hl < 1e-6) { hx = 0; hz = -1; hl = 1; }
   hx /= hl; hy /= hl; hz /= hl;
   const air = FISH.lure.y - FISH.surf, av = air > 0.12 ? 1 : air > 0.02 ? (air - 0.02) * 10 : 0;   /* v1.14.1 out of the water: it hangs off the hook, head up the line */
   if (av > 0) { let lx = FISH.tip.x - FISH.lure.x, ly = FISH.tip.y - FISH.lure.y, lz = FISH.tip.z - FISH.lure.z; const ll = Math.sqrt(lx * lx + ly * ly + lz * lz) || 1; lx /= ll; ly /= ll; lz /= ll; if (ly < 0.97) { ly = 0.97; const q = Math.sqrt(lx * lx + lz * lz) || 1, s = Math.sqrt(1 - 0.97 * 0.97) / q; lx *= s; lz *= s; }   /* (gravity: near plumb whatever the line's angle) */
@@ -9220,6 +9264,31 @@ function fOrderTick() { if (!FORD.at || !FORD.o || mode !== 'foot') return; came
   for (const [b, f] of pick) b.splice(b.indexOf(f), 1); DLV.cash += o.pay; sfx('cash'); FISH.stat.orders = (FISH.stat.orders || 0) + 1; say('MRS ANDERS TAKES THE FISH: +$' + o.pay + ' (WALLET $' + DLV.cash + ') - "COME BACK TOMORROW, I\'LL WANT MORE"'); fOrderNew(); saveSoon(); }
 // ---- docks: two on the lakes (walkable decks out over the drop-off; fish hold there) ----
 const FDOCK = [];
+const GYO = new Float64Array(7); let GY_REF = null;
+
+function gyRun() {   // reads GYO[5], GYO[6] (callers on hot paths write those instead of passing doubles as call arguments, which V8 boxes)
+  const x = GYO[5], z = GYO[6];
+  if (groundY !== GY_REF) { GYO[0] = groundY(x, z); return; }
+  const c = Math.abs(x) <= T_IN && Math.abs(z) <= T_IN ? T_C1 : T_C2;
+  const fx = (x + T_OUT) / c, fz = (z + T_OUT) / c, ix = Math.floor(fx), iz = Math.floor(fz), u = fx - ix, v = fz - iz, X = ix * c - T_OUT, Z = iz * c - T_OUT;
+  let k = 0; const G = GYO;   // G[1..4] = the triangle's corner heights, G[0] = the running height (typed-array slots: no boxed double phis)
+  if (VHC_ON && (X | 0) === X && (Z | 0) === Z && X !== -2147483648) {
+    k = (Math.imul(X, 73856093) ^ Math.imul(Z, 19349663)) >>> 20; if (VHC_X[k] === X && VHC_Z[k] === Z) G[1] = VHC_V[k]; else G[1] = vertHc(X, Z);
+    const Zc = Z + c, Xc = X + c;
+    k = (Math.imul(X, 73856093) ^ Math.imul(Zc, 19349663)) >>> 20; if (VHC_X[k] === X && VHC_Z[k] === Zc) G[2] = VHC_V[k]; else G[2] = vertHc(X, Zc);
+    k = (Math.imul(Xc, 73856093) ^ Math.imul(Z, 19349663)) >>> 20; if (VHC_X[k] === Xc && VHC_Z[k] === Z) G[3] = VHC_V[k]; else G[3] = vertHc(Xc, Z);
+    if (u + v > 1) { k = (Math.imul(Xc, 73856093) ^ Math.imul(Zc, 19349663)) >>> 20; if (VHC_X[k] === Xc && VHC_Z[k] === Zc) G[4] = VHC_V[k]; else G[4] = vertHc(Xc, Zc); }
+  } else { G[1] = vertHc(X, Z); G[2] = vertHc(X, Z + c); G[3] = vertHc(X + c, Z); if (u + v > 1) G[4] = vertHc(X + c, Z + c); }
+  if (u + v <= 1) G[0] = G[1] + u * (G[3] - G[1]) + v * (G[2] - G[1]); else G[0] = G[4] + (1 - u) * (G[2] - G[4]) + (1 - v) * (G[3] - G[4]);
+  town: for (let ti = 0; ti < TOWNS.length; ti++) { const T = TOWNS[ti], dx = x - T.x, dz = z - T.z; if (dx > 130 || dx < -130 || dz > 130 || dz < -130) continue;   // = the town floors wrapper
+    for (let bi = 0; bi < T.bld.length; bi++) { const b = T.bld[bi]; if (!b.enter) continue; const ex = x - b.x, ez = z - b.z; if (ex > b.R || ex < -b.R || ez > b.R || ez < -b.R) continue;
+      const cc = Math.cos(b.a), s = Math.sin(b.a), lx = ex * cc - ez * s, lz = ex * s + ez * cc; if (Math.abs(lx) < b.hw && Math.abs(lz) < b.hd) { if (b.y > G[0]) G[0] = b.y; break town; } } }
+  { const r = LAB.rect; if (r) { const dx = x - r.o.x, dz = z - r.o.z; if (!(dx > 40 || dx < -40 || dz > 40 || dz < -40)) {   // = the lab floor wrapper
+      const cc = Math.cos(r.o.a), s = Math.sin(r.o.a), lx = dx * cc - dz * s, lz = dx * s + dz * cc; if (lx > r.x0 && lx < r.x1 && lz > r.z0 && lz < r.z1 && LAB.floor > G[0]) G[0] = LAB.floor; } } }
+  for (let di = 0; di < V39.DECKS.length; di++) { const D = V39.DECKS[di], dx = x - D.o.x, dz = z - D.o.z; if (dx * dx + dz * dz > 625) continue;   // = the bridge deck wrapper
+    const cc = Math.cos(D.o.a), s = Math.sin(D.o.a), lx = dx * cc - dz * s, lz = dx * s + dz * cc; if (lx > D.x0 && lx < D.x1 && lz > D.z0 && lz < D.z1) { if (D.y + 0.05 > G[0]) G[0] = D.y + 0.05; break; } }
+  for (let di = 0; di < FDOCK.length; di++) { const d = FDOCK[di], rx = x - d.x0, rz = z - d.z0, al = rx * d.dx + rz * d.dz; if (al < 0 || al > d.len) continue; if (Math.abs(rx * d.dz - rz * d.dx) > d.hw) continue; if (d.y > G[0]) { G[0] = d.y; break; } }   // = the dock wrapper
+  }
 for (const [id, len] of [['ESHORE', 14], ['NWSHORE', 12]]) { const s = BUSH.find(b => b.id === id); if (!s) continue; const L = inLake(s.x, s.z) || LAKES.reduce((a, b) => hyp(s.x - a.x, s.z - a.z) - a.r < hyp(s.x - b.x, s.z - b.z) - b.r ? a : b);
   const ux = (s.x - L.x), uz = (s.z - L.z), ul = hyp(ux, uz), dx = -ux / ul, dz = -uz / ul, wl = L.h - 0.2, y = wl + 0.55, a = Math.atan2(dx, dz);
   let r0 = L.r + 4; while (r0 > 10 && terrainHeight(L.x - dx * r0, L.z - dz * r0) > wl + 0.25) r0 -= 1;   // the dock starts at the waterline, runs out to ~1 m of water and on by 'len'
@@ -9227,7 +9296,7 @@ for (const [id, len] of [['ESHORE', 14], ['NWSHORE', 12]]) { const s = BUSH.find
   const sx = L.x - dx * r0, sz = L.z - dz * r0, d = { x0: sx, z0: sz, dx, dz, len: r0 - r1 + len, hw: 0.9, y, a }; FDOCK.push(d); FSPOTS.push({ x: sx + dx * d.len, z: sz + dz * d.len, r: 45, k: 1.6, nm: 'THE ' + L.name + ' DOCK' });
   const wm = mat(0x7a6040), pm = mat(0x4a3a2a), G = new THREE.Group(); G.position.set(sx, 0, sz); G.rotation.y = a; scene.add(G);
   box(1.8, 0.08, d.len, wm, 0, y - 0.04, d.len / 2, G); for (let k = 0; k <= d.len; k += 3) for (const px of [-0.85, 0.85]) { const gx = sx + dx * k, gz = sz + dz * k, gy = Math.min(terrainHeight(gx, gz), y - 0.3); box(0.14, y - gy + 0.3, 0.14, pm, px, (y + gy) / 2 - 0.1, k, G); } }
-{ const g1 = groundY; groundY = (x, z) => { const h = g1(x, z); for (const d of FDOCK) { const rx = x - d.x0, rz = z - d.z0, al = rx * d.dx + rz * d.dz; if (al < 0 || al > d.len) continue; if (Math.abs(rx * d.dz - rz * d.dx) > d.hw) continue; if (d.y > h) return d.y; } return h; }; }
+{ const g1 = groundY; groundY = (x, z) => { const h = g1(x, z); for (let di = 0; di < FDOCK.length; di++) { const d = FDOCK[di], rx = x - d.x0, rz = z - d.z0, al = rx * d.dx + rz * d.dz; if (al < 0 || al > d.len) continue; if (Math.abs(rx * d.dz - rz * d.dx) > d.hw) continue; if (d.y > h) return d.y; } return h; }; GY_REF = groundY; }   // v1.16.3 gyTo mirrors this chain
 // ---- the float deck: out of a floatplane on deep water you step onto the right float (walk it bow to stern; Y / F climbs back in) ----
 const FDECK = { x: 1.1, y: -0.98, z0: -2.3, z1: 1.7, hw: 0.2 };
 function fDeckExit(x, z) {   // exitPlane, deep water: true = stepped onto the float
@@ -10394,7 +10463,7 @@ function faunaSpawn() {
   FAUNA.amb = []; FAUNA.pool = {}; FAUNA.poolK = []; FAUNA._near = new Array(64); FAUNA.wolfT = 0; FAUNA.howlT = 8; FAUNA.birds = [];
   const put = (sp, x, z, pack) => {
     if (vegBlocked(x, z, 2) && sp !== 'bird') { /* try a nudge */ x += 8; z += 6; if (vegBlocked(x, z, 2) && sp !== 'bird') return; }
-    const a = { sp, x, z, y: groundY(x, z), yaw: vegR() * 6.283, state: 'graze', t: vegR() * 5, spd: 0, cd: 1e9, fx: 0, fz: 0, hx: x, hz: z, inst: null, pack: pack || 0 };
+    const a = faunaObj(sp, x, z, groundY(x, z), vegR() * 6.283, 'graze', vegR() * 5, pack || 0, 0);
     FAUNA.amb.push(a);
   };
   // elk: a small band at Elk Meadow and two other open spots (ambient, not hunted)
@@ -10427,7 +10496,7 @@ function faunaSpawn() {
   // preallocated swag-night wolves (activated in place: no per-frame / start alloc)
   FAUNA.cw = [null, null]; FAUNA.campW = null; FAUNA.campOn = 0;
   for (let k = 0; k < 2; k++) {
-    const a = { sp: 'wolf', x: 1e8, z: 1e8, y: 0, yaw: 0, state: 'gone', t: 0, spd: 0, cd: 1e9, fx: 0, fz: 0, hx: 1e8, hz: 1e8, inst: null, pack: -1, camp: 0, hold: 1 };
+    const a = faunaObj('wolf', 1e8, 1e8, 0.5, 0.5, 'gone', 0.5, -1, 1);
     FAUNA.amb.push(a); FAUNA.cw[k] = a;
   }
   const srcK = Object.keys(FAUNA.src); for (let i = 0; i < srcK.length; i++) faunaMeasure(srcK[i]);
@@ -10462,6 +10531,8 @@ function faunaInstFor(a) {
   const D = FAUNA.dsp[a.sp], S = FAUNA.src[mesh], k = D.h / (S.worldH || S.h);
   I.g.scale.setScalar(k); I.k = k; I.y0 = (S.worldY0 != null ? S.worldY0 : S.y0) * k; return I;
 }
+function faunaObj(sp, x, z, y, yaw, state, t, pack, hold) {   // v1.16.3 the one fauna shape
+  return { sp, x: +x, z: +z, y: +y, yaw: +yaw, state, t: +t, spd: 0, cd: 1e9, fx: 0, fz: 0, hx: +x, hz: +z, inst: null, pack, camp: 0, hold, walk: false, _gx: 1.5e9, _gz: 1.5e9 }; }
 function faunaFree(a) { const I = a.inst; if (!I) return; I.a = null; a.inst = null; I.g.visible = false; I.key = ''; }
 function faunaScare(a, sx, sz) { if (a.state === 'dead' || a.state === 'gone') return; a.state = 'flee'; a.t = 5 + Math.random() * 4; a.fx = sx; a.fz = sz; }
 function faunaScareAround(x, z, r) { for (let i = 0; i < FAUNA.amb.length; i++) { const a = FAUNA.amb[i]; if (hyp(a.x - x, a.z - z) < r) faunaScare(a, x, z); } }
@@ -10505,7 +10576,7 @@ function faunaTick(dt) {
   for (let i = 0; i < FAUNA.amb.length; i++) {
     const a = FAUNA.amb[i];
     if (a.state === 'gone') { a.cd = 1e9; if (a.inst) faunaFree(a); continue; }
-    a.cd = hyp(pp.x - a.x, pp.z - a.z);
+    { const ex = pp.x - a.x, ez = pp.z - a.z; a.cd = Math.sqrt(ex * ex + ez * ez); }   // v1.16.3 inline (no boxed call)
     if (a.cd < 150) { if (nC < C.length) C[nC++] = a; } else if (a.inst) faunaFree(a);
   }
   for (let i = 1; i < nC; i++) { const p = C[i]; let j = i; while (j > 0 && C[j - 1].cd > p.cd) { C[j] = C[j - 1]; j--; } C[j] = p; }
@@ -10516,7 +10587,7 @@ function faunaTick(dt) {
   for (let i = 0; i < FAUNA.amb.length; i++) {
     const a = FAUNA.amb[i], D = FAUNA.dsp[a.sp]; if (!D || a.state === 'gone') continue;
     if (a.cd > 1400 && a.state !== 'flee' && a.state !== 'camp') continue;
-    const planeNear = !foot && hyp(ac.pos[0] - a.x, ac.pos[2] - a.z) < 90 && V > 5 && ac.pos[1] - a.y < 70;
+    const planeNear = !foot && (ac.pos[0] - a.x) * (ac.pos[0] - a.x) + (ac.pos[2] - a.z) * (ac.pos[2] - a.z) < 8100 && V > 5 && ac.pos[1] - a.y < 70;
     if (a.state !== 'flee' && a.state !== 'dead' && ((foot && a.cd < D.see && a.cd < (a.sp === 'wolf' && a.camp ? 16 : D.see)) || planeNear)) faunaScare(a, foot ? pp.x : ac.pos[0], foot ? pp.z : ac.pos[2]);
     let spd = 0;
     if (a.state === 'camp') {
@@ -10531,11 +10602,11 @@ function faunaTick(dt) {
       if ((a.t -= dt) <= 0) { a.state = 'graze'; a.t = 3; if (a.camp) a.state = 'flee'; }
     } else {
       a.t -= dt; if (a.t <= 0) { a.t = 2 + Math.random() * 6; a.yaw += (Math.random() - 0.5) * 2; a.walk = Math.random() < 0.45; }
-      if (hyp(a.x - a.hx, a.z - a.hz) > 28) a.yaw = turnTo(a.yaw, yawTo(a.x, a.z, a.hx, a.hz), dt);
+      if ((a.x - a.hx) * (a.x - a.hx) + (a.z - a.hz) * (a.z - a.hz) > 784) a.yaw = turnTo(a.yaw, yawTo(a.x, a.z, a.hx, a.hz), dt);
       spd = a.walk ? D.walk : 0;
     }
     a.spd = spd; a.x -= Math.sin(a.yaw) * spd * dt; a.z -= Math.cos(a.yaw) * spd * dt;
-    if (a._gx !== a.x || a._gz !== a.z) { a._gx = a.x; a._gz = a.z; a.y = groundY(a.x, a.z); }
+    if (a._gx !== a.x || a._gz !== a.z) { a._gx = a.x; a._gz = a.z; GYO[5] = a.x; GYO[6] = a.z; gyRun(); a.y = GYO[0]; }   // v1.16.3 no boxed groundY
   }
   // pose the assigned models
   let live = 0;
@@ -10552,7 +10623,7 @@ function faunaTick(dt) {
       else if (a.state === 'graze' && I.act.eat && (a.t % 3 < 1.4)) key = 'eat';
       if (I.act[key] && I.key !== key) { const n = I.act[key]; n.reset(); n.setEffectiveTimeScale(ts); n.setEffectiveWeight(1); n.play(); if (I.cur && I.cur !== n) I.cur.crossFadeTo(n, 0.25, false); I.cur = n; I.key = key; }
       else if (I.act[key]) I.act[key].setEffectiveTimeScale(ts);
-      I.acc += dt; if (a.cd < 70 || live % 3 === 0) { I.mx.update(I.acc); I.acc = 0; }
+      I.acc += dt; if (a.cd < 70 || live % 3 === 0) { if (I.acc === dt) I.mx.update(dt); else I.mx.update(I.acc); I.acc = 0; }   // v1.16.3 pass the already-boxed dt (no new box per animal per frame)
     }
   }
   FAUNA.live = live;
@@ -10560,14 +10631,19 @@ function faunaTick(dt) {
   if (FAUNA.birdIm) {
     const im = FAUNA.birdIm, B = FAUNA.birds;
     for (let i = 0; i < B.length; i++) {
-      const b = B[i], scare = hyp(pp.x - b.x, pp.z - b.z) < 28 || (!foot && hyp(ac.pos[0] - b.x, ac.pos[2] - b.z) < 80 && V > 8);
+      const b = B[i], scare = (pp.x - b.x) * (pp.x - b.x) + (pp.z - b.z) * (pp.z - b.z) < 784 || (!foot && (ac.pos[0] - b.x) * (ac.pos[0] - b.x) + (ac.pos[2] - b.z) * (ac.pos[2] - b.z) < 6400 && V > 8);
       if (scare) { b.y = Math.min(b.y + 8 * dt, b.y0 + 25); b.spd = 14; } else { b.y += (b.y0 - b.y) * Math.min(1, dt * 0.4); b.spd = 8; }
       b.yaw += 0.25 * dt; b.t += dt; b.a += dt * (scare ? 14 : 8);
       b.x -= Math.sin(b.yaw) * b.spd * dt; b.z -= Math.cos(b.yaw) * b.spd * dt;
-      if (hyp(b.x - b.homeX, b.z - b.homeZ) > 400) b.yaw = turnTo(b.yaw, yawTo(b.x, b.z, b.homeX, b.homeZ), 2 * dt);
+      if ((b.x - b.homeX) * (b.x - b.homeX) + (b.z - b.homeZ) * (b.z - b.homeZ) > 160000) b.yaw = turnTo(b.yaw, yawTo(b.x, b.z, b.homeX, b.homeZ), 2 * dt);
       const flap = 0.35 + 0.45 * Math.sin(b.a * 10);
-      _fq.setFromEuler(_fe.set(flap * 0.25, b.yaw, Math.sin(b.a * 3) * 0.2, 'YXZ'));
-      im.setMatrixAt(i, _fm.compose(_fv.set(b.x, b.y, b.z), _fq, _fs.set(0.18, 0.18, 0.18)));
+      { const ex = flap * 0.25, ey = b.yaw, ez = Math.sin(b.a * 3) * 0.2, c1 = Math.cos(ex / 2), c2 = Math.cos(ey / 2), c3 = Math.cos(ez / 2), s1 = Math.sin(ex / 2), s2 = Math.sin(ey / 2), s3 = Math.sin(ez / 2);
+        const x = s1 * c2 * c3 + c1 * s2 * s3, y = c1 * s2 * c3 - s1 * c2 * s3, z = c1 * c2 * s3 - s1 * s2 * c3, w = c1 * c2 * c3 + s1 * s2 * s3;
+        const x2 = x + x, y2 = y + y, z2 = z + z, xx = x * x2, xy = x * y2, xz = x * z2, yy = y * y2, yz = y * z2, zz = z * z2, wx = w * x2, wy = w * y2, wz = w * z2, S = 0.18, A = im.instanceMatrix.array, o = i * 16;
+        A[o] = (1 - (yy + zz)) * S; A[o + 1] = (xy + wz) * S; A[o + 2] = (xz - wy) * S; A[o + 3] = 0;
+        A[o + 4] = (xy - wz) * S; A[o + 5] = (1 - (xx + zz)) * S; A[o + 6] = (yz + wx) * S; A[o + 7] = 0;
+        A[o + 8] = (xz + wy) * S; A[o + 9] = (yz - wx) * S; A[o + 10] = (1 - (xx + yy)) * S; A[o + 11] = 0;
+        A[o + 12] = b.x; A[o + 13] = b.y; A[o + 14] = b.z; A[o + 15] = 1; }
     }
     im.instanceMatrix.needsUpdate = true;
   }
@@ -11624,7 +11700,7 @@ function golText(st, sub) {   // the words (built once per change)
     case 4: t = sub ? 'CHALK A PAYMENT ON WALT\'S BOARD IN THE HANGAR' : 'EARN $' + STORY_PAYS[0] + ' FLYING JOBS, THEN CHALK IT ON WALT\'S BOARD'; h = 'Walk up to the chalkboard in the hangar and press 1, 2 or 3 (VR: poke a PAY box). Even $500 counts: the note falls due at the first snow.'; golAim(SB.X, SB.Z, 'WALT\'S BOARD, HOME HANGAR'); break;
     case 5: { const S = GOL_S[G.si], who = REP_NAME[GOL_ID[G.si]] || S.name;
       if (G.sm) { t = 'WALK UP TO ' + who + ' AT ' + S.name + ' - SOMETHING ABOUT GORDON'; h = 'Land at ' + S.name.toLowerCase() + ' and walk to its board: ' + who.toLowerCase() + ' trusts you now and has something to tell you about Gordon.'; }
-      else { t = 'WIN ' + who + '\'S TRUST: FLY JOBS FOR ' + S.name + ' (' + G.sr + '/' + REP_UNL + ')'; h = 'Deliver on time to and from ' + S.name.toLowerCase() + ' - its trust climbs with every job (' + G.sr + ' of ' + REP_UNL + '). At ' + REP_UNL + ' the locals open up about Gordon.'; }
+      else { t = 'WIN ' + who + '\'S TRUST: FLY JOBS TO ' + S.name + ' (' + G.sr + '/' + REP_UNL + ')'; h = 'Take jobs bound for ' + S.name.toLowerCase() + ' off any board and deliver them on time - its trust climbs with every job that ends there (' + G.sr + ' of ' + REP_UNL + '). Boards in the valley post more work for it while you are winning it over. At ' + REP_UNL + ' the locals open up about Gordon.'; }
       h += ' ' + G.cn + ' of 6 clues so far; the north ice needs six.'; golAim(S.pad[0], S.pad[1], S.name); break; }
     case 6: t = sub ? 'WAIT FOR DAYLIGHT, THEN FLY LOW OVER THE NORTH ICE' : 'FLY LOW OVER THE NORTH ICE IN DAYLIGHT - LOOK FOR A GLINT'; h = sub ? 'The cowling only shows with the sun up. Wait for daylight, then fly the high snow shoulder about 6 km north-west of Home, low (under 380 m) and within 230 m, with a clear line of sight.' : 'Walt\'s log says glare all day. The high snow shoulder about 6 km north-west of Home: come in low (under 380 m), within 230 m, in daylight, with a clear view of the snow.'; golAim(GLINT.x, GLINT.z, 'THE NORTH ICE'); break;
     case 7: t = (sub & 1) ? 'KEY THE MIC TO CALL PETE BACK - HE\'LL RING AGAIN' : (sub & 2) ? 'FLY ON - PETE WILL CALL ABOUT THE COWLING' : 'FLY ON - PETE WILL CALL ABOUT THE NORTH ICE'; h = (sub & 1) ? 'You missed a call. Hold \' to talk (VR: grab the hand mic and squeeze its trigger). If you wait, he rings again in a minute or on your next landing.' : 'Keep the master switch on and fly more than 800 m from the cowling. Pete calls over the radio when he has worked out where Walt landed.'; break;
@@ -14181,7 +14257,7 @@ const HCAB = (() => {
     if (1 - TOD.day > 0.45 && !(PL.visible && PL.intensity > 0)) { flash = true; PL.position.copy(pos); PL.color.setHex(0xfff2e0); PL.distance = 12; PL.intensity = 3.2; PL.visible = true; }   // the flash bar
     const lmv = LM.visible; LM.visible = false; for (let i = 0; i < 2; i++) if (PK.hk[i] === 'polaroid') PK.hm[i].visible = false;
     const xr = renderer.xr.enabled, su = renderer.shadowMap.autoUpdate, nu = renderer.shadowMap.needsUpdate, rt0 = renderer.getRenderTarget(); renderer.xr.enabled = false; renderer.shadowMap.autoUpdate = false; renderer.shadowMap.needsUpdate = false;
-    renderer.setRenderTarget(RT); renderer.clear(); renderer.render(scene, PCAM); renderer.readRenderTargetPixels(RT, 0, 0, PWR, PWR, PIX); renderer.setRenderTarget(rt0);
+    fcAll(); renderer.setRenderTarget(RT); renderer.clear(); renderer.render(scene, PCAM); renderer.readRenderTargetPixels(RT, 0, 0, PWR, PWR, PIX); renderer.setRenderTarget(rt0);
     renderer.xr.enabled = xr; renderer.shadowMap.autoUpdate = su; renderer.shadowMap.needsUpdate = nu; LM.visible = lmv; for (let i = 0; i < 2; i++) if (PK.hk[i] === 'polaroid') PK.hm[i].visible = true;
     if (flash) { PL.position.copy(vPL); PL.color.setHex(pc); PL.distance = pd; PL.intensity = pi; PL.visible = pv; }
     const row = PWR * 4; for (let y = 0; y < PWR; y++) ID5.data.set(PIX.subarray((PWR - 1 - y) * row, (PWR - y) * row), y * row);   // GL rows are bottom-up
@@ -16214,7 +16290,7 @@ function h2Render() { const d = SC.disk; if (h2On !== true) return;
   SC.uA.value = A; SC.uC.value.set(-ox * 2.6, -oy * 2.6); SC.uR.value = SC_R0 * (0.35 + 0.65 * clamp(1 - Math.max(0, bo - 0.004) / 0.02, 0, 1));   // off axis: the picture's shadow slides in from the side you moved to
   const xr = renderer.xr.enabled, su = renderer.shadowMap.autoUpdate, nu = renderer.shadowMap.needsUpdate, bv = BINO.disk.visible; renderer.xr.enabled = false; renderer.shadowMap.autoUpdate = false; renderer.shadowMap.needsUpdate = false; d.visible = false; BINO.disk.visible = false;
   for (let i = 0; i < PTS_UH.length; i++) { PTS_UH0[i] = PTS_UH[i].value; PTS_UH[i].value = SC.rt.height * 0.5; }   // v1.11.16 smoke / signal puffs at their world size in the 4x view (as the binoculars)
-  zpBegin(); const rt0 = renderer.getRenderTarget(); renderer.setRenderTarget(SC.rt); renderer.render(scene, SC.cam); renderer.setRenderTarget(rt0); zpEnd();   // v1.11.16 no scene-graph walk, no sort garbage, your own body / kit skipped (see zpBegin)
+  fcAll(); zpBegin(); const rt0 = renderer.getRenderTarget(); renderer.setRenderTarget(SC.rt); renderer.render(scene, SC.cam); renderer.setRenderTarget(rt0); zpEnd();   // v1.11.16 no scene-graph walk, no sort garbage, your own body / kit skipped (see zpBegin)
   for (let i = 0; i < PTS_UH.length; i++) PTS_UH[i].value = PTS_UH0[i];
   renderer.xr.enabled = xr; renderer.shadowMap.autoUpdate = su; renderer.shadowMap.needsUpdate = nu; BINO.disk.visible = bv; d.visible = true; SC.n++; SC.ms = SC.ms * 0.9 + (performance.now() - t0) * 0.1; }
 // ---- warm-up: the picture plane, the scope, the cradle + card (the four panel-glow / landing-light combinations). The view itself uses the main pass's programs (see SC.rt) ----
@@ -16287,6 +16363,55 @@ function nlAt(p) {   // light at world point p -> NL.C (r g b, 1 = full day)
       x.beginPath(); x.moveTo(x0 + vx * (k - 1) * 1.5, y0 + vy * (k - 1) * 1.5); x.lineTo(x1 + vx * (k - 1) * 1.5, y1 + vy * (k - 1) * 1.5); x.stroke(); } };
   fold(W / 3, 0, W / 3 + 2, H, 1, 0); fold(2 * W / 3, 0, 2 * W / 3 - 3, H, 1, 0); fold(0, H / 2, W, H / 2 + 2, 0, 1);
   MAP.cx.drawImage(MAP.base, 0, 0); MAP.key = ''; MAP.tex.needsUpdate = true; }
+// ---- v1.16.3 generic paper flex (the v1.16.2 map maths, one hand): a few damped springs (gravity sag + lag) written into a subdivided sheet ----
+function pfxMake(m, w, h, sx, sy, o) { const g = new THREE.PlaneGeometry(w, h, sx, sy), P = g.attributes.position; P.setUsage(THREE.DynamicDrawUsage); m.geometry.dispose(); m.geometry = g;
+  return { m, P, B: Float32Array.from(P.array), on: 0, live: 0, b: 0, vb: 0, tx: 0, vx: 0, ty: 0, vy: 0, px: 0, py: 0, pz: 0, wx: 0, wy: 0, wz: 0, hw: w / 2, hh: h / 2,
+    DEAD: o.dead, AG: o.ag, AMAX: o.amax, INERT: o.inert, INERT2: o.inert2, AACC: 28, WN: o.wn, U: Math.hypot(w, h) - o.dead, iLx: 1 / w, iLy: 1 / h }; }
+function pfxFlat(F) { if (!F.on) return; F.P.array.set(F.B); F.P.needsUpdate = true; F.on = 0; F.live = 0; F.b = F.vb = F.tx = F.vx = F.ty = F.vy = 0; }
+const _pfxP = new THREE.Vector3();
+function pfxTick(F, dt, gx, gy) {   // F.m held this frame; (gx, gy) the gripped point on the sheet (its local x, y)
+  const m = F.m; m.updateWorldMatrix(true, false); const el = m.matrixWorld.elements, s = Math.sqrt(el[8] * el[8] + el[9] * el[9] + el[10] * el[10]) || 1, Ny = el[9] / s;
+  const p = _pfxP.setFromMatrixPosition(m.matrixWorld); let an = 0, ax = 0, ay = 0; const tstep = dt > 0.05 ? 0.05 : dt > 0 ? dt : 0;
+  if (!F.live || !(tstep > 0)) { F.px = p.x; F.py = p.y; F.pz = p.z; F.wx = F.wy = F.wz = 0; F.live = 1; }
+  else { const idt = 1 / tstep, vx = (p.x - F.px) * idt, vy = (p.y - F.py) * idt, vz = (p.z - F.pz) * idt;
+    let axw = (vx - F.wx) * idt, ayw = (vy - F.wy) * idt, azw = (vz - F.wz) * idt; const al = Math.sqrt(axw * axw + ayw * ayw + azw * azw);
+    if (al > F.AACC) { const k = F.AACC / al; axw *= k; ayw *= k; azw *= k; }
+    F.px = p.x; F.py = p.y; F.pz = p.z; F.wx = vx; F.wy = vy; F.wz = vz;
+    an = (axw * el[8] + ayw * el[9] + azw * el[10]) / s; ax = (axw * el[0] + ayw * el[1] + azw * el[2]) / s; ay = (axw * el[4] + ayw * el[5] + azw * el[6]) / s; }
+  let tgt = F.AG * -Ny - an * F.INERT; if (tgt > F.AMAX) tgt = F.AMAX; else if (tgt < -F.AMAX) tgt = -F.AMAX;
+  let tX = -ax * F.INERT2, tY = -ay * F.INERT2; const lim = F.AMAX * 0.3; if (tX > lim) tX = lim; else if (tX < -lim) tX = -lim; if (tY > lim) tY = lim; else if (tY < -lim) tY = -lim;
+  if (tstep > 0) { const wn = F.WN, exs = Math.exp(-wn * tstep);
+    let e = F.b - tgt, v2 = F.vb + wn * e; F.vb = (F.vb - wn * tstep * v2) * exs; F.b = tgt + (e + v2 * tstep) * exs; if (F.b - tgt < 1e-6 && F.b - tgt > -1e-6 && F.vb < 1e-5 && F.vb > -1e-5) { F.b = tgt; F.vb = 0; }
+    e = F.tx - tX; v2 = F.vx + wn * e; F.vx = (F.vx - wn * tstep * v2) * exs; F.tx = tX + (e + v2 * tstep) * exs; if (F.tx - tX < 1e-6 && F.tx - tX > -1e-6 && F.vx < 1e-5 && F.vx > -1e-5) { F.tx = tX; F.vx = 0; }
+    e = F.ty - tY; v2 = F.vy + wn * e; F.vy = (F.vy - wn * tstep * v2) * exs; F.ty = tY + (e + v2 * tstep) * exs; if (F.ty - tY < 1e-6 && F.ty - tY > -1e-6 && F.vy < 1e-5 && F.vy > -1e-5) { F.ty = tY; F.vy = 0; } }
+  if (gx > F.hw) gx = F.hw; else if (gx < -F.hw) gx = -F.hw; if (gy > F.hh) gy = F.hh; else if (gy < -F.hh) gy = -F.hh;
+  const a = F.P.array, B = F.B, rDead = F.DEAD, U = F.U, iLx = F.iLx, iLy = F.iLy, Amax = F.AMAX;
+  for (let i = 0; i < a.length; i += 3) { const exv = B[i] - gx, ey = B[i + 1] - gy, r = Math.sqrt(exv * exv + ey * ey); let w = 0; if (r > rDead) { const u = (r - rDead) / U; w = u * u; if (w > 1) w = 1; }
+    let amp = F.b + F.tx * exv * iLx + F.ty * ey * iLy; if (amp > Amax) amp = Amax; else if (amp < -Amax) amp = -Amax; a[i + 2] = B[i + 2] + amp * w; }
+  F.P.needsUpdate = true; F.on = 1; }
+// the checklist card: laminated (stiff): about a third of the map's sag, a 2.5 cm rigid patch at the grip
+const CFX = pfxMake(CARD.mesh, 0.125, 0.16, 6, 8, { dead: 0.025, ag: 0.006, amax: 0.012, inert: 0.0006, inert2: 0.0003, wn: 16 }), _cfxM = new THREE.Matrix4();
+CFX.pk = ''; CFX.gx = 0; CFX.gy = 0;
+updateCockpitV19 = (orig => function (dt = 1 / 72) { orig(dt);
+  if (!CARD.g || CARD.desk || CARD.mesh.parent !== scene) { pfxFlat(CFX); CFX.pk = ''; return; }
+  const pk = CARD.g.userData.src?.handedness === 'left' ? 'cardL' : 'cardR';
+  if (pk !== CFX.pk) { CFX.pk = pk; if (POSE_LAB[pk]) { _cfxM.copy(plT(pk, _plRM)).invert(); const e = _cfxM.elements, k = 1 / (CARD.mesh.scale.x || 1); CFX.gx = e[12] * k; CFX.gy = e[13] * k; } else { CFX.gx = 0; CFX.gy = -CFX.hh; } }   // the hand's own point on the card (where the Pose Lab hold puts it)
+  pfxTick(CFX, dt, CFX.gx, CFX.gy); })(updateCockpitV19);
+// the readables: a ghost at the rest spot + a light flex on the held page
+const SGH = { R: 0.13, near: null, _g: new THREE.Vector3(), _c: new THREE.Vector3() };
+for (const it of SITEMS) { const pp = it.pg.geometry.parameters; it.fx = pfxMake(it.pg, pp.width, pp.height, 8, 6, { dead: 0.05, ag: it.id === 'photo' ? 0.004 : 0.01, amax: it.id === 'photo' ? 0.008 : 0.02, inert: 0.0012, inert2: 0.0006, wn: 12 });
+  const g = it.m.geometry; if (!g.boundingBox) g.computeBoundingBox(); const bb = g.boundingBox, t = 0.006;
+  const gh = new THREE.Mesh(new THREE.BoxGeometry(bb.max.x - bb.min.x + t, bb.max.y - bb.min.y + t, bb.max.z - bb.min.z + t).translate((bb.min.x + bb.max.x) / 2, (bb.min.y + bb.max.y) / 2, (bb.min.z + bb.max.z) / 2), FEEL.PP.gOn);
+  gh.renderOrder = 4; gh.visible = false; gh.userData.noBatch = true; gh.userData.noCast = true; gh.castShadow = gh.receiveShadow = false; gh.matrixAutoUpdate = false; it.m.updateMatrix(); gh.matrix.copy(it.m.matrix); scene.add(gh); it.gh = gh;
+  it.cx = (bb.min.x + bb.max.x) / 2; it.cy = (bb.min.y + bb.max.y) / 2; it.cz = (bb.min.z + bb.max.z) / 2; it.gIn = 0; }
+storyTick = (orig => function (dt) { orig(dt); const H = STORY.on ? STORY.held : null, g = H ? STORY.heldG : null;
+  for (let i = 0; i < SITEMS.length; i++) { const it = SITEMS[i]; let on = false;
+    if (it === H && g) { g.updateWorldMatrix(true, false); const G = SGH._g.setFromMatrixPosition(g.matrixWorld), C = SGH._c.set(it.cx, it.cy, it.cz).applyMatrix4(it.m.matrixWorld), ex = G.x - C.x, ey = G.y - C.y, ez = G.z - C.z;
+      on = ex * ex + ey * ey + ez * ez < SGH.R * SGH.R;
+      if (on && !it.gIn) { it.gIn = 1; tick(g); } else if (!on && ex * ex + ey * ey + ez * ez > (SGH.R + 0.01) * (SGH.R + 0.01)) it.gIn = 0;
+      it.pg.updateWorldMatrix(true, false); it.pg.worldToLocal(G); pfxTick(it.fx, dt, G.x, G.y); }
+    else { pfxFlat(it.fx); it.gIn = 0; }
+    if (it.gh.visible !== on) it.gh.visible = on; } })(storyTick);
 const MAPF = { on: 0, live: 0, two: 0, b: 0, vb: 0, tx: 0, vx: 0, ty: 0, vy: 0, px: 0, py: 0, pz: 0, wx: 0, wy: 0, wz: 0,
   DEAD: 0.048, AG: 0.05, AMAX: 0.078, INERT: 0.0024, INERT2: 0.0012, AACC: 28, WN: 12,
   U: Math.hypot(MAP_SHEET_B[0], MAP_SHEET_B[1]) - 0.048, iLx: 1 / MAP_SHEET_B[0], iLy: 1 / MAP_SHEET_B[1] };   // AMAX ~18 deg at the far edge (2 A / U); WN settles in ~0.5 s
@@ -16587,7 +16712,7 @@ renderer.setAnimationLoop(() => {
   if (xr || HANDS.force) wtApply(); BOOTF.pre = performance.now(); BOOTF.wl = xr && BOOTF.lite > 0; if (BOOTF.wl && BOOTF.lite === 2) warmStart('Entering VR');
   const _wr = warmTick() && !(xr && BOOTF.lite > 0); if (xr && BOOTF.lite > 0) BOOTF.lite--; if (_wr && !BOOTF.real) bootLog('first scene frame: drawing (first draw can still link a few programs)');
   if (TITLE.on && !xr && _wr) titleShot(dt);   // v1.12.0 the title screen's shots
-  if (_wr) { zpSortFix(); renderer.render(scene, TITLE.on && !xr ? TITLE.cam : camera); } else renderer.render(WARM.sc, camera); wtRestore();
+  if (_wr) { fcTick(); zpSortFix(); renderer.render(scene, TITLE.on && !xr ? TITLE.cam : camera); } else renderer.render(WARM.sc, camera); wtRestore();
   { const tn = performance.now(); if (xr && BOOTF.xr < 300) { const k = ++BOOTF.xr, fm = tn - t0, gap = BOOTF.last ? t0 - BOOTF.last : t0 - BOOTF.xs; BOOTF.xa.push([fm, gap]);   // v1.10.1 the first XR frames: own time + the gap since the last (a stall outside our code shows as a gap)
       if (k <= 3 || ((fm > 40 || gap > 150) && BOOTF.xl++ < 25)) bootLog('XR frame ' + k + ': ' + Math.round(fm) + 'ms (logic ' + Math.round(BOOTF.pre - t0) + ', draw ' + Math.round(tn - BOOTF.pre) + '), gap ' + Math.round(gap) + 'ms' + (BOOTF.wl ? ' [lite: warm-up backdrop]' : ''), fm > 40 || gap > 150);
       if (k === 60 || k === 300) { const A = BOOTF.xa, w = A.reduce((m, a, i) => a[0] > A[m][0] ? i : m, 0), wg = A.reduce((m, a, i) => a[1] > A[m][1] ? i : m, 0); bootLog('XR frames 1-' + k + ': mean ' + (A.reduce((t, a) => t + a[0], 0) / A.length).toFixed(1) + 'ms, worst ' + Math.round(A[w][0]) + 'ms (#' + (w + 1) + '), worst gap ' + Math.round(A[wg][1]) + 'ms (#' + (wg + 1) + '), ' + Math.round(tn - BOOTF.xs) + 'ms since sessionstart', true); } }

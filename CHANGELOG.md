@@ -2,6 +2,18 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v1.16.3 – polish: less garbage, a frame-budget pass, floppy papers with snap ghosts, a full story playthrough
+
+An overnight polish build (t267). The physics block is untouched (md5 `eee6637e…`). **No story restart is needed:** nothing in the save changes (same keys as v1.16.2). A v1.16.2 save loads on the same step, with cash, aircraft, upgrades, items, settings and the journal kept.
+
+- **Less per-frame garbage (smoother on Quest).** The fuel hose (about 1.4 KB a frame down to about 5 B) and the wildlife (about 700 B a frame down to about 50 B) now reuse their memory instead of making new objects every frame. So do the fish and the net. The ground height lookups they use give exactly the same answers as before (56,000 points checked, bit-identical).
+- **Frame-budget pass.** The trees and brush in each area of the map are now skipped when they are off-screen. Separate props that are lost in the fog or too small to see are no longer drawn (they come back for the binoculars, the scope and the camera). Draw calls: town 211 → 185, a stormy night in town 213 → 141, thick forest 175 → 169, the home strip and valley a few fewer. No new shaders. Screenshots of each scene are pixel-identical apart from moving sparkle and animals.
+- **The other papers flex and show the yellow ghost.** The checklist card bends a little in your hand (it is stiffer than the map). Walt's logbook, the photo, Gordon's logbook and Gordon's letter flex gently while you hold them in VR. Each one shows a yellow ghost of where it lives when you bring it within 13 cm of that spot, and snaps home on release as before. The grips stay exactly on the Pose Lab holds.
+- **Story playthrough fixes (an automated run from a new save to the ending, 68 checks passing).**
+  - The GOAL page now says to fly jobs **to** a town to win its trust. Only deliveries that end there count; the old text said "to and from".
+  - Winning Halvorsen's or NW Shore's trust was a long grind, because a job bound for one particular town came up only about 1 time in 17. In a story game before Act 2, about a third of new offers now go to the town the GOAL page names. Offers already on the boards are not changed.
+  - Checked and correct: every step's GOAL text and map pin, plus the directions in the story text (the north ice about 6 km north-west of Home, the shelf about 650 m NNW of the cowling, the wreck south-east and about 150 m up). The glint, Pete's calls, the skis, the cache, the shelf, the wreck, the letter and the ending all play through with no soft-locks.
+
 ## v1.16.2 – the paper map is slightly floppy
 
 The held paper map now flexes a little, as Neil asked (t266). The physics block is untouched (md5 `eee6637e…`). **No story restart is needed:** nothing in the save changes. A v1.16.1 (or v1.16.0 / v1.15.1) save loads on the same step, with cash, aircraft, upgrades, items, settings and the journal kept.
