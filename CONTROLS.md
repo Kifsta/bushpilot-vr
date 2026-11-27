@@ -271,6 +271,7 @@ Fourteen **unprepared landing spots** off the airfields (eight since v0.52, six 
 | HANGING VALLEY (v0.80) | hanging valley, 380 m up | goat counters | 220 m | **one-way**, 4 % uphill into a headwall: one way in, one way out. Hook: COLLARS + BATTERIES. Pays x1.8 |
 | BLIND HOGBACK (v0.80) | hump-backed strip | beekeeper | 200 m | a 4 m hump mid-strip: from the threshold you can't see the far end until you're over the top. Hook: HIVES + HONEY. Pays x1.6 |
 | TABLE MESA (v0.80) | mesa top, 394 m | fire lookout | 170 m | the SW end is the lip of a 28 m escarpment: cross it low and slow, an undershoot hits the face. Hook: LOOKOUT RATIONS. Pays x1.8 |
+| MOOSEHIDE HILL (v1.17.0) | hillside strip, rough grass | Dr Kane's moose study | 130 m | **one-way**: 5 % uphill, land east (090), take off downhill west. The hill rises past the top end: no go-around on short final. Opens with Dr Kane's job chain (below); not on the map or the random boards before that. Floats: wheels down |
 
 - **Finding them.** A site isn't on your map until you've found it. Fly over within about 400 m (and below 250 m above it), or walk up to it. You'll get `FOUND <site> - <type> ~<length> M - <customer> - ON YOUR MAP NOW`. Found sites stay found in your save.
 - **Jobs to sites.** About half the jobs from the airfields go to bush sites, and sites send some of their jobs to other sites. Bush jobs pay 20 % more, and the tricky v0.77 sites pay 40-80 % more (x1.2 + 0.2 per difficulty step). If you haven't found the place yet, the board says `(FIND IT)` and the map draws a dashed **?** search circle (320 m radius) with the site somewhere inside it, and the kneeboard says `SEARCH ...` with the distance and heading to that circle. Once found, the board and kneeboard show the type and length (`LAKE SHORE 200M`).
@@ -278,6 +279,17 @@ Fourteen **unprepared landing spots** off the airfields (eight since v0.52, six 
 - **Job hooks (v0.80).** The plain parcel runs to the four v0.80 sites are that customer's own work: core samples for the geologists, collars and batteries for the goat counters, hives for the beekeeper, rations for the lookout (the title and the pieces on the board).
 - **Air density** is constant in this flight model, so the high col is hard because it's short, rough and sloped, not because of density altitude.
 - **On the map:** found sites are drawn and labelled with the customer, the type and the length, plus `1-way` on the bench and the meadow. For those two, the FOUND message also gives the uphill landing heading (`ONE-WAY: LAND UPHILL HDG nnn`).
+
+### Dr Kane's moose study (v1.17.0, a side job chain)
+
+Once you have flown **3 jobs** (story or free play), the **Dry Fork board** posts a teal **DR KANE 1/5** job. Taking it puts **MOOSEHIDE HILL** on your map (about 2.2 km SSE of Dry Fork). It's five jobs in a row, each one posted on the next board when the last is delivered:
+
+1. Dry Fork → Moosehide: her camp gear. 2. Home → Moosehide: trail cameras (fragile). 3. Dry Fork → Moosehide: mineral lick blocks (heavy). 4. Moosehide → Dry Fork: samples for the clinic fridge (perishable, 25 min). 5. Lodge → Moosehide: telemetry mast + generator (heavy).
+
+- Her jobs pay about 1.6× a normal run with no deadline. The last one adds a **$600** thank-you and rep with Dr Kane, and the mast goes up at her camp.
+- After each delivery she (or Nurse Okafor) says what's next, and the journal gets a line. Dr Kane stands by her board on Moosehide Hill.
+- **GOAL page (clipboard page 7):** a green **SIDE JOB** box shows the next step with bearing and distance. In free play the GOAL page shows FREE FLIGHT with the box. **Map:** a teal ringed pin, `dr kane n/5`, marks the board to take the job from or the pad to deliver to.
+- It's optional. It never blocks or changes the main story. There is no gameplay wind: the windsock hangs limp.
 - They're short: an empty Cub lifts off in 55–110 m, and at max gross in 130–195 m. Landing rolls run 50–130 m. Watch your weight going into the bench and the meadow, and use the slope.
 
 ## Hunting (v0.53): lever rifle, deer, binoculars

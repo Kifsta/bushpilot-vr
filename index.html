@@ -638,7 +638,7 @@ const hyp = (a, b, c = 0) => Math.sqrt(a * a + b * b + c * c);   // v0.59 Math.h
 
 // ======================= RENDERING =======================
 // v0.35 settings (persist in localStorage 'bp_gfx'; ?gfx=shadows:2,grass:1 overrides for testing). Defaults = the v0.34 look and cost.
-const BP_VERSION = 'v1.16.3';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
+const BP_VERSION = 'v1.17.0';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
 { const e = document.getElementById('ver'); if (e) e.textContent = BP_VERSION; } window.__bpVer = BP_VERSION; bootLog('game module running ' + BP_VERSION + ' (three r' + THREE.REVISION + ')' + (/[?&]safe(=|&|$)/.test(location.search) ? ' - SAFE MODE: default graphics, no shadows / ULTRA / life / vistas / music' : ''));
 const GFX_DEF = { shadows: 0, scale: 1, fov: 1, dist: 1, trees: 1, grass: 0, clouds: 1, fog: 1, msaa: 1, hz: 90, vig: 0, turn: 0, fps: 0, tod: 11, stk: 1, tips: 1, terr: 1, dyn: 1, glove: 0, hand: 0, wt: 1, volM: 1, volMu: 0.5, volE: 1, volA: 1, volF: 1, volS: 1, volW: 1, wx: 1, forest: 0, fdens: 0, hints: 1, ground: 0, gtex: 0, cvl: 1, water: 1, dayl: 48, flure: 0, fline: 8, fdrag: 4, fbob: 0, fsink: 0, ultra: 0, sfxr: 1 };   // v0.68.1 dominant hand, volumes. v0.48 BALANCED: 90 % scale, 72 Hz, fast terrain shading, auto resolution; v0.49.1 the stick stays where you let go of it
 const GFX = Object.assign({}, GFX_DEF);
@@ -4296,7 +4296,7 @@ MAP.canvas = document.createElement('canvas'); MAP.canvas.width = MAP_W; MAP.can
   box(0.06, 0.02, 0.012, mat(0x777777), 0, 0.095, -0.004, MAP.clip);                                                                             // the clip
 }
 function mapJobs() {   // v0.51.1: job boards (gold square) + every active job's destination (its colour, ringed, numbered, a dashed line from the origin)
-  const A = dlvActive(), k = A.map(j => j.id + j.to + j.from + (j.hunt ? 'h' + j.hunt.got : '') + (j.drop ? 'd' + j.drop.res.length : '') + (j.emg ? 'e' + j.emg.seen + j.emg.got : '')).join() + '|' + DLV_STRIPS.map(S => S.found || S.lock ? (S.lock ? 2 : 1) : 0).join('') + fogKey(); if (k === MAP.key) return; MAP.key = k;
+  const A = dlvActive(), k = A.map(j => j.id + j.to + j.from + (j.hunt ? 'h' + j.hunt.got : '') + (j.drop ? 'd' + j.drop.res.length : '') + (j.emg ? 'e' + j.emg.seen + j.emg.got : '')).join() + '|' + DLV_STRIPS.map(S => S.found || S.lock ? (S.lock ? 2 : 1) : 0).join('') + fogKey() + '|' + (MH ? MH.mk : ''); if (k === MAP.key) return; MAP.key = k;
   const x = MAP.cx, X = wx => (wx + MAP_X) * MAP_PX, Z = wz => (wz + MAP_Z) * MAP_PX, F = "'Segoe Print','Bradley Hand','Comic Sans MS','Comic Neue',cursive";
   x.drawImage(fogBase(), 0, 0); x.textBaseline = 'middle'; x.textAlign = 'center';   // v1.03 story: the map as far as you've seen it
   for (const S of DLV_STRIPS) { if (!S.site || !S.found) continue; const B = S.B, sa = Math.sin(B.a), ca = Math.cos(B.a), p0x = X(B.x - sa * B.hl), p0y = Z(B.z - ca * B.hl), p1x = X(B.x + sa * B.hl), p1y = Z(B.z + ca * B.hl);   // v0.52
@@ -4316,7 +4316,7 @@ function mapJobs() {   // v0.51.1: job boards (gold square) + every active job's
     x.strokeStyle = '#e05a10'; x.lineWidth = 4; x.beginPath(); x.moveTo(dx - 7, dy - 7); x.lineTo(dx + 7, dy + 7); x.moveTo(dx + 7, dy - 7); x.lineTo(dx - 7, dy + 7); x.stroke();
     x.fillStyle = 'rgba(150,150,150,0.55)'; for (let k = 0; k < 3; k++) { x.beginPath(); x.arc(dx + 9 + k * 3, dy - 12 - k * 7, 4 + k * 1.5, 0, 6.283); x.fill(); }
     x.fillStyle = col; x.font = 'bold 15px ' + F; x.fillText('DROP: ' + D.who.toLowerCase(), dx, dy + 18); x.font = '12px ' + F; x.fillText(D.name.toLowerCase() + ' - no strip', dx, dy + 32); }
-  emgMap(x, X, Z, F);   // v0.58
+  emgMap(x, X, Z, F); mhMap(x, X, Z, F);   // v0.58 (v1.17.0 + Dr Kane's next stop)
   A.filter(j => !j.drop && !j.emg).forEach((j, n) => { const S = dlvS(j.from), T = dlvS(j.to), col = '#' + DLV_COL[j.id % DLV_COL.length].toString(16).padStart(6, '0'), ax = X(S.pad[0]), ay = Z(S.pad[1]), hid = T.site && !T.found, bx = X(hid ? T.B.hx : T.pad[0]), by = Z(hid ? T.B.hz : T.pad[1]);
     if (hid) { x.strokeStyle = col; x.lineWidth = 2; x.setLineDash([4, 5]); x.beginPath(); x.arc(bx, by, 320 * MAP_PX, 0, 6.283); x.stroke(); x.setLineDash([]); x.fillStyle = col; x.font = 'bold 22px ' + F; x.fillText('?', bx, by); }   // v0.52 search area
     x.strokeStyle = col; x.lineWidth = 2.5; x.setLineDash([8, 6]); x.beginPath(); x.moveTo(ax, ay); x.lineTo(bx, by); x.stroke(); x.setLineDash([]);
@@ -4976,7 +4976,7 @@ function kbKey() {   // what each page shows, rounded so the canvas only redraws
   const E = ECO, P = WBS.plan, pg = KB.page;
   if (pg === 1) return WBS.key + '|' + (renderer.xr.isPresenting ? 1 : 0);
   if (pg === 2) return [E.hrs.toFixed(1), E.svc.toFixed(1), E.oil.toFixed(1), Math.round(E.tyre * 100), Math.round(E.brake * 100), Math.round(E.gear * 100), Math.round(E.eng * 100), E.seized, E.ldg, Math.round(E.sink * 196.85), renderer.xr.isPresenting].join('|');
-  if (pg === 6) return GOAL.kbk;
+  if (pg === 6) return GOAL.kbk + '|' + MH.key + (STORY.on ? '' : 'F');
   if (pg === 5) return 'J' + STORY.log.length + '|' + storyDay() + '|' + DISC.n + '|' + clueGot().length;
   if (pg === 4) return 'N' + storyOwed() + '|' + storyLeft() + '|' + STORY.snow + '|' + renderer.xr.isPresenting;
   if (pg === 3) { const D = kbPerfData(); return [P.lb.toFixed(0), D.gal.toFixed(1), Math.floor(D.cru), Math.floor(D.cur), Math.round(D.curP * 100), renderer.xr.isPresenting, GFX.wx ? wxMetar() + wxTrend() : 0].join('|'); }
@@ -5944,7 +5944,7 @@ const DLV_STRIPS = (() => {
 // ===================== v0.52 bush sites: unprepared landing spots, each with a customer (found by flying over / walking up; then they're on the paper map) =====================
 // The spots came out of a search of the heights the gear rolls on (terrainHeight): along-strip slope, bumps off the best-fit line, cross slope at +-9 m,
 // and the ground beyond the low end staying under a climb line. Nothing is flattened: the gear feels the real ground (rough surface; the two short strips are graded).
-const BUSH_T = { sandbar: 'SANDBAR', shore: 'LAKE SHORE', ridge: 'RIDGE BENCH', meadow: 'MEADOW', short: 'SHORT STRIP', shoulder: 'MOUNTAIN SHOULDER', saddle: 'NARROW SADDLE', clearing: 'FOREST CLEARING', dogleg: 'DOGLEG STRIP', alpine: 'ALPINE STRIP', box: 'BOX CANYON', hanging: 'HANGING VALLEY', hogback: 'BLIND HOGBACK', mesa: 'MESA TOP', float: 'FLOAT LANDING', glacier: 'SKI STRIP' };   // v0.77 + 5 types, v0.80 + 4
+const BUSH_T = { sandbar: 'SANDBAR', shore: 'LAKE SHORE', ridge: 'RIDGE BENCH', meadow: 'MEADOW', short: 'SHORT STRIP', shoulder: 'MOUNTAIN SHOULDER', saddle: 'NARROW SADDLE', clearing: 'FOREST CLEARING', dogleg: 'DOGLEG STRIP', alpine: 'ALPINE STRIP', box: 'BOX CANYON', hanging: 'HANGING VALLEY', hogback: 'BLIND HOGBACK', mesa: 'MESA TOP', float: 'FLOAT LANDING', glacier: 'SKI STRIP', slope: 'HILLSIDE STRIP' };   // v1.17.0 + slope   // v0.77 + 5 types, v0.80 + 4
 const BUSH = [   // a = strip axis (x += sin a, z += cos a), hl/hw = half length / width (m), low = the downhill end of a one-way strip (+1 = +axis end)
   { id: 'CREEK', name: 'CREEK BAR', type: 'sandbar', cust: 'PROSPECTOR CAMP', x: -910, z: 1750, a: 2.749, hl: 95, hw: 9 },
   { id: 'FISHBAR', name: 'FISH CAMP BAR', type: 'sandbar', cust: 'FISH CAMP', x: -90, z: 2120, a: 2.749, hl: 105, hw: 9 },
@@ -5972,6 +5972,9 @@ const BUSH = [   // a = strip axis (x += sin a, z += cos a), hl/hw = half length
   { id: 'ICEFIELD', name: 'NORTH ICEFIELD', type: 'glacier', cust: 'GLACIER SURVEY', x: 5540, z: 5300, a: 1.572, hl: 110, hw: 9, diff: 2, kit: 'skis', note: 'SKIS ONLY - SNOW AT 1040 M, FLAT; NO BRAKES: PLAN THE ROLL-OUT' },
   { id: 'WGLACIER', name: 'WEST GLACIER', type: 'glacier', cust: 'HELI-SKI HUT', x: -5740, z: 3560, a: 2.096, hl: 110, hw: 9, low: -1, diff: 2, kit: 'skis', note: 'SKIS ONLY - 5% SLOPE ON THE SNOW: LAND UPHILL, TAKE OFF DOWNHILL' },
   { id: 'MESA', name: 'TABLE MESA', type: 'mesa', cust: 'FIRE LOOKOUT', x: 4271, z: -671, a: 2.3, hl: 85, hw: 7, diff: 3, hook: { t: 'LOOKOUT RATIONS', k: ['sack', 'parcel'] }, note: 'THE SW END IS THE LIP OF A 28 M ESCARPMENT - CROSS IT LOW AND SLOW, NO UNDERSHOOT' },
+  // v1.17.0 Moosehide Hill (Dr Kane's moose study): a terrain search of the empty south-east basin (real ground, nothing flattened). 5 % up to the east, 0.6 m bumps,
+  // the hill climbs 50 m in the 400 m past the top end: land uphill and you are committed on short final. Opens with Dr Kane's first job on the Dry Fork board.
+  { id: 'MOOSE', name: 'MOOSEHIDE HILL', type: 'slope', cust: 'MOOSE STUDY', x: 3740, z: 2180, a: Math.PI / 2, hl: 65, hw: 7, low: -1, diff: 2, hook: { t: 'MOOSE STUDY STORES', k: ['parcel', 'sack'] }, note: '5% UPHILL ON ROUGH GRASS, THE HILL RISES PAST THE TOP END - NO GO-AROUND ON SHORT FINAL; TAKE OFF DOWNHILL (AMPHIBS: WHEELS DOWN)' },
 ];
 const bushHdg = (dx, dz) => Math.round(((Math.atan2(dx, -dz) * 180 / Math.PI) + 360) % 360 / 5) * 5 % 360;
 for (const B of BUSH) { if (B.leg) { const g = B.leg, ex = B.x + Math.sin(B.a) * B.hl, ez = B.z + Math.cos(B.a) * B.hl; g.a = B.a + g.d; g.x = ex + Math.sin(g.a) * g.hl; g.z = ez + Math.cos(g.a) * g.hl; }   // v0.77 the dogleg's second leg (from the knee)
@@ -6056,6 +6059,12 @@ for (const B of BUSH) { if (B.leg) { const g = B.leg, ex = B.x + Math.sin(B.a) *
       gp(o, 1.4, 0.05, 0.9, 0x1e2a4a, -3.4, 0.7, -1.8, 0, -0.6); gp(o, 0.08, 0.7, 0.08, 0x8a8d90, -3.4, 0.35, -1.5); gp(o, 0.5, 0.4, 0.4, 0x3a5a2a, -3.4, 0.2, -0.8); logs(o, 3.2, 1.2, 2, 0.4); },   // a solar panel + battery box
     'BEEKEEPER': o => { house(o, 3.6, 2.2, 3.0, 0x9a7a4a, 0x5a4a3a, 1.5, 0, -3);   // v0.80 the honey house + rows of hives
       for (let k = 0; k < 8; k++) { const hx = -5 + (k % 4) * 1.4, hz = 1.4 + Math.floor(k / 4) * 1.6; gp(o, 0.5, 0.25, 0.42, 0x8a6a44, hx, 0.12, hz); gp(o, 0.5, 0.55, 0.42, k % 3 ? 0xe8e2c8 : 0xe0c050, hx, 0.52, hz); gp(o, 0.56, 0.06, 0.48, 0x6a6a64, hx, 0.83, hz); } },
+    'MOOSE STUDY': o => { tent(o, -2.6, -2.6, 0.1); house(o, 2.6, 2.1, 2.2, 0x8a7a5a, 0x4a4a44, 1.1, 2.8, -3.0); gp(o, 0.8, 1.8, 0.05, 0x3a3a3a, 2.4, 0.9, -1.88);   // v1.17.0
+      gp(o, 3.0, 0.05, 2.2, 0x6a7a3a, -2.4, 2.05, 1.4, 0, 0.1); for (const [a, b] of [[-3.8, 0.4], [-1.0, 0.4], [-3.8, 2.4], [-1.0, 2.4]]) gp(o, 0.07, 2.1, 0.07, 0x8a6a44, a, 1.0, b);   // the cook fly
+      ring(o, -2.4, 4.2); logs(o, 0.4, 4.4, 2, 0.5); drum(o, 5.2, 0.2, 0x2a5a8a); drum(o, 5.8, 0.4, 0x8a2a1a); gp(o, 1.0, 0.5, 0.7, 0x5a6a3a, 4.6, 0.25, -1.4);
+      boat(o, -6.2, 1.5, 0.25, 0xc05020, 4.8); for (const a of [-0.9, 0.9]) gp(o, 0.5, 0.55, 0.08, 0x6a4a2a, -6.2 + a * 0.3, 0.27, 1.5 + a * 1.4);   // a canoe on two horses
+      for (let k = 0; k < 3; k++) { gp(o, 0.06, 1.2, 0.06, 0x6a5a3a, 6.5 + k * 0.6, 0.6, 2.6 + k * 0.4); gp(o, 0.14, 0.2, 0.1, 0x3a4a2a, 6.5 + k * 0.6, 1.1, 2.55 + k * 0.4); }   // spare trail cameras on their stakes
+      gp(o, 0.9, 0.06, 0.6, 0xd8d0b8, 2.8, 2.4, -1.75, 0, -0.3); },   // the 'STUDY' sign over the hut door
     'FIRE LOOKOUT': o => { for (const [lx, lz] of [[-1.3, -4.3], [1.3, -4.3], [-1.3, -1.7], [1.3, -1.7]]) gp(o, 0.18, 7, 0.18, 0x6a5a44, lx, 3.5, lz);   // v0.80 the lookout on its legs, the cab, a water tank
       gp(o, 3.4, 2.2, 3.4, 0x8a7a5a, 0, 8.1, -3); gp(o, 3.5, 0.9, 3.5, 0xb8c8d0, 0, 8.4, -3); roof(o, 3.9, 1.0, 3.9, 0x4a4a44, 0, 9.2, -3); drum(o, 3.4, 0.6, 0x5a6a7a); drum(o, 4.1, 0.6, 0x5a6a7a); ring(o, -3.6, 1.4); },
   };
@@ -6072,14 +6081,14 @@ for (const B of BUSH) { if (B.leg) { const g = B.leg, ex = B.x + Math.sin(B.a) *
     if (mown) { for (let l = -B.hl; l <= B.hl + 0.1; l += 40) for (const w of [-B.hw - 1, B.hw + 1]) mk(l, w); const [wx, wz] = W(S, s * (B.hw + 14), -l0 - B.hl + 30); sockAt(wx, wz); MOWN.push({ x: B.x, z: B.z, a: B.a, hl: B.hl, hw: B.hw }); if (B.leg) MOWN.push({ x: B.leg.x, z: B.leg.z, a: B.leg.a, hl: B.leg.hl, hw: B.hw }); }
     else for (const l of [-B.hl, B.hl]) for (const w of [-B.hw, B.hw]) mk(l, w, 0.5);   // painted rocks at the corners: someone uses this spot
     // the strip surface: graded / gravel ribbon, or two worn wheel tracks in the grass (meadow / ridge bench)
-    const v = RV, col = RC, cA = new THREE.Color({ sandbar: 0xb3a98c, shore: 0xa69c7c, short: 0x86ad55, meadow: 0x7e6c48, ridge: 0x7e6c48, shoulder: 0x7e6c48, saddle: 0x7a6a4a, alpine: 0x847250, clearing: 0x86ad55, dogleg: 0x86ad55, box: 0x8a7a5a, hanging: 0x7e6c48, hogback: 0x7e6c48, mesa: 0x947a58, float: 0xc2b48c, glacier: 0xe8edf0 }[B.type]).offsetHSL(0, -0.08, -0.02), cc = new THREE.Color();   // v0.78.1 toned down a little
+    const v = RV, col = RC, cA = new THREE.Color({ sandbar: 0xb3a98c, shore: 0xa69c7c, short: 0x86ad55, meadow: 0x7e6c48, ridge: 0x7e6c48, shoulder: 0x7e6c48, saddle: 0x7a6a4a, alpine: 0x847250, clearing: 0x86ad55, dogleg: 0x86ad55, box: 0x8a7a5a, hanging: 0x7e6c48, hogback: 0x7e6c48, mesa: 0x947a58, float: 0xc2b48c, glacier: 0xe8edf0, slope: 0x7a6c48 }[B.type]).offsetHSL(0, -0.08, -0.02), cc = new THREE.Color();   // v0.78.1 toned down a little
     const quad = (l, w, dl, dw, S = S0, Bq = B, fw = 0) => { cc.copy(cA).offsetHSL(0, 0, (R() - 0.5) * 0.06); const tex = mown, sa = Math.sin(Bq.a), ca = Math.cos(Bq.a);   // v0.63 conformed to the ground; mown 'short' strips get the runway pattern (others: a plain texel)
       const loc = (x, z) => { const dx = x - Bq.x, dz = z - Bq.z; return [dx * ca - dz * sa, dx * sa + dz * ca]; }, w0 = w, w1 = w + dw;   // v0.78.1 strip-local (across, along)
       const alpha = (x, z) => { if (tex) return 1; const [a, b] = loc(x, z), e = fw ? Math.min(a - w0, w1 - a) / fw : ((Bq.hw ?? B.hw) - Math.abs(a)) / RIB_FW; return Math.max(0, Math.min(1, e, (Bq.hl - Math.abs(b)) / RIB_FE)); };   // feathered sides (tracks: both edges) + ends
       const cuts = tex ? [w0, w1] : fw ? [w0, w0 + fw, w1 - fw, w1] : [w0, ...[-(Bq.hw ?? B.hw) + RIB_FW, (Bq.hw ?? B.hw) - RIB_FW].filter(c => c > w0 + 1e-3 && c < w1 - 1e-3), w1];   // extra vertices where the feather ends
       for (let j = 0; j < cuts.length - 1; j++) { const a0 = cuts[j], a1 = cuts[j + 1];
         conformPoly([W(S, a0, l), W(S, a1, l), W(S, a1, l + dl), W(S, a0, l + dl)].map(([x, z]) => [x, z]), 0.05, v, RU, (x, z) => { if (!tex) return [0.5, 0.5]; const [a, b] = loc(x, z); return [(a / B.hw + 1) / 2, (b / Bq.hl + 1) / 2]; }, () => { for (let k = 0; k < 3; k++) { const n = v.length - 9 + 3 * k; col.push(cc.r, cc.g, cc.b, alpha(v[n], v[n + 2])); } }); } };
-    const S0 = S, tracks = B.type === 'meadow' || B.type === 'ridge' || B.type === 'shoulder' || B.type === 'saddle' || B.type === 'alpine' || B.type === 'box' || B.type === 'hanging' || B.type === 'hogback' || B.type === 'mesa';   // v0.80 the new four: worn wheel tracks
+    const S0 = S, tracks = B.type === 'slope' || B.type === 'meadow' || B.type === 'ridge' || B.type === 'shoulder' || B.type === 'saddle' || B.type === 'alpine' || B.type === 'box' || B.type === 'hanging' || B.type === 'hogback' || B.type === 'mesa';   // v0.80 the new four: worn wheel tracks
     for (const Q of B.leg ? [B, B.leg] : [B]) { const Sq = { x: Q.x, z: Q.z, a: Q.a, y: 0 };
       for (let l = -Q.hl; l < Q.hl; l += 10) { if (tracks) { for (const w of [-1.8, 1.0]) quad(l, w, 10, 0.8, Sq, Q, 0.25); } else for (let w = -B.hw; w < B.hw; w += B.hw) quad(l, w, 10, B.hw, Sq, Q); } }
     if (B.tall) { B.trees = []; const Tc = new THREE.ConeGeometry(1, 1, 7).translate(0, 0.5, 0), Tt = new THREE.CylinderGeometry(0.25, 0.35, 1, 5).translate(0, 0.5, 0), W0 = { x: 0, z: 0, a: 0, y: 0 };   // v0.77 a wall of 20-27 m spruce round the clearing
@@ -6130,8 +6139,9 @@ const STRIP_DRESS = [];   // { id, m, n: piece counts, tris, S: the strip frame 
     { id: 'LODGE', x: LODGE.x, z: LODGE.z, a: Math.atan2(Math.sin(LODGE.a), Math.cos(LODGE.a)), hl: LODGE.hl, hw: LODGE.hw, side: 1 },
     { id: 'DRYFORK', x: DRYFORK_STRIP.x, z: DRYFORK_STRIP.z, a: DRYFORK_STRIP.a, hl: DRYFORK_STRIP.hl, hw: DRYFORK_STRIP.hw, side: 1 },
     { id: 'HALV', x: HALV.x, z: HALV.z, a: HALV.a, hl: HALV.hl, hw: HALV.hw, side: 0, dirt: true },
-  ].concat(BUSH.map(B => ({ id: B.id, x: B.x, z: B.z, a: B.a, hl: B.hl, hw: B.hw, side: B.side || 1, type: B.type, sock: B.type !== 'short' && B.type !== 'clearing' && B.type !== 'dogleg' })),
-    BUSH.filter(B => B.leg).map(B => ({ id: B.id + '2', x: B.leg.x, z: B.leg.z, a: B.leg.a, hl: B.leg.hl, hw: B.hw, side: B.side || 1, type: B.type, leg: true })));   // v0.77 the dogleg's second leg
+  ].concat(BUSH.filter(B => B.id !== 'MOOSE').map(B => ({ id: B.id, x: B.x, z: B.z, a: B.a, hl: B.hl, hw: B.hw, side: B.side || 1, type: B.type, sock: B.type !== 'short' && B.type !== 'clearing' && B.type !== 'dogleg' })),
+    BUSH.filter(B => B.leg).map(B => ({ id: B.id + '2', x: B.leg.x, z: B.leg.z, a: B.leg.a, hl: B.leg.hl, hw: B.hw, side: B.side || 1, type: B.type, leg: true })),
+    BUSH.filter(B => B.id === 'MOOSE').map(B => ({ id: B.id, x: B.x, z: B.z, a: B.a, hl: B.hl, hw: B.hw, side: B.side || 1, type: B.type, sock: true })));   // v1.17.0 last (own place on the stream)   // v0.77 the dogleg's second leg
   for (const S of L) {
     const sa = Math.sin(S.a), ca = Math.cos(S.a), Wp = (l, w) => [S.x + sa * l + ca * w, S.z + ca * l - sa * w], parts = [], N = {};
     const add = (k, l, w, sx, sy, sz, col, ry = r() * 6.283, rx = 0, rz = 0, dy = 0) => { const [x, z] = Wp(l, w), y = groundY(x, z) + dy, e = k === 'log' ? sx / 2 : Math.max(sx, sz);
@@ -6175,7 +6185,7 @@ function bushFind(S, quiet) {   // a bush site goes on the map
   say('FOUND ' + S.name + ' - ' + BUSH_T[B.type] + ' ~' + B.len + ' M' + (B.land != null ? ', ONE-WAY: LAND UPHILL HDG ' + String(B.land).padStart(3, '0') : '') + ' - ' + B.cust + (B.note ? ' - ' + B.note : '') + ' - ON YOUR MAP NOW');
 }
 function bushTick() {   // flown over low (within ~400 m, under ~250 m above it) or walked up to: found
-  for (const S of DLV_STRIPS) if (S.site && !S.found && hyp(PP.x - S.x, PP.z - S.z) < 400 && PP.y - groundY(S.x, S.z) < 250) bushFind(S);
+  for (const S of DLV_STRIPS) if (S.site && !S.found && !(S.id === 'MOOSE' && !MH.on) && hyp(PP.x - S.x, PP.z - S.z) < 400 && PP.y - groundY(S.x, S.z) < 250) bushFind(S);
 }
 const dlvS = id => DLV_STRIPS.find(S => S.id === id) || (id === 'NSHELF' ? ST_SITE : typeof id === 'string' && id.startsWith('EP:') ? emgSite(id) : undefined);   // v1.13.0 + a procedural medevac meadow ('EP:x:z:axis')   // v1.05 + the story cache's site (a var, below)
 const dlvKm = (a, b) => hyp(a.x - b.x, a.z - b.z) / 1000;
@@ -6211,10 +6221,11 @@ const JB_W = 512, JB_H = 352, JB_PW = 1.28, JB_PH = 0.88, JB_Y = 1.45;
 const REP0 = 30, REP_UNL = 55, REP_TIERS = [[15, 'UNHAPPY', '#b8301e'], [35, 'NEW', '#6a6a6a'], [55, 'KNOWS YOU', '#3a6a2a'], [75, 'TRUSTED', '#1e6a2a'], [101, 'REGULAR', '#a07010']];
 const REP_WHO = { HOME: 'THE STRIP STORE', RIDGE: 'THE RIDGE CREW', LODGE: 'THE LODGE', DRYFORK: 'DRY FORK FEED + SUPPLY', HALV: 'HALVORSEN AG-BIO' };
 const REP_NAME = { HOME: 'OLD PETE', RIDGE: 'FOREMAN DAWSON', LODGE: 'MRS ANDERS', DRYFORK: 'MAE AT THE FEED STORE', HALV: 'DR LINDQVIST', CREEK: 'PROSPECTOR JOE', FISHBAR: 'THE FISH CAMP BOYS', NWSHORE: 'TRAPPER BILL', ESHORE: 'THE BOATHOUSE', BENCH: 'THE LOST LODE CREW',
-  ELK: 'THE ELK CAMP COOK', RANGER: 'RANGER KOWALSKI', RANCHS: 'THE RANCH FOREMAN', BALDY: 'THE HIKER', SPUR: 'THE SURVEY CHIEF', BURNT: 'THE FIRE BOSS', DEEP: 'THE TRAPPER', LOWER: 'THE CANOE PARTY' };
+  ELK: 'THE ELK CAMP COOK', RANGER: 'RANGER KOWALSKI', RANCHS: 'THE RANCH FOREMAN', BALDY: 'THE HIKER', SPUR: 'THE SURVEY CHIEF', BURNT: 'THE FIRE BOSS', DEEP: 'THE TRAPPER', LOWER: 'THE CANOE PARTY', MOOSE: 'DR KANE' };
 const PILOT = (new URLSearchParams(location.search).get('pilot') || 'NEIL').toUpperCase().replace(/[^A-Z .'-]/g, '').slice(0, 14) || 'NEIL';
 const HALV_T = ['SEALED LAB SAMPLES', 'SEED LOT HB-7 CRATES', 'STATION 4 STORES', 'FIELD KIT RETURNS', 'GREENHOUSE SUPPLIES'];
 DLV.rep = {};
+var MH = { st: 0, on: 0, post: 0, log: [], t: 0, key: '', mk: '', merged: 0, tj: null, ts: '', tm: '', tg: null, kd: -1, kb: -1, kt: null };   // v1.17.0 Dr Kane's chain: st = jobs delivered (0-5), on = Moosehide on the map, post = the first job posted
 const repKey = j => j.emg ? j.emg.who : j.drop ? DROPS[j.drop.s].id : j.to;   // v0.58 an emergency: whoever called it in
 const repOf = k => DLV.rep[k] ?? REP0;
 const repTier = v => REP_TIERS.find(t => v < t[0]);
@@ -6312,7 +6323,7 @@ function dlvTrustTo(id, fS, to) {   // v1.16.3 story: lean new offers toward the
 function dlvGen0(from, forceH) {   // one offer from this strip (seeded by the running job number, so a save reloads the same board); forceH: heavy freight
   const id = DLV.seq++; { const rh = dlvRng(id * 49979687 + 11); if (!forceH && rh() < HUNT_P) return huntGen(id, from, rh); }   // v0.53
   { const ra = dlvRng(id * 86028121 + 5); if (!forceH && ra() < DROP_P) return dropGen(id, from, ra); }   // v0.54 airdrops
-  const r = dlvRng(id * 7919 + 13), fS = dlvS(from), others = DLV_STRIPS.filter(S => S.id !== from && !S.lock && !(S.B && S.B.kit && !(UPG.kown && UPG.kown[S.B.kit]))), bush = others.filter(S => S.site), main = others.filter(S => !S.site);
+  const r = dlvRng(id * 7919 + 13), fS = dlvS(from), others = DLV_STRIPS.filter(S => S.id !== from && !S.lock && !(S.id === 'MOOSE' && !(MH && MH.on)) && !(S.B && S.B.kit && !(UPG.kown && UPG.kown[S.B.kit]))), bush = others.filter(S => S.site), main = others.filter(S => !S.site);
   const pool = bush.length && r() < (fS && fS.site ? 0.25 : 0.5) ? bush : main, to = dlvTrustTo(id, fS, pool[Math.floor(r() * pool.length)]), bx = to.site || (fS && fS.site) ? 1.2 + 0.2 * Math.max(to.B?.diff || 0, fS?.B?.diff || 0) : 1;   // v0.52 bush sites (v0.77 + the tricky ones' difficulty)
   const pick = DLV_T[Math.floor(r() * DLV_T.length)], hk = to.B && to.B.hook, fj = !hk && floatJob(id, fS, to), [title, kinds] = hk ? [hk.t, hk.k] : fj || pick, items = dlvCapL(kinds.map(k => { const [a, b] = CARGO_K[k].lb; return { k, lb: Math.round(a + r() * (b - a)) }; }));
   const lb = items.reduce((s, i) => s + i.lb, 0), km = dlvKm(dlvS(from), to), dl = r() < 0.45 ? Math.ceil(6 + km * 1.5) : 0;
@@ -6528,8 +6539,8 @@ function jbDraw(S) {
     x.fillStyle = '#' + DLV_COL[j.id % DLV_COL.length].toString(16).padStart(6, '0'); x.fillRect(16, Y, 10, 80);
     x.fillStyle = '#222'; x.font = 'bold 19px sans-serif'; x.fillText((i + 1) + '. ' + j.title, 34, Y + 24);
     x.textAlign = 'right'; x.fillStyle = '#1e6a2a'; x.fillText('$' + j.pay, JB_W - 26, Y + 24); x.textAlign = 'left';
-    { const H = dlvWc(j) === 'H', pw = x.measureText('$' + j.pay).width, t = j.req ? 'REQUEST' : j.hunt ? 'HUNT' : j.drop ? 'AIRDROP' : H ? 'HEAVY' : 'LIGHT'; x.font = 'bold 12px sans-serif'; const bw = x.measureText(t).width + 10, b0 = JB_W - 26 - pw - 10 - bw;   // v0.52 weight class
-      x.fillStyle = j.req ? '#b08010' : j.hunt ? '#c06010' : j.drop ? '#2a5aa0' : H ? '#8a2a1a' : '#5a7a5a'; x.fillRect(b0, Y + 9, bw, 19); x.fillStyle = '#fff'; x.fillText(t, b0 + 5, Y + 23); }
+    { const H = dlvWc(j) === 'H', pw = x.measureText('$' + j.pay).width, t = j.ch ? 'DR KANE ' + j.ch + '/5' : j.req ? 'REQUEST' : j.hunt ? 'HUNT' : j.drop ? 'AIRDROP' : H ? 'HEAVY' : 'LIGHT'; x.font = 'bold 12px sans-serif'; const bw = x.measureText(t).width + 10, b0 = JB_W - 26 - pw - 10 - bw;   // v0.52 weight class
+      x.fillStyle = j.ch ? '#2a6a5a' : j.req ? '#b08010' : j.hunt ? '#c06010' : j.drop ? '#2a5aa0' : H ? '#8a2a1a' : '#5a7a5a'; x.fillRect(b0, Y + 9, bw, 19); x.fillStyle = '#fff'; x.fillText(t, b0 + 5, Y + 23); }
     const T = dlvS(j.to), n = {}; for (const it of j.items) n[it.k] = (n[it.k] || 0) + 1;
     { const st = '  ' + repStars(repOf(repKey(j))), fd = T.site && !T.found ? ' (FIND IT)' : '', lb = dlvLb(j) + ' LB'; x.fillStyle = '#333'; x.font = '15px sans-serif';
       fitText(x, j.drop ? ['AIRDROP TO THE ' + DROPS[j.drop.s].who + ' AT ' + DROPS[j.drop.s].name + ' (NO STRIP) ' + dropKm(j, S).toFixed(1) + ' KM ' + jbDirXZ(S, DROPS[j.drop.s].cx, DROPS[j.drop.s].cz) + ' ' + jbFt(DROPS[j.drop.s].cx, DROPS[j.drop.s].cz).toLocaleString('en-US') + ' FT - ' + j.drop.n + ' BUNDLES ' + lb + st, 'AIRDROP: ' + DROPS[j.drop.s].who + ' AT ' + DROPS[j.drop.s].name + ' - ' + dropKm(j, S).toFixed(1) + ' KM ' + jbDirXZ(S, DROPS[j.drop.s].cx, DROPS[j.drop.s].cz) + ' ' + jbFt(DROPS[j.drop.s].cx, DROPS[j.drop.s].cz).toLocaleString('en-US') + ' FT - ' + j.drop.n + ' BUNDLES' + st]
@@ -6540,7 +6551,7 @@ function jbDraw(S) {
     else if (!j.hunt && dlvLb(j) > dlvRoom()) { x.fillStyle = '#b8301e'; x.font = 'bold 14px sans-serif'; x.fillText('OVER PAYLOAD AT ' + Math.round(WBS.fuelGal) + ' GAL: MAX ' + Math.max(0, dlvRoom()) + ' LB', 34, Y + 68, JB_W - 170);   // v0.52
       x.fillStyle = act >= DLV_MAX ? '#9a9a90' : '#2a7a2a'; x.fillRect(JB_W - 126, Y + 50, 100, 26); x.fillStyle = '#fff'; x.font = 'bold 15px sans-serif'; x.textAlign = 'center'; x.fillText('ACCEPT', JB_W - 76, Y + 68); x.textAlign = 'left'; }
     else { x.fillStyle = j.req ? '#8a6008' : j.sp ? '#8a1a6a' : j.dl ? '#9a4a10' : '#555'; x.font = (j.sp || j.req ? 'bold ' : '') + '14px sans-serif';
-      fitText(x, [j.req ? '"ASK FOR ' + PILOT + '" - ' + (REP_NAME[repKey(j)] || repWho(repKey(j))) + (j.dl ? ' - ' + j.dl + ' MIN' : '') : j.drop ? 'DROP ON THE SMOKE - PAID BY AIM + CONDITION' + (j.dl ? ' - ' + j.dl + ' MIN' : '') : j.hunt ? 'HUNTING JOB - ' + (j.dl ? 'DEADLINE ' + j.dl + ' MIN' : 'NO DEADLINE') + ' - KEEPS ' + j.life + ' MIN DRESSED' : (T.site ? BUSH_T[T.B.type] + ' ' + T.B.len + ' M - ' : '') + (j.sp === 'fragile' ? 'FRAGILE - KNOCKS + G DOCK PAY (+30%)' : j.sp === 'perish' ? 'PERISHABLE - FRESH ' + j.life + ' MIN (+25%)' : j.sp === 'live' ? 'LIVE ANIMALS - FLY SMOOTH (+35%)' : j.dl ? 'DEADLINE ' + j.dl + ' MIN (+40% PAY)' : 'NO DEADLINE'), j.req ? '"ASK FOR ' + PILOT + '"' + (j.dl ? ' - ' + j.dl + ' MIN' : '') : j.drop ? 'DROP ON THE SMOKE' + (j.dl ? ' - ' + j.dl + ' MIN' : '') : j.hunt ? (j.dl ? 'HUNT - ' + j.dl + ' MIN' : 'HUNT - NO DEADLINE') + ' - KEEPS ' + j.life + ' MIN' : (T.site ? BUSH_T[T.B.type] + ' ' + T.B.len + ' M - ' : '') + (j.sp === 'fragile' ? 'FRAGILE (+30%)' : j.sp === 'perish' ? 'PERISHABLE ' + j.life + ' MIN (+25%)' : j.sp === 'live' ? 'LIVE ANIMALS (+35%)' : j.dl ? 'DEADLINE ' + j.dl + ' MIN (+40%)' : 'NO DEADLINE')], 34, Y + 68, JB_W - 170);
+      fitText(x, j.ch ? [mhSub(j), mhSub(j, 1)] : [j.req ? '"ASK FOR ' + PILOT + '" - ' + (REP_NAME[repKey(j)] || repWho(repKey(j))) + (j.dl ? ' - ' + j.dl + ' MIN' : '') : j.drop ? 'DROP ON THE SMOKE - PAID BY AIM + CONDITION' + (j.dl ? ' - ' + j.dl + ' MIN' : '') : j.hunt ? 'HUNTING JOB - ' + (j.dl ? 'DEADLINE ' + j.dl + ' MIN' : 'NO DEADLINE') + ' - KEEPS ' + j.life + ' MIN DRESSED' : (T.site ? BUSH_T[T.B.type] + ' ' + T.B.len + ' M - ' : '') + (j.sp === 'fragile' ? 'FRAGILE - KNOCKS + G DOCK PAY (+30%)' : j.sp === 'perish' ? 'PERISHABLE - FRESH ' + j.life + ' MIN (+25%)' : j.sp === 'live' ? 'LIVE ANIMALS - FLY SMOOTH (+35%)' : j.dl ? 'DEADLINE ' + j.dl + ' MIN (+40% PAY)' : 'NO DEADLINE'), j.req ? '"ASK FOR ' + PILOT + '"' + (j.dl ? ' - ' + j.dl + ' MIN' : '') : j.drop ? 'DROP ON THE SMOKE' + (j.dl ? ' - ' + j.dl + ' MIN' : '') : j.hunt ? (j.dl ? 'HUNT - ' + j.dl + ' MIN' : 'HUNT - NO DEADLINE') + ' - KEEPS ' + j.life + ' MIN' : (T.site ? BUSH_T[T.B.type] + ' ' + T.B.len + ' M - ' : '') + (j.sp === 'fragile' ? 'FRAGILE (+30%)' : j.sp === 'perish' ? 'PERISHABLE ' + j.life + ' MIN (+25%)' : j.sp === 'live' ? 'LIVE ANIMALS (+35%)' : j.dl ? 'DEADLINE ' + j.dl + ' MIN (+40%)' : 'NO DEADLINE')], 34, Y + 68, JB_W - 170);
       x.fillStyle = act >= DLV_MAX ? '#9a9a90' : '#2a7a2a'; x.fillRect(JB_W - 126, Y + 50, 100, 26); x.fillStyle = '#fff'; x.font = 'bold 15px sans-serif'; x.textAlign = 'center'; x.fillText('ACCEPT', JB_W - 76, Y + 68); x.textAlign = 'left'; } }
   const inb = dlvActive().filter(j => j.to === S.id && !j.drop && !j.emg);
   { const v = repOf(S.id), T = repTier(v); x.fillStyle = T[2]; x.font = 'bold 14px sans-serif'; x.fillText('REP: ' + repWho(S.id) + '  ' + repStars(v) + '  ' + T[1] + ' (' + v + ')' + (repPayX(v) >= 1.01 ? ' - PAY +' + Math.round((repPayX(v) - 1) * 100) + '%' : ''), 20, JB_H - 30, JB_W - 40); }   // v0.56
@@ -6884,13 +6895,14 @@ function dlvSave() {
     if (it.st === 'cargo') { o.s = 'c'; o.zn = it.cz; o.p = [r3(it.mesh.position.x), r3(it.mesh.position.y), r3(it.mesh.position.z)]; }
     else { it.mesh.getWorldPosition(_dg); o.s = 'g'; o.p = [r3(_dg.x), r3(_dg.z)]; o.ry = r3(it.st === 'ground' ? it.mesh.rotation.y : 0); }
     items.push(o); }
-  const offers = {}; for (const S of DLV_STRIPS) offers[S.id] = DLV.offers[S.id].map(j => ({ id: j.id, from: j.from, to: j.to, title: j.title, items: j.items, pay: j.pay, dl: j.dl, due: r3(j.due), st: j.st, wc: dlvWc(j), ...(j.hunt ? { hunt: { h: j.hunt.h, got: j.hunt.got ? 1 : 0 } } : {}), ...(j.drop ? { drop: { s: j.drop.s, n: j.drop.n, res: dropSaveRes(j) } } : {}), ...(j.req ? { req: 1 } : {}), ...(j.sp ? { sp: j.sp, life: j.life, fresh: r3(j.fresh), stress: r3(j.stress) } : {}) }));   // v0.51 special cargo state
-  return { cash: DLV.cash, gt: r3(DLV.gt), seq: DLV.seq, paid: DLV.paid, done: DLV.done, offers, items, straps: [DLV.belt, DLV.net], rep: { ...DLV.rep }, unl: DLV_STRIPS.filter(S => S.lock === false).map(S => S.id), found: DLV_STRIPS.filter(S => S.site && S.found).map(S => S.id) };   // v0.52 + found sites
+  const offers = {}; for (const S of DLV_STRIPS) offers[S.id] = DLV.offers[S.id].map(j => ({ id: j.id, from: j.from, to: j.to, title: j.title, items: j.items, pay: j.pay, dl: j.dl, due: r3(j.due), st: j.st, wc: dlvWc(j), ...(j.hunt ? { hunt: { h: j.hunt.h, got: j.hunt.got ? 1 : 0 } } : {}), ...(j.drop ? { drop: { s: j.drop.s, n: j.drop.n, res: dropSaveRes(j) } } : {}), ...(j.req ? { req: 1 } : {}), ...(j.ch ? { ch: j.ch } : {}), ...(j.sp ? { sp: j.sp, life: j.life, fresh: r3(j.fresh), stress: r3(j.stress) } : {}) }));   // v0.51 special cargo state
+  return { cash: DLV.cash, gt: r3(DLV.gt), seq: DLV.seq, paid: DLV.paid, done: DLV.done, offers, items, straps: [DLV.belt, DLV.net], rep: { ...DLV.rep }, unl: DLV_STRIPS.filter(S => S.lock === false).map(S => S.id), found: DLV_STRIPS.filter(S => S.site && S.found).map(S => S.id), mh: mhSave() };   // v0.52 + found sites
 }
 function dlvLoad(d) {
   for (const it of DLV.items.slice()) dlvRemove(it);
   DLV.offers = {}; DLV.cash = DLV_CASH0; DLV.gt = 0; DLV.seq = 1; DLV.found = 0; for (const S of DLV_STRIPS) if (S.site) S.found = false; MAP.key = '';
   DLV.rep = {}; DLV.repLast = null; dlvS('HALV').lock = true;   // v0.56
+  MH.on = d && d.mh && (d.mh.on || d.mh.st) ? 1 : 0;   // v1.17.0 (before the boards refill: Moosehide only once her chain opened it)
   if (d && typeof d === 'object') {
     if (d.rep && typeof d.rep === 'object') for (const [k, v] of Object.entries(d.rep)) if (isFinite(+v) && v !== null) DLV.rep[k] = clamp(Math.round(+v), 0, 100);
     if (Array.isArray(d.unl) && d.unl.includes('HALV')) dlvS('HALV').lock = false; repUnlock(true);
@@ -6905,7 +6917,7 @@ function dlvLoad(d) {
       else if (o.p?.length >= 2) { dlvSetGround(it, o.p[0], o.p[1], o.ry || 0); it.mesh.position.y = dlvRestY(it, o.p[0], o.p[1], 1e5, 0.12); } }   // v0.88.1 a saved pile (or a carried stack) rebuilds as a pile
     for (const j of dlvActive()) if (!j.emg && !DLV.items.some(it => it.job === j.id) && !(j.hunt && !j.hunt.got) && !(j.drop && j.drop.res.length)) { j.st = 'offer'; j.due = 0; if (j.hunt) { j.hunt.got = 0; j.fresh = 1; } }   // (a hunt still on stays on)   // a job whose cargo is gone goes back on the board
   } else dlvInit(true);
-  cgStraps(); for (const S of DLV_STRIPS) S.key = '';
+  mhLoad(d && typeof d === 'object' ? d.mh : null); cgStraps(); for (const S of DLV_STRIPS) S.key = '';
 }
 dlvInit(true); cgStraps();
 // ===================== v0.25 weight & balance (v0.45: the empty Cub + you + fuel; v0.50: + the cargo aboard) =====================
@@ -9893,6 +9905,7 @@ const FOLK_L = {
   RANCHS: { sk: 0xd09870, sh: 0x5a7aa0, tr: 0x2a3a5a, hat: 'brim', hc: 0xd8c8a0, s: 1.02 },
   NURSE: { sk: 0x8a5a3a, sh: 0x3aa0a0, tr: 0x3aa0a0, hat: 'none', hc: 0x1a1612, s: 0.96 },
   LILY: { sk: 0xf0c8a8, sh: 0xe05a8a, tr: 0x3a4a6a, hat: 'long', hc: 0xd8b060, s: 0.86 },
+  MOOSE: { sk: 0xe8b898, sh: 0x4a6a3a, tr: 0x4a3e2e, hat: 'brim', hc: 0x8a7a50, s: 0.95 },   // v1.17.0 Dr Rosa Kane, by her board on Moosehide Hill
 };
 const FOLK_NAME = { NURSE: 'NURSE OKAFOR' };
 const folkName = id => FOLK_NAME[id] || REP_NAME[id] || repWho(id);
@@ -10373,7 +10386,7 @@ function vegPlace() {
   if (typeof DRYFORK_STRIP !== 'undefined') addRing(DRYFORK_STRIP.x, DRYFORK_STRIP.z, 55, 150, 80, pines.concat(snags), 10, 16, 4);
   if (typeof MEADOW !== 'undefined') addRing(MEADOW.x, MEADOW.z, 80, 200, 50, coverT, 9, 15, 4);
   if (typeof DLV_STRIPS !== 'undefined') for (const S of DLV_STRIPS) {
-    if (S.id === 'HOME') continue;
+    if (S.id === 'HOME' || S.id === 'MOOSE') continue;   // (v1.17.0 Moosehide below, last on the stream)
     addRing(S.x, S.z, (S.hw || 20) + 16, (S.hl || 80) + 90, 36, S.type === 'shore' || S.type === 'sandbar' ? birches.concat(pines) : coverT.concat(snags), 8, 15, 3.5);
     addRing(S.x, S.z, (S.hw || 16) + 10, (S.hl || 60) + 50, 40, ['stump', 'stumpMoss', 'log', 'logMoss', 'rock1', 'rock2', 'rock3', 'rockMoss1', 'bush1', 'bush2', 'fern1', 'fern2', 'fern3'], 0.4, 1.3, 1.2);
   }
@@ -10416,6 +10429,11 @@ function vegPlace() {
     prop('tent', x, z, 2.1, (B.a || 0) + 0.4); prop('fire', x + 2.5, z + 1.2, 0.7, 0); prop('fireLit', x + 2.5, z + 1.2, 0.7, 0);
     prop('sitLog', x + 3.4, z + 0.2, 0.5, 1.1); prop('crate', x + 1.4, z - 1.5, 0.48, 0.3);
   }
+  { const S = typeof DLV_STRIPS !== 'undefined' && DLV_STRIPS.find(q => q.id === 'MOOSE'); if (S) {   // v1.17.0 Moosehide Hill's trees + ground cover (after all the others)
+    const B = BUSH.find(q => q.id === 'MOOSE'), sa = Math.sin(B.a), ca = Math.cos(B.a), vb = vegBlocked, lw = (x, z) => { const dx = x - B.x, dz = z - B.z; return [Math.abs(dx * sa + dz * ca), Math.abs(dx * ca - dz * sa)]; };
+    vegBlocked = (x, z, r) => { const [l, w] = lw(x, z); return vb(x, z, r) || (r > 2 ? (l < B.hl + 60 && w < B.hw + 12) || (l < B.hl + 260 && w < B.hw + 8 + (l - B.hl) * 0.15) : l < B.hl + 12 && w < B.hw + 2); };   // a wingspan of clear air either side + an open funnel off each end (the trees: no rocks on the strip)
+    addRing(S.x, S.z, (S.hw || 20) + 16, (S.hl || 80) + 90, 36, coverT.concat(snags), 8, 15, 3.5);
+    addRing(S.x, S.z, (S.hw || 16) + 10, (S.hl || 60) + 50, 40, ['stump', 'stumpMoss', 'log', 'logMoss', 'rock1', 'rock2', 'rock3', 'rockMoss1', 'bush1', 'bush2', 'fern1', 'fern2', 'fern3'], 0.4, 1.3, 1.2); vegBlocked = vb; } }
   // instance everything (CHUNKS + clearTrees + distance lod). v1.15.1: high-poly trees get lodPair=1; a cheap low-poly copy (lodPair=2) takes over past VEG.LOD
   const treeSet = { pine1: 1, pine2: 1, pine3: 1, pine4: 1, birch1: 1, birch2: 1, birch3: 1, snag1: 1, snag2: 1, snag3: 1 };
   const tm = swayMat(ITEM_VM.clone(), 1, 0.035, 0, 1.15);
@@ -11719,6 +11737,90 @@ function golWay() { const G = GOAL; if (!G.has) { G.dst = -1; return; } let px, 
   const dx = G.tx - px, dz = G.tz - pz; G.dst = hyp(dx, dz); G.brg = (Math.atan2(dx, -dz) * 57.29578 + 360) % 360; G.rel = (G.ty - py) * 3.28084; }
 const golBrg = b => JB_CARD[Math.floor((b + 11.25) / 22.5) % 16] + ' ' + String(Math.round(b) % 360).padStart(3, '0') + '\u00b0';
 const golDist = d => d < 950 ? Math.max(10, Math.round(d / 10) * 10) + ' M' : (d / 1000).toFixed(1) + ' KM';
+// ===================== v1.17.0 DR KANE'S MOOSE STUDY (Moosehide Hill, a five-job chain) =====================
+const MH_J = [   // from, to, title, [kind, lb], special
+  { from: 'DRYFORK', to: 'MOOSE', title: 'DR KANE\'S CAMP GEAR', items: [['crate', 55], ['sack', 40], ['parcel', 14]] },
+  { from: 'HOME', to: 'MOOSE', title: 'TRAIL CAMERAS + BATTERIES', items: [['fbox', 18], ['fbox', 22]], sp: 'fragile' },
+  { from: 'DRYFORK', to: 'MOOSE', title: 'MINERAL LICK BLOCKS', items: [['feed', 50], ['feed', 52], ['cement', 50]], wc: 'H' },
+  { from: 'MOOSE', to: 'DRYFORK', title: 'SAMPLES FOR THE CLINIC FRIDGE', items: [['cooler', 30]], sp: 'perish', life: 25 },
+  { from: 'LODGE', to: 'MOOSE', title: 'TELEMETRY MAST + GENERATOR', items: [['generator', 110], ['parcel', 16]], wc: 'H' }];
+const MH_BONUS = 600, MH_AT = 3;   // the study grant's thank-you on the last job; jobs flown before Mae posts the first one
+const MH_TALK = [   // after each delivery: [who, words]
+  [['DR KANE', 'YOU FOUND IT - AND LANDED UPHILL. MOST PILOTS WON\'T TOUCH THIS HILL.'], ['DR KANE', 'I\'M COUNTING THE COWS AND CALVES ON THE SLOUGH THIS SPRING. NEXT: MY TRAIL CAMERAS. PETE HAS THEM AT HOME STRIP. THEY\'RE GLASS - FLY GENTLE.']],
+  [['DR KANE', 'NOT A SCRATCH. THE CAMERAS GO ON THE GAME TRAILS TONIGHT.'], ['DR KANE', 'THE COWS NEED SALT AFTER THE WINTER. MAE HAS LICK BLOCKS AT DRY FORK - HEAVY. MIND YOUR WEIGHT FOR THIS LITTLE HILL.']],
+  [['DR KANE', 'THAT\'S A LOT OF SALT FOR A CUB. THANK YOU, {P}.'], ['DR KANE', 'NOW I HAVE HAIR AND SCAT SAMPLES THAT HAVE TO GET COLD. NURSE OKAFOR\'S CLINIC FRIDGE AT DRY FORK WILL HOLD THEM. TAKE OFF DOWNHILL - THE SLOUGH IS BELOW YOU.']],
+  [['NURSE OKAFOR', 'COLD AND IN THE FRIDGE. DR KANE RADIOED: SHE WANTS HER TELEMETRY MAST.'], ['NURSE OKAFOR', 'THE LODGE HAS IT IN THEIR SHED, WITH A GENERATOR. TWO HANDS FOR THAT ONE.']],
+  [['DR KANE', 'A MAST! NOW THE COLLARS TALK TO ME ALL WINTER.'], ['DR KANE', 'THE STUDY\'S FUNDED FOR THREE YEARS, {P}. MOOSEHIDE HILL IS YOUR STRIP AS MUCH AS MINE - THERE\'S ALWAYS WORK ON MY BOARD.']]];
+const MH_LOG = ['Dr Rosa Kane, a moose biologist, posted a job at Dry Fork: her camp gear to Moosehide Hill, a new hillside strip in the basin south-east of Dry Fork. One-way: land uphill, to the east.',
+  'Landed Dr Kane\'s camp gear on Moosehide Hill: 130 m of rough grass, uphill. She is counting the cows and calves on the slough.',
+  'The trail cameras reached Moosehide Hill in one piece.',
+  'Hauled the mineral lick blocks into Moosehide Hill - a heavy load onto a short hill.',
+  'Flew Dr Kane\'s samples out to the clinic fridge at Dry Fork - downhill and away over the slough.',
+  'The telemetry mast is up on Moosehide Hill. Dr Kane\'s study runs three more years; the strip stays open, with work on her board.'];
+const MH_HI = ['THE CAMP GEAR? WONDERFUL - SET IT ON THE YELLOW PAD.', 'THE CAMERAS ARE AT PETE\'S, HOME STRIP. GLASS - FLY GENTLE.', 'MAE HAS THE LICK BLOCKS AT DRY FORK. HEAVY - WATCH YOUR WEIGHT FOR THIS HILL.',
+  'THE SAMPLES ARE IN THE COOLER ON MY PAD. THEY HAVE TO GET COLD, FAST.', 'THE LODGE HAS MY MAST IN THEIR SHED. THE GENERATOR IS A TWO-HAND LIFT.', 'THE COLLARS ARE TALKING, {P}. COFFEE\'S IN THE HUT.'];
+function mhSave() { return { st: MH.st, on: MH.on, post: MH.post, log: MH.log.slice(-8) }; }
+function mhLoad(d) { const o = d && typeof d === 'object' ? d : {}; MH.st = clamp(Math.round(+o.st || 0), 0, 5); MH.on = o.on || MH.st > 0 ? 1 : 0; MH.post = o.post || MH.on ? 1 : 0;
+  MH.log = Array.isArray(o.log) ? o.log.filter(e => e && typeof e.t === 'string').slice(-8) : []; MH.merged = 0; MH.t = 0; MH.mk = 'L' + MH.st + MH.on;
+  const S = dlvS('MOOSE'); if (S && MH.on && !S.found) bushFind(S, true); }
+function mhReset() { mhLoad(null); }
+const mhFind = () => { if (MH.st >= 5) return null; const c = MH.st + 1; for (let s = 0; s < DLV_STRIPS.length; s++) { const L = DLV.offers[DLV_STRIPS[s].id]; if (L) for (let i = 0; i < L.length; i++) { const j = L[i]; if (j.ch === c && (j.st === 'offer' || j.st === 'active')) return j; } } return null; };
+function mhJob(k) { const D = MH_J[k], S = dlvS(D.from), T = dlvS(D.to), items = D.items.map(([kk, lb]) => ({ k: kk, lb })), lb = items.reduce((s, i) => s + i.lb, 0), km = dlvKm(S, T);
+  const pay = Math.round((60 + 0.6 * lb + 30 * km) * 1.6 * (D.sp ? DLV_SPX[D.sp] : 1) / 5) * 5;
+  return { id: DLV.seq++, from: D.from, to: D.to, title: D.title, items, pay, dl: 0, due: 0, st: 'offer', wc: D.wc || 'L', ch: k + 1, ...(D.sp ? { sp: D.sp, life: D.sp === 'perish' ? D.life : 0, fresh: 1, stress: 0 } : {}) }; }
+function mhPost(k) {   // her next job, on its board (in place of an offer nobody has taken)
+  if (k >= 5 || mhFind()) return true; const D = MH_J[k], S = dlvS(D.from), L = DLV.offers[D.from]; if (!S || !L) return false;
+  let i = -1; for (let q = L.length - 1; q >= 0; q--) if (L[q].st === 'offer' && !L[q].ch) { i = q; break; } if (i < 0) return false;   // that board is full of your own jobs: next time round
+  L[i] = mhJob(k); S.key = ''; MH.mk = 'P' + k + '.' + L[i].id; MAP.key = ''; KB.key = ''; saveSoon(); return true; }
+function mhLog(t) { storyLog(t); if (!MH.log.some(e => e.t === t)) { MH.log.push({ t, d: storyDay() }); if (MH.log.length > 8) MH.log.shift(); } }
+function mhSay(L) { for (let i = 0; i < L.length; i++) FOLK.q.push({ t: L[i][0] + ': "' + folkP(L[i][1]) + '"', w: i ? 6.5 : 2.5 }); }
+function mhAccepted(j) { MH.mk = 'A' + j.ch + '.' + j.id; MAP.key = '';
+  if (j.ch === 1 && !MH.on) { MH.on = 1; const S = dlvS('MOOSE'), B = S.B; bushFind(S, true); mhLog(MH_LOG[0]);
+    FOLK.q.push({ t: 'ON YOUR MAP: MOOSEHIDE HILL - ' + BUSH_T[B.type] + ' ~' + B.len + ' M, ONE-WAY: LAND UPHILL HDG ' + String(B.land).padStart(3, '0') + ' - ' + B.note, w: 3 }); }
+  saveSoon(); }
+function mhDone(j) { MH.st = Math.max(MH.st, j.ch); MH.mk = 'D' + MH.st; MAP.key = ''; KB.key = ''; mhSay(MH_TALK[j.ch - 1]); mhLog(MH_LOG[j.ch]);
+  if (MH.st >= 5) { DLV.cash += MH_BONUS; DLV.paid += MH_BONUS; FOLK.q.push({ t: 'DR KANE\'S STUDY GRANT: A THANK-YOU OF $' + MH_BONUS + ' - WALLET $' + DLV.cash, w: 6.5 }); repAdd('MOOSE', 10); MH_MAST.visible = true; }
+  else mhPost(MH.st); saveGame('kane'); }
+function mhSub(j, short) { const k = j.ch, T = dlvS(j.to);
+  const s = k === 2 ? 'FRAGILE - KNOCKS DOCK PAY' : k === 4 ? 'PERISHABLE - FRESH ' + j.life + ' MIN' : k === 3 || k === 5 ? 'HEAVY - MIND THE SHORT HILL' : 'NEW STRIP: MOOSEHIDE HILL';
+  return short ? 'DR KANE ' + k + '/5 - ' + s : 'DR KANE\'S MOOSE STUDY ' + k + '/5 - ' + s + (T.id === 'MOOSE' ? ' - LAND UPHILL ' + String(T.B.land).padStart(3, '0') : ''); }
+function mhTgt() { const j = mhFind(); if (j === MH.tj && (!j || j.st === MH.ts) && MH.tm === MH.mk) return MH.tg; MH.tj = j; MH.ts = j ? j.st : ''; MH.tm = MH.mk; return (MH.tg = mhTg0(j)); }   // (cached: no garbage in the tick)
+function mhTg0(j) { if (!j) return null; if (j.st === 'offer') { const S = dlvS(j.from); return { t: 'TAKE DR KANE\'S JOB OFF THE ' + S.name + ' BOARD: ' + j.title, nm: S.name + ' BOARD', x: S.board[0], z: S.board[1], k: j.ch }; }
+  const T = dlvS(j.to); return { t: 'FLY ' + j.title + ' TO ' + T.name + (T.id === 'MOOSE' ? ' - ONE-WAY, LAND UPHILL HDG ' + String(T.B.land).padStart(3, '0') : '') + ' AND SET IT ON THE PAD', nm: T.name + ' PAD', x: T.pad[0], z: T.pad[1], k: j.ch }; }
+const MH_V = new Float64Array(5);   // distance, bearing, the tick clock, the key's distance + bearing steps (no boxed numbers in the tick)
+function mhTick(dt) {
+  if ((MH_V[2] -= dt) > 0 && MH.t > 0) return; MH_V[2] = 0.5; MH.t = 1;
+  if (!MH.merged) { MH.merged = 1; if (!STORY.on) for (const e of MH.log) if (!STORY.log.some(q => q.t === e.t)) STORY.log.push({ t: e.t, d: e.d }); MH_MAST.visible = MH.st >= 5; }
+  if (MH.st >= 5) { if (MH.key !== 'Z') MH.key = 'Z'; return; }
+  if (!MH.post && DLV.done >= MH_AT) { if (mhPost(0)) { MH.post = 1; FOLK.q.push({ t: 'NEW ON THE DRY FORK BOARD: DR KANE, A MOOSE BIOLOGIST, NEEDS A PILOT WHO CAN LAND SHORT - A NEW STRIP, MOOSEHIDE HILL', w: 1.5, soft: 1 }); saveSoon(); } }
+  else if (MH.post && !mhFind()) mhPost(MH.st);   // (an older save, or the board was full)
+  const T = mhTgt(); if (!T) { if (MH.key !== '') MH.key = ''; return; }
+  const P = PP, dx = T.x - P.x, dz = T.z - P.z; MH_V[0] = Math.sqrt(dx * dx + dz * dz); MH_V[1] = (Math.atan2(dx, -dz) * 57.29578 + 360) % 360;
+  const dq = MH_V[0] < 1000 ? Math.round(MH_V[0] / 50) : 20 + Math.round(MH_V[0] / 250), bq = Math.round(MH_V[1] / 5) % 72;
+  if (dq !== MH_V[3] || bq !== MH_V[4] || T !== MH.kt) { MH_V[3] = dq; MH_V[4] = bq; MH.kt = T; MH.key = MH.mk + '|' + dq + '|' + bq; } }   // (a new key only when the page would change)
+function mhKbBox(x, y, W) { const T = mhTgt(); if (!T) return y; const h = 128; if (y + h > KB_H - 60) return y;
+  x.fillStyle = '#e4efe6'; x.fillRect(14, y, KB_W - 28, h); x.strokeStyle = '#4a8a6a'; x.lineWidth = 2; x.strokeRect(14, y, KB_W - 28, h);
+  x.fillStyle = '#2a5a3a'; x.font = 'bold 16px sans-serif'; x.textAlign = 'left'; x.fillText('SIDE JOB - DR KANE\'S MOOSE STUDY (' + T.k + ' OF 5)', 26, y + 22, W - 24);
+  x.fillStyle = '#1a3a2a'; x.font = 'bold 18px sans-serif'; golWrap(x, T.t, 26, y + 46, W - 24, 22, 2);
+  x.fillStyle = '#10301e'; x.font = 'bold 22px sans-serif'; x.fillText(MH_V[0] < 40 ? T.nm + ' - YOU ARE HERE' : T.nm + '  ' + golBrg(MH_V[1]) + '  ' + golDist(MH_V[0]), 26, y + 114, W - 24);
+  return y + h + 12; }
+function mhMap(x, X, Z, F) { if (!MH) return; const T = mhTgt(); if (!T) return; const px = X(T.x), py = Z(T.z);
+  x.save(); x.lineWidth = 3; x.strokeStyle = '#2a6a5a'; x.setLineDash([4, 3]); x.beginPath(); x.arc(px, py, 12, 0, 6.283); x.stroke(); x.setLineDash([]); x.fillStyle = '#2a6a5a'; x.beginPath(); x.moveTo(px, py - 6); x.lineTo(px + 5, py); x.lineTo(px, py + 6); x.lineTo(px - 5, py); x.closePath(); x.fill();
+  x.font = 'bold 13px ' + F; x.fillText('dr kane ' + T.k + '/5', px, py - 20); x.restore(); }
+goalKbBody = (o => function (x) { if (STORY.on) return o(x);   // free play: the page says so, with her side job under it
+  const W = KB_W - 44; x.textAlign = 'left'; x.textBaseline = 'alphabetic'; x.fillStyle = '#1a1a1a'; x.font = 'bold 32px sans-serif'; x.fillText('GOAL', 22, 66);
+  x.textAlign = 'right'; x.fillStyle = '#6a6a6a'; x.font = '17px sans-serif'; x.fillText('FREE PLAY', KB_W - 22, 66); x.textAlign = 'left';
+  x.fillStyle = '#1e3a6a'; x.font = 'bold 25px sans-serif'; let y = golWrap(x, 'FREE FLIGHT - FLY THE BOARDS, FILL THE MAP', 22, 108, W, 31, 3) + 12;
+  y = mhKbBox(x, y, W); if (MH.st >= 5) { x.fillStyle = '#2a5a3a'; x.font = 'italic 18px sans-serif'; golWrap(x, 'Dr Kane\'s moose study is supplied: Moosehide Hill stays open, with work on her board.', 22, y + 10, W, 24, 3); } })(goalKbBody);
+dlvCheck = (o => function (it) { const j = dlvJob(it.job), was = j && j.ch && j.st === 'active'; o(it); if (was && j.st === 'done') mhDone(j); })(dlvCheck);
+jbAccept = (o => function (S, i) { const L = DLV.offers[S.id], j = L && L[i], was = j && j.st; o(S, i); if (j && j.ch && was === 'offer' && j.st === 'active') mhAccepted(j); else if (j && j.ch && was !== j.st) { MH.mk = 'C' + j.ch + '.' + j.id; MAP.key = ''; } })(jbAccept);
+folkLine = (o => function (id) { return id === 'MOOSE' ? folkP(FOLK_TIER[repTier(repOf(id))[1]] || 'HELLO.') + ' ' + folkP(MH_HI[Math.min(MH.st, 5)]) : o(id); })(folkLine);
+storyBegin = (o => function () { const r = o.apply(this, arguments); mhReset(); return r; })(storyBegin);
+// the telemetry mast at her camp once the last job is in (one small merged mesh, ITEM_VM: no new program)
+const MH_MAST = (() => { const B = BUSH.find(q => q.id === 'MOOSE'), c = Math.cos(B.ry), s = Math.sin(B.ry), lx = 6.2, lz = -3.4, x = B.cx + lx * c + lz * s, z = B.cz - lx * s + lz * c;
+  const P = [['b', 0.12, 7.2, 0.12, 0, 3.6, 0, 0xb8bcc0], ['b', 1.6, 0.05, 0.05, 0, 6.9, 0, 0xb8bcc0], ['b', 1.1, 0.05, 0.05, 0, 6.5, 0, 0xb8bcc0], ['b', 0.05, 0.05, 1.4, 0, 6.7, 0, 0xb8bcc0],
+    ['b', 1.0, 0.04, 0.7, 0.9, 1.2, 0.6, 0x1e2a4a, -0.6, 0, 0], ['b', 0.06, 1.1, 0.06, 0.9, 0.55, 0.6, 0x8a8d90], ['b', 0.62, 0.42, 0.36, -0.7, 0.21, 0.5, 0xc8a020], ['b', 0.36, 0.3, 0.3, 0.2, 0.15, -0.6, 0x3a5a2a]];
+  const gs = P.map(partGeo), m = new THREE.Mesh(mergeGeometries(gs), ITEM_VM); for (const g of gs) g.dispose(); m.position.set(x, groundY(x, z), z); m.rotation.y = B.ry; m.userData.noBatch = true; m.visible = false; scene.add(m); return m; })();
 function golTick(dt) {
   const G = GOAL; if (!STORY.on) { if (G.st !== -1) golReset(); return; }
   G.stk += dt; G.pw -= dt; if ((G.t -= dt) > 0) return; G.t = 0.25;
@@ -11745,6 +11847,7 @@ function goalKbBody(x) {
   else y += 10;
   if (G.hn && GFX.hints) { x.fillStyle = '#fbf0c4'; x.fillRect(14, y, KB_W - 28, 140); x.strokeStyle = '#c8a840'; x.lineWidth = 2; x.strokeRect(14, y, KB_W - 28, 140); x.fillStyle = '#7a5a10'; x.font = 'bold 16px sans-serif'; x.fillText('HINT', 26, y + 22);
     x.fillStyle = '#3a2a08'; x.font = 'italic 19px sans-serif'; golWrap(x, G.hint, 26, y + 46, W - 24, 24, 4); y += 154; }
+  y = mhKbBox(x, y, W);   // v1.17.0
   const o = storyOwed(); x.fillStyle = '#7a3020'; x.font = 'bold 19px sans-serif'; x.fillText(o > 0 ? 'NOTE $' + o.toLocaleString('en-US') + ' OWED - ' + (STORY.snow && !STORY.ext ? 'THE SNOW IS HERE' : stDays(storyLeft()) + (STORY.snow ? ' OF EXTENSION' : ' TO THE SNOW')) : 'NOTE PAID IN FULL', 22, y + 10, W); y += 38;
   x.fillStyle = '#c8c0a8'; x.fillRect(22, y - 20, W, 2); x.fillStyle = '#555'; x.font = 'bold 15px sans-serif'; x.fillText('STEPS DONE (' + G.dn + ')', 22, y + 2);
   y += 26; x.font = '19px sans-serif'; let shown = 0, tot = G.dn;
@@ -13280,7 +13383,7 @@ void main() { vec2 q = vec2(gl_PointCoord.x * 2.0 - 1.0, 1.0 - gl_PointCoord.y *
   for (const [fx, fz] of FARMS) { const y = groundY(fx, fz); CHIM.push([fx, y + 6.9, fz, 0, 0.8, 1.7, 0.8, P.stone, P.soot]); addSmoke(fx, y + 8.65, fz, 0, 1.1); }
   const CAMP = { 'PROSPECTOR CAMP': [['t', 0, -2], ['f', 3.2, 2.2]], 'FISH CAMP': [['t', -3.5, -2.5], ['c', 2.5, -2.4, 3.9]], 'TRAPPER CABIN': [['c', -1.8, -3, 3.8]], 'CANOE OUTFITTER': [['t', 6, -1]],
     'RIVER GUIDES': [['t', -2, -2], ['t', 2.4, -2.6]], 'GLACIER SURVEY': [['t', -2, -2], ['t', 2.2, -2.4]], 'ELK CAMP': [['t', -3, -2.5], ['t', 1.5, -3.2], ['f', -0.5, 1.2]], 'RAFT GUIDES': [['t', -3, -2.5], ['t', 1.2, -3.2]],
-    'TIMBER CRUISERS': [['t', -2.5, -2.5], ['t', 1.5, -2.8]], 'HOMESTEAD': [['c', 2.0, -4.2, 3.6]], 'SURVEY CAMP': [['t', -2.2, -2.5], ['t', 1.6, -2.6]], 'CANYON GEOLOGISTS': [['t', -2.4, -2.6], ['t', 1.8, -2.8]], 'GOAT COUNTERS': [['t', 0, -2.6]] };
+    'TIMBER CRUISERS': [['t', -2.5, -2.5], ['t', 1.5, -2.8]], 'HOMESTEAD': [['c', 2.0, -4.2, 3.6]], 'SURVEY CAMP': [['t', -2.2, -2.5], ['t', 1.6, -2.6]], 'CANYON GEOLOGISTS': [['t', -2.4, -2.6], ['t', 1.8, -2.8]], 'GOAT COUNTERS': [['t', 0, -2.6]], 'MOOSE STUDY': [['t', -2.6, -2.6], ['f', -2.4, 4.2]] };
   const FIRES = [];
   for (const B of BUSH) { const list = CAMP[B.cust]; if (!list || !isFinite(B.cx)) continue; const c = Math.cos(B.ry), s = Math.sin(B.ry), W = (lx, lz) => [B.cx + lx * c + lz * s, B.cz - lx * s + lz * c];
     for (const [k, a, b2, top] of list) { if (k === 't') { const [x, z] = W(a + 0.6, b2 - 0.8); addSmoke(x, groundY(x, z) + 3.2, z, 1, 0.7); } else if (k === 'c') { const [x, z] = W(a, b2); addSmoke(x, groundY(x, z) + top + 0.05, z, 2, 1); }
@@ -16685,7 +16788,7 @@ renderer.setAnimationLoop(() => {
   } else crashTimer += dt; /*V3CRX*/
 
   plane.position.fromArray(ac.pos); plane.quaternion.fromArray(ac.q);
-  dlvTick(dt); wbWarn(dt); huntTick(dt, xr || HANDS.force); h2Tick(dt, xr || HANDS.force); fishTick(dt, xr || HANDS.force); htagTick(dt, xr || HANDS.force); storyTick(dt); cbTick(dt); glintTick(dt); act2Tick(dt); act3Tick(dt); discTick(dt); radTick(dt); golTick(dt); fogTick(dt); musTick(dt); trustTick(dt); dropTick(dt); ecoTick(dt); crxTick(dt); upgTick(dt); emgTick(dt);   // v0.53 rifle, deer, binoculars; v0.54 bundles in the air, the signal smoke   // v0.50 delivery: game clock, falling / loose cargo, job boards
+  dlvTick(dt); wbWarn(dt); huntTick(dt, xr || HANDS.force); h2Tick(dt, xr || HANDS.force); fishTick(dt, xr || HANDS.force); htagTick(dt, xr || HANDS.force); storyTick(dt); cbTick(dt); glintTick(dt); act2Tick(dt); act3Tick(dt); discTick(dt); radTick(dt); golTick(dt); fogTick(dt); musTick(dt); trustTick(dt); mhTick(dt); dropTick(dt); ecoTick(dt); crxTick(dt); upgTick(dt); emgTick(dt);   // v0.53 rifle, deer, binoculars; v0.54 bundles in the air, the signal smoke   // v0.50 delivery: game clock, falling / loose cargo, job boards
   GV.update(dt); kitTick(dt); flxTick(dt);   // v0.20 gear legs / tyres / tail wheel (v0.90 + the gear kits)
   updateMap(); updateCockpitV19(dt);
   propTick(dt, ENG.rpm);

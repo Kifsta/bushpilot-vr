@@ -2,6 +2,17 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v1.17.0 – Moosehide Hill and Dr Kane's moose study
+
+A new bush strip and a five-job side chain (t267 B). The physics block and the terrain are untouched (md5 `eee6637e…`). **No story restart is needed:** a v1.16.3 save (story or free play) loads on the same step. The only new save data is one small `mh` entry inside the delivery save. An older save has no entry, so it starts with nothing done, and the chain posts once you've flown 3 jobs.
+
+- **MOOSEHIDE HILL, a new hillside strip** in the empty basin about 2.2 km SSE of Dry Fork: 130 m of rough grass running east-west, 5 % uphill to the east. It's one-way: land uphill (090), take off downhill (270). The ground keeps rising about 54 m past the top end, so there's no go-around on short final. The approach from the west is over lower ground, with a slough about 230 m to the south-west. There's a wingspan of clear air either side and an open funnel off each end. The camp is a moose study: wall tent, field hut, cook fly, fire ring, fuel drums, a canoe on horses and trail-camera stakes. Wheel tracks, a limp windsock (no gameplay wind) and painted corner rocks are all made from the existing props.
+- **Dr Kane's chain (5 jobs).** After 3 jobs the Dry Fork board posts DR KANE 1/5. Taking it puts the strip on your map. The jobs: camp gear from Dry Fork; trail cameras from Home (fragile); lick blocks from Dry Fork (heavy); samples out to the Dry Fork clinic fridge (perishable); a telemetry mast and generator from the Lodge (heavy). Each delivery brings her words (Nurse Okafor's for the samples), a journal line and the next job on its board. The last one pays a $600 thank-you, earns her rep, and puts up the mast at the camp.
+- **Dr Rosa Kane** stands by her board (the same folk model as the other customers), with a hello for each step.
+- **Where it shows:** a teal DR KANE n/5 tag and line on the board. A SIDE JOB box on the GOAL page with bearing and distance (in free play the GOAL page now shows FREE FLIGHT with the box). A teal `dr kane n/5` pin on the map. The strip is labelled on the map like the other sites.
+- **Optional, and it doesn't touch the story.** No story step, gate or text changes. Before the chain opens, Moosehide is not on the random boards and can't be found by flying over it. Afterwards it works like any other bush site. The other sites' dressing, trees and camps are unchanged: the new strip is placed last on each seeded stream.
+- Checks: tchain 25/0 (all five jobs, the bonus, the journal, the save round trip, a mid-chain save, a v1.16.3-shaped save). tsave 43/0 (v1.16.3 story saves at every step and a free-play save). An autopilot run in the unchanged physics: an uphill landing touches down about 6 m past the threshold at 44 mph and stops at 64 m of the 130; a full-power downhill takeoff lifts off at 100 m. mhTick makes no garbage at any stage. No new shader programs (241 → 241). Hands are byte-exact.
+
 ## v1.16.3 – polish: less garbage, a frame-budget pass, floppy papers with snap ghosts, a full story playthrough
 
 An overnight polish build (t267). The physics block is untouched (md5 `eee6637e…`). **No story restart is needed:** nothing in the save changes (same keys as v1.16.2). A v1.16.2 save loads on the same step, with cash, aircraft, upgrades, items, settings and the journal kept.
