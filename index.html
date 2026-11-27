@@ -638,9 +638,9 @@ const hyp = (a, b, c = 0) => Math.sqrt(a * a + b * b + c * c);   // v0.59 Math.h
 
 // ======================= RENDERING =======================
 // v0.35 settings (persist in localStorage 'bp_gfx'; ?gfx=shadows:2,grass:1 overrides for testing). Defaults = the v0.34 look and cost.
-const BP_VERSION = 'v1.15.1';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
+const BP_VERSION = 'v1.16.0';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
 { const e = document.getElementById('ver'); if (e) e.textContent = BP_VERSION; } window.__bpVer = BP_VERSION; bootLog('game module running ' + BP_VERSION + ' (three r' + THREE.REVISION + ')' + (/[?&]safe(=|&|$)/.test(location.search) ? ' - SAFE MODE: default graphics, no shadows / ULTRA / life / vistas / music' : ''));
-const GFX_DEF = { shadows: 0, scale: 1, fov: 1, dist: 1, trees: 1, grass: 0, clouds: 1, fog: 1, msaa: 1, hz: 90, vig: 0, turn: 0, fps: 0, tod: 11, stk: 1, tips: 1, terr: 1, dyn: 1, glove: 0, hand: 0, wt: 1, volM: 1, volMu: 0.5, volE: 1, volA: 1, volF: 1, volS: 1, volW: 1, wx: 1, forest: 0, fdens: 0, ground: 0, gtex: 0, cvl: 1, water: 1, dayl: 48, flure: 0, fline: 8, fdrag: 4, fbob: 0, fsink: 0, ultra: 0, sfxr: 1 };   // v0.68.1 dominant hand, volumes. v0.48 BALANCED: 90 % scale, 72 Hz, fast terrain shading, auto resolution; v0.49.1 the stick stays where you let go of it
+const GFX_DEF = { shadows: 0, scale: 1, fov: 1, dist: 1, trees: 1, grass: 0, clouds: 1, fog: 1, msaa: 1, hz: 90, vig: 0, turn: 0, fps: 0, tod: 11, stk: 1, tips: 1, terr: 1, dyn: 1, glove: 0, hand: 0, wt: 1, volM: 1, volMu: 0.5, volE: 1, volA: 1, volF: 1, volS: 1, volW: 1, wx: 1, forest: 0, fdens: 0, hints: 1, ground: 0, gtex: 0, cvl: 1, water: 1, dayl: 48, flure: 0, fline: 8, fdrag: 4, fbob: 0, fsink: 0, ultra: 0, sfxr: 1 };   // v0.68.1 dominant hand, volumes. v0.48 BALANCED: 90 % scale, 72 Hz, fast terrain shading, auto resolution; v0.49.1 the stick stays where you let go of it
 const GFX = Object.assign({}, GFX_DEF);
 const BP_SAFE = /[?&]safe(=|&|$)/.test(location.search);   // v1.09.1 ?safe: defaults (BALANCED), saved graphics settings ignored
 try { const o = BP_SAFE ? {} : JSON.parse(localStorage.getItem('bp_gfx') || '{}'); if ((o.v || 0) < 48) { if (o.scale === 1) delete o.scale; if (o.hz === 0) delete o.hz; }   // v0.48: saved copies of the old defaults (100 %, AUTO Hz) move to the new ones once
@@ -2043,7 +2043,7 @@ let mode = 'plane';                                 // 'plane' | 'foot'
 const footRig = new THREE.Group(); scene.add(footRig);
 const EYE = 1.6, WALK = 2.2;                          // on-foot eye height (m) and walk speed (m/s)
 let msg = '', msgT = 0, msgA = 0, msgW = -1e9;
-const msgDur = m => Math.max(3, Math.ceil(m.length / 50) * 2.6);   // v0.59.1 long messages stay up long enough to page through on the wrist
+const msgDur = m => Math.max(3, Math.ceil(wrapText(m, 22).length / 2) * 2.6);   // v1.16.0 by wrapped pages (it was by characters: a long message lost its last pages on the wrist)   // v0.59.1 long messages stay up long enough to page through on the wrist
 const say = m => { msg = m; msgT = msgDur(m); msgA = 0; msgW = performance.now(); };
 const sayAdd = m => { if (msgT > 0 && msgA === 0 && performance.now() - msgW < 4 && /^DELIVERED/.test(msg) && !msg.includes(m)) m = msg + ' | ' + m; say(m); };   // v0.59.1 two jobs delivered in the same frame: both kept (paged on the wrist)   // v0.59.1 two in the same frame (two jobs delivered at once): both kept, paged
 function wrapText(t, w) { const L = []; let l = ''; for (const wd of t.split(' ')) { for (let p = wd; p.length; ) { const c = p.slice(0, w); p = p.slice(w); if (!l) l = c; else if (l.length + 1 + c.length <= w) l += ' ' + c; else { L.push(l); l = c; } } } if (l) L.push(l); return L; }
@@ -4880,7 +4880,7 @@ function kbLines() {   // the text, one entry per active job
 KB.page = 0; let KB_PAGES = ['JOBS', 'W&B', 'CUB', 'PERF'];   // v0.99 + NOTE (the bank's letter) in a story game
 function kbPage(d = 1) { KB.page = (KB.page + d + KB_PAGES.length) % KB_PAGES.length; KB.key = ''; kbDraw(); sfx('tick'); }
 function kbTabs(x) {   // the page tabs along the clip
-  const w = KB_PAGES.length > 5 ? 62 : KB_PAGES.length > 4 ? 74 : 92; x.textBaseline = 'middle'; x.font = KB_PAGES.length > 5 ? 'bold 15px sans-serif' : 'bold 17px sans-serif'; x.textAlign = 'center';
+  const w = KB_PAGES.length > 6 ? 52 : KB_PAGES.length > 5 ? 62 : KB_PAGES.length > 4 ? 74 : 92; x.textBaseline = 'middle'; x.font = KB_PAGES.length > 6 ? 'bold 14px sans-serif' : KB_PAGES.length > 5 ? 'bold 15px sans-serif' : 'bold 17px sans-serif'; x.textAlign = 'center';
   KB_PAGES.forEach((n, i) => { const X = 10 + i * (w + 4); x.fillStyle = i === KB.page ? '#2a3a5a' : '#d8d2c0'; x.fillRect(X, 4, w, 26); x.fillStyle = i === KB.page ? '#fff' : '#555'; x.fillText((i + 1) + ' ' + n, X + w / 2, 18); });
   x.textAlign = 'right'; x.fillStyle = '#777'; x.font = '14px sans-serif'; x.fillText(renderer.xr.isPresenting ? 'TRIGGER: NEXT' : ', . PAGES', KB_W - 10, 18); x.textAlign = 'left'; x.textBaseline = 'alphabetic';
 }
@@ -4916,6 +4916,7 @@ function kbBody(x) {   // pages 2-4 (page 1 is the jobs list below)
     line('FULL POWER AVAILABLE ' + Math.round(cap * 100) + '%', cap < 1 ? '#b8301e' : '#2a5a22', '20px'); line('BRAKING ' + Math.round(bk * 100) + '%', bk < 1 ? '#b8301e' : '#2a5a22', '20px');
     if (E.sink) line('LAST TOUCHDOWN ' + Math.round(E.sink * 196.85) + ' FPM', E.sink > (UPG.tyres ? 2.4 : 2.0) ? '#b8301e' : '#444', '20px');
     x.fillStyle = '#666'; x.font = '17px sans-serif'; x.fillText('SERVICE, OIL, TYRES + REPAIRS: THE HOME HANGAR BOARD', 22, KB_H - 16, KB_W - 44);
+  } else if (pg === 6) { goalKbBody(x); kbTabs(x);   // v1.16.0 the goal
   } else if (pg === 5) { journalKbBody(x); kbTabs(x);   // v1.01 the journal
   } else if (pg === 4) { storyKbBody(x); kbTabs(x);   // v0.99 the bank's letter
   } else if (pg === 3) {
@@ -4935,6 +4936,7 @@ function kbKey() {   // what each page shows, rounded so the canvas only redraws
   const E = ECO, P = WBS.plan, pg = KB.page;
   if (pg === 1) return WBS.key + '|' + (renderer.xr.isPresenting ? 1 : 0);
   if (pg === 2) return [E.hrs.toFixed(1), E.svc.toFixed(1), E.oil.toFixed(1), Math.round(E.tyre * 100), Math.round(E.brake * 100), Math.round(E.gear * 100), Math.round(E.eng * 100), E.seized, E.ldg, Math.round(E.sink * 196.85), renderer.xr.isPresenting].join('|');
+  if (pg === 6) return GOAL.kbk;
   if (pg === 5) return 'J' + STORY.log.length + '|' + storyDay() + '|' + DISC.n + '|' + clueGot().length;
   if (pg === 4) return 'N' + storyOwed() + '|' + storyLeft() + '|' + STORY.snow + '|' + renderer.xr.isPresenting;
   if (pg === 3) { const D = kbPerfData(); return [P.lb.toFixed(0), D.gal.toFixed(1), Math.floor(D.cru), Math.floor(D.cur), Math.round(D.curP * 100), renderer.xr.isPresenting, GFX.wx ? wxMetar() + wxTrend() : 0].join('|'); }
@@ -11000,6 +11002,7 @@ const STORY = { on: false, act: 1, paid: 0, fee: 0, gh: 0, ext: 0, snow: false, 
 { const q = new URLSearchParams(location.search); STORY.want = q.has('story') ? true : q.has('free') || /[?&]nosave\b/.test(location.search) ? false : (() => { try { return localStorage.getItem('bp_newmode') !== 'free'; } catch (e) { return true; } })(); }
 const storyOwed = () => Math.max(0, STORY_NOTE + STORY.fee - STORY.paid - (STORY.said.wo || 0));   // v1.06 wo: what Valley Credit wrote off
 const storyDay = () => 1 + Math.floor(STORY.gh / 24);
+const stDays = n => n + (n === 1 ? ' DAY' : ' DAYS');   // v1.16.0
 const storyEnd = () => (STORY_DAYS + STORY.ext) * 24;   // game hours to the deadline (first snow, then the extension's end)
 const storyLeft = () => Math.max(0, Math.ceil((storyEnd() - STORY.gh) / 24));
 function storyDate(gh = STORY.gh) { const d = Math.floor(gh / 24), M = ['SEP', 'OCT', 'NOV', 'DEC'], dim = [30, 31, 30, 31]; let m = 0, dd = d + 1; while (m < 3 && dd > dim[m]) { dd -= dim[m]; m++; } return M[m] + ' ' + dd; }
@@ -11033,7 +11036,7 @@ const ST_LOG = [
   ['MACRAE AIR SERVICE', 'PILOT\'S LOG - W. MACRAE', '', 'MAY 12  HOME - RIDGE   NAILS       1.2', 'MAY 19  LODGE  FLOWERS, WEDDING   0.9', 'JUN 03  DRY FORK  FEED            1.4', 'JUN 30  SEARCH - N. ICEFIELD     2.6', '        NOTHING. GLARE ALL DAY.', 'JUL 08  CREEK BAR  JOE\'S PUMP     1.1', 'JUL 22  SEARCH - W. GLACIER      3.1', '        CLOUD ON THE BENCHES.'],
   ['AUG 02  V.C. PAYMENT  $600 - SHORT', 'AUG 09  RANGER STN  SAR, HIKERS  2.2', 'AUG 14  SEARCH - N. ICEFIELD     2.9', '        PAST THE MAIN ICE THIS TIME.', '        FUEL SAYS TURN. TURNED.', 'AUG 20  PETE SAYS I\'M A FOOL.', '        PETE IS RIGHT.', 'AUG 27  V.C. PAYMENT  $400 - SHORT'],
   ['Dad went out on the last mail run of the', 'season, thirty years back, in the Norseman.', 'Mail, medicine for Dry Fork, a mayday', 'nobody could fix. The search flew a week', 'and quit at the main icefield in the snow.', '', 'I never did. Every fall, after the season,', 'I take the Cub north and look a little', 'further. The bank thinks it\'s the fuel.', 'It\'s the fuel.'],
-  ['SEP 01  WX CLEAR TO THE NORTH.', '        ONE MORE LOOK BEFORE THE SNOW.', '', '', '', '        Still looking.', '        North ice.']];
+  ['AUG 28  WX CLEAR NORTH.', '        ONE MORE LOOK', '        BEFORE THE SNOW.', '', '', '        Still looking.', '        North ice.']];
 // ---- drawing ----
 function stPaper(x, w, h, col = '#efe6cf') { x.fillStyle = col; x.fillRect(0, 0, w, h); x.fillStyle = 'rgba(120,90,40,0.06)'; for (let i = 0; i < 40; i++) x.fillRect((i * 97) % w, (i * 53) % h, 60, 2); }
 function stLines(x, L, X, Y, dy, font, col = '#2a2418') { x.font = font; x.fillStyle = col; x.textAlign = 'left'; L.forEach((t, i) => x.fillText(t, X, Y + i * dy)); }
@@ -11066,20 +11069,20 @@ function sbDraw() { if (STORY.said.end) return sbDrawEnd(); const x = SB.x, W = 
   x.strokeStyle = '#ecefe6'; x.lineWidth = 3; x.beginPath(); x.moveTo(44, 204); x.lineTo(900, 204); x.stroke();
   ch(owed > 0 ? 'STILL OWED' : 'PAID IN FULL', 44, 250, 'bold 38px Georgia, serif', owed > 0 ? '#f0c8a0' : '#b8e0a0'); if (owed > 0) ch('$' + owed.toLocaleString('en-US'), 640, 250, 'bold 40px Georgia, serif', '#f0c8a0');
   x.fillStyle = '#3a4a3c'; x.fillRect(44, 272, 856, 22); x.fillStyle = '#b8e0a0'; x.fillRect(44, 272, 856 * clamp(STORY.paid / (STORY_NOTE + STORY.fee), 0, 1), 22);
-  const dl = STORY.snow ? (STORY.ext ? 'WINTER EXTENSION: ' + left + ' DAYS LEFT' : 'THE SNOW IS HERE') : 'FIRST SNOW IN ~' + left + ' DAYS';
+  const dl = STORY.snow ? (STORY.ext ? 'WINTER EXTENSION: ' + stDays(left) + ' LEFT' : 'THE SNOW IS HERE') : 'FIRST SNOW IN ~' + stDays(left);
   ch(owed > 0 ? dl : 'THE HANGAR STAYS', 44, 344, 'bold 34px Georgia, serif', left <= 3 && owed > 0 ? '#f0a090' : '#ecefe6'); ch(storyDate() + '  (DAY ' + storyDay() + ')' + (clk ? '' : ' - CLOCK STOPPED: DAY LENGTH FIXED'), 44, 380, '22px Georgia, serif', '#c8ccc0');
   ch('CASH ON HAND ' + ecoMoney(DLV.cash), 44, 418, '24px Georgia, serif', '#c8ccc0');
   STORY_PAYS.forEach((v, i) => { const X = 44 + i * 290, can = DLV.cash >= v && owed > 0; x.strokeStyle = can ? '#f4f2ea' : '#6a7468'; x.lineWidth = 4; x.strokeRect(X, 444, 260, 76);
     ch('PAY $' + v.toLocaleString('en-US'), X + 130, 484, 'bold 32px Georgia, serif', can ? '#f4f2ea' : '#6a7468', 'center'); ch(renderer.xr.isPresenting ? 'POKE' : 'KEY ' + (i + 1), X + 130, 510, '17px Georgia, serif', '#a8b0a0', 'center'); });
   const R = STORY.pays.slice(-3).reverse(); ch(R.length ? 'CHALKED: ' + R.map(p => p[0] + ' $' + p[1].toLocaleString('en-US')).join('   ') : 'NOTHING CHALKED YET - WALT\'S LAST: AUG 27 $400', 44, 570, 'italic 24px Georgia, serif', '#c8ccc0');
-  ch('WALT\'S LOGBOOK AND A PHOTO ON THE DESK.  THE BANK\'S LETTER: YOUR CLIPBOARD, PAGE 5', 44, 612, '18px Georgia, serif', '#98a090');
+  x.font = 'bold 21px Georgia, serif'; x.fillStyle = '#d8e8c0'; x.textAlign = 'left'; x.fillText('NEXT: ' + (GOAL.txt || 'READ THE BANK\'S LETTER (CLIPBOARD, NOTE PAGE)'), 44, 612, 900);
   x.textAlign = 'left'; texDirty(SB.tex); }
-function sbKey() { return [STORY.paid, STORY.fee, storyLeft(), storyDay(), STORY.snow, STORY.ext, Math.round(DLV.cash), GFX.dayl > 0, renderer.xr.isPresenting, STORY.pays.length, STORY.said.end ? 'E' + DLV.done + '/' + Object.keys(DISC.found).length + '/' + Math.round(FOG.pct * 100) : ''].join('|'); }
+function sbKey() { return [GOAL.pk, STORY.paid, STORY.fee, storyLeft(), storyDay(), STORY.snow, STORY.ext, Math.round(DLV.cash), GFX.dayl > 0, renderer.xr.isPresenting, STORY.pays.length, STORY.said.end ? 'E' + DLV.done + '/' + Object.keys(DISC.found).length + '/' + Math.round(FOG.pct * 100) : ''].join('|'); }
 function storyPay(i) { const v = STORY_PAYS[i], owed = storyOwed(); if (v === undefined || !STORY.on) return false;
   if (owed <= 0) { say('THE NOTE IS PAID - NOTHING MORE TO CHALK'); return true; }
   const a = Math.min(v, owed); if (DLV.cash < a) { say('NOT ENOUGH CASH FOR $' + a.toLocaleString('en-US') + ' - YOU HAVE ' + ecoMoney(DLV.cash) + '. FLY SOME JOBS'); sfx('tick'); return true; }
   DLV.cash -= a; STORY.paid += a; STORY.pays.push([storyDate(), a]); if (STORY.pays.length > 40) STORY.pays.shift(); sfx('click'); STORY.key = sbKey(); sbDraw();
-  const o = storyOwed(); say(o > 0 ? 'CHALKED $' + a.toLocaleString('en-US') + ' - $' + o.toLocaleString('en-US') + ' STILL OWED, ' + storyLeft() + ' DAYS TO ' + (STORY.ext ? 'THE EXTENSION\'S END' : 'THE FIRST SNOW') : 'PAID IN FULL. THE HANGAR STAYS MACRAE AIR SERVICE');
+  const o = storyOwed(); say(o > 0 ? 'CHALKED $' + a.toLocaleString('en-US') + ' - $' + o.toLocaleString('en-US') + ' STILL OWED, ' + stDays(storyLeft()) + ' TO ' + (STORY.ext ? 'THE EXTENSION\'S END' : 'THE FIRST SNOW') : 'PAID IN FULL. THE HANGAR STAYS MACRAE AIR SERVICE');
   if (o <= 0) { storyLog('The note to Valley Credit is paid in full (' + storyDate() + ').'); STORY.act = Math.max(STORY.act, 2); } saveSoon(); return true; }
 // ---- every frame ----
 const _sbL = new THREE.Vector3(), _sbC = new THREE.Vector3(), _sbD = new THREE.Vector3();
@@ -11121,24 +11124,24 @@ function storySnow() { STORY.snow = true; STORY.act = Math.max(STORY.act, 2); co
   if (o <= 0) { say('THE FIRST SNOW - AND THE NOTE IS ALREADY PAID. THE VALLEY NEEDS ITS WINTER PILOT'); saveSoon(); return; }
   const vouch = Object.values(DLV.rep || {}).filter(v => v >= 55).length, half = STORY.paid >= STORY_NOTE / 2; STORY.ext = STORY_EXT_DAYS;
   if (half && vouch >= 2) say('VOSS: THE SNOW BEAT YOU, BUT YOU\'VE PAID HALF AND THE TOWNS VOUCH FOR YOU. ' + STORY_EXT_DAYS + ' MORE DAYS, NO FEE.');
-  else { STORY.fee += STORY_EXT_FEE; say('VOSS: THE NOTE IS LATE. I CAN GIVE YOU ' + STORY_EXT_DAYS + ' MORE DAYS WITH A $' + STORY_EXT_FEE.toLocaleString('en-US') + ' FEE. ' + (half ? 'GET THE TOWNS TO VOUCH FOR YOU' : 'PAY IT DOWN, ' + PILOT) + '.'); }
+  else { STORY.fee += STORY_EXT_FEE; say('VOSS: THE NOTE IS LATE. I CAN GIVE YOU ' + STORY_EXT_DAYS + ' MORE DAYS WITH A $' + STORY_EXT_FEE.toLocaleString('en-US') + ' FEE. ' + (half ? 'HALF PAID - NEXT TIME HAVE TWO TOWNS VOUCH FOR YOU AND THERE IS NO FEE' : 'PAY IT DOWN, ' + PILOT) + '.'); }
   storyLog('Voss granted a winter extension of ' + STORY_EXT_DAYS + ' days' + (STORY.fee ? ' (+$' + STORY.fee + ' fee)' : '') + '.'); STORY.key = ''; saveSoon(); }
 // ---- the props ----
 { const X0 = HANGAR.x, Z0 = HANGAR.z, y0 = HANGAR.y + 0.815;
   stItem('log', [X0 - 4.2, y0 + 0.02, Z0 + 0.2, 0.15], mergeGeometries([['b', 0.23, 0.035, 0.31, 0, 0, 0, 0x2a4a32], ['b', 0.215, 0.028, 0.3, 0.008, 0.001, 0, 0xe8dcc0]].map(partGeo)), 0.62, 0.39, 1024, 640, 2, stDrawLog);
   stItem('photo', [X0 - 4.3, y0 + 0.09, Z0 - 0.12, Math.PI / 2 - 0.35], mergeGeometries([['b', 0.012, 0.18, 0.14, 0, 0, 0, 0x3a2a1a], ['b', 0.004, 0.16, 0.12, 0.007, 0, 0, 0xd8ccb0]].map(partGeo)).rotateZ(-0.12), 0.26, 0.325, 512, 640, 1, (x) => stDrawPhoto(x)); }
 // ---- the clipboard's 5th page: the bank's letter ----
-function storyKbPages() { KB_PAGES = STORY.on ? ['JOBS', 'W&B', 'CUB', 'PERF', 'NOTE', 'LOG'] : ['JOBS', 'W&B', 'CUB', 'PERF']; if (KB.page >= KB_PAGES.length) KB.page = 0; KB.key = ''; }
-function storyKbBody(x) { stDrawLetter(x, KB_W, KB_H, 76); x.fillStyle = '#7a3020'; x.font = 'bold 21px sans-serif'; x.fillText('OWED $' + storyOwed().toLocaleString('en-US') + ' - ' + (STORY.snow && !STORY.ext ? 'THE SNOW IS HERE' : storyLeft() + ' DAYS LEFT') + ' - PAID $' + STORY.paid.toLocaleString('en-US'), 22, KB_H - 18, KB_W - 44); }
+function storyKbPages() { KB_PAGES = STORY.on ? ['JOBS', 'W&B', 'CUB', 'PERF', 'NOTE', 'LOG', 'GOAL'] : ['JOBS', 'W&B', 'CUB', 'PERF']; if (KB.page >= KB_PAGES.length) KB.page = 0; KB.key = ''; }
+function storyKbBody(x) { stDrawLetter(x, KB_W, KB_H, 76); x.fillStyle = '#7a3020'; x.font = 'bold 21px sans-serif'; x.fillText('OWED $' + storyOwed().toLocaleString('en-US') + ' - ' + (STORY.snow && !STORY.ext ? 'THE SNOW IS HERE' : stDays(storyLeft()) + ' LEFT') + ' - PAID $' + STORY.paid.toLocaleString('en-US'), 22, KB_H - 18, KB_W - 44); }
 // ---- start, show, save ----
-function storyShow() { const on = STORY.on; SB.desk.visible = SB.m.visible = on; for (const it of SITEMS) it.m.visible = on; storyKbPages(); STORY.key = ''; if (typeof CB !== 'undefined') clueShow(); if (typeof A2 !== 'undefined') act2Show(); if (typeof A3 !== 'undefined') act3Show(); }
+function storyShow() { golReset(); const on = STORY.on; SB.desk.visible = SB.m.visible = on; for (const it of SITEMS) it.m.visible = on; storyKbPages(); STORY.key = ''; if (typeof CB !== 'undefined') clueShow(); if (typeof A2 !== 'undefined') act2Show(); if (typeof A3 !== 'undefined') act3Show(); }
 function storyBegin() {   // a brand-new story game: up in Walt's hangar, a late-summer morning, the boards at story pay
   DISC.found = {}; DISC.n = 0; fogStart(); if (typeof A2 !== 'undefined') act2Reset(); STORY.on = true; STORY.act = 1; STORY.gh = 0; STORY.paid = 0; STORY.fee = 0; STORY.ext = 0; STORY.snow = false; storyShow();
   for (const S of DLV_STRIPS) DLV.offers[S.id] = []; DLV.seq = 1; dlvInit(false); for (const S of DLV_STRIPS) S.key = '';
   if (GFX.dayl > 0) DAY.h = 8.25; updateDay(0);
   const x = HANGAR.x - 1.6, z = HANGAR.z + 0.4; footRig.position.set(x, groundY(x, z) + EYE, z); footRig.rotation.set(0, Math.PI / 2, 0); bodyYaw = Math.PI / 2; lookYaw = lookPitch = 0;
   KB.page = 4; storyLog('Walt\'s hangar, Home Strip. The Cub, the debt, and a search he never finished.');
-  say('WALT\'S HANGAR, HOME STRIP. HIS LOGBOOK AND A PHOTO ARE ON THE DESK; THE BANK\'S LETTER IS ON YOUR CLIPBOARD IN THE CUB'); saveSoon(); }
+  say('WALT\'S HANGAR, HOME STRIP. THE GOAL PAGE (TAB 7) ON YOUR CLIPBOARD SAYS WHAT TO DO NEXT AND WHERE'); saveSoon(); }
 function storySave() { return STORY.on ? { on: 1, act: STORY.act, paid: STORY.paid, fee: STORY.fee, gh: Math.round(STORY.gh * 1000) / 1000, ext: STORY.ext, snow: STORY.snow ? 1 : 0, read: STORY.read, log: STORY.log, pays: STORY.pays, said: STORY.said } : { on: 0 }; }
 function storyLoad(d) {   // older saves (no story field) and free-play saves stay free play
   const n = (v, a, b, def) => isFinite(+v) && v !== null ? clamp(+v, a, b) : def;
@@ -11152,8 +11155,8 @@ function storyLoad(d) {   // older saves (no story field) and free-play saves st
 // (the clipboard's 6th page, LOG). discoverLandmark(id, info) / registerLandmark(id, info) are the hook for landmarks and vistas: journal + music stinger +
 // a small reward (+ v1.03: a sketch on the paper map). Clues with a pin carry a world position for the map.
 const CLUES = [
-  { id: 'log', t: 'WALT\'S LAST ENTRY', s: '"Still looking. North ice." Sep 1, the day he flew out.', k: () => !!STORY.read.log, hint: 'Walt\'s logbook is on his desk' },
-  { id: 'photo', t: 'THE NORSEMAN', s: 'Gordon beside the Norseman CF-GMR. Red cowling, silver wings.', k: () => !!STORY.read.photo, hint: 'the photo on Walt\'s desk' },
+  { id: 'log', t: 'WALT\'S LAST ENTRY', s: '"Still looking. North ice." Aug 28, the day he flew out.', k: () => !!STORY.read.log, hint: 'read Walt\'s logbook on his desk' },
+  { id: 'photo', t: 'THE NORSEMAN', s: 'Gordon beside the Norseman CF-GMR. Red cowling, silver wings.', k: () => !!STORY.read.photo, hint: 'look at the photo on Walt\'s desk' },
   { id: 'g_HOME', t: 'EXTRA FUEL', s: 'Pete: full tanks and two extra cans - more than a mail run needs.', k: () => !!STORY.said.g_HOME, hint: 'Old Pete, once he trusts you' },
   { id: 'g_RIDGE', t: 'TURNED NORTH', s: 'Dawson\'s father saw the Norseman turn north over the ridge, not west.', k: () => !!STORY.said.g_RIDGE, hint: 'the Ridge crew' },
   { id: 'g_LODGE', t: 'THE STRANGER', s: 'Supper at the Lodge with a man in a good coat, paying cash. Talk of the ice.', k: () => !!STORY.said.g_LODGE, hint: 'Mrs Anders at the Lodge' },
@@ -11201,7 +11204,7 @@ function cbDraw() {
     else { x.strokeStyle = 'rgba(60,40,20,0.35)'; x.lineWidth = 2; x.setLineDash([6, 5]); x.strokeRect(-86, -46, 170, 122); x.setLineDash([]); x.fillStyle = 'rgba(60,40,20,0.45)'; x.font = 'bold 40px Georgia, serif'; x.textAlign = 'center'; x.fillText('?', 0, 28); }
     x.fillStyle = got.has(c.id) ? '#c02018' : '#806040'; x.beginPath(); x.arc(0, -40, 7, 0, 6.283); x.fill(); x.restore(); });   // the pin
   x.textAlign = 'left'; x.fillStyle = '#2a1a0a'; x.font = 'bold 22px Georgia, serif'; x.fillText('CLUES ' + got.size + ' / ' + CLUES.length, 24, 34);
-  const nx = CLUES.find(c => !got.has(c.id)); x.font = 'italic 17px Georgia, serif'; x.fillText(nx ? 'Ask: ' + nx.hint : 'Everything points north.', 24, H - 18);
+  const nx = CLUES.find(c => !got.has(c.id)); x.font = 'italic 17px Georgia, serif'; x.fillText(nx ? (nx.id.startsWith('g_') ? 'Ask: ' + nx.hint : nx.hint.charAt(0).toUpperCase() + nx.hint.slice(1)) : 'Everything points north.', 24, H - 18);
   texDirty(CB.tex); }
 function clueFound(id, line) { const c = CLUES.find(q => q.id === id); if (!c) return; storyLog('Clue: ' + c.t.toLowerCase() + ' - ' + c.s); if (line) say(line); CB.key = ''; saveSoon(); }
 function cbTick(dt) { if (!STORY.on) return; const G = clueGot(), k = G.map(c => c.id).join(); if (CB.pend && (CB.pt -= dt) <= 0) { say(CB.pend); CB.pend = ''; }
@@ -11213,7 +11216,7 @@ function cbTick(dt) { if (!STORY.on) return; const G = clueGot(), k = G.map(c =>
 // ---- the journal: the clipboard's 6th page (newest first) ----
 function journalKbBody(x) { stPaper(x, KB_W, KB_H, '#f2ecd8'); x.fillStyle = '#2a2418'; x.font = 'bold 26px Georgia, serif'; x.textAlign = 'left'; x.fillText('JOURNAL', 22, 80); if (STORY.said.end) { x.fillStyle = '#7a1c10'; x.font = 'bold 15px Georgia, serif'; x.textAlign = 'right'; x.fillText('THE END - MACRAE AIR SERVICE FLIES ON', KB_W - 22, 80); x.textAlign = 'left'; x.fillStyle = '#2a2418'; }
   x.font = '15px Georgia, serif'; x.fillStyle = '#6a5638'; x.fillText(storyDate() + ' (DAY ' + storyDay() + ') - CLUES ' + clueGot().length + '/' + CLUES.length + ' - FOUND ' + Object.keys(DISC.found).length, 22, 104);
-  let y = 136; x.font = '15px Georgia, serif'; for (const e of STORY.log.slice().reverse()) { if (y > KB_H - 30) break; x.fillStyle = '#8a6a40'; x.fillText('DAY ' + e.d, 22, y); x.fillStyle = '#2a2418'; const W = e.t.split(' '); let l = '', n = 0;
+  let y = 136; x.font = '15px Georgia, serif'; let jn = 0; for (const e of STORY.log.slice().reverse()) { jn++; if (y > KB_H - 44) { x.fillStyle = '#8a6a40'; x.font = 'italic 15px Georgia, serif'; x.fillText('... + ' + (STORY.log.length - jn + 1) + ' EARLIER ENTRIES', 22, KB_H - 14); break; } x.fillStyle = '#8a6a40'; x.fillText('DAY ' + e.d, 22, y); x.fillStyle = '#2a2418'; const W = e.t.split(' '); let l = '', n = 0;
     for (const s of W) { if (x.measureText(l + s).width > KB_W - 120 && l) { x.fillText(l, 92, y + n * 19); n++; l = ''; } l += s + ' '; } x.fillText(l, 92, y + n * 19); y += (n + 1) * 19 + 8; } }
 // ---- discoveries: the landmark hook (for the vistas module, and the v1.03 map's own places) ----
 // registerLandmark(id, { name, x, z, r = 250 (overflight radius, m), agl = 600 (max height over it to count), foot = 40, note, reward = 150 ($), rep: [stripId, +n], icon })
@@ -11252,11 +11255,11 @@ const RAD_CALLS = [
   { id: 'hello', ask: 1, k: () => ac.pos[1] - groundY(ac.pos[0], ac.pos[2]) > 60, L: () => [['PETE', 'HOME TO WALT\'S CUB. THAT YOU UP THERE, ' + PILOT + '?'], ['YOU', 'HOME, CUB. UP AND FLYING.'], ['PETE', 'SOUNDS LIKE HIS OLD BIRD. FLY THE BOARDS, KID - AND READ HIS LOGBOOK IF YOU HAVEN\'T. IT\'S ON THE DESK.']] },
   { id: 'pay1', k: () => STORY.paid > 0, L: () => [['PETE', 'MAIL PLANE SAYS VOSS GOT A PAYMENT OFF YOU. FIRST ONE ON TIME SINCE WALT WAS YOUR AGE.']] },
   { id: 'clue3', ask: 1, k: () => clueGot().length >= 3, L: () => [['PETE', 'CUB, HOME. YOU\'VE BEEN ASKING AROUND ABOUT GORDON.'], ['YOU', 'SOMEBODY HAS TO.'], ['PETE', 'WALT ASKED THE SAME QUESTIONS EVERY FALL. FOLK TALK ONCE THEY TRUST YOU. AND WATCH THE NORTH ICE WHEN THE SUN\'S ON IT.']] },
-  { id: 'ghint', ask: 1, k: () => clueGot().length >= 4 && !STORY.said.glint && !!STORY.read.log, L: () => [['DAWSON', 'RIDGE TO THE MACRAE CUB. SAW A FLASH UP ON THE NORTH ICE THIS MORNING. SUN ON SOMETHING.'], ['YOU', 'WHERE, EXACTLY?'], ['DAWSON', 'NORTH-NORTH-WEST OF HOME, SIX K OR SO. THE HIGH SHOULDER. FLY IT LOW WITH THE SUN UP.']], then: () => { STORY.said.ghint = 1; storyLog('Dawson saw a flash on the north ice: north-north-west of Home, about 6 km, the high shoulder.'); } },
+  { id: 'ghint', ask: 1, k: () => clueGot().length >= 4 && !STORY.said.glint && !!STORY.read.log, L: () => [['DAWSON', 'RIDGE TO THE MACRAE CUB. SAW A FLASH UP ON THE NORTH ICE THIS MORNING. SUN ON SOMETHING.'], ['YOU', 'WHERE, EXACTLY?'], ['DAWSON', 'NORTH-WEST OF HOME, SIX K OR SO. THE HIGH SHOULDER. FLY IT LOW WITH THE SUN UP.']], then: () => { STORY.said.ghint = 1; storyLog('Dawson saw a flash on the north ice: north-west of Home, about 6 km, the high shoulder.'); } },
   { id: 'glint', ask: 1, k: () => !!STORY.said.glint && hyp(ac.pos[0] - GLINT.x, ac.pos[2] - GLINT.z) > 800, L: () => [['PETE', 'CUB, HOME. YOU WENT QUIET UP NORTH. ALL GOOD?'], ['YOU', 'FOUND SOMETHING ON THE ICE. RED COWLING. PAINTED CF-G.'], ['PETE', '... SAY AGAIN?'], ['YOU', 'CF-G. THE NORSEMAN.'], ['PETE', 'GORDON\'S SHIP. THIRTY YEARS. DON\'T YOU LAND UP THERE ON WHEELS, YOU HEAR? COME HOME. WE\'LL TALK.']], then: () => storyLog('Told Pete about the cowling. He went quiet, then: "Gordon\'s ship. Thirty years."') },
   { id: 'trust', k: () => !!radTrusted(), L: () => { const S = radTrusted(), w = (TRUST_GOSSIP[S.id] || 'THE KEEPER:').split(':')[0]; return [[w, S.name.replace(' STRIP', '') + ' TO THE MACRAE CUB. COME BY THE BOARD NEXT TIME YOU\'RE DOWN THIS WAY. GOT SOMETHING TO TELL YOU ABOUT YOUR GRANDFATHER.']]; } },
-  { id: 'half', k: () => storyLeft() <= 7 && !STORY.snow, L: () => { const o = storyOwed(); return [['PETE', 'HALFWAY TO THE SNOW. YOU STILL OWE ' + $o(o) + '. ' + (STORY.paid >= 20000 ? 'YOU\'RE AHEAD OF WHERE WALT EVER WAS.' : 'THE LODGE PAYS WELL FOR FLOWERS, AND THE HOSPITAL RUNS PAY BEST.')]]; } },
-  { id: 'last2', ask: 1, k: () => storyLeft() <= 2 && storyOwed() > 0 && !STORY.snow, L: () => [['VOSS', 'VALLEY CREDIT FOR ' + PILOT + ' MACRAE. ELEANOR VOSS. NOTE 1147 COMES DUE WITH THE SNOW: ' + $o(storyOwed()) + '.'], ['YOU', 'I\'M WORKING ON IT.'], ['VOSS', 'WALT ALWAYS SAID THAT TOO. HE USUALLY WAS. HALF BY THE SNOW AND I CAN GIVE YOU MORE TIME.']] },
+  { id: 'half', k: () => storyLeft() <= 7 && !STORY.snow, L: () => { const o = storyOwed(); return [['PETE', 'HALFWAY TO THE SNOW. YOU STILL OWE ' + $o(o) + '. ' + (STORY.paid >= 20000 ? 'YOU\'RE AHEAD OF WHERE WALT EVER WAS.' : 'THE LODGE PAYS WELL, AND MEDEVAC CALLS PAY BEST.')]]; } },
+  { id: 'last2', ask: 1, k: () => storyLeft() <= 2 && storyOwed() > 0 && !STORY.snow, L: () => [['VOSS', 'VALLEY CREDIT FOR ' + PILOT + ' MACRAE. ELEANOR VOSS. NOTE 1147 COMES DUE WITH THE SNOW: ' + $o(storyOwed()) + '.'], ['YOU', 'I\'M WORKING ON IT.'], ['VOSS', 'WALT ALWAYS SAID THAT TOO. HE USUALLY WAS. HALF BY THE SNOW, AND TWO TOWNS TO VOUCH FOR YOU, AND I CAN GIVE YOU MORE TIME WITH NO FEE.']] },
   { id: 'snow', k: () => STORY.snow, L: () => [['PETE', 'FIRST FLAKES ON THE RIDGE. THE SEASON\'S TURNED. ' + (storyOwed() > 0 ? 'VOSS WILL BE CALLING.' : 'AND THE HANGAR\'S YOURS. WALT WOULD\'VE LIKED THAT.')]] },
   { id: 'paid', ask: 1, k: () => storyOwed() <= 0, L: () => [['VOSS', 'VALLEY CREDIT FOR ' + PILOT + ' MACRAE. NOTE 1147 IS PAID IN FULL. THE HANGAR IS YOURS.'], ['YOU', 'THANK YOU, MS VOSS.'], ['VOSS', 'DON\'T THANK ME. WALT WOULD HAVE... WELL. FLY CAREFUL UP THERE.']], then: () => storyLog('Eleanor Voss, on the radio: note 1147 is paid in full. The hangar is ours.') }];
 function radTrusted() { return DLV_STRIPS.find(S => TRUST_GOSSIP[S.id] && repOf(S.id) >= 55 && !STORY.said['g_' + S.id]); }
@@ -11269,7 +11272,7 @@ function radVoice(who, dur) { SND.n.voice = (SND.n.voice || 0) + 1; if (!SND.ok)
     g.gain.linearRampToValueAtTime(0.6 + Math.random() * 0.4, t + at + 0.02); g.gain.linearRampToValueAtTime(0.05, t + at + len); at += len + (Math.random() < 0.18 ? 0.16 : 0.025); }
   g.gain.linearRampToValueAtTime(0, t + dur); o.start(t); o.stop(t + dur + 0.05);
   const n = A.createBufferSource(), nb = A.createBiquadFilter(), ng = A.createGain(); n.buffer = SND.noise; nb.type = 'bandpass'; nb.frequency.value = 2400; nb.Q.value = 0.8; ng.gain.value = 0.035; n.connect(nb).connect(ng).connect(SND.fx); n.start(t, Math.random(), dur); }
-const radDur = t => clamp(1.6 + t.length * 0.055, 2.6, 8);
+const radDur = t => Math.max(clamp(1.6 + t.length * 0.055, 2.6, 8), Math.ceil(wrapText('RADIO - E. VOSS (VALLEY CREDIT): ' + t, 22).length / 2) * 2.6 + 0.4);   // v1.16.0 never shorter than its wrist pages
 function radOn() { return mode === 'plane' && ENG.master; }
 function radPlay(c) { RAD.cur = c; RAD.L = c.L(); RAD.i = -1; RAD.t = 0.35; RAD.ring = null; RAD.miss = null; sfx('static'); }
 function radPtt() {   // the mic was keyed (a press)
@@ -11281,9 +11284,9 @@ function radPtt() {   // the mic was keyed (a press)
   RAD.chk = 45; RAD.cur = { id: 'checkin' }; RAD.i = -1; RAD.t = 0.35; sfx('static'); RAD.L = radCheckIn(); return true; }
 function radCheckIn() {
   const L = [['YOU', 'HOME, MACRAE CUB. CHECKING IN.']]; if (!STORY.on) { L.push(['PETE', 'READ YOU FIVE BY FIVE, ' + PILOT + '. BOARDS ARE FULL. FLY SAFE.']); return L; }
-  const o = storyOwed(); L.push(['PETE', o > 0 ? 'READ YOU. DAY ' + storyDay() + ', ' + (STORY.snow ? 'SNOW\'S HERE' : storyLeft() + ' DAYS TO THE SNOW') + ', AND YOU OWE ' + $o(o) + '.' : 'READ YOU. THE NOTE\'S PAID. FLY FOR FUN FOR ONCE.']);
+  const o = storyOwed(); L.push(['PETE', o > 0 ? 'READ YOU. DAY ' + storyDay() + ', ' + (STORY.snow ? 'SNOW\'S HERE' : stDays(storyLeft()) + ' TO THE SNOW') + ', AND YOU OWE ' + $o(o) + '.' : 'READ YOU. THE NOTE\'S PAID. FLY FOR FUN FOR ONCE.']);
   const a2 = act2Hint(); if (a2) { L.push(['PETE', a2]); return L; }   // v1.05 the north ice
-  const nx = CLUES.find(c => !c.k()); if (nx) L.push(['PETE', nx.id === 'glint' ? (STORY.said.ghint ? 'DAWSON\'S FLASH ON THE NORTH ICE - NORTH-NORTH-WEST, THE HIGH SHOULDER. GO LOW WITH THE SUN UP.' : 'WALT\'S LOG SAYS GLARE ON THE NORTH ICE ALL DAY. THE SUN FINDS THINGS UP THERE.') : nx.id.startsWith('g_') ? 'ABOUT GORDON - TRY ' + nx.hint.toUpperCase() + '. THEY TALK ONCE THEY TRUST YOU.' : 'AND READ ' + nx.hint.toUpperCase() + '.']);
+  const nx = CLUES.find(c => !c.k()); if (nx) L.push(['PETE', nx.id === 'glint' ? (STORY.said.ghint ? 'DAWSON\'S FLASH ON THE NORTH ICE - NORTH-WEST OF HOME, THE HIGH SHOULDER. GO LOW WITH THE SUN UP.' : 'WALT\'S LOG SAYS GLARE ON THE NORTH ICE ALL DAY. THE SUN FINDS THINGS UP THERE.') : nx.id.startsWith('g_') ? 'ABOUT GORDON - TRY ' + nx.hint.toUpperCase() + '. THEY TALK ONCE THEY TRUST YOU.' : 'AND ' + nx.hint.toUpperCase() + '.']);
   else L.push(['PETE', 'WALT\'S BOARD IS FULL. EVERYTHING POINTS NORTH.']); return L; }
 function radKey(e, down) { if (e.code !== 'Quote' || e.repeat) return; RAD.kd = down; if (down && mode === 'plane') e.preventDefault && e.preventDefault(); }
 addEventListener('keydown', e => radKey(e, true)); addEventListener('keyup', e => radKey(e, false));
@@ -11347,12 +11350,13 @@ function fogOverlay(x) {
   for (const n of GORDON_NOTES) { const p = fogXY(n); if (!p || !got.has(n.c)) continue; fogText(x, n.t, fogU(p[0]) + n.dx, fogV(p[1]) + n.dy, '13px ' + INKF, INK, 0.04); }
   // the north ice, off the top edge (Walt's log), and the pins that point at it
   if (STORY.read.log || got.size) { const [ex, ey] = fogEdge(x, GLINT.x, GLINT.z); x.strokeStyle = PENC; x.lineWidth = 2.5; x.beginPath(); x.moveTo(ex, ey + 46); x.lineTo(ex, ey - 16); x.lineTo(ex - 7, ey - 4); x.moveTo(ex, ey - 16); x.lineTo(ex + 7, ey - 4); x.stroke();
-    x.setLineDash([3, 4]); x.lineWidth = 1.2; x.beginPath(); x.moveTo(ex + 10, ey - 6); x.lineTo(ex + 160, ey - 6); x.stroke(); x.setLineDash([]); fogText(x, 'N. ICE - off the sheet, ~6 km NNW of home', ex + 300, ey - 6, 'bold 13px ' + HANDF, PENC, 0); fogText(x, '"glare all day" - W.', ex + 260, ey + 12, '12px ' + HANDF, PENC, 0);
+    x.setLineDash([3, 4]); x.lineWidth = 1.2; x.beginPath(); x.moveTo(ex + 10, ey - 6); x.lineTo(ex + 160, ey - 6); x.stroke(); x.setLineDash([]); fogText(x, 'N. ICE - off the sheet, ~6 km NW of home', ex + 300, ey - 6, 'bold 13px ' + HANDF, PENC, 0); fogText(x, '"glare all day" - W.', ex + 260, ey + 12, '12px ' + HANDF, PENC, 0);
     if (said.ghint && !said.glint) { x.strokeStyle = 'rgba(160,30,20,0.7)'; x.setLineDash([5, 4]); x.beginPath(); x.arc(ex, ey + 6, 22, 0, 6.283); x.stroke(); x.setLineDash([]); fogText(x, 'Dawson\'s flash?', ex - 70, ey + 40, '12px ' + HANDF, '#8a1a10', -0.05); }
-    if (said.glint) { fogIcon(x, 'x', ex, ey + 6); fogText(x, 'CF-G - red cowling!', ex - 78, ey + 40, 'bold 13px ' + HANDF, '#8a1a10', -0.05); if (said.wreck) fogText(x, 'NORSEMAN CF-GMR - found, ' + (said.wreckD || '').toLowerCase(), ex + 120, ey + 52, 'bold 13px ' + HANDF, '#8a1a10', -0.03); if (said.r_a2) fogText(x, said.cache ? 'ski shelf ½ km N - cache in' : said.shelf ? 'ski shelf ½ km N - landed' : 'W.\'s ski shelf, wands, ½ km N', ex + 120, ey + 34, '12px ' + HANDF, PENC, -0.05); }
+    if (said.glint) { fogIcon(x, 'x', ex, ey + 6); fogText(x, 'CF-G - red cowling!', ex - 78, ey + 40, 'bold 13px ' + HANDF, '#8a1a10', -0.05); if (said.wreck) fogText(x, 'NORSEMAN CF-GMR - found, ' + (said.wreckD || '').toLowerCase(), ex + 120, ey + 52, 'bold 13px ' + HANDF, '#8a1a10', -0.03); if (said.r_a2) fogText(x, said.cache ? 'ski shelf 0.65 km NNW - cache in' : said.shelf ? 'ski shelf 0.65 km NNW - landed' : 'W.\'s ski shelf, wands, 0.65 km NNW', ex + 120, ey + 34, '12px ' + HANDF, PENC, -0.05); }
     for (const c of CLUES) { if (!c.id.startsWith('g_') || !got.has(c.id)) continue; const S = DLV_STRIPS.find(q => q.id === c.id.slice(2)); if (!S) continue; const px = fogU(S.pad[0]), py = fogV(S.pad[1]) - 12;
       x.strokeStyle = 'rgba(176,32,26,0.45)'; x.lineWidth = 1.5; x.beginPath(); x.moveTo(px, py); x.quadraticCurveTo((px + ex) / 2, (py + ey) / 2 + 40, ex, ey + 6); x.stroke(); fogPin(x, px, py); } }
   for (const id in DISC.found) { const D = DISC.found[id]; if (id.startsWith('north_')) continue; const [px, py, on] = fogEdge(x, D.x, D.z); fogIcon(x, D.i, px, py); fogText(x, (on ? '' : '^ ') + D.n.toLowerCase(), px, py + 16, '12px ' + HANDF, PENC, -0.02); }
+  golMapMark(x);   // v1.16.0 the goal
   x.fillStyle = 'rgba(58,70,88,0.8)'; x.font = '13px ' + HANDF; x.textAlign = 'right'; x.fillText('mapped ' + Math.round(FOG.pct * 100) + '%  -  found ' + DISC.n, MAP_W - 190, MAP_H - 14); x.textAlign = 'left'; }
 function fogComposite() { FOG.cver = FOG.ver; const x = FOG.cx, t = FOG.tx; x.globalCompositeOperation = 'source-over'; x.drawImage(FOG.paper, 0, 0);
   t.globalCompositeOperation = 'source-over'; t.clearRect(0, 0, MAP_W, MAP_H); t.drawImage(MAP.base, 0, 0); t.globalCompositeOperation = 'destination-in'; t.imageSmoothingEnabled = true; t.drawImage(FOG.m, 0, 0, MAP_W, MAP_H); t.globalCompositeOperation = 'source-over';
@@ -11406,15 +11410,15 @@ function a2Go() { if (STORY.said.cacheGo) return; STORY.said.cacheGo = 1; a2Spaw
 function a2Spawn() { if (!a2Its().length) dlvSpawn(ST_JOBS[0]); }
 function act2Hint() { const s = STORY.said; if (!STORY.on || !s.a2) return null;
   if (s.cache) return !s.wreck ? 'THE CACHE IS IN. WALK THE ICE BETWEEN THE SHELF AND THE COWLING, KID - UP THE RIDGE\'S WEST FLANK. GORDON\'S UP THERE SOMEWHERE.' : !s.glet ? 'READ WHAT HE LEFT YOU - THE LOGBOOK AND THE LETTER ON THE MAIL SACK BY THE DOOR.' : !s.end ? 'VOSS IS WAITING AT WALT\'S BOARD IN THE HANGAR. TAKE HER THE LETTER.' : 'THE BOARDS ARE FULL AND THE HANGAR\'S OURS. FLY FOR FUN FOR ONCE, KID.';
-  if (!s.r_a2) return 'THE NORTH ICE - WALT STAKED A SKI SHELF HALF A K NORTH OF YOUR COWLING. ORANGE WANDS. YOU\'LL WANT SKIS AND A CACHE.';
+  if (!s.r_a2) return 'THE NORTH ICE - WALT STAKED A SKI SHELF TWO-THIRDS OF A K NORTH-NORTH-WEST OF YOUR COWLING. ORANGE WANDS. YOU\'LL WANT SKIS AND A CACHE.';
   if (UPG.gk !== 'skis') return UPG.kown.skis ? 'FIT THE WHEEL-SKIS AT THE HANGAR BOARD BEFORE YOU GO NORTH. WHEELS SINK UP THERE.' : 'THE WHEEL-SKIS ARE ON THE HANGAR BOARD. I PUT IN HALF - ' + $o(A2.skiK.price) + ' TO YOU. THE CREW FITS THEM.';
   const its = a2Its(), aboard = its.filter(it => it.st === 'cargo').length;
   return aboard ? 'YOU\'VE GOT ' + aboard + ' OF THE CACHE ABOARD. LAND INSIDE WALT\'S WANDS ON THE NORTH SHELF AND SET IT DOWN IN THE SNOW.' : 'THE CACHE GEAR IS ON THE HOME PAD - TWO CANS, THE TENT, THE GRUB. FLY IT TO WALT\'S WANDS ON THE NORTH SHELF.'; }
 RAD_CALLS.push(
   { id: 'a2', ask: 1, k: () => !!STORY.said.a2 && !!STORY.said.r_glint && hyp(ac.pos[0] - GLINT.x, ac.pos[2] - GLINT.z) > 800, L: () => [['PETE', 'CUB, HOME. I\'VE BEEN UP ALL NIGHT WITH WALT\'S OLD SHEETS AND THAT CORKBOARD OF YOURS.'], ['YOU', 'AND?'],
-    ['PETE', 'THERE\'S A SNOW BENCH UNDER THE RIDGE, HALF A K NORTH OF YOUR COWLING. WALT STAKED IT WITH ORANGE WANDS YEARS BACK - ONLY FLAT ICE UP THERE. LAND IT UPHILL, TO THE NORTH, AND SHUT DOWN - THE SKIS FREEZE IN.'],
+    ['PETE', 'THERE\'S A SNOW BENCH UNDER THE RIDGE, A BIT OVER HALF A K NORTH-NORTH-WEST OF YOUR COWLING. WALT STAKED IT WITH ORANGE WANDS - ONLY FLAT ICE UP THERE.'], ['PETE', 'LAND IT UPHILL, TO THE NORTH, AND SHUT DOWN - THE SKIS FREEZE IN.'],
     ['PETE', UPG.gk === 'skis' ? 'YOU\'VE GOT THE WHEEL-SKIS ON. GOOD.' : UPG.kown.skis ? 'YOU\'VE GOT THE WHEEL-SKIS - HAVE THE CREW FIT THEM.' : 'WHEELS WON\'T DO IT. I\'M PUTTING IN HALF ON THE WHEEL-SKIS - ' + $o(Math.round(A2.skiP / 2)) + ' TO YOU AT THE HANGAR BOARD.'],
-    ['PETE', 'AND NOBODY SEARCHES THAT ICE WITHOUT A CACHE. FUEL, A TENT, GRUB. I\'LL STACK IT ON THE PAD - FLY IT UP AND LEAVE IT INSIDE THE WANDS.']], then: () => { storyLog('Pete: Walt staked a ski shelf with orange wands, half a km north of the cowling - land uphill, northbound. Skis (he put in half) and a cache first.'); a2Go(); } },
+    ['PETE', 'AND NOBODY SEARCHES THAT ICE WITHOUT A CACHE. FUEL, A TENT, GRUB. I\'LL STACK IT ON THE PAD - FLY IT UP AND LEAVE IT INSIDE THE WANDS.']], then: () => { storyLog('Pete: Walt staked a ski shelf with orange wands, about 650 m north-north-west of the cowling - land uphill, northbound. Skis (he put in half) and a cache first.'); a2Go(); } },
   { id: 'a2voss', ask: 1, k: () => !!STORY.said.r_a2 && (STORY.said.cacheGo ? 1 : 0) && (A2.vt = (A2.vt || 0) + 1) > 20, L: () => [['VOSS', 'VALLEY CREDIT FOR ' + PILOT + ' MACRAE. PETE TELLS ME YOU FOUND A PIECE OF GORDON\'S AIRPLANE.'], ['YOU', 'ON THE NORTH ICE. I\'M GOING BACK UP ON SKIS.'],
     ['VOSS', 'MY FATHER, HAROLD, CHARTERED THAT LAST FLIGHT. HE MET GORDON AT THE LODGE THE NIGHT BEFORE. HE NEVER WOULD TALK ABOUT IT.'],
     ['VOSS', 'IF THERE ARE PAPERS UP THERE - A LOGBOOK, ANYTHING - BRING THEM TO ME FIRST. ' + (storyOwed() > 0 ? 'THE NOTE WILL KEEP WHILE YOU LOOK.' : 'PLEASE.')]], then: () => storyLog('Eleanor Voss: her father, Harold Voss, chartered Gordon\'s last flight - the man at the Lodge. "Bring me any papers first."') },
@@ -11431,7 +11435,7 @@ function act2Tick(dt) {
   if (!s.a2) return;
   // landing on the shelf
   if (!s.shelf && mode === 'plane' && ac.out && ac.out.wow > 0 && acGS() < 2.5 && !ac.crashed && a2In(ac.pos[0], ac.pos[2], 30)) {
-    if (UPG.gk === 'skis') { s.shelf = 1; storyLog('Landed on skis on Walt\'s north shelf, ' + storyDate() + '. The wands still stand.'); musStinger('story'); discoverLandmark('north_shelf', { name: 'Walt\'s ski shelf', x: SH_X, z: SH_Z, note: 'orange wands, the north ice', reward: 0, icon: 'peak', quiet: true }); say('DOWN ON WALT\'S SHELF ON SKIS. THE COWLING IS HALF A K SOUTH, UP THE RIDGE'); saveSoon(); }
+    if (UPG.gk === 'skis') { s.shelf = 1; storyLog('Landed on skis on Walt\'s north shelf, ' + storyDate() + '. The wands still stand.'); musStinger('story'); discoverLandmark('north_shelf', { name: 'Walt\'s ski shelf', x: SH_X, z: SH_Z, note: 'orange wands, the north ice', reward: 0, icon: 'peak', quiet: true }); say('DOWN ON WALT\'S SHELF ON SKIS. THE COWLING IS ABOUT 650 M SOUTH-SOUTH-EAST, UNDER THE RIDGE'); saveSoon(); }
     else if (!A2.wheel) { A2.wheel = 1; say('WHEELS IN THE SNOW UP HERE - THIS SHELF WANTS THE WHEEL-SKIS'); } }
   // the cache: every piece set down inside the wands
   if (s.cacheGo && !s.cache) { const its = a2Its();
@@ -11548,10 +11552,120 @@ function sbDrawEnd() { const x = SB.x, W = 1024, H = 640, s = STORY.said; x.fill
   ch('NORSEMAN CF-GMR', 44, 186, 'bold 34px Georgia, serif', '#f0c8a0'); ch('FOUND ON THE NORTH ICE ' + (s.wreckD || '') + ' - GORDON CAME HOME', 44, 222, 'italic 24px Georgia, serif');
   ch('NOTE 1147', 44, 290, 'bold 34px Georgia, serif', '#b8e0a0'); ch(s.wo ? 'WRITTEN OFF - ' + $o(s.wo) + ' VALLEY CREDIT\'S TO CARRY' : 'PAID IN FULL' + (s.refund ? ' + ' + $o(s.refund) + ' INTEREST BACK' : ''), 260, 290, 'italic 28px Georgia, serif', '#b8e0a0');
   ch('THE HANGAR STAYS IN THE FAMILY', 44, 340, 'bold 30px Georgia, serif');
-  const n = Object.keys(DISC.found).length; ch('SEASON: ' + storyDay() + ' DAYS   ' + (DLV.done || 0) + ' JOBS FLOWN   ' + clueGot().length + '/' + CLUES.length + ' CLUES   ' + n + ' PLACES FOUND   MAP ' + Math.round(FOG.pct * 100) + '%', 44, 400, '23px Georgia, serif', '#c8ccc0');
+  const n = Object.keys(DISC.found).length; ch('SEASON: ' + stDays(storyDay()) + '   ' + (DLV.done || 0) + ' JOBS FLOWN   ' + clueGot().length + '/' + CLUES.length + ' CLUES   ' + n + ' PLACES FOUND   MAP ' + Math.round(FOG.pct * 100) + '%', 44, 400, '23px Georgia, serif', '#c8ccc0');
   ch('CASH ON HAND ' + ecoMoney(DLV.cash), 44, 440, '24px Georgia, serif', '#c8ccc0'); ch(storyDate() + '  (DAY ' + storyDay() + ')', 44, 476, '22px Georgia, serif', '#98a090');
   ch('THE BOARDS ARE FULL. FLY ON.', W / 2, 560, 'bold 40px Georgia, serif', '#f4f2ea', 'center'); ch('"YOU CAN STOP NOW. FLY THE VALLEY." - G.M.', W / 2, 604, 'italic 22px Georgia, serif', '#98a090', 'center');
   x.textAlign = 'left'; texDirty(SB.tex); }
+
+// ===================== v1.16.0 THE GOAL: what to do next, where it is, and the steps so far =====================
+// One ladder (golPick) turns the story state - the same flags the saves already carry (read / said / paid / the Cub's kit / the cache items) - into the
+// current step, so every v1.15.1 story save lands on its right step with nothing new to migrate (the few sticky o_* flags it adds are re-derived).
+// The step shows on the clipboard's GOAL page (tab 7: the line, bearing + distance + elevation to it, a nudge when you've been stuck, the steps done), on
+// Walt's chalkboard, as a pin on the paper map, and once as a wrist message when it changes (Settings > Comfort > Story hints). It all runs at 4 Hz on
+// numbers (no per-frame garbage); strings are built only when the step changes, and the page redraws only when what it shows changes.
+var GOAL = { st: -1, sub: -1, pk: -1, nst: 0, nsub: 0, txt: '', hint: '', nm: '', has: false, tx: 0, tz: 0, ty: 0, brg: 0, dst: -1, rel: 0, s1: -1, s2: -1, s3: -1, kbk: 'G', t: 0, stk: 0, hn: 0, pm: '', pw: 0, first: 1, j0: -1, dn: 0, cn: 0, cg: 0, gs: 0, ca: 0, ct: 0, si: 0, sm: 0, sr: 0, D: new Uint8Array(17) };
+const GOL_LB = ['Read the bank\'s letter', 'Read Walt\'s logbook', 'Look at Gordon\'s photo', 'Fly your first job', 'Chalk a payment on the board', 'Hear what the valley remembers', 'Spot the cowling on the north ice', 'Pete works out Walt\'s ski shelf', 'Fit the wheel-skis', 'Load the search cache at Home', 'Land on Walt\'s shelf on skis', 'Pitch the search cache', 'Find Gordon\'s Norseman', 'Read Gordon\'s logbook', 'Read Gordon\'s letter', 'Take the letter to Voss'];
+const GOL_ID = ['HOME', 'RIDGE', 'LODGE', 'DRYFORK', 'HALV', 'NWSHORE', 'CREEK'], GOL_GK = GOL_ID.map(i => 'g_' + i), GOL_S = GOL_ID.map(i => DLV_STRIPS.find(q => q.id === i));
+const _golP = new THREE.Vector3();
+function golReset() { if (!GOAL) return; GOAL.st = GOAL.sub = GOAL.pk = GOAL.s1 = GOAL.s2 = GOAL.s3 = -1; GOAL.j0 = -1; GOAL.first = 1; GOAL.stk = 0; GOAL.hn = 0; GOAL.pm = ''; GOAL.has = false; GOAL.dst = -1; GOAL.txt = GOAL.hint = ''; GOAL.kbk = 'G'; }
+function golCount() { const G = GOAL; let n = 0, g = 0; for (let i = 0; i < CLUES.length; i++) if (CLUES[i].k()) { n++; if (CLUES[i].id !== 'glint') g++; } G.cn = n; G.cg = g;
+  let t = 0; for (let i = 0; i < GOL_GK.length; i++) if (STORY.said[GOL_GK[i]]) t++; G.gs = t;
+  let a = 0, c = 0; const id = ST_JOBS[0].id, I = DLV.items; for (let i = 0; i < I.length; i++) if (I[i].job === id) { c++; if (I[i].st === 'cargo') a++; } G.ca = a; G.ct = c; }
+function golTrust() {   // who to go and hear from: someone who already trusts you first, else the strip you are closest to winning
+  const G = GOAL, said = STORY.said; let bi = -1, bm = 0, br = -1;
+  for (let i = 0; i < GOL_ID.length; i++) { if (said[GOL_GK[i]]) continue; const S = GOL_S[i]; if (!S || S.lock) continue; const r = repOf(GOL_ID[i]); if (r >= REP_UNL) { bi = i; bm = 1; br = r; break; } }
+  if (bi < 0) for (let i = 0; i < GOL_ID.length; i++) { if (said[GOL_GK[i]]) continue; const S = GOL_S[i]; if (!S || S.lock) continue; const r = repOf(GOL_ID[i]); if (r > br) { br = r; bi = i; } }
+  if (bi < 0) { bi = 3; br = repOf('DRYFORK'); }
+  G.si = bi; G.sm = bm; G.sr = Math.round(br); }
+function golPick() {   // the ladder: state -> step (0..15, 16 = the end) + a sub-state for the text
+  const G = GOAL, D = G.D, s = STORY.said, rd = STORY.read; golCount();
+  if (UPG.gk === 'skis') s.o_skis = 1; if (G.ca > 0) s.o_load = 1; if (DLV.done > G.j0) s.o_job = 1;   // sticky: once true, true
+  D[0] = rd.letter ? 1 : 0; D[1] = rd.log ? 1 : 0; D[2] = rd.photo ? 1 : 0; D[3] = (s.o_job || STORY.paid > 0 || G.gs > 0 || s.glint || s.a2) ? 1 : 0; D[4] = (STORY.paid > 0 || s.a2) ? 1 : 0;
+  D[5] = (G.cg >= 5 || s.a2) ? 1 : 0; D[6] = s.glint ? 1 : 0; D[7] = s.r_a2 ? 1 : 0; D[8] = (s.o_skis || s.shelf) ? 1 : 0; D[9] = (s.o_load || s.shelf || s.cache) ? 1 : 0; D[10] = (s.shelf || s.cache) ? 1 : 0; D[11] = s.cache ? 1 : 0;
+  D[12] = s.wreck ? 1 : 0; D[13] = (s.glog || s.glet) ? 1 : 0; D[14] = s.glet ? 1 : 0; D[15] = s.end ? 1 : 0;
+  for (let i = 14; i >= 7; i--) if (D[i + 1]) D[i] = 1; if (D[7]) D[6] = D[5] = 1;
+  let n = 0; for (let i = 0; i < 16; i++) n += D[i]; G.dn = n;
+  let st, sub = 0;
+  if (s.end) st = 16; else if (s.glet) st = 15; else if (s.wreck) st = s.glog ? 14 : 13; else if (s.cache) st = 12; else if (s.shelf) st = 11;
+  else if (s.r_a2) st = UPG.gk !== 'skis' ? 8 : G.ca > 0 ? 10 : 9;
+  else if (s.a2) st = 7;
+  else if (!D[0]) st = 0; else if (!D[1]) st = 1; else if (!D[2]) st = 2; else if (!D[3]) st = 3; else if (!D[4] && G.cg < 3) st = 4;
+  else if (!s.glint) st = (G.cg >= 5 || s.ghint) ? 6 : 5; else st = G.cn >= 6 ? 7 : 5;
+  if (st === 4) sub = DLV.cash >= STORY_PAYS[0] ? 1 : 0;
+  else if (st === 5) { golTrust(); sub = G.si * 1000 + G.sm * 500 + G.sr; }
+  else if (st === 6) sub = (typeof sunDir !== 'undefined' ? sunDir.y : 1) < 0.12 ? 1 : 0;
+  else if (st === 7) sub = (RAD.miss ? 1 : 0) + (s.r_glint ? 0 : 2);
+  else if (st === 8) sub = A2.skiK.price * 2 + (UPG.kown.skis ? 1 : 0);
+  else if (st === 10) sub = G.ca + 10 * G.ct;
+  G.nst = st; G.nsub = sub; }
+function golAim(x, z, nm) { const G = GOAL; G.has = true; G.tx = x; G.tz = z; G.ty = groundY(x, z); G.nm = nm; }
+function golText(st, sub) {   // the words (built once per change)
+  const G = GOAL; G.has = false; G.nm = ''; let t = '', h = '';
+  const HP = GOL_S[0].pad;
+  switch (st) {
+    case 0: t = 'READ THE BANK\'S LETTER ON YOUR CLIPBOARD'; h = 'Press N for the clipboard (VR: grab it from the Cub) and turn to the NOTE page. It sets out the debt and the deadline.'; break;
+    case 1: t = 'READ WALT\'S LOGBOOK TO THE LAST PAGE'; h = 'The green book on the desk at the back of the hangar. Look at it and press E (VR: grip it), then press . to turn the pages to the end.'; golAim(HANGAR.x - 4.2, HANGAR.z + 0.2, 'WALT\'S DESK, HOME HANGAR'); break;
+    case 2: t = 'LOOK AT THE PHOTO ON WALT\'S DESK'; h = 'The small framed print on the same desk. Look at it and press E (VR: grip it).'; golAim(HANGAR.x - 4.3, HANGAR.z - 0.12, 'WALT\'S DESK, HOME HANGAR'); break;
+    case 3: t = 'FLY YOUR FIRST JOB FOR THE VALLEY'; h = 'Take a job off the board at a strip (the JOBS page lists what is on offer), load the cargo, fly it to its strip and set it down on the pad. The pay is cash in hand.'; break;
+    case 4: t = sub ? 'CHALK A PAYMENT ON WALT\'S BOARD IN THE HANGAR' : 'EARN $' + STORY_PAYS[0] + ' FLYING JOBS, THEN CHALK IT ON WALT\'S BOARD'; h = 'Walk up to the chalkboard in the hangar and press 1, 2 or 3 (VR: poke a PAY box). Even $500 counts: the note falls due at the first snow.'; golAim(SB.X, SB.Z, 'WALT\'S BOARD, HOME HANGAR'); break;
+    case 5: { const S = GOL_S[G.si], who = REP_NAME[GOL_ID[G.si]] || S.name;
+      if (G.sm) { t = 'WALK UP TO ' + who + ' AT ' + S.name + ' - SOMETHING ABOUT GORDON'; h = 'Land at ' + S.name.toLowerCase() + ' and walk to its board: ' + who.toLowerCase() + ' trusts you now and has something to tell you about Gordon.'; }
+      else { t = 'WIN ' + who + '\'S TRUST: FLY JOBS FOR ' + S.name + ' (' + G.sr + '/' + REP_UNL + ')'; h = 'Deliver on time to and from ' + S.name.toLowerCase() + ' - its trust climbs with every job (' + G.sr + ' of ' + REP_UNL + '). At ' + REP_UNL + ' the locals open up about Gordon.'; }
+      h += ' ' + G.cn + ' of 6 clues so far; the north ice needs six.'; golAim(S.pad[0], S.pad[1], S.name); break; }
+    case 6: t = sub ? 'WAIT FOR DAYLIGHT, THEN FLY LOW OVER THE NORTH ICE' : 'FLY LOW OVER THE NORTH ICE IN DAYLIGHT - LOOK FOR A GLINT'; h = 'Walt\'s log says glare all day. The high snow shoulder about 6 km north-west of Home: come in low (under 380 m), within 230 m, with the sun up.'; golAim(GLINT.x, GLINT.z, 'THE NORTH ICE'); break;
+    case 7: t = (sub & 1) ? 'KEY THE MIC TO CALL PETE BACK' : (sub & 2) ? 'FLY ON - PETE WILL CALL ABOUT THE COWLING' : 'FLY ON - PETE WILL CALL ABOUT THE NORTH ICE'; h = (sub & 1) ? 'You missed a call. Hold \' to talk (VR: grab the hand mic and squeeze its trigger).' : 'Keep the master switch on and fly more than 800 m from the cowling. Pete calls over the radio when he has worked out where Walt landed.'; break;
+    case 8: t = UPG.kown.skis ? 'HAVE THE CREW FIT YOUR WHEEL-SKIS AT THE HANGAR BOARD' : 'BUY THE WHEEL-SKIS AT THE HANGAR BOARD ($' + A2.skiK.price.toLocaleString('en-US') + ')'; h = 'Wheels sink in the snow up there. The hangar\'s upgrade board sells wheel-skis (Pete has put in half) and the crew fits them.'; golAim(SB.X, SB.Z, 'THE HANGAR BOARD, HOME'); break;
+    case 9: t = 'LOAD THE SEARCH CACHE FROM THE HOME PAD INTO THE CUB'; h = 'Pete stacked two fuel cans, a tent crate and a grub sack on the Home pad. Load all four (watch the weight and balance on page 2) and fly north.'; golAim(HP[0], HP[1], 'THE HOME PAD'); break;
+    case 10: t = 'FLY THE CACHE TO WALT\'S SHELF AND LAND ON SKIS'; h = 'Land uphill, northbound, between Walt\'s orange wands, then shut the engine down: the skis freeze in. The shelf lies south-east of the high snow, about 650 m north-north-west of the cowling.'; golAim(SH_X, SH_Z, 'WALT\'S SKI SHELF'); break;
+    case 11: t = 'SET THE CACHE DOWN IN THE SNOW INSIDE THE WANDS'; h = 'Unload every piece of the cache onto the snow between the orange wands. When the last piece is down the tent goes up.'; golAim(SH_X, SH_Z, 'WALT\'S SKI SHELF'); break;
+    case 12: t = 'WALK UP THE RIDGE TO THE COWLING - GORDON IS NEAR'; h = 'Leave the Cub on the shelf and climb the ridge on foot (about 350 m south-east and 150 m up; the red rags mark the way). The Norseman lies in the snow.'; golAim(WR.x, WR.z, 'THE NORSEMAN\'S RIDGE'); break;
+    case 13: t = 'READ GORDON\'S LOGBOOK ON THE MAIL SACK'; h = 'On the sack by the Norseman\'s door: pick up the logbook (E, VR grip) and turn to the last page.'; golAim(WR_S.x, WR_S.z, 'THE MAIL SACK'); break;
+    case 14: t = 'READ GORDON\'S LETTER ON THE MAIL SACK'; h = 'The folded letter lies on the sack with Harold Voss\'s card pinned to it. Pick it up (E, VR grip).'; golAim(WR_S.x, WR_S.z, 'THE MAIL SACK'); break;
+    case 15: t = 'TAKE THE LETTER TO WALT\'S BOARD - VOSS IS WAITING'; h = 'Fly home and walk to the chalkboard in the hangar: Eleanor Voss meets you there. The Cub stays on the north ice if you like; Home is about 6 km south-east.'; golAim(SB.X, SB.Z, 'WALT\'S BOARD, HOME HANGAR'); break;
+    default: t = 'THE NOTE IS SETTLED - FREE FLIGHT: FLY THE BOARDS, FILL THE MAP'; h = 'Nothing more is owed. Find the rest of the valley\'s places, fly the boards and ink in Walt\'s map.'; }
+  G.txt = t; G.hint = h; }
+function golWay() { const G = GOAL; if (!G.has) { G.dst = -1; return; } let px, pz, py;
+  if (mode === 'plane') { px = ac.pos[0]; pz = ac.pos[2]; py = ac.pos[1]; } else { camera.getWorldPosition(_golP); px = _golP.x; pz = _golP.z; py = _golP.y - EYE; }
+  const dx = G.tx - px, dz = G.tz - pz; G.dst = hyp(dx, dz); G.brg = (Math.atan2(dx, -dz) * 57.29578 + 360) % 360; G.rel = (G.ty - py) * 3.28084; }
+const golBrg = b => JB_CARD[Math.floor((b + 11.25) / 22.5) % 16] + ' ' + String(Math.round(b) % 360).padStart(3, '0') + '\u00b0';
+const golDist = d => d < 950 ? Math.max(10, Math.round(d / 10) * 10) + ' M' : (d / 1000).toFixed(1) + ' KM';
+function golTick(dt) {
+  const G = GOAL; if (!STORY.on) { if (G.st !== -1) golReset(); return; }
+  G.stk += dt; G.pw -= dt; if ((G.t -= dt) > 0) return; G.t = 0.25;
+  if (G.j0 < 0) { G.j0 = DLV.done; if (STORY.gh > 24) STORY.said.o_job = 1; }
+  golPick();
+  if (G.nst !== G.st || G.nsub !== G.sub) { const pk = G.nst * 10000 + (G.nst === 5 ? G.si * 10 + G.sm : 0), nw = pk !== G.pk; golText(G.nst, G.nsub); G.st = G.nst; G.sub = G.nsub; G.stk = 0; G.hn = 0;
+    if (nw) { G.pk = pk; MAP.key = ''; FOG.ver++; golWay(); G.pm = 'GOAL: ' + G.txt + (G.has && G.dst > 300 ? ' - ' + golBrg(G.brg) + ', ' + golDist(G.dst) : ''); G.pw = G.first ? 9 : 3.5; G.first = 0; } }
+  golWay();
+  if (G.hn < 2 && G.stk > (G.hn ? 840 : 240)) { G.hn++; G.pm = 'HINT: ' + G.hint.toUpperCase(); G.pw = 1; }   // stuck: a nudge after 4 min, again at 14
+  if (G.pm && G.pw <= 0 && (msgT <= 0 || G.pw < -25)) { if (GFX.hints) { say(G.pm); sfx('tick'); } G.pm = ''; }
+  const dq = G.dst < 0 ? 0 : G.dst < 1000 ? Math.round(G.dst / 50) : G.dst < 10000 ? 20 + Math.round(G.dst / 250) : 60 + Math.round(G.dst / 1000), bq = Math.round(G.brg / 5) % 72, eq = Math.round(G.rel / 150) + 400;
+  const s1 = (((G.st * 20000 + Math.min(G.sub, 19999)) * 4 + G.hn) * 20 + G.dn) * 2 + (GFX.hints ? 1 : 0), s2 = ((dq * 100 + bq) * 1000 + eq) * 2 + (renderer.xr.isPresenting ? 1 : 0), s3 = storyOwed() * 100 + storyLeft();
+  if (s1 !== G.s1 || s2 !== G.s2 || s3 !== G.s3) { G.s1 = s1; G.s2 = s2; G.s3 = s3; G.kbk = 'G' + s1 + '|' + s2 + '|' + s3; } }
+// ---- the clipboard's GOAL page ----
+function golWrap(x, t, X, Y, w, lh, max) { const W = t.split(' '); let l = '', n = 0; for (const s of W) { if (l && x.measureText(l + ' ' + s).width > w) { if (++n >= max) { x.fillText(l + '...', X, Y + (n - 1) * lh); return Y + n * lh; } x.fillText(l, X, Y + (n - 1) * lh); l = s; } else l = l ? l + ' ' + s : s; } x.fillText(l, X, Y + n * lh); return Y + (n + 1) * lh; }
+function goalKbBody(x) {
+  const G = GOAL, W = KB_W - 44; x.textAlign = 'left'; x.textBaseline = 'alphabetic'; x.fillStyle = '#1a1a1a'; x.font = 'bold 32px sans-serif'; x.fillText('GOAL', 22, 66);
+  x.textAlign = 'right'; x.fillStyle = '#6a6a6a'; x.font = '17px sans-serif'; x.fillText(G.st >= 16 ? 'STORY COMPLETE' : 'STEP ' + (G.dn + 1) + ' OF 16', KB_W - 22, 66); x.textAlign = 'left';
+  x.fillStyle = '#1e3a6a'; x.font = 'bold 25px sans-serif'; let y = golWrap(x, G.txt, 22, 108, W, 31, 4) + 2;
+  if (G.has && G.dst >= 0) { x.fillStyle = '#e2eaf6'; x.fillRect(14, y, KB_W - 28, 104); x.strokeStyle = '#7a90b8'; x.lineWidth = 2; x.strokeRect(14, y, KB_W - 28, 104);
+    x.fillStyle = '#3a4a6a'; x.font = 'bold 17px sans-serif'; x.fillText('TO: ' + G.nm, 26, y + 26, W - 24);
+    x.fillStyle = '#10244a'; x.font = 'bold 34px sans-serif'; x.fillText(G.dst < 40 ? 'YOU ARE HERE' : golBrg(G.brg) + '   ' + golDist(G.dst), 26, y + 65, W - 24);
+    const r = Math.round(G.rel / 50) * 50; x.fillStyle = '#3a4a6a'; x.font = '18px sans-serif'; x.fillText('GROUND ' + jbFt(G.tx, G.tz).toLocaleString('en-US') + ' FT' + (G.dst < 40 || Math.abs(r) < 100 ? '' : r > 0 ? ' - ' + r.toLocaleString('en-US') + ' FT ABOVE YOU' : ' - ' + (-r).toLocaleString('en-US') + ' FT BELOW YOU'), 26, y + 92, W - 24); y += 118; }
+  else y += 10;
+  if (G.hn && GFX.hints) { x.fillStyle = '#fbf0c4'; x.fillRect(14, y, KB_W - 28, 140); x.strokeStyle = '#c8a840'; x.lineWidth = 2; x.strokeRect(14, y, KB_W - 28, 140); x.fillStyle = '#7a5a10'; x.font = 'bold 16px sans-serif'; x.fillText('HINT', 26, y + 22);
+    x.fillStyle = '#3a2a08'; x.font = 'italic 19px sans-serif'; golWrap(x, G.hint, 26, y + 46, W - 24, 24, 4); y += 154; }
+  const o = storyOwed(); x.fillStyle = '#7a3020'; x.font = 'bold 19px sans-serif'; x.fillText(o > 0 ? 'NOTE $' + o.toLocaleString('en-US') + ' OWED - ' + (STORY.snow && !STORY.ext ? 'THE SNOW IS HERE' : stDays(storyLeft()) + (STORY.snow ? ' OF EXTENSION' : ' TO THE SNOW')) : 'NOTE PAID IN FULL', 22, y + 10, W); y += 38;
+  x.fillStyle = '#c8c0a8'; x.fillRect(22, y - 20, W, 2); x.fillStyle = '#555'; x.font = 'bold 15px sans-serif'; x.fillText('STEPS DONE (' + G.dn + ')', 22, y + 2);
+  y += 26; x.font = '19px sans-serif'; let shown = 0, tot = G.dn;
+  for (let i = 15; i >= 0; i--) { if (!G.D[i]) continue; if (y > KB_H - 40) break; x.strokeStyle = '#2a7a3a'; x.lineWidth = 3; x.beginPath(); x.moveTo(24, y - 8); x.lineTo(30, y - 2); x.lineTo(40, y - 15); x.stroke(); x.fillStyle = '#2a2a2a';
+    x.fillText(i === 5 ? 'Hear what the valley remembers (' + G.gs + ')' : GOL_LB[i], 50, y, W - 34); y += 25; shown++; }
+  if (shown < tot) { x.fillStyle = '#777'; x.font = 'italic 16px sans-serif'; x.fillText('+ ' + (tot - shown) + ' earlier - see the LOG page', 50, y); } }
+function golMapMark(x) { const G = GOAL; if (!G.has || !STORY.on) return; const [px, py, on] = fogEdge(x, G.tx, G.tz); x.save(); x.lineWidth = 6; x.strokeStyle = 'rgba(255,255,255,0.8)'; x.beginPath(); x.arc(px, py, 14, 0, 6.283); x.stroke();
+  x.lineWidth = 3; x.strokeStyle = '#1a4f9a'; x.setLineDash([5, 4]); x.beginPath(); x.arc(px, py, 14, 0, 6.283); x.stroke(); x.setLineDash([]); x.fillStyle = '#1a4f9a'; x.beginPath(); x.moveTo(px, py - 7); x.lineTo(px + 6, py); x.lineTo(px, py + 7); x.lineTo(px - 6, py); x.closePath(); x.fill(); x.restore();
+  const lab = (on ? '' : '^ ') + 'GOAL: ' + G.nm.toLowerCase(), left = px < 160, right = px > MAP_W - 160, top = py < 50, bot = py > MAP_H - 50;
+  x.save(); x.font = 'bold 14px ' + HANDF; x.fillStyle = '#1a3f7a'; x.textAlign = left ? 'left' : right ? 'right' : 'center'; x.textBaseline = 'middle';
+  x.fillText(lab, left ? px + 20 : right ? px - 20 : px, top ? py + 32 : bot ? py - 22 : py + 28); x.restore(); }
 
 // ===================== v1.06.1 the vistas' rocks are solid on foot =====================
 const FVS = { k: null, n: 0 };
@@ -11825,6 +11939,7 @@ const GFX_OPT = [   // key, label, values, value labels, note (shown small under
   ['dayl', 'Day length', [0, 24, 48, 96], ['FIXED', '24 MIN', '48 MIN', '96 MIN'], 'a full day + night, real minutes'],   // v0.96
   ['stk', 'Stick on release', [0, 1], ['CENTRES', 'STAYS'], 'VR: let go of the stick'],
   ['tips', 'Control labels', [0, 1], ['OFF', 'ON'], 'VR: name + state by your hand'],
+  ['hints', 'Story hints', [0, 1], ['OFF', 'ON'], 'story: the goal pops up when it changes + a nudge if you are stuck (the clipboard GOAL page stays)'],   // v1.16.0
   ['glove', 'Gloves', [0, 1, 2], ['SAGE', 'BLACK', 'TAN'], 'flying gloves'],
   ['hand', 'Dominant hand', [0, 1], ['RIGHT', 'LEFT'], 'the watch goes on the other wrist'],   // v0.68.1
   ['flure', 'Fishing: tied on', [0, 1, 2, 3, 4], ['SPOON', 'SPINNER', 'SOFT PLASTIC', 'DRY FLY', 'WORM + HOOK'], 'lure or bait (buy at a TACKLE counter)'],   // v0.97
@@ -12295,7 +12410,7 @@ const SETP_ROW = i => ({ X: i < 10 ? 30 : 527, Y: 96 + (i % 10) * 48 });   // v0
 // v0.68.1 the MENU board: tabs along the top (RESUME, SAVE / LOAD, GRAPHICS, COMFORT, CONTROLS, AUDIO), big poke / point targets, CLOSE bottom right.
 // Poke with a fingertip or point either controller at it and pull the trigger. Desktop: the same board in a page overlay (Esc / F2), clicked with the mouse.
 const MENU_TABS = [['resume', 'RESUME'], ['save', 'SAVE / LOAD'], ['gfx', 'GRAPHICS'], ['comfort', 'COMFORT'], ['controls', 'CONTROLS'], ['audio', 'AUDIO']];
-const MENU_ROWS = { gfx: ['scale', 'fov', 'terr', 'ground', 'gtex', 'trees', 'forest', 'fdens', 'dist', 'clouds', 'fog', 'wx', 'shadows', 'grass', 'msaa', 'dyn', 'hz', 'water', 'tod', 'dayl', 'cvl'], comfort: ['vig', 'turn', 'stk', 'tips', 'fps'], controls: ['hand', 'hx', 'wt', 'glove', 'flure', 'fline', 'fdrag', 'fbob', 'fsink'], audio: ['volM', 'volE', 'volW', 'volS', 'volA', 'volF', 'volMu', 'sfxr'] };
+const MENU_ROWS = { gfx: ['scale', 'fov', 'terr', 'ground', 'gtex', 'trees', 'forest', 'fdens', 'dist', 'clouds', 'fog', 'wx', 'shadows', 'grass', 'msaa', 'dyn', 'hz', 'water', 'tod', 'dayl', 'cvl'], comfort: ['vig', 'turn', 'stk', 'tips', 'hints', 'fps'], controls: ['hand', 'hx', 'wt', 'glove', 'flure', 'fline', 'fdrag', 'fbob', 'fsink'], audio: ['volM', 'volE', 'volW', 'volS', 'volA', 'volF', 'volMu', 'sfxr'] };
 const MENU_TAB = i => ({ X: 22 + i * 146, W: 140 });   // (v0.91.1 narrower: the version sits at the right of the tab row)
 const MENU_SLOT = n => 76 + (n - 1) * 128;   // a manual slot's box top (right column)
 const MENU_HELP = ['TRIGGER  fire / brake / next page', 'GRIP  grab (stick, throttle, knobs, cargo)', 'A / X  recentre + set height', 'B  tap: rifle lever / hold: grab ray', 'Y  climb in / out (left rifle: lever)',
@@ -14829,7 +14944,7 @@ const FEEL = (() => {   // eslint-disable-line no-unused-vars -- the handle test
     const s = F[5] = X.kThrow(PK.lb * WT.LB), v = PK.hv[i]; v.multiplyScalar(s); const r = orig(g); v.multiplyScalar(1 / s); return r; })(pkLetPack);
 
   // ---- (11) papers: 0 checklist card, 1 kneeboard, 2 map ----
-  const PP = { SNAP_R: 0.12, GRAB_R: 0.15, BOX: [-0.45, 0.45, -0.45, 0.95, -0.95, 1.1], on: [0, 0, 0], p: [0, 1, 2].map(() => new THREE.Vector3()), q: [0, 1, 2].map(() => new THREE.Quaternion()), mk: [], last: '' };
+  const PP = { SNAP_R: 0.13, GRAB_R: 0.15, BOX: [-0.45, 0.45, -0.45, 0.95, -0.95, 1.1], on: [0, 0, 0], p: [0, 1, 2].map(() => new THREE.Vector3()), q: [0, 1, 2].map(() => new THREE.Quaternion()), mk: [], last: '' };
   X.PP = PP;
   const _pv = new THREE.Vector3(), _pq = new THREE.Quaternion(), _pq2 = new THREE.Quaternion();
   const home = i => i === 0 ? CARD.home : i === 1 ? KB.home : MAP.clip.position;
@@ -14866,22 +14981,23 @@ const FEEL = (() => {   // eslint-disable-line no-unused-vars -- the handle test
     mk(plane, _pv.copy(KB.home).add(new THREE.Vector3(0, 0, 0.005).applyQuaternion(KB.q)), KB.q);
     mk(MAP.clip, _pv.set(0, 0, 0.004)); }
   { // v1.11.14 (Neil) going home: while you hold a paper near its home spot a ghost outline of it shows there; close enough to snap, ghost + ring turn bright green with a tick in that hand
-    const mOn = new THREE.MeshBasicMaterial({ color: 0x7dff6a }), G = [null, null, null], gIn = new Uint8Array(3), GH = 0.35, _gb = new THREE.Box3(), _gc = new THREE.Box3(), _gm = new THREE.Matrix4(), _gw = new THREE.Vector3();
+    const mOn = new THREE.MeshBasicMaterial({ color: 0xfff27a }), gOff = new THREE.MeshBasicMaterial({ color: 0xffd21a, transparent: true, opacity: 0.26, depthWrite: false, fog: false }), gOn = new THREE.MeshBasicMaterial({ color: 0xffd21a, transparent: true, opacity: 0.52, depthWrite: false, fog: false }), G = [null, null, null], gIn = new Uint8Array(3), GH = 0.2, _gb = new THREE.Box3(), _gc = new THREE.Box3(), _gm = new THREE.Matrix4(), _gm2 = new THREE.Matrix4(), _gw = new THREE.Vector3();
     const paper = i => i === 0 ? CARD.mesh : i === 1 ? KB.m : (MAP.fold && MAP.fold.visible && MAP.fold.parent ? MAP.fold : MAP.sheet);
     const held = i => i === 0 ? CARD.g : i === 1 ? KB.g : (MAP.state === 'held' ? MAP.g : null);
     const atHome = i => i === 0 ? CARD.mesh.parent === plane && !PP.on[0] && !CARD.g : i === 1 ? KB.m.parent === plane && !PP.on[1] && !KB.g : MAP.state === 'clip' && !MAP.desk;
     const ghost = i => { const o = paper(i), par = i === 2 ? MAP.clip : plane; o.updateWorldMatrix(true, true); _gm.copy(o.matrixWorld).invert(); _gb.makeEmpty();
-      o.traverse(c => { if (!c.isMesh || !c.geometry) return; if (!c.geometry.boundingBox) c.geometry.computeBoundingBox(); _gc.copy(c.geometry.boundingBox).applyMatrix4(c.matrixWorld).applyMatrix4(_gm); _gb.union(_gc); });
+      o.traverse(c => { if (!c.isMesh || !c.geometry) return; if (!c.geometry.boundingBox) c.geometry.computeBoundingBox(); _gc.copy(c.geometry.boundingBox).applyMatrix4(_gm2.multiplyMatrices(_gm, c.matrixWorld)); _gb.union(_gc); });
       if (_gb.isEmpty()) return null; const w = _gb.max.x - _gb.min.x, h = _gb.max.y - _gb.min.y, t = 0.004, cx = (_gb.min.x + _gb.max.x) / 2, cy = (_gb.min.y + _gb.max.y) / 2, P = [];
-      for (let k = 0; k < 2; k++) { const z = k ? _gb.min.z - 0.002 : _gb.max.z + 0.002, f = k ? Math.PI : 0; for (const [pw, ph, px, py] of [[w + t, t, cx, _gb.max.y], [w + t, t, cx, _gb.min.y], [t, h, _gb.min.x, cy], [t, h, _gb.max.x, cy]]) P.push(new THREE.PlaneGeometry(pw, ph).rotateY(f).translate(px, py, z)); }   // both faces
-      const m = new THREE.Mesh(mergeGeometries(P), PP.mk[0].material); par.updateWorldMatrix(true, false); m.matrixAutoUpdate = false; m.matrix.copy(par.matrixWorld).invert().multiply(o.matrixWorld);
+      for (let k = 0; k < 2; k++) { const z = k ? _gb.min.z - 0.003 : _gb.max.z + 0.003; P.push(new THREE.PlaneGeometry(w + t, h + t).rotateY(k ? Math.PI : 0).translate(cx, cy, z)); }   // v1.16.0 a filled slab, both faces: the paper's own outline at its stowed pose
+      const m = new THREE.Mesh(mergeGeometries(P), gOff); m.renderOrder = 4; par.updateWorldMatrix(true, false); m.matrixAutoUpdate = false; m.matrix.copy(par.matrixWorld).invert().multiply(o.matrixWorld);
       m.visible = false; m.userData.noBatch = true; m.userData.noCast = true; m.castShadow = m.receiveShadow = false; par.add(m); return m; };
-    PP.G = G; PP.mOn = mOn;
+    PP.G = G; PP.mOn = mOn; PP.gOff = gOff; PP.gOn = gOn;
+    { const gm = new THREE.Mesh(new THREE.PlaneGeometry(0.01, 0.01), gOff), gm2 = new THREE.Mesh(new THREE.PlaneGeometry(0.01, 0.01), gOn); const gg = new THREE.Group(); gg.add(gm, gm2); renderer.compile(gg, camera, scene); }   // v1.16.0 the ghost material's program is built at load (not on the first paper you hold)
     updateCard = (orig => function () { orig();
       for (let i = 0; i < 3; i++) { if (!G[i]) { if (atHome(i)) G[i] = ghost(i); if (!G[i]) continue; }
         const g = held(i); let d2 = 81; if (g) { const o = i === 2 ? MAP.sheet : paper(i); o.getWorldPosition(_gw); plane.updateWorldMatrix(true, false); plane.worldToLocal(_gw); const hv = home(i), ex = _gw.x - hv.x, ey = _gw.y - hv.y, ez = _gw.z - hv.z; d2 = ex * ex + ey * ey + ez * ez; }   // squared, inline (no double returned from a call)
         const on = d2 < PP.SNAP_R * PP.SNAP_R; G[i].visible = d2 < GH * GH && !atHome(i);
-        if (!PP.mk[i].userData.m0) PP.mk[i].userData.m0 = PP.mk[i].material; G[i].material = PP.mk[i].material = on ? mOn : PP.mk[i].userData.m0;
+        if (!PP.mk[i].userData.m0) PP.mk[i].userData.m0 = PP.mk[i].material; G[i].material = on ? gOn : gOff; PP.mk[i].material = on ? mOn : PP.mk[i].userData.m0;
         if (on && !gIn[i]) { gIn[i] = 1; if (g) tick(g); } else if (!on && d2 > (PP.SNAP_R + 0.01) * (PP.SNAP_R + 0.01)) gIn[i] = 0; } })(updateCard);
   }
   updateCard = (orig => function () { orig(); const M = PP.mk;   // every frame: a ring shows while its paper is away from home
@@ -16401,7 +16517,7 @@ renderer.setAnimationLoop(() => {
   } else crashTimer += dt; /*V3CRX*/
 
   plane.position.fromArray(ac.pos); plane.quaternion.fromArray(ac.q);
-  dlvTick(dt); wbWarn(dt); huntTick(dt, xr || HANDS.force); h2Tick(dt, xr || HANDS.force); fishTick(dt, xr || HANDS.force); htagTick(dt, xr || HANDS.force); storyTick(dt); cbTick(dt); glintTick(dt); act2Tick(dt); act3Tick(dt); discTick(dt); radTick(dt); fogTick(dt); musTick(dt); trustTick(dt); dropTick(dt); ecoTick(dt); crxTick(dt); upgTick(dt); emgTick(dt);   // v0.53 rifle, deer, binoculars; v0.54 bundles in the air, the signal smoke   // v0.50 delivery: game clock, falling / loose cargo, job boards
+  dlvTick(dt); wbWarn(dt); huntTick(dt, xr || HANDS.force); h2Tick(dt, xr || HANDS.force); fishTick(dt, xr || HANDS.force); htagTick(dt, xr || HANDS.force); storyTick(dt); cbTick(dt); glintTick(dt); act2Tick(dt); act3Tick(dt); discTick(dt); radTick(dt); golTick(dt); fogTick(dt); musTick(dt); trustTick(dt); dropTick(dt); ecoTick(dt); crxTick(dt); upgTick(dt); emgTick(dt);   // v0.53 rifle, deer, binoculars; v0.54 bundles in the air, the signal smoke   // v0.50 delivery: game clock, falling / loose cargo, job boards
   GV.update(dt); kitTick(dt); flxTick(dt);   // v0.20 gear legs / tyres / tail wheel (v0.90 + the gear kits)
   updateMap(); updateCockpitV19(dt);
   propTick(dt, ENG.rpm);

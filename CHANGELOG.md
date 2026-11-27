@@ -2,6 +2,31 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v1.16.0 – story quality check, a GOAL page (what to do next, and where), paper ghosts
+
+A quality pass on the whole story (t262), plus two things Neil asked for: guidance for the player (t262u) and a yellow ghost when putting a paper back in its holder (t263u). The physics block is untouched (md5 `eee6637e…`). **No story restart is needed:** the new objective is worked out from the flags a v1.15.1 save already holds (letter / log / photo read, paid, the clues, glint, Pete's calls, the cache, wreck, logbook and letter, the end), so a save from any point in the story lands on its right step with cash, aircraft, upgrades, items, settings and the journal kept. The only new keys are three sticky flags inside `said` (`o_job`, `o_skis`, `o_load`), which are re-derived if absent. Save keys are the same set as v1.15.1. Tested with v1.15.1 saves at seven points in the story, a free-play save and a brand-new story.
+
+**Story audit – what was wrong, and fixed**
+- **Walt's last logbook page was clipped** at its right edge and was dated Sep 01, the day the game starts. It now fits, is dated Aug 28 ("the day he flew out") and the clue text says so.
+- **Wrist and radio messages lost their last pages in VR.** The time a message stayed up ignored wrapping at 22 characters per line, so long ones were replaced before the last pages were read. Duration is now from the wrapped length (2 lines per page, 2.6 s), the radio call timing the same, and Pete's 205-character call is split in two.
+- **Wrong directions in the story text.** The north ice is north-west of Home (bearing 320°), not "NNW"; Walt's ski shelf is about 650 m north-north-west of the cowling (the old text said half a kilometre north). The Dawson radio line, Pete's call and check-in, the shelf-landing message, the journal, the map notes and the hints now say what is true.
+- **Pete's "half" line** talked about hospital runs and flowers that don't exist; it now points at the lodge and medevac calls.
+- **Voss's fee text** told the player to get two towns to vouch after the fee was charged; the wording now says "next time", and the closing line mentions the vouch rule.
+- **"1 DAYS"** (and similar) plurals fixed on the radio, board, kneeboard note, pay message and season line.
+- **Clue hints** for Walt's logbook and photo read "read Walt's logbook on his desk" and "look at the photo on Walt's desk"; Pete's check-in grammar is fixed; the corkboard shows "Ask: …" only for clues you get by asking someone.
+- **The journal dropped older entries without saying so;** it now shows "+ N earlier entries".
+- **There was no objective anywhere.** See below.
+
+**The GOAL (guidance)**
+- **Clipboard tab 7, GOAL:** the current step in one line, who/where to go to, a bearing, distance and height ("NW 321° 5.9 KM", ground ft and ft above/below you), the note owed and days left, a ticked list of steps done, and a hint box that appears when you have been stuck for about 4 minutes (again at 14).
+- **A short wrist message** (not head-locked) when the step changes: "GOAL: …" with the bearing and distance. It waits for any message in progress. **Settings > COMFORT > Story hints** (ON by default) turns the wrist messages and the stuck nudge off; the GOAL page still shows the current step.
+- **Walt's chalkboard** shows "NEXT: …" in place of the static footer, and **the paper map** gets a blue dashed pin with a "GOAL: …" label (an arrow at the edge when it is off the map). The bearing, distance and elevation use the job board's compass and ground heights.
+- It runs 4 times a second on numbers only; the strings are built when the step changes and the page redraws only when what it shows changes. No per-frame garbage and no shaders.
+
+**Paper ghosts (t263u)**
+- The checklist card, the kneeboard and the map each show a **yellow transparent ghost** at their exact stowed pose while you hold them within 20 cm of their holder; it turns stronger inside the snap range (13 cm, was 12) and the ring turns yellow. Let go and the paper snaps to the ghost's exact pose; outside the range, behaviour is as before (stays where you leave it in the cockpit, home when well outside). Pose Lab placements are unchanged.
+- The ghost is a pooled filled slab with two shared materials compiled at load (no shader compile later, no garbage). **Fixed an old bug on the way:** the clipboard's ghost outline was about twice its real size because the bounding box was transformed twice.
+
 ## v1.15.1 – lighter far trees, denser 2D forest, quieter fauna tick
 
 A follow-up (t261) after v1.15.0: Neil wanted to keep the 2D trees, and to try them at higher densities, plus the far Quaternius pines were too heavy. The physics block is untouched (md5 `eee6637e…`). v1.15.0 saves load as they are; no new save fields. A v1.15.0 graphics save is unchanged (3D ONLY / MIXED / 2D ONLY stays on the same `forest` key); the new **2D density** row (`fdens`) defaults to NORMAL when the key is missing.
