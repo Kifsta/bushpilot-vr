@@ -2,6 +2,13 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v1.16.2 – the paper map is slightly floppy
+
+The held paper map now flexes a little, as Neil asked (t266). The physics block is untouched (md5 `eee6637e…`). **No story restart is needed:** nothing in the save changes. A v1.16.1 (or v1.16.0 / v1.15.1) save loads on the same step, with cash, aircraft, upgrades, items, settings and the journal kept.
+
+- **A slight physical flex while you hold the map.** The corner in your fingers stays exactly where the Pose Lab hold puts it (the glove and the hold are unchanged). The free part of the sheet sags a little under gravity and lags or springs when you move your hand, settling in about half a second, with the bend capped at about 18° so the map stays readable. The printed map, the GOAL pin and the job marks bend with the paper (they are on the same texture). Hold it with both hands and it stretches flatter. Put it back in its holder, leave it on the desk, or snap it onto the yellow ghost, and it is fully flat again — the ghost itself stays a flat slab at the stowed pose.
+- The flex is a few damped springs written into a modestly subdivided sheet (no new shaders, no per-frame garbage, cheap enough for Quest at 90 fps).
+
 ## v1.16.1 – paper ghost only when it will snap, a fairer clue gate, the glint in daylight, missed calls retry
 
 A short follow-up (t265) to the leftovers from v1.16.0, which Neil asked us to do. The physics block is untouched (md5 `eee6637e…`). **No story restart is needed:** a v1.16.0 mid-story save loads on the same step. If it had already reached six clues under the old count (when the Creek lead still counted), that progress is kept; a new story no longer counts that lead toward the six.

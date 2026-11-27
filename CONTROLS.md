@@ -40,13 +40,13 @@ Nine holds now come from Neil's Pose Lab codes, each mirrored for the other hand
 - **Rifle round:** pinched in the curled fingers, the tip ahead. Load through the gate as before.
 - **Rifle forend:** the support hand sits 33 cm down the bore (about 6 cm further toward the muzzle than v0.87), still on the wood.
 - **Binoculars:** same place as before (eyepieces on the thumb side), new fingers. Raise them to your eyes for the view as before.
-- **Map:** one hand holds a lower corner; with both hands the sheet sits between them.
+- **Map (v1.16.2):** one hand holds a lower corner; the free part of the sheet sags and flops a little (it flattens when you put it back). With both hands the sheet sits between them and is stretched flatter.
 - **Checklist card:** rides your hand where it sits (it no longer turns to face you).
 - **Hand mic:** in your fist, the cord on it. It doesn't transmit anything yet.
 - **Park brake:** Neil's fist on the T-handle, with the thumb on the bar (v0.88.3). It stays on it through the whole pull.
 - **Fuel nozzle:** in your hand where the lab puts it; the hose stays on and the trigger refuels at a wing cap.
 - **Clipboard (v0.87.2):** pinched at its lower outer corner in Neil's hold. To read it, raise the controller about 80–90° and the page faces you. The trigger turns the pages as before.
-- **Map in both hands (v0.87.2):** the sheet sits between your two pinches, level and facing you.
+- **Map in both hands (v0.87.2, flex in v1.16.2):** the sheet sits between your two pinches, level and facing you, and is stretched flatter than a one-hand hold.
 
 ## Hand mic (v0.82)
 - A push-to-talk handset hangs on a clip under the right end of the panel, on a coiled cord to the radio (v1.13.0: the cord plugs into a jack on a small bracket under the dash, not in mid-air). Grab it with either hand (grip) and the cord stretches after it. Let go and it snaps back onto the clip. The cord swings with the Cub in turns, bumps and turbulence. It doesn't transmit anything yet.
