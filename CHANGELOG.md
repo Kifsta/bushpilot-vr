@@ -2,6 +2,15 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it.
 
+## v1.16.1 – paper ghost only when it will snap, a fairer clue gate, the glint in daylight, missed calls retry
+
+A short follow-up (t265) to the leftovers from v1.16.0, which Neil asked us to do. The physics block is untouched (md5 `eee6637e…`). **No story restart is needed:** a v1.16.0 mid-story save loads on the same step. If it had already reached six clues under the old count (when the Creek lead still counted), that progress is kept; a new story no longer counts that lead toward the six.
+
+- **Paper ghosts:** the yellow ghost of the checklist, the kneeboard or the map now shows only when you are within 13 cm of the holder — exactly when letting go will snap it home. The fainter 20 cm stage is gone.
+- **The cabin on the hidden lake is a dead end.** Prospector Joe still tells you Gordon asked about it, and it still pins on the corkboard (marked DEAD END), but it is not one of the six clues that open the north ice. The GOAL page, the journal and Pete's check-in skip it. Walt's map note calls it a dead end once you have it.
+- **The glint needs daylight and a clear line of sight.** Flying or walking up to the cowling at night no longer finds it (the unfound cowling stays hidden in the dark). Wait for the sun, then come in low. If you are already there in the dark, a message and the GOAL hint say to come back in daylight — no soft-lock.
+- **A missed radio call no longer blocks Act 2.** You can still key the mic to call back; if you don't, Pete (or whoever called) rings again after about 90 seconds, or on your next landing. The GOAL line says he'll ring again.
+
 ## v1.16.0 – story quality check, a GOAL page (what to do next, and where), paper ghosts
 
 A quality pass on the whole story (t262), plus two things Neil asked for: guidance for the player (t262u) and a yellow ghost when putting a paper back in its holder (t263u). The physics block is untouched (md5 `eee6637e…`). **No story restart is needed:** the new objective is worked out from the flags a v1.15.1 save already holds (letter / log / photo read, paid, the clues, glint, Pete's calls, the cache, wreck, logbook and letter, the end), so a save from any point in the story lands on its right step with cash, aircraft, upgrades, items, settings and the journal kept. The only new keys are three sticky flags inside `said` (`o_job`, `o_skis`, `o_load`), which are re-derived if absent. Save keys are the same set as v1.15.1. Tested with v1.15.1 saves at seven points in the story, a free-play save and a brand-new story.
