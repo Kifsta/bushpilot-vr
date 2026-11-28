@@ -2,6 +2,32 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it (v1.18.0 changes it on purpose, once: `0a80428d014f1e1d8152a83cb8a1ed05`, the idle roll-out below).
 
+## v1.21.0 – PCVR graphics pass and real-world boards (Build D of the PCVR run)
+
+Neil's Build D brief: a PCVR graphics overhaul where it is affordable (shadows, lighting, terrain and water, foliage, cheap post effects) and real-world boards in place of computer-style ones. The Cub's physics block is untouched (md5 `0a80428d…`, the same as v1.20.1). **No story restart is needed:** v1.20.1 story and free-play saves load on the same step with the same save keys, and the truck stays where you left it.
+
+- **PCVR defaults.** BALANCED (the default) now has **Shadows LOW**, **Terrain shading FULL**, **per-pixel Cub + building light** and the new **Colour FILM**. The old defaults dated from Quest standalone: no shadows, FAST+GRAIN ground and per-vertex light. If your saved settings are an untouched copy of the old BALANCED, they move to the new one once. Anything you changed (for example PERFORMANCE, or shadows you turned off yourself) is kept. QUALITY, PC ULTRA and PERFORMANCE are as before, plus FILM.
+- **Sharper shadows on LOW.** The shadow map is now 2048 px over ±32 m (it was 1024 px over ±28 m), with less peter-panning. The Cub, the trees, the hangar and the boards sit on their shadows, and at sunset the undersides of the trees no longer glow.
+- **Colour FILM (Settings > GRAPHICS > Colour, FLAT / FILM).** Sun-lit highlights roll off softly instead of clipping to flat white, and colours are about 6 % richer. Everything below the highlights is unchanged. It is worked out per pixel inside every material (three's custom tone-mapping slot), so there is no extra full-screen pass, which suits VR. The river and lake shader is included. FLAT is the old look.
+- **Water.** With Water FULL, a soft foam lap moves along the lake shores, and the water is tone-mapped like the rest of the scene.
+- **Real-world boards instead of screens.**
+  - **Job boards** are cork boards. Each job is a paper notice pinned up, with the job's colour on a strip of tape down its left edge (its pin matches). ACCEPT and CANCEL are dashed tear-off stubs printed on the notice, and a job you have taken gets a red TAKEN stamp. The strip name and your cash are on a card pinned at the top, and the rep line and the hint are on a card at the bottom.
+  - The **Halvorsen board** (before Dry Fork vouches for you) is a typed letter pinned to the cork.
+  - The **service and upgrade boards** are price sheets pinned up.
+  - The **emergency signs** are radio-message forms on a wooden frame.
+  - The layout is the same, so poking a notice's stub and the desktop keys 1–3 / 4 work exactly as before.
+  - The paper keeps taking the scene's light (the v1.11.18 night light): as drawn in daylight, and at night readable where your torch, a lantern (one stands by the home board) or the landing light falls.
+- **The VR GRAPHICS tab.** With 21 rows, the last row (Cub + building light) was drawn over Haze. The tab now has two columns of 11 (with Colour added), so every row has its own place. The other tabs are unchanged.
+- **Foliage.** Grass stays OFF by default. Its rebuilds now reuse one buffer pair instead of a new 0.5 MB pair each time, so LOW and HIGH are cheaper to leave on.
+
+- **Performance:** frame cost, measured with the loop stopped, fixed cameras and settled chunks (headless Chrome, software GL, 960×540, 40 frames per view). CPU (JS plus GL submission) per frame, b402e9b → v1.21.0: cockpit down the strip 4.68 → 5.16 ms, 400 m over the valley 3.89 → 3.83, at the home job board 3.57 → 4.40, lake shore 3.17 → 3.16. v1.21.0 with the old settings: 3.78 / 3.09 / 3.31 / 2.51. Draw calls are unchanged (152 / 99 / 113 / 69); the extra CPU is the shadow pass's casters. Software-rasterised totals (CPU-bound here, so only a relative guide): +18 % to +50 % with shadows and FULL terrain on, about −5 % to +1 % with the old settings. A real GPU draws a 2048 px depth pass in well under a millisecond. Auto quality still drops shadows first if a headset cannot hold the rate. No new shader programs after warm-up. Garbage (bytes a frame, g1210):
+  - Default path, no-inlining JIT: standing at a board 14.9, walking 21.2, in the Cub 12.6, flying 14.0, FLAT + HIGH shadows 13.8.
+  - Default path, normal JIT: 1.2–15.8.
+  - b402e9b in the same harness: 235–310. Its terrain-light key was a fresh string every frame; now it is a number.
+  - Grass LOW, optional: 50 (no-inlining) and 13.7 (normal JIT).
+  - The half-second board, map and kneeboard repaints are unchanged code (about 540 B a frame in normal JIT).
+- Checks: chk md5 `0a80428d014f1e1d8152a83cb8a1ed05` (unchanged), W&B pass, lint 25, only the favicon 404; handsexact `348cc2f00f0127fc393fb0bc0b5e6bc1` (5 runs, 0 differing scenes, pack = base); Pose Lab holds all 0 diff (t91: 4 pass, 1 fail = the old keys.length quirk); t911 4/0; no new programs after warm-up (245 → 245 on the old defaults, 329 → 329 with the PCVR defaults); t1210 22/0; tsave272 56/0 (v1.20.1 story saves at every step and free play load on the same step, no new top-level save keys; a v1.20.1 save keeps the truck where it was; a saved copy of the old BALANCED moves to the PCVR defaults once, a customised one is kept).
+
 ## v1.20.1 – the pickup's dash and hands, a half-ton seat, the ridge lane at dawn, the hangar pad, and a tidier yard
 
 Neil's lists (t272u / t273u the dash, the hand poses and the Cub's indicators; t274u the truck's scale, a longer cinematic drive-in, the hangar parking pad, the cabin's z-fighting, leftover 3D models and the shrub billboards). The Cub's physics block is untouched (md5 `0a80428d…`, the same as v1.20.0). **No story restart is needed:** v1.20.0 story and free-play saves load on the same step. A save from before this version (no `trk.v`) parks the truck on the new pad beside the hangar, nose in to the stop log, engine off, in P. A save made in v1.20.1 keeps the truck where you left it.

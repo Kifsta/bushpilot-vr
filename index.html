@@ -81,6 +81,8 @@ const bootLog = window.bootLog || (() => { }), bootYield = window.bootYield || (
 // The haze is denser low down: along a sight line its strength follows the height half-way along it (eye + 0.5 of the rise), x1.15 on the valley floor to x0.55 over the peaks,
 // and the change fades out toward the far fog so the world's edge stays fully hidden. Costs one varying and a few ALU per pixel.
 const HFOG_GLSL = 'float hfogK(float d, float hm, float fn, float ff) { float r = clamp(exp((250.0 - hm) / 700.0), 0.55, 1.15); return min(1.0, smoothstep(fn, ff, d) * mix(r, 1.0, smoothstep(0.45 * ff, 0.75 * ff, d))); }';
+// v1.21.0 FILM look: the CustomToneMapping slot = identity below a 0.8 knee, a soft shoulder to 1.0 above it (sun-lit highlights roll off instead of clipping), +6 % saturation. Per pixel inside every material: no post pass (WebXR-safe).
+THREE.ShaderChunk.tonemapping_pars_fragment = THREE.ShaderChunk.tonemapping_pars_fragment.replace(/vec3 CustomToneMapping\( vec3 color \) \{[^}]*\}/, 'vec3 CustomToneMapping( vec3 color ) { color *= toneMappingExposure; vec3 hi = 0.8 + 0.2 * ( 1.0 - exp( ( 0.8 - color ) * 5.0 ) ); color = mix( color, hi, step( 0.8, color ) ); float l = dot( color, vec3( 0.2126, 0.7152, 0.0722 ) ); return max( mix( vec3( l ), color, 1.06 ), 0.0 ); }');
 THREE.ShaderChunk.fog_pars_vertex = '#ifdef USE_FOG\n  varying float vFogDepth;\n  varying float vFogDy;\n#endif';
 THREE.ShaderChunk.fog_vertex = '#ifdef USE_FOG\n  vFogDepth = - mvPosition.z;\n  vFogDy = dot(viewMatrix[1].xyz, mvPosition.xyz);\n#endif';
 THREE.ShaderChunk.fog_pars_fragment = '#ifdef USE_FOG\n  uniform vec3 fogColor;\n  varying float vFogDepth;\n  varying float vFogDy;\n  #ifdef FOG_EXP2\n    uniform float fogDensity;\n  #else\n    uniform float fogNear;\n    uniform float fogFar;\n    ' + HFOG_GLSL + '\n  #endif\n#endif';
@@ -640,14 +642,15 @@ const hyp = (a, b, c = 0) => Math.sqrt(a * a + b * b + c * c);   // v0.59 Math.h
 
 // ======================= RENDERING =======================
 // v0.35 settings (persist in localStorage 'bp_gfx'; ?gfx=shadows:2,grass:1 overrides for testing). Defaults = the v0.34 look and cost.
-const BP_VERSION = 'v1.20.1';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
+const BP_VERSION = 'v1.21.0';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
 { const e = document.getElementById('ver'); if (e) e.textContent = BP_VERSION; } window.__bpVer = BP_VERSION; bootLog('game module running ' + BP_VERSION + ' (three r' + THREE.REVISION + ')' + (/[?&]safe(=|&|$)/.test(location.search) ? ' - SAFE MODE: default graphics, no shadows / ULTRA / life / vistas / music' : ''));
-const GFX_DEF = { shadows: 0, scale: 1, fov: 1, dist: 1, trees: 1, grass: 0, clouds: 1, fog: 1, msaa: 1, hz: 90, vig: 0, turn: 0, fps: 0, tod: 11, stk: 1, tips: 1, terr: 1, dyn: 1, glove: 0, hand: 0, wt: 1, volM: 1, volMu: 0.5, volE: 1, volA: 1, volF: 1, volS: 1, volW: 1, wx: 1, forest: 0, fdens: 0, hints: 1, ground: 0, gtex: 0, cvl: 1, water: 1, dayl: 48, flure: 0, fline: 8, fdrag: 4, fbob: 0, fsink: 0, ultra: 0, sfxr: 1 };   // v0.68.1 dominant hand, volumes. v0.48 BALANCED: 90 % scale, 72 Hz, fast terrain shading, auto resolution; v0.49.1 the stick stays where you let go of it
+const GFX_DEF = { shadows: 1, scale: 1, fov: 1, dist: 1, trees: 1, grass: 0, clouds: 1, fog: 1, msaa: 1, hz: 90, vig: 0, turn: 0, fps: 0, tod: 11, stk: 1, tips: 1, terr: 2, dyn: 1, glove: 0, hand: 0, wt: 1, volM: 1, volMu: 0.5, volE: 1, volA: 1, volF: 1, volS: 1, volW: 1, wx: 1, forest: 0, fdens: 0, hints: 1, ground: 0, gtex: 0, cvl: 0, water: 1, dayl: 48, flure: 0, fline: 8, fdrag: 4, fbob: 0, fsink: 0, ultra: 0, sfxr: 1, look: 1 };   // v0.68.1 dominant hand, volumes. v0.48 BALANCED: 90 % scale, 72 Hz, fast terrain shading, auto resolution; v0.49.1 the stick stays where you let go of it
 const GFX = Object.assign({}, GFX_DEF);
 const BP_SAFE = /[?&]safe(=|&|$)/.test(location.search);   // v1.09.1 ?safe: defaults (BALANCED), saved graphics settings ignored
 try { const o = BP_SAFE ? {} : JSON.parse(localStorage.getItem('bp_gfx') || '{}'); if ((o.v || 0) < 48) { if (o.scale === 1) delete o.scale; if (o.hz === 0) delete o.hz; }   // v0.48: saved copies of the old defaults (100 %, AUTO Hz) move to the new ones once
   if ((o.v || 0) < 49 && o.stk === 0) delete o.stk;
   if ((o.v || 0) < 93) { if (o.scale === 0.9) delete o.scale; if (o.hz === 72) delete o.hz; }   // v0.93: saved copies of the old BALANCED (90 %, 72 Hz) move to 100 % / 90 Hz once (auto quality now holds 90 by thinning detail first)   // v0.49.1: a saved CENTRES (the old default) switches to STAYS once; CENTRES chosen after this sticks
+  if ((o.v || 0) < 121 && o.shadows === 0 && o.terr === 1 && (o.grass || 0) === 0 && o.cvl === 1) { delete o.shadows; delete o.terr; delete o.grass; delete o.cvl; }   // v1.21.0 PCVR: a saved copy of the old Quest-era BALANCED moves to the new one once (shadows LOW, terrain FULL, per-pixel light); anything you changed sticks
   if (o.ultra && localStorage.getItem('bp_ultboot')) { o.ultra = 0; o.scale = 1; if (o.shadows > 2) o.shadows = 2; if (o.grass > 2) o.grass = 2; window.__ultSkip = 1; }   // v1.09.1 the last PC ULTRA start never finished: start without it
   for (const k in GFX_DEF) if (typeof o[k] === 'number' && isFinite(o[k])) GFX[k] = o[k]; } catch (e) { }
 try { const g = new URLSearchParams(location.search).get('ground'); if (g) { const i = 'abcde'.indexOf(g.toLowerCase()[0]); if (i >= 0) GFX.ground = i; } } catch (e) { }   // v0.86 ?ground=a..e (VALLEY, OUTBACK, TROPICAL, FACETED, GOLDEN) for quick looks (like ?gfx=, kept only if you then change a setting)
@@ -658,7 +661,7 @@ const renderer = new THREE.WebGLRenderer({ antialias: !!GFX.msaa, stencil: false
 const DIRTY_TEX = new Set(); function texDirty(t) { t.needsUpdate = true; DIRTY_TEX.add(t); } function texInit(t) { renderer.initTexture(t); }   // v0.81 redrawn canvas textures upload before the eye pass, not mid-pass
 renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5) * GFX.scale);
 renderer.setSize(innerWidth, innerHeight);
-renderer.xr.enabled = true;
+renderer.xr.enabled = true; renderer.toneMapping = GFX.look ? THREE.CustomToneMapping : THREE.NoToneMapping;   // v1.21.0 FILM look
 renderer.xr.setReferenceSpaceType('local');   // seated
 renderer.xr.setFoveation(GFX.fov); renderer.xr.setFramebufferScaleFactor(GFX.scale);   // v0.35 settings (defaults 1 / 1 = as before)
 document.body.appendChild(renderer.domElement);
@@ -3205,10 +3208,13 @@ void main() {
   if (vB > 0.5) { vec3 bed = (uQ > 0.5 ? texture2D(uBed, vW.xz * 0.11 + N.xz * 0.05 * min(d, 2.0)).rgb : vec3(0.55, 0.49, 0.38)) * uLit;
     bed *= exp(-max(d, 0.0) * vec3(0.55, 0.28, 0.2)); under = mix(bed, body, 1.0 - exp(-max(d, 0.0) * 0.7)); a = 1.0; }
   vec3 col = mix(under, sky, F) + uSunC * sp;
-  float fm = vFm * smoothstep(0.5, 0.78, sA.a + 0.18 * vFm); col = mix(col, vec3(0.9, 0.93, 0.95) * uLit, fm);
+  float fm = vFm * smoothstep(0.5, 0.78, sA.a + 0.18 * vFm);
+  if (vB < 0.5 && uQ > 0.5) fm = max(fm, 0.65 * (1.0 - smoothstep(0.05, 0.5, d)) * smoothstep(0.55, 0.85, 0.6 * sA.a + 0.5 * (0.5 + 0.5 * sin(uT * 1.4 - d * 16.0))));   // v1.21.0 a foam lap along the lake shores
+  col = mix(col, vec3(0.9, 0.93, 0.95) * uLit, fm);
   a = max(max(a, F), fm) * smoothstep(0.0, 0.32, d);
   col = mix(col, fogColor, hfogK(dist, 0.5 * (cameraPosition.y + vW.y), fogNear, fogFar));
   gl_FragColor = vec4(col, a);
+#include <tonemapping_fragment>
 #include <colorspace_fragment>
 }`;
 const WATER = (() => {
@@ -6234,6 +6240,24 @@ function dlvPadAt(x, z) { for (const S of DLV_STRIPS) if (dlvInPad(S, x, z)) ret
 await bootYield('jobs + cargo built');   // v1.10.1 boot stage (v1.09.1 load yield)
 // ---- boards + pads (posts / frame / pad are plain Lambert: the static batcher merges them; the paper is one canvas each) ----
 const JB_W = 512, JB_H = 352, JB_PW = 1.28, JB_PH = 0.88, JB_Y = 1.45;
+// v1.21.0 REAL-WORLD BOARDS: the job boards are cork with paper notices pinned up (tape colour = the job's colour, a dashed tear-off stub to poke), the locked station board is a typed letter
+// pinned to the cork, the service / upgrade boards are a price sheet pinned up. At night they still take the scene's light (the v1.11.18 night-light system): readable where your torch, a lantern or the landing light falls.
+const JB_CORK = (() => { const c = document.createElement('canvas'); c.width = JB_W; c.height = JB_H; const x = c.getContext('2d'); let sd = 0xc0c4; const r = () => (sd = (sd * 16807) % 2147483647) / 2147483647;
+  x.fillStyle = '#9c6e40'; x.fillRect(0, 0, JB_W, JB_H);
+  for (let i = 0; i < 5200; i++) { const g = r(); x.fillStyle = g < 0.5 ? 'rgba(70,42,18,' + (0.25 + 0.3 * r()).toFixed(2) + ')' : 'rgba(205,160,105,' + (0.2 + 0.3 * r()).toFixed(2) + ')'; x.fillRect(r() * JB_W, r() * JB_H, 1 + r() * 2.5, 1 + r() * 2); }
+  for (let i = 0; i < 26; i++) { x.fillStyle = 'rgba(60,36,16,0.35)'; x.beginPath(); x.arc(r() * JB_W, r() * JB_H, 0.8 + r() * 1.2, 0, 7); x.fill(); }   // old pin holes
+  return c; })();
+function jbPin(x, X, Y, col) { x.fillStyle = 'rgba(0,0,0,0.35)'; x.beginPath(); x.arc(X + 1.5, Y + 2, 4.5, 0, 7); x.fill(); x.fillStyle = col || '#c0302a'; x.beginPath(); x.arc(X, Y, 4.5, 0, 7); x.fill(); x.fillStyle = 'rgba(255,255,255,0.6)'; x.beginPath(); x.arc(X - 1.4, Y - 1.4, 1.5, 0, 7); x.fill(); }
+function jbSheet(x, X, Y, w, h, col, pins) {   // a sheet of paper pinned to the cork (shadow, a slightly torn bottom edge, the pins)
+  x.fillStyle = 'rgba(30,18,6,0.4)'; x.fillRect(X + 3, Y + 4, w, h); x.fillStyle = col; x.beginPath(); x.moveTo(X, Y); x.lineTo(X + w, Y); x.lineTo(X + w, Y + h);
+  for (let k = 1; k < 16; k++) x.lineTo(X + w - k * w / 16, Y + h - ((k * 37) % 5 === 0 ? 2.5 : (k * 13) % 3 === 0 ? 1.2 : 0)); x.lineTo(X, Y + h); x.closePath(); x.fill();
+  x.fillStyle = 'rgba(120,90,50,0.08)'; x.fillRect(X, Y + h - 10, w, 10);
+  if (pins) { jbPin(x, X + 9, Y + 6); jbPin(x, X + w - 9, Y + 6, pins > 1 ? '#2a5aa0' : '#c0302a'); } }
+const JB_DASH = [4, 4], JB_NODASH = [];
+function jbStub(x, Y) {   // the tear-off stub on a notice (was a green screen button): the dashed tear line, an inked box, the text in the ink colour
+  const ink = x.fillStyle; x.strokeStyle = 'rgba(90,64,30,0.6)'; x.lineWidth = 1.5; x.setLineDash(JB_DASH); x.beginPath(); x.moveTo(JB_W - 134, Y + 42); x.lineTo(JB_W - 134, Y + 79); x.stroke(); x.setLineDash(JB_NODASH);
+  x.fillStyle = 'rgba(255,255,255,0.45)'; x.fillRect(JB_W - 126, Y + 50, 100, 26); x.strokeStyle = ink; x.lineWidth = 2.5; x.strokeRect(JB_W - 124, Y + 52, 96, 22); x.fillStyle = ink; }
+function jbMat(tex) { return new THREE.MeshBasicMaterial({ map: tex }); }   // paper takes the scene's light through the v1.11.18 night-light system (sky, sun, torch, lanterns): full day = as drawn, at night readable only where something lights it
 { const wood = mat(0x6b4a2a), dk = mat(0x3a2a1a), padM = mat(0xe0b830), padE = mat(0x2a2a2a);
   for (const S of DLV_STRIPS) {
     const [bx, bz, ry] = S.board, G = new THREE.Group(), gy = Math.min(groundY(bx - 0.6, bz), groundY(bx + 0.6, bz), groundY(bx, bz));
@@ -6242,7 +6266,7 @@ const JB_W = 512, JB_H = 352, JB_PW = 1.28, JB_PH = 0.88, JB_Y = 1.45;
     box(JB_PW + 0.08, JB_PH + 0.08, 0.04, wood, 0, JB_Y, 0, G); box(JB_PW + 0.3, 0.05, 0.3, dk, 0, JB_Y + JB_PH / 2 + 0.12, 0.06, G);
     S.cv = document.createElement('canvas'); S.cv.width = JB_W; S.cv.height = JB_H; S.cx = S.cv.getContext('2d');
     S.tex = new THREE.CanvasTexture(S.cv); S.tex.colorSpace = THREE.SRGBColorSpace; S.tex.anisotropy = 4;
-    S.m = new THREE.Mesh(new THREE.PlaneGeometry(JB_PW, JB_PH), new THREE.MeshBasicMaterial({ map: S.tex })); S.m.position.set(0, JB_Y, 0.022); S.m.userData.noBatch = true; G.add(S.m);
+    S.m = new THREE.Mesh(new THREE.PlaneGeometry(JB_PW, JB_PH), jbMat(S.tex)); S.m.position.set(0, JB_Y, 0.022); S.m.userData.noBatch = true; G.add(S.m);
     const [px, pz] = S.pad, P = new THREE.Group(), py = groundY(px, pz); P.position.set(px, py, pz); P.rotation.y = ry; scene.add(P);
     box(2 * DLV_PAD + 0.2, 0.05, 2 * DLV_PAD + 0.2, padE, 0, 0.0, 0, P); box(2 * DLV_PAD, 0.06, 2 * DLV_PAD, padM, 0, 0.01, 0, P);
     for (const sx of [-1, 1]) box(0.12, 0.062, 2 * DLV_PAD * 1.3, padE, 0, 0.012, 0, P).rotation.y = sx * Math.PI / 4;   // the X
@@ -6337,7 +6361,7 @@ function trustTick(dt) {
 
 function jbLocked(S) {   // the Halvorsen board before Dry Fork vouches for you
   const x = S.cx, v = repOf('DRYFORK');
-  x.fillStyle = '#2f3a48'; x.fillRect(0, 0, JB_W, JB_H); x.fillStyle = '#e8ecef'; x.fillRect(8, 8, JB_W - 16, JB_H - 16); x.textAlign = 'left';
+  x.drawImage(JB_CORK, 0, 0); jbSheet(x, 10, 8, JB_W - 20, JB_H - 18, '#f3f0e6', 2); x.textAlign = 'left';   // v1.21.0 a typed letter pinned up
   x.fillStyle = '#1e3a6a'; x.font = 'bold 25px sans-serif'; x.fillText('HALVORSEN AG-BIO - STATION 4', 20, 42);
   x.fillStyle = '#b8301e'; x.font = 'bold 20px sans-serif'; x.fillText('NO CIVILIAN CONTRACTS', 20, 82);
   x.fillStyle = '#222'; x.font = '17px sans-serif'; x.fillText('Station flights are by referral only.', 20, 118); x.fillText('A pilot vouched for by DRY FORK FEED + SUPPLY', 20, 144); x.fillText('may apply. Station jobs pay +30 %.', 20, 170);
@@ -6571,12 +6595,14 @@ function jbDir(S, T) { const hid = T.site && !T.found; return jbDirXZ(S, hid && 
 function jbDraw(S) {
   if (S.lock) return jbLocked(S);   // v0.56
   const x = S.cx, L = DLV.offers[S.id], act = dlvActive().length;
-  x.fillStyle = '#5a3c22'; x.fillRect(0, 0, JB_W, JB_H); x.fillStyle = '#efe6cf'; x.fillRect(8, 8, JB_W - 16, JB_H - 16);
+  x.drawImage(JB_CORK, 0, 0); jbSheet(x, 12, 10, JB_W - 24, 40, '#efe3c4', 1); jbSheet(x, 12, 310, JB_W - 24, 38, '#e9e1cc', 0);   // v1.21.0 the cork, the strip's header card, the footer card
   x.fillStyle = '#2a1e12'; x.textAlign = 'left'; { const t = S.site ? S.name + ' - ' + S.B.cust : S.name + ' - JOBS'; let f = 25; do x.font = 'bold ' + f-- + 'px sans-serif'; while (x.measureText(t).width > 360 && f > 14); x.fillText(t, 20, 40); }
   x.textAlign = 'right'; x.fillStyle = '#1e6a2a'; x.fillText('$' + DLV.cash.toLocaleString('en-US'), JB_W - 20, 40); x.textAlign = 'left';
   for (let i = 0; i < 3; i++) { const j = L[i], Y = 54 + i * 86, mine = j.st === 'active';
-    x.fillStyle = mine ? '#dcebcf' : '#fbf6e6'; x.fillRect(16, Y, JB_W - 32, 80); x.strokeStyle = '#8a7350'; x.lineWidth = 2; x.strokeRect(16, Y, JB_W - 32, 80);
-    x.fillStyle = '#' + DLV_COL[j.id % DLV_COL.length].toString(16).padStart(6, '0'); x.fillRect(16, Y, 10, 80);
+    jbSheet(x, 16, Y, JB_W - 32, 78, mine ? '#e4efd6' : i === 1 ? '#f7f0dc' : '#fbf7ea', 0);   // v1.21.0 a pinned paper notice
+    x.fillStyle = '#' + DLV_COL[j.id % DLV_COL.length].toString(16).padStart(6, '0'); x.globalAlpha = 0.85; x.fillRect(16, Y, 10, 78); x.globalAlpha = 1;   // its coloured tape
+    if (mine) { x.save(); x.translate(JB_W - 200, Y + 50); x.rotate(-0.16); x.strokeStyle = 'rgba(176,40,30,0.3)'; x.lineWidth = 3; x.strokeRect(-46, -16, 92, 26); x.fillStyle = 'rgba(176,40,30,0.3)'; x.font = 'bold 20px sans-serif'; x.textAlign = 'center'; x.fillText('TAKEN', 0, 4); x.restore(); x.textAlign = 'left'; }
+    jbPin(x, 21, Y + 6, '#' + DLV_COL[j.id % DLV_COL.length].toString(16).padStart(6, '0')); jbPin(x, JB_W - 24, Y + 6);
     x.fillStyle = '#222'; x.font = 'bold 19px sans-serif'; x.fillText((i + 1) + '. ' + j.title, 34, Y + 24);
     x.textAlign = 'right'; x.fillStyle = '#1e6a2a'; x.fillText('$' + j.pay, JB_W - 26, Y + 24); x.textAlign = 'left';
     { const H = dlvWc(j) === 'H', pw = x.measureText('$' + j.pay).width, t = j.ch ? 'DR KANE ' + j.ch + '/5' : j.req ? 'REQUEST' : j.hunt ? 'HUNT' : j.drop ? 'AIRDROP' : H ? 'HEAVY' : 'LIGHT'; x.font = 'bold 12px sans-serif'; const bw = x.measureText(t).width + 10, b0 = JB_W - 26 - pw - 10 - bw;   // v0.52 weight class
@@ -6587,12 +6613,12 @@ function jbDraw(S) {
         : j.hunt ? ['TO ' + T.name + fd + ' ' + jbDir(S, T) + ' - 1 DEER (~100-150 LB) - HUNT AREA ON THE MAP: ' + DEER_HERDS[j.hunt.h].name + st, 'TO ' + T.name + fd + ' - 1 DEER (~100-150 LB) - HUNT AREA: ' + DEER_HERDS[j.hunt.h].name + st, 'TO ' + T.name + fd + ' - 1 DEER - HUNT AREA: ' + DEER_HERDS[j.hunt.h].name + st]
         : ['TO ' + T.name + fd + ' ' + dlvKm(S, T).toFixed(1) + ' KM ' + jbDir(S, T) + ' - ' + lb + ' (' + Object.entries(n).map(([k, c]) => c + ' ' + CARGO_K[k].n + (c > 1 ? 'S' : '')).join(', ') + ')' + st, 'TO ' + T.name + fd + ' ' + dlvKm(S, T).toFixed(1) + ' KM ' + jbDir(S, T) + ' - ' + lb + ' - ' + j.items.length + (j.items.length > 1 ? ' PIECES' : ' PIECE') + st], 34, Y + 46, JB_W - 56); }   // v0.59.1 shorter line before squeezing
     if (mine) { const [a, t, onPad] = jbStatus(j); x.fillStyle = t.includes('LATE') ? '#b8301e' : '#2a5a22'; x.font = 'bold 14px sans-serif'; x.fillText((j.sp ? '' : 'ACCEPTED - ') + a + t, 34, Y + 68);
-      if (onPad) { x.fillStyle = '#8a8a80'; x.fillRect(JB_W - 126, Y + 50, 100, 26); x.fillStyle = '#fff'; x.textAlign = 'center'; x.fillText('CANCEL', JB_W - 76, Y + 68); x.textAlign = 'left'; } }
+      if (onPad) { x.fillStyle = '#8a8a80'; jbStub(x, Y); x.textAlign = 'center'; x.fillText('CANCEL', JB_W - 76, Y + 68); x.textAlign = 'left'; } }
     else if (!j.hunt && dlvLb(j) > dlvRoom()) { x.fillStyle = '#b8301e'; x.font = 'bold 14px sans-serif'; x.fillText('OVER PAYLOAD AT ' + Math.round(WBS.fuelGal) + ' GAL: MAX ' + Math.max(0, dlvRoom()) + ' LB', 34, Y + 68, JB_W - 170);   // v0.52
-      x.fillStyle = act >= DLV_MAX ? '#9a9a90' : '#2a7a2a'; x.fillRect(JB_W - 126, Y + 50, 100, 26); x.fillStyle = '#fff'; x.font = 'bold 15px sans-serif'; x.textAlign = 'center'; x.fillText('ACCEPT', JB_W - 76, Y + 68); x.textAlign = 'left'; }
+      x.fillStyle = act >= DLV_MAX ? '#9a9a90' : '#2a7a2a'; jbStub(x, Y); x.font = 'bold 15px sans-serif'; x.textAlign = 'center'; x.fillText('ACCEPT', JB_W - 76, Y + 68); x.textAlign = 'left'; }
     else { x.fillStyle = j.req ? '#8a6008' : j.sp ? '#8a1a6a' : j.dl ? '#9a4a10' : '#555'; x.font = (j.sp || j.req ? 'bold ' : '') + '14px sans-serif';
       fitText(x, j.ch ? [mhSub(j), mhSub(j, 1)] : [j.req ? '"ASK FOR ' + PILOT + '" - ' + (REP_NAME[repKey(j)] || repWho(repKey(j))) + (j.dl ? ' - ' + j.dl + ' MIN' : '') : j.drop ? 'DROP ON THE SMOKE - PAID BY AIM + CONDITION' + (j.dl ? ' - ' + j.dl + ' MIN' : '') : j.hunt ? 'HUNTING JOB - ' + (j.dl ? 'DEADLINE ' + j.dl + ' MIN' : 'NO DEADLINE') + ' - KEEPS ' + j.life + ' MIN DRESSED' : (T.site ? BUSH_T[T.B.type] + ' ' + T.B.len + ' M - ' : '') + (j.sp === 'fragile' ? 'FRAGILE - KNOCKS + G DOCK PAY (+30%)' : j.sp === 'perish' ? 'PERISHABLE - FRESH ' + j.life + ' MIN (+25%)' : j.sp === 'live' ? 'LIVE ANIMALS - FLY SMOOTH (+35%)' : j.dl ? 'DEADLINE ' + j.dl + ' MIN (+40% PAY)' : 'NO DEADLINE'), j.req ? '"ASK FOR ' + PILOT + '"' + (j.dl ? ' - ' + j.dl + ' MIN' : '') : j.drop ? 'DROP ON THE SMOKE' + (j.dl ? ' - ' + j.dl + ' MIN' : '') : j.hunt ? (j.dl ? 'HUNT - ' + j.dl + ' MIN' : 'HUNT - NO DEADLINE') + ' - KEEPS ' + j.life + ' MIN' : (T.site ? BUSH_T[T.B.type] + ' ' + T.B.len + ' M - ' : '') + (j.sp === 'fragile' ? 'FRAGILE (+30%)' : j.sp === 'perish' ? 'PERISHABLE ' + j.life + ' MIN (+25%)' : j.sp === 'live' ? 'LIVE ANIMALS (+35%)' : j.dl ? 'DEADLINE ' + j.dl + ' MIN (+40%)' : 'NO DEADLINE')], 34, Y + 68, JB_W - 170);
-      x.fillStyle = act >= DLV_MAX ? '#9a9a90' : '#2a7a2a'; x.fillRect(JB_W - 126, Y + 50, 100, 26); x.fillStyle = '#fff'; x.font = 'bold 15px sans-serif'; x.textAlign = 'center'; x.fillText('ACCEPT', JB_W - 76, Y + 68); x.textAlign = 'left'; } }
+      x.fillStyle = act >= DLV_MAX ? '#9a9a90' : '#2a7a2a'; jbStub(x, Y); x.font = 'bold 15px sans-serif'; x.textAlign = 'center'; x.fillText('ACCEPT', JB_W - 76, Y + 68); x.textAlign = 'left'; } }
   const inb = dlvActive().filter(j => j.to === S.id && !j.drop && !j.emg);
   { const v = repOf(S.id), T = repTier(v); x.fillStyle = T[2]; x.font = 'bold 14px sans-serif'; x.fillText('REP: ' + repWho(S.id) + '  ' + repStars(v) + '  ' + T[1] + ' (' + v + ')' + (repPayX(v) >= 1.01 ? ' - PAY +' + Math.round((repPayX(v) - 1) * 100) + '%' : ''), 20, JB_H - 30, JB_W - 40); }   // v0.56
   x.fillStyle = '#3a2a1a'; x.font = '13px sans-serif';
@@ -9600,7 +9626,7 @@ for (const F of FUEL_ST) { const [bx, bz, ry] = F.b, home = F.id === 'HOME', G =
   G.position.set(bx, Math.min(groundY(bx - 0.5, bz), groundY(bx + 0.5, bz), groundY(bx, bz)), bz); G.rotation.y = ry; scene.add(G);
   for (const sx of [-PW / 2 + 0.03, PW / 2 - 0.03]) box(0.08, Y + 0.45, 0.08, wood, sx, (Y + 0.45) / 2 - 0.1, -0.03, G); box(PW + 0.08, PH + 0.08, 0.04, wood, 0, Y, 0, G);
   const cv = document.createElement('canvas'); cv.width = SVB_W; cv.height = SVB_H; const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
-  const m = new THREE.Mesh(new THREE.PlaneGeometry(PW, PH), new THREE.MeshBasicMaterial({ map: tex })); m.position.set(0, Y, 0.022); m.userData.noBatch = true; G.add(m);
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(PW, PH), jbMat(tex)); m.position.set(0, Y, 0.022); m.userData.noBatch = true; G.add(m);
   F.B = { home, G, cv, cx: cv.getContext('2d'), tex, m, PW, PH, key: '', rows: home ? ['oil', 'tyre', 'fix', 'svc'] : ['oil'], r0: 134, rh: home ? 48 : 52 }; }
 function ecoCost(F, r) {   // [cost, what it does, can it be done]
   const E = ECO;
@@ -9613,7 +9639,7 @@ const ecoRoom = home => DLV.cash + (home ? ECO_CREDIT : 0);   // what you can sp
 const ecoMoney = v => (v < 0 ? '-$' : '$') + Math.abs(Math.round(v)).toLocaleString('en-US');
 function ecoFit(x, t, X, Y, w, px, bold) { let p = px; do { x.font = (bold ? 'bold ' : '') + p + 'px sans-serif'; } while (x.measureText(t).width > w && --p > 9); x.fillText(t, X, Y); }
 function ecoDraw(F) {
-  const B = F.B, x = B.cx, E = ECO, W = SVB_W; x.fillStyle = '#f2ead6'; x.fillRect(0, 0, W, SVB_H); x.strokeStyle = '#5a3a20'; x.lineWidth = 8; x.strokeRect(4, 4, W - 8, SVB_H - 8);
+  const B = F.B, x = B.cx, E = ECO, W = SVB_W; x.drawImage(JB_CORK, 0, 0); jbSheet(x, 6, 5, W - 12, SVB_H - 12, '#f2ead6', 1);   /* v1.21.0 a price sheet pinned to cork */
   x.textBaseline = 'alphabetic'; x.textAlign = 'left'; x.fillStyle = '#222'; x.font = 'bold 26px sans-serif'; x.fillText(B.home ? 'HOME HANGAR - SERVICE' : F.S.name + ' - FUEL + OIL', 18, 38);
   x.textAlign = 'right'; x.fillStyle = DLV.cash < 0 ? '#b8301e' : '#1e6a2a'; x.fillText(ecoMoney(DLV.cash), W - 18, 38); x.textAlign = 'left';
   x.fillStyle = '#333'; ecoFit(x, 'AVGAS $' + fuelPx(F).toFixed(2) + '/GAL AT THE RED DRUM' + (TRUST_DISC(repOf(F.id)) ? ' (' + Math.round(TRUST_DISC(repOf(F.id)) * 100) + '% OFF FOR YOU)' : '') + (B.home ? ' (ALWAYS 12 GAL ON ACCOUNT)' : ''), 18, 64, W - 36, 17, 1);
@@ -9866,7 +9892,7 @@ const UPB = { b: [HANGAR.x + 5.6, HANGAR.z - 3.2, Math.PI / 2], key: '', d: 1e9,
 { const [bx, bz, ry] = UPB.b, G = new THREE.Group(), PW = 1.28, PH = 0.88, Y = 1.45, wood = mat(0x6b4a2a); G.position.set(bx, Math.min(groundY(bx - 0.5, bz), groundY(bx + 0.5, bz), groundY(bx, bz)), bz); G.rotation.y = ry; scene.add(G);
   for (const sx of [-PW / 2 + 0.03, PW / 2 - 0.03]) box(0.08, Y + 0.45, 0.08, wood, sx, (Y + 0.45) / 2 - 0.1, -0.03, G); box(PW + 0.08, PH + 0.08, 0.04, wood, 0, Y, 0, G);
   const cv = document.createElement('canvas'); cv.width = SVB_W; cv.height = SVB_H; const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
-  const m = new THREE.Mesh(new THREE.PlaneGeometry(PW, PH), new THREE.MeshBasicMaterial({ map: tex })); m.position.set(0, Y, 0.022); m.userData.noBatch = true; G.add(m); Object.assign(UPB, { G, cv, cx: cv.getContext('2d'), tex, m, PW, PH }); }
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(PW, PH), jbMat(tex)); m.position.set(0, Y, 0.022); m.userData.noBatch = true; G.add(m); Object.assign(UPB, { G, cv, cx: cv.getContext('2d'), tex, m, PW, PH }); }
 function upgState(k) {   // [button text, colour, why / what]
   const I = UPG_I[k];
   if (UPG[k]) return ['REMOVE', '#5a6a7a', 'FITTED'];
@@ -9876,7 +9902,7 @@ function upgState(k) {   // [button text, colour, why / what]
   return ['$' + I.price.toLocaleString('en-US'), DLV.cash >= I.price ? '#2a7a2a' : '#a04030', I.eff];
 }
 function upbDraw() {
-  const x = UPB.cx, W = SVB_W; x.fillStyle = '#f2ead6'; x.fillRect(0, 0, W, SVB_H); x.strokeStyle = '#5a3a20'; x.lineWidth = 8; x.strokeRect(4, 4, W - 8, SVB_H - 8);
+  const x = UPB.cx, W = SVB_W; x.drawImage(JB_CORK, 0, 0); jbSheet(x, 6, 5, W - 12, SVB_H - 12, '#f2ead6', 1);   /* v1.21.0 a price sheet pinned to cork */
   x.textBaseline = 'alphabetic'; x.textAlign = 'left'; x.fillStyle = '#222'; x.font = 'bold 26px sans-serif'; x.fillText('HOME HANGAR - PARTS', 18, 38);
   x.textAlign = 'right'; x.fillStyle = DLV.cash < 0 ? '#b8301e' : '#1e6a2a'; x.fillText(ecoMoney(DLV.cash), W - 18, 38); x.textAlign = 'left';
   x.fillStyle = '#333'; ecoFit(x, 'CASH ONLY. BOUGHT PARTS WAIT ON THE FLOOR: CARRY ONE TO THE CUB', 18, 62, W - 36, 15, 1);
@@ -11132,7 +11158,7 @@ const EMG_SIGNS = [];
 const EMG_CV = document.createElement('canvas'); EMG_CV.width = EMG_SIGN_W; EMG_CV.height = EMG_SIGN_H; const EMG_CX = EMG_CV.getContext('2d');
 const EMG_TEX = new THREE.CanvasTexture(EMG_CV); EMG_TEX.colorSpace = THREE.SRGBColorSpace; EMG_TEX.anisotropy = 4;
 const EMG_PW = 0.66, EMG_PH = 0.44;
-{ const red = mat(0x8a1a12), post = mat(0x6b4a2a), M = new THREE.MeshBasicMaterial({ map: EMG_TEX });
+{ const red = mat(0x6b4a2a), post = mat(0x6b4a2a), M = jbMat(EMG_TEX);   // v1.21.0 a wooden frame
   for (const S of DLV_STRIPS) { if (S.site || S.id === 'HALV') continue; const [bx, bz, ry] = S.board, rx = Math.cos(ry), rz = -Math.sin(ry), x = bx - rx * 1.25, z = bz - rz * 1.25, G = new THREE.Group();
     G.position.set(x, groundY(x, z), z); G.rotation.y = ry; scene.add(G); box(0.07, 1.75, 0.07, post, 0, 0.85, -0.03, G); box(EMG_PW + 0.06, EMG_PH + 0.06, 0.03, red, 0, 1.42, 0, G);
     const m = new THREE.Mesh(new THREE.PlaneGeometry(EMG_PW, EMG_PH), M); m.position.set(0, 1.42, 0.017); m.userData.noBatch = true; G.add(m); EMG_SIGNS.push({ S, m, x, z }); } }
@@ -11144,7 +11170,7 @@ function emgSignMoved() { const j = emgActive(), c = EMG.call, K = EMG_SK, gt = 
 function emgSignKey() { const j = emgActive(), c = EMG.call; return (c ? 'c' + c.id + Math.ceil(c.emg.exp - DLV.gt) : '') + (j ? 'a' + j.id + j.emg.got + j.emg.seen + Math.ceil(100 * j.fresh) + Math.ceil(j.due - DLV.gt) : '') + '|' + Math.ceil(EMG.nextT - DLV.gt) + (UPG.radio ? 'r' : ''); }
 function emgSignDraw() {
   const x = EMG_CX, W = EMG_SIGN_W, H = EMG_SIGN_H, j = emgActive(), c = EMG.call;
-  x.fillStyle = '#7a1410'; x.fillRect(0, 0, W, H); x.fillStyle = '#f4ece0'; x.fillRect(6, 6, W - 12, H - 12); x.fillStyle = '#b8201a'; x.fillRect(6, 6, W - 12, 40);
+  x.drawImage(JB_CORK, 0, 0); jbSheet(x, 6, 5, W - 12, H - 11, '#f4ece0', 0); x.fillStyle = '#b8201a'; x.fillRect(6, 8, W - 12, 38); jbPin(x, 15, 11, '#e8e0d0'); jbPin(x, W - 15, 11, '#e8e0d0');   // v1.21.0 a radio-message form pinned up
   x.fillStyle = '#fff'; x.font = 'bold 22px sans-serif'; x.textAlign = 'left'; x.fillText('\u271A EMERGENCY CALL-OUTS', 16, 34); x.fillStyle = '#222';
   const T = (t, y, f = '15px sans-serif', col = '#222') => { x.font = f; x.fillStyle = col; x.fillText(t, 16, y, W - 32); };
   if (j) { T('ON THE GO: ' + j.title, 72, 'bold 16px sans-serif', '#7a1410'); T(j.emg.name, 96);
@@ -13031,7 +13057,8 @@ const GFX_OPT = [   // key, label, values, value labels, note (shown small under
   ['msaa', 'Anti-aliasing', [0, 1], ['OFF', 'MSAA'], 'applies after a reload'],
   ['dyn', 'Auto quality', [0, 1], ['OFF', 'ON'], 'VR: holds the rate - forest, shadows, then resolution'],
   ['hz', 'Refresh rate', [0, 72, 90, 120], ['AUTO', '72 Hz', '90 Hz', '120 Hz'], 'Quest 3: 72 / 90 / 120'],
-  ['water', 'Water', [0, 1], ['SIMPLE', 'FULL'], 'full: stony river beds, finer ripples'],   // v0.98
+  ['water', 'Water', [0, 1], ['SIMPLE', 'FULL'], 'full: stony river beds, finer ripples'],
+  ['look', 'Colour', [0, 1], ['FLAT', 'FILM'], 'film: soft highlights, richer colour'],   // v1.21.0   // v0.98
   ['fps', 'FPS counter', [0, 1], ['OFF', 'ON'], 'fps, ms, draw calls'],
   ['hx', 'Haptics', null, null, 'controller buzz'],
   ['vig', 'Comfort vignette', [0, 1, 2], ['OFF', 'LIGHT', 'STRONG'], 'darkens edges as you move'],
@@ -13073,7 +13100,7 @@ WARM.jobs.push(() => { if (CLOUDS.im) cldWarm(CLOUDS.im); if (FR.cl) cldWarm(FR.
 WARM.sc.background = new THREE.Color(0x30404c);
 
 function gfxLabel(k) { if (k === 'hx') return HX.gain ? Math.round(HX.gain * 100) + '%' : 'OFF'; const o = GFX_OPT.find(r => r[0] === k), i = o[2].findIndex(v => Math.abs(v - GFX[k]) < 1e-6); return i >= 0 ? o[3][i] : GFX[k] > o[2][o[2].length - 1] ? 'ULTRA' : String(GFX[k]); }
-function gfxSave() { try { localStorage.setItem('bp_gfx', JSON.stringify(Object.assign({ v: 93 }, GFX))); } catch (e) { } }
+function gfxSave() { try { localStorage.setItem('bp_gfx', JSON.stringify(Object.assign({ v: 121 }, GFX))); } catch (e) { } }
 function gfxSet(k, v, quiet) {
   if (k === 'hx') { HX.cycle(); return; }
   GFX[k] = v; gfxSave(); gfxApply(k);
@@ -13081,10 +13108,10 @@ function gfxSet(k, v, quiet) {
   if (GQ.menu) gfxMenuSync();
 }
 const GFX_PRESET = {   // v0.48: one-poke presets (render scale takes effect next time you enter VR)
-  PERFORMANCE: { ultra: 0, scale: 0.8, fov: 1, terr: 0, trees: 0.4, dist: 0.6, clouds: 0, fog: 1, shadows: 0, grass: 0, hz: 90, dyn: 1, cvl: 1, water: 0 },
-  BALANCED: { ultra: 0, scale: GFX_DEF.scale, fov: 1, terr: 1, trees: 1, dist: 1, clouds: 1, fog: 1, shadows: 0, grass: 0, hz: 90, dyn: 1, cvl: 1, water: 1 },
-  QUALITY: { ultra: 0, scale: 1.2, fov: 0.66, terr: 2, trees: 1, dist: 1.3, clouds: 2, fog: 1, shadows: 1, grass: 1, hz: 90, dyn: 1, cvl: 0, water: 1 },
-  'PC ULTRA': { ultra: 1, scale: 1.5, fov: 0, terr: 2, trees: 1, forest: 1, dist: 1.3, clouds: 2, fog: 1, shadows: 3, grass: 3, msaa: 1, hz: 120, dyn: 1, cvl: 0, water: 1 } };   // v1.09 desktop GPU only (GQ.pc): 2-zone shadows, a 1.1 km 3D forest, 150 %, 120 Hz   // v0.68.1; v0.93 all at 90 Hz (auto quality thins detail, then resolution, to hold it)
+  PERFORMANCE: { ultra: 0, scale: 0.8, fov: 1, terr: 0, trees: 0.4, dist: 0.6, clouds: 0, fog: 1, shadows: 0, grass: 0, hz: 90, dyn: 1, cvl: 1, water: 0, look: 1 },
+  BALANCED: { ultra: 0, scale: GFX_DEF.scale, fov: 1, terr: 2, trees: 1, dist: 1, clouds: 1, fog: 1, shadows: 1, grass: 0, hz: 90, dyn: 1, cvl: 0, water: 1, look: 1 },   // v1.21.0 PCVR baseline (was the Quest-era no shadows / FAST+GRAIN / per-vertex light)
+  QUALITY: { ultra: 0, scale: 1.2, fov: 0.66, terr: 2, trees: 1, dist: 1.3, clouds: 2, fog: 1, shadows: 1, grass: 1, hz: 90, dyn: 1, cvl: 0, water: 1, look: 1 },
+  'PC ULTRA': { ultra: 1, scale: 1.5, fov: 0, terr: 2, trees: 1, forest: 1, dist: 1.3, clouds: 2, fog: 1, shadows: 3, grass: 3, msaa: 1, hz: 120, dyn: 1, cvl: 0, water: 1, look: 1 } };   // v1.09 desktop GPU only (GQ.pc): 2-zone shadows, a 1.1 km 3D forest, 150 %, 120 Hz   // v0.68.1; v0.93 all at 90 Hz (auto quality thins detail, then resolution, to hold it)
 function gfxPreset(n) { if (GFX_PRESET[n].ultra && !GQ.pc) return; for (const [k, v] of Object.entries(GFX_PRESET[n])) if (GFX[k] !== v) gfxSet(k, v, true); if (GQ.ult) { say('PC ULTRA - COMPILING'); ultPrewarm(); } say(n + (GFX_PRESET[n].ultra && GFX.msaa !== GQ.msaa0 ? ' - RELOAD FOR MSAA' : '') + (renderer.xr.isPresenting && GFX.scale !== GQ.xrScale ? ' - RENDER SCALE AT NEXT VR START' : '')); sfx('click'); if (GQ.menu) gfxMenuSync(); }
 function gfxCycle(k, d = 1) { if (k === 'hx') { HX.cycle(); if (GQ.menu) gfxMenuSync(); return; } const o = GFX_OPT.find(r => r[0] === k), i = o[2].findIndex(v => Math.abs(v - GFX[k]) < 1e-6); gfxSet(k, o[2][((i < 0 ? 0 : i) + d + o[2].length) % o[2].length]); }
 function vlWant() { return GFX.terr < 2 && !LIGHTS.landing; }   // per-pixel lights (landing light) need the Lambert look; v0.85.1 shadows decide per tile (shNearUpdate)
@@ -13092,17 +13119,20 @@ function vlLam(lm) {   // v0.85.1 the per-pixel ground under the shadow box: FAS
   if (GFX.terr > 0) return lm; const k = lm.uuid + 'L'; let t = VL.by.get(k); if (!t) VL.by.set(k, t = new THREE.MeshLambertMaterial({ color: lm.color, vertexColors: lm.vertexColors, flatShading: true, side: lm.side })); return t;
 }
 function vlApply(force) {   // v0.48 Terrain shading: FAST / FAST+GRAIN (vertex-lit) or FULL (the v0.47 per-pixel Lambert)
-  const on = force === undefined ? vlWant() : force, sh = force === undefined && GFX.shadows > 0, key = on + '|' + GFX.terr + '|' + sh + '|' + SHN.ver; if (key === VL.key) return; VL.key = key;
+  const on = force === undefined ? vlWant() : force, sh = force === undefined && GFX.shadows > 0, key = (on ? 1 : 0) + 2 * GFX.terr + (sh ? 8 : 0) + 16 * SHN.ver; if (key === VL.key) return; VL.key = key;   // v1.21.0 a number (the string was ~210 B a frame)
   for (const o of TERR_M) { const lm = o.userData.lm; o.material = !on ? lm : sh && o.userData.shIn ? vlLam(lm) : vlTwin(lm, GFX.terr > 0); if (lm.map) { const a = GFX.terr > 1 ? 4 : 2; if (lm.map.anisotropy !== a) { lm.map.anisotropy = a; lm.map.needsUpdate = true; } } }   // v0.85.1 shadows on: only tiles the shadow box touches go per-pixel
 }
+function v3norm(v) { const l = Math.sqrt(v.x * v.x + v.y * v.y + v.z * v.z) || 1; v.x /= l; v.y /= l; v.z /= l; return v; }   // v1.21.0
 function vlTick() {   // the vertex-lit uniforms follow the sun / moon and sky light
-  VL.vlS.value.copy(hemi.color).multiplyScalar(hemi.intensity); VL.vlG.value.copy(hemi.groundColor).multiplyScalar(hemi.intensity);
-  VL.vlC.value.copy(sun.color).multiplyScalar(sun.intensity); VL.vlD.value.copy(sun.position).sub(sun.target.position).normalize(); vlApply(); gsTick(); gtTick();
+  { const hi = hemi.intensity, si = sun.intensity, a = VL.vlS.value, b = VL.vlG.value, c = VL.vlC.value, h = hemi.color, g = hemi.groundColor, s = sun.color;   // v1.21.0 written out (a number passed to multiplyScalar was boxed)
+    a.r = h.r * hi; a.g = h.g * hi; a.b = h.b * hi; b.r = g.r * hi; b.g = g.g * hi; b.b = g.b * hi; c.r = s.r * si; c.g = s.g * si; c.b = s.b * si; }
+  v3norm(VL.vlD.value.copy(sun.position).sub(sun.target.position)); vlApply(); if (GSTY.job) gsTick(); gtTick();
 }
 function gfxApply(k) {
   const all = !k;
   if ((all || k === 'sfxr') && window.SFXP) window.SFXP.enable(GFX.sfxr > 0);   // v1.11.12 the sound pack on / off (A/B)
-  if (all || k === 'ultra') ultApply();   // v1.09 first: the shadows / forest / grass below read GQ.ult
+  if (all || k === 'ultra') ultApply();
+  if (all || k === 'look') renderer.toneMapping = GFX.look ? THREE.CustomToneMapping : THREE.NoToneMapping;   // v1.21.0 (three rebuilds the programs on the next draw)   // v1.09 first: the shadows / forest / grass below read GQ.ult
   if (all || k === 'cvl' || k === 'shadows') cvlApply();   // v0.95 before the shadow flags (they read the materials)
   if (all || k === 'terr' || k === 'shadows') { VL.key = ''; vlApply(); if (k === 'terr' && GFX.shadows) shPrewarm(); }
   if (all || k === 'ground') gsStart(GFX.ground);
@@ -13138,13 +13168,13 @@ function shBounds(o) { const u = o.userData, g = o.geometry; if (u.shG !== g || 
 function shNearUpdate(force) {
   if (!GFX.shadows) return; if (BATCH.list.length !== SHN.nb) { shItems(); force = true; }
   if (GQ.ult && GFX.shadows > 2) { ultNear(force); return; }   // v1.09 PC ULTRA: everything receives and casts (the far zone covers 2.5 km)
-  const t = sun.target.position, M = GQ.shR * 0.5; SHN.d.copy(sun.position).sub(t).normalize();
-  if (!force && Math.abs(t.x - SHN.last.x) < M && Math.abs(t.y - SHN.last.y) < M && Math.abs(t.z - SHN.last.z) < M && SHN.d.dot(SHN.dir) > 0.9995) { if (SHC.cn !== CHS.n) shcUpdate(); return; }
+  const t = sun.target.position, M = GQ.shR * 0.5; v3norm(SHN.d.copy(sun.position).sub(t));
+  if (!force && Math.abs(t.x - SHN.last.x) < M && Math.abs(t.y - SHN.last.y) < M && Math.abs(t.z - SHN.last.z) < M && SHN.d.x * SHN.dir.x + SHN.d.y * SHN.dir.y + SHN.d.z * SHN.dir.z > 0.9995) { if (SHC.cn !== CHS.n) shcUpdate(); return; }
   SHN.last.copy(t); SHN.dir.copy(SHN.d); SHN.n++;
   sun.updateMatrixWorld(); sun.shadow.updateMatrices(sun); const c = sun.shadow.camera, V = c.matrixWorldInverse, E = 2 * M, R = GQ.shR + E, z0 = -(c.near - E), z1 = -(c.far + E), v = SHN.v;
   let ax = 1e9, bx = -1e9, ay = 1e9, by = -1e9, az = 1e9, bz = -1e9;   // the box's own world bounds (both ways round is tight enough for big tiles; the ring round the inner grid is near only once the box reaches past the hole's edge)
   for (let i = 0; i < 8; i++) { v.set(i & 1 ? R : -R, i & 2 ? R : -R, i & 4 ? z1 : z0).applyMatrix4(c.matrixWorld); ax = Math.min(ax, v.x); bx = Math.max(bx, v.x); ay = Math.min(ay, v.y); by = Math.max(by, v.y); az = Math.min(az, v.z); bz = Math.max(bz, v.z); }
-  SHN.box = [ax, bx, az, bz]; const inHole = ax > -T_IN && bx < T_IN && az > -T_IN && bz < T_IN; let ch = false;
+  SHN.box[0] = ax; SHN.box[1] = bx; SHN.box[2] = az; SHN.box[3] = bz; const inHole = ax > -T_IN && bx < T_IN && az > -T_IN && bz < T_IN; let ch = false;
   for (const o of SHN.items) { const b = shBounds(o); let near = !b.isEmpty() && b.max.x > ax && b.min.x < bx && b.max.y > ay && b.min.y < by && b.max.z > az && b.min.z < bz;
     if (near) { let lx = 1e9, hx = -1e9, ly = 1e9, hy = -1e9, lz = 1e9, hz = -1e9;
       for (let i = 0; i < 8; i++) { v.set(i & 1 ? b.max.x : b.min.x, i & 2 ? b.max.y : b.min.y, i & 4 ? b.max.z : b.min.z).applyMatrix4(V); lx = Math.min(lx, v.x); hx = Math.max(hx, v.x); ly = Math.min(ly, v.y); hy = Math.max(hy, v.y); lz = Math.min(lz, v.z); hz = Math.max(hz, v.z); }
@@ -13175,7 +13205,7 @@ function shcUpdate() {
       if (c2 >= S.cap) { const cap = Math.max(64, S.cap * 2), m = new THREE.InstancedMesh(k.im.geometry, k.im.material, cap); m.onBeforeRender = shcHide; m.onAfterRender = shcShow; m.frustumCulled = false; m.matrixAutoUpdate = false; m.castShadow = true; m.receiveShadow = false;
         m.userData.noBatch = true; m.userData.shc = true; if (k.im.customDepthMaterial) m.customDepthMaterial = k.im.customDepthMaterial; m.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
         if (S.m) { m.instanceMatrix.array.set(S.m.instanceMatrix.array.subarray(0, c2 * 16)); S.m.removeFromParent(); S.m.dispose(); } scene.add(m); S.m = m; S.cap = cap; }
-      S.m.instanceMatrix.array.set(A.subarray(o, o + 16), c2 * 16); c2++; }
+      { const D = S.m.instanceMatrix.array, d0 = c2 * 16; for (let q = 0; q < 16; q++) D[d0 + q] = A[o + q]; } c2++; }   // v1.21.0 (a subarray per caster was garbage)
     if (S.m) { S.m.count = c2; S.m.visible = c2 > 0; S.m.instanceMatrix.needsUpdate = true; }
     k.im.castShadow = false; k.im.receiveShadow = on && c2 > 0; tot += c2; }
   SHC.n = tot;
@@ -13189,10 +13219,10 @@ function gfxShadows() {
   const on = GFX.shadows > 0; renderer.shadowMap.enabled = on; renderer.shadowMap.type = GFX.shadows > 1 ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap; renderer.shadowMap.needsUpdate = true;
   sun.castShadow = on; renderer.shadowMap.autoUpdate = false;   // v0.47: refreshed every other frame from the loop
   ultFar(on && GFX.shadows > 2 && GQ.ult);   // v1.09 PC ULTRA: the far shadow zone (added before the programs rebuild)
-  if (on) { const u3 = GFX.shadows > 2 && GQ.ult, sz = u3 ? 4096 : GFX.shadows > 1 ? 2048 : 1024, R = u3 ? 96 : GFX.shadows > 1 ? 64 : 28, c = sun.shadow.camera;
+  if (on) { const u3 = GFX.shadows > 2 && GQ.ult, sz = u3 ? 4096 : 2048, R = u3 ? 96 : GFX.shadows > 1 ? 64 : 32,   /* v1.21.0 LOW: 2048 px / 32 m (was 1024 / 28) */ c = sun.shadow.camera;
     if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; }
     sun.shadow.mapSize.set(sz, sz); c.left = c.bottom = -R; c.right = c.top = R; c.near = 10; c.far = 1000; c.updateProjectionMatrix();
-    sun.shadow.bias = -0.0006; sun.shadow.normalBias = GFX.shadows > 1 ? 0.04 : 0.07; GQ.shR = R; GQ.shTex = 2 * R / sz; }
+    sun.shadow.bias = -0.0006; sun.shadow.normalBias = GFX.shadows > 1 ? 0.04 : 0.05; GQ.shR = R; GQ.shTex = 2 * R / sz; }
   if (on) { SHN.nb = -1; gfxShadowFollow(0); }   // v0.85.1 place the box and pick the near tiles / cells before the flags
   else { for (const o of SHN.items) o.userData.shIn = false; shcUpdate(); }   // v0.89 OFF: the near casters empty and hidden
   gfxShadowFlags(); scene.traverse(o => { if (o.material) for (const m of [].concat(o.material)) m.needsUpdate = true; });
@@ -13284,8 +13314,8 @@ function gfxShadowFollow(dt) {
   camera.getWorldPosition(_gsF); const t = GQ.shTex || 0.05, half = GQ.shR * 0.55;
   if (mode === 'plane') plane.getWorldPosition(_gsF);
   const fx = Math.round(_gsF.x / t) * t, fz = Math.round(_gsF.z / t) * t;
-  sun.target.position.set(fx, _gsF.y, fz); sun.target.updateMatrixWorld();
-  sun.position.normalize().multiplyScalar(400).add(sun.target.position); shNearUpdate();
+  { const p = sun.target.position; p.x = fx; p.y = _gsF.y; p.z = fz; } sun.target.updateMatrixWorld();
+  v3norm(sun.position).multiplyScalar(400).add(sun.target.position); shNearUpdate();
   if (ULT.far && ULT.far.parent) ultFarFollow(dt);   // v1.09
   if ((GQ.shadowT -= dt) <= 0) { GQ.shadowT = 3; gfxShadowFlags(); }   // late-built meshes pick up the flags
 }
@@ -13339,7 +13369,8 @@ function grassTick(dt) {
   const g3 = GFX.grass > 2 && GQ.ult, R = g3 ? 40 : GFX.grass > 1 ? 26 : 16, S = g3 ? 0.5 : GFX.grass > 1 ? 0.55 : 0.6;
   if (!GRASS.job && hyp(_gsF.x - GRASS.cx, _gsF.z - GRASS.cz) > R * 0.22) {
     const cx = Math.round(_gsF.x / S) * S, cz = Math.round(_gsF.z / S) * S, n = Math.ceil(R / S);
-    GRASS.job = { cx, cz, R, S, n, i: -n, out: new Float32Array(GRASS.MAX * 16), col: new Float32Array(GRASS.MAX * 3), c: 0, wet: waterDist(cx, cz) < R + 6 }; }
+    if (!GRASS.J || GRASS.J.out.length !== GRASS.MAX * 16) GRASS.J = { out: new Float32Array(GRASS.MAX * 16), col: new Float32Array(GRASS.MAX * 3) };   // v1.21.0 one set of rebuild buffers, reused (a new 0.5 MB pair per rebuild was garbage)
+    const J0 = GRASS.J; J0.cx = cx; J0.cz = cz; J0.R = R; J0.S = S; J0.n = n; J0.i = -n; J0.c = 0; J0.wet = waterDist(cx, cz) < R + 6; GRASS.job = J0; }
   const J = GRASS.job; if (!J) return;
   let budget = 0;
   for (; J.i <= J.n && budget < 1500; J.i++) {
@@ -13354,7 +13385,7 @@ function grassTick(dt) {
       const k = (0.7 + 0.7 * h2) * (1 - smooth01(clamp((d - J.R * 0.7) / (J.R * 0.3), 0, 1))); if (k < 0.08 || J.c >= GRASS.MAX) continue;
       _m4.compose(_v.set(x, y - 0.02, z), _q.setFromAxisAngle(_up, h1 * 40), _s.set(k * 1.2, k * (0.75 + 0.6 * h1), k * 1.2)); _m4.toArray(J.out, J.c * 16);
       const v = 0.9 + 0.2 * h2; J.col[J.c * 3] = tint.r * v; J.col[J.c * 3 + 1] = tint.g * v; J.col[J.c * 3 + 2] = tint.b * v; J.c++; } }
-  if (J.i > J.n) { GRASS.im.instanceMatrix.array.set(J.out.subarray(0, J.c * 16)); GRASS.im.instanceColor.array.set(J.col.subarray(0, J.c * 3)); GRASS.im.count = J.c;
+  if (J.i > J.n) { const MA = GRASS.im.instanceMatrix.array, CA = GRASS.im.instanceColor.array, nm = J.c * 16, nc = J.c * 3; for (let q = 0; q < nm; q++) MA[q] = J.out[q]; for (let q = 0; q < nc; q++) CA[q] = J.col[q]; GRASS.im.count = J.c;
     GRASS.im.instanceMatrix.needsUpdate = true; GRASS.im.instanceColor.needsUpdate = true; GRASS.im.visible = true; GRASS.cx = J.cx; GRASS.cz = J.cz; GRASS.job = null; }
 }
 // ---- comfort vignette: a head-locked ring that closes in while you walk / turn smoothly / the stick-walk rig moves ----
@@ -13483,7 +13514,7 @@ function perfLines() {
   return [[(fps + ' fps  ' + FT.frm.toFixed(1) + ' ms (worst ' + FT.max.toFixed(0) + ')  cpu ' + FT.cpu.toFixed(1) + ' ms  ' + r.calls + ' draws  ' + Math.round(r.triangles / 1000) + 'k tris'), ok ? '#2f6a2a' : '#9a2a1a'],
     ['FFR ' + X.ffr + '   ' + X.kind + ' ' + X.fb + '   ' + X.hz + '   MSAA ' + (renderer.getContext().getContextAttributes().antialias ? '4x' : 'off') + '   scale ' + Math.round((GQ.xrScale || GFX.scale) * 100) + '%', '#2e2418'],
     ['auto quality ' + (GFX.dyn ? 'step ' + DYN.lvl + ': view ' + Math.round(DYN.vs * 100) + '%' + (DYN.vsOK === false ? ' (not supported here)' : DYN.vsOK ? ' (applied)' : '') + ', forest ' + Math.round(DYN.tk * 100) + '% / ' + Math.round(DYN.lk * 100) + '%' + (GFX.shadows ? ', shadows 1/' + DYN.sh : '') : 'OFF') +
-      '   inst ' + CHS.up + '   ground ' + (VL.key.startsWith('true') ? 'vertex-lit' : 'per-pixel'), '#5a4630']];
+      '   inst ' + CHS.up + '   ground ' + (VL.key & 1 ? 'vertex-lit' : 'per-pixel'), '#5a4630']];
 }
 function setpPerf(dt) {   // twice a second while the board is open
   SETP.pm.visible = SETP.tab === 'gfx'; if (!SETP.open || SETP.tab !== 'gfx' || (SETP.pT -= dt) > 0) return; SETP.pT = 0.5;
@@ -13507,11 +13538,11 @@ function wristFace() {   // the wrist screen's face toward the eye: cosine of th
   wrist.visible = on;   // v0.77.4 the whole watch, not just its MENU button
   return on;
 }
-const SETP_ROW = i => ({ X: i < 10 ? 30 : 527, Y: 96 + (i % 10) * 48 });   // v0.48: 10 rows a column
+const SETP_ROW = i => (MENU_ROWS[SETP.tab] || '').length > 20 ? { X: i < 11 ? 30 : 527, Y: 92 + (i % 11) * 44 } : { X: i < 10 ? 30 : 527, Y: 96 + (i % 10) * 48 };   // v0.48: 10 rows a column (v1.21.0 the GRAPHICS tab: 11 at 44 px)
 // v0.68.1 the MENU board: tabs along the top (RESUME, SAVE / LOAD, GRAPHICS, COMFORT, CONTROLS, AUDIO), big poke / point targets, CLOSE bottom right.
 // Poke with a fingertip or point either controller at it and pull the trigger. Desktop: the same board in a page overlay (Esc / F2), clicked with the mouse.
 const MENU_TABS = [['resume', 'RESUME'], ['save', 'SAVE / LOAD'], ['gfx', 'GRAPHICS'], ['comfort', 'COMFORT'], ['controls', 'CONTROLS'], ['audio', 'AUDIO']];
-const MENU_ROWS = { gfx: ['scale', 'fov', 'terr', 'ground', 'gtex', 'trees', 'forest', 'fdens', 'dist', 'clouds', 'fog', 'wx', 'shadows', 'grass', 'msaa', 'dyn', 'hz', 'water', 'tod', 'dayl', 'cvl'], comfort: ['vig', 'turn', 'stk', 'tips', 'hints', 'fps'], controls: ['hand', 'hx', 'wt', 'glove', 'flure', 'fline', 'fdrag', 'fbob', 'fsink'], audio: ['volM', 'volE', 'volW', 'volS', 'volA', 'volF', 'volMu', 'sfxr'] };
+const MENU_ROWS = { gfx: ['scale', 'fov', 'terr', 'ground', 'gtex', 'trees', 'forest', 'fdens', 'dist', 'clouds', 'fog', 'wx', 'shadows', 'grass', 'msaa', 'dyn', 'hz', 'water', 'look', 'tod', 'dayl', 'cvl'], comfort: ['vig', 'turn', 'stk', 'tips', 'hints', 'fps'], controls: ['hand', 'hx', 'wt', 'glove', 'flure', 'fline', 'fdrag', 'fbob', 'fsink'], audio: ['volM', 'volE', 'volW', 'volS', 'volA', 'volF', 'volMu', 'sfxr'] };
 const MENU_TAB = i => ({ X: 22 + i * 146, W: 140 });   // (v0.91.1 narrower: the version sits at the right of the tab row)
 const MENU_SLOT = n => 76 + (n - 1) * 128;   // a manual slot's box top (right column)
 const MENU_HELP = ['TRIGGER  fire / brake / next page', 'GRIP  grab (stick, throttle, knobs, cargo)', 'A / X  recentre + set height', 'B  tap: rifle lever / hold: grab ray', 'Y  climb in / out (left rifle: lever)',
