@@ -644,7 +644,7 @@ const hyp = (a, b, c = 0) => Math.sqrt(a * a + b * b + c * c);   // v0.59 Math.h
 // v0.35 settings (persist in localStorage 'bp_gfx'; ?gfx=shadows:2,grass:1 overrides for testing). Defaults = the v0.34 look and cost.
 const BP_VERSION = 'v1.21.0';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
 { const e = document.getElementById('ver'); if (e) e.textContent = BP_VERSION; } window.__bpVer = BP_VERSION; bootLog('game module running ' + BP_VERSION + ' (three r' + THREE.REVISION + ')' + (/[?&]safe(=|&|$)/.test(location.search) ? ' - SAFE MODE: default graphics, no shadows / ULTRA / life / vistas / music' : ''));
-const GFX_DEF = { shadows: 1, scale: 1, fov: 1, dist: 1, trees: 1, grass: 0, clouds: 1, fog: 1, msaa: 1, hz: 90, vig: 0, turn: 0, fps: 0, tod: 11, stk: 1, tips: 1, terr: 2, dyn: 1, glove: 0, hand: 0, wt: 1, volM: 1, volMu: 0.5, volE: 1, volA: 1, volF: 1, volS: 1, volW: 1, wx: 1, forest: 0, fdens: 0, hints: 1, ground: 0, gtex: 0, cvl: 0, water: 1, dayl: 48, flure: 0, fline: 8, fdrag: 4, fbob: 0, fsink: 0, ultra: 0, sfxr: 1, look: 1 };   // v0.68.1 dominant hand, volumes. v0.48 BALANCED: 90 % scale, 72 Hz, fast terrain shading, auto resolution; v0.49.1 the stick stays where you let go of it
+const GFX_DEF = { shadows: 1, scale: 1, fov: 1, dist: 1, trees: 1, grass: 0, clouds: 1, fog: 1, msaa: 1, hz: 90, vig: 0, turn: 0, fps: 0, tod: 11, stk: 1, tips: 1, terr: 2, dyn: 1, glove: 0, hand: 0, wt: 1, volM: 1, volMu: 0.5, volE: 1, volA: 1, volF: 1, volS: 1, volW: 1, wx: 1, forest: 0, fdens: 0, hints: 1, ground: 0, gtex: 0, cvl: 0, water: 1, dayl: 48, flure: 0, fline: 8, fdrag: 4, fbob: 0, fsink: 0, ultra: 0, sfxr: 1, look: 1, synty: 1 };   // v0.68.1 dominant hand, volumes. v0.48 BALANCED: 90 % scale, 72 Hz, fast terrain shading, auto resolution; v0.49.1 the stick stays where you let go of it
 const GFX = Object.assign({}, GFX_DEF);
 const BP_SAFE = /[?&]safe(=|&|$)/.test(location.search);   // v1.09.1 ?safe: defaults (BALANCED), saved graphics settings ignored
 try { const o = BP_SAFE ? {} : JSON.parse(localStorage.getItem('bp_gfx') || '{}'); if ((o.v || 0) < 48) { if (o.scale === 1) delete o.scale; if (o.hz === 0) delete o.hz; }   // v0.48: saved copies of the old defaults (100 %, AUTO Hz) move to the new ones once
@@ -1080,6 +1080,7 @@ function gtNext() {
 function gtTick() { if (!GT.job) return; if (GT.job.next().done) { GT.job = null; GT.n++; gtNext(); } }
 function gtRun(set) { GT.want = set; GT.job = null; if (!set) { gtNext(); return; } const it = gtJob(set, true); while (!it.next().done); GT.n++; }   // all at once (load time / tests)
 // grass strip, cabin, trees
+const SYN = { on: false, ok: false, tick() { }, apply() { }, warm() { }, impTex: null };   // synty-prototype: the Synty nature module (synty.js) fills this in; off = every old path unchanged
 const FOREST2 = { n: 0, n2: 0, con: null, u: { sprNear: { value: 380 }, sprL: { value: 2600 }, sprTD: { value: 1 } } };   // v0.78 the sprite forest (count); v0.88 + the 2D-only extras (n2), the v0.7 conifers (con) for 2D ONLY, the sprite shader's uniforms
 const sprH = (a, b, k, c) => { const fr = v => v - Math.floor(v), f32 = Math.fround; let x = fr(f32(a * k)), y = fr(f32(b * k)), z = fr(f32(a * k)); const d = x * (y + c) + y * (z + c) + z * (x + c); x = fr(x + d); y = fr(y + d); z = fr(z + d); return fr((x + y) * z); };   // v0.88 the sprite shader's per-tree hash (Hoskins hash12), on the CPU for the superset test
 const TREES = [];   // home-valley trees [x, y, z, scale] (the ambient birdsong listens for them)
@@ -1136,7 +1137,7 @@ function instanced1(geo, material, list, opt, tiled) {
   im.computeBoundingSphere();   // from every instance: stays valid while the count is compacted below
   if (list.length) { im.instanceMatrix.setUsage(THREE.DynamicDrawUsage); im.frustumCulled = tiled || !opt;   // v0.48: every type is managed; the old unmanaged ones keep their (whole-set) culling sphere
     if (!im.geometry.boundingSphere) im.geometry.computeBoundingSphere(); const sc = list.map(o => Math.max(o[4], o[5], o[6])).sort((a, b) => a - b)[list.length >> 1];
-    CHUNKS.push({ im, full: im.instanceMatrix.array.slice(), xz: Float32Array.from(list.flatMap(o => [o[0], o[1], o[2]])), far: (opt && opt.far) || Infinity, lod: (opt && opt.lod) || Infinity, n: list.length, ok: list.length, tree: !!(opt && opt.tree), near: (opt && opt.near) || 0, spr: !!(opt && opt.spr), tag: opt && opt.spr ? Uint8Array.from(list, o => o[7] || 0) : null, h1: opt && opt.spr ? Float32Array.from(list, o => sprH(o[0], o[2], 0.1031, 33.33)) : null, h2: opt && opt.spr ? Float32Array.from(list, o => sprH(o[2], o[0], 0.1103, 19.19)) : null,
+    CHUNKS.push({ im, full: im.instanceMatrix.array.slice(), xz: Float32Array.from(list.flatMap(o => [o[0], o[1], o[2]])), far: (opt && opt.far) || Infinity, lod: (opt && opt.lod) || Infinity, n: list.length, ok: list.length, tree: !!(opt && opt.tree), old: !!(opt && opt.old), near: (opt && opt.near) || 0, spr: !!(opt && opt.spr), tag: opt && opt.spr ? Uint8Array.from(list, o => o[7] || 0) : null, h1: opt && opt.spr ? Float32Array.from(list, o => sprH(o[0], o[2], 0.1031, 33.33)) : null, h2: opt && opt.spr ? Float32Array.from(list, o => sprH(o[2], o[0], 0.1103, 19.19)) : null,
       sz: im.geometry.boundingSphere.radius * sc, lm: material }); }
   return im;
 }
@@ -1178,7 +1179,8 @@ function updateChunks(force) {
   let up = 0;
   const FM = GFX.forest | 0, FD = GFX.fdens | 0, R = CHS.r + 5, U = FOREST2.u;   // v0.88 TREES: 0 = 3D ONLY, 1 = MIXED (v0.78 DENSE), 2 = 2D ONLY. v1.15.1 FD: 2D density 0..3. R: how far you can go before the next rebuild (the sprite superset covers it)
   U.sprNear.value = FM === 1 ? (GQ.ult ? ULT.SPRN : 380) : 0; U.sprTD.value = TD; U.sprL.value = 2600 * LA * D; BSH.u.sprL.value = BSH.L * LA * D;   // the sprites' near ring, density and far thinning are drawn per vertex (continuous with distance: nothing pops at a rebuild)
-  for (const k of CHUNKS) { if (k.ult && (!GQ.ult || FM !== 1)) { k.im.count = 0; k.im.visible = false; continue; }   // v1.09 the PC ULTRA near forest (MIXED only)
+  for (const k of CHUNKS) { if (SYN.on && (k.tree || k.bsh || k.old)) { k.im.count = 0; k.im.visible = false; continue; }   // synty-prototype: the Synty forest, bushes + rocks replace the old ones
+    if (k.ult && (!GQ.ult || FM !== 1)) { k.im.count = 0; k.im.visible = false; continue; }   // v1.09 the PC ULTRA near forest (MIXED only)
     if ((k.spr && !FM && !k.bsh) || (k.tree && !k.spr && FM === 2)) { k.im.count = 0; k.im.visible = false; continue; }   // v1.18.0 2D bushes: every mode   // v0.78 no sprites in 3D ONLY; v0.88 no 3D trees in 2D ONLY
     if (k.spr) { up += sprChunk(k, FM, TD, D, R, FD); continue; }
     const M = k.im.instanceMatrix, Ar = M.array, f = Math.min(k.far, k.tree ? Infinity : k.sz * CH_SZK) * D, f2 = f * f, l = (k.tree ? k.lod * LA : k.lod) * D, l2 = l * l, l4 = 4 * l2; let c = 0, ok = -1; CHB[0] = CHB[1] = CHB[2] = 1e9; CHB[3] = CHB[4] = CHB[5] = -1e9;
@@ -1301,8 +1303,8 @@ const lines = [];   // merged line segments (fence wires + power lines): one dra
     const s = 0.4 + rand() * 0.8, e = [x, groundY(x, z) + 0.3 * s, z, rand() * 6, s * (0.8 + rand() * 0.5), s * 0.75, s]; if (!inTown(x, z, 5)) bush.push(e); }
   for (let i = 0; i < 700; i++) { const [x, z] = nearStrip(2200); if (onStrip(x, z, 4)) continue;
     const s = 0.2 + rand() * 0.7, e = [x, groundY(x, z) + 0.1 * s, z, rand() * 6, s * (0.7 + rand() * 0.6), s * 0.6, s]; if (!inTown(x, z, 5)) rock.push(e); }
-  instanced(new THREE.IcosahedronGeometry(1, 0), mat(0x4d6b32), bush, { far: 1800 });
-  instanced(new THREE.DodecahedronGeometry(1, 0), mat(0x8a8780), rock, { far: 1800 });
+  instanced(new THREE.IcosahedronGeometry(1, 0), mat(0x4d6b32), bush, { far: 1800, old: 1 });
+  instanced(new THREE.DodecahedronGeometry(1, 0), mat(0x8a8780), rock, { far: 1800, old: 1 });
 
   // round hay bales (1.5 m dia x 1.2 m) in clusters in fields
   const bale = [];
@@ -13044,6 +13046,7 @@ const GFX_OPT = [   // key, label, values, value labels, note (shown small under
   ['terr', 'Terrain shading', [0, 1, 2], ['FAST', 'FAST+GRAIN', 'FULL'], 'ground: per-vertex light'],
   ['ground', 'Ground style', [0, 1, 2, 3, 4], ['VALLEY', 'OUTBACK', 'TROPICAL', 'FACETED', 'GOLDEN'], 'look of the land - same cost'],   // v0.86
   ['gtex', 'Ground texture', [0, 1, 2, 3, 4, 5], ['GRAIN', 'MEADOW', 'RED GRAVEL', 'LUSH', 'PAINTERLY', 'DRY GRASS'], 'surface detail (FAST+GRAIN / FULL)'],   // v0.87
+  ['synty', 'Synty nature', [0, 1], ['OFF', 'ON'], 'Synty POLYGON trees, rocks + plants with smooth distance fades (replaces the old trees / bushes / rocks)'],   // synty-prototype
   ['trees', 'Tree density', [0, 0.4, 0.7, 1], ['OFF', 'SPARSE', 'MEDIUM', 'FULL'], 'tree density'],
   ['forest', 'Trees', [0, 1, 2], ['3D ONLY', 'MIXED', '2D ONLY'], 'MIXED: 3D near, 2D far; 2D ONLY: all 2D'],   // v0.88 (v0.78 Forest NORMAL / DENSE = 3D ONLY / MIXED)
   ['fdens', '2D density', [0, 1, 2, 3], ['NORMAL', 'DENSE', 'VERY DENSE', 'MAX'], 'how thick the 2D forest is (MIXED / 2D ONLY); off with 3D ONLY'],   // v1.15.1
@@ -13140,6 +13143,7 @@ function gfxApply(k) {
   if ((all || k === 'scale') && !renderer.xr.isPresenting) { renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5) * GFX.scale); renderer.xr.setFramebufferScaleFactor(GFX.scale); }   // v1.10.1 neither while presenting (applied at the session's end)
   if (all || k === 'fov') renderer.xr.setFoveation(DYN.lvl ? Math.max(1, GFX.fov) : GFX.fov);
   if (k === 'dyn' && !GFX.dyn) dynSet(0);
+  if (k === 'synty') SYN.apply();   // synty-prototype (the first all-settings pass runs after the module loads)
   if (all || k === 'dist' || k === 'trees' || k === 'forest' || k === 'fdens') updateChunks(true);
   if ((all && GFX.shadows) || k === 'shadows') gfxShadows();
   if (all || k === 'clouds') gfxClouds();
@@ -17717,6 +17721,11 @@ function brayGrab(g) {   // squeeze with the ray on a target: the game's own gra
   if (took) { if (HX.n === n0) HX.pulse(g, 0.45, 24, 'pull'); sfx('pick'); brayHide(); BRAY.on = false; }
   return took; }
 // <<< V1.12.0 INPUT END
+// ---- synty-prototype: load the Synty nature module + assets (a failure leaves the game exactly as on main) ----
+try { const { initSynty } = await import('./synty.js');
+  await initSynty({ scene, camera, renderer, GFX, SYN, base: './assets/synty/', terrainHeight, terrainNormal, vegBlocked, waterDist, rd2Dist, nearMeadow, TREES, GROVES, POIS, TOWNS, DLV_STRIPS, HANGAR, TRK_LANE, PL, SL, updateChunks, activeCam: () => (TITLE.on && TITLE.cam && !renderer.xr.isPresenting ? TITLE.cam : camera) });
+  SYN.fill(700); SYN.apply(); SYN.warm(); bootLog('synty: ' + SYN.names.length + ' models, ' + Math.round(SYN.loadMs) + ' ms, ' + SYN.cells.size + ' cells');
+} catch (e) { SYN.ok = false; SYN.on = false; console.warn('synty module not loaded:', e); }
 warmStart('Preparing graphics'); bootLog('warm-up started: ' + WARM.tot + ' programs to finish, ' + (WARM.par ? 'polling parallel compile' : 'no parallel compile: one at a time'));
 if (window.__ultSkip) setTimeout(() => say('PC ULTRA WAS NOT RESTORED (THE LAST START DID NOT FINISH) - PICK IT AGAIN IN SETTINGS'), 4000);
 const BOOTF = { n: 0, real: 0, xr: 0, pre: 0, lite: 0, xs: 0, xa: [], xl: 0, last: 0 };   // v1.10.1 boot log: frame stages
@@ -17773,6 +17782,7 @@ renderer.setAnimationLoop(() => {
   if (xr || HANDS.force) wtApply(); BOOTF.pre = performance.now(); BOOTF.wl = xr && BOOTF.lite > 0; if (BOOTF.wl && BOOTF.lite === 2) warmStart('Entering VR');
   const _wr = warmTick() && !(xr && BOOTF.lite > 0); if (xr && BOOTF.lite > 0) BOOTF.lite--; if (_wr && !BOOTF.real) bootLog('first scene frame: drawing (first draw can still link a few programs)');
   if (TITLE.on && !xr && _wr) titleShot(dt);   // v1.12.0 the title screen's shots
+  if (SYN.on) SYN.tick(rawDt);   // synty-prototype
   if (_wr) { fcTick(); zpSortFix(); renderer.render(scene, TITLE.on && !xr ? TITLE.cam : camera); } else renderer.render(WARM.sc, camera); wtRestore();
   { const tn = performance.now(); if (xr && BOOTF.xr < 300) { const k = ++BOOTF.xr, fm = tn - t0, gap = BOOTF.last ? t0 - BOOTF.last : t0 - BOOTF.xs; BOOTF.xa.push([fm, gap]);   // v1.10.1 the first XR frames: own time + the gap since the last (a stall outside our code shows as a gap)
       if (k <= 3 || ((fm > 40 || gap > 150) && BOOTF.xl++ < 25)) bootLog('XR frame ' + k + ': ' + Math.round(fm) + 'ms (logic ' + Math.round(BOOTF.pre - t0) + ', draw ' + Math.round(tn - BOOTF.pre) + '), gap ' + Math.round(gap) + 'ms' + (BOOTF.wl ? ' [lite: warm-up backdrop]' : ''), fm > 40 || gap > 150);

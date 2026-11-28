@@ -26,3 +26,6 @@ v0.58 (townsfolk and emergencies) adds no third-party assets. The townsfolk, cas
 
 ## v1.15.0
 Trees, ground cover, wildlife (deer, stag, elk, wolves, foxes, rabbits, birds) and camp props from Quaternius CC0 packs (Ultimate Nature, Ultimate Animated Animals, Survival, plus CC0 Poly Pizza rabbit / bird / crates). See `models/CREDITS.md` for the pack pages, the CC0 / QAL note, and what was changed. Packed bins: `assets/world/veg.bin`, `assets/animals/fauna.bin`.
+
+## synty-prototype branch (not on main)
+POLYGON Nature by Synty Studios, from Neil's own licensed copy (POLYGON_Nature_SourceFiles_v3). The branch ships only converted, simplified copies of 59 of its models (`assets/synty/synty-nature.glb`, one packed atlas `synty-atlas.webp`) for use inside this game; the original FBX / texture source files are not in the repository. Keep the repository private. Rebuild with `tools/synty/` (needs the pack on disk). Graphics > "Synty nature" turns it on / off; the old 2D trees, bushes and rocks come back when it is off.
