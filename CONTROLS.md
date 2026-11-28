@@ -627,3 +627,22 @@ A customer stands at every job board. Walk up to them for a hello: their rep tie
 | Wrist watch | Money, MENU, survival gauges. Everything else (jobs, fuel, engine, clock, warnings) is on the clipboard's JOBS page |
 | Bushes | Settings > Graphics: Tree density and 2D density now thin and thicken the 2D bushes too |
 | Home cabin | The door faces the strip (west); the rack, crate, camera stand and yard moved with it |
+
+
+## v1.19.0 Walt's pickup truck
+
+| Do this | VR | Desktop |
+|---|---|---|
+| Get in / out | Y within about 2.5 m of the cab (it opens the door); stop first to get out | F |
+| Open / shut a door | Grab its handle (outside on foot, inside in the seat) | O (the driver's door) |
+| Ignition | Grab the key (on), twist and hold to crank; grab it again to switch off. Starts in P or N only | K (on + crank; again = off) |
+| Gear lever P R N D | Grab the knob on the right of the column and pull it down / push it up | X down (toward D), Z up (toward P) |
+| Steer | Grab the wheel rim, one or both hands (hand-over-hand works); left stick if no hand is on it | A / D |
+| Gas / brake | Right trigger / left trigger | W / S (Space brakes too) |
+| Headlights | Grab the knob left of the wheel | L |
+| Wipers | Grab the switch in the middle of the dash | J |
+| Horn | Grab the wheel hub, or B | H |
+| Recenter | X / A | Home |
+
+- A new story starts in the truck at the gates of the strip: the first GOAL is to drive it to the hangar. Old saves have it parked beside the hangar.
+- Getting out shifts it into P. It stays where you leave it (saved), engine and lights too.

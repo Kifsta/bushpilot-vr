@@ -640,7 +640,7 @@ const hyp = (a, b, c = 0) => Math.sqrt(a * a + b * b + c * c);   // v0.59 Math.h
 
 // ======================= RENDERING =======================
 // v0.35 settings (persist in localStorage 'bp_gfx'; ?gfx=shadows:2,grass:1 overrides for testing). Defaults = the v0.34 look and cost.
-const BP_VERSION = 'v1.18.0';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
+const BP_VERSION = 'v1.19.0';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
 { const e = document.getElementById('ver'); if (e) e.textContent = BP_VERSION; } window.__bpVer = BP_VERSION; bootLog('game module running ' + BP_VERSION + ' (three r' + THREE.REVISION + ')' + (/[?&]safe(=|&|$)/.test(location.search) ? ' - SAFE MODE: default graphics, no shadows / ULTRA / life / vistas / music' : ''));
 const GFX_DEF = { shadows: 0, scale: 1, fov: 1, dist: 1, trees: 1, grass: 0, clouds: 1, fog: 1, msaa: 1, hz: 90, vig: 0, turn: 0, fps: 0, tod: 11, stk: 1, tips: 1, terr: 1, dyn: 1, glove: 0, hand: 0, wt: 1, volM: 1, volMu: 0.5, volE: 1, volA: 1, volF: 1, volS: 1, volW: 1, wx: 1, forest: 0, fdens: 0, hints: 1, ground: 0, gtex: 0, cvl: 1, water: 1, dayl: 48, flure: 0, fline: 8, fdrag: 4, fbob: 0, fsink: 0, ultra: 0, sfxr: 1 };   // v0.68.1 dominant hand, volumes. v0.48 BALANCED: 90 % scale, 72 Hz, fast terrain shading, auto resolution; v0.49.1 the stick stays where you let go of it
 const GFX = Object.assign({}, GFX_DEF);
@@ -2094,6 +2094,7 @@ const ctl = ac.ctl;
 let lookYaw = 0, lookPitch = 0, needRecenter = 0, crashTimer = 0;
 let mode = 'plane';                                 // 'plane' | 'foot'
 const footRig = new THREE.Group(); scene.add(footRig);
+const TRK = { in: false, x: 0, z: 0, y: 0, yaw: 0, v: 0, st: 0, wh: 0, pit: 0, rol: 0, pv: 0, rv: 0, yv: 0, ty: 0, tp: 0, tr: 0, eng: 0, crank: 0, ign: false, rpm: 0, gear: 0, thr: 0, brk: 0, li: false, wip: false, wipA: 0, wipD: 1, horn: false, hornK: false, dr: [0, 0], drT: [0, 0], spin: 0, surf: 2, rdT: 0, hold: [null, null], hA: [0, 0], levA: 0.3, keyR: 0, crankH: false, autoC: 0, hapT: 0, bump: 0, odo: 0, wsay: 0, nr: 0, lo: -1, bo: -1, ck: -1, built: false, au: null, wF: false, wR: false, sl: false, wN: 0, sndT: 0 };   // v1.19.0 the pickup's state (the module is further down)
 const EYE = 1.6, WALK = 2.2;                          // on-foot eye height (m) and walk speed (m/s)
 let msg = '', msgT = 0, msgA = 0, msgW = -1e9;
 const msgDur = m => Math.max(3, Math.ceil(wrapText(m, 22).length / 2) * 2.6);   // v1.16.0 by wrapped pages (it was by characters: a long message lost its last pages on the wrist)   // v0.59.1 long messages stay up long enough to page through on the wrist
@@ -2577,6 +2578,7 @@ const keys = {};
 addEventListener('keydown', e => {
   keys[e.code] = true;
   if (e.repeat) return;
+  if (trkKey(e)) return;   // v1.19.0 the truck (in it: K F Z X L J O H + driving keys; by it: O the door)
   if (storyKey(e)) return;   // v0.99 E a logbook / photo, 1-3 at Walt's board
   if (dropKey(e)) return;   // v0.54 G: push a bundle out of the open door
   if (fishKey(e)) return;   // v0.97 Q rod, - / = drag, E net / keep / buy
@@ -4544,6 +4546,7 @@ function updateDay(dt) {   // sun / sky / fog colour from the time of day, plus 
   PL.intensity = 0; SL.intensity = 0;
   if (mode === 'plane' && dark > 0.3 && ENG.master && LIGHTS.pl) { plane.localToWorld(PL.position.set(0, 0.25 + CK.y, -0.42 + CK.z)); PL.distance = 1.3; PL.color.setHex(0xff9a50); PL.intensity = 0.35 * dark * (0.1 + 0.9 * LIGHTS.plv); }
   if (LIGHTS.landing) { plane.localToWorld(SL.position.set(-1.6, 0.80, -0.42)); plane.localToWorld(SL.target.position.set(-1.6, -2.2, -30)); SL.distance = UPG.light ? 450 : 260; SL.angle = UPG.light ? 0.42 : 0.3; SL.intensity = UPG.light ? 520 : 220; }
+  TRK.sl = false; if (!SL.intensity && TRK.built && TRK.li) trkBeam(dark);   // v1.19.0 the truck's headlights (the same spot light: no new program)
   SL.target.updateMatrixWorld();
   PL.visible = PL.intensity > 0; SL.visible = SL.intensity > 0;   // v0.47: both programs are compiled at load (LIGHTS_WARM), so switching is hitch-free
 }
@@ -12048,7 +12051,7 @@ function cubParked() { return !ac.crashed && acGS() < 1 && ac.gs.some(g => g.Fn 
 function saveGame(why) {
   if (NOSAVE || SV.off) return false;
   if (cubParked()) SV.cub = { p: ac.pos.map(r3), q: ac.q.map(v => Math.round(v * 1e6) / 1e6) };
-  const d = { v: 55, nl: r3(window.NLM ? NLM.lv : 0), gd: gdSave(), surv: survSave(), cab: cabSave(), at: Date.now(), cub: SV.cub, fuel: r3(fuel), h: r3(DAY.h), mode, foot: mode === 'foot' ? [r3(footRig.position.x), r3(footRig.position.z), r3(bodyYaw)] : null, dlv: dlvSave(), hunt: huntSave(), h2: h2Save(), eco: ecoSave(), upg: upgSave(), emg: emgSave(), fish: fishSave(), pack: packSave(), swg: swgSave(), story: storySave(), disc: discSave(), fog: fogSave(), wx: wxSave(), meta: { cash: DLV.cash, loc: svPlace() } };   // v0.68.1 meta: the menu's slot label. v0.55 + the Cub's log (tach, oil, wear, damage)   // v0.53 + rifle / ammo   // v0.50: + wallet, jobs, cargo, straps
+  const d = { v: 55, nl: r3(window.NLM ? NLM.lv : 0), gd: gdSave(), surv: survSave(), cab: cabSave(), at: Date.now(), cub: SV.cub, fuel: r3(fuel), h: r3(DAY.h), mode, foot: mode === 'foot' ? [r3(footRig.position.x), r3(footRig.position.z), r3(bodyYaw)] : null, dlv: dlvSave(), hunt: huntSave(), h2: h2Save(), eco: ecoSave(), upg: upgSave(), emg: emgSave(), fish: fishSave(), pack: packSave(), swg: swgSave(), story: storySave(), trk: trkSave(), disc: discSave(), fog: fogSave(), wx: wxSave(), meta: { cash: DLV.cash, loc: svPlace() } };   // v0.68.1 meta: the menu's slot label. v0.55 + the Cub's log (tach, oil, wear, damage)   // v0.53 + rifle / ammo   // v0.50: + wallet, jobs, cargo, straps
   try { localStorage.setItem(SAVE_KEY, JSON.stringify(d)); } catch (e) { return false; }
   SV.last = Date.now(); SV.n++; SV.why = why || ''; SV.t = 30; SV.due = -1; return true;
 }
@@ -12070,9 +12073,363 @@ function gameLoad() {
   if (d.mode === 'foot' && Array.isArray(d.foot) && d.foot.slice(0, 3).every(isFinite)) { exitPlane(); const [x, z, yaw] = d.foot; footRig.position.set(x, groundY(x, z) + EYE, z); footRig.rotation.set(0, yaw, 0); bodyYaw = yaw; }   // v0.59.1 checked (a damaged foot entry stopped the page loading)
   upgLoad(d.upg || null);   // v0.57 before the cargo (the pod)
   emgLoad(d.emg || null);   // v0.58 before the cargo (a patient aboard finds their job)
-  wxLoad(d.wx || null); dlvLoad(d.v >= 50 ? d.dlv : null); huntLoad(d.v >= 53 ? d.hunt : null); h2Load(d.h2 || null); fishLoad(d.fish || null); packLoad(d.pack || null); swgLoad(d.swg || null); gdLoad(d.gd || null); if (window.NLM) { NLM.lv = clamp(+d.nl || 0, 0, 1); if (NLM.lv > 0.02) NLM.last = NLM.lv; } survLoad(d.surv || null); cabLoad(d.cab || null); storyLoad(d.story || null); discLoad(d.disc || null); fogLoad(d.fog || null); dropLoadFix(); ecoLoad(d.v >= 55 ? d.eco : null); emgFix();   // v0.54 a save taken mid-drop: the last bundle down settles the job
+  wxLoad(d.wx || null); dlvLoad(d.v >= 50 ? d.dlv : null); huntLoad(d.v >= 53 ? d.hunt : null); h2Load(d.h2 || null); fishLoad(d.fish || null); packLoad(d.pack || null); swgLoad(d.swg || null); gdLoad(d.gd || null); if (window.NLM) { NLM.lv = clamp(+d.nl || 0, 0, 1); if (NLM.lv > 0.02) NLM.last = NLM.lv; } survLoad(d.surv || null); cabLoad(d.cab || null); storyLoad(d.story || null); trkLoad(d.trk || null); discLoad(d.disc || null); fogLoad(d.fog || null); dropLoadFix(); ecoLoad(d.v >= 55 ? d.eco : null); emgFix();   // v0.54 a save taken mid-drop: the last bundle down settles the job
   msgT = 0; SV.last = d.at || 0; return true;
 }
+// ===================== v1.19.0 WALT'S PICKUP: a drivable truck, and the story now starts in it at the gates of the strip =====================
+// Its own physics path (trkPhys): a bicycle-model truck on the terrain (four wheel contacts -> ride height, pitch, roll on a spring), engine + 4-speed auto feel,
+// brakes, rolling resistance by surface (road / mowed strip / grass), a lateral grip limit, and solid fences / walls / strip trees / the parked Cub. The Cub's
+// stepAircraft is not touched. You stay in 'foot' mode while you drive (TRK.in): the headset rig (xrOffset) rides on TRK.rig in the driver's seat.
+// VR: grab the wheel (one or both hands), twist the key, pull the column lever (P R N D), right trigger gas, left trigger brake, B horn (or the hub), grab the
+// light knob / wiper switch, grab a door handle to open or shut it, Y gets in / out. Desktop: F in / out, K key, Z / X lever up / down, W / S gas / brake,
+// A / D steer, L lights, J wipers, H horn, O driver's door. Saved in the game save (trk); a save without it has the truck parked beside the hangar.
+const TRK_START = { x: 131, z: -16.9, yaw: 1.43 };   // outside the gate, nose to the strip (yaw +pi/2 faces -x)
+const TRK_PARK = { x: HANGAR.x + 1.5, z: HANGAR.z + 10.2, yaw: -Math.PI / 2 };   // beside the hangar's south wall, nose to the strip
+const TK = { WB: 3.4, TR: 1.66, R: 0.4, STEER: 0.6, WMAX: 7.6, CRANK: 0.8, VMAX: 36, VREV: 7, ACC: 3.7, RACC: 2.4, BRK: 8.5, HUB: 0.065, RIM: 0.19, CIRC: [-1.75, 0, 1.75], CR: 0.98,
+  GA: [0.3, 0.1, -0.1, -0.3], GN: ['P', 'R', 'N', 'D'], ARR: GV3(HANGAR.x + 10.5, 0, HANGAR.z), ARR_R: 7.5, BAND: [0, 6, 13, 21, 99] };
+const TRKG = new THREE.Group(); TRKG.rotation.order = 'YXZ'; scene.add(TRKG); TRK.g = TRKG;
+const TRK_RIG = new THREE.Group(); TRK_RIG.position.set(-0.4, 1.62, 0.1); TRKG.add(TRK_RIG); TRK.rig = TRK_RIG;
+const _tkA = new THREE.Vector3(), _tkB = new THREE.Vector3(), _tkC = new THREE.Vector3(), _tkQ = new THREE.Quaternion(), _tkP = { x: 0, z: 0 }, _tkCq = new THREE.Quaternion();
+const TRK_LENS = new THREE.MeshBasicMaterial({ color: 0x8a8a7a }), TRK_TAIL = new THREE.MeshBasicMaterial({ color: 0x5a0a0a });
+{ const BODY = 0x5b7d8f, TRIM = 0xd6d6cc, DK = 0x1b1b1b, CH = 0x2a2a2a, IN = 0x4a4036, SEAT = 0x6e4c30, PAD = 0x2a2622;
+  const P = [], b = (w, h, d, x, y, z, c, rx = 0, ry = 0, rz = 0) => P.push(['b', w, h, d, x, y, z, c, rx, ry, rz]), cy = (r, l, x, y, z, c, rx = 0, ry = 0, rz = 0, sg = 10) => P.push(['c', r, l, sg, x, y, z, c, rx, ry, rz]);
+  for (const sx of [-1, 1]) b(0.12, 0.16, 5.0, sx * 0.5, 0.52, 0, CH);   // frame rails
+  b(1.86, 0.06, 1.4, 0, 0.68, -0.32, IN);   // cab floor
+  b(1.8, 0.12, 1.65, 0, 1.16, -1.82, BODY);   // hood
+  b(1.7, 0.42, 0.06, 0, 0.95, -2.66, DK); for (let k = 0; k < 5; k++) b(1.5, 0.03, 0.07, 0, 0.8 + k * 0.08, -2.67, TRIM);   // grille
+  for (const sx of [-1, 1]) { b(0.24, 0.32, 1.75, sx * 0.88, 1.01, -1.82, BODY); b(0.24, 0.32, 0.32, sx * 0.88, 0.7, -2.5, BODY); b(0.24, 0.3, 0.3, sx * 0.88, 0.7, -1.1, BODY);   // front fenders
+    b(0.3, 0.2, 0.04, sx * 0.62, 1.0, -2.68, TRIM);   // headlight bezels
+    b(0.22, 0.28, 1.15, sx * 1.0, 1.0, 1.72, BODY);   // rear flares
+    b(0.25, 0.04, 1.2, sx * 1.03, 0.55, -0.35, DK);   // running boards
+    b(0.07, 0.805, 0.07, sx * 0.92, 1.575, -0.81, BODY, 0.49); b(0.07, 0.72, 0.08, sx * 0.92, 1.57, 0.28, BODY);   // A + B pillars
+    b(0.18, 0.03, 0.03, sx * 1.05, 1.42, -0.86, DK); b(0.05, 0.18, 0.12, sx * 1.16, 1.45, -0.86, DK);   // mirrors
+    b(0.08, 0.5, 2.25, sx * 0.92, 1.18, 1.5, BODY); b(0.1, 0.04, 2.25, sx * 0.92, 1.44, 1.5, TRIM);   // bed sides + caps
+    b(0.08, 0.2, 0.04, sx * 0.84, 1.2, 2.63, 0x3a0a0a); }   // tail light housings
+  b(1.96, 0.16, 0.14, 0, 0.6, -2.74, TRIM); b(1.96, 0.16, 0.14, 0, 0.62, 2.68, TRIM);   // bumpers
+  b(1.86, 0.55, 0.06, 0, 0.955, 0.32, BODY); b(1.86, 0.12, 0.06, 0, 1.87, 0.32, BODY); for (const sx of [-1, 1]) b(0.36, 0.64, 0.06, sx * 0.75, 1.55, 0.32, BODY);   // cab back wall round its window
+  b(1.86, 0.06, 0.95, 0, 1.93, -0.15, BODY); b(1.8, 0.06, 0.3, 0, 1.21, -1.05, BODY);   // roof, cowl
+  b(1.76, 0.26, 0.3, 0, 1.08, -0.84, IN); b(1.76, 0.04, 0.33, 0, 1.215, -0.82, PAD); b(0.44, 0.09, 0.12, -0.4, 1.265, -0.74, DK);   // dash, pad, cluster hood
+  b(0.2, 0.06, 0.02, 0.12, 1.03, -0.69, DK); b(0.16, 0.012, 0.01, 0.12, 1.045, -0.678, 0x6a8a5a);   // the radio
+  cy(0.035, 0.36, -0.4, 1.1, -0.6, DK, 0.98);   // steering column
+  b(1.6, 0.16, 0.55, 0, 0.92, 0.0, SEAT); b(1.6, 0.62, 0.12, 0, 1.3, 0.24, SEAT, -0.15);   // bench seat
+  b(1.8, 0.06, 2.2, 0, 0.9, 1.5, CH); b(1.84, 0.5, 0.06, 0, 1.18, 0.42, BODY); b(1.84, 0.5, 0.06, 0, 1.18, 2.62, BODY); b(1.5, 0.05, 0.02, 0, 1.3, 2.655, TRIM);   // bed, tailgate
+  b(0.32, 0.16, 0.01, 0, 0.8, 2.755, 0xe8e0c0); b(0.4, 0.02, 0.18, -0.4, 1.89, -0.58, IN); b(0.2, 0.055, 0.025, 0, 1.82, -0.6, DK);   // plate, visor, mirror
+  b(0.5, 0.18, 0.5, 0.25, 1.02, 1.0, 0x8a6a3a); b(0.35, 0.3, 0.35, -0.5, 1.08, 1.9, 0x5a6a3a);   // a crate and a jerry can in the bed
+  const gs = P.map(partGeo), m = new THREE.Mesh(mergeGeometries(gs), ITEM_VM); for (const g of gs) g.dispose(); m.castShadow = m.receiveShadow = true; TRKG.add(m); TRK.body = m;
+  // glass: single-sided panes facing OUT (like the Cub's), so you see clear from inside
+  const GL = [], pl = (w, h, x, y, z, ry, rx) => { const g = new THREE.PlaneGeometry(w, h); g.rotateY(ry); g.rotateX(rx); g.translate(x, y, z); GL.push(g); };
+  pl(1.78, 0.8, 0, 1.575, -0.81, Math.PI, 0.49); pl(1.16, 0.58, 0, 1.52, 0.355, 0, 0);
+  const gm = new THREE.Mesh(mergeGeometries(GL), glass); for (const g of GL) g.dispose(); TRKG.add(gm);
+  const LG = [], lp = (x, y, z, ry, w, h, arr) => { const g = new THREE.PlaneGeometry(w, h); g.rotateY(ry); g.translate(x, y, z); arr.push(g); }, TL = [];
+  for (const sx of [-1, 1]) { lp(sx * 0.62, 1.0, -2.705, Math.PI, 0.24, 0.15, LG); lp(sx * 0.84, 1.2, 2.655, 0, 0.065, 0.17, TL); }
+  TRK.lens = new THREE.Mesh(mergeGeometries(LG), TRK_LENS); TRK.tail = new THREE.Mesh(mergeGeometries(TL), TRK_TAIL); TRKG.add(TRK.lens, TRK.tail); }
+// moving parts
+const trkPart = (P, par, cast) => { const gs = P.map(partGeo), m = new THREE.Mesh(mergeGeometries(gs), ITEM_VM); for (const g of gs) g.dispose(); if (cast) m.castShadow = true; par.add(m); return m; };
+TRK.wheels = []; TRK.steerG = [];
+for (const [sx, lz] of [[-1, -TK.WB / 2], [1, -TK.WB / 2], [-1, TK.WB / 2], [1, TK.WB / 2]]) { const S = new THREE.Group(); S.position.set(sx * TK.TR / 2, TK.R, lz); TRKG.add(S);
+  const P = [['c', TK.R, 0.28, 14, 0, 0, 0, 0x1b1b1b, 0, 0, Math.PI / 2], ['c', 0.22, 0.29, 10, 0, 0, 0, 0xb8b8b0, 0, 0, Math.PI / 2], ['c', 0.07, 0.3, 8, 0, 0, 0, 0x6a6a66, 0, 0, Math.PI / 2]];
+  for (let k = 0; k < 5; k++) { const a = k * 1.2566; P.push(['b', 0.3, 0.035, 0.035, 0, Math.cos(a) * 0.14, Math.sin(a) * 0.14, 0x55554f]); }
+  const w = trkPart(P, S, true); TRK.wheels.push(w); if (lz < 0) TRK.steerG.push(S); }
+TRK.swg = new THREE.Group(); TRK.swg.position.set(-0.4, 1.22, -0.44); TRK.swg.rotation.x = -0.45; TRKG.add(TRK.swg);
+TRK.sw = trkPart([['r', TK.RIM, 0.017, 18, 0, 0, 0, 0x1e1e1e, -Math.PI / 2], ['b', 0.36, 0.024, 0.016, 0, 0, 0, 0x2a2a2a], ['b', 0.024, 0.18, 0.016, 0, -0.09, 0, 0x2a2a2a], ['c', 0.042, 0.04, 12, 0, 0, 0.01, 0x242424, Math.PI / 2], ['c', 0.016, 0.042, 10, 0, 0, 0.012, 0x8a1a12, Math.PI / 2]], TRK.swg);
+TRK.keyG = new THREE.Group(); TRK.keyG.position.set(-0.27, 1.1, -0.62); TRK.keyG.rotation.y = 0.5; TRKG.add(TRK.keyG);
+trkPart([['c', 0.02, 0.012, 10, 0, 0, -0.003, 0x8a8a84, Math.PI / 2]], TRK.keyG); TRK.key = trkPart([['b', 0.008, 0.012, 0.03, 0, 0, 0.012, 0xc8b060], ['b', 0.03, 0.022, 0.006, 0, 0, 0.03, 0xc8b060]], TRK.keyG);
+TRK.levG = new THREE.Group(); TRK.levG.position.set(-0.32, 1.17, -0.5); TRKG.add(TRK.levG);
+trkPart([['b', 0.22, 0.016, 0.016, 0.11, 0, 0, 0x8a8a8a], ['d', 0.022, 1, 1, 0.225, 0, 0, 0x1a1a1a]], TRK.levG); TRK.levK = new THREE.Object3D(); TRK.levK.position.set(0.225, 0, 0); TRK.levG.add(TRK.levK);
+TRK.knob = new THREE.Group(); TRK.knob.position.set(-0.8, 1.12, -0.685); TRKG.add(TRK.knob); trkPart([['c', 0.018, 0.03, 10, 0, 0, 0.0, 0xd8d0b0, Math.PI / 2], ['c', 0.006, 0.03, 6, 0, 0, -0.02, 0x8a8a8a, Math.PI / 2]], TRK.knob);
+TRK.wsw = new THREE.Group(); TRK.wsw.position.set(-0.02, 1.12, -0.685); TRKG.add(TRK.wsw); trkPart([['b', 0.01, 0.04, 0.012, 0, 0.012, 0.006, 0xd8d0b0]], TRK.wsw); trkPart([['b', 0.04, 0.04, 0.01, -0.02, 1.12, -0.69, 0x2a2a2a]], TRKG).position.x = 0.02;
+TRK.ped = []; for (const [x, y] of [[-0.48, 0.86], [-0.24, 0.82]]) { const G = new THREE.Group(); G.position.set(x, y + 0.24, -0.86); TRKG.add(G); trkPart([['b', 0.02, 0.26, 0.02, 0, -0.13, 0, 0x3a3a3a], ['b', x < -0.4 ? 0.1 : 0.06, 0.08, 0.02, 0, -0.26, 0.012, 0x222222]], G); TRK.ped.push(G); }
+TRK.wipG = []; for (const x of [-0.42, 0.22]) { const G = new THREE.Group(); G.position.set(x, 1.24, -0.985); G.rotation.x = 0.49; TRKG.add(G); const W = new THREE.Group(); G.add(W); trkPart([['b', 0.012, 0.5, 0.008, 0, 0.25, -0.012, 0x161616]], W); TRK.wipG.push(W); }
+// the gauge cluster: a canvas (the dial, P R N D, the lamps) redrawn only when something on it changes; the needle is a mesh
+TRK.cc = document.createElement('canvas'); TRK.cc.width = 256; TRK.cc.height = 128; TRK.ct = new THREE.CanvasTexture(TRK.cc); TRK.ct.colorSpace = THREE.SRGBColorSpace; TRK.ct.generateMipmaps = false; TRK.ct.minFilter = THREE.LinearFilter;
+{ const m = new THREE.Mesh(new THREE.PlaneGeometry(0.4, 0.2), new THREE.MeshBasicMaterial({ map: TRK.ct })); m.position.set(-0.4, 1.17, -0.68); m.rotation.x = -0.25; TRKG.add(m); TRK.clu = m;
+  TRK.ndl = new THREE.Group(); TRK.ndl.position.set(-0.4 - 0.075, 1.172, -0.676); TRK.ndl.rotation.x = -0.25; TRKG.add(TRK.ndl); trkPart([['b', 0.055, 0.004, 0.003, 0.024, 0, 0, 0xe86a20]], TRK.ndl).position.z = 0.002; }
+function trkClu() { const x = TRK.cc.getContext('2d'), W = 256, H = 128; x.fillStyle = '#0e0f10'; x.fillRect(0, 0, W, H);
+  const cx = 64, cy = 66, R = 50; x.strokeStyle = '#d8d0b8'; x.fillStyle = '#d8d0b8'; x.lineWidth = 2; x.textAlign = 'center'; x.textBaseline = 'middle'; x.font = 'bold 11px sans-serif';
+  for (let i = 0; i <= 8; i++) { const a = 3.93 - i / 8 * 4.71, c = Math.cos(a), s = Math.sin(a); x.beginPath(); x.moveTo(cx + c * R, cy - s * R); x.lineTo(cx + c * (R - 8), cy - s * (R - 8)); x.stroke(); x.fillText(String(i * 10), cx + c * (R - 18), cy - s * (R - 18)); }
+  x.font = '9px sans-serif'; x.fillText('MPH', cx, cy + 26);
+  x.font = 'bold 20px sans-serif'; for (let i = 0; i < 4; i++) { const on = TRK.gear === i; x.fillStyle = on ? '#ffb030' : '#5a5650'; x.fillText(TK.GN[i], 150 + i * 24, 46); }
+  x.font = 'bold 10px sans-serif'; x.fillStyle = TRK.ign && TRK.eng !== 2 ? '#e03020' : '#3a2a28'; x.fillText('OIL', 150, 86); x.fillStyle = TRK.ign && TRK.eng !== 2 ? '#e0a020' : '#3a3428'; x.fillText('BATT', 182, 86);
+  x.fillStyle = TRK.li ? '#40a0ff' : '#28303a'; x.fillText('LIGHTS', 222, 86); x.fillStyle = '#d8d0b8'; x.fillText('FUEL', 150, 108); x.fillStyle = '#c8b060'; x.fillRect(172, 103, 60, 8); x.fillStyle = '#0e0f10'; x.fillRect(222, 104, 9, 6);
+  TRK.ct.needsUpdate = true; TRK.ck = TRK.gear + (TRK.ign ? 8 : 0) + (TRK.eng === 2 ? 16 : 0) + (TRK.li ? 32 : 0); }
+trkClu();
+// doors (hinged at the front edge, 1.15 rad open): outside + inside handles are grab points
+TRK.door = []; TRK.dO = []; TRK.dI = [];
+for (const sx of [-1, 1]) { const G = new THREE.Group(); G.position.set(sx * 0.955, 0, -0.98); TRKG.add(G); const o = sx;
+  trkPart([['b', 0.07, 0.58, 1.22, 0, 0.97, 0.61, 0x5b7d8f], ['b', 0.05, 0.05, 0.85, 0, 1.9, 0.79, 0x5b7d8f], ['b', 0.05, 0.66, 0.05, 0, 1.58, 1.2, 0x5b7d8f], ['b', 0.02, 0.56, 1.18, -o * 0.045, 0.97, 0.61, 0x4a4036],
+    ['b', 0.03, 0.04, 0.16, o * 0.05, 1.18, 1.0, 0xd6d6cc], ['b', 0.03, 0.035, 0.12, -o * 0.065, 1.12, 0.85, 0xd6d6cc], ['b', 0.08, 0.05, 0.4, -o * 0.075, 1.02, 0.66, 0x4a4036]], G, true);
+  const gg = new THREE.BufferGeometry(), v = [0.04, 1.27, 0, 1.18, 1.27, 0, 1.18, 1.88, 0, 0.38, 1.88];   // the window: a trapezoid under the A pillar's slope, facing out
+  const pos = [], tri = [0, 1, 2, 0, 2, 3]; for (const i of (o > 0 ? [0, 2, 1, 0, 3, 2] : tri)) pos.push(o * 0.01, v[i * 3 + 1], v[i * 3]);
+  gg.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); gg.computeVertexNormals(); const gw = new THREE.Mesh(gg, glass); G.add(gw);
+  const ho = new THREE.Object3D(); ho.position.set(o * 0.08, 1.18, 1.0); G.add(ho); const hi = new THREE.Object3D(); hi.position.set(-o * 0.09, 1.12, 0.85); G.add(hi);
+  TRK.door.push(G); TRK.dO.push(ho); TRK.dI.push(hi); }
+TRKG.traverse(o => { o.userData.noBatch = true; o.userData.noCast = !o.castShadow; });
+// ---- the gate: two posts, a sign on a beam, the gates swung open, a three-rail fence each way; the fence + posts are solid ----
+const TRK_GATE = { x: 112, z: -19.6, w: 4.4 };
+{ const P = [], X = TRK_GATE.x, Z = TRK_GATE.z, W = TRK_GATE.w, gy = (x, z) => groundY(x, z), WD = 0x6b4a2a, WL = 0x8a6a44, GR = 0x9a9a92;
+  const post = (x, z, h, r) => P.push(['c', r, h, 7, x, gy(x, z) + h / 2 - 0.2, z, WD]);
+  for (const s of [-1, 1]) post(X, Z + s * W, 4.0, 0.17);
+  P.push(['b', 0.24, 0.24, W * 2 + 0.8, X, gy(X, Z) + 3.7, Z, WD], ['b', 0.12, 0.9, 3.6, X + 0.0, gy(X, Z) + 3.05, Z, 0x4a3018]);   // the beam + the sign board's back
+  for (const s of [-1, 1]) { const hx = X, hz = Z + s * (W - 0.2), L = 3.9, y0 = gy(hx, hz);   // each gate leaf swung in (toward the strip)
+    for (const yy of [0.35, 0.8, 1.25]) P.push(['b', L, 0.07, 0.06, hx - Math.cos(0.35) * L / 2, y0 + yy, hz + s * Math.sin(0.35) * L / 2, GR, 0, s * 0.35, 0]);
+    P.push(['b', 0.07, 1.1, 0.07, hx - Math.cos(0.35) * L, y0 + 0.8, hz + s * Math.sin(0.35) * L, GR]); }
+  const fence = (z0, z1) => { const n = Math.max(1, Math.round(Math.abs(z1 - z0) / 3)); for (let i = 0; i <= n; i++) { const z = z0 + (z1 - z0) * i / n; post(X, z, 1.6, 0.08); }
+    for (let i = 0; i < n; i++) { const za = z0 + (z1 - z0) * i / n, zb = z0 + (z1 - z0) * (i + 1) / n, ya = gy(X, za), yb = gy(X, zb), L = Math.abs(zb - za), tl = Math.atan2(yb - ya, zb - za);
+      for (const yy of [0.45, 0.85, 1.25]) P.push(['b', 0.05, 0.09, L, X, (ya + yb) / 2 + yy, (za + zb) / 2, WL, -tl, 0, 0]); }
+    SOLID_SEGS.push([X, z0, X, z1]); };
+  fence(Z + W, Z + 64); fence(Z - W, Z - 64);
+  for (const s of [-1, 1]) SOLID_SEGS.push([X - 0.2, Z + s * W, X + 0.2, Z + s * W]);
+  P.push(['c', 0.05, 1.1, 6, X + 2.2, gy(X + 2.2, Z + W + 1.2) + 0.55, Z + W + 1.2, WD], ['b', 0.45, 0.26, 0.24, X + 2.2, gy(X + 2.2, Z + W + 1.2) + 1.2, Z + W + 1.2, 0x4a5a6a]);   // a mailbox
+  const gs = P.map(partGeo), m = new THREE.Mesh(mergeGeometries(gs), ITEM_VM); for (const g of gs) g.dispose(); m.castShadow = m.receiveShadow = true; scene.add(m); TRK_GATE.m = m;
+  const c = document.createElement('canvas'); c.width = 512; c.height = 128; const x = c.getContext('2d'); x.fillStyle = '#5a3a1e'; x.fillRect(0, 0, 512, 128); x.strokeStyle = '#3a2410'; x.lineWidth = 8; x.strokeRect(4, 4, 504, 120);
+  for (let i = 0; i < 6; i++) { x.fillStyle = 'rgba(30,18,6,0.25)'; x.fillRect(8, 16 + i * 19, 496, 2); }
+  x.fillStyle = '#efe6cc'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.font = 'bold 46px serif'; x.fillText("WALT'S STRIP", 256, 50); x.font = 'bold 22px serif'; x.fillText('HOME VALLEY AIR SERVICE  -  EST. 1961', 256, 96);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; const sm = new THREE.Mesh(new THREE.PlaneGeometry(3.5, 0.86), new THREE.MeshBasicMaterial({ map: t }));
+  sm.position.set(X + 0.065, gy(X, Z) + 3.05, Z); sm.rotation.y = Math.PI / 2; scene.add(sm); TRK_GATE.sign = sm; }
+// ---- the road + tree look-ups for the physics (built on the first tick: the world's tree clearing has run by then) ----
+const TRK_RD = { seg: null, grid: null, tg: null };
+function trkGrids() { const S = [], G = new Map(), add = (x0, z0, x1, z1) => { const i = S.length; S.push(x0, z0, x1, z1); const a = Math.floor(Math.min(x0, x1) / 100), b = Math.floor(Math.max(x0, x1) / 100), c = Math.floor(Math.min(z0, z1) / 100), d = Math.floor(Math.max(z0, z1) / 100);
+    for (let ix = a - 1; ix <= b + 1; ix++) for (let iz = c - 1; iz <= d + 1; iz++) { const k = ix * 4096 + iz; let L = G.get(k); if (!L) G.set(k, L = []); L.push(i); } };
+  for (const R of ROADS) for (let i = 1; i < R.length; i++) add(R[i - 1][0], R[i - 1][1], R[i][0], R[i][1]);
+  if (typeof ROADS2 !== 'undefined') for (const R of ROADS2) for (let i = 1; i < R.p.length; i++) add(R.p[i - 1][0], R.p[i - 1][1], R.p[i][0], R.p[i][1]);
+  TRK_RD.seg = new Float64Array(S); TRK_RD.grid = G; const T = new Map(); trkSolidGrid();
+  for (let i = 0; i < TREES.length; i++) { const t = TREES[i]; const k = Math.floor(t[0] / 20) * 4096 + Math.floor(t[2] / 20); let L = T.get(k); if (!L) T.set(k, L = []); L.push(i); } TRK_RD.tg = T; }
+function trkSolidGrid() { const S = [], G = new Map(), add = (x0, z0, x1, z1, e) => { const i = S.length; S.push(x0, z0, x1, z1, e); const a = Math.floor(Math.min(x0, x1) / 50), b = Math.floor(Math.max(x0, x1) / 50), c = Math.floor(Math.min(z0, z1) / 50), d = Math.floor(Math.max(z0, z1) / 50);
+    for (let ix = a; ix <= b; ix++) for (let iz = c; iz <= d; iz++) { const k = ix * 4096 + iz; let L = G.get(k); if (!L) G.set(k, L = []); L.push(i); } };
+  for (const g of SOLID_SEGS) add(g[0], g[1], g[2], g[3], 0.05);
+  for (const T of TOWNS) for (const b of T.bld) for (const q of b.segs) add(q[0], q[1], q[2], q[3], 0.08);
+  TRK_RD.ss = new Float64Array(S); TRK_RD.sg = G; TRK_RD.nss = SOLID_SEGS.length; TRK_RD.sm = new Uint32Array(S.length / 5 + 1); TRK_RD.stamp = 0; }
+function trkRoadD(x, z) { const L = TRK_RD.grid.get(Math.floor(x / 100) * 4096 + Math.floor(z / 100)); if (!L) return 1e9; const S = TRK_RD.seg; let best = 1e9;
+  for (let j = 0; j < L.length; j++) { const i = L[j], x0 = S[i], z0 = S[i + 1], sx = S[i + 2] - x0, sz = S[i + 3] - z0, l2 = sx * sx + sz * sz || 1; let t = ((x - x0) * sx + (z - z0) * sz) / l2; t = t < 0 ? 0 : t > 1 ? 1 : t;
+    const dx = x - x0 - sx * t, dz = z - z0 - sz * t, d = dx * dx + dz * dz; if (d < best) best = d; } return Math.sqrt(best); }
+const trkW = (lx, lz, o) => { const c = Math.cos(TRK.yaw), s = Math.sin(TRK.yaw); o.x = TRK.x + lx * c + lz * s; o.z = TRK.z - lx * s + lz * c; return o; };
+// the ground under the wheels without garbage: terrainHeight's own arithmetic on a small vertex cache (vertHc fills it), results in TKF. Near a town floor,
+// the lab, a bridge deck or a float dock (TKS.spc) it asks groundY as before.
+const TKF = new Float64Array(8), TKV_X = new Int32Array(1024).fill(-2147483648), TKV_Z = new Int32Array(1024), TKV_V = new Float64Array(1024);
+const TKS = { seg: new Float64Array(5 * 320), ns: 0, tr: new Float64Array(3 * 320), nt: 0, cx: 1e9, cz: 1e9, t: 0, spc: true };
+function trkVert(X, Z) { const h = (Math.imul(X, 73856093) ^ Math.imul(Z, 19349663)) >>> 22; if (TKV_X[h] !== X || TKV_Z[h] !== Z) { TKV_X[h] = X; TKV_Z[h] = Z; TKV_V[h] = vertHc(X, Z); } return h; }
+function trkGroundPose() { const c = Math.cos(TRK.yaw), s = Math.sin(TRK.yaw), hw = TK.TR / 2, hb = TK.WB / 2;
+  for (let k = 0; k < 4; k++) { const lx = (k & 1) ? hw : -hw, lz = k < 2 ? -hb : hb, x = TRK.x + lx * c + lz * s, z = TRK.z - lx * s + lz * c;
+    if (TKS.spc) { TKF[k] = groundY(x, z); continue; }
+    const cc = Math.abs(x) <= T_IN && Math.abs(z) <= T_IN ? T_C1 : T_C2, fx = (x + T_OUT) / cc, fz = (z + T_OUT) / cc, ix = Math.floor(fx), iz = Math.floor(fz), u = fx - ix, v = fz - iz, X = ix * cc - T_OUT, Z = iz * cc - T_OUT;
+    const ha = TKV_V[trkVert(X, Z)], hb2 = TKV_V[trkVert(X, Z + cc)], hd = TKV_V[trkVert(X + cc, Z)];
+    if (u + v <= 1) TKF[k] = ha + u * (hd - ha) + v * (hb2 - ha); else { const hc = TKV_V[trkVert(X + cc, Z + cc)]; TKF[k] = hc + (1 - u) * (hb2 - hc) + (1 - v) * (hd - hc); } }
+  TRK.ty = (TKF[0] + TKF[1] + TKF[2] + TKF[3]) / 4; TRK.tp = Math.atan2((TKF[0] + TKF[1]) - (TKF[2] + TKF[3]), 2 * TK.WB); TRK.tr = Math.atan2((TKF[1] + TKF[3]) - (TKF[0] + TKF[2]), 2 * TK.TR); }
+// what's solid near the truck, gathered every half second (or 8 m) into flat arrays: fence / wall segments, town walls, the parked Cub (two segments with their
+// own extra radius), strip trees (circles). The per-frame push then only does arithmetic on those.
+function trkCubSeg(n, ax, az, bx, bz, e) { const o = n * 5, S = TKS.seg; S[o] = ax; S[o + 1] = az; S[o + 2] = bx; S[o + 3] = bz; S[o + 4] = e; }
+function trkNearby() { if (SOLID_SEGS.length !== TRK_RD.nss) trkSolidGrid(); TKS.cx = TRK.x; TKS.cz = TRK.z; TKS.t = 0.5; const X = TRK.x, Z = TRK.z, R = 26, S = TKS.seg, Q = TRK_RD.ss, M = TRK_RD.sm; let n = 0;
+  const st = ++TRK_RD.stamp, ix0 = Math.floor((X - R) / 50), ix1 = Math.floor((X + R) / 50), iz0 = Math.floor((Z - R) / 50), iz1 = Math.floor((Z + R) / 50);
+  for (let a = ix0; a <= ix1; a++) for (let b = iz0; b <= iz1; b++) { const L = TRK_RD.sg.get(a * 4096 + b); if (!L) continue;
+    for (let j = 0; j < L.length && n < 318; j++) { const i = L[j], w = i / 5; if (M[w] === st) continue; M[w] = st; const x0 = Q[i], z0 = Q[i + 1], x1 = Q[i + 2], z1 = Q[i + 3];
+      if ((x0 > x1 ? x0 : x1) < X - R || (x0 < x1 ? x0 : x1) > X + R || (z0 > z1 ? z0 : z1) < Z - R || (z0 < z1 ? z0 : z1) > Z + R) continue; const o = n * 5; S[o] = x0; S[o + 1] = z0; S[o + 2] = x1; S[o + 3] = z1; S[o + 4] = Q[i + 4]; n++; } }
+  if (Math.abs(X - ac.pos[0]) < 30 && Math.abs(Z - ac.pos[2]) < 30) { _tkCq.set(ac.q[0], ac.q[1], ac.q[2], ac.q[3]);
+    _tkA.set(0, 0, -2.0).applyQuaternion(_tkCq); _tkB.set(0, 0, 4.9).applyQuaternion(_tkCq); trkCubSeg(n++, ac.pos[0] + _tkA.x, ac.pos[2] + _tkA.z, ac.pos[0] + _tkB.x, ac.pos[2] + _tkB.z, 0.45);
+    _tkA.set(-5.4, 0, 0.3).applyQuaternion(_tkCq); _tkB.set(5.4, 0, 0.3).applyQuaternion(_tkCq); trkCubSeg(n++, ac.pos[0] + _tkA.x, ac.pos[2] + _tkA.z, ac.pos[0] + _tkB.x, ac.pos[2] + _tkB.z, 0.4); }
+  TKS.ns = n; let m = 0; const T = TKS.tr, jx = Math.floor(X / 20), jz = Math.floor(Z / 20);
+  for (let a = jx - 2; a <= jx + 2; a++) for (let b = jz - 2; b <= jz + 2; b++) { const L = TRK_RD.tg.get(a * 4096 + b); if (!L) continue; for (let j = 0; j < L.length && m < 320; j++) { const t = TREES[L[j]]; if (Math.abs(t[0] - X) > R || Math.abs(t[2] - Z) > R) continue; T[m * 3] = t[0]; T[m * 3 + 1] = t[2]; T[m * 3 + 2] = 0.3 * t[3]; m++; } }
+  TKS.nt = m; let spc = false;
+  for (let i = 0; i < TOWNS.length; i++) { const T2 = TOWNS[i]; if (Math.abs(X - T2.x) < 160 && Math.abs(Z - T2.z) < 160) spc = true; }
+  if (LAB.rect && Math.abs(X - LAB.rect.o.x) < 60 && Math.abs(Z - LAB.rect.o.z) < 60) spc = true;
+  for (let i = 0; i < V39.DECKS.length; i++) { const D = V39.DECKS[i]; if (Math.abs(X - D.o.x) < 45 && Math.abs(Z - D.o.z) < 45) spc = true; }
+  for (let i = 0; i < FDOCK.length; i++) { const d = FDOCK[i]; if (Math.abs(X - d.x0) < d.len + 30 && Math.abs(Z - d.z0) < d.len + 30) spc = true; }
+  TKS.spc = spc; }
+function trkPushAll() {   // three circles down the body against the gathered segments + trees; the biggest push moves the truck (result in TKF[4], TKF[5])
+  const c = Math.cos(TRK.yaw), s = Math.sin(TRK.yaw), S = TKS.seg, T = TKS.tr, r = TK.CR; let mx = 0, mz = 0;
+  for (let k = 0; k < 3; k++) { const lz = TK.CIRC[k], x0 = TRK.x + lz * s, z0 = TRK.z + lz * c; let px = x0, pz = z0;
+    for (let i = 0; i < TKS.ns; i++) { const o = i * 5, ax = S[o], az = S[o + 1], sx = S[o + 2] - ax, sz = S[o + 3] - az, rr = r + S[o + 4], l2 = sx * sx + sz * sz || 1;
+      let t = ((px - ax) * sx + (pz - az) * sz) / l2; t = t < 0 ? 0 : t > 1 ? 1 : t; const dx = px - ax - sx * t, dz = pz - az - sz * t, d2 = dx * dx + dz * dz; if (d2 >= rr * rr) continue;
+      const d = Math.sqrt(d2); if (d > 1e-4) { px += dx / d * (rr - d); pz += dz / d * (rr - d); } else { const l = Math.sqrt(l2); px += sz / l * rr; pz -= sx / l * rr; } }
+    for (let i = 0; i < TKS.nt; i++) { const o = i * 3, rr = r + T[o + 2], dx = px - T[o], dz = pz - T[o + 1], d2 = dx * dx + dz * dz; if (d2 >= rr * rr) continue; const d = Math.sqrt(d2) || 1e-3; px += dx / d * (rr - d); pz += dz / d * (rr - d); }
+    const dx = px - x0, dz = pz - z0; if (dx * dx + dz * dz > mx * mx + mz * mz) { mx = dx; mz = dz; } }
+  TKF[4] = mx; TKF[5] = mz; }
+function trkPlace(x, z, yaw) { TRK.x = x; TRK.z = z; TRK.yaw = yaw; TRK.v = 0; TRK.wh = 0; TRK.st = 0; if (TRK_RD.tg) trkNearby(); else TKS.spc = true; trkGroundPose(); TRK.y = TRK.ty; TRK.pit = TRK.tp; TRK.rol = TRK.tr; TRK.yv = TRK.pv = TRK.rv = 0; trkPose(); }
+function trkPose() { TRKG.position.set(TRK.x, TRK.y, TRK.z); TRKG.rotation.set(TRK.pit, TRK.yaw, TRK.rol);
+  for (let i = 0; i < 2; i++) TRK.steerG[i].rotation.y = -TRK.st; for (let i = 0; i < 4; i++) TRK.wheels[i].rotation.x = TRK.spin;
+  TRK.sw.rotation.z = -TRK.wh; TRK.levG.rotation.z = TRK.levA; TRK.key.rotation.z = TRK.eng === 1 ? -1.05 : TRK.ign ? -0.6 : 0; TRK.knob.position.z = -0.685 + (TRK.li ? 0.016 : 0);
+  TRK.wsw.rotation.x = TRK.wip ? -0.45 : 0.25; TRK.ped[0].rotation.x = -0.4 * TRK.brk; TRK.ped[1].rotation.x = -0.35 * TRK.thr;
+  for (let i = 0; i < 2; i++) { TRK.door[i].rotation.y = (i ? 1 : -1) * 1.15 * TRK.dr[i]; TRK.wipG[i].rotation.z = -1.38 + TRK.wipA; }
+  TRK.ndl.rotation.z = 3.93 - Math.min(1, Math.abs(TRK.v) * 2.237 / 80) * 4.71;
+  TRKG.updateMatrixWorld(true); }
+TRK.levA = TK.GA[0]; trkPlace(TRK_PARK.x, TRK_PARK.z, TRK_PARK.yaw); TRK.built = true;
+// ---- controls ----
+function trkIgn(on, auto) {
+  if (!on) { if (TRK.eng === 2 || TRK.ign) { sfx('click'); if (TRK.eng === 2) say('ENGINE OFF'); } TRK.eng = 0; TRK.ign = false; TRK.crank = 0; TRK.autoC = 0; return; }
+  if (TRK.eng === 2) return; if (TRK.gear !== 0 && TRK.gear !== 2) { say('SHIFT TO P OR N TO START IT'); sfx('tick'); return; }
+  if (!TRK.ign) sfx('click'); TRK.ign = true; if (auto) TRK.autoC = TK.CRANK + 0.15; }
+function trkShift(n, g) { n = clamp(n, 0, 3); if (n === TRK.gear) return false;
+  if ((n === 1 && TRK.v > 1.5) || (n === 3 && TRK.v < -1.5) || (n === 0 && Math.abs(TRK.v) > 1)) { sfx('scrape'); if (g) HX.pulse(g, 0.5, 40, 'trk'); say('SLOW DOWN BEFORE ' + (n === 0 ? 'PARK' : n === 1 ? 'REVERSE' : 'DRIVE')); return false; }
+  TRK.gear = n; sfx('click'); if (g) HX.pulse(g, 0.4, 22, 'trk'); return true; }
+function trkLights(on) { TRK.li = on ?? !TRK.li; sfx('click'); say(TRK.li ? 'HEADLIGHTS ON' : 'HEADLIGHTS OFF'); }
+function trkWipers(on) { TRK.wip = on ?? !TRK.wip; sfx('click'); }
+function trkDoor(k) { TRK.drT[k] = TRK.drT[k] > 0.5 ? 0 : 1; if (TRK.drT[k]) sfx('door'); }
+function trkNear(r) { camera.getWorldPosition(_tkA); trkW(0, -0.35, _tkP); const d = hyp(_tkA.x - _tkP.x, _tkA.z - _tkP.z); if (d > r) return false;
+  const dp = hyp(_tkA.x - ac.pos[0], _tkA.z - ac.pos[2]); return d < dp || dp > 3; }
+function trkEnter(quiet) { if (mode !== 'foot') return; TRK_RIG.add(xrOffset); TRK.in = true; lookYaw = lookPitch = 0; needRecenter = renderer.xr.isPresenting ? 2 : 0; TRK.dr[0] = Math.max(TRK.dr[0], 0.6); TRK.drT[0] = 0;
+  for (let i = 0; i < 2; i++) TRK.hold[i] = null; if (!quiet) { sfx('door'); say(renderer.xr.isPresenting ? 'WALT\'S PICKUP - TWIST THE KEY, LEVER DOWN TO D, RIGHT TRIGGER GAS, LEFT BRAKE, Y GETS OUT' : 'WALT\'S PICKUP - K KEY, X / Z LEVER (P R N D), W / S GAS + BRAKE, A / D STEER, L LIGHTS, F GETS OUT'); } }
+function trkExit(force) {
+  if (!force && Math.abs(TRK.v) > 1.2) { say('STOP THE TRUCK FIRST (S / LEFT TRIGGER)'); return false; }
+  if (TRK.gear === 1 || TRK.gear === 3) { TRK.gear = 0; TRK.levA = TK.GA[0]; if (!force) say('SHIFTED INTO PARK'); }
+  trkW(-1.75, -0.4, _tkP); solidPush(_tkP, 0.3); footRig.position.set(_tkP.x, groundY(_tkP.x, _tkP.z) + EYE, _tkP.z); footRig.rotation.set(0, TRK.yaw, 0); bodyYaw = TRK.yaw;
+  footRig.add(xrOffset); TRK.in = false; lookYaw = lookPitch = 0; needRecenter = renderer.xr.isPresenting ? 2 : 0; TRK.dr[0] = 1; TRK.drT[0] = 0; TRK.thr = TRK.brk = 0; for (let i = 0; i < 2; i++) TRK.hold[i] = null;
+  if (!force) sfx('door'); return true; }
+function trkKey(e) {
+  if (!TRK.in) { if (e.code === 'KeyO' && mode === 'foot' && trkNear(3)) { trkDoor(0); return true; } return false; }
+  const c = e.code;
+  if (c === 'KeyK') { TRK.eng === 2 || (TRK.ign && TRK.autoC > 0) ? trkIgn(false) : trkIgn(true, true); return true; }
+  if (c === 'KeyZ') { if (trkShift(TRK.gear - 1)) say('GEAR ' + TK.GN[TRK.gear]); return true; }
+  if (c === 'KeyX') { if (trkShift(TRK.gear + 1)) say('GEAR ' + TK.GN[TRK.gear]); return true; }
+  if (c === 'KeyL') { trkLights(); return true; } if (c === 'KeyJ') { trkWipers(); return true; } if (c === 'KeyO') { trkDoor(0); return true; }
+  if (c === 'KeyF') { trkExit(); return true; }
+  if (c === 'KeyH' || c === 'KeyW' || c === 'KeyA' || c === 'KeyS' || c === 'KeyD' || c === 'Space' || c.startsWith('Arrow') || c === 'KeyC' || c === 'KeyG' || c === 'KeyR' || c === 'KeyE' || c === 'KeyQ') { if (c === 'Space' || c.startsWith('Arrow')) e.preventDefault(); return true; }
+  return false; }
+function trkDesk(dt) { const K = keys, g = K.KeyW || K.ArrowUp ? 1 : 0, br = K.KeyS || K.ArrowDown || K.Space ? 1 : 0;
+  const tu = 2.2 * dt, bu = 4 * dt, t0 = TRK.thr, b0 = TRK.brk; TRK.thr = g > t0 ? (t0 + tu > g ? g : t0 + tu) : (t0 - tu < g ? g : t0 - tu); TRK.brk = br > b0 ? (b0 + bu > br ? br : b0 + bu) : (b0 - bu < br ? br : b0 - bu); TRK.hornK = !!K.KeyH;
+  const s = (K.KeyD || K.ArrowRight ? 1 : 0) - (K.KeyA || K.ArrowLeft ? 1 : 0), tg = s * TK.WMAX / (1 + Math.abs(TRK.v) / 12);
+  const wu = (s ? 8 : 10) * dt, w0 = TRK.wh; TRK.wh = tg > w0 ? (w0 + wu > tg ? tg : w0 + wu) : (w0 - wu < tg ? tg : w0 - wu); }
+const trkWrap = a => a > Math.PI ? a - 2 * Math.PI : a < -Math.PI ? a + 2 * Math.PI : a;
+function trkRoll(g) { _tkA.setFromMatrixColumn(g.matrixWorld, 0); _tkQ.copy(TRKG.quaternion).invert(); _tkA.applyQuaternion(_tkQ); return Math.atan2(_tkA.y, _tkA.x); }
+function trkGrab(g, i) { g.updateMatrixWorld(true); g.getWorldPosition(_tkA);
+  for (let k = 0; k < 2; k++) { TRK.dI[k].getWorldPosition(_tkB); if (_tkA.distanceTo(_tkB) < 0.1) { trkDoor(k); HX.pulse(g, 0.3, 18, 'trk'); return true; } }
+  TRK.key.getWorldPosition(_tkB); if (_tkA.distanceTo(_tkB) < 0.075) { if (TRK.eng === 2) trkIgn(false); else { trkIgn(true); TRK.hold[i] = 'key'; TRK.keyR = trkRoll(g); } HX.pulse(g, 0.3, 15, 'trk'); return true; }
+  TRK.knob.getWorldPosition(_tkB); if (_tkA.distanceTo(_tkB) < 0.065) { trkLights(); HX.pulse(g, 0.3, 15, 'trk'); return true; }
+  TRK.wsw.getWorldPosition(_tkB); if (_tkA.distanceTo(_tkB) < 0.06) { trkWipers(); HX.pulse(g, 0.3, 15, 'trk'); return true; }
+  TRK.levK.getWorldPosition(_tkB); if (_tkA.distanceTo(_tkB) < 0.08) { TRK.hold[i] = 'lev'; HX.pulse(g, 0.25, 15, 'trk'); return true; }
+  TRK.swg.worldToLocal(_tkB.copy(_tkA)); const r = Math.sqrt(_tkB.x * _tkB.x + _tkB.y * _tkB.y);
+  if (Math.abs(_tkB.z) < 0.09) { if (r < TK.HUB) { TRK.hold[i] = 'hub'; return true; } if (Math.abs(r - TK.RIM) < 0.075) { TRK.hold[i] = 'wh'; TRK.hA[i] = Math.atan2(_tkB.y, _tkB.x); HX.pulse(g, 0.2, 12, 'trk'); return true; } }
+  return false; }
+function trkRelease(i) { if (TRK.hold[i] === 'lev') TRK.levA = TK.GA[TRK.gear]; TRK.hold[i] = null; }
+function trkHands(dt) { let da = 0, n = 0;
+  for (let i = 0; i < 2; i++) { const h = TRK.hold[i]; if (!h) continue; const g = grips[i]; g.updateMatrixWorld(true); g.getWorldPosition(_tkA);
+    if (h === 'wh') { TRK.swg.worldToLocal(_tkB.copy(_tkA)); const r = Math.sqrt(_tkB.x * _tkB.x + _tkB.y * _tkB.y); if (r > 0.42 || Math.abs(_tkB.z) > 0.3) { TRK.hold[i] = null; continue; }
+      const a = Math.atan2(_tkB.y, _tkB.x); da += trkWrap(a - TRK.hA[i]); TRK.hA[i] = a; n++; }
+    else if (h === 'key') { const tw = Math.abs(trkWrap(trkRoll(g) - TRK.keyR)), tv = g.userData.src?.gamepad?.buttons[0]?.value || 0; TRK.crankH = tw > 0.45 || tv > 0.6; }
+    else if (h === 'lev') { TRK.levG.parent.worldToLocal(_tkB.copy(_tkA)); const ang = clamp(Math.atan2(_tkB.y - TRK.levG.position.y, _tkB.x - TRK.levG.position.x), -0.36, 0.36); TRK.levA = ang;
+      let best = 0, bd = 9; for (let k = 0; k < 4; k++) { const d = Math.abs(TK.GA[k] - ang); if (d < bd) { bd = d; best = k; } } if (best !== TRK.gear && bd < 0.07) trkShift(best, g); } }
+  if (n) TRK.wh = clamp(TRK.wh - da / n, -TK.WMAX, TK.WMAX); return n; }
+function trkXR(dt) { let lx = 0; TRK.thr = 0; TRK.brk = 0; TRK.hornK = false; TRK.crankH = false;
+  for (let i = 0; i < 2; i++) { const g = grips[i], src = g.userData.src; if (!src || !src.gamepad) continue;
+    const gp = src.gamepad, h = src.handedness, sq = !!gp.buttons[1]?.pressed, tv = gp.buttons[0] ? gp.buttons[0].value : 0;
+    if (h === 'left') { lx = gp.axes[2] || 0; TRK.brk = Math.max(TRK.brk, tv); if (pressedEdge(gp, 5, 'Y')) board(); if (pressedEdge(gp, 4, 'X')) recenter(); }
+    else { TRK.thr = Math.max(TRK.thr, tv); if (gp.buttons[5]?.pressed) TRK.hornK = true; pressedEdge(gp, 5, 'B'); if (pressedEdge(gp, 4, 'A')) recenter(); }
+    if (pressedEdge(gp, 1, h + 'sq')) { HX.ctx = g; HX.st(g).armed = true; if (!trkGrab(g, i)) handGrab(g); HX.ctx = null; }
+    if (!sq) { if (TRK.hold[i]) trkRelease(i); HX.ctx = g; handRelease(g); HX.ctx = null; } else if (TRK.hold[i] === 'hub') TRK.hornK = true; }
+  const n = trkHands(dt);
+  if (!n) { const s = Math.abs(lx) < 0.15 ? 0 : lx, tg = s * TK.WMAX / (1 + Math.abs(TRK.v) / 12); TRK.wh = approach(TRK.wh, tg, s ? 8 : (Math.abs(TRK.v) > 0.5 ? 3 + Math.abs(TRK.v) * 0.4 : 0), dt); } }
+function trkSeat() { TRK_RIG.getWorldPosition(_tkA); footRig.position.copy(_tkA); if (footRig.rotation.y !== TRK.yaw) footRig.rotation.set(0, TRK.yaw, 0); ctl.elev = ctl.ail = ctl.rud = 0; ctl.brake = 1; }
+// ---- audio: engine (a V8 note: saw + triangle under a low-pass), the starter, the horn, tyre rumble. Made once; only AudioParams move per frame ----
+function trkAudio() { const A = actx, gn = v => { const g = A.createGain(); g.gain.value = v; return g; }, fl = (t, f, q) => { const b = A.createBiquadFilter(); b.type = t; b.frequency.value = f; b.Q.value = q; return b; };
+  const U = TRK.au = {}; U.out = gn(1); U.out.connect(SND.eng);
+  U.o1 = A.createOscillator(); U.o1.type = 'sawtooth'; U.o2 = A.createOscillator(); U.o2.type = 'triangle'; U.lp = fl('lowpass', 300, 0.9); U.eg = gn(0); U.o1.connect(U.lp); U.o2.connect(gn(0.6)).connect(U.lp); U.lp.connect(U.eg).connect(U.out);
+  const r = A.createBufferSource(); r.buffer = SND.noise; r.loop = true; r.connect(fl('lowpass', 30, 0.7)).connect(gn(0.5)).connect(U.eg.gain); r.start();
+  U.so = A.createOscillator(); U.so.type = 'sawtooth'; U.so.frequency.value = 92; U.sa = gn(0.5); U.sg = gn(0); U.so.connect(fl('bandpass', 520, 1.3)).connect(U.sa).connect(U.sg).connect(U.out);
+  U.am = A.createOscillator(); U.am.frequency.value = 7.5; U.am.connect(gn(0.5)).connect(U.sa.gain);
+  U.h1 = A.createOscillator(); U.h1.type = 'square'; U.h1.frequency.value = 415; U.h2 = A.createOscillator(); U.h2.type = 'square'; U.h2.frequency.value = 523; U.hg = gn(0); const hl = fl('lowpass', 1500, 0.7); U.h1.connect(hl); U.h2.connect(hl); hl.connect(U.hg).connect(SND.fx);
+  const n = A.createBufferSource(); n.buffer = SND.noise; n.loop = true; U.rg = gn(0); U.rl = fl('lowpass', 140, 0.8); n.connect(U.rl).connect(U.rg).connect(U.out); n.start();
+  for (const o of [U.o1, U.o2, U.so, U.am, U.h1, U.h2]) o.start(); }
+const TKQ = new Int32Array(9).fill(-1);
+function trkSet(i, q, p, v, tc) { if (TKQ[i] === q) return; TKQ[i] = q; p.setTargetAtTime(v, actx.currentTime, tc); }
+function trkSound(dt) { if (!SND.ok) return; if (!TRK.au) trkAudio(); TRK.sndT -= dt; if (TRK.sndT > 0 && (TRK.horn ? 1 : 0) === (TKQ[5] > 0 ? 1 : 0)) return; TRK.sndT = 1 / 30; const U = TRK.au;
+  camera.getWorldPosition(_tkA); const dx = _tkA.x - TRK.x, dy = _tkA.y - TRK.y - 1, dz = _tkA.z - TRK.z, d2 = TRK.in ? 0 : dx * dx + dy * dy + dz * dz, att = TRK.in ? 0.55 : 1 / (1 + d2 / 40), on = TRK.eng === 2;
+  const f = on ? TRK.rpm / 15 : TRK.eng === 1 ? 17 : 20, q1 = Math.round(f); trkSet(0, q1, U.o1.frequency, Math.max(20, q1), 0.06); trkSet(1, q1, U.o2.frequency, Math.max(10, q1 / 2), 0.06);
+  const ql = Math.round((220 + TRK.rpm * 0.16 + TRK.thr * 300) / 25); trkSet(2, ql, U.lp.frequency, ql * 25, 0.1);
+  const qe = Math.round(att * (on ? 0.16 + 0.16 * TRK.thr : TRK.eng === 1 ? 0.05 : 0) * 200); trkSet(3, qe, U.eg.gain, qe / 200, on ? 0.06 : 0.12);
+  const qs = Math.round(att * (TRK.eng === 1 ? 0.28 : 0) * 400); trkSet(4, qs, U.sg.gain, qs / 400, 0.03);
+  const qh = TRK.horn ? Math.round(0.22 * Math.max(att, 0.05) * 400) : 0; trkSet(5, qh, U.hg.gain, qh / 400, 0.02);
+  const sp = Math.abs(TRK.v), qr = Math.round(att * Math.min(0.5, sp * (TRK.surf === 0 ? 0.008 : 0.02)) * 100) * 4; trkSet(6, qr, U.rg.gain, qr / 400, 0.15);
+  const qf = Math.round((90 + sp * 6) / 15); trkSet(7, qf, U.rl.frequency, qf * 15, 0.25); }
+// ---- the physics: its own path, nothing shared with the Cub's integrator ----
+function trkPhys(dt) {
+  const on = TRK.eng === 2, v = TRK.v, g = 9.81, gear = TRK.gear;
+  if ((TRK.rdT -= dt) <= 0) { TRK.rdT = 0.2; TRK.surf = trkRoadD(TRK.x, TRK.z) < 4.6 ? 0 : onStrip(TRK.x, TRK.z) ? 1 : 2; if (++TRK.wN >= 2 || Math.abs(TRK.v) > 8) { TRK.wN = 0; if (Math.abs(TRK.v) > 0.05 || TRK.thr > 0) trkWater(); else TRK.wF = TRK.wR = false; } }
+  const cr = TRK.surf === 0 ? 0.14 : TRK.surf === 1 ? 0.3 : 0.55, kd = TRK.surf === 0 ? 0.00055 : TRK.surf === 1 ? 0.0018 : 0.0034, mu = TRK.surf === 0 ? 0.85 : 0.6;
+  let a = -g * Math.sin(TRK.pit);   // the slope
+  const creep = on && TRK.thr < 0.03 && TRK.brk < 0.05 ? 0.55 : 0;
+  if (on && gear === 3) a += (TRK.thr * TK.ACC + (v < 1.6 ? creep : 0)) * (1 - clamp(v / TK.VMAX, 0, 1));
+  else if (on && gear === 1) a -= (TRK.thr * TK.RACC + (v > -1.2 ? creep : 0)) * (1 - clamp(-v / TK.VREV, 0, 1));
+  const res = cr + kd * v * v + TRK.brk * TK.BRK + (gear === 0 ? 14 : 0);
+  let nv = v + a * dt; const dv = res * dt;
+  if (Math.abs(nv) <= dv && Math.abs(a) <= res) nv = 0; else nv -= Math.sign(nv || a) * dv;
+  TRK.v = nv;
+  TRK.st = TRK.wh / TK.WMAX * TK.STEER;
+  let yr = -nv * Math.tan(TRK.st) / TK.WB; const lim = mu * g / Math.max(Math.abs(nv), 0.5); if (yr > lim) yr = lim; else if (yr < -lim) yr = -lim;
+  TRK.yaw += yr * dt; if (TRK.yaw > Math.PI) TRK.yaw -= 2 * Math.PI; else if (TRK.yaw < -Math.PI) TRK.yaw += 2 * Math.PI;
+  const px = TRK.x, pz = TRK.z, s = Math.sin(TRK.yaw), c = Math.cos(TRK.yaw);
+  TRK.x -= s * nv * dt; TRK.z -= c * nv * dt;
+  // solid things (the gathered lists) and deep water (looked for ahead every 0.2 s)
+  if ((TKS.t -= dt) <= 0 || Math.abs(TRK.x - TKS.cx) > 8 || Math.abs(TRK.z - TKS.cz) > 8) trkNearby();
+  trkPushAll(); const mx = TKF[4], mz = TKF[5];
+  if (mx || mz) { TRK.x += mx; TRK.z += mz; const l = Math.sqrt(mx * mx + mz * mz), nx = mx / l, nz = mz / l, vn = (-s * nv) * nx + (-c * nv) * nz;
+    if (vn < -0.2) { if (vn < -3) { sfx('thud'); TRK.bump = Math.min(1, -vn / 8); if (TRK.in) for (let i = 0; i < 2; i++) HX.pulse(grips[i], Math.min(1, -vn / 6), 60, 'trk'); } TRK.v *= vn < -3 ? -0.15 : 0.35; } }
+  if ((TRK.wF && nv > 0) || (TRK.wR && nv < 0)) { TRK.x = px; TRK.z = pz; TRK.v = 0; if ((TRK.wsay -= dt) <= 0) { TRK.wsay = 6; say('TOO DEEP FOR THE TRUCK'); } }
+  TRK.x = clamp(TRK.x, -5900, 5900); TRK.z = clamp(TRK.z, -5900, 5900);
+  // ride: the four wheel contacts set the target height / pitch / roll; the body follows on a damped spring (bumps you can feel, no hop)
+  trkGroundPose();
+  TRK.yv += ((TRK.ty - TRK.y) * 90 - TRK.yv * 14) * dt; TRK.y += TRK.yv * dt; if (TRK.y < TRK.ty - 0.12) { TRK.y = TRK.ty - 0.12; if (TRK.yv < 0) TRK.yv = 0; } else if (TRK.y > TRK.ty + 0.25) TRK.y = TRK.ty + 0.25;
+  TRK.pv += ((TRK.tp - TRK.pit) * 70 - TRK.pv * 13) * dt; TRK.pit += TRK.pv * dt; TRK.rv += ((TRK.tr - TRK.rol) * 70 - TRK.rv * 13) * dt; TRK.rol += TRK.rv * dt;
+  TRK.spin -= nv / TK.R * dt; if (TRK.spin < -62.83) TRK.spin += 62.83; else if (TRK.spin > 62.83) TRK.spin -= 62.83; TRK.odo += Math.abs(nv) * dt;
+  // engine
+  if (TRK.autoC > 0) { TRK.autoC -= dt; TRK.crankH = true; }
+  if (TRK.ign && TRK.crankH && TRK.eng !== 2) { TRK.eng = 1; TRK.crank += dt; if (TRK.crank > TK.CRANK) { TRK.eng = 2; TRK.crank = 0; TRK.autoC = 0; say('ENGINE RUNNING - ' + (renderer.xr.isPresenting ? 'PULL THE LEVER DOWN TO D' : 'X SHIFTS TO D')); } }
+  else if (TRK.eng === 1) { TRK.eng = 0; TRK.crank = 0; }
+  const sp = Math.abs(nv), E = TK.BAND; let gi = 0; while (sp > E[gi + 1]) gi++;
+  const fr = (sp - E[gi]) / ((gi < 3 ? E[gi + 1] : 40) - E[gi]), rt = !on ? 0 : (gear === 3 || gear === 1) ? 800 + (gear === 3 ? fr * 2300 * (0.55 + 0.45 * TRK.thr) + 500 * TRK.thr : sp * 260 + 600 * TRK.thr) : 750 + TRK.thr * 3200;
+  TRK.rpm += (rt - TRK.rpm) * Math.min(1, dt * (on ? 6 : 2));
+  if (TRK.in && TRK.surf === 2 && sp > 2 && (TRK.hapT -= dt) <= 0) { TRK.hapT = 0.12; for (let i = 0; i < 2; i++) if (TRK.hold[i] === 'wh') HX.pulse(grips[i], Math.min(0.25, 0.04 + sp * 0.012), 25, 'trk'); }
+}
+function trkDeep(x, z) { for (let i = 0; i < LAKES.length; i++) { const K = LAKES[i], dx = x - K.x, dz = z - K.z; if (dx * dx + dz * dz < K.r * K.r) return K.h - 0.2 - groundY(x, z) > 0.55; }   // waterH's lakes, inline (no boxed return)
+  if (!WATERS.at) return false; const w = WATERS.at(x, z); return w !== null && w - groundY(x, z) > 0.55; }
+function trkWater() { const s = Math.sin(TRK.yaw), c = Math.cos(TRK.yaw), L = 2.7 + Math.abs(TRK.v) * 0.25, fw = TRK.v > 0.05 || (TRK.v >= -0.05 && TRK.gear !== 1);   // only probe the way it is going
+  const x = fw ? TRK.x - s * L : TRK.x + s * L, z = fw ? TRK.z - c * L : TRK.z + c * L, deep = trkDeep(x, z);
+  if (fw) { TRK.wF = deep; TRK.wR = false; } else { TRK.wR = deep; TRK.wF = false; } }
+function trkTick(dt) {
+  if (!TRK_RD.seg) trkGrids();
+  if (TRK.in && xrOffset.parent !== TRK_RIG) TRK.in = false;   // something else took the rig (a reset, a load)
+  if (!TRK.in) { TRK.thr = 0; TRK.brk = 0; TRK.hornK = false; TRK.crankH = TRK.autoC > 0; }
+  TRK.horn = TRK.hornK && TRK.in;
+  camera.getWorldPosition(_tkC); const far = !TRK.in && hyp(_tkC.x - TRK.x, _tkC.z - TRK.z) > 400;
+  if (!far || Math.abs(TRK.v) > 0.01 || TRK.eng) trkPhys(dt);
+  for (let i = 0; i < 2; i++) { const o = TRK.dr[i], t = TRK.drT[i]; if (o !== t) { TRK.dr[i] = approach(o, t, 2.4, dt); if (TRK.dr[i] === 0 && o > 0) sfx('clunk'); } }
+  if (TRK.wip) { TRK.wipA += TRK.wipD * dt * 2.2; if (TRK.wipA > 1.3) { TRK.wipA = 1.3; TRK.wipD = -1; } else if (TRK.wipA < 0) { TRK.wipA = 0; TRK.wipD = 1; } } else if (TRK.wipA > 0) TRK.wipA = Math.max(0, TRK.wipA - dt * 2.2);
+  const ck = TRK.gear + (TRK.ign ? 8 : 0) + (TRK.eng === 2 ? 16 : 0) + (TRK.li ? 32 : 0); if (ck !== TRK.ck) trkClu();
+  if (TRK.hold[0] !== 'lev' && TRK.hold[1] !== 'lev') TRK.levA += (TK.GA[TRK.gear] - TRK.levA) * Math.min(1, dt * 12);
+  const lo = TRK.li ? 1 : 0; if (lo !== TRK.lo) { TRK.lo = lo; TRK_LENS.color.setHex(lo ? 0xfff4d6 : 0x8a8a7a); }
+  const bo = TRK.brk > 0.1 && TRK.ign ? 2 : TRK.li ? 1 : 0; if (bo !== TRK.bo) { TRK.bo = bo; TRK_TAIL.color.setHex(bo === 2 ? 0xff2a14 : bo ? 0xa01810 : 0x5a0a0a); }
+  if (!far) trkPose();
+  trkSound(dt);
+  // on foot by the truck: one hint each time you walk up to it
+  if (!TRK.in && mode === 'foot') { const d = hyp(_tkC.x - TRK.x, _tkC.z - TRK.z); if (d < 3.2 && !TRK.nr) { TRK.nr = 1; if (msgT <= 0) say('WALT\'S PICKUP - ' + (renderer.xr.isPresenting ? 'Y GETS IN (OR GRAB A DOOR HANDLE)' : 'F GETS IN, O OPENS THE DOOR')); } else if (d > 6) TRK.nr = 0; }
+  // the story's first step: drive to the hangar (the music swells and holds while you do)
+  if (STORY.on && STORY.said.tin) { MUS.sw = Math.max(MUS.sw, 7);
+    const px = TRK.in ? TRK.x : _tkC.x, pz = TRK.in ? TRK.z : _tkC.z;
+    if (hyp(px - TK.ARR.x, pz - TK.ARR.z) < TK.ARR_R) { delete STORY.said.tin; sfx('tick'); musStinger('story'); storyLog('Drove Walt\'s old pickup in from the gate to the hangar.');
+      say('WALT\'S HANGAR. PARK IT AND STEP OUT (' + (renderer.xr.isPresenting ? 'Y' : 'F') + ') - NEXT: THE BANK\'S LETTER ON YOUR CLIPBOARD'); saveSoon(); } }
+}
+function trkBeam(dark) { if (dark < 0.2) return; TRKG.localToWorld(SL.position.set(0, 1.0, -2.85)); TRKG.localToWorld(SL.target.position.set(0, -1.2, -30)); SL.distance = 95; SL.angle = 0.52; SL.penumbra = 0.5; SL.intensity = 160; TRK.sl = true; }
+function trkSave() { return { p: [r3(TRK.x), r3(TRK.z)], y: r3(TRK.yaw), i: TRK.in ? 1 : 0, g: TRK.gear, e: TRK.eng === 2 ? 1 : 0, k: TRK.ign ? 1 : 0, l: TRK.li ? 1 : 0 }; }
+function trkLoad(d) {   // null / an older save: parked beside the hangar, engine off, in P
+  if (TRK.in) trkExit(true); TRK.eng = 0; TRK.ign = false; TRK.li = false; TRK.wip = false; TRK.gear = 0; TRK.levA = TK.GA[0]; TRK.dr[0] = TRK.dr[1] = TRK.drT[0] = TRK.drT[1] = 0; TRK.autoC = 0; TRK.crank = 0; TRK.rpm = 0;
+  const ok = d && Array.isArray(d.p) && d.p.length === 2 && d.p.every(v => typeof v === 'number' && isFinite(v)) && typeof d.y === 'number' && isFinite(d.y);
+  if (!ok) { trkPlace(TRK_PARK.x, TRK_PARK.z, TRK_PARK.yaw); return; }
+  trkPlace(clamp(d.p[0], -5900, 5900), clamp(d.p[1], -5900, 5900), d.y); TRK.gear = clamp(d.g | 0, 0, 3); TRK.levA = TK.GA[TRK.gear]; TRK.li = !!d.l; TRK.ign = !!d.k || !!d.e; TRK.eng = d.e ? 2 : 0; TRK.rpm = d.e ? 750 : 0;
+  if (d.i && mode === 'foot') trkEnter(true); }
+function trkIntro() { trkLoad(null); trkPlace(TRK_START.x, TRK_START.z, TRK_START.yaw); STORY.said.tin = 1; trkEnter(true); musSwell('gate', 90);
+  storyLog('The gates of Walt\'s strip, Home valley, in Walt\'s old pickup - his keys still in it.');
+  say('THE GATES OF WALT\'S STRIP, HOME VALLEY. WALT\'S OLD PICKUP - THE KEY IS IN IT. DRIVE TO THE HANGAR: ' + (renderer.xr.isPresenting ? 'TWIST THE KEY, LEVER DOWN TO D, RIGHT TRIGGER GAS, LEFT BRAKE' : 'K STARTS IT, X SHIFTS TO D, W / S GAS + BRAKE, A / D STEER')); }
+// ---- hooks ----
+storyBegin = (o => function () { const r = o.apply(this, arguments); trkIntro(); return r; })(storyBegin);
+golPick = (o => function () { o(); if (STORY.on && STORY.said.tin && GOAL.nst === 0) { GOAL.nst = 17; GOAL.nsub = 0; } })(golPick);
+golText = (o => function (st, sub) { if (st !== 17) return o(st, sub); const G = GOAL; G.has = false; G.nm = ''; golAim(TK.ARR.x, TK.ARR.z, 'WALT\'S HANGAR, HOME STRIP');
+  G.txt = 'DRIVE WALT\'S PICKUP TO THE HANGAR'; G.hint = 'Through the gate and down the lane past the cabin, then across the strip to the big tin hangar on the far side. Desktop: K starts it, X shifts to D, W / S gas and brake, A / D steer. VR: twist the key, pull the column lever down to D, right trigger gas, left trigger brake, hands on the wheel.'; })(golText);
+board = (o => function () { if (TRK.in) return trkExit(); if (mode === 'foot' && trkNear(2.7)) return trkEnter(false); return o.apply(this, arguments); })(board);
+jump = (o => function () { if (TRK.in) return; return o.apply(this, arguments); })(jump);
+toPlane = (o => function () { if (TRK.in) { TRK.in = false; for (let i = 0; i < 2; i++) TRK.hold[i] = null; } return o.apply(this, arguments); })(toPlane);
+exitPlane = (o => function () { const r = o.apply(this, arguments); if (TRK.in && xrOffset.parent !== TRK_RIG) TRK.in = false; return r; })(exitPlane);
+updateFoot = (o => function (dt) { if (TRK.in) { trkSeat(); return; } return o(dt); })(updateFoot);
+footXR = (o => function (dt) { if (TRK.in) return trkXR(dt); return o(dt); })(footXR);
+footDesktop = (o => function (dt) { if (TRK.in) return trkDesk(dt); return o(dt); })(footDesktop);
+handGrab = (o => function (g) { if (!TRK.in && mode === 'foot') { g.getWorldPosition(_tkA); for (let k = 0; k < 2; k++) { TRK.dO[k].getWorldPosition(_tkB); if (_tkA.distanceTo(_tkB) < 0.12) { trkDoor(k); HX.pulse(g, 0.3, 18, 'trk'); return; } } } return o(g); })(handGrab);
+
 MYS_SITES.clear();   // the whole world is built now: clear trees and rocks off the strips and sites
 let SV_BAD = false;
 const SV_HAD = (() => { try { return gameLoad(); } catch (e) { SV_BAD = true; try { upgLoad(null); emgLoad(null); dlvLoad(null); huntLoad(null); ecoLoad(null); fishLoad(null); storyLoad(null); } catch (e2) { } return false; } })();   // v0.59.1 a save that can't be read starts a new game instead of a page that never loads
@@ -12733,7 +13090,7 @@ function svInPlace(fresh, story) {
   let ok = false;
   if (!fresh) { try { ok = gameLoad(); } catch (e) { ok = false; } }
   if (!ok) { fuel = FUEL_MAX; DAY.h = GFX.tod; SV.cub = null; resetAircraft(ac); ac.gdn = false;
-    try { upgLoad(null); emgLoad(null); wxLoad(null); dlvLoad(null); huntLoad(null); h2Load(null); fishLoad(null); packLoad(null); if (typeof swgLoad === 'function') swgLoad(null); gdLoad(null); if (window.NLM) NLM.lv = 0; survLoad(null); cabLoad(null); storyLoad(null); STORY.on = false; discLoad(null); fogLoad(null); dropLoadFix(); ecoLoad(null); emgFix(); } catch (e) { console.warn('svInPlace ' + e); }
+    try { upgLoad(null); emgLoad(null); wxLoad(null); dlvLoad(null); huntLoad(null); h2Load(null); fishLoad(null); packLoad(null); if (typeof swgLoad === 'function') swgLoad(null); gdLoad(null); if (window.NLM) NLM.lv = 0; survLoad(null); cabLoad(null); storyLoad(null); trkLoad(null); STORY.on = false; discLoad(null); fogLoad(null); dropLoadFix(); ecoLoad(null); emgFix(); } catch (e) { console.warn('svInPlace ' + e); }
     exitPlane(); msgT = 0; STORY.want = !!story; if (story) storyBegin(); else storyShow(); }
   SV.off = false; SV.t = 30; SV.due = -1; needRecenter = renderer.xr.isPresenting ? 2 : 0; saveGame('reset'); return true;
 }
@@ -13472,6 +13829,11 @@ void main() { vec2 q = vec2(gl_PointCoord.x * 2.0 - 1.0, 1.0 - gl_PointCoord.y *
   { const took = []; for (let k = 0; k < 900 && took.length < 6; k++) { const a = rnd() * TAU, d = rr(900, 3600), x = Math.cos(a) * d, z = Math.sin(a) * d, h = TH(x, z);
       if (h < 160 || h > 620 || h > snowAt(x, z) - 150) continue; const s = hyp(TH(x + 30, z) - TH(x - 30, z), TH(x, z + 30) - TH(x, z - 30)) / 60; if (s > 0.55) continue;
       if (took.some(q => hyp(q[0] - x, q[1] - z) < 1300) || FLK.some(q => hyp(q.x - x, q.z - z) < 900)) continue; took.push([x, z]); addFlock(x, z, h + rr(45, 70), 12 + Math.floor(rnd() * 8), 'forest'); } }
+  // v1.19.0 songbirds over the gate and the strip (seeded from hash: the life stream rnd() is not drawn, so every other flock is unchanged)
+  for (const [fx, fz, fa, fn, fA] of [[TRK_GATE.x - 10, TRK_GATE.z + 6, 16, 18, 40], [TRK_GATE.x - 70, TRK_GATE.z - 30, 22, 14, 55], [6, -60, 24, 16, 60]]) {
+    const S = { x: fx, z: fz, kind: 'grove', alt: TH(fx, fz) + fa, n: fn, ph: hash(Math.abs(fz | 0) + 7) * 100, A: fA, w1: 0.022, w2: 0.018, wb: 0.5, spread: 0.85, sc: 0, st: -999, dx: 0, dz: 0, cool: 0, birds: new Float32Array(fn * 6), dir: new Float32Array(fn * 3), fg: null };
+    for (let i = 0; i < fn; i++) { const b = S.birds, q = i * 13 + fn * 101 + (fx | 0); b[i * 6] = hash(q + 1) * TAU; b[i * 6 + 1] = 7 + 20 * hash(q + 2); b[i * 6 + 2] = -5 + 10 * hash(q + 3); b[i * 6 + 3] = hash(q + 4) * TAU; b[i * 6 + 4] = 0.85 + 0.3 * hash(q + 5); b[i * 6 + 5] = hash(q + 6); }
+    S.fg = floorGrid(fx, fz, 14); S.base = Math.max(S.alt, floorAt(S, fx, fz) + 10); FLK.push(S); }
 
   // raptors: thermals off the ridges (local high points 650-1250 m, inside the map), one or two birds each, Gordon's zone left out
   const RAP = [];
@@ -14063,7 +14425,8 @@ const BODY = (() => {
   }
   // ---- the tick: after the hands are final (updateHands), before render ----
   B.tick = dt => {
-    let tier = B.on ? (GFX.body | 0) : 0; if (DYN.lvl >= 5) tier = Math.min(tier, 1); B.tier = tier;
+    let tier = B.on && !TRK.in ? (GFX.body | 0) : 0;   // v1.19.0 no body in the truck's seat (the gloves stay)
+    if (DYN.lvl >= 5) tier = Math.min(tier, 1); B.tier = tier;
     if (tier <= 0) { if (mesh.visible) mesh.visible = false; AR[3] = AR[11] = 0; ST[13] = ST[29] = 0; Q[1] = 0; return; }
     depthQueue(); const t0 = performance.now(); if (GL[0] === 0 && GLOVE.gm[0] && gloveBind()) GL[0] = 1;
     const seat = mode === 'plane'; Q[11] = seat ? 1 : 0;
@@ -15413,7 +15776,7 @@ const WX3 = (() => {
     if (E.cranking && F[CRV] < K.CRANK_OK && !E.running) { const k = (F[CRV] - K.CRANK_MIN) / (K.CRANK_OK - K.CRANK_MIN); if (E.fireT > f0) E.fireT = f0 + (E.fireT - f0) * k; E.rpm *= 0.85 + 0.15 * k; }
   })(updateEngine);
   updateDay = (orig => function (dt) { orig(dt);   // lights need the bus: landing light / panel glow off with the master off or a flat battery, dim as the volts sag
-    if (SL.intensity > 0) { SL.intensity *= F[KL]; SL.visible = SL.intensity > 0; }
+    if (SL.intensity > 0 && !TRK.sl) { SL.intensity *= F[KL]; SL.visible = SL.intensity > 0; }   // (v1.19.0 not the truck's headlights: its own battery)
     if (mode === 'plane' && ENG.master && LIGHTS.pl && PL.intensity > 0) { PL.intensity *= F[KL]; PL.visible = PL.intensity > 0; } })(updateDay);
   panelTint = (orig => function () { if (!(ENG.master && F[KL] < 0.25)) return orig(); const p = LIGHTS.pl; LIGHTS.pl = 0; try { orig(); } finally { LIGHTS.pl = p; } })(panelTint);
   toggleLanding = (orig => function () { orig(); if (LIGHTS.landing && F[BUS] === 0) say('LANDING LIGHT ON - NO POWER (' + (ENG.master ? 'BATTERY FLAT' : 'MASTER IS OFF') + ')'); })(toggleLanding);
@@ -16045,7 +16408,7 @@ const SFXP = (() => {
     if (L.reel) { const g = FISH.crankG, w = g && FS.crOk ? Math.abs(FISH.crank - FS.cr) / Math.max(dt, 1e-3) : 0; FS.cr = FISH.crank; FS.crOk = g ? 1 : 0;   // rad/s at the handle
       const gi = Math.round(Math.min(1, w / 9) * 1024); if (gi !== L.reel.gi) { L.reel.gi = gi; L.reel.g.gain.setTargetAtTime(QT[gi], 0, 0.05); }
       if (w > 0.5) { const ri = Math.round((0.7 + Math.min(0.8, w / 20)) * 1024); if (ri !== L.reel.ri) { L.reel.ri = ri; L.reel.s.playbackRate.setTargetAtTime(QT[ri], 0, 0.05); } } }
-    if (mode === 'foot' && !FOOT.air) {   // footsteps by distance walked (stick or room scale); a jump > 1.5 m in a frame (teleport / reset) doesn't count
+    if (mode === 'foot' && !FOOT.air && !TRK.in) {   // footsteps by distance walked (stick or room scale); a jump > 1.5 m in a frame (teleport / reset) doesn't count
       const dx = _lp.x - FS.x, dz = _lp.z - FS.z, d = Math.sqrt(dx * dx + dz * dz); FS.x = _lp.x; FS.z = _lp.z;
       if (FS.ok && d < 1.5) { FS.acc += d; if (FS.acc > K.stride) { FS.acc = 0; X.step(d / Math.max(dt, 1e-3)); } } FS.ok = 1; }
     else { FS.ok = 0; FS.acc = 0.4; }
@@ -16903,6 +17266,7 @@ renderer.setAnimationLoop(() => {
     mode === 'plane' ? desktopInput(dt) : footDesktop(dt);
     camera.rotation.set(lookPitch, lookYaw, 0, 'YXZ');
   }
+  trkTick(dt);   // v1.19.0 the pickup (its own physics)
   if (mode === 'foot') updateFoot(dt);
   updateGear(dt); updateEngine(dt);
   cross.style.display = !xr && mode === 'foot' && !TITLE.on ? 'block' : 'none';
