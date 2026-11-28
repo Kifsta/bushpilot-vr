@@ -23,22 +23,28 @@ if errorlevel 1 (
 echo Starting a local server on port 8000.
 echo Leave this window open while you play. Close it, or press Ctrl+C, when you are done.
 echo.
-rem Open the game once the server has had a moment to bind.
-start "" cmd /c "timeout /t 1 /nobreak >nul & start "" http://localhost:8000/index.html"
+rem Open the game once the server answers (waits up to ~20 s).
+start "" /min powershell -NoProfile -WindowStyle Hidden -Command "for($i=0;$i -lt 40;$i++){try{$c=New-Object Net.Sockets.TcpClient('127.0.0.1',8000);$c.Close();break}catch{Start-Sleep -Milliseconds 500}}; Start-Process 'http://localhost:8000/index.html'"
 
-where py >nul 2>&1
+rem Use Python only if it really runs (the Microsoft Store "python" stub does not).
+py -c "import http.server" >nul 2>&1
 if not errorlevel 1 (
   py -m http.server 8000
-  goto :eof
+  goto :done
 )
-where python >nul 2>&1
+python -c "import http.server" >nul 2>&1
 if not errorlevel 1 (
   python -m http.server 8000
-  goto :eof
+  goto :done
 )
 
 echo Python not found - using the built-in PowerShell server.
 powershell -NoProfile -ExecutionPolicy Bypass -Command "iex ((Get-Content -LiteralPath '%~f0' -Raw) -replace '(?s)^.*# === PS ===\r?\n','')"
+
+:done
+echo.
+echo The server has stopped. If you did not close it, read the message above.
+pause
 goto :eof
 
 # === PS ===
