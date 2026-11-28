@@ -39,7 +39,7 @@ v0.50 turns it into a **bush delivery** game: take a job off a strip's job board
 Nine holds now come from Neil's Pose Lab codes, each mirrored for the other hand. What you do with each is unchanged; only how the glove sits on it changes.
 - **Rifle round:** pinched in the curled fingers, the tip ahead. Load through the gate as before.
 - **Rifle forend:** the support hand sits 33 cm down the bore (about 6 cm further toward the muzzle than v0.87), still on the wood.
-- **Binoculars (v1.18.0: bought at the Dry Fork hardware counter, $45):** same place as before (eyepieces on the thumb side), new fingers. Raise them to your eyes for the view as before.
+- **Binoculars (v1.18.0: bought at the Dry Fork hardware, $45; v1.22.0: off the rack with a price tag, paid at the bell):** same place as before (eyepieces on the thumb side), new fingers. Raise them to your eyes for the view as before.
 - **Map (v1.16.2):** one hand holds a lower corner; the free part of the sheet sags and flops a little (it flattens when you put it back). With both hands the sheet sits between them and is stretched flatter.
 - **Checklist card:** rides your hand where it sits (it no longer turns to face you). v1.16.3: it flexes slightly; your fingers' corner stays put.
 - **Logbooks, the photo, Gordon's letter (v1.16.3):** they flex gently in your hand. Bring one within 13 cm of where it lives and a yellow ghost shows; let go and it snaps home.
@@ -162,7 +162,7 @@ v0.44 latches: every window and the door are latched while shut. Squeeze the han
 | PC VR layer (v1.10.5) | On PC (Link) the game draws through the classic XRWebGLLayer (the layers API never got frames on Link); `?xrlayers` restores the layers path. Quest browser unchanged | same |
 | Rod hold + crank (v1.10.7) | VR: the rod hand uses Neil's Pose Lab hold (rodL, mirrored for the right). The crank is on the side away from the rod hand (rod left = crank right), with its knob facing out. The other hand grips the knob and circles to reel in | same |
 | Casting (v1.10.8) | VR: trigger opens the bail and holds the line; flick the rod forward and let go during or just after the flick (the peak of the flick counts; v1.11.2: a little early, or up to about 0.9 s late, still casts, and a back-cast never counts). Reel a lure in under the tip and it lifts out and reels up to the tip. Desktop unchanged | same |
-| Tackle shop price tags | Walk up to a shop counter or rod rack: each item has a card with its name and price (green when owned) |
+| Tackle shop price tags + buying (v1.22.0) | Walk up to a shop counter or rod rack: each item has a card with its name and price (green when owned). Grab or poke an item (desktop: look + **E**) to put it on the counter, then the bell to pay |
 | Z-fighting fix (v1.10.10) | Nothing to press: far ice, cloud joins, roads and tree bases no longer flicker; binoculars hide inside 10 cm of the eyes |
 | Local roads (v1.10.11) | Gravel roads to the sawmill, lodge, ranger station, Halvorsen station + East Lake; dirt 2-tracks to farms, cabins, camps and the mines; dashed / dotted on the paper map. Mountain, glacier and story sites stay fly-in |
 | Body (v1.10.12) | Your own arms, torso and legs follow the headset and gloves (IK). Settings > CONTROLS > **Body**: HANDS ONLY / ARMS / FULL (default FULL). Your head is not drawn for you; near your eyes the collar and shoulders fade out. Mirror / third person show it all | same |
@@ -314,7 +314,7 @@ Some jobs on the boards are **hunting jobs**: a lodge, the elk camp, the ranch o
 | Work the lever | Press **B** on the rifle hand (**Y** if it's your left) without letting go: it ejects the case, cocks the hammer and chambers the next round (v1.12.0: the flick no longer does) | **X** |
 | Load | Squeeze on the **cartridge pouch** at your belt (front right, within about 10 cm since v0.91.2) for a round, bring it within about **25 cm** of the loading gate on the receiver's right side and press **A** (**X** if the round is in your left hand): it slides in (v1.12.0: touching the round to the gate no longer loads it). A full tube says MAGAZINE FULL and you keep the round. Keep squeezing at the gate and the next one comes from the pouch | **Z** (one round per press) |
 | Ammo at home (v0.79.2) | None for sale: the carton on the stump by the cabin is empty. You start a new game with 20 rounds in the pouch (plus a full tube); after that, buy at Dry Fork | – |
-| Buy ammo in Dry Fork (v0.70) | The **HARDWARE** counter in the Dry Fork strip hangar: a box of 20 .44-40 for $35 from your wallet. Tap the brass bell on the counter to buy: the box lands on the counter. Grab it and the 20 rounds go into your belt pouch (60 max). Up to 3 bought boxes wait on the counter, and they are saved | **Z** at the counter: takes a waiting box, else buys one |
+| Buy ammo in Dry Fork (v0.70) | The **HARDWARE** rack in the Dry Fork strip hangar: a box of 20 .44-40 for $35 from your wallet, next to the rifle and binoculars, with a paper price tag. Grab or poke the carton (desktop: look at it and press **E**) to put it on the counter, then ring the brass bell to pay. The box lands on the counter; grab it and the 20 rounds go into your belt pouch (60 max). Up to 3 bought boxes wait on the counter, and they are saved. Ringing the empty bell still buys a box, as before | **E** at the rack stages a box, **E** on the bell pays. **Z** at the counter: takes a waiting box, else buys one |
 | Sling / put down | Let go over your shoulder, muzzle up, to sling it. Let go at a rack to rack it. Let go anywhere else and it lies on the ground | T |
 | Take it off your back (v0.71) | Reach behind or over either shoulder with either hand and squeeze grip. The zone runs from 30 cm above your eyes to 45 cm below, up to 42 cm to either side and 55 cm back; anywhere within 16 cm of the slung rifle works too. A short tick in the controller tells you you're in reach | T |
 | Binoculars | They sit in a **holster on your left hip** (v0.77.10; reach down by your left side with either hand), and in the Cub they sit in a holder by your right knee. Grab them (one hand or two) and raise them to your eyes: the 7× view comes up with the eyepieces about 12 cm in front of your eyes and stays up out to 15 cm | **V** (toggle) |
@@ -353,7 +353,7 @@ Some board offers are **airdrop jobs** (blue AIRDROP badge): people at a place w
 
 ## Fishing (v0.97)
 
-Buy a rod, reel, line and lures at a tackle shop. The **Cutler** store has the full counter and a rod rack; **Dry Fork** has a small bench. In VR, touch an item to buy it; on desktop, look at it and press **E**. The rod rides behind your right hip, the net behind your left hip, and the creel on your pack.
+Buy a rod, reel, line and lures at a tackle shop. The **Cutler** store has the full counter and a rod rack; **Dry Fork** has a small bench. Each item has a paper price tag. In VR, grab or poke an item to put it on the counter, then poke the bell to pay (grab it again to put it back). On desktop, look at an item and press **E**, then **E** on the bell. The rod rides behind your right hip, the net behind your left hip, and the creel on your pack.
 
 | | VR (Quest) | Desktop |
 |---|---|---|
@@ -627,7 +627,7 @@ A customer stands at every job board. Walk up to them for a hello: their rep tie
 
 | Do this | Where / how |
 |---|---|
-| Buy the rifle ($180) or binoculars ($45) | Dry Fork hardware counter: the plank above the bench. VR: grab the item. Desktop: look at it and press Z. The rifle is then slung on your back (T), the binoculars on your belt (V). Ammo is the bell, as before |
+| Buy the rifle ($180) or binoculars ($45) (v1.22.0) | Dry Fork hardware: on a free-standing rack on the customer side of the counter, with paper price tags (a box of ammo sits on the same rack). VR: grab or poke an item to put it on the counter, then poke the bell to pay. Desktop: look at it and press **E**, then **E** on the bell. The rifle is then slung on your back (T), the binoculars on your belt (V) |
 | Reload | Bring a round to the gate and it loads (empty action: it chambers). A / X near the gate still loads too |
 | Wrist watch | Money, MENU, survival gauges. Everything else (jobs, fuel, engine, clock, warnings) is on the clipboard's JOBS page |
 | Bushes | Settings > Graphics: Tree density and 2D density now thin and thicken the 2D bushes too |

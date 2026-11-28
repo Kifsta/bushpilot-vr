@@ -2,6 +2,21 @@
 
 Live: https://kifsta.github.io/bushpilot-vr/index.html. Regression baseline: `node physics-test.mjs | md5sum` = `eee6637ebfc2fcee37f23c2813779dd9` from v0.20 on (v0.11–v0.19: `f1e1607f804bf17b4877bad1bf04feaa`). Versions after v0.20 must not change it (v1.18.0 changes it on purpose, once: `0a80428d014f1e1d8152a83cb8a1ed05`, the idle roll-out below).
 
+## v1.22.0 – six fixes (truck chassis, Cub flicker, clouds, rivers, shops, bushes)
+
+Neil's VD-9 brief: six things that were still wrong after v1.21.0, on the local-only build (GitHub Pages is off; play via `play-local.bat`). The Cub's physics block is untouched (md5 `0a80428d014f1e1d8152a83cb8a1ed05`, the same as v1.18.0–v1.21.0; the river trough is only in the valley floor, not on the physics test's path). **No story restart is needed:** v1.21.0 story and free-play saves load on the same step with the same save keys. The rifle / binoculars flag `hunt.ow` is unchanged (a save from before v1.18.0 still means you own both).
+
+- **Walt's pickup.** The rear tray no longer floats. Chassis rails, bed bearers, a rear axle tube, leaf springs, U-bolt plates, shackles, a rear diff and a driveshaft now tie the tray, the cab and both axles into one vehicle.
+- **Cub flicker.** The shadow map was only refreshed every 2nd or 3rd frame once auto quality stepped up, so the Cub's self-shadows lagged and popped. In the Cub, the map updates every frame while you are moving, and the sun target is snapped to light-space texels so the shadows don't crawl.
+- **Distant clouds.** The remaining edge z-fight when you turn your head (already better in v1.18) is finished: the half-blend band that made puff seams swim is now a short 40 m ease starting at 500 m (it was 100 m at 1000 m).
+- **Rivers sit in the ground.** Like the lakes, the main river now has a shallow channel carved into the terrain (up to 3 m, 30 m wide, the valley's own shape kept) and a flat water surface level with the lower bank. The waterline and shore foam come from the real mesh, with a wet sand/gravel bed. South of about z −2500 the old ribbon remains, where the carve fades out.
+- **Shops.** The rifle and binoculars at Dry Fork hardware could not be bought: they sat on a plank behind the counter and Hank, the VR grab never reached `storeGrab` unless you already owned the rifle, and the desktop hint crashed on an undefined `msg` as you walked in. Every shop now works the same way. Items sit on racks and benches with paper price tags. In VR, grab or poke an item and it hops onto the counter; poke the bell to pay (grab the item again to put it back). On desktop, look at an item and press **E**, then **E** on the bell. Cash comes off the wallet and the keeper says the total. A box of .44-40 is on the hardware rack too; ringing the empty Dry Fork bell still buys one, as before, and **Z** still takes a waiting box into your pouch.
+- **2D bushes.** Each bush was painted as a dark lower clump with a separate lighter crown that floated above it (a gap that alpha-test opened, with berry dots on the crown). The atlas is now one grounded mound per bush, so every card meets the ground, including on slopes.
+
+On the same four swiftshader views as v1.21.0, draw calls are unchanged and the river mesh adds a few thousand triangles. Submit cost is about 0.5–1.6 ms/frame higher; the synced raster is about 10–30% slower, mostly that denser water. Real PCVR frames are not measured here.
+
+Play stays local: double-click `play-local.bat` in a clone of the repo (see `PLAY-LOCAL.md`).
+
 ## v1.21.0 – PCVR graphics pass and real-world boards (Build D of the PCVR run)
 
 Neil's Build D brief: a PCVR graphics overhaul where it is affordable (shadows, lighting, terrain and water, foliage, cheap post effects) and real-world boards in place of computer-style ones. The Cub's physics block is untouched (md5 `0a80428d…`, the same as v1.20.1). **No story restart is needed:** v1.20.1 story and free-play saves load on the same step with the same save keys, and the truck stays where you left it.

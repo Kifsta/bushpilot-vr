@@ -295,6 +295,14 @@ function mountain(x, z) {
   return m * p * (350 + 900 * ridged(x, z));
 }
 const PD_X = PAD.x, PD_Z = PAD.z, MD_X = MEADOW.x, MD_Z = MEADOW.z, MD_HW = MEADOW.hw, MD_HL = MEADOW.hl, MD_B = MEADOW.blend, SH_X = -4020, SH_Z = -5160, SH_HW = 70, SH_HL = 250, SH_B = 150, SH_H = 1015, SH_G = 0.03;   /* v1.05 SH_: Walt's north ice shelf: a 480 x 120 m snow bench, 3 % uphill to the north (ski landing) */   // v0.93.1 plain numbers: V8's Maglev kept deoptimising rawHeight on MEADOW.x (~50 times in a few seconds)
+const RV_X = z => -60 + 40 * Math.sin(z * 0.004) + 25 * Math.sin(z * 0.013) - 120 * smooth(clamp((z + 700) / 400, 0, 1));   // v1.22.0 the river's centre line (was RIVER_X below)
+const RVC = { on: false, z0: 2400, z1: -5900, dz: 12, W: null, C: 3.0, w1: 30 };
+const rvSS = t => (t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t));
+const rvK = z => Math.min(rvSS((2400 - z) / 150), rvSS((z + 3000) / 500));   // how much of the channel there is at this z (it starts at the spring, ends in the outer ring)
+function rvTab(T, z) { const u = (RVC.z0 - z) / RVC.dz, i = u < 0 ? 0 : u > T.length - 1.001 ? T.length - 2 : Math.floor(u), f = Math.min(1, Math.max(0, u - i)); return T[i] * (1 - f) + T[i + 1] * f; }
+function rvCarve(x, z, h) {   // the gentle river trough, dipped into the ground heights
+  if (z > 2400 || z < -3000) return h; const lat = Math.abs(x - RV_X(z)); if (lat > RVC.w1) return h;
+  const m = (RV_X(z - 6) - RV_X(z + 6)) / 12, d = lat / Math.sqrt(1 + m * m); return h - RVC.C * rvK(z) * (1 - rvSS(d / RVC.w1)); }
 function rawHeight(x, z) {   // the smooth height formula (mesh vertices sample this)
   let h = baseHeight(x, z) + mountain(x, z);
   let dx = Math.max(0, Math.abs(x - PD_X) - 50), dz = Math.max(0, Math.abs(z - PD_Z) - 85);
@@ -311,6 +319,7 @@ function rawHeight(x, z) {   // the smooth height formula (mesh vertices sample 
   dx = Math.max(0, Math.abs(x - SH_X) - SH_HW); dz = Math.max(0, Math.abs(z - SH_Z) - SH_HL);   // v1.05 the north ice shelf
   if (dx < SH_B && dz < SH_B) { const t = smooth(hyp2(dx, dz) / SH_B); h = h * t + (SH_H + SH_G * (SH_Z - z) + 0.15 * Math.sin(x * 0.05 + z * 0.03)) * (1 - t); }
   if (typeof LAKES !== 'undefined') for (const L of LAKES) { const d = hyp2(x - L.x, z - L.z); if (d < L.r + 500) { const u = Math.min(1, d / L.r); h = Math.min(h, L.h - 2.5 * (1 - u * u) - 9.5 * smooth((0.86 - u) / 0.6) + Math.max(0, d - L.r) * 0.12); } }   // v0.98 deeper: the old 2.5 m shelf, then a drop-off to ~12 m in the middle
+  if (RVC.on) h = rvCarve(x, z, h);   // v1.22.0
   return h;
 }
 const PAD_H = baseHeight(PAD.x, PAD.z);
@@ -344,6 +353,24 @@ function terrainHeight(x, z) {
   const hc = vertHc(X + c, Z + c);
   return hc + (1 - u) * (hb - hc) + (1 - v) * (hd - hc);
 }
+function rvInit() {   // the river's water surface table W (every 12 m down the river): level with the lower bank 9 m out, 0.6-3 m over the bed, smoothed, never rising downstream
+  const R = RVC, n = Math.round((R.z0 - R.z1) / R.dz) + 1, m0 = new Float64Array(n), r0 = new Float64Array(n), W = new Float64Array(n); R.on = true; VHC_X.fill(-2147483648);
+  for (let i = 0; i < n; i++) { const z = R.z0 - i * R.dz, xc = RV_X(z), m = (RV_X(z - 6) - RV_X(z + 6)) / 12, ox = 9 / Math.sqrt(1 + m * m);
+    m0[i] = terrainHeight(xc, z); const bk = Math.min(terrainHeight(xc - ox, z), terrainHeight(xc + ox, z)); r0[i] = Math.min(m0[i] + 3, Math.max(m0[i] + 0.6, bk - 0.03)); }
+  for (let i = 0; i < n; i++) { let s = 0, c = 0; for (let j = Math.max(0, i - 3); j <= Math.min(n - 1, i + 3); j++) { s += r0[j]; c++; } const a = s / c; W[i] = Math.max(m0[i] + 0.2, i ? Math.min(W[i - 1], a) : a); }
+  R.W = W; }
+rvInit();
+const rvWy = z => rvTab(RVC.W, z);   // the water surface at the river's centre
+const rvCY = z => { const k = rvK(z); return k > 0 ? rvWy(z) * k + (terrainHeight(RV_X(z), z) + 0.7) * (1 - k) : terrainHeight(RV_X(z), z) + 0.7; };   // the drawn surface on the centre line
+function rvSurf(x, z) {   // the river's water surface here, or null (a point in the water: the real mesh is under it)
+  if (z >= 2400 || z <= -5900) return null; const lat = Math.abs(x - RV_X(z)), k = rvK(z), th = terrainHeight(x, z);
+  if (k < 0.02) return lat < 8.5 ? th + 0.3 : null; const wy = rvWy(z);
+  if (k > 0.98) return lat < 12 && th < wy - 0.03 ? wy : null;
+  return lat < 8.5 ? wy * k + (th + 0.3) * (1 - k) : null; }
+function rvBedCol(x, z, h, cc, j) {   // v1.22.0 the river bed's sand / gravel under the water and a wet sand rim, as the lakes have
+  if (z > 2400 || z < -3000 || Math.abs(x - RV_X(z)) > 40 || rvK(z) < 0.5) return null; const dep = rvWy(z) - h;
+  if (dep > 0.12) { const r = hash2(Math.floor(x / 7), Math.floor(z / 7)); if (dep < 1.0) return cc.setHSL(0.11, 0.3, 0.43 * j); return r < 0.3 ? cc.setHSL(0.08, 0.06, 0.36 * j) : cc.setHSL(0.1, 0.24, 0.33 * j); }
+  if (dep > -0.3) return cc.setHSL(0.1, 0.26, (0.27 + 0.06 * clamp((dep + 0.3) / 0.5, 0, 1)) * j); return null; }
 function terrainNormal(x, z) {
   const e = 1;
   return vNorm([-(terrainHeight(x + e, z) - terrainHeight(x - e, z)) / (2 * e), 1,
@@ -642,7 +669,7 @@ const hyp = (a, b, c = 0) => Math.sqrt(a * a + b * b + c * c);   // v0.59 Math.h
 
 // ======================= RENDERING =======================
 // v0.35 settings (persist in localStorage 'bp_gfx'; ?gfx=shadows:2,grass:1 overrides for testing). Defaults = the v0.34 look and cost.
-const BP_VERSION = 'v1.21.0';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
+const BP_VERSION = 'v1.22.0';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
 { const e = document.getElementById('ver'); if (e) e.textContent = BP_VERSION; } window.__bpVer = BP_VERSION; bootLog('game module running ' + BP_VERSION + ' (three r' + THREE.REVISION + ')' + (/[?&]safe(=|&|$)/.test(location.search) ? ' - SAFE MODE: default graphics, no shadows / ULTRA / life / vistas / music' : ''));
 const GFX_DEF = { shadows: 1, scale: 1, fov: 1, dist: 1, trees: 1, grass: 0, clouds: 1, fog: 1, msaa: 1, hz: 90, vig: 0, turn: 0, fps: 0, tod: 11, stk: 1, tips: 1, terr: 2, dyn: 1, glove: 0, hand: 0, wt: 1, volM: 1, volMu: 0.5, volE: 1, volA: 1, volF: 1, volS: 1, volW: 1, wx: 1, forest: 0, fdens: 0, hints: 1, ground: 0, gtex: 0, cvl: 0, water: 1, dayl: 48, flure: 0, fline: 8, fdrag: 4, fbob: 0, fsink: 0, ultra: 0, sfxr: 1, look: 1 };   // v0.68.1 dominant hand, volumes. v0.48 BALANCED: 90 % scale, 72 Hz, fast terrain shading, auto resolution; v0.49.1 the stick stays where you let go of it
 const GFX = Object.assign({}, GFX_DEF);
@@ -867,7 +894,7 @@ function splitTiles(geo, tile) {   // non-indexed triangle soup -> one geometry 
         else cc.setHSL(0.215 - 0.05 * nA, 0.36 + 0.1 * nB, 0.33 * (0.88 + 0.24 * nB) * j); }   // upland meadow grass
       else { const f = Math.abs(Math.floor(x / 260) * 73856093 ^ Math.floor(z / 220) * 19349663) % pal.length;   // valley patchwork fields
         const hp = pal[f]; cc.setHSL(hp[0], hp[1], hp[2] * 1.1 * (0.94 + 0.12 * nB) * j); }
-      if (!lakeBedCol(x, z, h, cc, j)) lakeShoreCol(x, z, h, cc, j);   // v0.98 sand / stones / silt under the lakes; v1.07.1 a wet sand rim
+      if (!lakeBedCol(x, z, h, cc, j) && !rvBedCol(x, z, h, cc, j)) lakeShoreCol(x, z, h, cc, j);   // v0.98 sand / stones / silt under the lakes; v1.07.1 a wet sand rim
       for (let k = 0; k < 3; k++) col.set([cc.r, cc.g, cc.b], (i + k) * 3);
     }
     geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
@@ -2564,6 +2591,7 @@ function handGrab(g) {   // on foot: the map (ground / cockpit holder / other ed
   if (storyGrab(g, _a)) return;   // v0.99 Walt's logbook / the photo
   if (mapGrab(g, _a)) return;
   if (fuelGrab(g, _a)) return;
+  if (shxGrab(g, _a)) return;   // v1.22.0 the shop counters (rifle / binoculars / ammo / tackle: put on the counter, then the bell)
   if (fishGrab(g, _a)) return;   // v0.97 a tackle item, the rod off your pack, the reel's crank, the net
   if (h2Grab(g, _a)) return; if (packGrab(g, _a)) return;   // v1.11.0 the backpack over your shoulder, an item in it, things on the ground
   if (huntGrab(g, _a)) return;   // v0.53 rifle (rack / ground / back, lever, forend), the belt pouch, ammo box, binoculars, a carcass
@@ -3135,9 +3163,9 @@ await bootYield('world props + conifers built');   // v1.10.1 boot stage (v1.09.
   FOREST2.cg = new THREE.ConeGeometry(2.2, 9, 5, 1, true); FOREST2.cm = swayMat(mat(0x23452b), 9, 0.08, -4.5); instanced(FOREST2.cg, FOREST2.cm, con, { lod: 4000, tree: 1 }); FOREST2.con = con;   // v0.88 2D ONLY draws these as sprites
 }
 // ---- v0.14 water: main river (north valley -> south gorge), creeks down the side drainages, two lakes (dug into the terrain in rawHeight) ----
-const RIVER_X = z => -60 + 40 * Math.sin(z * 0.004) + 25 * Math.sin(z * 0.013) - 120 * smooth(clamp((z + 700) / 400, 0, 1));
+const RIVER_X = RV_X;
 const WATERWAYS = [];   // { pts: [[x, z]...], hw }
-{ const p = []; for (let z = 2400; z >= -5900; z -= 12) p.push([RIVER_X(z), z]); WATERWAYS.push({ pts: p, hw: 9, name: 'river' }); }
+{ const p = []; for (let z = 2400; z >= -5900; z -= 12) p.push([RIVER_X(z), z]); WATERWAYS.push({ pts: p, hw: 9, hx: 14, name: 'river' }); }
 for (const v of VALLEY.slice(4)) {    // creek: head of the drainage -> a kink -> its mouth
   const k = [[v[2], v[3]], [(v[0] + v[2]) / 2 + 60, (v[1] + v[3]) / 2], [v[0], v[1]]], p = [];
   for (let s = 0; s < 2; s++) { const [ax, az] = k[s], [bx, bz] = k[s + 1], n = Math.ceil(hyp(bx - ax, bz - az) / 12);
@@ -3151,11 +3179,12 @@ function waterDist(x, z) {   // metres to the nearest water edge (<= 0 = in it),
   for (const w of WATERWAYS) { const P = w.pts;
     for (let i = 0; i < P.length - 1; i += 8) { const a = P[i], b = P[Math.min(i + 8, P.length - 1)];
       if (Math.abs(x - a[0]) + Math.abs(z - a[1]) > 400 + best) continue;
-      for (let j = i; j < Math.min(i + 8, P.length - 1); j++) best = Math.min(best, segD(x, z, [P[j][0], P[j][1], P[j + 1][0], P[j + 1][1]]) - w.hw); } }
+      for (let j = i; j < Math.min(i + 8, P.length - 1); j++) best = Math.min(best, segD(x, z, [P[j][0], P[j][1], P[j + 1][0], P[j + 1][1]]) - (w.hx || w.hw)); } }
   return best;
 }
 const waterLevel = (x, z) => { const L = inLake(x, z); return L ? L.h - 0.2 : groundY(x, z) + 0.3; };
-WATERS.at = (x, z) => z < 2400 && z > -5900 && Math.abs(x - RIVER_X(z)) < 8.5 ? terrainHeight(x, z) + 0.3 : null;   // v0.90 floats: the main river (its ribbon: 9 m half width, 0.3 m over the bed)
+WATERS.at = rvSurf;   // v1.22.0 the carved river (its surface is below the banks; far south, the old 0.3 m over the bed)
+   // v0.90 floats: the main river (its ribbon: 9 m half width, 0.3 m over the bed)
 // ---- v0.98 water: semi-transparent, depth-coloured rivers + lakes in ONE draw (one ShaderMaterial, no lights, no new program per light state).
 // Lakes: a polar grid over the real (now deeper) lake bed; per-vertex depth = surface - terrain under it, so the shallows are clear (the sand / rock bed shows through),
 // the deep water dark, and the waterline fades out softly where the depth reaches 0. Rivers + creeks: a 7-vertex cross-section ribbon with a depth profile across it
@@ -3209,7 +3238,7 @@ void main() {
     bed *= exp(-max(d, 0.0) * vec3(0.55, 0.28, 0.2)); under = mix(bed, body, 1.0 - exp(-max(d, 0.0) * 0.7)); a = 1.0; }
   vec3 col = mix(under, sky, F) + uSunC * sp;
   float fm = vFm * smoothstep(0.5, 0.78, sA.a + 0.18 * vFm);
-  if (vB < 0.5 && uQ > 0.5) fm = max(fm, 0.65 * (1.0 - smoothstep(0.05, 0.5, d)) * smoothstep(0.55, 0.85, 0.6 * sA.a + 0.5 * (0.5 + 0.5 * sin(uT * 1.4 - d * 16.0))));   // v1.21.0 a foam lap along the lake shores
+  if (uQ > 0.5) fm = max(fm, (vB < 0.5 ? 0.65 : 0.5) * (1.0 - smoothstep(0.05, 0.5, d)) * smoothstep(0.55, 0.85, 0.6 * sA.a + 0.5 * (0.5 + 0.5 * sin(uT * 1.4 - d * 16.0))));   // v1.21.0 a foam lap along the lake shores
   col = mix(col, vec3(0.9, 0.93, 0.95) * uLit, fm);
   a = max(max(a, F), fm) * smoothstep(0.0, 0.32, d);
   col = mix(col, fogColor, hfogK(dist, 0.5 * (cameraPosition.y + vW.y), fogNear, fogFar));
@@ -3227,12 +3256,15 @@ const WATER = (() => {
   const vert = (x, y, z, d, fx, fz, fm, b) => { pos.push(x, y, z); aD.push(d); aF.push(fx, fz); aFm.push(fm); aB.push(b); return nv++; };
   // rivers + creeks: 7 across (s = -1 .. 1), depth D (1 - s^2) - 0.12 (the edge fades out), flow along the polyline (north -> south; creeks head -> mouth)
   const SS = [-1, -0.7, -0.38, 0, 0.38, 0.7, 1];
-  for (const w of WATERWAYS) { const P = w.pts, big = w.hw > 5, D = big ? 2.2 : 0.75, lift = big ? 0.7 : 0.45; let prev = null;
+  const RVT = [-13, -10.5, -9, -7, -5, -3, -1.5, 0, 1.5, 3, 5, 7, 9, 10.5, 13];   // v1.22.0 the main river's cross-section: out to the banks (the edge is where the real ground rises above the surface)
+  for (const w of WATERWAYS) { const P = w.pts, big = w.hw > 5, D = big ? 2.2 : 0.75, lift = big ? 0.7 : 0.3, TT = big ? RVT : SS.map(s => s * w.hw); let prev = null;
     for (let i = 0; i < P.length; i++) { const [px, pz] = P[i], p = P[Math.max(0, i - 1)], q = P[Math.min(P.length - 1, i + 1)], dx = q[0] - p[0], dz = q[1] - p[1], L = hyp(dx, dz) || 1, tx = dx / L, tz = dz / L;
       const h0 = groundY(p[0], p[1]), h1 = groundY(q[0], q[1]), slope = Math.max(0, (h0 - h1) / L), sp = (big ? 1.1 : 0.7) + clamp(slope * 30, 0, 2.2), fm = clamp((slope - 0.03) / 0.07, 0, 1) * (big ? 1 : 0.85);
       const wet = inLake(px, pz); if (wet) { prev = null; continue; }
-      const row = SS.map(s => { const x = px - tz * w.hw * s, z = pz + tx * w.hw * s; return vert(x, groundY(x, z) + lift, z, D * (1 - s * s) - 0.12, tx * sp, tz * sp, fm * (1 - 0.6 * Math.abs(s)) + (Math.abs(s) > 0.6 ? 0.08 : 0), 1); });
-      if (prev) for (let k = 0; k < 6; k++) { const a0 = prev[k], a1 = prev[k + 1], b0 = row[k], b1 = row[k + 1]; tri(a0, b0, a1); tri(a1, b0, b1); }
+      const kk = big ? rvK(pz) : 0, wyc = kk > 0 ? rvWy(pz) : 0;
+      const row = TT.map(t => { const s = t / w.hw, as = Math.min(1, Math.abs(s)), x = px - tz * t, z = pz + tx * t, g = groundY(x, z), y0 = g + lift, dO = Math.abs(s) > 1 ? -1 : D * (1 - s * s) - 0.12, hm = wyc - g, dm = big && Math.abs(s) > 1.2 ? -1 : hm > 0 ? hm + 0.9 * rvSS(hm / 0.5) : hm;   // (the water looks 0.9 m deeper than it is where it is wet: the bed is a gravel bar, the river reads blue)
+        return vert(x, kk > 0 ? y0 * (1 - kk) + wyc * kk : y0, z, kk > 0 ? dO * (1 - kk) + dm * kk : dO, tx * sp, tz * sp, fm * (1 - 0.6 * as) + (as > 0.6 ? 0.08 : 0), 1); });
+      if (prev) for (let k = 0; k < row.length - 1; k++) { const a0 = prev[k], a1 = prev[k + 1], b0 = row[k], b1 = row[k + 1]; if (Math.max(aD[a0], aD[a1], aD[b0], aD[b1]) < -0.3) continue; tri(a0, b0, a1); tri(a1, b0, b1); }
       prev = row; } }
   // lakes: rings (coarse in the middle, 3 m apart through the shore band) x 96 spokes; depth from the real bed; triangles all above the bed's waterline + 0.5 m are dropped
   for (const L of LAKES) { const S = 96, y = L.h - 0.2, R = [0, 0.18, 0.36, 0.5, 0.6, 0.68, 0.74]; for (let r = 0.78 * L.r; r < L.r + 9; r += 3) R.push(r / L.r); const base = nv;
@@ -7526,9 +7558,8 @@ const STORE = { price: 35, rounds: 20, max: 3, n: 0, boxes: [], hint: '' };
   const G = new THREE.Group(); G.userData.noBatch = true; scene.add(G); STORE.g = G;
   const bell = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.045, 0.05, 10), mat(0xc8a040)); bell.position.copy(STORE.bell).add(GV3(0, 0.025, 0)); bell.userData.noBatch = true; G.add(bell);
   const cv = document.createElement('canvas'); cv.width = 512; cv.height = 256; const x = cv.getContext('2d'); x.fillStyle = '#e8dcb8'; x.fillRect(0, 0, 512, 256); x.strokeStyle = '#5a4630'; x.lineWidth = 10; x.strokeRect(5, 5, 502, 246);
-  x.fillStyle = '#3a2a1a'; x.textAlign = 'center'; x.font = 'bold 64px serif'; x.fillText('HARDWARE', 256, 80); x.font = 'bold 44px serif'; x.fillText('.44-40 AMMO', 256, 140); x.fillText('20 ROUNDS  $' + STORE.price, 256, 192); x.font = '28px serif'; x.fillText('RING THE BELL', 256, 234);
+  x.fillStyle = '#3a2a1a'; x.textAlign = 'center'; x.font = 'bold 64px serif'; x.fillText('HARDWARE', 256, 80); x.font = 'bold 44px serif'; x.fillText('.44-40 AMMO', 256, 140); x.fillText('20 ROUNDS  $' + STORE.price, 256, 192); x.font = '28px serif'; x.fillText('THE CARTON IS ON THE RACK', 256, 234);
   const sign = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 0.55), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(cv), color: 0xd8d8d8 })); sign.position.copy(L(6.82, 2.75, 1.2)); sign.rotation.y = o.a - Math.PI / 2; sign.userData.noBatch = true; G.add(sign);
-  const disp = L(6.7, 1.627, 0.6); for (let i = 0; i < 3; i++) { const b = storeBox(); b.position.copy(disp); b.rotation.y = o.a; b.translateZ(i * 0.2); G.add(b); }   // cartons on the shelf (show)
 }
 function storeBox() { const b = new THREE.Group(); b.userData.noBatch = true;
   for (const [w, h, d, col, y] of [[0.26, 0.11, 0.17, 0x2f5a2a, 0.055], [0.262, 0.03, 0.172, 0xd8c070, 0.06]]) { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat(col)); m.position.y = y; m.userData.noBatch = true; b.add(m); } return b; }
@@ -7549,10 +7580,9 @@ function storeTake(i, g) {
   say(got + ' ROUNDS INTO YOUR POUCH - POUCH ' + RFL.spare); saveSoon(); return true;
 }
 function storeNear(p, r) { return STORE.at && p.distanceTo(STORE.at) < r; }
-function storeGrab(g, p) {   // VR: the bell buys, a waiting box goes into your pouch
+function storeGrab(g, p) {   // VR: a waiting box goes into your pouch (v1.22.0 buying is the SHX counter flow)
   if (!storeNear(p, 2)) return false;
   for (let i = STORE.n - 1; i >= 0; i--) if (p.distanceTo(_rp3.copy(STORE.slot[i]).add(_ru.set(0, 0.06, 0))) < 0.16) { storeTake(i, g); return true; }
-  if (p.distanceTo(STORE.bell) < 0.14) { sfx('click'); storeBuy(g); return true; }
   return false;
 }
 function storeDesk() {   // desktop Z at the counter: take a waiting box, else buy one
@@ -7564,26 +7594,126 @@ function storeHint(p, vrOn) {
   if (k && k !== STORE.hint) say('HARDWARE: .44-40, 20 ROUNDS $' + STORE.price + ' - ' + (vrOn ? 'TAP THE BELL TO BUY, GRAB A BOX TO TAKE IT' : 'Z BUYS / TAKES A BOX') + ' (POUCH ' + RFL.spare + (STORE.n ? ', ' + STORE.n + ' ON THE COUNTER' : '') + ')');
   STORE.hint = k;
 }
-// ---- v1.18.0 the rifle + binoculars on the hardware counter (while unsold): the rifle and a pair of binoculars on a wall plank above the bench with price cards; VR: grab one to buy it, desktop: look at it + Z ----
-{ const o = DFSTORE.o, c = Math.cos(o.a), sn = Math.sin(o.a), L = (lx, ly, lz) => GV3(o.x + lx * c + lz * sn, o.y + ly, o.z - lx * sn + lz * c), G = new THREE.Group(); G.userData.noBatch = true; scene.add(G);
-  const mkM = (parts, at, ry) => { const m = new THREE.Mesh(mergeGeometries(parts.map(partGeo)), ITEM_VM); m.userData.noBatch = true; m.position.copy(at); m.rotation.y = o.a + ry; G.add(m); return m; };
-  const rifle = mkM([['b', 0.045, 0.05, 0.95, 0, 0.03, 0, 0x6a4426], ['c', 0.014, 0.62, 8, 0, 0.055, -0.62, 0x2a2e33, Math.PI / 2, 0, 0], ['b', 0.05, 0.07, 0.26, 0, 0.05, -0.1, 0x5a5e63], ['b', 0.035, 0.03, 0.2, 0, 0.045, -0.42, 0x6a4426], ['b', 0.07, 0.02, 1.5, 0, -0.01, -0.2, 0x4a3420]], L(6.7, 1.5, 2.55), 0);
-  const bino = mkM([['c', 0.032, 0.17, 10, -0.04, 0.035, 0, 0x22252a, Math.PI / 2, 0, 0], ['c', 0.032, 0.17, 10, 0.04, 0.035, 0, 0x22252a, Math.PI / 2, 0, 0], ['b', 0.05, 0.02, 0.05, 0, 0.04, 0, 0x2a2e33]], L(6.7, 1.5, 3.55), 0.4);
-  const sg = (k, at) => { const s = fSign([[GEAR[k].nm, 30], ['$' + GEAR[k].pr, 60], [(renderer.xr.isPresenting ? 'GRAB IT' : 'LOOK + Z'), 26]], 0.42, 0.26); s.position.copy(at); s.rotation.y = o.a - Math.PI / 2; s.userData.noBatch = true; G.add(s); return s; };
-  const cr = sg('r', L(6.8, 1.95, 2.55)), cb = sg('b', L(6.8, 1.95, 3.55));
-  const spot = { r: L(6.7, 1.55, 2.55), b: L(6.7, 1.55, 3.55) };
-  GEAR.spot = spot; GEAR.sync = () => { rifle.visible = cr.visible = !OWN.r; bino.visible = cb.visible = !OWN.b; }; GEAR.sync();
+// ---- v1.22.0 SHOPS (SHX): one way to buy in every shop. Items are on racks / benches with paper price tags. VR: grab or poke an item and it hops onto the counter; grab / poke the bell to pay (grab it again to take it back).
+// Desktop: look at an item + E to put it on the counter, E on the bell to pay (E on a counter item takes it back). Cash comes off the wallet, the keeper says the total and thanks you. Nothing is bought until the bell.
+const SHX = { shops: [], items: [], poke: [0, 0], paying: false, hit: null, _a: GV3(0, 0, 0), _b: GV3(0, 0, 0), _c: GV3(0, 0, 0), _q: GV3(0, 0, 0), _e: GV3(0, 0, 0), _d: GV3(0, 0, 0) };
+function shxKeeper(s) { if (s.kk === 'hardware') return SHOPK.HANK; let b = null, bd = 1e9; for (let i = 0; i < SHOPK.length; i++) { const K = SHOPK[i]; if (K.k !== s.kk) continue; const d = hyp(K.f.x - s.near.x, K.f.z - s.near.z); if (d < bd) { bd = d; b = K; } } return b; }
+function shxShop(id, kk, o, near, bell, lane) { const c = Math.cos(o.a), sn = Math.sin(o.a), s = { id, kk, o, near, bell, lane, st: [], nudge: 0, L: (lx, ly, lz) => GV3(o.x + lx * c + lz * sn, o.y + ly, o.z - lx * sn + lz * c) }; SHX.shops.push(s); return s; }
+function shxAdd(s, it) {   // it: { nm, m, pr(), owned(), why(), buy(g), r, ax:[x,y,z], t0, len, stg:[lx,ly,lz,ry,rz] or by lane }
+  it.s = s; it.state = 0; it.k = 0; it.hp = it.m.position.clone(); it.hr = [it.m.rotation.x, it.m.rotation.y, it.m.rotation.z]; it.fp = GV3(0, 0, 0); it.fr = [0, 0, 0]; it.tp = GV3(0, 0, 0); it.tr = [0, 0, 0];
+  it.axv = GV3(it.ax[0], it.ax[1], it.ax[2]); SHX.items.push(it); return it; }
+function shxSeg(it, a, b) { _ru2.copy(it.axv).applyQuaternion(it.m.quaternion); a.copy(it.m.position).addScaledVector(_ru2, it.t0); b.copy(a).addScaledVector(_ru2, it.len); }
+const _ru2 = GV3(0, 0, 0);
+function shxDist(it, p) { if (it.m.visible === false) return 9; shxSeg(it, SHX._a, SHX._b); if (!it.len) return p.distanceTo(SHX._a); SHX._c.subVectors(SHX._b, SHX._a); const t = clamp(SHX._q.subVectors(p, SHX._a).dot(SHX._c) / SHX._c.lengthSq(), 0, 1); return SHX._q.copy(SHX._a).addScaledVector(SHX._c, t).distanceTo(p); }
+function shxTotal(s) { let t = 0; for (let i = 0; i < s.st.length; i++) t += s.st[i].pr(); return t; }
+function shxStageAt(it, n) { const s = it.s, g = it.stg || s.lane(it, n), L = s.L(g[0], g[1], g[2]); it.tp.copy(L); it.tr[0] = 0; it.tr[1] = s.o.a + g[3]; it.tr[2] = g[4] || 0; }
+function shxStage(it, g) {
+  const s = it.s; if (it.state !== 0) return true;
+  if (it.owned()) { say(it.why()); if (g) HX.pulse(g, 0.2, 10, 'ui'); return true; }
+  if (it.cant && it.cant()) { if (g) HX.pulse(g, 0.2, 10, 'ui'); return true; }
+  if (s.st.length >= 4) { say('THE COUNTER\'S FULL - PAY FOR WHAT\'S THERE FIRST (THE BELL)'); if (g) HX.pulse(g, 0.2, 10, 'ui'); return true; }
+  it.fp.copy(it.m.position); it.fr[0] = it.m.rotation.x; it.fr[1] = it.m.rotation.y; it.fr[2] = it.m.rotation.z; shxStageAt(it, s.st.length); it.k = 0; it.state = 1; s.st.push(it); s.nudge = 7; sfx('pick'); if (g) HX.pulse(g, 0.35, 16, 'buy');
+  const tot = shxTotal(s), K = shxKeeper(s), vr = renderer.xr.isPresenting;
+  say(it.nm + ' $' + it.pr() + ' ON THE COUNTER' + (s.st.length > 1 ? ' - TOTAL $' + tot : '') + ' - ' + (vr ? 'POKE THE BELL TO PAY, GRAB THE ITEM TO PUT IT BACK' : 'E ON THE BELL TO PAY, E ON THE ITEM TO PUT IT BACK'));
+  if (K && s.st.length === 1) shkSay(K, 'THAT\'S $' + tot + '. BELL\'S RIGHT THERE WHEN YOU\'RE READY.');
+  return true; }
+function shxHome(it, quiet) { const s = it.s, i = s.st.indexOf(it); if (i >= 0) s.st.splice(i, 1); it.fp.copy(it.m.position); it.fr[0] = it.m.rotation.x; it.fr[1] = it.m.rotation.y; it.fr[2] = it.m.rotation.z;
+  it.tp.copy(it.hp); it.tr[0] = it.hr[0]; it.tr[1] = it.hr[1]; it.tr[2] = it.hr[2]; it.k = 0; it.state = 3; if (!quiet) sfx('pick');
+  for (let j = 0; j < s.st.length; j++) { const o = s.st[j]; if (o.state === 2) { o.fp.copy(o.m.position); o.fr[0] = o.m.rotation.x; o.fr[1] = o.m.rotation.y; o.fr[2] = o.m.rotation.z; shxStageAt(o, j); o.k = 0; o.state = 1; } } }   // the rest close the gap
+function shxDrop(it) { const s = it.s, i = s.st.indexOf(it); if (i >= 0) s.st.splice(i, 1); it.m.position.copy(it.hp); it.m.rotation.set(it.hr[0], it.hr[1], it.hr[2]); it.state = 0; it.m.visible = false;
+  for (let j = 0; j < s.st.length; j++) { const o = s.st[j]; if (o.state === 2) { o.fp.copy(o.m.position); o.fr[0] = o.m.rotation.x; o.fr[1] = o.m.rotation.y; o.fr[2] = o.m.rotation.z; shxStageAt(o, j); o.k = 0; o.state = 1; } } }
+function shxPay(s, g) {
+  const n = s.st.length, K = shxKeeper(s); if (g) sfx('click');
+  if (!n) { if (s.id === 'DF') { storeBuy(g); return; } say('NOTHING ON THE COUNTER - PICK SOMETHING OFF THE ' + (s.id === 'CUTLER' ? 'COUNTER' : 'RACK OR BENCH')); if (K) shkSay(K, 'WHAT\'LL IT BE, {P}?'); return; }
+  for (let i = 0; i < n; i++) if (s.st[i].state === 1) s.st[i].k = 1;   // (still hopping: let it land)
+  const tot = shxTotal(s);
+  if (DLV.cash < tot) { say('NOT ENOUGH CASH - THAT\'S $' + tot + ' (WALLET $' + DLV.cash + ')'); if (K) shkSay(K, 'THAT\'S $' + tot + ', {P}. YOU\'RE SHORT - PUT SOMETHING BACK.'); if (g) HX.pulse(g, 0.25, 12, 'ui'); return; }
+  const list = s.st.slice(), c0 = DLV.cash, nm = []; let got = 0; SHX.paying = true;
+  for (let i = 0; i < list.length; i++) { const it = list[i]; if (it.buy(g)) { got++; nm.push(it.nm); if (it.vanish && it.owned()) { shxDrop(it); continue; } } shxHome(it, true); }
+  SHX.paying = false;
+  if (got) { const spent = c0 - DLV.cash; if (got > 1) say('PAID $' + spent + ' (WALLET $' + DLV.cash + ') - ' + nm.join(', ')); if (K) shkSay(K, 'THAT\'S $' + spent + '. ' + SH_THX[(K.n + K.hi++) % SH_THX.length]); } }
+function shxFind(p, sc, eyeD) {   // what is at the fingertip / hand p (sc scales the radii): the bell (when something's on the counter), a counter item, a shelf item
+  SHX.hit = null; let bd = 1e9, kind = 0, best = null;
+  for (let si = 0; si < SHX.shops.length; si++) { const s = SHX.shops[si]; if (p.distanceTo(s.near) > 9) continue;
+    if (p.distanceTo(s.bell) < 0.12 * sc) { SHX.hit = s; return 1; } }
+  for (let i = 0; i < SHX.items.length; i++) { const it = SHX.items[i]; if (it.state !== 0 && it.state !== 2) continue; if (p.distanceTo(it.s.near) > 9) continue; const d = shxDist(it, p) / (it.r * sc); if (d < 1 && d < bd) { bd = d; best = it; kind = it.state === 2 ? 2 : 3; } }
+  SHX.hit = best; return kind; }
+function shxAct(kind, it, s, g) { if (kind === 1) shxPay(SHX.hit, g); else if (kind === 2) { shxHome(it); } else if (kind === 3) shxStage(it, g); }
+function shxGrab(g, p) {   // VR grip (called from handGrab ahead of the rifle / tackle / ammo grabs)
+  if (mode !== 'foot' || !SHX.shops.length) return false;
+  for (let si = 0; si < SHX.shops.length; si++) { const s = SHX.shops[si]; if (p.distanceTo(s.near) > 9) continue; if (p.distanceTo(s.bell) < 0.14) { shxPay(s, g); return true; } }
+  const k = shxFind(p, 1); if (!k) return false; const it = SHX.hit; shxAct(k, it, null, g); return true; }
+function shxPoke() {   // VR fingertips: touching an item / the bell (armed once the finger has been away from everything)
+  if (mode !== 'foot' || !HANDS.st.length || !SHX.shops.length) return;
+  for (let i = 0; i < 2; i++) { const st = HANDS.st[i]; if (!st || !st.vis) { SHX.poke[i] = 0; continue; }
+    const far = shxFind(st.tip, 1.7) === 0; if (far) { SHX.poke[i] = 1; continue; }
+    if (!SHX.poke[i]) continue; const k = shxFind(st.tip, 0.8); if (!k) continue; SHX.poke[i] = 0; shxAct(k, SHX.hit, null, grips[i]); } }
+function shxDesk(z) {   // desktop E (or Z): the thing under the crosshair
+  if (mode !== 'foot' || !SHX.shops.length) return false; camera.getWorldPosition(SHX._e); camera.getWorldDirection(SHX._d);
+  let sh = null; for (let si = 0; si < SHX.shops.length; si++) if (SHX._e.distanceTo(SHX.shops[si].near) < 6.5) { sh = SHX.shops[si]; break; } if (!sh) return false;
+  let ba = 0.17, kind = 0, bit = null;
+  { const dd = SHX._q.subVectors(sh.bell, SHX._e).length(); if (dd < 3.6) { const a = Math.acos(clamp(SHX._q.dot(SHX._d) / dd, -1, 1)); if (a < ba + 0.06) { ba = a - 0.06; kind = 1; } } }
+  for (let i = 0; i < SHX.items.length; i++) { const it = SHX.items[i]; if (it.s !== sh || (it.state !== 0 && it.state !== 2) || it.m.visible === false) continue; shxSeg(it, SHX._a, SHX._b);
+    for (let j = 0; j < 3; j++) { SHX._c.copy(SHX._a).lerp(SHX._b, j * 0.5); SHX._q.subVectors(SHX._c, SHX._e); const d = SHX._q.length(); if (d > 3.6) continue; const a = Math.acos(clamp(SHX._q.dot(SHX._d) / d, -1, 1)); if (a < ba) { ba = a; bit = it; kind = it.state === 2 ? 2 : 3; } } }
+  if (!kind) { if (z || SHX._e.distanceTo(sh.near) > 4.5) return false; if (sh.st.length) say('LOOK AT THE BELL AND PRESS E TO PAY ($' + shxTotal(sh) + ')'); else say('LOOK AT AN ITEM AND PRESS E TO PUT IT ON THE COUNTER'); return true; }
+  SHX.hit = sh; shxAct(kind, bit, sh, null); return true; }
+function shxTick(dt) {
+  for (let i = 0; i < SHX.items.length; i++) { const it = SHX.items[i]; if (it.state === 1 || it.state === 3) { it.k = Math.min(1, it.k + dt / 0.38); const t = it.k * it.k * (3 - 2 * it.k), m = it.m;
+      m.position.lerpVectors(it.fp, it.tp, t); m.position.y += Math.sin(Math.PI * t) * 0.12; m.rotation.set(it.fr[0] + (it.tr[0] - it.fr[0]) * t, it.fr[1] + (it.tr[1] - it.fr[1]) * t, it.fr[2] + (it.tr[2] - it.fr[2]) * t);
+      if (it.k >= 1) it.state = it.state === 1 ? 2 : 0; } }
+  for (let si = 0; si < SHX.shops.length; si++) { const s = SHX.shops[si]; if (!s.st.length) continue; playerPos(); const d = hyp(PP.x - s.near.x, PP.z - s.near.z);
+    if (d > 9 || mode !== 'foot') { while (s.st.length) shxHome(s.st[0], true); continue; }
+    s.nudge -= dt; if (s.nudge < 0) { s.nudge = 1e9; const K = shxKeeper(s); if (K) shkSay(K, 'READY TO PAY, {P}? BELL\'S ON THE COUNTER.'); } } }
+function shxTag(nm, pr, at, ry, w) {   // a paper price tag (one little plane, the sign material: no new shader)
+  const cv = document.createElement('canvas'); cv.width = 256; cv.height = 160; const T = { cv, x: cv.getContext('2d'), nm, pr, st: '#' }; T.tex = new THREE.CanvasTexture(cv); T.tex.colorSpace = THREE.SRGBColorSpace;
+  T.m = new THREE.Mesh(new THREE.PlaneGeometry(w, w * 0.625), new THREE.MeshBasicMaterial({ map: T.tex, color: 0xd8d8d8 })); T.m.position.copy(at); T.m.rotation.y = ry; T.m.userData.noBatch = true; return T; }
+function shxTagDraw(T, own) { const key = own ? 'o' : 'n'; if (T.st === key) return; T.st = key; const x = T.x;
+  x.fillStyle = '#cfc6a8'; x.fillRect(0, 0, 256, 160); x.fillStyle = own ? '#dfe8cf' : '#f4ecd0'; x.beginPath(); x.moveTo(10, 36); x.lineTo(36, 8); x.lineTo(246, 8); x.lineTo(246, 152); x.lineTo(10, 152); x.closePath(); x.fill(); x.strokeStyle = '#5a4630'; x.lineWidth = 5; x.stroke();
+  x.fillStyle = '#6a5a40'; x.beginPath(); x.arc(34, 38, 7, 0, 7); x.fill(); x.textAlign = 'center'; x.fillStyle = '#2a1e12'; let f = 30; do x.font = 'bold ' + f + 'px sans-serif'; while (x.measureText(T.nm).width > 200 && --f > 12); x.fillText(T.nm, 136, 62);
+  x.fillStyle = '#a42a1e'; x.font = 'bold 62px sans-serif'; x.fillText('$' + T.pr, 136, 126); T.tex.needsUpdate = true; }
+{ const o = DFSTORE.o, s = shxShop('DF', 'hardware', o, STORE.at, STORE.bell, null), L = s.L, G = new THREE.Group(); G.userData.noBatch = true; scene.add(G); s.G = G;
+  const RX = 3.25, rack = [   // free-standing rack just in front of the rug: the board faces the door, pegs and shelves stick out toward the customers
+    ['b', 0.04, 1.1, 2.5, RX, 1.45, 2.15, 0x6e5236], ['b', 0.08, 2.0, 0.08, RX, 1.0, 0.95, 0x5a4228], ['b', 0.08, 2.0, 0.08, RX, 1.0, 3.35, 0x5a4228], ['b', 0.12, 0.05, 2.6, RX, 2.0, 2.15, 0x5a4228],
+    ['b', 0.14, 0.035, 0.035, RX - 0.08, 1.5, 1.3, 0x3a2a1a], ['b', 0.14, 0.035, 0.035, RX - 0.08, 1.5, 2.1, 0x3a2a1a],
+    ['b', 0.34, 0.035, 0.5, RX - 0.16, 1.2, 2.95, 0x7a5a3a], ['b', 0.34, 0.035, 0.5, RX - 0.16, 0.9, 2.95, 0x7a5a3a], ['b', 0.04, 0.3, 0.5, RX, 1.04, 2.95, 0x6e5236], ['b', 0.04, 0.3, 0.5, RX, 1.34, 2.95, 0x6e5236]];
+  const rm = new THREE.Mesh(mergeGeometries(rack.map(partGeo)), ITEM_VM); rm.userData.noBatch = true; rm.position.set(0, 0, 0); { const m0 = new THREE.Matrix4(); const gg = rm.geometry; const q = new THREE.Quaternion().setFromAxisAngle(_ry, o.a); m0.compose(L(0, 0, 0), q, GV3(1, 1, 1)); gg.applyMatrix4(m0); } G.add(rm);
+  const mkM = (parts, at, ry, rz) => { const m = new THREE.Mesh(mergeGeometries(parts.map(partGeo)), ITEM_VM); m.userData.noBatch = true; m.position.copy(at); m.rotation.set(0, o.a + ry, rz || 0); G.add(m); return m; };
+  const rifle = mkM([['b', 0.045, 0.05, 0.95, 0, 0.03, 0, 0x6a4426], ['c', 0.014, 0.62, 8, 0, 0.055, -0.62, 0x2a2e33, Math.PI / 2, 0, 0], ['b', 0.05, 0.07, 0.26, 0, 0.05, -0.1, 0x5a5e63], ['b', 0.035, 0.03, 0.2, 0, 0.045, -0.42, 0x6a4426]], L(RX - 0.10, 1.543, 1.93), 0);
+  const bino = mkM([['c', 0.032, 0.17, 10, -0.04, 0.035, 0, 0x22252a, Math.PI / 2, 0, 0], ['c', 0.032, 0.17, 10, 0.04, 0.035, 0, 0x22252a, Math.PI / 2, 0, 0], ['b', 0.05, 0.02, 0.05, 0, 0.04, 0, 0x2a2e33]], L(RX - 0.16, 1.222, 2.95), 0.4);
+  const carton = storeBox(); carton.position.copy(L(RX - 0.16, 0.92, 2.95)); carton.rotation.y = o.a; G.add(carton); STORE.carton = carton;
+  const own = k => !!OWN[k];
+  const face = o.a - Math.PI / 2, tg = { r: shxTag('WINCHESTER .44-40', GEAR.r.pr, L(RX - 0.20, 1.12, 1.90), face, 0.2), b: shxTag('BINOCULARS 7x', GEAR.b.pr, L(RX - 0.30, 1.10, 2.75), face, 0.15), a: shxTag('.44-40 x20 ROUNDS', STORE.price, L(RX - 0.30, 0.84, 2.75), face, 0.15) };
+  for (const k in tg) G.add(tg[k].m);
+  const stg = (k) => ({ r: [5.55, 1.18, 1.43, 0, 0], b: [5.3, 1.178, 0.85, 0.4, 0], a: [5.3, 1.15, 1.15, 0, 0] }[k]);
+  const mk = (k, nm, m, pr, owned, why, buy, r, ax, t0, len) => shxAdd(s, { nm, m, pr, owned, why, buy, r, ax, t0, len, stg: stg(k) });
+  const gb = (k, g) => GEAR.buy(k, g);
+  const iR = mk('r', 'THE RIFLE', rifle, () => GEAR.r.pr, () => own('r'), () => 'YOU HAVE THE ' + GEAR.r.nm, g => gb('r', g), 0.2, [0, 0, -1], -0.45, 1.3); iR.vanish = true;
+  const iB = mk('b', 'THE BINOCULARS', bino, () => GEAR.b.pr, () => own('b'), () => 'YOU HAVE THE ' + GEAR.b.nm, g => gb('b', g), 0.2, [0, 1, 0], 0.04, 0); iB.vanish = true;
+  const iA = mk('a', 'A BOX OF .44-40 (20)', carton, () => STORE.price, () => false, () => '', g => storeBuy(g), 0.2, [0, 1, 0], 0.06, 0); iA.cant = () => { if (STORE.n >= STORE.max) { say('THREE BOXES ARE WAITING ON THE COUNTER - TAKE ONE FIRST'); return true; } return false; };
+  GEAR.sync = () => { rifle.visible = tg.r.m.visible = !own('r'); bino.visible = tg.b.m.visible = !own('b'); shxTagDraw(tg.r, own('r')); shxTagDraw(tg.b, own('b')); shxTagDraw(tg.a, false); }; GEAR.sync();
   GEAR.buy = (k, g) => { if (OWN[k]) { say('YOU HAVE THE ' + GEAR[k].nm); return false; } if (mode !== 'foot') return false;
     if (DLV.cash < GEAR[k].pr) { say('NOT ENOUGH CASH - THE ' + GEAR[k].nm + ' IS $' + GEAR[k].pr + ' (WALLET $' + DLV.cash + ')'); if (g) HX.pulse(g, 0.2, 10, 'ui'); return false; }
     DLV.cash -= GEAR[k].pr; OWN[k] = 1; GEAR.sync(); sfx('cash'); if (g) HX.pulse(g, 0.5, 25, 'buy');
-    if (k === 'r') { rflPut('back'); say('BOUGHT THE RIFLE -$' + GEAR.r.pr + ' (WALLET $' + DLV.cash + ') - SLUNG ON YOUR BACK (REACH OVER YOUR RIGHT SHOULDER' + (renderer.xr.isPresenting ? '' : ', T') + '). AMMO: THE BELL'); } else { binoPut('hip'); say('BOUGHT THE BINOCULARS -$' + GEAR.b.pr + ' (WALLET $' + DLV.cash + ') - ON YOUR BELT' + (renderer.xr.isPresenting ? '' : ' (V)')); }
+    if (k === 'r') { rflPut('back'); say('BOUGHT THE RIFLE -$' + GEAR.r.pr + ' (WALLET $' + DLV.cash + ') - SLUNG ON YOUR BACK (REACH OVER YOUR RIGHT SHOULDER' + (renderer.xr.isPresenting ? '' : ', T') + '). AMMO IS ON THE RACK'); } else { binoPut('hip'); say('BOUGHT THE BINOCULARS -$' + GEAR.b.pr + ' (WALLET $' + DLV.cash + ') - ON YOUR BELT' + (renderer.xr.isPresenting ? '' : ' (V)')); }
     saveSoon(); for (const S of DLV_STRIPS) S.key = ''; return true; };
-  storeGrab = (orig => function (g, p) { if (storeNear(p, 2.4)) for (const k of ['r', 'b']) if (!OWN[k] && p.distanceTo(spot[k]) < 0.3) { sfx('click'); GEAR.buy(k, g); return true; } return orig.call(this, g, p); })(storeGrab);
-  storeDesk = (orig => function () { camera.getWorldPosition(_rp2); if (mode === 'foot' && storeNear(_rp2, 2.6)) { camera.getWorldDirection(_rp3); let best = null, ba = 0.2;
-      for (const k of ['r', 'b']) if (!OWN[k]) { _ru.subVectors(spot[k], _rp2); const d = _ru.length(); if (d > 3.4) continue; const a = Math.acos(clamp(_ru.dot(_rp3) / d, -1, 1)); if (a < ba) { ba = a; best = k; } }
-      if (best) { GEAR.buy(best, null); return true; } } return orig(); })(storeDesk);
-  storeHint = (orig => function (p, vrOn) { const h0 = STORE.hint; orig(p, vrOn); if (STORE.hint === 'in' && h0 !== 'in' && (!OWN.r || !OWN.b)) say(msg + ' | ALSO ON THE COUNTER: ' + (!OWN.r ? 'RIFLE $' + GEAR.r.pr + '  ' : '') + (!OWN.b ? 'BINOCULARS $' + GEAR.b.pr : '') + (vrOn ? ' (GRAB TO BUY)' : ' (LOOK + Z)')); })(storeHint);
+  GEAR.spot = { r: L(RX - 0.10, 1.55, 1.93), b: L(RX - 0.16, 1.25, 2.95) };
+  s.lane = null;
+  storeDesk = (orig => function () { if (STORE.n > 0 && RFL.spare < GUN.pouch) return orig(); return shxDesk(true) || orig(); })(storeDesk);
+  storeHint = function (p, vrOn) {
+    const k = mode === 'foot' && storeNear(p, 2.6) || (mode === 'foot' && p.distanceTo(L(RX, 1, 2.0)) < 2.4) ? 'in' : ''; STORE.g.visible = !!STORE.at && p.distanceTo(STORE.at) < 400; G.visible = STORE.g.visible;
+    if (k && k !== STORE.hint) say('HARDWARE: RIFLE $' + GEAR.r.pr + ', BINOCULARS $' + GEAR.b.pr + ', .44-40 $' + STORE.price + ' ON THE RACK - ' + (vrOn ? 'GRAB OR POKE ONE TO PUT IT ON THE COUNTER, THEN THE BELL' : 'LOOK AT ONE + E, THEN E ON THE BELL') + ' (POUCH ' + RFL.spare + (STORE.n ? ', ' + STORE.n + ' BOXES ON THE COUNTER' : '') + ')');
+    STORE.hint = k; };
 }
+function shxFishInit() {   // the tackle benches register their items with the same counter flow (Dry Fork's bench shares Hank's bell; Cutler gets its own)
+  for (const F of FISH.shop) { const cut = F.name === 'CUTLER', T = cut ? TOWNS.find(t => t.name === 'CUTLER').store : DFSTORE.o; let s;
+    if (cut) { s = shxShop('CUTLER', 'store', T, F.at, GV3(0, 0, 0), (it, n) => FTK[it.id][2] === 'rod' ? [-3.7, 1.02, 3.95, 0, -Math.PI / 2] : [-3.45 + n * 0.37, 1.0, 3.82, 0, 0]);
+      const bell = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.045, 0.05, 10), mat(0xc8a040)); s.bell.copy(s.L(-1.35, 1.03, 3.75)); bell.position.copy(s.bell).add(GV3(0, 0.025, 0)); bell.userData.noBatch = true; F.G.add(bell); }
+    else { s = SHX.shops[0]; s.lane = (it, n) => FTK[it.id][2] === 'rod' ? [5.68, 1.17, 3.3, -Math.PI / 2, -Math.PI / 2] : [5.55, 1.17, 3.45 + n * 0.2, Math.PI / 2, 0]; }
+    for (const it of F.items) { const id = it.id, k = FTK[id][2], rod = k === 'rod'; it.s2 = s;
+      shxAdd(s, { id, nm: FTK[id][0].replace(/\s*\(.*\)$/, ''), m: it.m, pr: () => FTK[id][1], owned: () => k === 'lure' ? (FISH.lures[id] || 0) >= 12 : k === 'line' ? !!FISH.line[id] : !!FISH.own[id],
+        why: () => k === 'lure' ? 'YOUR TACKLE BOX IS FULL OF THOSE (' + (FISH.lures[id] || 0) + ')' : 'YOU ALREADY HAVE THE ' + FTK[id][0], buy: g => fBuy(id, g),
+        r: rod ? 0.16 : 0.14, ax: [0, 1, 0], t0: rod ? 0 : 0.04, len: rod ? 1.2 : 0 }); } }
+  fShopGrab = () => false; fShopDesk = () => shxDesk(false); }
 await bootYield('rifle + store built');   // v1.10.1 boot stage (v1.09.1 load yield)
 // ---- model ----
 function rflBuild44() {   // v0.84.4 the v0.44-full carbine (Neil's reference proportions): round barrel over a full-length tube, short deep forend, tall boxy receiver, big loop lever, straight-grip stock, crescent buttplate
@@ -8709,12 +8839,13 @@ function fShopBuild(o, ids, at, name) {   // at(i) -> [lx, ly, lz] on the counte
     const { S, L } = fShopBuild(o, FSHOP_ALL, (i, id) => { if (FTK[id][2] === 'rod') { const j = rods.indexOf(id); return [-4.72, 0.15, 4.3 + j * 0.5, 0, 1]; } const j = rest.indexOf(id); return [-3.45 + (j % 7) * 0.37, 1.0, 3.2 + Math.floor(j / 7) * 0.32]; }, 'CUTLER');
     const cm = mat(0x6e5236); for (const [w, h, d, lx, ly, lz] of [[2.7, 0.95, 0.9, -2.35, 0.475, 3.5], [2.8, 0.05, 1.0, -2.35, 0.975, 3.5], [0.12, 2.2, 1.4, -4.88, 1.1, 4.55]]) { const b = box(w, h, d, cm, 0, 0, 0, scene); b.position.copy(L(lx, ly, lz)); b.rotation.y = o.a; }
     fTagsBuild(S, o, (i, id) => { if (FTK[id][2] === 'rod') { const j = rods.indexOf(id); return [-4.62, 1.05, 4.3 + j * 0.5, Math.PI / 2, 1.35]; } const j = rest.indexOf(id); return [-3.45 + (j % 7) * 0.37, 1.0, 3.2 + Math.floor(j / 7) * 0.32 + 0.1, 0, 1]; });   // v1.10.9 price tags
-    const sg = fSign([['TACKLE', 70], ['RODS - REELS - LINE - LURES', 30], ['NETS - CREELS - COOLERS', 30], ['VR: GRAB AN ITEM TO BUY IT', 26], ['DESKTOP: LOOK AT IT, E', 26]], 1.4, 0.8); sg.position.copy(L(-2.35, 2.25, 4.1)); sg.rotation.y = o.a; sg.userData.noBatch = true; S.G.add(sg); S.sign = sg; } }
+    const sg = fSign([['TACKLE', 70], ['RODS - REELS - LINE - LURES', 30], ['NETS - CREELS - COOLERS', 30]], 1.4, 0.6); sg.position.copy(L(-2.35, 2.25, 4.1)); sg.rotation.y = o.a; sg.userData.noBatch = true; S.G.add(sg); S.sign = sg; } }
 { const o = DFSTORE.o;   // Dry Fork: the basics on a bench beside the hardware counter
   const { S, L } = fShopBuild(o, FSHOP_DF, (i, id) => FTK[id][2] === 'rod' ? [5.3, 1.17, 3.1, Math.PI / 2] : [5.25, 1.17, 3.45 + (i - 1) * 0.16 * 1.2, Math.PI / 2], 'DRY FORK');
   const cm = mat(0x6e5236); for (const [w, h, d, lx, ly, lz] of [[0.7, 1.05, 1.6, 5.4, 0.6, 3.9], [0.8, 0.05, 1.7, 5.4, 1.125, 3.9]]) { const b = box(w, h, d, cm, 0, 0, 0, scene); b.position.copy(L(lx, ly, lz)); b.rotation.y = o.a; }
   fTagsBuild(S, o, (i, id) => FTK[id][2] === 'rod' ? [5.12, 1.17, 3.1 - 0.1, Math.PI / 2, 1] : [5.12, 1.17, 3.45 + (i - 1) * 0.16 * 1.2, Math.PI / 2, 0.95]);   // v1.10.9 price tags (customer side of the bench)
   const sg = fSign([['TACKLE', 70], ['THE BASICS', 34], ['MORE AT CUTLER', 30]], 1.0, 0.5); sg.position.copy(L(6.82, 2.75, 3.9)); sg.rotation.y = o.a - Math.PI / 2; sg.userData.noBatch = true; S.G.add(sg); }
+shxFishInit();
 function fHas(id) { return !!FISH.own[id]; }
 function fBuy(id, g) {
   const [nm, pr, k, x] = FTK[id], cons = k === 'lure', have = cons ? (FISH.lures[id] || 0) : k === 'line' ? (FISH.line[id] ? 1 : 0) : FISH.own[id] ? 1 : 0;
@@ -8752,7 +8883,7 @@ function fRig() { const id = FLURE_IDS[GFX.flure] || 'spoon', L = FLURE[id], bob
   const lb = FISH.line['l' + GFX.fline] ? GFX.fline : [8, 4, 14].find(x => FISH.line['l' + x]) || 8;
   return { id, L, bob, snk, g, m: g / 1000, D: 0.6 * cd * 1.6e-4 / (g / 1000), sink: L.float && !snk ? 0 : L.sink + (snk ? 0.35 : 0), kind, R, lb, rate: lb * 4.448, drag: GFX.fdrag * 0.06 * lb * 4.448 }; }
 function fMatch(r) { return r.g < r.R.lo ? 0.55 + 0.45 * r.g / r.R.lo : r.g > r.R.hi ? Math.max(0.6, 1 - (r.g - r.R.hi) / r.R.hi) : 1; }   // a lure outside the rod's range casts worse
-function fWaterAt(x, z) { const R = fRiver(x, z); if (R) return groundY(x, z) + R.lift;   // v1.00.1 rivers + creeks: the drawn surface
+function fWaterAt(x, z) { const R = fRiver(x, z); if (R) return R.big ? (rvSurf(x, z) ?? groundY(x, z) + R.lift) : groundY(x, z) + R.lift;   // v1.00.1 rivers + creeks: the drawn surface
   const h = waterH(x, z); if (h !== null) return terrainHeight(x, z) < h - 0.03 ? h : null; return waterDist(x, z) <= 0 ? groundY(x, z) + 0.3 : null; }   // lakes, the river, creeks
 // fish depth (not drawn): the lakes shelve off to ~20 m in the middle, river pools ~1.8 m, creeks ~0.7 m
 function fDepthAt(x, z, surf) { if (inLake(x, z)) return Math.max(0.3, surf - terrainHeight(x, z)); const R = fRiver(x, z); if (R) return Math.max(0.15, R.D * (1 - R.s * R.s) - 0.12); return WATERS.at(x, z) !== null ? 1.8 : 0.7; }   // v1.00.1 the real carved lake bed; the river's depth profile   // river pools ~1.8 m, creeks ~0.7 m
@@ -9216,7 +9347,7 @@ function fRiver(x, z) {   // null off the waterways (or inside a lake)
   const a = FWW.grid.get(Math.floor(x / FWW.C) * 4096 + Math.floor(z / FWW.C)); if (!a || inLake(x, z)) return null; let best = null, bd = 1e9, bs = 0;
   for (const g of a) { const t = clamp(((x - g[0]) * g[7] + (z - g[1]) * g[8]) / g[9], 0, 1), px = g[0] + (g[2] - g[0]) * t, pz = g[1] + (g[3] - g[1]) * t, d = hyp(x - px, z - pz);
     if (d < g[4] && d / g[4] < bd) { bd = d / g[4]; best = g; bs = ((x - px) * -g[8] + (z - pz) * g[7]) < 0 ? -bd : bd; } }
-  if (!best) return null; const o = FWW.o; o.s = bs; o.tx = best[7]; o.tz = best[8]; o.sp = best[6] * (1 - 0.6 * bs * bs); o.big = best[5]; o.lift = best[5] ? 0.7 : 0.45; o.D = best[5] ? 2.2 : 0.75; return o; }
+  if (!best) return null; const o = FWW.o; o.s = bs; o.tx = best[7]; o.tz = best[8]; o.sp = best[6] * (1 - 0.6 * bs * bs); o.big = best[5]; o.lift = best[5] ? 0.7 : 0.3; o.D = best[5] ? 2.2 : 0.75; return o; }
 // ---- rings on the surface: one instanced draw (bites, plops, swirls, drips) ----
 const FRING = { N: 24, i: 0, R: [] };
 { const g = new THREE.RingGeometry(0.9, 1, 28).rotateX(-Math.PI / 2), m = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, polygonOffset: true, polygonOffsetFactor: -8, polygonOffsetUnits: -8 });
@@ -10464,12 +10595,13 @@ const BSH = { n: 0, L: 140, far: 330, u: { sprNear: { value: 0 }, sprL: { value:
 function bshAtlas() {
   let sd = 0xb05e; const r = () => (sd = (sd * 16807) % 2147483647) / 2147483647, cv = document.createElement('canvas'); cv.width = cv.height = 512; const g = cv.getContext('2d');
   const poly = (c, P) => { g.fillStyle = c; g.beginPath(); P.forEach(([a, b], i) => i ? g.lineTo(a, b) : g.moveTo(a, b)); g.closePath(); g.fill(); };
-  const clump = (ox, oy, lt, md, dk, n, w, h, extra) => {   // overlapping faceted clumps on a dome, lit left / shaded right, a dark base so it sits on the ground
-    poly(dk, [[ox + 128 - w * 0.5, oy + 252], [ox + 128 + w * 0.5, oy + 252], [ox + 128 + w * 0.42, oy + 210], [ox + 128 - w * 0.42, oy + 210]]);
-    for (let k = 0; k < n; k++) { const t = n > 1 ? k / (n - 1) : 0.5, cx = ox + 128 + (t - 0.5) * w * 0.78 + (r() - 0.5) * 14, top = Math.sqrt(Math.max(0, 1 - (2 * t - 1) * (2 * t - 1))), cy = oy + 252 - 40 - top * (h - 90) + r() * 18, rr = 34 + r() * 20, P = [];
-      for (let q = 0; q < 6; q++) P.push([cx + Math.cos(q * 1.047 + k) * rr, Math.min(oy + 254, cy + Math.sin(q * 1.047 + k) * rr * 0.85)]); poly(t < 0.45 ? lt : t > 0.7 ? dk : md, P); }
-    for (let k = 0; k < 4; k++) { const cx = ox + 128 + (r() - 0.6) * w * 0.4, cy = oy + 252 - h * 0.55 - r() * h * 0.25, rr = 22 + r() * 12, P = []; for (let q = 0; q < 6; q++) P.push([cx + Math.cos(q * 1.047) * rr, cy + Math.sin(q * 1.047) * rr * 0.8]); poly(lt, P); }
-    if (extra) for (let k = 0; k < 26; k++) { const x = ox + 128 + (r() - 0.5) * w * 0.8, y = oy + 252 - 30 - r() * (h - 70); g.fillStyle = extra; g.beginPath(); g.arc(x, y, 4 + r() * 3, 0, 6.283); g.fill(); } };
+  const clump = (ox, oy, lt, md, dk, n, w, h, extra) => {   // v1.22.0 one grounded mound (was a dark base + a lighter crown that floated above it; alpha-test opened the gap)
+    const xc = ox + 128, yb = oy + 255, sil = []; sil.push([xc - w * 0.52, yb]);
+    for (let i = 0; i <= 18; i++) { const t = i / 18, x = xc + Math.cos(Math.PI * (1 - t)) * w * 0.5, y = yb - Math.sin(Math.PI * t) * h; sil.push([x, y]); }
+    sil.push([xc + w * 0.52, yb]); poly(dk, sil);
+    for (let k = 0; k < n + 6; k++) { const t = k / (n + 5), across = (t - 0.5) * w * 0.8 + (r() - 0.5) * 12, rise = 0.2 + 0.55 * Math.sqrt(Math.max(0, 1 - (2 * t - 1) * (2 * t - 1))) * (0.8 + r() * 0.2), cx = xc + across, cy = yb - rise * h, rr = 30 + r() * 18, P = [];
+      for (let q = 0; q < 6; q++) P.push([cx + Math.cos(q * 1.047 + k) * rr, Math.min(yb, cy + Math.sin(q * 1.047 + k) * rr * 0.85)]); poly(t < 0.4 ? lt : t > 0.7 ? dk : md, P); }
+    if (extra) for (let k = 0; k < 22; k++) { const x = xc + (r() - 0.5) * w * 0.62, y = yb - 36 - r() * (h * 0.62); g.fillStyle = extra; g.beginPath(); g.arc(x, y, 3 + r() * 3, 0, 6.283); g.fill(); } };
   clump(0, 0, '#4f7a34', '#3e652b', '#2c4a20', 9, 236, 200);              // 0 a leafy shrub
   clump(256, 0, '#3a5e3a', '#2c4b30', '#1f3824', 8, 220, 170);           // 1 juniper, darker, lower
   clump(0, 256, '#55803a', '#436b2e', '#2f4e22', 9, 230, 190, '#a8242a');  // 2 berry bush
@@ -12167,6 +12299,16 @@ function trkPrism(Q, x0, x1) {   // v1.20.1 a convex (z, y) profile extruded alo
   b(1.8, 0.06, 2.2, 0, 0.9, 1.5, CH); b(1.84, 0.5, 0.06, 0, 1.18, 0.42, BODY); b(1.84, 0.5, 0.06, 0, 1.18, 2.62, BODY); b(1.5, 0.05, 0.02, 0, 1.3, 2.655, TRIM);   // bed, tailgate
   b(0.32, 0.16, 0.01, 0, 0.8, 2.755, 0xe8e0c0); b(0.4, 0.02, 0.18, -0.4, 1.89, -0.58, IN); b(0.2, 0.055, 0.025, 0, 1.82, -0.6, DK);   // plate, visor, mirror
   b(0.5, 0.18, 0.5, 0.25, 1.02, 1.0, 0x8a6a3a); b(0.35, 0.3, 0.35, -0.5, 1.08, 1.9, 0x5a6a3a);   // a crate and a jerry can in the bed
+  // v1.22.0 chassis: the bed floor (0.87) used to hang 0.27 m over the rails (0.60) with nothing between, and there were no axles
+  for (const z of [0.55, 1.1, 1.7, 2.25]) { b(1.7, 0.08, 0.1, 0, 0.83, z, CH); for (const sx of [-1, 1]) b(0.12, 0.2, 0.1, sx * 0.5, 0.695, z, CH); }   // bed bearers (cross) on spacer blocks standing on the rails
+  for (const sx of [-1, 1]) { b(0.1, 0.06, 2.2, sx * 0.78, 0.835, 1.5, CH);   // bed subframe rails under the floor edge, carried by the bearers
+    b(0.14, 0.07, 0.16, sx * 0.5, 0.635, -0.7, CH); b(0.14, 0.07, 0.16, sx * 0.5, 0.635, 0.05, CH);   // cab mounts: floor (0.65) down to the rails
+    for (const z of [-1.8, -1.2]) { b(0.5, 0.07, 0.12, sx * 0.72, 0.58, z, CH); b(0.1, 0.27, 0.12, sx * 0.9, 0.73, z, CH); } }   // fender brackets: rail out to the fender's underside
+  b(1.7, 0.2, 0.1, 0, 0.72, -2.6, CH); b(1.0, 0.1, 0.12, 0, 0.58, -2.1, CH); b(1.0, 0.1, 0.12, 0, 0.58, -0.4, CH);   // radiator support, two frame cross members
+  for (const z of [-TK.WB / 2, TK.WB / 2]) { cy(0.05, 1.56, 0, TK.R, z, 0x3a3a3a, 0, 0, Math.PI / 2, 10);   // axle tube (into the hubs)
+    for (const sx of [-1, 1]) { b(0.07, 0.05, 1.15, sx * 0.5, 0.47, z, 0x33302c); b(0.1, 0.03, 0.14, sx * 0.5, 0.435, z, 0x4a4a46);   // leaf spring pack + the U-bolt plate under it
+      for (const e of [-1, 1]) b(0.05, 0.12, 0.05, sx * 0.5, 0.52, z + e * 0.56, 0x33302c); } }   // shackles / hangers up to the rail
+  b(0.3, 0.26, 0.3, 0, TK.R, TK.WB / 2, 0x3a3a3a); cy(0.035, 1.7, 0, 0.46, TK.WB / 4, 0x2e2e2e, Math.PI / 2, 0, 0, 8);   // the rear diff, the driveshaft to it
   const gs = P.map(partGeo), m = new THREE.Mesh(mergeGeometries(gs), ITEM_VM); for (const g of gs) g.dispose(); m.castShadow = m.receiveShadow = true; TRKG.add(m); TRK.body = m;
   // glass: single-sided panes facing OUT (like the Cub's), so you see clear from inside
   const GL = [], pl = (w, h, x, y, z, ry, rx) => { const g = new THREE.PlaneGeometry(w, h); g.rotateY(ry); g.rotateX(rx); g.translate(x, y, z); GL.push(g); };
@@ -12868,7 +13010,7 @@ function shkLine(K) {
     for (const k of UPG_K) if (UPG.own[k] && !UPG[k]) return 'YOUR ' + UPG_I[k].label + '\'S ON THE ' + (k === 'light' || k === 'radio' ? 'BENCH' : 'FLOOR') + ' - CARRY IT OVER TO THE CUB AND WE\'LL BOLT IT ON.';
     if (E.svc > 95) return 'THE 100-HOUR\'S DUE. IT\'S IN THE CATALOG, LEFT PAGE.';
     return ['EVERYTHING FOR THE CUB IS IN THE CATALOG ON THE STAND. PICK IT UP, HAVE A LOOK.', 'WALT BUILT HALF THIS SHOP. MIND THE WING, THE DOPE\'S WET.', 'TUNDRAS, FLOATS, SKIS - IF IT FITS A CUB, IT\'S IN THE BOOK.'][K.hi++ % 3]; }
-  if (K.k === 'hardware') { if (!OWN.r) return 'THAT WINCHESTER ON THE WALL\'S $180. RING THE BELL OR JUST TAKE IT DOWN.'; if (!OWN.b) return 'BINOCULARS ARE $45 - YOU\'LL SPOT A LOST HIKER A MILE OFF.'; return ['AMMO\'S BY THE BELL - $' + STORE.price + ' A BOX OF 20.', 'TACKLE\'S ON THE BENCH. THE TROUT ARE BITING UP THE CREEK.', 'NEED NAILS? WE GOT NAILS.'][K.hi++ % 3]; }
+  if (K.k === 'hardware') { if (!OWN.r) return 'THAT WINCHESTER ON THE RACK\'S $180. SET IT ON THE COUNTER AND RING THE BELL.'; if (!OWN.b) return 'BINOCULARS ARE $45 - YOU\'LL SPOT A LOST HIKER A MILE OFF.'; return ['AMMO\'S ON THE RACK - $' + STORE.price + ' A BOX OF 20.', 'TACKLE\'S ON THE BENCH. THE TROUT ARE BITING UP THE CREEK.', 'NEED NAILS? WE GOT NAILS.'][K.hi++ % 3]; }
   const L = SH_LINE[K.k]; return L[K.hi++ % L.length]; }
 function shkSay(K, t) { K.f.wave = 2.2; FOLK.q.push({ t: K.nm + ': "' + folkP(t) + '"', w: 0.6, soft: 1 }); }
 function shkThank(K) { if (!K) return; K.f.wave = 2.2; FOLK.q.push({ t: K.nm + ': "' + folkP(SH_THX[(K.n + K.hi++) % SH_THX.length]) + '"', w: 1.4, soft: 1 }); }
@@ -12884,9 +13026,9 @@ function shkTick(dt) {
   CAT_MS[1] = performance.now() - t0;
 }
 for (const K of SHOPK) { const R = K.f.g.rotation; K.f.ry0 = R.y; }
-storeBuy = (o => function (g) { const r = o(g); if (r) shkThank(SHOPK.HANK); return r; })(storeBuy);
-{ const gb = GEAR.buy; GEAR.buy = (k, g) => { const r = gb(k, g); if (r) shkThank(SHOPK.HANK); return r; }; }
-fBuy = (o => function (id, g) { const r = o(id, g); if (r) shkThank(shkNear(9)); return r; })(fBuy);
+storeBuy = (o => function (g) { const r = o(g); if (r && !SHX.paying) shkThank(SHOPK.HANK); return r; })(storeBuy);
+{ const gb = GEAR.buy; GEAR.buy = (k, g) => { const r = gb(k, g); if (r && !SHX.paying) shkThank(SHOPK.HANK); return r; }; }
+fBuy = (o => function (id, g) { const r = o(id, g); if (r && !SHX.paying) shkThank(shkNear(9)); return r; })(fBuy);
 ecoDo = (o => function (F, i) { const c0 = DLV.cash, r = o(F, i); if (F.B.home && DLV.cash < c0) shkThank(SHOPK.GUS); return r; })(ecoDo);
 upgDo = (o => function (i) { const c0 = DLV.cash, r = o(i); if (DLV.cash < c0) shkThank(SHOPK.GUS); return r; })(upgDo);
 
@@ -13313,9 +13455,16 @@ function gfxShadowFollow(dt) {
   if (!GFX.shadows) return;
   camera.getWorldPosition(_gsF); const t = GQ.shTex || 0.05, half = GQ.shR * 0.55;
   if (mode === 'plane') plane.getWorldPosition(_gsF);
-  const fx = Math.round(_gsF.x / t) * t, fz = Math.round(_gsF.z / t) * t;
-  { const p = sun.target.position; p.x = fx; p.y = _gsF.y; p.z = fz; } sun.target.updateMatrixWorld();
-  v3norm(sun.position).multiplyScalar(400).add(sun.target.position); shNearUpdate();
+  { const p = sun.target.position, s = sun.position;   // v1.22.0 light-space texel snap, all scalars (Vector3 setters showed up in the garbage sample)
+    let dx = s.x - p.x, dy = s.y - p.y, dz = s.z - p.z, inv = 1 / (Math.sqrt(dx * dx + dy * dy + dz * dz) || 1); dx *= inv; dy *= inv; dz *= inv;
+    let rx = dz, ry = 0, rz = -dx, rl = Math.sqrt(dz * dz + dx * dx); if (rl < 1e-4) { rx = 1; rz = 0; } else { inv = 1 / rl; rx *= inv; rz *= inv; }
+    const ux = dy * rz - dz * ry, uy = dz * rx - dx * rz, uz = dx * ry - dy * rx;
+    const a = Math.round((_gsF.x * rx + _gsF.y * ry + _gsF.z * rz) / t) * t, b = Math.round((_gsF.x * ux + _gsF.y * uy + _gsF.z * uz) / t) * t, c = _gsF.x * dx + _gsF.y * dy + _gsF.z * dz;
+    const px = rx * a + ux * b + dx * c, py = ry * a + uy * b + dy * c, pz = rz * a + uz * b + dz * c;
+    let ch = 0; if (p.x !== px) { p.x = px; ch = 1; } if (p.y !== py) { p.y = py; ch = 1; } if (p.z !== pz) { p.z = pz; ch = 1; }
+    const sx = dx * 400 + p.x, sy = dy * 400 + p.y, sz = dz * 400 + p.z;
+    if (s.x !== sx) { s.x = sx; ch = 1; } if (s.y !== sy) { s.y = sy; ch = 1; } if (s.z !== sz) { s.z = sz; ch = 1; }
+    if (ch) { sun.target.updateMatrixWorld(); shNearUpdate(); } }
   if (ULT.far && ULT.far.parent) ultFarFollow(dt);   // v1.09
   if ((GQ.shadowT -= dt) <= 0) { GQ.shadowT = 3; gfxShadowFlags(); }   // late-built meshes pick up the flags
 }
@@ -14279,7 +14428,7 @@ void main() { vec2 q = vec2(gl_PointCoord.x * 2.0 - 1.0, 1.0 - gl_PointCoord.y *
     for (let k = 0; k < 4000 && pts.length < 80; k++) { const x = v.x + rr(-420, 420), z = v.z + rr(-420, 420); let ok = true; for (const [dx, dz] of [[0, 0], [16, 0], [-16, 0], [0, 16], [0, -16], [11, 11], [-11, -11], [11, -11], [-11, 11]]) { const w = VISTA.lakeAt(x + dx, z + dz); if (!w || w !== v.w) { ok = false; break; } } if (ok) pts.push(x, z); }
     if (pts.length >= 8) WAT.push({ name: id, x: v.x, z: v.z, r: 300, y: v.y, real: false, vista: true, pts: new Float32Array(pts) }); }
   // the river: sample points down its ribbon (x = RIVER_X(z), surface = bed + 0.3) for fish + morning mist
-  const RIV = []; for (let z = 2350; z > -5850; z -= 25) { const x = RIVER_X(z); RIV.push(x, TH(x, z) + 0.3, z); } const RIVP = new Float32Array(RIV), RIVN = RIV.length / 3;
+  const RIV = []; for (let z = 2350; z > -5850; z -= 25) { const x = RIVER_X(z); RIV.push(x, rvCY(z) - 0.1, z); } const RIVP = new Float32Array(RIV), RIVN = RIV.length / 3;
 
   // songbird flocks: over the lakes, over the valley groves (TREES) and over forest slopes
   const FLK = [];
@@ -15767,7 +15916,7 @@ function survTick(dt, vr) { SURV.tick(dt, vr); }
 //     exactly - below FIX_ROLL.snap the raw hand roll is used bit for bit, so a still pose is the base pose: Pose Lab / handsexact, the zero).
 //     Hand-action reloading is gone: no lever by grabbing the loop or a down-flick, no loading by touching a round to the gate. Kept: B / Y works the
 //     lever, a round from the belt pouch + A / X near the gate (GUN.loadBtnR) loads it, the desktop keys.
-const FIX_CLD = { d0: 1000, d1: 1100, tie: 4 };   // v1.18.0 (was 1450 / 1550) eased in by the centre's true distance
+const FIX_CLD = { d0: 500, d1: 540, tie: 4 };   // v1.22.0 flat puff depth from 500 m, a 40 m ease (was 1000 / 1100: the half-blended depth in that 100 m band made puff seams swim as you turned)   // v1.18.0 (was 1450 / 1550) eased in by the centre's true distance
    // m: eased in from d0 to d1 (nearer clouds - big on screen - keep the true depth and the base look; 650 / 750 also fixes 1.2 km but swaps facets visibly) (the cloud centre's view depth); depth steps (24 bit) between puff ranks
 const FIX_STOCK = { knee: 0.045, engage: 0.11 };   // m from the shoulder pocket: it starts pulling in at 11 cm (base 8); inside 4.5 cm exactly the base curve (full inside 2.5 cm)
 const FIX_ROLL = { fmin: 1.2, beta: 15, snap: 1e-4, jump: 0.15, r0: -0.45, r1: -0.25 };   // roll filter: cut-off Hz = fmin + beta x |roll error| (rad); below snap rad: exact raw; a grip-hand jump > jump m (head-relative) in one frame (a teleport / Pose Lab pose, not a hand) resets it;
@@ -17732,7 +17881,7 @@ renderer.setAnimationLoop(() => {
     camera.rotation.set(lookPitch, lookYaw, 0, 'YXZ');
   }
   trkTick(dt);   // v1.19.0 the pickup (its own physics)
-  catTick(dt); shkTick(dt);   // v1.20.0 the hangar catalog, the shopkeepers
+  catTick(dt); shkTick(dt); shxTick(dt);   // v1.20.0 the hangar catalog, the shopkeepers
   if (mode === 'foot') updateFoot(dt);
   updateGear(dt); updateEngine(dt);
   cross.style.display = !xr && mode === 'foot' && !TITLE.on ? 'block' : 'none';
@@ -17767,8 +17916,8 @@ renderer.setAnimationLoop(() => {
   if (instT > 0.1) { instT = 0; drawWrist(); }
   if ((chunkT += dt) > 0.2) { chunkT = 0; updateChunks(); }
   hxTick(dt);                                // v0.24 haptics (engine / buffet / gear + queued pulses)
-  if (xr || HANDS.force) { wtTick(dt); updateHands(dt); setpTick(); jbPoke(); ecoPoke(); upgPoke(); emgPoke(); }
-  bodyTick(dt); vlTick(); batchTick(); cvlApply(); packTick(dt, xr || HANDS.force); gdTick(dt, xr || HANDS.force); survTick(dt, xr || HANDS.force); cabTick(dt, xr || HANDS.force); if (GFX.shadows && FT.n % ((mode !== 'plane' || ac.vel[0] * ac.vel[0] + ac.vel[1] * ac.vel[1] + ac.vel[2] * ac.vel[2] > 0.1) ? DYN.sh : Math.max(2, DYN.sh)) === 0) renderer.shadowMap.needsUpdate = true;   // v0.47 static batches; shadow map at half rate   // v0.23 gloves (after the stick / knobs have their final pose); v0.45 wrist SETTINGS board
+  if (xr || HANDS.force) { wtTick(dt); updateHands(dt); setpTick(); jbPoke(); ecoPoke(); upgPoke(); emgPoke(); shxPoke(); }
+  bodyTick(dt); vlTick(); batchTick(); cvlApply(); packTick(dt, xr || HANDS.force); gdTick(dt, xr || HANDS.force); survTick(dt, xr || HANDS.force); cabTick(dt, xr || HANDS.force); if (GFX.shadows && FT.n % (mode !== 'plane' ? DYN.sh : ac.vel[0] * ac.vel[0] + ac.vel[1] * ac.vel[1] + ac.vel[2] * ac.vel[2] > 0.1 ? 1 : Math.max(2, DYN.sh)) === 0) renderer.shadowMap.needsUpdate = true;   // v1.22.0 in the Cub, moving: every frame (auto quality only thins it on foot / parked)   // v0.47 static batches; shadow map at half rate   // v0.23 gloves (after the stick / knobs have their final pose); v0.45 wrist SETTINGS board
   if (DIRTY_TEX.size) { DIRTY_TEX.forEach(texInit); DIRTY_TEX.clear(); } if (WARM.done && !WARM.jobs.length) binoRender(); if (WARM.done && !WARM.jobs.length) h2Render();   // v0.53 the 7x view (only while raised); v0.81 the textures upload first
   if (xr || HANDS.force) wtApply(); BOOTF.pre = performance.now(); BOOTF.wl = xr && BOOTF.lite > 0; if (BOOTF.wl && BOOTF.lite === 2) warmStart('Entering VR');
   const _wr = warmTick() && !(xr && BOOTF.lite > 0); if (xr && BOOTF.lite > 0) BOOTF.lite--; if (_wr && !BOOTF.real) bootLog('first scene frame: drawing (first draw can still link a few programs)');
