@@ -640,7 +640,7 @@ const hyp = (a, b, c = 0) => Math.sqrt(a * a + b * b + c * c);   // v0.59 Math.h
 
 // ======================= RENDERING =======================
 // v0.35 settings (persist in localStorage 'bp_gfx'; ?gfx=shadows:2,grass:1 overrides for testing). Defaults = the v0.34 look and cost.
-const BP_VERSION = 'v1.20.0';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
+const BP_VERSION = 'v1.20.1';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
 { const e = document.getElementById('ver'); if (e) e.textContent = BP_VERSION; } window.__bpVer = BP_VERSION; bootLog('game module running ' + BP_VERSION + ' (three r' + THREE.REVISION + ')' + (/[?&]safe(=|&|$)/.test(location.search) ? ' - SAFE MODE: default graphics, no shadows / ULTRA / life / vistas / music' : ''));
 const GFX_DEF = { shadows: 0, scale: 1, fov: 1, dist: 1, trees: 1, grass: 0, clouds: 1, fog: 1, msaa: 1, hz: 90, vig: 0, turn: 0, fps: 0, tod: 11, stk: 1, tips: 1, terr: 1, dyn: 1, glove: 0, hand: 0, wt: 1, volM: 1, volMu: 0.5, volE: 1, volA: 1, volF: 1, volS: 1, volW: 1, wx: 1, forest: 0, fdens: 0, hints: 1, ground: 0, gtex: 0, cvl: 1, water: 1, dayl: 48, flure: 0, fline: 8, fdrag: 4, fbob: 0, fsink: 0, ultra: 0, sfxr: 1 };   // v0.68.1 dominant hand, volumes. v0.48 BALANCED: 90 % scale, 72 Hz, fast terrain shading, auto resolution; v0.49.1 the stick stays where you let go of it
 const GFX = Object.assign({}, GFX_DEF);
@@ -1278,7 +1278,7 @@ ROADS.push([[2600, 120], [2690, 30], [2740, 0], [2800, 0], [2900, 0], [3050, 5],
 // v1.10.11 local roads: gravel roads to the sawmill, lodge, ranger station, Halvorsen station + East Lake; dirt 2-tracks to farms, cabins, camps, the mines. Routed on the real ground (<= 8 % gravel, <= 14 % tracks,
 // switchbacks on the mine roads), no lake, no river crossing, never across a strip. Drawn into the road mesh (no new draw), on the paper map; trees / bushes / fence posts on them are cleared after the world is built.
 // f: a ford (the hunt-cabin track wades the NW lake creek, 6 m wide). ROADS itself is unchanged (the forest / farm placement reads it: same world). ROAD_CH: the church road's line off the creek mouth (it ran 40 m down the creek bed), for the ribbon + the map.
-const ROADS2 = [{"n":"SAWMILL ROAD","c":"g","p":[[40,-1240],[41,-1221],[52,-1195],[59,-1186],[75,-1172],[98,-1164],[168,-1159],[182,-1156],[205,-1148],[215,-1138],[225,-1122],[245,-1078],[258,-1056],[272,-1039],[290,-1025],[328,-1005],[342,-995],[365,-975],[408,-948],[480,-910],[541,-885],[562,-880],[578,-880],[596,-884],[645,-902],[720,-944],[735,-955],[760,-980]]},{"n":"LODGE ROAD","c":"g","p":[[-360,-2360],[-362,-2339],[-385,-2290],[-392,-2268],[-400,-2215],[-399,-2160],[-392,-2125],[-384,-2101],[-380,-2038],[-389,-2001],[-406,-1954],[-432,-1895],[-468,-1825],[-494,-1762],[-511,-1708],[-520,-1660],[-520,-1620],[-518,-1585],[-512,-1555],[-505,-1530],[-488,-1491],[-482,-1474],[-480,-1442],[-488,-1409],[-505,-1370],[-512,-1339],[-518,-1296],[-520,-1178],[-522,-1124],[-528,-1081],[-535,-1050],[-558,-1010],[-572,-990],[-628,-930],[-655,-890],[-672,-852],[-680,-825],[-678,-802],[-648,-728],[-642,-702],[-638,-618],[-632,-592],[-625,-570],[-615,-550],[-608,-525],[-602,-495],[-600,-420],[-596,-382],[-589,-348],[-578,-315],[-551,-258],[-544,-232],[-540,-210],[-540,-190],[-536,-169],[-529,-146],[-502,-98],[-491,-72],[-484,-48],[-480,-22],[-481,24],[-488,55],[-496,76],[-500,118],[-489,155],[-462,202],[-444,245],[-440,262],[-440,300]]},{"n":"RANGER STATION ROAD","c":"g","p":[[-1480,-1000],[-1446,-1016],[-1428,-1020],[-1402,-1009],[-1358,-982],[-1315,-964],[-1298,-960],[-1266,-962],[-1230,-975],[-1192,-995],[-1178,-1005],[-1142,-1035],[-1090,-1065],[-1068,-1072],[-1015,-1080],[-958,-1078],[-932,-1072],[-910,-1065],[-890,-1055],[-862,-1048],[-828,-1042],[-735,-1040],[-692,-1038],[-658,-1032],[-630,-1025],[-580,-1000]]},{"n":"HALVORSEN ROAD","c":"g","p":[[2400,-2820],[2362,-2820],[2341,-2825],[2314,-2835],[2240,-2870],[2179,-2895],[2158,-2900],[2142,-2900],[2121,-2895],[2094,-2885],[2020,-2850],[1966,-2821],[1948,-2808],[1821,-2741],[1419,-2540],[1292,-2480],[1281,-2479],[1244,-2464],[1202,-2460],[1169,-2468],[1111,-2492],[1094,-2498],[1062,-2500],[1029,-2492],[960,-2460]]},{"n":"EAST LAKE ROAD","c":"g","p":[[1320,-1400],[1319,-1349],[1316,-1336],[1308,-1315],[1282,-1284],[1238,-1238],[1199,-1209],[1146,-1176],[1080,-1140],[1000,-1100],[932,-1070],[878,-1050],[835,-1040],[760,-1040]]},{"n":"BOATHOUSE TRACK","c":"t","p":[[1800,-1300],[1762,-1275],[1749,-1269],[1736,-1266],[1725,-1268],[1706,-1276],[1688,-1280],[1655,-1268],[1638,-1264],[1612,-1261],[1540,-1260],[1500,-1265],[1460,-1275],[1420,-1290],[1320,-1340]]},{"n":"FISHING LODGE TRACK","c":"t","p":[[1520,-1740],[1432,-1652],[1402,-1619],[1378,-1586],[1358,-1555],[1342,-1525],[1324,-1472],[1320,-1450],[1320,-1400]]},{"n":"RANCH LANE","c":"t","p":[[1200,2000],[1019,2001],[965,2008],[946,2018],[928,2032],[914,2054],[895,2090],[871,2122],[858,2135],[820,2160]]},{"n":"RANCH STRIP TRACK","c":"t","p":[[1300,2260],[1316,2242],[1320,2228],[1312,2218],[1295,2208],[1284,2196],[1258,2155],[1224,2080],[1216,2035],[1200,2000]]},{"n":"HOMESTEAD TRACK","c":"t","p":[[640,3020],[640,2995],[642,2982],[665,2930],[672,2908],[678,2882],[680,2825],[688,2772],[695,2750],[705,2730],[712,2698],[718,2652],[720,2525],[726,2460],[739,2400],[758,2345],[814,2229],[820,2212],[820,2200]]},{"n":"BEE YARD TRACK","c":"t","p":[[1080,720],[1068,732],[1054,735],[990,712],[970,708],[948,708],[922,712],[895,722],[838,749],[812,756],[790,760],[740,760]]},{"n":"TRAPPER CABIN TRACK","c":"t","p":[[-960,2620],[-960,2570],[-955,2545],[-945,2515],[-910,2440],[-895,2400],[-885,2360],[-880,2320],[-880,2280],[-884,2222],[-888,2205],[-892,2195],[-899,2149],[-900,2000]]},{"n":"HUNT CABIN TRACK","c":"t","p":[[-1300,2840],[-1250,2840],[-1220,2832],[-1180,2818],[-1070,2765],[-991,2720],[-972,2705],[-964,2684],[-960,2658],[-960,2620]],"f":[[-1196,2824]]},{"n":"CANOE OUTFITTER TRACK","c":"t","p":[[-1400,2600],[-1319,2750],[-1306,2780],[-1300,2802],[-1300,2840]]},{"n":"FISH CAMP TRACK","c":"t","p":[[-60,2140],[-48,2128],[-26,2114],[26,2088],[48,2080],[61,2082],[130,2112],[150,2118],[190,2120],[230,2112],[270,2095],[311,2088],[374,2082],[562,2080],[646,2078],[709,2072],[750,2065],[800,2040]]},{"n":"CHURCH LANE","c":"t","p":[[-500,680],[-521,661],[-600,620]]},{"n":"ELEVATOR SPUR","c":"t","p":[[2480,220],[2512,154],[2520,132],[2520,120]]},{"n":"HANGAR TRACK","c":"t","p":[[3260,100],[3235,88],[3228,80],[3222,70],[3220,58],[3220,20]]},{"n":"ELK CAMP TRACK","c":"t","p":[[-2320,-1160],[-2260,-1190],[-2210,-1200],[-2150,-1200],[-2110,-1195],[-2090,-1185],[-2075,-1180],[-2065,-1180],[-2055,-1185],[-2045,-1195],[-2050,-1220],[-2070,-1260],[-2095,-1295],[-2125,-1325],[-2145,-1350],[-2155,-1370],[-2165,-1385],[-2175,-1395],[-2190,-1405],[-2210,-1415],[-2235,-1435],[-2265,-1465],[-2300,-1490],[-2340,-1510],[-2340,-1520],[-2300,-1520],[-2170,-1465],[-1950,-1355],[-1885,-1345],[-1975,-1435],[-1990,-1465],[-1930,-1435],[-1895,-1415],[-1885,-1405],[-1840,-1380],[-1760,-1340],[-1700,-1320],[-1660,-1320],[-1630,-1315],[-1610,-1305],[-1595,-1295],[-1585,-1285],[-1580,-1220],[-1580,-1100],[-1575,-1030],[-1565,-1010],[-1540,-1000],[-1480,-1000]]},{"n":"LOST LODE MINE ROAD","c":"t","p":[[-2840,-1440],[-2795,-1440],[-2775,-1445],[-2765,-1455],[-2760,-1475],[-2760,-1505],[-2755,-1520],[-2745,-1520],[-2710,-1505],[-2650,-1475],[-2610,-1460],[-2590,-1460],[-2570,-1455],[-2550,-1445],[-2530,-1420],[-2510,-1380],[-2495,-1355],[-2485,-1345],[-2470,-1335],[-2450,-1325],[-2435,-1310],[-2425,-1290],[-2420,-1275],[-2420,-1265],[-2415,-1250],[-2405,-1230],[-2395,-1215],[-2385,-1205],[-2370,-1195],[-2350,-1185],[-2330,-1180],[-2300,-1180]]}];
+const ROADS2 = [{"n":"SAWMILL ROAD","c":"g","p":[[40,-1240],[41,-1221],[52,-1195],[59,-1186],[75,-1172],[98,-1164],[168,-1159],[182,-1156],[205,-1148],[215,-1138],[225,-1122],[245,-1078],[258,-1056],[272,-1039],[290,-1025],[328,-1005],[342,-995],[365,-975],[408,-948],[480,-910],[541,-885],[562,-880],[578,-880],[596,-884],[645,-902],[720,-944],[735,-955],[760,-980]]},{"n":"LODGE ROAD","c":"g","p":[[-360,-2360],[-362,-2339],[-385,-2290],[-392,-2268],[-400,-2215],[-399,-2160],[-392,-2125],[-384,-2101],[-380,-2038],[-389,-2001],[-406,-1954],[-432,-1895],[-468,-1825],[-494,-1762],[-511,-1708],[-520,-1660],[-520,-1620],[-518,-1585],[-512,-1555],[-505,-1530],[-488,-1491],[-482,-1474],[-480,-1442],[-488,-1409],[-505,-1370],[-512,-1339],[-518,-1296],[-520,-1178],[-522,-1124],[-528,-1081],[-535,-1050],[-558,-1010],[-572,-990],[-628,-930],[-655,-890],[-672,-852],[-680,-825],[-678,-802],[-648,-728],[-642,-702],[-638,-618],[-632,-592],[-625,-570],[-615,-550],[-608,-525],[-602,-495],[-600,-420],[-596,-382],[-589,-348],[-578,-315],[-551,-258],[-544,-232],[-540,-210],[-540,-190],[-536,-169],[-529,-146],[-502,-98],[-491,-72],[-484,-48],[-480,-22],[-481,24],[-488,55],[-496,76],[-500,118],[-489,155],[-462,202],[-444,245],[-440,262],[-440,300]]},{"n":"RANGER STATION ROAD","c":"g","p":[[-1480,-1000],[-1446,-1016],[-1428,-1020],[-1402,-1009],[-1358,-982],[-1315,-964],[-1298,-960],[-1266,-962],[-1230,-975],[-1192,-995],[-1178,-1005],[-1142,-1035],[-1090,-1065],[-1068,-1072],[-1015,-1080],[-958,-1078],[-932,-1072],[-910,-1065],[-890,-1055],[-862,-1048],[-828,-1042],[-735,-1040],[-692,-1038],[-658,-1032],[-630,-1025],[-580,-1000]]},{"n":"HALVORSEN ROAD","c":"g","p":[[2400,-2820],[2362,-2820],[2341,-2825],[2314,-2835],[2240,-2870],[2179,-2895],[2158,-2900],[2142,-2900],[2121,-2895],[2094,-2885],[2020,-2850],[1966,-2821],[1948,-2808],[1821,-2741],[1419,-2540],[1292,-2480],[1281,-2479],[1244,-2464],[1202,-2460],[1169,-2468],[1111,-2492],[1094,-2498],[1062,-2500],[1029,-2492],[960,-2460]]},{"n":"EAST LAKE ROAD","c":"g","p":[[1320,-1400],[1319,-1349],[1316,-1336],[1308,-1315],[1282,-1284],[1238,-1238],[1199,-1209],[1146,-1176],[1080,-1140],[1000,-1100],[932,-1070],[878,-1050],[835,-1040],[760,-1040]]},{"n":"BOATHOUSE TRACK","c":"t","p":[[1800,-1300],[1762,-1275],[1749,-1269],[1736,-1266],[1725,-1268],[1706,-1276],[1688,-1280],[1655,-1268],[1638,-1264],[1612,-1261],[1540,-1260],[1500,-1265],[1460,-1275],[1420,-1290],[1320,-1340]]},{"n":"FISHING LODGE TRACK","c":"t","p":[[1520,-1740],[1432,-1652],[1402,-1619],[1378,-1586],[1358,-1555],[1342,-1525],[1324,-1472],[1320,-1450],[1320,-1400]]},{"n":"RANCH LANE","c":"t","p":[[1200,2000],[1019,2001],[965,2008],[946,2018],[928,2032],[914,2054],[895,2090],[871,2122],[858,2135],[820,2160]]},{"n":"RANCH STRIP TRACK","c":"t","p":[[1300,2260],[1316,2242],[1320,2228],[1312,2218],[1295,2208],[1284,2196],[1258,2155],[1224,2080],[1216,2035],[1200,2000]]},{"n":"HOMESTEAD TRACK","c":"t","p":[[640,3020],[640,2995],[642,2982],[665,2930],[672,2908],[678,2882],[680,2825],[688,2772],[695,2750],[705,2730],[712,2698],[718,2652],[720,2525],[726,2460],[739,2400],[758,2345],[814,2229],[820,2212],[820,2200]]},{"n":"BEE YARD TRACK","c":"t","p":[[1080,720],[1068,732],[1054,735],[990,712],[970,708],[948,708],[922,712],[895,722],[838,749],[812,756],[790,760],[740,760]]},{"n":"TRAPPER CABIN TRACK","c":"t","p":[[-960,2620],[-960,2570],[-955,2545],[-945,2515],[-910,2440],[-895,2400],[-885,2360],[-880,2320],[-880,2280],[-884,2222],[-888,2205],[-892,2195],[-899,2149],[-900,2000]]},{"n":"HUNT CABIN TRACK","c":"t","p":[[-1300,2840],[-1250,2840],[-1220,2832],[-1180,2818],[-1070,2765],[-991,2720],[-972,2705],[-964,2684],[-960,2658],[-960,2620]],"f":[[-1196,2824]]},{"n":"CANOE OUTFITTER TRACK","c":"t","p":[[-1400,2600],[-1319,2750],[-1306,2780],[-1300,2802],[-1300,2840]]},{"n":"FISH CAMP TRACK","c":"t","p":[[-60,2140],[-48,2128],[-26,2114],[26,2088],[48,2080],[61,2082],[130,2112],[150,2118],[190,2120],[230,2112],[270,2095],[311,2088],[374,2082],[562,2080],[646,2078],[709,2072],[750,2065],[800,2040]]},{"n":"CHURCH LANE","c":"t","p":[[-500,680],[-521,661],[-600,620]]},{"n":"ELEVATOR SPUR","c":"t","p":[[2480,220],[2512,154],[2520,132],[2520,120]]},{"n":"HANGAR TRACK","c":"t","p":[[3260,100],[3235,88],[3228,80],[3222,70],[3220,58],[3220,20]]},{"n":"ELK CAMP TRACK","c":"t","p":[[-2320,-1160],[-2260,-1190],[-2210,-1200],[-2150,-1200],[-2110,-1195],[-2090,-1185],[-2075,-1180],[-2065,-1180],[-2055,-1185],[-2045,-1195],[-2050,-1220],[-2070,-1260],[-2095,-1295],[-2125,-1325],[-2145,-1350],[-2155,-1370],[-2165,-1385],[-2175,-1395],[-2190,-1405],[-2210,-1415],[-2235,-1435],[-2265,-1465],[-2300,-1490],[-2340,-1510],[-2340,-1520],[-2300,-1520],[-2170,-1465],[-1950,-1355],[-1885,-1345],[-1975,-1435],[-1990,-1465],[-1930,-1435],[-1895,-1415],[-1885,-1405],[-1840,-1380],[-1760,-1340],[-1700,-1320],[-1660,-1320],[-1630,-1315],[-1610,-1305],[-1595,-1295],[-1585,-1285],[-1580,-1220],[-1580,-1100],[-1575,-1030],[-1565,-1010],[-1540,-1000],[-1480,-1000]]},{"n":"LOST LODE MINE ROAD","c":"t","p":[[-2840,-1440],[-2795,-1440],[-2775,-1445],[-2765,-1455],[-2760,-1475],[-2760,-1505],[-2755,-1520],[-2745,-1520],[-2710,-1505],[-2650,-1475],[-2610,-1460],[-2590,-1460],[-2570,-1455],[-2550,-1445],[-2530,-1420],[-2510,-1380],[-2495,-1355],[-2485,-1345],[-2470,-1335],[-2450,-1325],[-2435,-1310],[-2425,-1290],[-2420,-1275],[-2420,-1265],[-2415,-1250],[-2405,-1230],[-2395,-1215],[-2385,-1205],[-2370,-1195],[-2350,-1185],[-2330,-1180],[-2300,-1180]]},{"n":"RIDGE LANE","c":"g","lift":0.065,"p":[[186,-566],[262,-526],[340,-476],[418,-424],[466,-352],[480,-272],[452,-192],[404,-124],[342,-74],[272,-38],[216,-18],[173,-4.9]]}];
 const ROAD_CH = [[-900, 2000], [-640, 705], [-500, 300], [-300, 330], [29, -15]];
 const RD2 = { b: null, fence: null, n: 0 };
 function rd2Index() { const B = new Map(), C = 32, add = (p, hw) => { for (let i = 1; i < p.length; i++) { const sg = [p[i - 1][0], p[i - 1][1], p[i][0], p[i][1], hw];
@@ -1328,23 +1328,24 @@ const lines = [];   // merged line segments (fence wires + power lines): one dra
   const rv = [], rdA = [];   // v1.18.0 rdA: across / along / kind per vertex (the road shader)
   const rdTag = (n0, ax, az, ux, uz, s0, c, kind) => { for (let v = n0; v < rv.length; v += 3) { const dx = rv[v] - ax, dz = rv[v + 2] - az; rdA.push(-dx * uz + dz * ux - c, s0 + dx * ux + dz * uz, kind); } };
   let rdS = 0;
-  const road = pts => { for (let i = 0; i < pts.length - 1; i++) {
+  const road = (pts, lift = 0.05) => { for (let i = 0; i < pts.length - 1; i++) {
     const [x0, z0] = pts[i], [x1, z1] = pts[i + 1], L = hyp(x1 - x0, z1 - z0), n = Math.ceil(L / 8);
     const nx = -(z1 - z0) / L * 2, nz = (x1 - x0) / L * 2;
     for (let k = 0; k < n; k++) {
       const a = k / n, b = (k + 1) / n, ax = x0 + (x1 - x0) * a, az = z0 + (z1 - z0) * a, bx = x0 + (x1 - x0) * b, bz = z0 + (z1 - z0) * b;
-      const n0 = rv.length; conformPoly([[ax + nx, az + nz], [bx + nx, bz + nz], [bx - nx, bz - nz], [ax - nx, az - nz]], 0.05, rv);   // v0.63 on the ground (was 8 m quads 0.12 m up, up to 0.33 m off)
+      const n0 = rv.length; conformPoly([[ax + nx, az + nz], [bx + nx, bz + nz], [bx - nx, bz - nz], [ax - nx, az - nz]], lift, rv);   // v0.63 on the ground (was 8 m quads 0.12 m up, up to 0.33 m off)
       rdTag(n0, x0, z0, (x1 - x0) / L, (z1 - z0) / L, rdS, 0, 0);
     } rdS += L; } };
   const roadX = z => { for (let i = 0; i < ROAD_NS.length - 1; i++) { const [x0, z0] = ROAD_NS[i], [x1, z1] = ROAD_NS[i + 1];
     if (z <= z1) return x0 + (x1 - x0) * (z - z0) / (z1 - z0); } return ROAD_NS[ROAD_NS.length - 1][0]; };
-  for (const r of ROADS) road(r === ROADS[2] ? ROAD_CH : r);   // v1.10.11 the church road off the creek
+  for (const r of ROADS) { if (r === ROADS[0]) { const [p0, p1] = r, L = hyp(p1[0] - p0[0], p1[1] - p0[1]), d = (36 - p0[0]) / (p1[0] - p0[0]) * L; rdS = d; road([[36, p0[1] + (p1[1] - p0[1]) * d / L], ...r.slice(1)]); continue; }   // v1.20.1 from the cabin's back wall (the surface pattern unchanged)
+    road(r === ROADS[2] ? ROAD_CH : r); }   // v1.10.11 the church road off the creek
   const ruts = pts => { for (let i = 0; i < pts.length - 1; i++) {   // v1.10.11 a dirt 2-track: two wheel ruts (0.6 m) 1.7 m apart
     const [x0, z0] = pts[i], [x1, z1] = pts[i + 1], L = hyp(x1 - x0, z1 - z0), n = Math.ceil(L / 8), ux = -(z1 - z0) / L, uz = (x1 - x0) / L;
     for (let k = 0; k < n; k++) { const a = k / n, b = Math.min(1, (k + 1) / n + 0.3 / L), ax = x0 + (x1 - x0) * a, az = z0 + (z1 - z0) * a, bx = x0 + (x1 - x0) * b, bz = z0 + (z1 - z0) * b;
       for (const c of [-0.85, 0.85]) { const p = c - 0.3, q = c + 0.3, n0 = rv.length; conformPoly([[ax + ux * q, az + uz * q], [bx + ux * q, bz + uz * q], [bx + ux * p, bz + uz * p], [ax + ux * p, az + uz * p]], 0.05, rv);
         rdTag(n0, x0, z0, (x1 - x0) / L, (z1 - z0) / L, rdS, c, 1); } } rdS += L; } };
-  for (const r of ROADS2) (r.c === 'g' ? road : ruts)(r.p);
+  for (const r of ROADS2) (r.c === 'g' ? road : ruts)(r.p, r.lift);
   const rg = new THREE.BufferGeometry(); rg.setAttribute('position', new THREE.Float32BufferAttribute(rv, 3)); rg.setAttribute('rd', new THREE.Float32BufferAttribute(rdA, 3)); rg.computeVertexNormals();
   scene.add(new THREE.Mesh(rg, GSTY.road = new THREE.MeshLambertMaterial({ color: 0x8c7552, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -3 })));
   GSTY.road.onBeforeCompile = roadSurf; GSTY.road.customProgramCacheKey = () => 'road118';   // v1.18.0 the procedural surface   // v0.86 its colour follows Ground style
@@ -5670,7 +5671,8 @@ function handTargets(i, g, st) {                 // decide pose + world matrix f
       }
       st.mode = 'ck';
     }
-  } else if (paperHandK(g)) { gripOn(st, paperHandK(g), right ? 1 : -1); st.mode = 'ck'; }   // v0.77.3 the map held on foot: its corner pinch
+  } else if (trkHandK(i)) { gripOn(st, trkHandK(i), right ? 1 : -1); st.mode = 'ck'; }   // v1.20.1 the truck's wheel / key / lever / knob / switch / horn / door handles
+  else if (paperHandK(g)) { gripOn(st, paperHandK(g), right ? 1 : -1); st.mode = 'ck'; }   // v0.77.3 the map held on foot: its corner pinch
   else if (HOSE.held === g && HOSE.noz.visible) { gripOn(st, 'noz', right ? 1 : -1); st.mode = 'ck'; st.jx = 0.35 * trig; }   // v0.77.7 the nozzle's pistol grip, the index on the lever
   else if (huntHandK(g) || binoHandK(g)) { const hk = huntHandK(g) || binoHandK(g); gripOn(st, hk, right ? 1 : -1); st.mode = 'ck'; st.jx = hk === 'rgrip' ? 0.3 * trig : 0; }   // v0.67 the trigger finger squeezes   // v0.53 rifle grips, v0.65 binoculars
   else if (fishGripK(g)) { gripOn(st, fishGripK(g), right ? 1 : -1); st.mode = 'ck'; }   // v1.10 the rod's cork grip (glove on the controller) / the reel's crank knob
@@ -10448,6 +10450,8 @@ function bshAtlas() {
   clump(256, 256, '#8a9468', '#737d55', '#566040', 10, 240, 150);         // 3 dry sage / willow scrub, grey-green
   const tex = sprAtlas(cv); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4; return tex;
 }
+function bshLow(x, z, ry, hw, h) { const c = Math.cos(ry) * hw, s = Math.sin(ry) * hw; let lo = h;   // v1.20.1 the lowest ground under a bush's two crossed quads (arm ends)
+  for (let k = 0; k < 4; k++) { const ax = k === 0 ? c : k === 1 ? -c : k === 2 ? s : -s, az = k === 0 ? -s : k === 1 ? s : k === 2 ? c : -c, y = terrainHeight(x + ax, z + az); if (y < lo) lo = y; } return lo; }
 function bshBuild() {
   const t0 = performance.now(), L = [[], [], [], []];
   const cell = c => { const u0 = (c % 2) * 0.5, v0 = c < 2 ? 0.5 : 0, P = [], U = [], N = [];
@@ -10457,7 +10461,7 @@ function bshBuild() {
   const gen = (seed, mult, tag) => { let sd = seed; const r = () => (sd = (sd * 16807) % 2147483647) / 2147483647;
     const put = (x, z) => { if (vegBlocked(x, z, 1) || rd2Dist(x, z) < 2.5 || FARMS.some(([a, b]) => hyp(x - a, z - b) < 30)) return; const ny = terrainNormal(x, z)[1]; if (ny < 0.72) return;
       const h = groundY(x, z), u = r(), c = h > 600 || waterDist(x, z) < 25 ? (u < 0.55 ? 3 : 1) : u < 0.42 ? 0 : u < 0.67 ? 1 : u < 0.8 ? 2 : 3, s = 0.55 + r() * 0.9;
-      L[c].push([x, h - 0.08 * s, z, r() * 3.14, 2.1 * s, 1.35 * s * (0.85 + r() * 0.3), 2.1 * s, tag]); };
+      const ry = r() * 3.14, hs = 1.35 * s * (0.85 + r() * 0.3), lo = bshLow(x, z, ry, 1.05 * s, h); L[c].push([x, lo - 0.06 * s, z, ry, 2.1 * s, hs + 0.5 * (h - lo) - 0.02 * s, 2.1 * s, tag]); };
     const ring = (cx, cz, r0, r1, n) => { for (let k = 0; k < n * mult; k++) { const a = r() * 6.283, d = r0 + r() * (r1 - r0); put(cx + Math.cos(a) * d, cz + Math.sin(a) * d); } };
     if (typeof DLV_STRIPS !== 'undefined') for (const S of DLV_STRIPS) ring(S.x, S.z, (S.hw || 16) + 8, (S.hl || 60) + 60, 70);
     if (typeof LAKES !== 'undefined') for (const W of LAKES) ring(W.x, W.z, (W.r || 80) + 3, (W.r || 80) + 30, 90);
@@ -10521,7 +10525,8 @@ function vegPlace() {
   addRing(32, -15, 6, 22, 30, ['stump', 'log', 'rock1', 'rock2', 'bush1', 'fern1', 'fern2'], 0.4, 1.0, 1);
   addRing(-1300, 2850, 8, 30, 22, pines.concat(['log', 'stump', 'rockMoss1', 'bush2']), 0.5, 12, 1.5);
   // 3. camp dressing (fixed, not random on the world stream)
-  const prop = (name, x, z, s, ry) => { if (!G[name] || vegBlocked(x, z, 0.4) && name !== 'tent' && name !== 'fire' && name !== 'crate') { /* still place camp props if only the loose runway test tripped at a yard */ }
+  const prop = (name, x, z, s, ry) => { if (name === 'axe') return; if (name === 'fire' || name === 'fireLit') s *= 0.42; else if (name === 'sitLog') s *= 0.72;   // v1.20.1
+    if (!G[name] || vegBlocked(x, z, 0.4) && name !== 'tent' && name !== 'fire' && name !== 'crate') { /* still place camp props if only the loose runway test tripped at a yard */ }
     vegPush(lists, name, x, groundY(x, z), z, ry, s); };
   // home cabin: fire, sitting logs, crates, tools, a lean-to of logs + tent (v1.18.0 all turned round with the cabin: the door faces the strip, west)
   prop('fire', 36.8, -9.5, 0.85, 3.44159); prop('fireLit', 36.8, -9.5, 0.85, 3.44159);
@@ -10605,7 +10610,7 @@ function faunaSpawn() {
   const put = (sp, x, z, pack) => {
     if (vegBlocked(x, z, 2) && sp !== 'bird') { /* try a nudge */ x += 8; z += 6; if (vegBlocked(x, z, 2) && sp !== 'bird') return; }
     const a = faunaObj(sp, x, z, groundY(x, z), vegR() * 6.283, 'graze', vegR() * 5, pack || 0, 0);
-    FAUNA.amb.push(a);
+    if (sp !== 'rabbit') FAUNA.amb.push(a);   // v1.20.1 no rabbits (the stream is drawn as before, so every other animal is where it was)
   };
   // elk: a small band at Elk Meadow and two other open spots (ambient, not hunted)
   if (typeof DEER_HERDS !== 'undefined') {
@@ -10646,7 +10651,7 @@ function faunaSpawn() {
 }
 function faunaPrewarmAmb() {
   const pv = PL.visible, sv = SL.visible;
-  const kinds = ['wolf', 'fox', 'rabbit', 'stag'];
+  const kinds = ['wolf', 'fox', 'stag'];   // v1.20.1 (no rabbits)
   for (let i = 0; i < kinds.length; i++) {
     const sp = kinds[i]; if (!FAUNA.src[sp]) continue;
     if (!FAUNA.pool[sp]) { FAUNA.pool[sp] = []; FAUNA.poolK.push(sp); }
@@ -12086,14 +12091,28 @@ function gameLoad() {
 // VR: grab the wheel (one or both hands), twist the key, pull the column lever (P R N D), right trigger gas, left trigger brake, B horn (or the hub), grab the
 // light knob / wiper switch, grab a door handle to open or shut it, Y gets in / out. Desktop: F in / out, K key, Z / X lever up / down, W / S gas / brake,
 // A / D steer, L lights, J wipers, H horn, O driver's door. Saved in the game save (trk); a save without it has the truck parked beside the hangar.
-const TRK_START = { x: 131, z: -16.9, yaw: 1.43 };   // outside the gate, nose to the strip (yaw +pi/2 faces -x)
-const TRK_PARK = { x: HANGAR.x + 1.5, z: HANGAR.z + 10.2, yaw: -Math.PI / 2 };   // beside the hangar's south wall, nose to the strip
-const TK = { WB: 3.4, TR: 1.66, R: 0.4, STEER: 0.6, WMAX: 7.6, CRANK: 0.8, VMAX: 36, VREV: 7, ACC: 3.7, RACC: 2.4, BRK: 8.5, HUB: 0.065, RIM: 0.19, CIRC: [-1.75, 0, 1.75], CR: 0.98,
+// v1.20.1: real half-ton cab proportions round the seated eye (seat 0.75 below it, a 17" wheel 0.34 below and 0.42 ahead, tilted 34 deg), a solid dash (an
+// extruded profile + a binnacle that houses the gauges, every switch in a bezel on the dash face), the Cub's grips on every control (GDEF holds: the glove rides
+// the rim / key / lever / knob / switch / hub / door handle through its whole travel), the Cub's yellow ring + name tag + grab pulses, the ridge lane drive-in
+// (TRK_LANE, a gravel road on the map, GOAL waypoints), a marked parking pad at the hangar (the arrival trigger; older saves park the truck on it).
+const TRK_LANE = [[186, -566], [262, -526], [340, -476], [418, -424], [466, -352], [480, -272], [452, -192], [404, -124], [342, -74], [272, -38], [216, -18], [173, -6]];   // v1.20.1 the ridge lane (ROADS2 'RIDGE LANE')
+const TRK_START = { x: TRK_LANE[0][0], z: TRK_LANE[0][1], yaw: Math.atan2(-(TRK_LANE[1][0] - TRK_LANE[0][0]), -(TRK_LANE[1][1] - TRK_LANE[0][1])) };   // v1.20.1 the far end of the ridge lane, nose up the ridge into the low morning sun (was outside the gate)
+const TRK_PARK = { x: HANGAR.x + 1.5, z: HANGAR.z + 12.1, yaw: Math.PI / 2 };   // beside the hangar's south wall: v1.20.1 the marked pad, nose in (west) to the stop log
+const TK = { WB: 3.4, TR: 1.66, R: 0.4, STEER: 0.6, WMAX: 7.6, CRANK: 0.8, VMAX: 36, VREV: 7, ACC: 3.7, RACC: 2.4, BRK: 8.5, HUB: 0.065, RIM: 0.215, CIRC: [-1.75, 0, 1.75], CR: 0.98,
   GA: [0.3, 0.1, -0.1, -0.3], GN: ['P', 'R', 'N', 'D'], ARR: GV3(HANGAR.x + 10.5, 0, HANGAR.z), ARR_R: 7.5, BAND: [0, 6, 13, 21, 99] };
+Object.assign(TRK, { kO: 0, wA: 0.25, hv: new Int8Array(2), hvS: new Float64Array(2), hz: new Float64Array(8), hm: new Uint8Array(2), dG: new Float64Array(2), wp: 0, pd: 0, tk: -1 });   // v1.20.1 knob out, wiper angle, hover pick per hand, hold scratch, lane waypoint, parked
 const TRKG = new THREE.Group(); TRKG.rotation.order = 'YXZ'; scene.add(TRKG); TRK.g = TRKG;
-const TRK_RIG = new THREE.Group(); TRK_RIG.position.set(-0.4, 1.62, 0.1); TRKG.add(TRK_RIG); TRK.rig = TRK_RIG;
+const TRK_RIG = new THREE.Group(); TRK_RIG.position.set(-0.4, 1.7, 0.1); TRKG.add(TRK_RIG); TRK.rig = TRK_RIG;
 const _tkA = new THREE.Vector3(), _tkB = new THREE.Vector3(), _tkC = new THREE.Vector3(), _tkQ = new THREE.Quaternion(), _tkP = { x: 0, z: 0 }, _tkCq = new THREE.Quaternion();
 const TRK_LENS = new THREE.MeshBasicMaterial({ color: 0x8a8a7a }), TRK_TAIL = new THREE.MeshBasicMaterial({ color: 0x5a0a0a });
+function trkPrism(Q, x0, x1) {   // v1.20.1 a convex (z, y) profile extruded along x: flat-shaded triangles for partGeo 'm'
+  const p = [], n = [], tri = (a, b, c) => { p.push(...a, ...b, ...c); const ux = b[0] - a[0], uy = b[1] - a[1], uz = b[2] - a[2], vx = c[0] - a[0], vy = c[1] - a[1], vz = c[2] - a[2];
+    let nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx; const l = Math.hypot(nx, ny, nz) || 1; nx /= l; ny /= l; nz /= l; for (let k = 0; k < 3; k++) n.push(nx, ny, nz); };
+  const A = Q.map(([z, y]) => [x0, y, z]), B = Q.map(([z, y]) => [x1, y, z]), L = Q.length;
+  let ar = 0; for (let i = 0; i < L; i++) { const [z0, y0] = Q[i], [z1, y1] = Q[(i + 1) % L]; ar += z0 * y1 - z1 * y0; } const f = ar < 0;   // winding (z right, y up seen from +x)
+  for (let i = 1; i < L - 1; i++) { if (f) { tri(B[0], B[i], B[i + 1]); tri(A[0], A[i + 1], A[i]); } else { tri(B[0], B[i + 1], B[i]); tri(A[0], A[i], A[i + 1]); } }
+  for (let i = 0; i < L; i++) { const j = (i + 1) % L; if (f) { tri(A[i], A[j], B[j]); tri(A[i], B[j], B[i]); } else { tri(A[i], B[j], A[j]); tri(A[i], B[i], B[j]); } }
+  return { p, n }; }
 { const BODY = 0x5b7d8f, TRIM = 0xd6d6cc, DK = 0x1b1b1b, CH = 0x2a2a2a, IN = 0x4a4036, SEAT = 0x6e4c30, PAD = 0x2a2622;
   const P = [], b = (w, h, d, x, y, z, c, rx = 0, ry = 0, rz = 0) => P.push(['b', w, h, d, x, y, z, c, rx, ry, rz]), cy = (r, l, x, y, z, c, rx = 0, ry = 0, rz = 0, sg = 10) => P.push(['c', r, l, sg, x, y, z, c, rx, ry, rz]);
   for (const sx of [-1, 1]) b(0.12, 0.16, 5.0, sx * 0.5, 0.52, 0, CH);   // frame rails
@@ -12111,10 +12130,14 @@ const TRK_LENS = new THREE.MeshBasicMaterial({ color: 0x8a8a7a }), TRK_TAIL = ne
   b(1.96, 0.16, 0.14, 0, 0.6, -2.74, TRIM); b(1.96, 0.16, 0.14, 0, 0.62, 2.68, TRIM);   // bumpers
   b(1.86, 0.55, 0.06, 0, 0.955, 0.32, BODY); b(1.86, 0.12, 0.06, 0, 1.87, 0.32, BODY); for (const sx of [-1, 1]) b(0.36, 0.64, 0.06, sx * 0.75, 1.55, 0.32, BODY);   // cab back wall round its window
   b(1.86, 0.06, 0.95, 0, 1.93, -0.15, BODY); b(1.8, 0.06, 0.3, 0, 1.21, -1.05, BODY);   // roof, cowl
-  b(1.76, 0.26, 0.3, 0, 1.08, -0.84, IN); b(1.76, 0.04, 0.33, 0, 1.215, -0.82, PAD); b(0.44, 0.09, 0.12, -0.4, 1.265, -0.74, DK);   // dash, pad, cluster hood
-  b(0.2, 0.06, 0.02, 0.12, 1.03, -0.69, DK); b(0.16, 0.012, 0.01, 0.12, 1.045, -0.678, 0x6a8a5a);   // the radio
-  cy(0.035, 0.36, -0.4, 1.1, -0.6, DK, 0.98);   // steering column
-  b(1.6, 0.16, 0.55, 0, 0.92, 0.0, SEAT); b(1.6, 0.62, 0.12, 0, 1.3, 0.24, SEAT, -0.15);   // bench seat
+  // v1.20.1 the dash: one solid extruded profile (firewall top to the face at z -0.66, no gaps) + a padded top that meets the windshield's foot, the knee roll under it
+  P.push(['m', trkPrism([[-1.0, 0.93], [-0.66, 0.93], [-0.66, 1.235], [-1.0, 1.205]], -0.91, 0.91), 0, 0, 0, 0, 0, IN]);
+  P.push(['m', trkPrism([[-1.005, 1.19], [-0.655, 1.225], [-0.655, 1.262], [-0.68, 1.298], [-0.73, 1.308], [-1.005, 1.216]], -0.915, 0.915), 0, 0, 0, 0, 0, PAD]);
+  b(1.8, 0.06, 0.1, 0, 0.93, -0.69, PAD); b(1.84, 0.24, 0.04, 0, 0.83, -1.0, CH);   // knee roll, the firewall below the dash (the footwell's back)
+  b(0.2, 0.06, 0.02, 0.24, 1.08, -0.65, DK); b(0.16, 0.012, 0.004, 0.24, 1.095, -0.6385, 0x6a8a5a); for (const x of [0.16, 0.32]) cy(0.009, 0.012, x, 1.07, -0.634, 0xb8b8b0, Math.PI / 2, 0, 0, 8);   // the radio, set in the dash face
+  b(0.4, 0.16, 0.006, 0.6, 1.07, -0.657, 0x3e352c); b(0.05, 0.012, 0.01, 0.6, 1.12, -0.652, 0xb8b8b0);   // glovebox lid + latch
+  for (const x of [-0.75, 0.1, 0.62]) b(0.12, 0.012, 0.05, x, 1.304, -0.79, DK);   // demister slots in the pad
+  b(1.6, 0.14, 0.55, 0, 0.88, 0.02, SEAT); b(1.5, 0.11, 0.45, 0, 0.76, 0.04, DK); b(1.6, 0.66, 0.12, 0, 1.26, 0.25, SEAT, -0.15);   // bench seat on its riser (cushion top 0.95: 0.75 under the seated eye)
   b(1.8, 0.06, 2.2, 0, 0.9, 1.5, CH); b(1.84, 0.5, 0.06, 0, 1.18, 0.42, BODY); b(1.84, 0.5, 0.06, 0, 1.18, 2.62, BODY); b(1.5, 0.05, 0.02, 0, 1.3, 2.655, TRIM);   // bed, tailgate
   b(0.32, 0.16, 0.01, 0, 0.8, 2.755, 0xe8e0c0); b(0.4, 0.02, 0.18, -0.4, 1.89, -0.58, IN); b(0.2, 0.055, 0.025, 0, 1.82, -0.6, DK);   // plate, visor, mirror
   b(0.5, 0.18, 0.5, 0.25, 1.02, 1.0, 0x8a6a3a); b(0.35, 0.3, 0.35, -0.5, 1.08, 1.9, 0x5a6a3a);   // a crate and a jerry can in the bed
@@ -12133,20 +12156,36 @@ for (const [sx, lz] of [[-1, -TK.WB / 2], [1, -TK.WB / 2], [-1, TK.WB / 2], [1, 
   const P = [['c', TK.R, 0.28, 14, 0, 0, 0, 0x1b1b1b, 0, 0, Math.PI / 2], ['c', 0.22, 0.29, 10, 0, 0, 0, 0xb8b8b0, 0, 0, Math.PI / 2], ['c', 0.07, 0.3, 8, 0, 0, 0, 0x6a6a66, 0, 0, Math.PI / 2]];
   for (let k = 0; k < 5; k++) { const a = k * 1.2566; P.push(['b', 0.3, 0.035, 0.035, 0, Math.cos(a) * 0.14, Math.sin(a) * 0.14, 0x55554f]); }
   const w = trkPart(P, S, true); TRK.wheels.push(w); if (lz < 0) TRK.steerG.push(S); }
-TRK.swg = new THREE.Group(); TRK.swg.position.set(-0.4, 1.22, -0.44); TRK.swg.rotation.x = -0.45; TRKG.add(TRK.swg);
-TRK.sw = trkPart([['r', TK.RIM, 0.017, 18, 0, 0, 0, 0x1e1e1e, -Math.PI / 2], ['b', 0.36, 0.024, 0.016, 0, 0, 0, 0x2a2a2a], ['b', 0.024, 0.18, 0.016, 0, -0.09, 0, 0x2a2a2a], ['c', 0.042, 0.04, 12, 0, 0, 0.01, 0x242424, Math.PI / 2], ['c', 0.016, 0.042, 10, 0, 0, 0.012, 0x8a1a12, Math.PI / 2]], TRK.swg);
-TRK.keyG = new THREE.Group(); TRK.keyG.position.set(-0.27, 1.1, -0.62); TRK.keyG.rotation.y = 0.5; TRKG.add(TRK.keyG);
-trkPart([['c', 0.02, 0.012, 10, 0, 0, -0.003, 0x8a8a84, Math.PI / 2]], TRK.keyG); TRK.key = trkPart([['b', 0.008, 0.012, 0.03, 0, 0, 0.012, 0xc8b060], ['b', 0.03, 0.022, 0.006, 0, 0, 0.03, 0xc8b060]], TRK.keyG);
-TRK.levG = new THREE.Group(); TRK.levG.position.set(-0.32, 1.17, -0.5); TRKG.add(TRK.levG);
-trkPart([['b', 0.22, 0.016, 0.016, 0.11, 0, 0, 0x8a8a8a], ['d', 0.022, 1, 1, 0.225, 0, 0, 0x1a1a1a]], TRK.levG); TRK.levK = new THREE.Object3D(); TRK.levK.position.set(0.225, 0, 0); TRK.levG.add(TRK.levK);
-TRK.knob = new THREE.Group(); TRK.knob.position.set(-0.8, 1.12, -0.685); TRKG.add(TRK.knob); trkPart([['c', 0.018, 0.03, 10, 0, 0, 0.0, 0xd8d0b0, Math.PI / 2], ['c', 0.006, 0.03, 6, 0, 0, -0.02, 0x8a8a8a, Math.PI / 2]], TRK.knob);
-TRK.wsw = new THREE.Group(); TRK.wsw.position.set(-0.02, 1.12, -0.685); TRKG.add(TRK.wsw); trkPart([['b', 0.01, 0.04, 0.012, 0, 0.012, 0.006, 0xd8d0b0]], TRK.wsw); trkPart([['b', 0.04, 0.04, 0.01, -0.02, 1.12, -0.69, 0x2a2a2a]], TRKG).position.x = 0.02;
+// v1.20.1 the wheel: a 17" rim (0.43 m), its hub 0.34 under and 0.42 ahead of the seated eye, the column tilted 34 deg from upright into the dash face (all static parts
+// that ride the column are in swg; sw turns). The column-shift lever pivots on the column's collar and sweeps round the column's own axis.
+TRK.swg = new THREE.Group(); TRK.swg.position.set(-0.4, 1.36, -0.32); TRK.swg.rotation.x = -0.6; TRKG.add(TRK.swg);
+trkPart([['c', 0.04, 0.53, 12, 0, 0, -0.275, 0x232323, Math.PI / 2], ['c', 0.05, 0.05, 12, 0, 0, -0.035, 0x2a2a2a, Math.PI / 2], ['b', 0.035, 0.045, 0.05, 0.045, 0, -0.08, 0x2a2a2a],   // column shroud (into the dash), the collar under the wheel, the shift housing
+  ['c', 0.056, 0.02, 12, 0, 0, -0.405, 0x1b1b1b, Math.PI / 2], ['b', 0.012, 0.07, 0.012, -0.05, 0.0, -0.1, 0x2a2a2a, 0, 0, 1.2]], TRK.swg);   // the boot at the dash face, the turn-signal stalk
+TRK.sw = trkPart([['r', TK.RIM, 0.017, 22, 0, 0, 0, 0x1e1e1e, -Math.PI / 2], ['b', 0.41, 0.026, 0.016, 0, 0, 0, 0x2a2a2a], ['b', 0.026, 0.2, 0.016, 0, -0.1, 0, 0x2a2a2a], ['c', 0.042, 0.04, 14, 0, 0, 0.01, 0x242424, Math.PI / 2]], TRK.swg);
+TRK.hc = trkPart([['c', 0.03, 0.012, 14, 0, 0, 0, 0x8a1a12, Math.PI / 2], ['c', 0.012, 0.004, 10, 0, 0, 0.007, 0xc8c8c0, Math.PI / 2]], TRK.sw); TRK.hc.position.z = 0.034;   // the horn button (pressed in while the horn sounds)
+TRK.gp = [new THREE.Object3D(), new THREE.Object3D()]; TRK.sw.add(TRK.gp[0], TRK.gp[1]);   // each hand's grip point on the rim (set on the grab, turns with the wheel)
+// the key: in a chrome bezel on the dash face right of the column (blade toward you; it turns about the blade)
+const TK_DF = -0.66;   // the dash face (truck z)
+trkPart([['c', 0.022, 0.016, 14, -0.24, 1.07, TK_DF + 0.006, 0xb8b8b0, Math.PI / 2], ['c', 0.012, 0.003, 10, -0.24, 1.07, TK_DF + 0.0145, 0x1a1a1a, Math.PI / 2]], TRKG);
+TRK.keyG = new THREE.Group(); TRK.keyG.position.set(-0.24, 1.07, TK_DF + 0.014); TRKG.add(TRK.keyG);
+TRK.key = trkPart([['b', 0.006, 0.012, 0.03, 0, 0, 0.012, 0xc8b060], ['b', 0.006, 0.026, 0.024, 0, 0, 0.036, 0xc8b060], ['r', 0.008, 0.0018, 8, 0, 0.016, 0.044, 0x9a9a92, 0, 0, Math.PI / 2]], TRK.keyG);
+TRK.levG = new THREE.Group(); TRK.levG.position.set(0.062, 0, -0.08); TRK.swg.add(TRK.levG);
+trkPart([['b', 0.2, 0.014, 0.014, 0.1, 0, 0, 0x8a8a8a], ['c', 0.012, 0.055, 10, 0.228, 0, 0, 0x1a1a1a, 0, 0, Math.PI / 2], ['c', 0.009, 0.02, 8, 0.004, 0, 0, 0x5a5a5a, Math.PI / 2]], TRK.levG); TRK.levK = new THREE.Object3D(); TRK.levK.position.set(0.228, 0, 0); TRK.levG.add(TRK.levK);
+// headlight knob (pull out = on) and the wiper toggle, each in its bezel on the dash face
+const TK_KZ = TK_DF + 0.012;
+trkPart([['c', 0.023, 0.01, 14, -0.75, 1.12, TK_DF + 0.004, 0xb8b8b0, Math.PI / 2], ['b', 0.05, 0.05, 0.01, -0.06, 1.13, TK_DF + 0.004, 0x2a2a2a], ['b', 0.034, 0.012, 0.004, -0.06, 1.16, TK_DF + 0.0105, 0xd8d0b0]], TRKG);
+TRK.knob = new THREE.Group(); TRK.knob.position.set(-0.75, 1.12, TK_KZ); TRKG.add(TRK.knob); trkPart([['c', 0.017, 0.028, 12, 0, 0, 0.0, 0xd8d0b0, Math.PI / 2], ['c', 0.005, 0.034, 6, 0, 0, -0.022, 0x8a8a8a, Math.PI / 2]], TRK.knob);
+TRK.wsw = new THREE.Group(); TRK.wsw.position.set(-0.06, 1.13, TK_DF + 0.009); TRKG.add(TRK.wsw); trkPart([['b', 0.01, 0.04, 0.012, 0, 0.014, 0.004, 0xd8d0b0], ['c', 0.008, 0.012, 8, 0, 0, 0.0, 0x5a5a5a, 0, 0, Math.PI / 2]], TRK.wsw);
 TRK.ped = []; for (const [x, y] of [[-0.48, 0.86], [-0.24, 0.82]]) { const G = new THREE.Group(); G.position.set(x, y + 0.24, -0.86); TRKG.add(G); trkPart([['b', 0.02, 0.26, 0.02, 0, -0.13, 0, 0x3a3a3a], ['b', x < -0.4 ? 0.1 : 0.06, 0.08, 0.02, 0, -0.26, 0.012, 0x222222]], G); TRK.ped.push(G); }
 TRK.wipG = []; for (const x of [-0.42, 0.22]) { const G = new THREE.Group(); G.position.set(x, 1.24, -0.985); G.rotation.x = 0.49; TRKG.add(G); const W = new THREE.Group(); G.add(W); trkPart([['b', 0.012, 0.5, 0.008, 0, 0.25, -0.012, 0x161616]], W); TRK.wipG.push(W); }
-// the gauge cluster: a canvas (the dial, P R N D, the lamps) redrawn only when something on it changes; the needle is a mesh
+// the gauge cluster: a canvas (the dial, P R N D, the lamps) redrawn only when something on it changes; the needle is a mesh. v1.20.1 it is housed in a binnacle that
+// sits on the dash (its back and foot run into the dash body), a chrome bezel round the face, a visor over it; framed by the wheel's upper opening from the seat
 TRK.cc = document.createElement('canvas'); TRK.cc.width = 256; TRK.cc.height = 128; TRK.ct = new THREE.CanvasTexture(TRK.cc); TRK.ct.colorSpace = THREE.SRGBColorSpace; TRK.ct.generateMipmaps = false; TRK.ct.minFilter = THREE.LinearFilter;
-{ const m = new THREE.Mesh(new THREE.PlaneGeometry(0.4, 0.2), new THREE.MeshBasicMaterial({ map: TRK.ct })); m.position.set(-0.4, 1.17, -0.68); m.rotation.x = -0.25; TRKG.add(m); TRK.clu = m;
-  TRK.ndl = new THREE.Group(); TRK.ndl.position.set(-0.4 - 0.075, 1.172, -0.676); TRK.ndl.rotation.x = -0.25; TRKG.add(TRK.ndl); trkPart([['b', 0.055, 0.004, 0.003, 0.024, 0, 0, 0xe86a20]], TRK.ndl).position.z = 0.002; }
+TRK.cluG = new THREE.Group(); TRK.cluG.position.set(-0.4, 1.33, -0.585); TRK.cluG.rotation.x = -0.2; TRKG.add(TRK.cluG);
+trkPart([['b', 0.46, 0.19, 0.16, 0, 0, -0.08, 0x2a2622], ['b', 0.5, 0.022, 0.12, 0, 0.104, -0.035, 0x2a2622], ['b', 0.42, 0.012, 0.008, 0, 0.086, 0.004, 0xb8b8b0], ['b', 0.42, 0.012, 0.008, 0, -0.086, 0.004, 0xb8b8b0],
+  ['b', 0.012, 0.184, 0.008, -0.205, 0, 0.004, 0xb8b8b0], ['b', 0.012, 0.184, 0.008, 0.205, 0, 0.004, 0xb8b8b0]], TRK.cluG);   // binnacle, visor, bezel
+{ const m = new THREE.Mesh(new THREE.PlaneGeometry(0.4, 0.18), new THREE.MeshBasicMaterial({ map: TRK.ct })); m.position.set(0, 0, 0.0015); TRK.cluG.add(m); TRK.clu = m;
+  TRK.ndl = new THREE.Group(); TRK.ndl.position.set(-0.1, -0.0028, 0.0035); TRK.cluG.add(TRK.ndl); trkPart([['b', 0.062, 0.004, 0.002, 0.026, 0, 0, 0xe86a20], ['c', 0.006, 0.003, 10, 0, 0, 0.001, 0x1a1a1a, Math.PI / 2]], TRK.ndl); }
 function trkClu() { const x = TRK.cc.getContext('2d'), W = 256, H = 128; x.fillStyle = '#0e0f10'; x.fillRect(0, 0, W, H);
   const cx = 64, cy = 66, R = 50; x.strokeStyle = '#d8d0b8'; x.fillStyle = '#d8d0b8'; x.lineWidth = 2; x.textAlign = 'center'; x.textBaseline = 'middle'; x.font = 'bold 11px sans-serif';
   for (let i = 0; i <= 8; i++) { const a = 3.93 - i / 8 * 4.71, c = Math.cos(a), s = Math.sin(a); x.beginPath(); x.moveTo(cx + c * R, cy - s * R); x.lineTo(cx + c * (R - 8), cy - s * (R - 8)); x.stroke(); x.fillText(String(i * 10), cx + c * (R - 18), cy - s * (R - 18)); }
@@ -12249,8 +12288,8 @@ function trkPushAll() {   // three circles down the body against the gathered se
 function trkPlace(x, z, yaw) { TRK.x = x; TRK.z = z; TRK.yaw = yaw; TRK.v = 0; TRK.wh = 0; TRK.st = 0; if (TRK_RD.tg) trkNearby(); else TKS.spc = true; trkGroundPose(); TRK.y = TRK.ty; TRK.pit = TRK.tp; TRK.rol = TRK.tr; TRK.yv = TRK.pv = TRK.rv = 0; trkPose(); }
 function trkPose() { TRKG.position.set(TRK.x, TRK.y, TRK.z); TRKG.rotation.set(TRK.pit, TRK.yaw, TRK.rol);
   for (let i = 0; i < 2; i++) TRK.steerG[i].rotation.y = -TRK.st; for (let i = 0; i < 4; i++) TRK.wheels[i].rotation.x = TRK.spin;
-  TRK.sw.rotation.z = -TRK.wh; TRK.levG.rotation.z = TRK.levA; TRK.key.rotation.z = TRK.eng === 1 ? -1.05 : TRK.ign ? -0.6 : 0; TRK.knob.position.z = -0.685 + (TRK.li ? 0.016 : 0);
-  TRK.wsw.rotation.x = TRK.wip ? -0.45 : 0.25; TRK.ped[0].rotation.x = -0.4 * TRK.brk; TRK.ped[1].rotation.x = -0.35 * TRK.thr;
+  TRK.sw.rotation.z = -TRK.wh; TRK.levG.rotation.z = TRK.levA; TRK.key.rotation.z = TRK.eng === 1 ? -1.05 : TRK.ign ? -0.6 : 0; TRK.knob.position.z = TK_KZ + TRK.kO;
+  TRK.wsw.rotation.x = TRK.wA; TRK.hc.position.z = TRK.horn ? 0.029 : 0.034; TRK.ped[0].rotation.x = -0.4 * TRK.brk; TRK.ped[1].rotation.x = -0.35 * TRK.thr;
   for (let i = 0; i < 2; i++) { TRK.door[i].rotation.y = (i ? 1 : -1) * 1.15 * TRK.dr[i]; TRK.wipG[i].rotation.z = -1.38 + TRK.wipA; }
   TRK.ndl.rotation.z = 3.93 - Math.min(1, Math.abs(TRK.v) * 2.237 / 80) * 4.71;
   TRKG.updateMatrixWorld(true); }
@@ -12292,23 +12331,60 @@ function trkDesk(dt) { const K = keys, g = K.KeyW || K.ArrowUp ? 1 : 0, br = K.K
   const wu = (s ? 8 : 10) * dt, w0 = TRK.wh; TRK.wh = tg > w0 ? (w0 + wu > tg ? tg : w0 + wu) : (w0 - wu < tg ? tg : w0 - wu); }
 const trkWrap = a => a > Math.PI ? a - 2 * Math.PI : a < -Math.PI ? a + 2 * Math.PI : a;
 function trkRoll(g) { _tkA.setFromMatrixColumn(g.matrixWorld, 0); _tkQ.copy(TRKG.quaternion).invert(); _tkA.applyQuaternion(_tkQ); return Math.atan2(_tkA.y, _tkA.x); }
-function trkGrab(g, i) { g.updateMatrixWorld(true); g.getWorldPosition(_tkA);
-  for (let k = 0; k < 2; k++) { TRK.dI[k].getWorldPosition(_tkB); if (_tkA.distanceTo(_tkB) < 0.1) { trkDoor(k); HX.pulse(g, 0.3, 18, 'trk'); return true; } }
-  TRK.key.getWorldPosition(_tkB); if (_tkA.distanceTo(_tkB) < 0.075) { if (TRK.eng === 2) trkIgn(false); else { trkIgn(true); TRK.hold[i] = 'key'; TRK.keyR = trkRoll(g); } HX.pulse(g, 0.3, 15, 'trk'); return true; }
-  TRK.knob.getWorldPosition(_tkB); if (_tkA.distanceTo(_tkB) < 0.065) { trkLights(); HX.pulse(g, 0.3, 15, 'trk'); return true; }
-  TRK.wsw.getWorldPosition(_tkB); if (_tkA.distanceTo(_tkB) < 0.06) { trkWipers(); HX.pulse(g, 0.3, 15, 'trk'); return true; }
-  TRK.levK.getWorldPosition(_tkB); if (_tkA.distanceTo(_tkB) < 0.08) { TRK.hold[i] = 'lev'; HX.pulse(g, 0.25, 15, 'trk'); return true; }
-  TRK.swg.worldToLocal(_tkB.copy(_tkA)); const r = Math.sqrt(_tkB.x * _tkB.x + _tkB.y * _tkB.y);
-  if (Math.abs(_tkB.z) < 0.09) { if (r < TK.HUB) { TRK.hold[i] = 'hub'; return true; } if (Math.abs(r - TK.RIM) < 0.075) { TRK.hold[i] = 'wh'; TRK.hA[i] = Math.atan2(_tkB.y, _tkB.x); HX.pulse(g, 0.2, 12, 'trk'); return true; } }
-  return false; }
-function trkRelease(i) { if (TRK.hold[i] === 'lev') TRK.levA = TK.GA[TRK.gear]; TRK.hold[i] = null; }
+// v1.20.1 one pick for the ring, the tag and the grab (the ring shows what a squeeze will take): 1 key, 2 headlight knob, 3 wiper switch, 4 gear lever, 5 horn hub,
+// 6 wheel rim, 7 / 8 inside door handle (driver / passenger), 9 / 10 outside handle. Scored by distance over the control's reach, the current pick held a little (hysteresis).
+const TK_R = [0, 0.075, 0.065, 0.06, 0.08, 1, 1, 0.1, 0.1, 0.12, 0.12];
+function trkCtl(c, k, out) { switch (c) { case 1: return TRK.key.getWorldPosition(out); case 2: return TRK.knob.getWorldPosition(out); case 3: return TRK.wsw.getWorldPosition(out); case 4: return TRK.levK.getWorldPosition(out);
+  case 7: case 8: return TRK.dI[c - 7].getWorldPosition(out); case 9: case 10: return TRK.dO[c - 9].getWorldPosition(out); } return TRK.sw.getWorldPosition(out); }
+function trkPickOne(c, p, cur) { trkCtl(c, 0, _tkB); const d = p.distanceTo(_tkB) / TK_R[c]; return c === cur ? d - 0.15 : d; }
+function trkPick(i, p) {   // p: the hand (world). Returns the code (0 = nothing in reach); TRK.hz[i * 4] = the rim angle for 6
+  const cur = TRK.hv[i]; let best = 0, bs = 1;
+  if (!TRK.in) { if (mode !== 'foot') return 0; for (let c = 9; c <= 10; c++) { const d = trkPickOne(c, p, cur); if (d < bs) { bs = d; best = c; } } return best; }
+  for (let c = 1; c <= 4; c++) { const d = trkPickOne(c, p, cur); if (d < bs) { bs = d; best = c; } }
+  for (let c = 7; c <= 8; c++) { const d = trkPickOne(c, p, cur); if (d < bs) { bs = d; best = c; } }
+  TRK.swg.worldToLocal(_tkB.copy(p)); const z = Math.abs(_tkB.z); if (z < 0.09) { const r = Math.sqrt(_tkB.x * _tkB.x + _tkB.y * _tkB.y);
+    let d = r / TK.HUB; if (cur === 5) d -= 0.15; if (d < bs) { bs = d; best = 5; }
+    d = Math.abs(r - TK.RIM) / 0.075; if (cur === 6) d -= 0.15; if (d < bs) { bs = d; best = 6; TRK.hz[i * 4] = Math.atan2(_tkB.y, _tkB.x); } }
+  return best; }
+function trkGrab(g, i) { g.updateMatrixWorld(true); g.getWorldPosition(_tkA); const c = trkPick(i, _tkA); if (!c) return false; TRK.hv[i] = c;
+  if (c >= 7) { const k = (c - 7) & 1; TRK.hold[i] = c < 9 ? (k ? 'dI1' : 'dI0') : (k ? 'dO1' : 'dO0'); trkDoorG(i, k, _tkA); HX.pulse(g, 0.3, 18, 'trk'); return true; }
+  if (c === 1) { if (TRK.eng === 2) trkIgn(false); else trkIgn(true); TRK.hold[i] = 'key'; TRK.keyR = trkRoll(g); HX.pulse(g, 0.3, 15, 'trk'); return true; }
+  if (c === 2 || c === 3) { TRKG.worldToLocal(_tkB.copy(_tkA)); TRK.hold[i] = c === 2 ? 'knob' : 'wsw'; TRK.hz[i * 4 + 1] = _tkB.z; TRK.hz[i * 4 + 2] = c === 2 ? TRK.kO : TRK.wA; TRK.hm[i] = 0; HX.pulse(g, 0.3, 15, 'trk'); return true; }
+  if (c === 4) { TRK.hold[i] = 'lev'; HX.pulse(g, 0.25, 15, 'trk'); return true; }
+  if (c === 5) { TRK.hold[i] = 'hub'; HX.pulse(g, 0.2, 12, 'trk'); return true; }
+  TRK.hold[i] = 'wh'; TRK.hA[i] = TRK.hz[i * 4]; const a = TRK.hA[i] + TRK.wh, gp = TRK.gp[i]; gp.position.set(TK.RIM * Math.cos(a), TK.RIM * Math.sin(a), 0); gp.rotation.set(0, 0, a); gp.updateMatrix();
+  HX.pulse(g, 0.2, 12, 'trk'); return true; }
+// doors: the hand swings the door about its hinge (the handle stays in the glove); let go without moving it = the old open / shut toggle; within 0.06 of shut it latches
+function trkDoorA(k, p) { TRKG.worldToLocal(_tkC.copy(p)); return Math.atan2(_tkC.x - (k ? 0.955 : -0.955), _tkC.z + 0.98); }
+function trkDoorG(i, k, p) { TRK.dG[i] = trkDoorA(k, p) - (k ? 1 : -1) * 1.15 * TRK.dr[k]; TRK.hz[i * 4 + 3] = TRK.dr[k]; TRK.hm[i] = 0; }
+function trkDoorH(i, k, g) { const h = TRK.hold[i], o = h === 'dO0' || h === 'dO1' ? TRK.dO[k] : TRK.dI[k]; o.getWorldPosition(_tkB);
+  if (_tkA.distanceTo(_tkB) > 0.3) { trkRelease(i); return; }
+  const th = trkWrap(trkDoorA(k, _tkA) - TRK.dG[i]); let d = th / ((k ? 1 : -1) * 1.15); d = d < 0 ? 0 : d > 1 ? 1 : d;
+  if (Math.abs(d - TRK.hz[i * 4 + 3]) > 0.06) TRK.hm[i] = 1; const o0 = TRK.dr[k]; TRK.dr[k] = TRK.drT[k] = d;
+  if (d < 0.02 && o0 >= 0.02) { sfx('clunk'); HX.pulse(g, 0.35, 20, 'trk'); } }
+function trkRelease(i) { const h = TRK.hold[i]; if (!h) return; TRK.hold[i] = null;
+  if (h === 'lev') TRK.levA = TK.GA[TRK.gear];
+  else if (h === 'knob') { if (!TRK.hm[i]) trkLights(); }
+  else if (h === 'wsw') { if (!TRK.hm[i]) trkWipers(); }
+  else if (h.charCodeAt(0) === 100) { const k = h.charCodeAt(2) - 48; if (!TRK.hm[i]) trkDoor(k); else if (TRK.dr[k] < 0.06) { TRK.drT[k] = 0; } else TRK.drT[k] = TRK.dr[k]; } }   // 'dI0' / 'dO1' ...
+function trkKnobH(i, g) { TRKG.worldToLocal(_tkB.copy(_tkA)); const dz = _tkB.z - TRK.hz[i * 4 + 1]; if (dz > 0.006 || dz < -0.006) TRK.hm[i] = 1;
+  if (Math.abs(_tkB.x + 0.75) > 0.15 || Math.abs(dz) > 0.15) { trkRelease(i); return; }
+  let o = TRK.hz[i * 4 + 2] + dz; o = o < 0 ? 0 : o > 0.016 ? 0.016 : o; TRK.kO = o;
+  if (o > 0.012 && !TRK.li) { trkLights(true); HX.pulse(g, 0.35, 18, 'trk'); } else if (o < 0.004 && TRK.li) { trkLights(false); HX.pulse(g, 0.35, 18, 'trk'); } }
+function trkWswH(i, g) { TRKG.worldToLocal(_tkB.copy(_tkA)); const dz = _tkB.z - TRK.hz[i * 4 + 1]; if (dz > 0.006 || dz < -0.006) TRK.hm[i] = 1;
+  if (Math.abs(_tkB.x + 0.06) > 0.15 || Math.abs(dz) > 0.15) { trkRelease(i); return; }
+  let a = TRK.hz[i * 4 + 2] + dz * 18; a = a < -0.45 ? -0.45 : a > 0.25 ? 0.25 : a; TRK.wA = a;
+  if (a < -0.3 && !TRK.wip) { trkWipers(true); HX.pulse(g, 0.35, 18, 'trk'); } else if (a > 0.1 && TRK.wip) { trkWipers(false); HX.pulse(g, 0.35, 18, 'trk'); } }
 function trkHands(dt) { let da = 0, n = 0;
   for (let i = 0; i < 2; i++) { const h = TRK.hold[i]; if (!h) continue; const g = grips[i]; g.updateMatrixWorld(true); g.getWorldPosition(_tkA);
     if (h === 'wh') { TRK.swg.worldToLocal(_tkB.copy(_tkA)); const r = Math.sqrt(_tkB.x * _tkB.x + _tkB.y * _tkB.y); if (r > 0.42 || Math.abs(_tkB.z) > 0.3) { TRK.hold[i] = null; continue; }
       const a = Math.atan2(_tkB.y, _tkB.x); da += trkWrap(a - TRK.hA[i]); TRK.hA[i] = a; n++; }
     else if (h === 'key') { const tw = Math.abs(trkWrap(trkRoll(g) - TRK.keyR)), tv = g.userData.src?.gamepad?.buttons[0]?.value || 0; TRK.crankH = tw > 0.45 || tv > 0.6; }
     else if (h === 'lev') { TRK.levG.parent.worldToLocal(_tkB.copy(_tkA)); const ang = clamp(Math.atan2(_tkB.y - TRK.levG.position.y, _tkB.x - TRK.levG.position.x), -0.36, 0.36); TRK.levA = ang;
-      let best = 0, bd = 9; for (let k = 0; k < 4; k++) { const d = Math.abs(TK.GA[k] - ang); if (d < bd) { bd = d; best = k; } } if (best !== TRK.gear && bd < 0.07) trkShift(best, g); } }
+      let best = 0, bd = 9; for (let k = 0; k < 4; k++) { const d = Math.abs(TK.GA[k] - ang); if (d < bd) { bd = d; best = k; } } if (best !== TRK.gear && bd < 0.07) trkShift(best, g); }
+    else if (h === 'knob') trkKnobH(i, g);
+    else if (h === 'wsw') trkWswH(i, g);
+    else if (h !== 'hub') trkDoorH(i, h.charCodeAt(2) - 48, g); }
   if (n) TRK.wh = clamp(TRK.wh - da / n, -TK.WMAX, TK.WMAX); return n; }
 function trkXR(dt) { let lx = 0; TRK.thr = 0; TRK.brk = 0; TRK.hornK = false; TRK.crankH = false;
   for (let i = 0; i < 2; i++) { const g = grips[i], src = g.userData.src; if (!src || !src.gamepad) continue;
@@ -12404,26 +12480,95 @@ function trkTick(dt) {
   if (!TRK.in && mode === 'foot') { const d = hyp(_tkC.x - TRK.x, _tkC.z - TRK.z); if (d < 3.2 && !TRK.nr) { TRK.nr = 1; if (msgT <= 0) say('WALT\'S PICKUP - ' + (renderer.xr.isPresenting ? 'Y GETS IN (OR GRAB A DOOR HANDLE)' : 'F GETS IN, O OPENS THE DOOR')); } else if (d > 6) TRK.nr = 0; }
   // the story's first step: drive to the hangar (the music swells and holds while you do)
   if (STORY.on && STORY.said.tin) { MUS.sw = Math.max(MUS.sw, 7);
-    const px = TRK.in ? TRK.x : _tkC.x, pz = TRK.in ? TRK.z : _tkC.z;
-    if (hyp(px - TK.ARR.x, pz - TK.ARR.z) < TK.ARR_R) { delete STORY.said.tin; sfx('tick'); musStinger('story'); storyLog('Drove Walt\'s old pickup in from the gate to the hangar.');
-      say('WALT\'S HANGAR. PARK IT AND STEP OUT (' + (renderer.xr.isPresenting ? 'Y' : 'F') + ') - NEXT: THE BANK\'S LETTER ON YOUR CLIPBOARD'); saveSoon(); } }
+    trkWay();   // v1.20.1 the GOAL's next lane waypoint
+    if (TRK.in ? trkOnPad() && Math.abs(TRK.v) < 0.8 : hyp(_tkC.x - TK.ARR.x, _tkC.z - TK.ARR.z) < TK.ARR_R) { delete STORY.said.tin; sfx('tick'); musStinger('story'); storyLog('Drove Walt\'s old pickup down the ridge lane and parked it on the pad at the hangar.');
+      say('PARKED AT WALT\'S HANGAR. STEP OUT (' + (renderer.xr.isPresenting ? 'Y' : 'F') + ') - NEXT: THE BANK\'S LETTER ON YOUR CLIPBOARD'); saveSoon(); } }
+  if (!TRK.in && (TRK.hold[0] || TRK.hold[1])) trkHands(dt);   // v1.20.1 an outside door handle held on foot
+  if (TRK.hold[0] !== 'knob' && TRK.hold[1] !== 'knob') { const t = TRK.li ? 0.016 : 0; if (TRK.kO !== t) TRK.kO = approach(TRK.kO, t, 0.12, dt); }   // v1.20.1 the knob / toggle settle where the state says
+  if (TRK.hold[0] !== 'wsw' && TRK.hold[1] !== 'wsw') { const t = TRK.wip ? -0.45 : 0.25; if (TRK.wA !== t) TRK.wA = approach(TRK.wA, t, 6, dt); }
+  trkHov();
 }
 function trkBeam(dark) { if (dark < 0.2) return; TRKG.localToWorld(SL.position.set(0, 1.0, -2.85)); TRKG.localToWorld(SL.target.position.set(0, -1.2, -30)); SL.distance = 95; SL.angle = 0.52; SL.penumbra = 0.5; SL.intensity = 160; TRK.sl = true; }
-function trkSave() { return { p: [r3(TRK.x), r3(TRK.z)], y: r3(TRK.yaw), i: TRK.in ? 1 : 0, g: TRK.gear, e: TRK.eng === 2 ? 1 : 0, k: TRK.ign ? 1 : 0, l: TRK.li ? 1 : 0 }; }
-function trkLoad(d) {   // null / an older save: parked beside the hangar, engine off, in P
+function trkSave() { return { p: [r3(TRK.x), r3(TRK.z)], y: r3(TRK.yaw), i: TRK.in ? 1 : 0, g: TRK.gear, e: TRK.eng === 2 ? 1 : 0, k: TRK.ign ? 1 : 0, l: TRK.li ? 1 : 0, v: 2 }; }   // v1.20.1 v: 2 = saved since the pad
+function trkLoad(d) {   // null / an older save: parked on the hangar's pad, engine off, in P (v1.20.1 a save from before the pad, v !== 2, parks it on the pad too)
   if (TRK.in) trkExit(true); TRK.eng = 0; TRK.ign = false; TRK.li = false; TRK.wip = false; TRK.gear = 0; TRK.levA = TK.GA[0]; TRK.dr[0] = TRK.dr[1] = TRK.drT[0] = TRK.drT[1] = 0; TRK.autoC = 0; TRK.crank = 0; TRK.rpm = 0;
   const ok = d && Array.isArray(d.p) && d.p.length === 2 && d.p.every(v => typeof v === 'number' && isFinite(v)) && typeof d.y === 'number' && isFinite(d.y);
-  if (!ok) { trkPlace(TRK_PARK.x, TRK_PARK.z, TRK_PARK.yaw); return; }
+  TRK.wp = 0; TRK.kO = 0; TRK.wA = 0.25;
+  if (!ok || d.v !== 2) { trkPlace(TRK_PARK.x, TRK_PARK.z, TRK_PARK.yaw); if (ok && d.i && mode === 'foot') trkEnter(true); return; }
   trkPlace(clamp(d.p[0], -5900, 5900), clamp(d.p[1], -5900, 5900), d.y); TRK.gear = clamp(d.g | 0, 0, 3); TRK.levA = TK.GA[TRK.gear]; TRK.li = !!d.l; TRK.ign = !!d.k || !!d.e; TRK.eng = d.e ? 2 : 0; TRK.rpm = d.e ? 750 : 0;
   if (d.i && mode === 'foot') trkEnter(true); }
-function trkIntro() { trkLoad(null); trkPlace(TRK_START.x, TRK_START.z, TRK_START.yaw); STORY.said.tin = 1; trkEnter(true); musSwell('gate', 90);
-  storyLog('The gates of Walt\'s strip, Home valley, in Walt\'s old pickup - his keys still in it.');
-  say('THE GATES OF WALT\'S STRIP, HOME VALLEY. WALT\'S OLD PICKUP - THE KEY IS IN IT. DRIVE TO THE HANGAR: ' + (renderer.xr.isPresenting ? 'TWIST THE KEY, LEVER DOWN TO D, RIGHT TRIGGER GAS, LEFT BRAKE' : 'K STARTS IT, X SHIFTS TO D, W / S GAS + BRAKE, A / D STEER')); }
+function trkIntro() { trkLoad(null); trkPlace(TRK_START.x, TRK_START.z, TRK_START.yaw); STORY.said.tin = 1; TRK.wp = 0; trkEnter(true); musSwell('gate', 150);
+  if (GFX.dayl > 0) { DAY.h = 6.6; updateDay(0); }   // v1.20.1 sunrise (golden sky, the sun on the horizon dead ahead down the first stretch; full day by the gate): the sun low in the east, over the valley below the ridge (was 8:15)
+  storyLog('Dawn on the ridge above Home valley, in Walt\'s old pickup - his keys still in it. The lane runs down to his gate.');
+  say('DAWN ON THE RIDGE ABOVE HOME VALLEY. WALT\'S OLD PICKUP - THE KEY IS IN IT. FOLLOW THE RIDGE LANE DOWN TO THE GATE AND PARK ON THE PAD AT THE HANGAR: ' + (renderer.xr.isPresenting ? 'TWIST THE KEY, LEVER DOWN TO D, RIGHT TRIGGER GAS, LEFT BRAKE' : 'K STARTS IT, X SHIFTS TO D, W / S GAS + BRAKE, A / D STEER')); }
+// ---- v1.20.1 the GOAL's waypoints: down the ridge lane, the gate, the lane past the cabin, the pad ----
+const TK_WP = new Float64Array([262, -526, 418, -424, 480, -272, 404, -124, 272, -38, 173, -6, 106, -19.3, 42, -7, 8, -10.5, -12, -3, TRK_PARK.x, TRK_PARK.z]), TK_WN = TK_WP.length / 2, TK_WG = 6;   // ... the gate, the cabin, past the Cub's tail, the apron, the pad
+function trkWay() { if (TRK.wp >= TK_WN - 1) return; const x = TRK.in ? TRK.x : _tkC.x, z = TRK.in ? TRK.z : _tkC.z, w = TRK.wp * 2;
+  const ax = x - TK_WP[w], az = z - TK_WP[w + 1], bx = x - TK_WP[w + 2], bz = z - TK_WP[w + 3], da = ax * ax + az * az;
+  if (da < (TRK.wp < TK_WG ? 484 : 100) || bx * bx + bz * bz < da) TRK.wp++; }   // 22 m on the open lane, 10 m from the gate on
+// ---- v1.20.1 the parking pad beside the hangar: gravel, white-painted logs down both sides, a stop log (solid) at the nose end, a sign on a post ----
+const TK_PAD = { x: TRK_PARK.x, z: TRK_PARK.z, hl: 3.1, hw: 1.65 };
+function trkOnPad() { const dx = TRK.x - TK_PAD.x, dz = TRK.z - TK_PAD.z; if (Math.abs(dx) > 1.4 || Math.abs(dz) > 0.75) return false; const c = Math.cos(TRK.yaw); return c < 0.5 && c > -0.5; }   // centred on it, lined up with it (either way round)
+{ const X = TK_PAD.x, Z = TK_PAD.z, L = TK_PAD.hl, W = TK_PAD.hw, gy = (x, z) => groundY(x, z), P = [], WH = 0xe8e4d8, LG = 0x6b4a2a;
+  const log = (x0, z0, x1, z1, r) => { const n = 4; for (let i = 0; i < n; i++) { const a = i / n, b2 = (i + 1) / n, xa = x0 + (x1 - x0) * a, za = z0 + (z1 - z0) * a, xb = x0 + (x1 - x0) * b2, zb = z0 + (z1 - z0) * b2, ya = gy(xa, za), yb = gy(xb, zb), l = Math.hypot(xb - xa, zb - za, yb - ya);
+    P.push(['c', r, l + 0.01, 9, (xa + xb) / 2, (ya + yb) / 2 + r * 0.8, (za + zb) / 2, WH, Math.PI / 2, Math.atan2(xb - xa, zb - za), 0]); P[P.length - 1][8] = Math.PI / 2 - Math.atan2(yb - ya, Math.hypot(xb - xa, zb - za)); } };
+  log(X - L, Z - W, X + L - 0.4, Z - W, 0.09); log(X - L, Z + W, X + L - 0.4, Z + W, 0.09); log(X - L - 0.1, Z - W - 0.15, X - L - 0.1, Z + W + 0.15, 0.11);   // sides, the stop log at the west (nose) end
+  const px = X - L - 0.5, pz = Z + W + 0.5, py = gy(px, pz); P.push(['b', 0.1, 1.5, 0.1, px, py + 0.55, pz, LG]);
+  const gs = P.map(partGeo), m = new THREE.Mesh(mergeGeometries(gs), ITEM_VM); for (const g of gs) g.dispose(); m.castShadow = m.receiveShadow = true; m.name = 'TRK_PAD'; scene.add(m); TK_PAD.m = m;
+  SOLID_SEGS.push([X - L - 0.1, Z - W - 0.15, X - L - 0.1, Z + W + 0.15]);
+  const v = []; conformPoly([[X - L, Z - W - 0.05], [X + L, Z - W - 0.05], [X + L, Z + W + 0.05], [X - L, Z + W + 0.05]], 0.03, v);   // the gravel: the road's surface, on the ground
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(v, 3)); const ra = []; for (let i = 0; i < v.length; i += 3) ra.push((v[i + 2] - Z) * 0.9, v[i] - X, 0); g.setAttribute('rd', new THREE.Float32BufferAttribute(ra, 3)); g.computeVertexNormals();
+  const gm = new THREE.Mesh(g, GSTY.road); gm.name = 'TRK_PAD_GRAVEL'; gm.receiveShadow = true; scene.add(gm); TK_PAD.g = gm;
+  const c = document.createElement('canvas'); c.width = 256; c.height = 128; const x = c.getContext('2d'); x.fillStyle = '#efe6cc'; x.fillRect(0, 0, 256, 128); x.strokeStyle = '#5a3a1e'; x.lineWidth = 8; x.strokeRect(4, 4, 248, 120);
+  x.fillStyle = '#5a3a1e'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.font = 'bold 30px serif'; x.fillText("WALT'S PICKUP", 128, 44); x.font = 'bold 22px serif'; x.fillText('PARK HERE', 128, 88);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; const sm = new THREE.Mesh(new THREE.PlaneGeometry(0.7, 0.35), new THREE.MeshLambertMaterial({ map: t })); sm.position.set(px + 0.06, py + 1.12, pz); sm.rotation.y = Math.PI / 2; scene.add(sm); TK_PAD.sign = sm;
+  const sb = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.37, 0.72), new THREE.MeshLambertMaterial({ color: 0x5a3a1e })); sb.position.set(px + 0.03, py + 1.12, pz); scene.add(sb); }
+// ---- v1.20.1 the Cub's grips on the truck's controls: GDEF holds (gripOn rides the control's frame, the fingers curl onto its shape) ----
+Object.assign(GDEF, {
+  tkw0: { o: () => TRK.gp[0], sh: 'cyl', c: GV3(0, 0, 0), a: 1, r: 0.017, hl: 0.05, st: 'wrap', wa: 1, wr: 0.017, tl: 0, wz: -0.004 },   // the rim, either hand, either way round
+  tkw1: { o: () => TRK.gp[1], sh: 'cyl', c: GV3(0, 0, 0), a: 1, r: 0.017, hl: 0.05, st: 'wrap', wa: 1, wr: 0.017, tl: 0, wz: -0.004 },
+  tkKey: { o: () => TRK.key, sh: 'box', c: GV3(0, 0, 0.036), b: GV3(0.003, 0.013, 0.012), st: 'pinch', pc: GV3(0, 0, 0.038) },          // pinch the key's head, it turns in your fingers
+  tkLev: { o: () => TRK.levK, sh: 'cyl', c: GV3(0, 0, 0), a: 0, r: 0.012, hl: 0.027, st: 'wrap', wa: 0, wr: 0.012, tl: 0.012, wz: -0.004 },   // a fist round the lever's knob
+  tkKnob: { o: () => TRK.knob, sh: 'cyl', c: GV3(0, 0, 0), a: 2, r: 0.017, hl: 0.014, st: 'pinch', pc: GV3(0, 0, 0.008) },                // finger + thumb on the knob (pull / push)
+  tkWsw: { o: () => TRK.wsw, sh: 'box', c: GV3(0, 0.014, 0.004), b: GV3(0.005, 0.02, 0.006), st: 'pinch', pc: GV3(0, 0.026, 0.006) },     // the toggle's tip
+  tkHub: { o: () => TRK.hc, sh: 'cyl', c: GV3(0, 0, 0), a: 2, r: 0.03, hl: 0.006, st: 'pinch', pc: GV3(0, 0, 0.008) },                     // the horn button
+  tkdI0: { o: () => TRK.dI[0], sh: 'box', c: GV3(-0.025, 0, 0), b: GV3(0.015, 0.0175, 0.06), st: 'wrap', wa: 2, wr: 0.015, tl: 0.03, wz: -0.01 },   // door handles: a fist round the bar
+  tkdI1: { o: () => TRK.dI[1], sh: 'box', c: GV3(0.025, 0, 0), b: GV3(0.015, 0.0175, 0.06), st: 'wrap', wa: 2, wr: 0.015, tl: 0.03, wz: -0.01 },
+  tkdO0: { o: () => TRK.dO[0], sh: 'box', c: GV3(0.03, 0, 0), b: GV3(0.015, 0.02, 0.08), st: 'wrap', wa: 2, wr: 0.015, tl: 0.04, wz: -0.01 },
+  tkdO1: { o: () => TRK.dO[1], sh: 'box', c: GV3(-0.03, 0, 0), b: GV3(0.015, 0.02, 0.08), st: 'wrap', wa: 2, wr: 0.015, tl: 0.04, wz: -0.01 } });
+function trkHandK(i) { const h = TRK.hold[i]; if (!h) return null;   // the GDEF key for what hand i holds (constant strings: no garbage)
+  switch (h) { case 'wh': return i ? 'tkw1' : 'tkw0'; case 'key': return 'tkKey'; case 'lev': return 'tkLev'; case 'knob': return 'tkKnob'; case 'wsw': return 'tkWsw'; case 'hub': return 'tkHub';
+    case 'dI0': return 'tkdI0'; case 'dI1': return 'tkdI1'; case 'dO0': return 'tkdO0'; case 'dO1': return 'tkdO1'; } return null; }
+// ---- v1.20.1 the Cub's indicators on the truck: a yellow ring per free hand on what a squeeze would take (held: it rides the control), the name + state tag ----
+TRK.rings = [HANDS.rings[0].clone(), HANDS.rings[1].clone()]; for (const r of TRK.rings) { r.visible = false; TRKG.add(r); }
+TRK.tip = TIP.mesh.clone(); TRK.tip.material = TIP.mesh.material.clone(); TRK.tip.visible = false; TRKG.add(TRK.tip);
+{ const c = document.createElement('canvas'); c.width = 512; c.height = 80; TRK.tipX = c.getContext('2d'); TRK.tipT = new THREE.CanvasTexture(c); TRK.tipT.colorSpace = THREE.SRGBColorSpace; TRK.tipT.generateMipmaps = false; TRK.tipT.minFilter = THREE.LinearFilter; TRK.tip.material.map = TRK.tipT; }
+const TK_TN = ['', 'IGNITION KEY', 'HEADLIGHTS', 'WIPERS', 'GEAR LEVER', 'HORN', 'STEERING WHEEL', 'DRIVER DOOR', 'PASSENGER DOOR', 'DRIVER DOOR', 'PASSENGER DOOR'];
+const TK_RS = [0, 0.026, 0.026, 0.024, 0.032, 0.05, 0.032, 0.04, 0.04, 0.045, 0.045], _tkH = new THREE.Vector3(), _tkHq = new THREE.Quaternion(), _tkHq2 = new THREE.Quaternion();
+function trkHeld(i) { switch (TRK.hold[i]) { case 'key': return 1; case 'knob': return 2; case 'wsw': return 3; case 'lev': return 4; case 'hub': return 5; case 'wh': return 6; case 'dI0': return 7; case 'dI1': return 8; case 'dO0': return 9; case 'dO1': return 10; } return 0; }
+function trkTipS(c) { switch (c) { case 1: return TRK.eng === 1 ? 3 : TRK.eng === 2 ? 4 : TRK.ign ? 2 : 1; case 2: return TRK.li ? 5 : 6; case 3: return TRK.wip ? 5 : 6; case 4: return 7 + TRK.gear; case 7: case 8: return TRK.dr[c - 7] > 0.05 ? 11 : 12; case 9: case 10: return TRK.dr[c - 9] > 0.05 ? 11 : 12; } return 0; }
+const TK_TS = ['', 'OFF', 'ON', 'START', 'RUNNING', 'ON', 'OFF', 'P', 'R', 'N', 'D', 'OPEN', 'SHUT'];
+function trkRingAt(i, c) { const r = TRK.rings[i];   // the ring's spot (truck-local), facing you
+  if (c === 6) { const a = TRK.hold[i] === 'wh' ? TRK.hA[i] : TRK.hz[i * 4]; TRK.swg.localToWorld(_tkH.set(TK.RIM * Math.cos(a), TK.RIM * Math.sin(a), 0)); } else if (c === 5) TRK.hc.getWorldPosition(_tkH); else trkCtl(c, 0, _tkH);
+  TRKG.worldToLocal(_tkH); r.position.copy(_tkH); r.scale.setScalar(TK_RS[c]); camera.getWorldPosition(_tkB); r.lookAt(_tkB); r.visible = true; }
+function trkHov() { const on = (renderer.xr.isPresenting || HANDS.force) && (TRK.in || (mode === 'foot' && hyp(_tkC.x - TRK.x, _tkC.z - TRK.z) < 4));
+  let tc = 0, ti = 0;
+  for (let i = 0; i < 2; i++) { const g = grips[i], r = TRK.rings[i]; let c = 0;
+    if (on && g.userData.src) { c = trkHeld(i); if (!c && !CKH.get(g)) { g.getWorldPosition(_tkA); c = trkPick(i, _tkA); } }
+    TRK.hv[i] = c; if (!c) { r.visible = false; continue; } trkRingAt(i, c); if (!tc || trkHeld(i)) { tc = c; ti = i; } }
+  trkTip(tc, ti); }
+function trkTip(c, i) { const T = TRK.tip; if (!c || !GFX.tips) { T.visible = false; return; }
+  const s = trkTipS(c), k = c * 100 + s; if (k !== TRK.tk) { TRK.tk = k; const x = TRK.tipX, txt = TK_TN[c] + (s ? '  ' + TK_TS[s] : ''); x.clearRect(0, 0, 512, 80); x.font = 'bold 40px sans-serif'; const w = Math.min(500, x.measureText(txt).width + 36);
+    x.fillStyle = 'rgba(18,18,20,0.82)'; x.beginPath(); x.roundRect(256 - w / 2, 6, w, 68, 16); x.fill(); x.strokeStyle = '#ffd84a'; x.lineWidth = 3; x.stroke();
+    x.fillStyle = '#ffe9a8'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(txt, 256, 41); texDirty(TRK.tipT); }
+  const r = TRK.rings[i]; T.position.copy(r.position); T.position.y += c === 5 || c === 6 ? 0.06 : 0.034; camera.getWorldPosition(_tkB); TRKG.worldToLocal(_tkB); T.position.lerp(_tkB, 0.08);
+  camera.getWorldQuaternion(_tkHq); TRKG.getWorldQuaternion(_tkHq2); T.quaternion.copy(_tkHq2.invert().multiply(_tkHq)); T.visible = true; }
 // ---- hooks ----
 storyBegin = (o => function () { const r = o.apply(this, arguments); trkIntro(); return r; })(storyBegin);
-golPick = (o => function () { o(); if (STORY.on && STORY.said.tin && GOAL.nst === 0) { GOAL.nst = 17; GOAL.nsub = 0; } })(golPick);
-golText = (o => function (st, sub) { if (st !== 17) return o(st, sub); const G = GOAL; G.has = false; G.nm = ''; golAim(TK.ARR.x, TK.ARR.z, 'WALT\'S HANGAR, HOME STRIP');
-  G.txt = 'DRIVE WALT\'S PICKUP TO THE HANGAR'; G.hint = 'Through the gate and down the lane past the cabin, then across the strip to the big tin hangar on the far side. Desktop: K starts it, X shifts to D, W / S gas and brake, A / D steer. VR: twist the key, pull the column lever down to D, right trigger gas, left trigger brake, hands on the wheel.'; })(golText);
+golPick = (o => function () { o(); if (STORY.on && STORY.said.tin && GOAL.nst === 0) { GOAL.nst = 17; GOAL.nsub = TRK.wp; } })(golPick);   // v1.20.1 sub = the next waypoint
+golText = (o => function (st, sub) { if (st !== 17) return o(st, sub); const G = GOAL, w = Math.min(sub, TK_WN - 1); G.has = false; G.nm = ''; golAim(TK_WP[w * 2], TK_WP[w * 2 + 1], w < TK_WG ? 'THE RIDGE LANE' : w === TK_WG ? 'WALT\'S GATE' : w < TK_WN - 2 ? 'THE LANE PAST THE CABIN' : w < TK_WN - 1 ? 'THE HANGAR APRON' : 'THE PARKING PAD, WALT\'S HANGAR');
+  G.txt = w < TK_WG ? 'DRIVE WALT\'S PICKUP DOWN THE RIDGE LANE' : w < TK_WN - 1 ? 'DRIVE ON THROUGH THE GATE TO WALT\'S HANGAR' : 'PARK WALT\'S PICKUP ON THE PAD AT THE HANGAR';
+  G.hint = 'Follow the gravel ridge lane (dashed on the map) down to Walt\'s gate, the lane past the cabin, then across the strip to the marked pad (white logs, the sign) beside the tin hangar. Pull in nose first to the stop log and stop. Desktop: K starts it, X shifts to D, W / S gas and brake, A / D steer. VR: twist the key, pull the column lever down to D, right trigger gas, left trigger brake, hands on the wheel.'; })(golText);
 board = (o => function () { if (TRK.in) return trkExit(); if (mode === 'foot' && trkNear(2.7)) return trkEnter(false); return o.apply(this, arguments); })(board);
 jump = (o => function () { if (TRK.in) return; return o.apply(this, arguments); })(jump);
 toPlane = (o => function () { if (TRK.in) { TRK.in = false; for (let i = 0; i < 2; i++) TRK.hold[i] = null; } return o.apply(this, arguments); })(toPlane);
@@ -12431,7 +12576,8 @@ exitPlane = (o => function () { const r = o.apply(this, arguments); if (TRK.in &
 updateFoot = (o => function (dt) { if (TRK.in) { trkSeat(); return; } return o(dt); })(updateFoot);
 footXR = (o => function (dt) { if (TRK.in) return trkXR(dt); return o(dt); })(footXR);
 footDesktop = (o => function (dt) { if (TRK.in) return trkDesk(dt); return o(dt); })(footDesktop);
-handGrab = (o => function (g) { if (!TRK.in && mode === 'foot') { g.getWorldPosition(_tkA); for (let k = 0; k < 2; k++) { TRK.dO[k].getWorldPosition(_tkB); if (_tkA.distanceTo(_tkB) < 0.12) { trkDoor(k); HX.pulse(g, 0.3, 18, 'trk'); return; } } } return o(g); })(handGrab);
+handGrab = (o => function (g) { if (!TRK.in && mode === 'foot' && trkGrab(g, g === grips[0] ? 0 : 1)) return; return o(g); })(handGrab);   // v1.20.1 the outside handles: held (the door swings with your hand)
+handRelease = (o => function (g) { const i = g === grips[0] ? 0 : 1; if (TRK.hold[i]) trkRelease(i); return o(g); })(handRelease);
 
 // ===================== v1.20.0 BUILD C: Walt's hangar fitted out + the pick-up CATALOG (service + parts: it replaces the two boards out front); real shop interiors + shopkeepers =====================
 // Neil's list (t268, items 5 + 9). No physics anywhere (the Cub's block is untouched). Nothing new is saved: the catalog goes back on its stand on a load.
@@ -14118,7 +14264,7 @@ void main() { vec2 q = vec2(gl_PointCoord.x * 2.0 - 1.0, 1.0 - gl_PointCoord.y *
       if (h < 160 || h > 620 || h > snowAt(x, z) - 150) continue; const s = hyp(TH(x + 30, z) - TH(x - 30, z), TH(x, z + 30) - TH(x, z - 30)) / 60; if (s > 0.55) continue;
       if (took.some(q => hyp(q[0] - x, q[1] - z) < 1300) || FLK.some(q => hyp(q.x - x, q.z - z) < 900)) continue; took.push([x, z]); addFlock(x, z, h + rr(45, 70), 12 + Math.floor(rnd() * 8), 'forest'); } }
   // v1.19.0 songbirds over the gate and the strip (seeded from hash: the life stream rnd() is not drawn, so every other flock is unchanged)
-  for (const [fx, fz, fa, fn, fA] of [[TRK_GATE.x - 10, TRK_GATE.z + 6, 16, 18, 40], [TRK_GATE.x - 70, TRK_GATE.z - 30, 22, 14, 55], [6, -60, 24, 16, 60]]) {
+  for (const [fx, fz, fa, fn, fA] of [[TRK_GATE.x - 10, TRK_GATE.z + 6, 16, 18, 40], [TRK_GATE.x - 70, TRK_GATE.z - 30, 22, 14, 55], [6, -60, 24, 16, 60], [500, -330, 14, 16, 50], [300, -540, 16, 12, 45], [430, -120, 18, 14, 55]]) {   // v1.20.1 + three over the ridge lane
     const S = { x: fx, z: fz, kind: 'grove', alt: TH(fx, fz) + fa, n: fn, ph: hash(Math.abs(fz | 0) + 7) * 100, A: fA, w1: 0.022, w2: 0.018, wb: 0.5, spread: 0.85, sc: 0, st: -999, dx: 0, dz: 0, cool: 0, birds: new Float32Array(fn * 6), dir: new Float32Array(fn * 3), fg: null };
     for (let i = 0; i < fn; i++) { const b = S.birds, q = i * 13 + fn * 101 + (fx | 0); b[i * 6] = hash(q + 1) * TAU; b[i * 6 + 1] = 7 + 20 * hash(q + 2); b[i * 6 + 2] = -5 + 10 * hash(q + 3); b[i * 6 + 3] = hash(q + 4) * TAU; b[i * 6 + 4] = 0.85 + 0.3 * hash(q + 5); b[i * 6 + 5] = hash(q + 6); }
     S.fg = floorGrid(fx, fz, 14); S.base = Math.max(S.alt, floorAt(S, fx, fz) + 10); FLK.push(S); }
@@ -14964,7 +15110,7 @@ const HCAB = (() => {
     P.push(['c', 0.015, 0.7, 6, -0.92, 0.37, -2.2, 0x8a6a40, -0.22], ['b', 0.13, 0.05, 0.022, -0.92, 0.71, -2.27, 0x55585a, -0.22]);
     // the bunk (only without V2 SURVIVAL: its cot is moved in to this spot)
     if (bunk) { const bx = OX - COTW.x, bz = OZ - COTW.z;
-      for (const ax of [-1, 1]) for (const az of [-1, 1]) P.push(['b', 0.05, 0.42, 0.05, bx + ax * 0.34, 0.25, bz + az * 0.92, 0x5a3e28]);
+      for (const ax of [-1, 1]) for (const az of [-1, 1]) P.push(['b', 0.05, 0.38, 0.05, bx + ax * 0.34, 0.23, bz + az * 0.92, 0x5a3e28]);   // v1.20.1 into the frame, not through it
       P.push(['b', 0.74, 0.06, 1.9, bx, 0.43, bz, 0x5a3e28], ['b', 0.7, 0.1, 1.84, bx, 0.51, bz, 0x8a7a5a], ['b', 0.72, 0.04, 1.2, bx, 0.58, bz + 0.3, 0x8a2a2a], ['b', 0.5, 0.08, 0.3, bx, 0.6, bz - 0.72, 0xd8d0b8]); }
     // shelf over the bunk (books, a radio), a footlocker at its foot
     { const ex = 2.74, ez = -1.3; P.push(['b', 0.22, 0.03, 1.0, ex, 1.5, ez, 0x7a5a3a], ['b', 0.2, 0.12, 0.03, ex, 1.43, ez - 0.4, 0x6a4a2e], ['b', 0.2, 0.12, 0.03, ex, 1.43, ez + 0.4, 0x6a4a2e]);
@@ -14973,7 +15119,7 @@ const HCAB = (() => {
       P.push(['b', 0.7, 0.38, 0.4, 2.42, 0.23, 0.0, 0x3d4a32], ['b', 0.72, 0.03, 0.42, 2.42, 0.435, 0.0, 0x2e3826], ['b', 0.08, 0.06, 0.01, 2.42, 0.36, -0.205, 0x9a9a8a]); }
     // table under the window, bench, lamp, mug, an open logbook, a pencil
     { const tx = -2.42, tz = -1.3; P.push(['b', 0.75, 0.04, 1.15, tx, 0.76, tz, 0x8a6440]);
-      for (const ax of [-1, 1]) for (const az of [-1, 1]) P.push(['b', 0.05, 0.74, 0.05, tx + ax * 0.3, 0.41, tz + az * 0.5, 0x6a4a2e]);
+      for (const ax of [-1, 1]) for (const az of [-1, 1]) P.push(['b', 0.05, 0.7, 0.05, tx + ax * 0.3, 0.39, tz + az * 0.5, 0x6a4a2e]);   // v1.20.1 0.04-0.74: up to the top's underside
       P.push(['b', 0.32, 0.04, 0.95, -1.75, 0.46, tz, 0x7a5636], ['b', 0.28, 0.4, 0.04, -1.75, 0.24, tz - 0.4, 0x6a4a2e], ['b', 0.28, 0.4, 0.04, -1.75, 0.24, tz + 0.4, 0x6a4a2e]);
       P.push(['c', 0.055, 0.05, 10, LAMP.x, 0.805, LAMP.z, 0x8a2a1a], ['c', 0.04, 0.02, 10, LAMP.x, 0.95, LAMP.z, 0x2a2a2a], ['r', 0.04, 0.004, 8, LAMP.x, 0.99, LAMP.z, 0x333333, 0, 0, PI / 2],
         ['c', 0.04, 0.09, 8, -2.33, 0.825, -0.92, 0x2a5a8a], ['r', 0.025, 0.006, 6, -2.29, 0.83, -0.92, 0x2a5a8a, 0, 0, PI / 2],

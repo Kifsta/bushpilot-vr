@@ -633,20 +633,21 @@ A customer stands at every job board. Walk up to them for a hello: their rep tie
 | Home cabin | The door faces the strip (west); the rack, crate, camera stand and yard moved with it |
 
 
-## v1.19.0 Walt's pickup truck
+## v1.19.0 / v1.20.1 Walt's pickup truck
 
 | Do this | VR | Desktop |
 |---|---|---|
 | Get in / out | Y within about 2.5 m of the cab (it opens the door); stop first to get out | F |
-| Open / shut a door | Grab its handle (outside on foot, inside in the seat) | O (the driver's door) |
+| Open / shut a door | Grab its handle (outside on foot, inside in the seat) and swing it; a tap without moving it still toggles. It latches when it comes back to shut | O (the driver's door) |
 | Ignition | Grab the key (on), twist and hold to crank; grab it again to switch off. Starts in P or N only | K (on + crank; again = off) |
 | Gear lever P R N D | Grab the knob on the right of the column and pull it down / push it up | X down (toward D), Z up (toward P) |
 | Steer | Grab the wheel rim, one or both hands (hand-over-hand works); left stick if no hand is on it | A / D |
 | Gas / brake | Right trigger / left trigger | W / S (Space brakes too) |
-| Headlights | Grab the knob left of the wheel | L |
-| Wipers | Grab the switch in the middle of the dash | J |
+| Headlights | Grab the knob left of the wheel: a tap toggles, a pull turns them on, a push turns them off | L |
+| Wipers | Grab the switch in the middle of the dash: a tap toggles, a flick down turns them on, a flick up turns them off | J |
 | Horn | Grab the wheel hub, or B | H |
 | Recenter | X / A | Home |
 
-- A new story starts in the truck at the gates of the strip: the first GOAL is to drive it to the hangar. Old saves have it parked beside the hangar.
-- Getting out shifts it into P. It stays where you leave it (saved), engine and lights too.
+- Yellow hover rings and a label tag (the same style as the Cub) show which control a squeeze will take, in VR, when you are in the truck or beside it.
+- A new story starts in the truck out on the ridge at dawn: the first GOAL is to drive the gravel ridge lane down to Walt's gate and park on the marked pad beside the hangar (white logs, a stop log, the sign). The lane is dashed on the paper map. Old saves (from before v1.20.1) have the truck already parked on that pad, nose in, engine off, in P. A save made in v1.20.1 keeps it where you left it.
+- Getting out shifts it into P. Engine and lights are saved with it.
