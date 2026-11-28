@@ -192,6 +192,7 @@ const C = {
   V_LOW: 1.0,              // m/s: slip angle = atan(v_side / (|v_fwd| + V_LOW)) so grip fades in smoothly at a standstill
   BRAKE_FORCE: 1300,       // N per wheel at full brake (torque / radius); more than the grip available -> wheel locks and skids
   LONG_SLIP_V: 0.02,       // m/s, smoothing of rolling friction near standstill (small = holds on gentle slopes)
+  IDLE_ROLL_K: 1.16,       // v1.18.0 rolling resistance x this with the throttle closed (fades out by 10 % throttle): ~10 % quicker idle roll-out
   BRAKE_SLIP_V: 0.05,      // m/s, smoothing of brake force near standstill
   // Scott 3200-style tail wheel: steered by springs from the rudder, breaks out to full castering
   TAILWHEEL_STEER: 0.30,   // rad tailwheel deflection at full rudder
@@ -595,7 +596,8 @@ function stepAircraft(a, dt) {
       const vv = hyp2(vl, vs) || 1, k = C.SLIDE_MU * Fmax * Math.tanh(vv / C.BRAKE_SLIP_V) / vv;
       Fl = -vl * k; Fs = -vs * k; st.lock = true; st.lon = 0;
     } else {
-      Fl = -Math.tanh(vl / C.LONG_SLIP_V) * sf.roll * Fn - Math.tanh(vl / C.BRAKE_SLIP_V) * Fb;
+      const rk = 1 + (C.IDLE_ROLL_K - 1) * clamp(1 - c.throttle / 0.1, 0, 1);   // v1.18.0 idle roll-out
+      Fl = -Math.tanh(vl / C.LONG_SLIP_V) * sf.roll * rk * Fn - Math.tanh(vl / C.BRAKE_SLIP_V) * Fb;
       if (Math.abs(vl) < C.STICK_V) {                             // ... and along the tread up to rolling resistance + brake (no creep)
         const capL = sf.roll * Fn + Fb; st.lon += vl * dt;
         if (C.STICK_K * Math.abs(st.lon) > capL) st.lon = Math.sign(st.lon) * capL / C.STICK_K;
@@ -638,7 +640,7 @@ const hyp = (a, b, c = 0) => Math.sqrt(a * a + b * b + c * c);   // v0.59 Math.h
 
 // ======================= RENDERING =======================
 // v0.35 settings (persist in localStorage 'bp_gfx'; ?gfx=shadows:2,grass:1 overrides for testing). Defaults = the v0.34 look and cost.
-const BP_VERSION = 'v1.17.0';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
+const BP_VERSION = 'v1.18.0';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
 { const e = document.getElementById('ver'); if (e) e.textContent = BP_VERSION; } window.__bpVer = BP_VERSION; bootLog('game module running ' + BP_VERSION + ' (three r' + THREE.REVISION + ')' + (/[?&]safe(=|&|$)/.test(location.search) ? ' - SAFE MODE: default graphics, no shadows / ULTRA / life / vistas / music' : ''));
 const GFX_DEF = { shadows: 0, scale: 1, fov: 1, dist: 1, trees: 1, grass: 0, clouds: 1, fog: 1, msaa: 1, hz: 90, vig: 0, turn: 0, fps: 0, tod: 11, stk: 1, tips: 1, terr: 1, dyn: 1, glove: 0, hand: 0, wt: 1, volM: 1, volMu: 0.5, volE: 1, volA: 1, volF: 1, volS: 1, volW: 1, wx: 1, forest: 0, fdens: 0, hints: 1, ground: 0, gtex: 0, cvl: 1, water: 1, dayl: 48, flure: 0, fline: 8, fdrag: 4, fbob: 0, fsink: 0, ultra: 0, sfxr: 1 };   // v0.68.1 dominant hand, volumes. v0.48 BALANCED: 90 % scale, 72 Hz, fast terrain shading, auto resolution; v0.49.1 the stick stays where you let go of it
 const GFX = Object.assign({}, GFX_DEF);
@@ -874,6 +876,25 @@ function splitTiles(geo, tile) {   // non-indexed triangle soup -> one geometry 
   };
   terrainMesh = build(2 * T_IN, 2 * T_IN / T_C1, true);
   build(2 * T_OUT, 2 * T_OUT / T_C2, false);
+}
+// v1.18.0 the road surface (fragment-only maths on the road's own material): k = how much detail this pixel can show (fades with its world size)
+const ROAD_FX = { speck: 0.3, mott: 0.12, rut: 0.17, edge: 0.2 };
+function roadSurf(sh) {
+  sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute vec3 rd; varying vec3 vRd; varying vec3 vRdP;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvRd = rd; vRdP = position;');
+  sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vRd; varying vec3 vRdP;\n' +
+    'float rdH(vec2 p) { vec3 q = fract(vec3(p.xyx) * 0.1031); q += dot(q, q.yzx + 33.33); return fract((q.x + q.y) * q.z); }\n' +
+    'float rdN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f); return mix(mix(rdH(i), rdH(i + vec2(1.0, 0.0)), f.x), mix(rdH(i + vec2(0.0, 1.0)), rdH(i + vec2(1.0, 1.0)), f.x), f.y); }')
+    .replace('#include <color_fragment>', '#include <color_fragment>\n' +
+    '{ vec2 wp = vRdP.xz; float fw = length(fwidth(wp)), two = step(0.5, vRd.z), a = abs(vRd.x), hw = mix(2.0, 0.3, two);\n' +
+    '  float kS = 1.0 - smoothstep(0.015, 0.05, fw), kM = 1.0 - smoothstep(0.06, 0.2, fw), kE = 1.0 - smoothstep(0.08, 0.35, fw);\n' +
+    '  vec2 sc = wp * 6.0; float st = rdH(floor(sc) + 17.0) > 0.9 ? 1.0 - smoothstep(0.12, 0.22, length(fract(sc) - 0.3 - 0.4 * vec2(rdH(floor(sc) + 3.0), rdH(floor(sc) + 5.0)))) : 0.0;\n' +
+    '  float g = (rdN(wp * 26.0) - 0.5) * ' + ROAD_FX.speck.toFixed(3) + ' * kS + (st * (rdH(floor(sc) + 9.0) > 0.5 ? 0.16 : -0.1)) * kM;\n' +   // grit + the odd stone (pale or dark)
+    '  g += (rdN(wp * 1.3) - 0.5) * ' + ROAD_FX.mott.toFixed(3) + ' * kE + (rdN(wp * 0.21) - 0.5) * 0.1;\n' +
+    '  g -= (1.0 - two) * exp(-pow((a - 0.85) / 0.24, 2.0)) * ' + ROAD_FX.rut.toFixed(3) + ' * (0.6 + 0.8 * rdN(vec2(vRd.y * 0.15, sign(vRd.x) * 9.0)));\n' +   // wheel ruts (the 2-tracks are ruts already)
+    '  g += (1.0 - two) * (1.0 - smoothstep(0.0, 0.5, a)) * 0.05;\n' +   // the crown between them, a touch lighter
+    '  float e = a / hw + (rdN(wp * 2.3) * 0.6 + rdN(wp * 7.1) * 0.4 - 0.5) * mix(' + ROAD_FX.edge.toFixed(3) + ', 0.5, two) * kE;\n' +
+    '  if (e > 0.985) discard;\n' +   // the ragged edge: grass shows through
+    '  diffuseColor.rgb *= 1.0 + g; diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vec3(0.93, 0.97, 0.82), smoothstep(0.7, 0.985, e) * 0.5); }');
 }
 // ---- v0.86 Ground style: five looks for the same ground. Only the per-face vertex colours, the 64 px grain image (same texture, its canvas swapped) and the dirt-road colour change:
 // no new texture, sampler, pass, material or shader, so every style costs exactly what VALLEY does (FAST, FAST+GRAIN, FULL and the v0.85.1 near-shadow tiles alike).
@@ -1153,9 +1174,9 @@ function updateChunks(force) {
   const t0 = performance.now(), D = GFX.dist, TD = GFX.trees * DYN.tk, A = clamp((agl - 200) / 1000, 0, 1), LA = (1 - 0.45 * A) * DYN.lk;   // v0.35 draw distance / tree density; v0.48 thinner forest with height + auto resolution steps
   let up = 0;
   const FM = GFX.forest | 0, FD = GFX.fdens | 0, R = CHS.r + 5, U = FOREST2.u;   // v0.88 TREES: 0 = 3D ONLY, 1 = MIXED (v0.78 DENSE), 2 = 2D ONLY. v1.15.1 FD: 2D density 0..3. R: how far you can go before the next rebuild (the sprite superset covers it)
-  U.sprNear.value = FM === 1 ? (GQ.ult ? ULT.SPRN : 380) : 0; U.sprTD.value = TD; U.sprL.value = 2600 * LA * D;   // the sprites' near ring, density and far thinning are drawn per vertex (continuous with distance: nothing pops at a rebuild)
+  U.sprNear.value = FM === 1 ? (GQ.ult ? ULT.SPRN : 380) : 0; U.sprTD.value = TD; U.sprL.value = 2600 * LA * D; BSH.u.sprL.value = BSH.L * LA * D;   // the sprites' near ring, density and far thinning are drawn per vertex (continuous with distance: nothing pops at a rebuild)
   for (const k of CHUNKS) { if (k.ult && (!GQ.ult || FM !== 1)) { k.im.count = 0; k.im.visible = false; continue; }   // v1.09 the PC ULTRA near forest (MIXED only)
-    if ((k.spr && !FM) || (k.tree && !k.spr && FM === 2)) { k.im.count = 0; k.im.visible = false; continue; }   // v0.78 no sprites in 3D ONLY; v0.88 no 3D trees in 2D ONLY
+    if ((k.spr && !FM && !k.bsh) || (k.tree && !k.spr && FM === 2)) { k.im.count = 0; k.im.visible = false; continue; }   // v1.18.0 2D bushes: every mode   // v0.78 no sprites in 3D ONLY; v0.88 no 3D trees in 2D ONLY
     if (k.spr) { up += sprChunk(k, FM, TD, D, R, FD); continue; }
     const M = k.im.instanceMatrix, Ar = M.array, f = Math.min(k.far, k.tree ? Infinity : k.sz * CH_SZK) * D, f2 = f * f, l = (k.tree ? k.lod * LA : k.lod) * D, l2 = l * l, l4 = 4 * l2; let c = 0, ok = -1; CHB[0] = CHB[1] = CHB[2] = 1e9; CHB[3] = CHB[4] = CHB[5] = -1e9;
     if (!(k.tree && TD <= 0)) for (let i = 0; i < k.n; i++) { const dx = k.xz[i * 3] - _cp.x, dy = k.xz[i * 3 + 1] - _cp.y, dz = k.xz[i * 3 + 2] - _cp.z, d2 = dx * dx + dy * dy + dz * dz;   // v0.48: 3D distance (height counts)
@@ -1170,10 +1191,10 @@ function updateChunks(force) {
   CHS.n++; CHS.ms = performance.now() - t0; CHS.up = up;
 }
 function sprChunk(k, FM, TD, D, R, FD) {   // v0.88 the sprite forest: upload a SUPERSET of what the vertex shader shows from anywhere within R of here (it fades each tree in / out by its own distance every frame). v1.15.1 FD: 2D density
-  const M = k.im.instanceMatrix, Ar = M.array, F = k.full, f = Math.min(k.far, Infinity) * D, lmax = k.lod * DYN.lk * D, nr = FM === 1 ? (GQ.ult ? ULT.SPRN : 380) * 0.7 - 30 : -1;
+  const M = k.im.instanceMatrix, Ar = M.array, F = k.full, f = Math.min(k.far, Infinity) * D, lmax = k.lod * DYN.lk * D, nr = FM === 1 && !k.bsh ? (GQ.ult ? ULT.SPRN : 380) * 0.7 - 30 : -1;
   const sm = (a, b, v) => { const t = v <= a ? 0 : v >= b ? 1 : (v - a) / (b - a); return t * t * (3 - 2 * t); }, keep = d => { let q = 1 - 0.6667 * sm(lmax * 0.9, lmax * 1.1, d); q += (0.1667 - q) * sm(lmax * 1.8, lmax * 2.2, d); return q * (1 + (TD - 1) * sm(900, 1100, d)); };   // the shader's q (smoothsteps), at the largest far-thinning range
   let c = 0, ok = -1; CHB[0] = CHB[1] = CHB[2] = 1e9; CHB[3] = CHB[4] = CHB[5] = -1e9; const fR2 = (f + R) * (f + R);
-  if (TD > 0) for (let i = 0; i < k.n; i++) { const tg = k.tag[i]; if ((tg === 1 || tg === 2) && FM !== 2) continue; if (tg === 3 && (FD | 0) < 1) continue; if (tg === 4 && (FD | 0) < 2) continue; if (tg === 5 && (FD | 0) < 3) continue;   // tag 1/2: 2D ONLY extras; tag 3/4/5: DENSE / VERY DENSE / MAX
+  if (TD > 0) for (let i = 0; i < k.n; i++) { const tg = k.tag[i]; if ((tg === 1 || tg === 2) && FM !== 2) continue; if (k.bsh && TD < 1 && k.h1[i] >= TD) continue; if (tg === 3 && (FD | 0) < 1) continue; if (tg === 4 && (FD | 0) < 2) continue; if (tg === 5 && (FD | 0) < 3) continue;   // tag 1/2: 2D ONLY extras; tag 3/4/5: DENSE / VERY DENSE / MAX
     const dx = k.xz[i * 3] - _cp.x, dy = k.xz[i * 3 + 1] - _cp.y, dz = k.xz[i * 3 + 2] - _cp.z, d2 = dx * dx + dy * dy + dz * dz; if (d2 > fR2) continue; const d = Math.sqrt(d2), dn = Math.max(0, d - R);
     if (dn > f || (nr > 0 && d + R < nr) || keep(dn) + 0.01 < k.h2[i] || (k.tag[i] === 2 && dn > lmax * 1.1)) continue;
     if (c !== i || i >= k.ok) { if (c !== i && ok < 0) ok = c; const s0 = i * 16, d0 = c * 16; for (let e = 0; e < 16; e++) Ar[d0 + e] = F[s0 + e]; } { const q0 = k.xz[i * 3], q1 = k.xz[i * 3 + 1], q2 = k.xz[i * 3 + 2]; if (q0 < CHB[0]) CHB[0] = q0; if (q0 > CHB[3]) CHB[3] = q0; if (q1 < CHB[1]) CHB[1] = q1; if (q1 > CHB[4]) CHB[4] = q1; if (q2 < CHB[2]) CHB[2] = q2; if (q2 > CHB[5]) CHB[5] = q2; } c++; }
@@ -1304,24 +1325,29 @@ const lines = [];   // merged line segments (fence wires + power lines): one dra
   instanced(new THREE.BoxGeometry(0.12, 1.3, 0.12).translate(0, 0.65, 0), mat(0x6e5a44), post);
 
   // dirt roads (4 m ribbons following the ground)
-  const rv = [];
+  const rv = [], rdA = [];   // v1.18.0 rdA: across / along / kind per vertex (the road shader)
+  const rdTag = (n0, ax, az, ux, uz, s0, c, kind) => { for (let v = n0; v < rv.length; v += 3) { const dx = rv[v] - ax, dz = rv[v + 2] - az; rdA.push(-dx * uz + dz * ux - c, s0 + dx * ux + dz * uz, kind); } };
+  let rdS = 0;
   const road = pts => { for (let i = 0; i < pts.length - 1; i++) {
     const [x0, z0] = pts[i], [x1, z1] = pts[i + 1], L = hyp(x1 - x0, z1 - z0), n = Math.ceil(L / 8);
     const nx = -(z1 - z0) / L * 2, nz = (x1 - x0) / L * 2;
     for (let k = 0; k < n; k++) {
       const a = k / n, b = (k + 1) / n, ax = x0 + (x1 - x0) * a, az = z0 + (z1 - z0) * a, bx = x0 + (x1 - x0) * b, bz = z0 + (z1 - z0) * b;
-      conformPoly([[ax + nx, az + nz], [bx + nx, bz + nz], [bx - nx, bz - nz], [ax - nx, az - nz]], 0.05, rv);   // v0.63 on the ground (was 8 m quads 0.12 m up, up to 0.33 m off)
-    } } };
+      const n0 = rv.length; conformPoly([[ax + nx, az + nz], [bx + nx, bz + nz], [bx - nx, bz - nz], [ax - nx, az - nz]], 0.05, rv);   // v0.63 on the ground (was 8 m quads 0.12 m up, up to 0.33 m off)
+      rdTag(n0, x0, z0, (x1 - x0) / L, (z1 - z0) / L, rdS, 0, 0);
+    } rdS += L; } };
   const roadX = z => { for (let i = 0; i < ROAD_NS.length - 1; i++) { const [x0, z0] = ROAD_NS[i], [x1, z1] = ROAD_NS[i + 1];
     if (z <= z1) return x0 + (x1 - x0) * (z - z0) / (z1 - z0); } return ROAD_NS[ROAD_NS.length - 1][0]; };
   for (const r of ROADS) road(r === ROADS[2] ? ROAD_CH : r);   // v1.10.11 the church road off the creek
   const ruts = pts => { for (let i = 0; i < pts.length - 1; i++) {   // v1.10.11 a dirt 2-track: two wheel ruts (0.6 m) 1.7 m apart
     const [x0, z0] = pts[i], [x1, z1] = pts[i + 1], L = hyp(x1 - x0, z1 - z0), n = Math.ceil(L / 8), ux = -(z1 - z0) / L, uz = (x1 - x0) / L;
     for (let k = 0; k < n; k++) { const a = k / n, b = Math.min(1, (k + 1) / n + 0.3 / L), ax = x0 + (x1 - x0) * a, az = z0 + (z1 - z0) * a, bx = x0 + (x1 - x0) * b, bz = z0 + (z1 - z0) * b;
-      for (const c of [-0.85, 0.85]) { const p = c - 0.3, q = c + 0.3; conformPoly([[ax + ux * q, az + uz * q], [bx + ux * q, bz + uz * q], [bx + ux * p, bz + uz * p], [ax + ux * p, az + uz * p]], 0.05, rv); } } } };
+      for (const c of [-0.85, 0.85]) { const p = c - 0.3, q = c + 0.3, n0 = rv.length; conformPoly([[ax + ux * q, az + uz * q], [bx + ux * q, bz + uz * q], [bx + ux * p, bz + uz * p], [ax + ux * p, az + uz * p]], 0.05, rv);
+        rdTag(n0, x0, z0, (x1 - x0) / L, (z1 - z0) / L, rdS, c, 1); } } rdS += L; } };
   for (const r of ROADS2) (r.c === 'g' ? road : ruts)(r.p);
-  const rg = new THREE.BufferGeometry(); rg.setAttribute('position', new THREE.Float32BufferAttribute(rv, 3)); rg.computeVertexNormals();
-  scene.add(new THREE.Mesh(rg, GSTY.road = new THREE.MeshLambertMaterial({ color: 0x8c7552, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -3 })));   // v0.86 its colour follows Ground style
+  const rg = new THREE.BufferGeometry(); rg.setAttribute('position', new THREE.Float32BufferAttribute(rv, 3)); rg.setAttribute('rd', new THREE.Float32BufferAttribute(rdA, 3)); rg.computeVertexNormals();
+  scene.add(new THREE.Mesh(rg, GSTY.road = new THREE.MeshLambertMaterial({ color: 0x8c7552, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -3 })));
+  GSTY.road.onBeforeCompile = roadSurf; GSTY.road.customProgramCacheKey = () => 'road118';   // v1.18.0 the procedural surface   // v0.86 its colour follows Ground style
 
   // power poles (10 m, every 60 m) along the N-S road, 3 sagging wires
   const pole = [], arm = []; let prevTop = null;
@@ -2327,7 +2353,7 @@ function sndWater(x, z) { let bd = 1e9, bx = x, bz = z + 1e4;
   setPos(SND.rivPan, SNDP.w); }
 function sndStove() {
   const H = typeof HCAB !== 'undefined' ? HCAB : null;   // the home cabin's stove (lit while its interior is drawn): an event a second, two crackles
-  if (H && H.IM && H.IM.visible && mode === 'foot') { SNDP.w.set(H.OX - 0.4, groundY(H.OX, H.OZ) + 0.55, H.OZ - 1.95); if (SNDP.w.distanceTo(SNDP.v) < 9) { sfx('crackle', SNDP.w); sfx('crackle', SNDP.w, 0.25 + Math.random() * 0.4); } } }
+  if (H && H.IM && H.IM.visible && mode === 'foot') { SNDP.w.set(H.OX + 0.4, groundY(H.OX, H.OZ) + 0.55, H.OZ + 1.95); if (SNDP.w.distanceTo(SNDP.v) < 9) { sfx('crackle', SNDP.w); sfx('crackle', SNDP.w, 0.25 + Math.random() * 0.4); } } }
 const SW_SND = { valve: 'swValve', master: 'swMaster', mix: 'swMix', carb: 'swCarb', mags: 'swMags', plt: 'swPlt', prime: 'swPrime' };   // v1.12.0 each cockpit control its own sound
 function sfx(kind, pos, delay = 0) {
   if (HX.ctx && !pos && (kind === 'pick' || kind === 'clack' || kind === 'leaf')) HX.confirm();   // v0.24
@@ -2832,11 +2858,11 @@ function statusText() {
 }
 let wristKey = '';
 function drawWrist() {   // v0.10: only re-uploads when something on it changed
-  const st = statusText(), mb = WBTN.on || SETP.open, key = st + '|' + SETP.open + '|' + mb + '|' + (msgT > 0 ? msgPage(26).join() : '');
+  const st = statusText(), mb = WBTN.on || SETP.open, key = DLV.cash + '|' + SETP.open + '|' + mb + '|' + (msgT > 0 ? msgPage(26).join() : '');
   if (key === wristKey) return; wristKey = key;
   wctx.fillStyle = '#111'; wctx.fillRect(0, 0, 256, 128); wctx.font = '16px monospace';
-  const SL = st.split('\n'), ex = SL.slice(3).filter(l => l !== msg), W = SL.slice(0, 3).concat(msgT > 0 ? msgPage(26) : [], ex).slice(0, 5);   // v0.59.1 five lines above the button; the message (paged, two lines) before the warnings
-  W.forEach((l, i) => { wctx.fillStyle = i < 3 ? (i ? '#9f9' : '#ffd84a') : msgT > 0 && i < 3 + Math.min(2, wrapText(msg, 26).length) ? '#fff' : '#fc8'; wctx.font = i ? '15px monospace' : 'bold 14px monospace'; wctx.fillText(l.slice(0, i ? 27 : 30), 4, 16 + i * 18); });   // v0.50: line 1 = wallet + jobs (gold)
+  const W = ['$' + DLV.cash.toLocaleString('en-US')].concat(msgT > 0 ? msgPage(26) : []);   // v1.18.0 money + the message (the rest is on the clipboard)   // v0.59.1 five lines above the button; the message (paged, two lines) before the warnings
+  W.forEach((l, i) => { wctx.fillStyle = i ? '#fff' : '#ffd84a'; wctx.font = i ? '15px monospace' : 'bold 26px monospace'; wctx.fillText(l.slice(0, i ? 27 : 18), i ? 4 : 8, i ? 44 + i * 20 : 32); });   // v0.50: line 1 = wallet + jobs (gold)
   if (mb) { wctx.fillStyle = SETP.open ? '#ffd84a' : '#3a3a3a'; wctx.fillRect(8, 100, 240, 22); wctx.fillStyle = SETP.open ? '#111' : '#ddd'; wctx.font = 'bold 15px monospace'; wctx.textAlign = 'center';   // v0.68 the menu hint only while the wrist is turned to you (or the menu is open)
     wctx.fillText(SETP.open ? 'MENU BELOW: CLOSE MENU' : 'MENU BELOW: OPEN MENU', 128, 116); wctx.textAlign = 'left'; }
   texDirty(wtex); hud.textContent = st;
@@ -4879,7 +4905,8 @@ function updateCard() {
 }
 
 // ---- v0.51.1 kneeboard: a clipboard on the left thigh listing the active jobs (canvas redrawn only when its text changes) ----
-const KB_W = 512, KB_H = 704, KB = { home: new THREE.Vector3(-0.168, -0.017, -0.146), q: new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(new THREE.Vector3(-0.307, 0.286, -0.909).cross(new THREE.Vector3(0.091, 0.955, 0.27)).normalize(), new THREE.Vector3(-0.307, 0.286, -0.909), new THREE.Vector3(0.091, 0.955, 0.27))),   // v1.11.2 flat on top of the left thigh (it sat inside the IK body's leg), its clip toward the knee
+const KB_W = 512, KB_H = 704, KB = { home: new THREE.Vector3(-0.168, 0.003, -0.146),   // v1.18.0 y -0.017 -> 0.003 (+2 cm, clear of the knee)
+  q: new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(new THREE.Vector3(-0.307, 0.286, -0.909).cross(new THREE.Vector3(0.091, 0.955, 0.27)).normalize(), new THREE.Vector3(-0.307, 0.286, -0.909), new THREE.Vector3(0.091, 0.955, 0.27))),   // v1.11.2 flat on top of the left thigh (it sat inside the IK body's leg), its clip toward the knee
   rx: -1.0, ry: 0.22, g: null, desk: false, key: '' };
 { const c = document.createElement('canvas'); c.width = KB_W; c.height = KB_H; KB.c = c; KB.x = c.getContext('2d'); KB.t = new THREE.CanvasTexture(c); KB.t.colorSpace = THREE.SRGBColorSpace; KB.t.generateMipmaps = false; KB.t.minFilter = THREE.LinearFilter; KB.t.anisotropy = 4;
   KB.m = new THREE.Group(); const paper = new THREE.Mesh(new THREE.PlaneGeometry(0.15, 0.206), new THREE.MeshBasicMaterial({ map: KB.t, color: 0xdedede })); paper.position.set(0, -0.006, 0.002); paper.userData.noBatch = true; KB.m.add(paper);
@@ -4982,11 +5009,16 @@ function kbKey() {   // what each page shows, rounded so the canvas only redraws
   if (pg === 3) { const D = kbPerfData(); return [P.lb.toFixed(0), D.gal.toFixed(1), Math.floor(D.cru), Math.floor(D.cur), Math.round(D.curP * 100), renderer.xr.isPresenting, GFX.wx ? wxMetar() + wxTrend() : 0].join('|'); }
   return '';
 }
+function kbStatus() {   // v1.18.0 the lines that left the wrist watch: fuel, engine / speed, clock / warnings / the board you're at
+  const kt = (ac.out.V || 0) * 1.944;
+  return [`FUEL ${(fuel / FUEL_MAX * 100).toFixed(0)}% ${(fuel / 3.785).toFixed(1)} GAL${UPG.tank ? ' +' + (UPG.aux / 3.785).toFixed(1) + ' AUX' : ''}${FUELP.on ? ' FILLING' : ''}  -  ` + (mode === 'plane' ? `ENG ${ENG.running ? 'RUN ' + Math.round(ENG.rpm / 50) * 50 : ENG.cranking ? 'CRANK' : 'OFF'}  ${Math.round(kt)} KT` : 'ON FOOT') + '  -  ' + dayClock(),
+    [ecoWarn(), repLine()].filter(Boolean).join('  -  ')]; }
 function kbDraw() {
   if (KB.page) { const k = 'P' + KB.page + '|' + kbKey(); if (k === KB.key) return; KB.key = k; const x = KB.x; x.fillStyle = '#f4f1e6'; x.fillRect(0, 0, KB_W, KB_H); kbTabs(x); kbBody(x); texDirty(KB.t); return; }
-  const L = kbLines(), k = DLV.cash + '|' + JSON.stringify(L) + renderer.xr.isPresenting; if (k === KB.key) return; KB.key = k;
+  const L = kbLines(), ST = kbStatus(), k = DLV.cash + '|' + JSON.stringify(L) + ST.join() + renderer.xr.isPresenting; if (k === KB.key) return; KB.key = k;
   const x = KB.x; x.fillStyle = '#f4f1e6'; x.fillRect(0, 0, KB_W, KB_H); x.fillStyle = '#c9d6e8'; for (let y = 96; y < KB_H; y += 34) x.fillRect(0, y, KB_W, 1.5); kbTabs(x);
-  x.textAlign = 'left'; x.textBaseline = 'alphabetic'; x.fillStyle = '#1a1a1a'; x.font = 'bold 34px sans-serif'; x.fillText('JOBS', 22, 66); x.textAlign = 'right'; x.fillStyle = '#1e6a2a'; x.fillText('$' + DLV.cash.toLocaleString('en-US'), KB_W - 22, 66); x.textAlign = 'left';
+  x.textAlign = 'left'; x.textBaseline = 'alphabetic'; x.fillStyle = '#1a1a1a'; x.font = 'bold 30px sans-serif'; x.fillText('JOBS', 22, 60); x.textAlign = 'right'; x.fillStyle = '#1e6a2a'; x.fillText('$' + DLV.cash.toLocaleString('en-US'), KB_W - 22, 60); x.textAlign = 'left';
+  x.font = 'bold 14px sans-serif'; x.fillStyle = '#334'; x.fillText(ST[0], 22, 76, KB_W - 40); if (ST[1]) { x.fillStyle = '#a0401e'; x.fillText(ST[1], 22, 91, KB_W - 40); }   // v1.18.0 (was on the watch)
   if (!L.length) { x.fillStyle = '#555'; x.font = 'bold 26px sans-serif'; x.fillText('NO JOBS', 22, 140); x.font = '22px sans-serif'; x.fillText('TAKE ONE AT A STRIP\'S', 22, 180); x.fillText('JOB BOARD (GOLD ON THE MAP)', 22, 210); }
   const h = L.length > 3 ? 152 : 204, f = h / 204, F = n => Math.round(n * (f < 1 ? 0.82 : 1)) + 'px sans-serif', o = n => Math.round(n * f);   // v0.59.1 four entries (three jobs + a call) fit
   L.forEach((e, i) => { const Y = 92 + i * h;
@@ -6484,7 +6516,7 @@ function jbAccept(S, i) {
   if (j.st === 'offer') {
     if (dlvActive().length >= DLV_MAX) { say('THREE JOBS ON THE GO ALREADY - DELIVER ONE FIRST'); sfx('tick'); return; }
     j.st = 'active'; j.due = j.dl ? DLV.gt + j.dl : 0; dlvSpawn(j); sfx('clack'); saveSoon();
-    if (j.hunt) { const H = DEER_HERDS[j.hunt.h]; say('ACCEPTED: ' + j.title + ' - HUNT 1 DEER AT ' + H.name + ' (ON YOUR MAP), DELIVER TO ' + dlvS(j.to).name + (j.dl ? ' IN ' + j.dl + ' MIN' : '') + (RFL.place === 'cabin' ? ' - RIFLE ON THE CABIN RACK' : '')); MAP.key = ''; S.key = ''; return; }   // v0.53
+    if (j.hunt) { const H = DEER_HERDS[j.hunt.h]; say('ACCEPTED: ' + j.title + ' - HUNT 1 DEER AT ' + H.name + ' (ON YOUR MAP), DELIVER TO ' + dlvS(j.to).name + (j.dl ? ' IN ' + j.dl + ' MIN' : '') + (!OWN.r ? ' - YOU NEED A RIFLE: THE DRY FORK HARDWARE COUNTER' : RFL.place === 'cabin' ? ' - RIFLE ON THE CABIN RACK' : '')); MAP.key = ''; S.key = ''; return; }   // v0.53
     if (j.drop) { const D = DROPS[j.drop.s]; say('ACCEPTED: ' + j.title + ' - AIRDROP ' + j.drop.n + ' BUNDLES (' + dlvLb(j) + ' LB) TO THE ' + D.who + ' AT ' + D.name + ' (NO STRIP - ON YOUR MAP)' + (j.dl ? ' IN ' + j.dl + ' MIN' : '') + ' - LOAD THEM, OPEN THE DOOR IN FLIGHT, PUSH THEM OUT ON THE SMOKE'); MAP.key = ''; S.key = ''; return; }   // v0.54
     say('ACCEPTED: ' + j.title + ' TO ' + dlvS(j.to).name + ' - ' + dlvLb(j) + ' LB ' + (dlvWc(j) === 'H' ? 'HEAVY ' : '') + 'ON THE PAD' + (j.dl ? ' - ' + j.dl + ' MIN' : '') + (dlvLb(j) > dlvRoom() ? ' - OVER PAYLOAD AT THIS FUEL (MAX ' + Math.max(0, dlvRoom()) + ' LB)' : ''));
   } else if (j.st === 'active') {   // cancel: only while every piece still sits on this pad
@@ -6881,7 +6913,7 @@ function dlvTick(dt) {
   DLV.gt += dt / 60; dlvFallTick(dt); cargoUpdate(dt); dlvSpecTick(dt); dlvTwoTick();
   playerPos(); let nb = null, nd = 1e9; for (const S of DLV_STRIPS) { const d = hyp(PP.x - S.board[0], PP.z - S.board[1]); if (d < nd) { nd = d; nb = S; } }
   DLV.nearS = nd < 60 ? nb : null; DLV.nearD = nd;
-  if ((DLV.jbT -= dt) <= 0) { DLV.jbT = 0.5; bushTick(); mapJobs(); if (mode === 'plane' || KB.desk) kbDraw();   // v0.51.1 job marks on the paper map, the kneeboard
+  if ((DLV.jbT -= dt) <= 0) { DLV.jbT = 0.5; bushTick(); mapJobs(); if (mode === 'plane' || KB.desk || KB.g) kbDraw();   // v1.18.0 + held on foot (its header has the watch's old lines)   // v0.51.1 job marks on the paper map, the kneeboard
     for (const it of DLV.items) if (it.mesh) it.mesh.visible = it.st !== 'ground' || hyp(PP.x - it.mesh.position.x, PP.z - it.mesh.position.z) < (BINO.on ? 2500 : 350);   // v0.59 cargo left on a pad: not drawn from past 350 m (binoculars: further)
     let jd = 0; for (const S of DLV_STRIPS) { const near = hyp(PP.x - S.board[0], PP.z - S.board[1]) < 400; S.m.visible = near; if (!near || jd) continue; const k = jbKey(S) + '|' + Math.ceil(DLV.gt); if (k !== S.key) { S.key = k; jbDraw(S); jd = 1; } }   // v0.59 one board repaint per half second (no stacked canvas uploads)
     for (const j of dlvActive()) if (j.dl && DLV.gt > j.due && !DLV.lateSaid[j.id]) { DLV.lateSaid[j.id] = 1; say(j.title + ' TO ' + dlvS(j.to).name + ' IS LATE - HALF PAY NOW'); } }
@@ -7436,23 +7468,24 @@ function aimQuat(d, up, out) {   // -z along d, +y as close to `up` as it goes
   _rM.makeBasis(_rx, _ry, _rz); out.setFromRotationMatrix(_rM); _rx.set(1, 0, 0); _ry.set(0, 1, 0); _rz.set(0, 0, 1); return out;
 }
 // ---- the racks (plain Lambert: the static batcher merges them) + the ammo box at home ----
-const RACK = { cabin: { p: GV3(28.95, 0, -14.3), ry: 0 }, cub: { p: GV3(0.235, 0, 0.03 + CK.z), ry: 0, rz: Math.PI / 2, rx: 0 }, box: GV3(28.55, 0, -12.75) };
+const RACK = { cabin: { p: GV3(35.05, 0, -15.7), ry: Math.PI }, cub: { p: GV3(0.235, 0, 0.03 + CK.z), ry: 0, rz: Math.PI / 2, rx: 0 }, box: GV3(35.45, 0, -17.25) };   // v1.18.0 turned round with the cabin
 { const wood = mat(0x5a3a1e), dk = mat(0x2a2520);
   RACK.cabin.p.y = groundY(RACK.cabin.p.x, RACK.cabin.p.z) + 1.35;
-  const G = new THREE.Group(); G.position.copy(RACK.cabin.p); scene.add(G);
+  const G = new THREE.Group(); G.position.copy(RACK.cabin.p); G.rotation.y = RACK.cabin.ry; scene.add(G);
   box(0.03, 0.26, 1.12, wood, 0.035, -0.02, 0.17, G);                                    // backing board on the wall
   for (const z of [-0.12, 0.42]) { box(0.07, 0.025, 0.03, dk, 0.0, -0.045, z, G); box(0.02, 0.05, 0.03, dk, -0.03, -0.025, z, G); }   // two hooks under the rifle
-  const B = new THREE.Group(), by = groundY(RACK.box.x, RACK.box.z); B.position.set(RACK.box.x, by, RACK.box.z); scene.add(B);
+  const B = new THREE.Group(), by = groundY(RACK.box.x, RACK.box.z); B.position.set(RACK.box.x, by, RACK.box.z); B.rotation.y = Math.PI; scene.add(B);
   box(0.55, 0.42, 0.42, wood, 0, 0.21, 0, B);                                             // a stump-table
   { const gc = mat(0x2f5a2a), yb = mat(0xd8c070); box(0.26, 0.01, 0.17, mat(0x1a2a16), 0, 0.425, 0, B); for (const sx of [-1, 1]) { box(0.008, 0.11, 0.17, gc, sx * 0.126, 0.475, 0, B); box(0.26, 0.11, 0.008, gc, 0, 0.475, sx * 0.081, B); box(0.262, 0.03, 0.008, yb, 0, 0.48, sx * 0.082, B); }   // v0.79.3 the green ammo carton, opened and empty: dark floor, four walls, yellow band
     const lid = box(0.26, 0.008, 0.17, gc, 0, 0, 0, B); lid.geometry.translate(0, 0, -0.085); lid.position.set(0, 0.53, -0.085); lid.rotation.x = 1.2; }   // the lid flap folded back
-  RACK.box.y = by + 0.5;
+  RACK.box.y = by + 0.5; B.visible = false; RACK.box.x = RACK.box.z = 1e7;   // v1.18.0 no ammo stump outside the cabin: .44-40 is sold at the Dry Fork counter
   RACK.cub.p.y = plY(FLOOR_PL, RACK.cub.p.z) + 0.04; RACK.cub.rx = Math.atan2(plY(FLOOR_PL, RACK.cub.p.z - 0.6) - plY(FLOOR_PL, RACK.cub.p.z), 0.6);   // v0.77.12 a floor holder: the rifle lies lengthwise on its side on the cabin floor right of your seat, muzzle forward, the wrist by your right hip
   const C = new THREE.Group(); C.position.copy(RACK.cub.p); C.rotation.x = RACK.cub.rx; plane.add(C); RACK.cubG = C;   // pitched with the floor
   for (const z of [-0.5, 0.06]) { box(0.13, 0.016, 0.05, dk, 0.02, -0.032, z, C); box(0.012, 0.05, 0.05, dk, -0.045, -0.012, z, C); box(0.012, 0.05, 0.05, dk, 0.085, -0.012, z, C); }   // two cradles screwed to the floor
   RACK.latch = new THREE.Group(); RACK.latch.position.set(0.085, 0.014, -0.5); C.add(RACK.latch); box(0.13, 0.01, 0.03, mat(0x6a5a40), -0.065, 0, 0, RACK.latch); box(0.02, 0.02, 0.034, mat(0xb03020), -0.13, 0, 0, RACK.latch);   // the latch strap over the barrel (red tab), hinged on the wall side
 }
 // ---- v0.70 Dry Fork hardware counter (in the strip hangar): .44-40 by the box. Poke / grab the bell (desktop: Z) to buy, the box lands on the counter, take it into your pouch ----
+const OWN = { r: 0, b: 0 }, GEAR = { r: { nm: 'WINCHESTER .44-40 RIFLE', pr: 180 }, b: { nm: 'BINOCULARS 7x', pr: 45 }, sync: null, at: null };   // v1.18.0 what you own (saved), the shop's stock
 const STORE = { price: 35, rounds: 20, max: 3, n: 0, boxes: [], hint: '' };
 { const o = DFSTORE.o, c = Math.cos(o.a), sn = Math.sin(o.a), L = (lx, ly, lz) => GV3(o.x + lx * c + lz * sn, o.y + ly, o.z - lx * sn + lz * c);
   STORE.at = L(5.4, 1.15, 1.2); STORE.bell = L(5.25, 1.17, 0.35); STORE.slot = [0, 1, 2].map(i => L(5.3, 1.205, 1.45 + i * 0.3)); STORE.ry = o.a;
@@ -7496,6 +7529,26 @@ function storeHint(p, vrOn) {
   const k = mode === 'foot' && storeNear(p, 2.6) ? 'in' : ''; STORE.g.visible = !!STORE.at && p.distanceTo(STORE.at) < 400;
   if (k && k !== STORE.hint) say('HARDWARE: .44-40, 20 ROUNDS $' + STORE.price + ' - ' + (vrOn ? 'TAP THE BELL TO BUY, GRAB A BOX TO TAKE IT' : 'Z BUYS / TAKES A BOX') + ' (POUCH ' + RFL.spare + (STORE.n ? ', ' + STORE.n + ' ON THE COUNTER' : '') + ')');
   STORE.hint = k;
+}
+// ---- v1.18.0 the rifle + binoculars on the hardware counter (while unsold): the rifle and a pair of binoculars on a wall plank above the bench with price cards; VR: grab one to buy it, desktop: look at it + Z ----
+{ const o = DFSTORE.o, c = Math.cos(o.a), sn = Math.sin(o.a), L = (lx, ly, lz) => GV3(o.x + lx * c + lz * sn, o.y + ly, o.z - lx * sn + lz * c), G = new THREE.Group(); G.userData.noBatch = true; scene.add(G);
+  const mkM = (parts, at, ry) => { const m = new THREE.Mesh(mergeGeometries(parts.map(partGeo)), ITEM_VM); m.userData.noBatch = true; m.position.copy(at); m.rotation.y = o.a + ry; G.add(m); return m; };
+  const rifle = mkM([['b', 0.045, 0.05, 0.95, 0, 0.03, 0, 0x6a4426], ['c', 0.014, 0.62, 8, 0, 0.055, -0.62, 0x2a2e33, Math.PI / 2, 0, 0], ['b', 0.05, 0.07, 0.26, 0, 0.05, -0.1, 0x5a5e63], ['b', 0.035, 0.03, 0.2, 0, 0.045, -0.42, 0x6a4426], ['b', 0.07, 0.02, 1.5, 0, -0.01, -0.2, 0x4a3420]], L(6.7, 1.5, 2.55), 0);
+  const bino = mkM([['c', 0.032, 0.17, 10, -0.04, 0.035, 0, 0x22252a, Math.PI / 2, 0, 0], ['c', 0.032, 0.17, 10, 0.04, 0.035, 0, 0x22252a, Math.PI / 2, 0, 0], ['b', 0.05, 0.02, 0.05, 0, 0.04, 0, 0x2a2e33]], L(6.7, 1.5, 3.55), 0.4);
+  const sg = (k, at) => { const s = fSign([[GEAR[k].nm, 30], ['$' + GEAR[k].pr, 60], [(renderer.xr.isPresenting ? 'GRAB IT' : 'LOOK + Z'), 26]], 0.42, 0.26); s.position.copy(at); s.rotation.y = o.a - Math.PI / 2; s.userData.noBatch = true; G.add(s); return s; };
+  const cr = sg('r', L(6.8, 1.95, 2.55)), cb = sg('b', L(6.8, 1.95, 3.55));
+  const spot = { r: L(6.7, 1.55, 2.55), b: L(6.7, 1.55, 3.55) };
+  GEAR.spot = spot; GEAR.sync = () => { rifle.visible = cr.visible = !OWN.r; bino.visible = cb.visible = !OWN.b; }; GEAR.sync();
+  GEAR.buy = (k, g) => { if (OWN[k]) { say('YOU HAVE THE ' + GEAR[k].nm); return false; } if (mode !== 'foot') return false;
+    if (DLV.cash < GEAR[k].pr) { say('NOT ENOUGH CASH - THE ' + GEAR[k].nm + ' IS $' + GEAR[k].pr + ' (WALLET $' + DLV.cash + ')'); if (g) HX.pulse(g, 0.2, 10, 'ui'); return false; }
+    DLV.cash -= GEAR[k].pr; OWN[k] = 1; GEAR.sync(); sfx('cash'); if (g) HX.pulse(g, 0.5, 25, 'buy');
+    if (k === 'r') { rflPut('back'); say('BOUGHT THE RIFLE -$' + GEAR.r.pr + ' (WALLET $' + DLV.cash + ') - SLUNG ON YOUR BACK (REACH OVER YOUR RIGHT SHOULDER' + (renderer.xr.isPresenting ? '' : ', T') + '). AMMO: THE BELL'); } else { binoPut('hip'); say('BOUGHT THE BINOCULARS -$' + GEAR.b.pr + ' (WALLET $' + DLV.cash + ') - ON YOUR BELT' + (renderer.xr.isPresenting ? '' : ' (V)')); }
+    saveSoon(); for (const S of DLV_STRIPS) S.key = ''; return true; };
+  storeGrab = (orig => function (g, p) { if (storeNear(p, 2.4)) for (const k of ['r', 'b']) if (!OWN[k] && p.distanceTo(spot[k]) < 0.3) { sfx('click'); GEAR.buy(k, g); return true; } return orig.call(this, g, p); })(storeGrab);
+  storeDesk = (orig => function () { camera.getWorldPosition(_rp2); if (mode === 'foot' && storeNear(_rp2, 2.6)) { camera.getWorldDirection(_rp3); let best = null, ba = 0.2;
+      for (const k of ['r', 'b']) if (!OWN[k]) { _ru.subVectors(spot[k], _rp2); const d = _ru.length(); if (d > 3.4) continue; const a = Math.acos(clamp(_ru.dot(_rp3) / d, -1, 1)); if (a < ba) { ba = a; best = k; } }
+      if (best) { GEAR.buy(best, null); return true; } } return orig(); })(storeDesk);
+  storeHint = (orig => function (p, vrOn) { const h0 = STORE.hint; orig(p, vrOn); if (STORE.hint === 'in' && h0 !== 'in' && (!OWN.r || !OWN.b)) say(msg + ' | ALSO ON THE COUNTER: ' + (!OWN.r ? 'RIFLE $' + GEAR.r.pr + '  ' : '') + (!OWN.b ? 'BINOCULARS $' + GEAR.b.pr : '') + (vrOn ? ' (GRAB TO BUY)' : ' (LOOK + Z)')); })(storeHint);
 }
 await bootYield('rifle + store built');   // v1.10.1 boot stage (v1.09.1 load yield)
 // ---- model ----
@@ -7568,7 +7621,7 @@ function rflPut(pl, x, z, ry) {
   if (RFL.place !== pl && (RFL.place === 'vr' || RFL.place === 'desk')) { RFL.hand = RFL.sup = RFL.levHand = null; RFL.adsOn = false; RFL.ads = 0; RFL.free = false; RFL.trigV = 0; for (const L of RFL.loading) L.m.removeFromParent(); RFL.loading.length = 0; }
   RFL.place = pl; if (pl === 'ground' && x !== undefined) { RFL.gp = [x, supAt(x, z, groundY(x, z) + 1.4, true) + 0.035, z];   /* v1.12.0 on a table / counter under it */ RFL.gry = ry || 0; }
   const g = RFL.g; if (!g) return;
-  g.visible = true;
+  g.visible = !!OWN.r;
   if (pl === 'cub') { plane.add(g); g.position.copy(RACK.cub.p); g.rotation.set(RACK.cub.rx, RACK.cub.ry, RACK.cub.rz); }
   else { scene.add(g);
     if (pl === 'cabin') { g.position.copy(RACK.cabin.p); g.rotation.set(0, RACK.cabin.ry, 0); }
@@ -7899,6 +7952,17 @@ function rflInertia(dt) {
     const w = RFL.iw.length(); if (w > 1e-9) { _hbQ.setFromAxisAngle(_hbV.copy(RFL.iw).divideScalar(w), w * h); RFL.iq.premultiply(_hbQ).normalize(); } }
   _hbP.copy(RF.grip).applyQuaternion(_rq).add(_rp); _hbQ.copy(RFL.iq).slerp(_rq, RFL.stockW); _rq.copy(_hbQ); _rp.copy(RF.grip).applyQuaternion(_rq).negate().add(_hbP);   // it swings about the wrist in your hand
 }
+// v1.18.0 two-hand aim: AIM.s = the forend hand; _ru (the roll reference) = AIM_K.gain of the trigger hand's roll about the aim line (from level), smoothed (tau AIM_K.tr)
+const AIM = { s: GV3(0, 0, 0), u: GV3(0, 1, 0), d: GV3(0, 0, -1), w: GV3(0, 0, 0), t: GV3(0, 0, 0), c: GV3(0, 0, 0), on: 0, hand: null }, AIM_K = { tr: 0.08, gain: 0.45, jump: 0.2 };   // (Neil, t268) the gun rolls ~45 % of the trigger hand's roll, lightly smoothed; yaw / pitch untouched
+function aimSup(h) {
+  const S = AIM.s, D = AIM.d, U = AIM.u, T = AIM.t, W = AIM.w; RFL.sup.getWorldPosition(_hbP);
+  if (!AIM.on || AIM.hand !== RFL.sup || S.distanceToSquared(_hbP) > AIM_K.jump * AIM_K.jump) { AIM.on = 2; AIM.hand = RFL.sup; } S.copy(_hbP);   // the forend hand as is: the aim line is unchanged
+  D.subVectors(S, _rH); if (D.lengthSq() < 1e-6) return; D.normalize();
+  W.set(0, 1, 0); { const q = W.dot(D); W.x -= D.x * q; W.y -= D.y * q; W.z -= D.z * q; } if (W.lengthSq() < 1e-6) return; W.normalize();   // level, about the aim line
+  T.copy(_ru); { const q = T.dot(D); T.x -= D.x * q; T.y -= D.y * q; T.z -= D.z * q; } if (T.lengthSq() < 1e-6) T.copy(W); else T.normalize();   // the grip hand's up, about the aim line
+  { const c = T.dot(W), sn = AIM.c.crossVectors(W, T).dot(D), a = Math.atan2(sn, c) * AIM_K.gain, ca = Math.cos(a), sa = Math.sin(a); AIM.c.crossVectors(D, W); T.x = W.x * ca + AIM.c.x * sa; T.y = W.y * ca + AIM.c.y * sa; T.z = W.z * ca + AIM.c.z * sa; }   // AIM_K.gain of its roll angle
+  if (AIM.on === 2) { U.copy(T); AIM.on = 1; } else { const a = 1 - Math.exp(-h / AIM_K.tr); U.x += (T.x - U.x) * a; U.y += (T.y - U.y) * a; U.z += (T.z - U.z) * a; }
+  { const q = U.dot(D); U.x -= D.x * q; U.y -= D.y * q; U.z -= D.z * q; } if (U.lengthSq() < 1e-6) U.copy(W); else U.normalize(); _ru.copy(U); }
 function rflPose(dt) {
   const g = RFL.g, R = RFL.rec, h = Math.min(dt, 0.05);
   for (let n = Math.ceil(h / 0.004), k = 0; k < n; k++) { const s = h / n;   // recoil springs (visual: the bullet left already), substepped: stiff springs at a slow frame stay stable
@@ -7926,12 +7990,13 @@ function rflPose(dt) {
     _rp2.copy(_rE).addScaledVector(_rd, -CHEEK.z).addScaledVector(_rp3, CHEEK.y);                      // where the grip hand sits when shouldered
     const dS = _rH.distanceTo(_rp2), xS = 1 - clamp((dS - GUN.stockFull) / (GUN.stockEngage - GUN.stockFull), 0, 1), wT = xS * xS * xS * (xS * (xS * 6 - 15) + 10);
     { const wn = 2 / GUN.stockTau; for (let n = Math.ceil(h / 0.008), k = 0; k < n; k++) { const s = h / n; RFL.stockFv += (wn * wn * (wT - RFL.stockF) - 2 * wn * RFL.stockFv) * s; RFL.stockF = clamp(RFL.stockF + RFL.stockFv * s, 0, 1); } }
+    if (!RFL.sup) AIM.on = 0;
     if (RFL.sup) {   // two hands: grip -> forend (v0.77.1 eased back to the one-hand aim when the forend hand is too close or behind, so a grab anywhere never flips it)
-      RFL.sup.getWorldPosition(_rp2); _rd.subVectors(_rp2, _rH); if (_rd.lengthSq() > 0.0025) aimQuat(_rd.normalize(), _ru, _rq).multiply(Q_SUP); else _rq.copy(q1);   // v0.84.4 (v0.44) grip -> forend hand, roll from the grip hand, the forend tilted onto that hand
+      aimSup(h); _rp2.copy(AIM.s); _rd.subVectors(_rp2, _rH); if (_rd.lengthSq() > 0.0025) aimQuat(_rd.normalize(), _ru, _rq).multiply(Q_SUP); else _rq.copy(q1);   // v0.84.4 (v0.44) grip -> forend hand, roll from the grip hand, the forend tilted onto that hand
     } else _rq.copy(q1);
     _rp.copy(RF.grip).applyQuaternion(_rq).negate().add(_rH);
     if (RFL.stockF > 1e-4 || RFL.stockW > 0) {   // shouldered: the sight line from the eye over the forend, the cheek on the comb
-      if (RFL.sup) RFL.sup.getWorldPosition(_rp2); else _rp2.copy(_rH); _rp2.addScaledVector(_ru, SIGHT_Y);   // v0.84.4 (v0.44) the sight line from the eye over the forend hand (or the grip hand)
+      if (RFL.sup) _rp2.copy(AIM.s); else _rp2.copy(_rH); _rp2.addScaledVector(_ru, SIGHT_Y);   // v0.84.4 (v0.44) the sight line from the eye over the forend hand (or the grip hand)
       _rd.subVectors(_rp2, _rE); if (_rd.lengthSq() < 0.0064) _rd.set(0, 0, -1).transformDirection(M); _rd.normalize();
       aimQuat(_rd, _ru, _sq).multiply(Q_SIGHT); _sp.copy(EYE_R).applyQuaternion(_sq).negate().add(_rE);
       const dp = _sp.distanceTo(_rp), da = _sq.angleTo(_rq), fk = h * 90;   // v0.67 (from v0.9.1): the stock's own pull is rate-capped, <= 3 mm / 0.6 deg per 90 Hz frame; hand motion passes straight through
@@ -7963,7 +8028,7 @@ function rflTick(dt, vrOn) {
   if (RFL.sup && !RFL.sup.userData.src) RFL.sup = null; if (RFL.levHand && (!rflHeld() || !RFL.levHand.userData.src)) rflLevRelease();
   if (rflHeld()) leverTick(dt); else if (RFL.levA > 0) { RFL.levA = 0; RFL.lever.rotation.x = 0; }
   rflPose(dt);
-  if (RFL.place === 'cabin' || RFL.place === 'ground') { if ((RFL.cullT = (RFL.cullT || 0) - dt) <= 0) { RFL.cullT = 0.5; RFL.g.getWorldPosition(_rflC); camera.getWorldPosition(_rflC2); RFL.g.visible = _rflC.distanceTo(_rflC2) < (BINO.on ? 2500 : 250); } } else RFL.g.visible = true;   // v0.59 the rifle on its rack / dropped: not drawn from km away (5 draws)
+  if (RFL.place === 'cabin' || RFL.place === 'ground') { if ((RFL.cullT = (RFL.cullT || 0) - dt) <= 0) { RFL.cullT = 0.5; RFL.g.getWorldPosition(_rflC); camera.getWorldPosition(_rflC2); RFL.g.visible = !!OWN.r && _rflC.distanceTo(_rflC2) < (BINO.on ? 2500 : 250); } } else RFL.g.visible = !!OWN.r;   // v0.59 the rifle on its rack / dropped: not drawn from km away (5 draws)
   if (RFL.flashT > 0 && (RFL.flashT -= dt) <= 0) RFL.flash.visible = false;
   RFL.deskT -= dt;
   // VR rounds: the tip into the loading gate (inside 2.5 cm) loads it; keep squeezing and go back to the pouch for the next one
@@ -8027,6 +8092,7 @@ function rflBackHint(vrOn) {   // a tick in the hand when it reaches the slung r
     if (on && !was) HX.pulse(g, 0.3, 18, 'ui'); g.userData.backIn = on; }
 }
 function rflGrab(g, p) {
+  if (!OWN.r) return false;   // v1.18.0
   if (!RFL.g || mode !== 'foot') return false;
   if (RFL.hand === g || RFL.sup === g || RFL.levHand === g) return true;
   if (!RFL.round.has(g) && RFL.place === 'vr' && p.distanceTo(rflPouch(_rp2)) < GUN.pouchR) return rflTakeRound(g);   // v0.77.1 the pouch first: loading, the rifle is often held low across the belt
@@ -8060,6 +8126,7 @@ function rflRelease(g) {
 function rflTrigger(g) { if (RFL.place === 'vr' && RFL.hand === g && !RFL.free && !SETP.open) rflShoot(); }   // (v0.68.1 not while the menu is up: the trigger points at it)
 // ---- desktop: T take / put back / sling, left mouse fires, right mouse aims, X works the lever, Z loads a round (at the ammo box: buys) ----
 function rflDeskT() {
+  if (!OWN.r) { say('NO RIFLE YET - THE DRY FORK HARDWARE COUNTER SELLS ONE ($' + GEAR.r.pr + ')'); return; }   // v1.18.0
   if (!RFL.g) { say('RIFLE STILL LOADING'); return; }
   if (mode !== 'foot') { say('THE RIFLE STAYS IN ITS RACK IN FLIGHT'); return; }
   camera.getWorldPosition(_rp2); const atCabin = _rp2.distanceTo(RACK.cabin.p) < 2.5, atCub = nearPlane(), atGround = RFL.place === 'ground' && hyp(_rp2.x - RFL.gp[0], _rp2.z - RFL.gp[2]) < 2.5;
@@ -8365,7 +8432,7 @@ function binoUp(m) {
   return BINO.on ? f < BZ.off && f > BZ.backOff && lat < BZ.latOff && al > BZ.dotOff : f < BZ.on && f > BZ.back && lat < BZ.lat && al > BZ.dot;
 }
 function binoTick(dt, vrOn) {
-  const m = BINO.m;
+  const m = BINO.m; if (!OWN.b) { BINO.hol.visible = false; m.visible = false; BINO.on = false; if (BINO.place === 'hand') binoPut(mode === 'plane' ? 'cub' : 'hip'); return; }   // v1.18.0 not bought: nothing drawn, nothing to raise
   const H = BINO.hol; H.visible = vrOn && mode === 'foot'; if (H.visible) binoHip(H.position, H.quaternion);   // v0.77.10 the holster on your belt (VR, on foot)
   if (BINO.place === 'hip') { binoHip(m.position, m.quaternion); m.quaternion.multiply(_rq3.setFromEuler(_fe.set(-Math.PI / 2, 0, 0))); m.position.y += 0.005; m.visible = vrOn; }   // in the holster, objectives down, eyepieces up out of the case (desktop: out of the way)
   else if (BINO.place === 'hand') { const g = BINO.g; if (!g || !g.userData.src) { binoPut(mode === 'plane' ? 'cub' : 'hip'); return binoTick(dt, vrOn); }
@@ -8382,6 +8449,7 @@ function binoTick(dt, vrOn) {
   binoSpot();
 }
 function binoDesk(on) {
+  if (on && !OWN.b) { say('NO BINOCULARS YET - THE DRY FORK HARDWARE COUNTER SELLS A PAIR ($' + GEAR.b.pr + ')'); return; }   // v1.18.0
   if (on === BINO.desk) return; if (on && renderer.xr.isPresenting) return; BINO.desk = on;
   if (on) { BINO.fov0 = camera.fov; camera.fov = 10; say('BINOCULARS (V TO LOWER THEM)'); if (RFL.place === 'desk') RFL.adsOn = false; } else camera.fov = BINO.fov0 || 75;
   camera.updateProjectionMatrix(); sfx('click'); BINO.last = '';
@@ -8425,6 +8493,7 @@ function binoHandNudge() {   // v0.77.10 the view is anchored to your head; turn
   BINO.hq.slerp(_bhO, 1 - Math.exp(-dt / B_NUDGE.tau));
 }
 function binoGrab(g, p) {
+  if (!OWN.b) return false;   // v1.18.0
   if (BINO.g === g || BINO.g2 === g) return true;
   if (BINO.place === 'hand') { if (BINO.g2 || BINO.m.getWorldPosition(_bv).distanceTo(p) > 0.16) return false; BINO.g2 = g; tick(g); return true; }   // v0.65 the other hand on the other barrel
   const at = BINO.place === 'hip' ? binoHip(_bv).setY(_bv.y + 0.04) : BINO.m.getWorldPosition(_bv); if (at.distanceTo(p) > 0.16) return false;
@@ -9334,10 +9403,11 @@ function fScaleGrab(g, p) { for (const S of FISH.shop) if (S.scale && p.distance
 fOrderNew();
 function huntExit() { binoPut('hip'); }
 function huntTick(dt, vrOn) { rflTick(dt, vrOn); deerTick(dt); if (typeof faunaTick === 'function') faunaTick(dt); binoTick(dt, vrOn); }
-function huntSave() { return { rp: RFL.place === 'desk' || RFL.place === 'vr' ? 'back' : RFL.place, gp: RFL.place === 'ground' ? RFL.gp.map(r3) : undefined, gry: RFL.place === 'ground' ? r3(RFL.gry) : undefined,
+function huntSave() { return { ow: (OWN.r ? 1 : 0) | (OWN.b ? 2 : 0), rp: RFL.place === 'desk' || RFL.place === 'vr' ? 'back' : RFL.place, gp: RFL.place === 'ground' ? RFL.gp.map(r3) : undefined, gry: RFL.place === 'ground' ? r3(RFL.gry) : undefined,
   tube: RFL.tube, ch: RFL.ch ? 1 : 0, ck: RFL.cocked ? 1 : 0, sp: RFL.spare, k: HUNT.kills, sb: STORE.n }; }   // v0.70 sb: boxes waiting on the Dry Fork counter
 function huntLoad(d) {
   RFL.tube = 6; RFL.ch = false; RFL.cocked = false; RFL.spare = 20; HUNT.kills = 0; STORE.n = clamp((d && d.sb) | 0, 0, STORE.max); storeSync(); let pl = 'cabin';
+  { const w = d && typeof d === 'object' ? (d.ow === undefined ? 3 : d.ow | 0) : 0; OWN.r = w & 1; OWN.b = (w >> 1) & 1; if (GEAR.sync) GEAR.sync(); }   // v1.18.0 a save from before this keeps both
   if (d && typeof d === 'object') { if (['cabin', 'cub', 'back', 'ground'].includes(d.rp)) pl = d.rp; RFL.tube = clamp(d.tube | 0, 0, GUN.tube); RFL.ch = !!d.ch; RFL.cocked = !!d.ck; RFL.spare = clamp(d.sp | 0, 0, GUN.pouch); HUNT.kills = d.k | 0;
     if (pl === 'ground' && !(d.gp?.length === 3 && d.gp.every(isFinite))) pl = 'cabin'; if (pl === 'ground') { RFL.gp = d.gp.slice(); RFL.gry = +d.gry || 0; } }
   if (pl === 'back' && mode === 'plane') pl = 'cub';
@@ -10332,7 +10402,9 @@ function vegBlocked(x, z, r) {
   if (typeof ROADS !== 'undefined' && typeof segD === 'function') { for (let i = 0; i < ROADS.length; i++) { const rd = ROADS[i]; for (let j = 1; j < rd.length; j++) if (segD(x, z, [rd[j - 1][0], rd[j - 1][1], rd[j][0], rd[j][1]]) < 8 + r * 0.15) return true; } }
   return false;
 }
+const VEG_CLUTTER = new Set(['stump', 'stumpMoss', 'log', 'logMoss', 'rock1', 'rock2', 'rock3', 'rockMoss1', 'rockMoss2', 'bush1', 'bush2', 'fern1', 'fern2', 'fern3', 'fern4', 'berries']);   // v1.18.0 not placed (2D bushes instead)
 function vegPush(lists, name, x, y, z, ry, s) {
+  if (VEG_CLUTTER.has(name)) return;   // v1.18.0 (the RNG draws for it were already made: the trees after it are unchanged)
   const L = lists[name] || (lists[name] = []);
   L.push([x, y, z, ry, s, s, s]);
 }
@@ -10352,6 +10424,50 @@ function vegLodGeo(kind) {   // v1.15.1 unit-height low-poly stand-ins (origin a
   else if (kind === 'birch') { cyl(0, 0.70, 0.032, 0.020, 5, 0.82, 0.80, 0.72); cone(0.48, 1.00, 0.24, 6, 0.45, 0.55, 0.22); cone(0.62, 0.90, 0.15, 5, 0.50, 0.58, 0.24); }
   else { cyl(0, 0.95, 0.028, 0.014, 5, 0.30, 0.22, 0.16); cyl(0.55, 0.72, 0.018, 0.006, 4, 0.28, 0.20, 0.14); }
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(Nrm, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(C, 3)); g.setIndex(Ix); return g;
+}
+// ---- v1.18.0 2D bushes: crossed quads like the 2D trees, own atlas, own RNG; tags 3/4/5 = the 2D density extras ----
+const BSH = { n: 0, L: 140, far: 330, u: { sprNear: { value: 0 }, sprL: { value: 140 } }, ms: 0, im: [] };
+function bshAtlas() {
+  let sd = 0xb05e; const r = () => (sd = (sd * 16807) % 2147483647) / 2147483647, cv = document.createElement('canvas'); cv.width = cv.height = 512; const g = cv.getContext('2d');
+  const poly = (c, P) => { g.fillStyle = c; g.beginPath(); P.forEach(([a, b], i) => i ? g.lineTo(a, b) : g.moveTo(a, b)); g.closePath(); g.fill(); };
+  const clump = (ox, oy, lt, md, dk, n, w, h, extra) => {   // overlapping faceted clumps on a dome, lit left / shaded right, a dark base so it sits on the ground
+    poly(dk, [[ox + 128 - w * 0.5, oy + 252], [ox + 128 + w * 0.5, oy + 252], [ox + 128 + w * 0.42, oy + 210], [ox + 128 - w * 0.42, oy + 210]]);
+    for (let k = 0; k < n; k++) { const t = n > 1 ? k / (n - 1) : 0.5, cx = ox + 128 + (t - 0.5) * w * 0.78 + (r() - 0.5) * 14, top = Math.sqrt(Math.max(0, 1 - (2 * t - 1) * (2 * t - 1))), cy = oy + 252 - 40 - top * (h - 90) + r() * 18, rr = 34 + r() * 20, P = [];
+      for (let q = 0; q < 6; q++) P.push([cx + Math.cos(q * 1.047 + k) * rr, Math.min(oy + 254, cy + Math.sin(q * 1.047 + k) * rr * 0.85)]); poly(t < 0.45 ? lt : t > 0.7 ? dk : md, P); }
+    for (let k = 0; k < 4; k++) { const cx = ox + 128 + (r() - 0.6) * w * 0.4, cy = oy + 252 - h * 0.55 - r() * h * 0.25, rr = 22 + r() * 12, P = []; for (let q = 0; q < 6; q++) P.push([cx + Math.cos(q * 1.047) * rr, cy + Math.sin(q * 1.047) * rr * 0.8]); poly(lt, P); }
+    if (extra) for (let k = 0; k < 26; k++) { const x = ox + 128 + (r() - 0.5) * w * 0.8, y = oy + 252 - 30 - r() * (h - 70); g.fillStyle = extra; g.beginPath(); g.arc(x, y, 4 + r() * 3, 0, 6.283); g.fill(); } };
+  clump(0, 0, '#4f7a34', '#3e652b', '#2c4a20', 9, 236, 200);              // 0 a leafy shrub
+  clump(256, 0, '#3a5e3a', '#2c4b30', '#1f3824', 8, 220, 170);           // 1 juniper, darker, lower
+  clump(0, 256, '#55803a', '#436b2e', '#2f4e22', 9, 230, 190, '#a8242a');  // 2 berry bush
+  clump(256, 256, '#8a9468', '#737d55', '#566040', 10, 240, 150);         // 3 dry sage / willow scrub, grey-green
+  const tex = sprAtlas(cv); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4; return tex;
+}
+function bshBuild() {
+  const t0 = performance.now(), L = [[], [], [], []];
+  const cell = c => { const u0 = (c % 2) * 0.5, v0 = c < 2 ? 0.5 : 0, P = [], U = [], N = [];
+    for (const a of [0, Math.PI / 2]) { const ca = Math.cos(a) * 0.5, sa = Math.sin(a) * 0.5;
+      P.push(-ca, 0, -sa, ca, 0, sa, ca, 1, sa, -ca, 0, -sa, ca, 1, sa, -ca, 1, -sa); U.push(u0, v0, u0 + 0.5, v0, u0 + 0.5, v0 + 0.5, u0, v0, u0 + 0.5, v0 + 0.5, u0, v0 + 0.5); for (let k = 0; k < 6; k++) N.push(0, 1, 0); }
+    const q = new THREE.BufferGeometry(); q.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); q.setAttribute('uv', new THREE.Float32BufferAttribute(U, 2)); q.setAttribute('normal', new THREE.Float32BufferAttribute(N, 3)); return q; };
+  const gen = (seed, mult, tag) => { let sd = seed; const r = () => (sd = (sd * 16807) % 2147483647) / 2147483647;
+    const put = (x, z) => { if (vegBlocked(x, z, 1) || rd2Dist(x, z) < 2.5 || FARMS.some(([a, b]) => hyp(x - a, z - b) < 30)) return; const ny = terrainNormal(x, z)[1]; if (ny < 0.72) return;
+      const h = groundY(x, z), u = r(), c = h > 600 || waterDist(x, z) < 25 ? (u < 0.55 ? 3 : 1) : u < 0.42 ? 0 : u < 0.67 ? 1 : u < 0.8 ? 2 : 3, s = 0.55 + r() * 0.9;
+      L[c].push([x, h - 0.08 * s, z, r() * 3.14, 2.1 * s, 1.35 * s * (0.85 + r() * 0.3), 2.1 * s, tag]); };
+    const ring = (cx, cz, r0, r1, n) => { for (let k = 0; k < n * mult; k++) { const a = r() * 6.283, d = r0 + r() * (r1 - r0); put(cx + Math.cos(a) * d, cz + Math.sin(a) * d); } };
+    if (typeof DLV_STRIPS !== 'undefined') for (const S of DLV_STRIPS) ring(S.x, S.z, (S.hw || 16) + 8, (S.hl || 60) + 60, 70);
+    if (typeof LAKES !== 'undefined') for (const W of LAKES) ring(W.x, W.z, (W.r || 80) + 3, (W.r || 80) + 30, 90);
+    ring(32, -15, 7, 30, 30); ring(-1300, 2850, 6, 30, 20);
+    for (const T of TREES) if (r() < 0.5 * mult) { const a = r() * 6.283, d = 1.5 + r() * 4.5; put(T[0] + Math.cos(a) * d, T[2] + Math.sin(a) * d); }
+    for (const G0 of GROVES) ring(G0.x, G0.z, 20, 200, 60);
+    for (let i = 0; i < 14000 * mult; i++) { const x = (r() - 0.5) * 2 * (T_OUT - 100), z = (r() - 0.5) * 2 * (T_OUT - 100), h = groundY(x, z); if (h < 15 || h > 1000) continue; put(x, z); } };
+  gen(0x2b05e, 1, 0); gen(0x3b05e, 1, 3); gen(0x4b05e, 1.5, 4); gen(0x5b05e, 2.5, 5);
+  const tex = bshAtlas(), sm = swayMat(sprMat({ map: tex, alphaTest: 0.45, side: THREE.DoubleSide }), 1, 0.02, 0);
+  { const ob = sm.onBeforeCompile; sm.onBeforeCompile = sh => { ob(sh); sh.uniforms.sprNear = BSH.u.sprNear; sh.uniforms.sprL = BSH.u.sprL; }; }   // own near ring (none) + far thinning; the density uniform is the trees'
+  BSH.im.length = 0; BSH.n = 0;
+  for (let c = 0; c < 4; c++) { if (!L[c].length) continue; const n0 = CHUNKS.length, im = instanced(cell(c), sm, L[c], { lod: BSH.L, far: BSH.far, tree: 1, spr: 1, ro: 1 }); im.userData.noBatch = true; im.name = 'BUSH2D_' + c; BSH.im.push(im);
+    for (let i = n0; i < CHUNKS.length; i++) CHUNKS[i].bsh = 1; BSH.n += L[c].length; }
+  BSH.mat = sm; BSH.ms = performance.now() - t0; BSH.nN = L.reduce((t, l) => t + l.filter(o => !o[7]).length, 0);
+  { const pv = PL.visible, sv = SL.visible; for (let c = 0; c < 4; c++) { PL.visible = !!(c & 1); SL.visible = !!(c & 2); for (const im of BSH.im) renderer.compile(im, camera, scene); } PL.visible = pv; SL.visible = sv; }   // compiled now (no hitch when you first see one)
+  updateChunks(true);
 }
 function vegPlace() {
   if (!VEG.ok || VEG.on || !VEG.geo.pine1) return; VEG.on = true; VEG.sd = 0x11500;
@@ -10401,12 +10517,12 @@ function vegPlace() {
   // 3. camp dressing (fixed, not random on the world stream)
   const prop = (name, x, z, s, ry) => { if (!G[name] || vegBlocked(x, z, 0.4) && name !== 'tent' && name !== 'fire' && name !== 'crate') { /* still place camp props if only the loose runway test tripped at a yard */ }
     vegPush(lists, name, x, groundY(x, z), z, ry, s); };
-  // home cabin: fire, sitting logs, crates, tools, a lean-to of logs + tent off the door (door is east)
-  prop('fire', 27.2, -20.5, 0.85, 0.3); prop('fireLit', 27.2, -20.5, 0.85, 0.3);
-  prop('sitLog', 28.6, -21.6, 0.55, 1.2); prop('sitLog', 25.8, -21.2, 0.5, -0.4);
-  prop('crate', 36.4, -12.2, 0.5, 0.2); prop('crate2', 37.0, -12.8, 0.42, 0.7);
-  prop('axe', 36.6, -13.4, 0.9, 1.1); prop('shovel', 29.4, -18.8, 0.85, 0.4);
-  prop('tent', 24.0, -10.5, 2.3, -0.6);
+  // home cabin: fire, sitting logs, crates, tools, a lean-to of logs + tent (v1.18.0 all turned round with the cabin: the door faces the strip, west)
+  prop('fire', 36.8, -9.5, 0.85, 3.44159); prop('fireLit', 36.8, -9.5, 0.85, 3.44159);
+  prop('sitLog', 35.4, -8.4, 0.55, 4.34159); prop('sitLog', 38.2, -8.8, 0.5, 2.74159);
+  prop('crate', 27.6, -17.8, 0.5, 3.34159); prop('crate2', 27.0, -17.2, 0.42, 3.84159);
+  prop('axe', 27.4, -16.6, 0.9, 4.24159); prop('shovel', 34.6, -11.2, 0.85, 3.54159);
+  prop('tent', 40.0, -19.5, 2.3, 2.54159);
   // hunt cabin porch side
   prop('fire', -1294, 2844, 0.8, 0.2); prop('fireLit', -1294, 2844, 0.8, 0.2);
   prop('sitLog', -1292, 2846.5, 0.55, 0.8); prop('crate', -1296, 2855, 0.5, 0.1); prop('axe', -1297, 2854.4, 0.85, 0.5);
@@ -10434,6 +10550,7 @@ function vegPlace() {
     vegBlocked = (x, z, r) => { const [l, w] = lw(x, z); return vb(x, z, r) || (r > 2 ? (l < B.hl + 60 && w < B.hw + 12) || (l < B.hl + 260 && w < B.hw + 8 + (l - B.hl) * 0.15) : l < B.hl + 12 && w < B.hw + 2); };   // a wingspan of clear air either side + an open funnel off each end (the trees: no rocks on the strip)
     addRing(S.x, S.z, (S.hw || 20) + 16, (S.hl || 80) + 90, 36, coverT.concat(snags), 8, 15, 3.5);
     addRing(S.x, S.z, (S.hw || 16) + 10, (S.hl || 60) + 50, 40, ['stump', 'stumpMoss', 'log', 'logMoss', 'rock1', 'rock2', 'rock3', 'rockMoss1', 'bush1', 'bush2', 'fern1', 'fern2', 'fern3'], 0.4, 1.3, 1.2); vegBlocked = vb; } }
+  bshBuild();   // v1.18.0 the 2D bushes (own RNG, after every tree is placed)
   // instance everything (CHUNKS + clearTrees + distance lod). v1.15.1: high-poly trees get lodPair=1; a cheap low-poly copy (lodPair=2) takes over past VEG.LOD
   const treeSet = { pine1: 1, pine2: 1, pine3: 1, pine4: 1, birch1: 1, birch2: 1, birch3: 1, snag1: 1, snag2: 1, snag3: 1 };
   const tm = swayMat(ITEM_VM.clone(), 1, 0.035, 0, 1.15);
@@ -14129,7 +14246,8 @@ function cabLet(i, p, k) { return cabReady ? HCAB.let(i, p, k) : false; }   // p
 const HCAB = (() => {
   const OX = 32, OZ = -15, PI = Math.PI, NEAR = 45, PRICE = 35, DEV = 7, CAP = 24;
   const WIN = { z0: -1.75, z1: -0.85, y0: 1.0, y1: 1.75 }, DOOR = { z0: 0.9, z1: 1.9, y1: 2.0 };   // west window, east door (local, on course lines)
-  const COTW = { x: 34.42, z: -16.3 }, STAND = { x: 28.42, z: -12.15, y: 0.661 }, STOVE = { x: -0.4, z: -1.95 }, LAMP = { x: -2.6, z: -1.68 };
+  const COTW = { x: 29.58, z: -13.7 }, STAND = { x: 35.58, z: -17.85, y: 0.661 },   // v1.18.0 world (the cabin turned round)
+   STOVE = { x: -0.4, z: -1.95 }, LAMP = { x: -2.6, z: -1.68 };
   const BOARD = { x: 0.55, y: 1.5, z: 2.317, nx: 6, ny: 4, px: 0.175, py: 0.19, w: 0.088, h: 0.107 };
   const AW = 1200, AH = 1280, CW = 200, CH = 240;   // atlas: 24 print cells (6 x 4) + a strip of wall decals
   const mk = P => { const gs = P.map(partGeo), g = mergeGeometries(gs); for (const x of gs) x.dispose(); return g; };
@@ -14163,15 +14281,15 @@ const HCAB = (() => {
     // stovepipe above the roof + its cap
     P.push(['c', 0.065, 1.6, 8, STOVE.x, 4.1, STOVE.z - 0.1, 0x2a2a2a], ['k', 0.12, 0.08, 8, STOVE.x, 4.95, STOVE.z - 0.1, 0x222222]);
     // the camera stand by the supply crate (a stump, a price board)
-    const sx = STAND.x - OX, sz = STAND.z - OZ;
+    const sx = OX - STAND.x, sz = OZ - STAND.z;
     P.push(['c', 0.17, 0.6, 9, sx, 0.3, sz, 0x6a4c30], ['c', 0.165, 0.01, 9, sx, 0.605, sz, 0xb89a6a], ['b', 0.012, 0.11, 0.16, sx - 0.02, 0.665, sz + 0.12, 0x8a6a40]);
     return P; }
-  const SHELL_G = (() => { const sg = mk(shellParts()), cg = mk(PK_K.polaroid[4]); cg.rotateY(PI / 2); cg.translate(STAND.x - OX, STAND.y, STAND.z - OZ); const g2 = mergeGeometries([sg, cg]); cg.dispose(); sg.dispose(); return g2; })();   // + the display camera on the stump
-  const shell = new THREE.Mesh(SHELL_G, ITEM_VM); shell.position.set(OX, 0, OZ); shell.name = 'CAB_SHELL';
+  const SHELL_G = (() => { const sg = mk(shellParts()), cg = mk(PK_K.polaroid[4]); cg.rotateY(PI / 2); cg.translate(OX - STAND.x, STAND.y, OZ - STAND.z); const g2 = mergeGeometries([sg, cg]); cg.dispose(); sg.dispose(); return g2; })();   // + the display camera on the stump
+  const shell = new THREE.Mesh(SHELL_G, ITEM_VM); shell.position.set(OX, 0, OZ); shell.rotation.y = PI; shell.name = 'CAB_SHELL';
   shell.castShadow = box0 ? box0.castShadow : true; shell.receiveShadow = box0 ? box0.receiveShadow : true; scene.add(shell);
   if (box0 && box0.parent) box0.parent.remove(box0);   // the old solid box (its bullet box CABIN_BB stays: a shot from inside stops at the wall)
   // walls are solid on foot (centre lines; the door is open)
-  { const W = (x0, z0, x1, z1) => SOLID_SEGS.push([OX + x0, OZ + z0, OX + x1, OZ + z1]);
+  { const W = (x0, z0, x1, z1) => SOLID_SEGS.push([OX - x0, OZ - z0, OX - x1, OZ - z1]);
     W(-2.93, -2.43, -2.93, 2.43); W(-2.93, -2.43, 2.93, -2.43); W(-2.93, 2.43, 2.93, 2.43); W(2.93, -2.43, 2.93, DOOR.z0); W(2.93, DOOR.z1, 2.93, 2.43); }
   // ---------------- the interior (one merged mesh, culled when far) ----------------
   function interiorParts(bunk) {
@@ -14194,7 +14312,7 @@ const HCAB = (() => {
         for (let k = 0; k < cnt; k++) { const x = x0 + k * 0.135; P.push(['c', R, 0.42, 7, x, y, -2.1, LC[n % 3], PI / 2], ['c', R - 0.008, 0.004, 7, x, y, -1.887, 0xc8a878, PI / 2]); n++; } } }
     P.push(['c', 0.015, 0.7, 6, -0.92, 0.37, -2.2, 0x8a6a40, -0.22], ['b', 0.13, 0.05, 0.022, -0.92, 0.71, -2.27, 0x55585a, -0.22]);
     // the bunk (only without V2 SURVIVAL: its cot is moved in to this spot)
-    if (bunk) { const bx = COTW.x - OX, bz = COTW.z - OZ;
+    if (bunk) { const bx = OX - COTW.x, bz = OZ - COTW.z;
       for (const ax of [-1, 1]) for (const az of [-1, 1]) P.push(['b', 0.05, 0.42, 0.05, bx + ax * 0.34, 0.25, bz + az * 0.92, 0x5a3e28]);
       P.push(['b', 0.74, 0.06, 1.9, bx, 0.43, bz, 0x5a3e28], ['b', 0.7, 0.1, 1.84, bx, 0.51, bz, 0x8a7a5a], ['b', 0.72, 0.04, 1.2, bx, 0.58, bz + 0.3, 0x8a2a2a], ['b', 0.5, 0.08, 0.3, bx, 0.6, bz - 0.72, 0xd8d0b8]); }
     // shelf over the bunk (books, a radio), a footlocker at its foot
@@ -14238,12 +14356,12 @@ const HCAB = (() => {
       ['b', 0.12, 0.62, 0.4, 2.74, 1.38, 0.3, 0x8a3a28], ['b', 0.125, 0.05, 0.405, 2.74, 1.5, 0.3, 0x2a2a2a], ['b', 0.125, 0.04, 0.405, 2.74, 1.25, 0.3, 0x2a2a2a],
       ['c', 0.12, 0.015, 10, 2.74, 1.69, 0.62, 0x5a4a30], ['c', 0.07, 0.08, 10, 2.74, 1.735, 0.62, 0x5a4a30]);
     return P; }
-  const IM = new THREE.Mesh(mk(interiorParts(true)), ITEM_VM); IM.position.set(OX, 0, OZ); IM.name = 'CAB_IN'; IM.userData.noBatch = true; IM.matrixAutoUpdate = false; IM.updateMatrix(); IM.receiveShadow = true; scene.add(IM);
+  const IM = new THREE.Mesh(mk(interiorParts(true)), ITEM_VM); IM.position.set(OX, 0, OZ); IM.rotation.y = PI; IM.name = 'CAB_IN'; IM.userData.noBatch = true; IM.matrixAutoUpdate = false; IM.updateMatrix(); IM.receiveShadow = true; scene.add(IM);
   // glow: the fire window + draft slit (flicker) and the lamp's globe - unlit, one draw
   const GLM = new THREE.MeshBasicMaterial({ vertexColors: true });
   const GL = new THREE.Mesh(mk([['b', 0.2, 0.1, 0.004, STOVE.x, 0.52, STOVE.z + 0.264, 0xd0501a], ['b', 0.13, 0.05, 0.003, STOVE.x, 0.505, STOVE.z + 0.2675, 0xffc060], ['b', 0.1, 0.012, 0.003, STOVE.x, 0.42, STOVE.z + 0.2625, 0xff7020],
     ['c', 0.034, 0.1, 10, LAMP.x, 0.88, LAMP.z, 0xffd890]]), GLM);
-  GL.position.set(OX, 0, OZ); GL.name = 'CAB_GLOW'; GL.userData.noBatch = true; GL.matrixAutoUpdate = false; GL.updateMatrix(); scene.add(GL);
+  GL.position.set(OX, 0, OZ); GL.rotation.y = PI; GL.name = 'CAB_GLOW'; GL.userData.noBatch = true; GL.matrixAutoUpdate = false; GL.updateMatrix(); scene.add(GL);
   // ---------------- the atlas: 24 print cells (white card, picture area) + wall decals (map, chart, calendar, price card, a white texel) ----------------
   const AC = document.createElement('canvas'); AC.width = AW; AC.height = AH; const AX = AC.getContext('2d');
   const ATL = new THREE.CanvasTexture(AC); ATL.colorSpace = THREE.SRGBColorSpace; ATL.anisotropy = 4;
@@ -14296,7 +14414,7 @@ const HCAB = (() => {
   const PM = new THREE.MeshLambertMaterial({ map: ATL, vertexColors: true });
   const bb = n => { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(n * 3), 3)); g.setAttribute('normal', new THREE.BufferAttribute(new Float32Array(n * 3), 3));
     g.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(n * 2), 2)); g.setAttribute('color', new THREE.BufferAttribute(new Float32Array(n * 3), 3)); g.setDrawRange(0, 0); return g; };
-  const BM = new THREE.Mesh(bb(1600), PM); BM.position.set(OX, 0, OZ); BM.name = 'CAB_BOARD'; BM.userData.noBatch = true; BM.frustumCulled = false; BM.matrixAutoUpdate = false; BM.updateMatrix(); BM.receiveShadow = true; scene.add(BM);
+  const BM = new THREE.Mesh(bb(1600), PM); BM.position.set(OX, 0, OZ); BM.rotation.y = PI; BM.name = 'CAB_BOARD'; BM.userData.noBatch = true; BM.frustumCulled = false; BM.matrixAutoUpdate = false; BM.updateMatrix(); BM.receiveShadow = true; scene.add(BM);
   const LM = new THREE.Mesh(bb(48), PM); LM.name = 'CAB_PRINTS'; LM.userData.noBatch = true; LM.frustumCulled = false; LM.visible = false; scene.add(LM);
   // a quad: centre c, half-axes a (right) and b (up) as viewed, normal = a x b; uv rect u0 v0 (bottom-left) .. u1 v1; colour
   const QA = new Float64Array(16);   // quadQ's input (cx cy cz ax ay az bx by bz u0 v0 u1 v1 r g b): per-frame callers fill it (no boxed double arguments)
@@ -14328,7 +14446,7 @@ const HCAB = (() => {
       for (const [dy, dz] of [[0.27, 0.42], [0.27, -0.42], [-0.27, 0.42], [-0.27, -0.42]]) o = cube(g, o, -2.832, 1.45 + dy, 0.75 + dz, 0.005, 0.006, 0.006, 0.8, 0.15, 0.1); }
     { const u = dUV(DEC.chart); o = quad(g, o, 1.0, 1.55, -2.342, 0.35, 0, 0, 0, 0.28, 0, u[0], u[1], u[2], u[3], 1, 1, 1); for (const sx of [-0.33, 0.33]) o = cube(g, o, 1.0 + sx, 1.81, -2.336, 0.006, 0.006, 0.005, 0.15, 0.35, 0.8); }
     { const u = dUV(DEC.cal); o = quad(g, o, 1.75, 1.5, 2.342, -0.14, 0, 0, 0, 0.224, 0, u[0], u[1], u[2], u[3], 1, 1, 1); o = cube(g, o, 1.75, 1.73, 2.336, 0.005, 0.005, 0.005, 0.3, 0.3, 0.3); }
-    { const u = dUV(DEC.price); o = quad(g, o, STAND.x - OX - 0.029, 0.665, STAND.z - OZ + 0.12, 0, 0, 0.075, 0, 0.05, 0, u[0], u[1], u[2], u[3], 1, 1, 1); }
+    { const u = dUV(DEC.price); o = quad(g, o, OX - STAND.x - 0.029, 0.665, OZ - STAND.z + 0.12, 0, 0, 0.075, 0, 0.05, 0, u[0], u[1], u[2], u[3], 1, 1, 1); }
     for (let s = 0; s < SLOT.length; s++) { const c = SLOT[s]; if (c < 0) continue; const x = SLP[s * 3], y = SLP[s * 3 + 1], t = SLP[s * 3 + 2], ct = Math.cos(t), st = Math.sin(t), u = cellUV(c), hw = BOARD.w / 2, hh = BOARD.h / 2;
       o = quad(g, o, x, y, BOARD.z, -ct * hw, st * hw, 0, st * hh, ct * hh, 0, u[0], u[1], u[2], u[3], 1, 1, 1);   // faces -z (into the room); right = -x
       const pc = PINC[s % 4]; o = cube(g, o, x + st * (hh - 0.012), y + ct * (hh - 0.012), BOARD.z - 0.006, 0.0055, 0.0055, 0.005, pc[0], pc[1], pc[2]); }
@@ -14399,7 +14517,7 @@ const HCAB = (() => {
     else { ST[c] = 1; if (!pkPut('photo', true)) { camera.getWorldPosition(v1); pkDrop('photo', v1, v2.set(0, 0, 0), headYaw()); } say('CLICK - A NEW PRINT IN YOUR PACK (IT DEVELOPS IN A FEW SECONDS)'); }
     store(); saveSoon(); return c; }
   function owns() { return PK.it.includes('polaroid') || RIG.k.includes('polaroid') || PK.hk[0] === 'polaroid' || PK.hk[1] === 'polaroid'; }
-  function local(p) { return v3.set(p.x - OX, p.y, p.z - OZ); }
+  function local(p) { return v3.set(OX - p.x, p.y, OZ - p.z); }   // v1.18.0 the cabin is turned round (world = O - local)
   function nearSlot(p) { const l = local(p); if (Math.abs(l.z - BOARD.z) > 0.14 || Math.abs(l.x - BOARD.x) > 0.62 || Math.abs(l.y - BOARD.y) > 0.48) return -2;   // -2: not at the board
     let b = -1, bd = 1e9; for (let s = 0; s < SLOT.length; s++) { if (SLOT[s] >= 0) continue; const ex = l.x - SLP[s * 3], ey = l.y - SLP[s * 3 + 1], d = Math.sqrt(ex * ex + ey * ey); if (d < bd) { bd = d; b = s; } } return b; }
   function pin(c, s) { ST[c] = 2; PIN[c] = s; SLOT[s] = c; boardWrite(); }
@@ -14420,13 +14538,13 @@ const HCAB = (() => {
   // ---------------- per frame ----------------
   function tick(dt, vr) {
     F[0] += dt; if (F[0] > 1e7) F[0] = 0; const foot = mode === 'foot';
-    camera.getWorldPosition(v1); const dx = v1.x - OX, dz = v1.z - OZ;
+    camera.getWorldPosition(v1); const dx = OX - v1.x, dz = OZ - v1.z;
     if ((F[4] -= dt) <= 0) { F[4] = 0.25; if (!DQ[0] && !DQ[1] && GFX.shadows > 0) depthQueue(); const on = dx * dx + dz * dz < NEAR * NEAR; if (IM.visible !== on) IM.visible = GL.visible = BM.visible = on; }
     if (F[9]) boardWrite();
     // the stove: flicker on the fire window; PL warms the room while you are inside (the game zeroed it this frame; it is the Cub's panel glow otherwise)
     if (IM.visible) { const t = F[0], f = 0.82 + 0.1 * Math.sin(t * 7.3) + 0.06 * Math.sin(t * 17.9 + 1.3) + 0.04 * Math.sin(t * 31.1 + 0.7); F[8] = f; GLM.color.setRGB(f, 0.9 + 0.1 * f, 0.9 + 0.1 * f);
       const inside = Math.abs(dx) < 2.9 && Math.abs(dz) < 2.4 && foot;
-      if (inside && PL.intensity === 0) { PL.position.set(OX + STOVE.x, 0.75, OZ + STOVE.z + 0.55); PL.color.setHex(0xff9a52); PL.distance = 8; PL.intensity = (0.9 + 2.6 * (1 - TOD.day)) * f; PL.visible = true; F[7] = 1; } else F[7] = 0; }
+      if (inside && PL.intensity === 0) { PL.position.set(OX - STOVE.x, 0.75, OZ - STOVE.z - 0.55); PL.color.setHex(0xff9a52); PL.distance = 8; PL.intensity = (0.9 + 2.6 * (1 - TOD.day)) * f; PL.visible = true; F[7] = 1; } else F[7] = 0; }
     // hands: the camera's pose + shutter, a print's pose, the grab
     for (let i = 0; i < 2; i++) { const k = PK.hk[i], src = grips[i].userData.src, gp = vr && src ? src.gamepad : null;
       const tr = gp && gp.buttons[0] ? gp.buttons[0].pressed : false, sq = gp && gp.buttons[1] ? gp.buttons[1].pressed : false;
@@ -14450,7 +14568,7 @@ const HCAB = (() => {
   // ---------------- desktop: P = buy at the stand / pin at the board / a photo from your eyes ----------------
   addEventListener('keydown', e => { if (e.code !== 'KeyP' || e.repeat || mode !== 'foot' || renderer.xr.isPresenting || (typeof SETP !== 'undefined' && SETP.open)) return;
     camera.getWorldPosition(v1); const l = local(v1), atBoard = Math.hypot(l.x - BOARD.x, l.z - BOARD.z) < 1.8 && Math.abs(l.x) < 2.9 && Math.abs(l.z) < 2.4;
-    if (atBoard && newest(1) >= 0) { const s = nearSlot(v2.set(OX + BOARD.x, BOARD.y, OZ + BOARD.z)); if (s < 0) { say('THE BOARD IS FULL'); return; } const c = newest(1); if (!dropItem()) { say('THE PRINT IS IN YOUR HAND - PIN IT BY HAND'); return; } pin(c, s); sfx('clack'); say('PINNED TO THE BOARD'); saveSoon(); return; }
+    if (atBoard && newest(1) >= 0) { const s = nearSlot(v2.set(OX - BOARD.x, BOARD.y, OZ - BOARD.z)); if (s < 0) { say('THE BOARD IS FULL'); return; } const c = newest(1); if (!dropItem()) { say('THE PRINT IS IN YOUR HAND - PIN IT BY HAND'); return; } pin(c, s); sfx('clack'); say('PINNED TO THE BOARD'); saveSoon(); return; }
     if (!owns()) { if (Math.hypot(v1.x - STAND.x, v1.z - STAND.z) < 2.2) buy(-1); else say('P: A POLAROID CAMERA IS FOR SALE ON THE STUMP BY THE SUPPLY CRATE ($' + PRICE + ')'); return; }
     camera.getWorldQuaternion(q1); camera.getWorldDirection(v2); v1.addScaledVector(v2, 0.32); snap(v1, q1, -1); });   // a little in front of your face (your own hat brim is not in the picture)
   // ---------------- save / load ----------------
@@ -14464,7 +14582,7 @@ const HCAB = (() => {
     reconcile(); boardWrite(); }
   // ---------------- V2 SURVIVAL's cot: moved in to the bunk spot (lazily: either block order); without survival the interior has its own bunk ----------------
   const CF = new Uint8Array(2);   // 0 cot moved, 1 bunk dropped from the interior
-  function cot() { const SV = window.SURV; if (CF[0] || !SV || !SV.COT || !SV.COT.m) return; const C = SV.COT; C.x = COTW.x; C.z = COTW.z; C.y = 0.04; C.m.position.set(C.x, C.y, C.z); C.m.updateMatrixWorld(true); CF[0] = 1;
+  function cot() { const SV = window.SURV; if (CF[0] || !SV || !SV.COT || !SV.COT.m) return; const C = SV.COT; C.x = COTW.x; C.z = COTW.z; C.y = 0.04; C.m.position.set(C.x, C.y, C.z); C.m.rotation.y = PI; C.m.updateMatrixWorld(true); CF[0] = 1;
     if (!CF[1]) { CF[1] = 1; const g = IM.geometry; IM.geometry = mk(interiorParts(false)); g.dispose(); } }
   cot();
   // ---------------- warm-up: every new mesh with each PL / SL combination ----------------
@@ -14599,7 +14717,7 @@ const SURV = (() => {
     checks();
   }
   // ---------------- props at the home cabin: a camp cot and a supply crate (static: batched by the game) ----------------
-  const COT = { x: 28.45, z: -16.35, L: 1.9, W: 0.72, H: 0.42 }, CRATE = { x: 28.55, z: -12.85, ry: 0 };
+  const COT = { x: 35.55, z: -13.65, L: 1.9, W: 0.72, H: 0.42 }, CRATE = { x: 35.45, z: -17.15, ry: Math.PI };   // v1.18.0 turned round with the cabin
   const SHOP = [['beans', 3], ['bar', 2], ['jerky', 4], ['cigs', 6], ['firstaid', 25], ['flare', 15]];
   const SHOPP = SHOP.map(() => new THREE.Vector3());
   { const mk = P => { const gs = P.map(partGeo), g = mergeGeometries(gs); for (const x of gs) x.dispose(); return g; };
@@ -14612,8 +14730,8 @@ const SURV = (() => {
     const cy = groundY(CRATE.x, CRATE.z), D = 0x7a5a32, K = 0x5a4024, Q = [['b', 0.62, 0.42, 0.44, 0, 0.21, 0, D], ['b', 0.64, 0.04, 0.46, 0, 0.1, 0, K], ['b', 0.64, 0.04, 0.46, 0, 0.32, 0, K], ['b', 0.5, 0.06, 0.004, 0, 0.3, -0.222, 0xd8c8a0]];
     const off = [[-0.21, -0.08], [-0.06, -0.08], [0.09, -0.08], [0.22, -0.08], [0.0, 0.1], [0.2, 0.1]];
     SHOP.forEach(([k], j) => { const h = PK_K[k][3][1], o = off[j]; for (const p of PK_K[k][4]) { const pp = p.slice(); pp[5] = p[5] + 0.42 + h / 2; pp[4] = p[4] + o[0]; pp[6] = p[6] + o[1]; Q.push(pp); }
-      SHOPP[j].set(CRATE.x + o[0], cy + 0.42 + h / 2, CRATE.z + o[1]); });
-    const cr = new THREE.Mesh(mk(Q), ITEM_VM); cr.position.set(CRATE.x, cy, CRATE.z); cr.name = 'SURV_CRATE'; cr.castShadow = cr.receiveShadow = true; scene.add(cr); CRATE.y = cy; CRATE.m = cr;
+      SHOPP[j].set(CRATE.x - o[0], cy + 0.42 + h / 2, CRATE.z - o[1]); });
+    const cr = new THREE.Mesh(mk(Q), ITEM_VM); cr.position.set(CRATE.x, cy, CRATE.z); cr.rotation.y = CRATE.ry; cr.name = 'SURV_CRATE'; cr.castShadow = cr.receiveShadow = true; scene.add(cr); CRATE.y = cy; CRATE.m = cr;
     // a lit cigarette (between the fingers, in front of the pack in that hand) for the hand batch while smoking
     const ca = -(Math.PI / 2 - 0.2), cz = -0.078, cgy = 0.03;   // out of the front of the fist, tipped up a little
     const g = mk([['c', 0.0045, 0.075, 6, 0, cgy, cz, 0xf0eee6, ca, 0, 0], ['c', 0.0048, 0.007, 6, 0, cgy + 0.0405 * Math.sin(0.2), cz - 0.0405 * Math.cos(0.2), 0xff6a1a, ca, 0, 0]]);
@@ -14821,7 +14939,8 @@ function survTick(dt, vr) { SURV.tick(dt, vr); }
 //     exactly - below FIX_ROLL.snap the raw hand roll is used bit for bit, so a still pose is the base pose: Pose Lab / handsexact, the zero).
 //     Hand-action reloading is gone: no lever by grabbing the loop or a down-flick, no loading by touching a round to the gate. Kept: B / Y works the
 //     lever, a round from the belt pouch + A / X near the gate (GUN.loadBtnR) loads it, the desktop keys.
-const FIX_CLD = { d0: 1450, d1: 1550, tie: 4 };   // m: eased in from d0 to d1 (nearer clouds - big on screen - keep the true depth and the base look; 650 / 750 also fixes 1.2 km but swaps facets visibly) (the cloud centre's view depth); depth steps (24 bit) between puff ranks
+const FIX_CLD = { d0: 1000, d1: 1100, tie: 4 };   // v1.18.0 (was 1450 / 1550) eased in by the centre's true distance
+   // m: eased in from d0 to d1 (nearer clouds - big on screen - keep the true depth and the base look; 650 / 750 also fixes 1.2 km but swaps facets visibly) (the cloud centre's view depth); depth steps (24 bit) between puff ranks
 const FIX_STOCK = { knee: 0.045, engage: 0.11 };   // m from the shoulder pocket: it starts pulling in at 11 cm (base 8); inside 4.5 cm exactly the base curve (full inside 2.5 cm)
 const FIX_ROLL = { fmin: 1.2, beta: 15, snap: 1e-4, jump: 0.15, r0: -0.45, r1: -0.25 };   // roll filter: cut-off Hz = fmin + beta x |roll error| (rad); below snap rad: exact raw; a grip-hand jump > jump m (head-relative) in one frame (a teleport / Pose Lab pose, not a hand) resets it;
                                                                              // "raised" (two hands): grip hand from r0 to r1 m below the eye (eased)
@@ -14831,7 +14950,7 @@ const FIX_PC = 'const vec3 FIX_PC[7] = vec3[7](vec3(0.0, 0.0, 0.0), vec3(0.55, -
 function fixCardVS(vs, attr) {   // after the projection: the puff's depth = the cloud centre's - (its rank among the cloud's 7 puffs by centre distance) x tie steps, eased in
   const tie = (FIX_CLD.tie * 2 / 16777216).toExponential(6), F = 'float f = length((fixM * vec4(FIX_PC[q], 1.0)).xyz);';
   return vs.replace('#include <common>', '#include <common>\n' + (attr ? 'attribute float cpf;\n' : '') + FIX_PC).replace('#include <fog_vertex>', '#include <fog_vertex>\n#ifdef USE_INSTANCING\n' +
-    '{ mat4 fixM = modelViewMatrix * instanceMatrix; vec4 fixO = fixM * vec4(0.0, 0.0, 0.0, 1.0); float fixW = smoothstep(' + FIX_CLD.d0.toFixed(1) + ', ' + FIX_CLD.d1.toFixed(1) + ', -fixO.z);\n' +
+    '{ mat4 fixM = modelViewMatrix * instanceMatrix; vec4 fixO = fixM * vec4(0.0, 0.0, 0.0, 1.0); float fixW = smoothstep(' + FIX_CLD.d0.toFixed(1) + ', ' + FIX_CLD.d1.toFixed(1) + ', length(fixO.xyz));   // v1.18.0 distance, not view depth: rotation-proof\n' +
     '  if (fixW > 0.0) { int fixI = int(cpf + 0.5); float fixMe = 0.0, fixRk = 0.0;\n' +
     '    for (int q = 0; q < 7; q++) { ' + F + ' if (q == fixI) fixMe = f; }\n' +
     '    for (int q = 0; q < 7; q++) { ' + F + ' fixRk += (f > fixMe || (f == fixMe && q < fixI)) ? 1.0 : 0.0; }\n' +
@@ -14848,7 +14967,7 @@ function fixStock() {   // the zone: the base curve inside FIX_STOCK.knee, its o
   const dS = FIX.r.distanceTo(FIX.b), K = FIX_STOCK.knee, F0 = GUN.stockFull;
   GUN.stockEngage = dS <= K ? FIX_E0 : F0 + (dS - F0) * (FIX_E0 - F0) / (K + (dS - K) * (FIX_E0 - K) / (FIX_STOCK.engage - K) - F0); }
 GUN.flick = Infinity;   // no down-flick lever (rflPose: RFL.vel.y < -GUN.flick never holds)
-GUN.loadR = -1;         // no loading by touching the gate: rflTick loads a held round only on A / X (RFL.loadBtn, within GUN.loadBtnR)
+GUN.loadR = 0.07;       // v1.18.0 (Neil) touch-loading is back: the round's tip within 7 cm of the gate snaps in (A / X still loads within GUN.loadBtnR)
 rflPose = (orig => function (dt) { FIX.F[0] = dt < 0.05 ? dt : 0.05; FIX.adv = 0; fixStock(); FIX.inP = 1; orig(dt); FIX.inP = 0; if (!FIX.adv) FIX.on = 0; })(rflPose);   // a frame without the filter (not held / not raised / not shouldered): it starts fresh next time
 aimQuat = (orig => function (d, up, out) {   // the VR hold's two aim calls (two hands: grip -> forend; shouldered: eye -> sight): their up vector's roll about d, damped
   if (!FIX.inP || up !== _ru || (out !== _sq && (out !== _rq || !RFL.sup))) return orig(d, up, out);
@@ -14871,9 +14990,18 @@ rflGrab = (orig => function (g, p) {   // the other hand on the lever loop: just
   return r; })(rflGrab);
 rflRoundHint = function () {   // (was: touch it to the gate or press A / X)
   let near = null; if (RFL.place === 'vr' && RFL.round.size) for (let n = 0; n < grips.length; n++) { const gh = grips[n], m = RFL.round.get(gh); if (m && gh !== RFL.hand && RFL.g.worldToLocal(m.getWorldPosition(_rp2)).distanceTo(RF.gate) < 0.35) near = gh; }   // (the grips, not a Map iterator: 0 garbage)
-  if (near && !RFL.rHint) say('ROUND: PRESS ' + (near.userData.src?.handedness === 'left' ? 'X' : 'A') + ' TO LOAD IT (WITHIN ' + Math.round(GUN.loadBtnR * 100) + ' CM OF THE GATE) - ' + RFL.tube + '/' + GUN.tube);
+  if (near && !RFL.rHint) say('ROUND: TOUCH IT TO THE LOADING GATE (RIGHT SIDE, OVER THE TRIGGER) OR PRESS ' + (near.userData.src?.handedness === 'left' ? 'X' : 'A') + ' - ' + (RFL.ch ? RFL.tube + '/' + GUN.tube + ' +1 CHAMBERED' : 'IT GOES STRAIGHT INTO THE CHAMBER'));
   RFL.rHint = !!near; };
 // <<< V3 FIX END
+// v1.18.0 the stock: full weight within 7 cm of the shoulder pocket (it was 2.5 cm, so most holds were a part-blend with the sights off the eye), pulls in from 16 cm, and once full stays full to 11 cm
+const STK = { full: 0.07, keep: 0.11, engage: 0.16 };
+fixStock = (orig => function () { orig(); GUN.stockFull = RFL.stockW > 0.97 ? STK.keep : STK.full; if (RFL.place === 'vr' && !RFL.free && RFL.hand) GUN.stockEngage = STK.engage; })(fixStock);
+// v1.18.0 a round through the gate with the action empty (and shut) goes straight into the chamber, ready to fire; otherwise into the tube as before
+rflLoadOne = (orig => function (g) {
+  if (RFL.ch || RFL.lifted || RFL.levA > 0.05) return orig(g);
+  if (RFL.spent) { rflEject(false); RFL.spent = false; }
+  RFL.ch = true; RFL.cocked = true; RFL.gateT = 0.16; sfx('gate', RFL.g.getWorldPosition(_rp3)); sfx('levClose', _rp3); rflPulse(g, 0.6, 25, 'gate'); rflPulse(RFL.hand, 0.5, 25, 'lever');
+  say('CHAMBERED - ' + RFL.tube + '+1 - READY'); saveSoon(); return true; })(rflLoadOne);
 // >>> V3 PACK BEGIN (pack.js via /workspace/v3-pack/apply.py)
 // V3 PACK (lead: backpack rework on the v1.11.0-v1.11.2 PK block). Game-side only: nothing in PHYSICS START..END is touched.
 // (1) No allocated slots inside: an item let go inside the open bag stays exactly where you let it go, relative to the bag (bag-local centre + a turn
@@ -16067,10 +16195,10 @@ const GDE = (() => {
   function show(ci) { MAT[0].map = MAT[1].map = CV[ci].t; FRONT = ci; }
   // ---------------- the cabin copy: on V2 CABIN's table when that module is in, else on a stump by the home cabin ----------------
   const CAB = (() => { const H0 = window.HCAB, H = H0 && typeof H0.OX === 'number' && typeof H0.OZ === 'number' ? H0 : null;   // the cabin module is optional (guarded hook: window.HCAB)
-    const x = H ? H.OX - 2.56 : 29.35, z = H ? H.OZ - 1.02 : -11.75, top = H ? 0.78 : groundY(29.35, -11.75) + 0.5, P = [];
+    const x = H ? H.OX + 2.56 : 34.65, z = H ? H.OZ + 1.02 : -18.25, top = H ? 0.78 : groundY(34.65, -18.25) + 0.5, P = [];   // v1.18.0 turned round
     if (!H) P.push(['c', 0.2, 0.5, 9, 0, -0.25, 0, 0x6e5236], ['c', 0.19, 0.012, 9, 0, 0.003, 0, 0xb89a6a]);
     const book = PK_K.guide[4].map(p => { const q = p.slice(); const [, , , , px, py, pz] = q; q[4] = px; q[5] = pz + 0.0147; q[6] = -py; q[8] = (q[8] || 0) - PI / 2; return q; });   // lying flat, cover up
-    const m = mesh(mk(P.concat(book)), ITEM_VM); m.position.set(x, top, z); m.rotation.y = 0.35; m.name = 'GD_CABIN'; m.updateMatrix(); m.matrixAutoUpdate = false;
+    const m = mesh(mk(P.concat(book)), ITEM_VM); m.position.set(x, top, z); m.rotation.y = 0.35 + PI; m.name = 'GD_CABIN'; m.updateMatrix(); m.matrixAutoUpdate = false;
     return { m, x, y: top + 0.02, z, cabin: !!H }; })();
   // ---------------- poses ----------------
   function faceYaw(o, p, tilt) { camera.getWorldPosition(v2); const y = Math.atan2(v2.x - p.x, v2.z - p.z); o.quaternion.setFromAxisAngle(vUp, y).multiply(tilt); }
@@ -16129,7 +16257,7 @@ const GDE = (() => {
   function release(g) { const i = g === grips[0] ? 0 : g === grips[1] ? 1 : -1; if (i < 0 || PICK[i] < 0) return; PICK[i] = -1; HL[i].visible = false; }   // not tied: back in its tray
   function letGo(i, p, k) {
     if (k === 'tackle' && F[14] === i + 1) { F[14] = 0; if (pkOpenFor(grips[i]) && pkInOpening(p, 0.03)) { BOX.visible = F[10] === 2; return false; }   // closed into the open pack
-      const H = CAB.cabin ? window.HCAB : null, lx = H ? p.x - H.OX : 0, lz = H ? p.z - H.OZ : 0;
+      const H = CAB.cabin ? window.HCAB : null, lx = H ? H.OX - p.x : 0, lz = H ? H.OZ - p.z : 0;
       const onT = H && lx > -2.8 && lx < -2.04 && lz > -1.87 && lz < -0.73 && p.y > 0.7, y = onT ? 0.78 : groundY(p.x, p.z);
       F[2] = 1; F[3] = p.x; F[4] = y; F[5] = p.z; camera.getWorldPosition(v2); F[6] = Math.atan2(v2.x - p.x, v2.z - p.z); setPose(); sfx('thud', BOX.position); HX.pulse(grips[i], 0.15, 12, 'release');
       say('TACKLE BOX SET DOWN OPEN - ROD IN ONE HAND, LURES WITH THE OTHER (SQUEEZE THE RIM TO PICK IT UP)'); saveSoon(); return true; }
@@ -16430,7 +16558,7 @@ NL.GL = new THREE.Vector3(); NL.SP = { on: false }; NL.SLC = SL.color.clone(); N
   G.traverse(o => { o.userData.noBatch = true; o.userData.noCast = true; }); }
 NL.lamp.updateMatrix(); NL.KN.set(0.041, 0.006, 0).applyMatrix4(NL.lamp.matrix); NL.GL.set(0, -0.026, 0).applyMatrix4(NL.lamp.matrix);   // v1.13.0 the knob / the glass, plane-local
 // ---- lanterns round home (world x, z): cabin door both sides, the path, the HOME STRIP board, the tie-down pad
-NL.LP = [[35.55, -12.95], [35.55, -14.95], [26.2, -17.2], [18.7, -27.1], [16.6, -19.2]].map(([x, z]) => { const y = groundY(x, z); return [x, y + 1.62, z, y]; });
+NL.LP = [[28.2, -17.05], [28.2, -15.05], [26.2, -17.2], [18.7, -27.1], [16.6, -19.2]].map(([x, z]) => { const y = groundY(x, z); return [x, y + 1.62, z, y]; });
 { const P = [], Q = []; for (const [x, yl, z, y] of NL.LP) { const h = yl - y;
     P.push(['b', 0.07, h - 0.12, 0.07, x, y + (h - 0.12) / 2, z, 0x5a3e26], ['b', 0.18, 0.03, 0.03, x + 0.06, y + h - 0.1, z, 0x5a3e26], ['c', 0.055, 0.012, 10, x + 0.12, yl + 0.1, z, 0x2a2622], ['t', [0.012, 0.055], 0.05, 10, x + 0.12, yl + 0.14, z, 0x2a2622],
       ['c', 0.06, 0.01, 10, x + 0.12, yl - 0.11, z, 0x2a2622], ['b', 0.006, 0.2, 0.006, x + 0.12 + 0.05, yl, z, 0x2a2622], ['b', 0.006, 0.2, 0.006, x + 0.12 - 0.05, yl, z, 0x2a2622]);

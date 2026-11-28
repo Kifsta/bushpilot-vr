@@ -39,7 +39,7 @@ v0.50 turns it into a **bush delivery** game: take a job off a strip's job board
 Nine holds now come from Neil's Pose Lab codes, each mirrored for the other hand. What you do with each is unchanged; only how the glove sits on it changes.
 - **Rifle round:** pinched in the curled fingers, the tip ahead. Load through the gate as before.
 - **Rifle forend:** the support hand sits 33 cm down the bore (about 6 cm further toward the muzzle than v0.87), still on the wood.
-- **Binoculars:** same place as before (eyepieces on the thumb side), new fingers. Raise them to your eyes for the view as before.
+- **Binoculars (v1.18.0: bought at the Dry Fork hardware counter, $45):** same place as before (eyepieces on the thumb side), new fingers. Raise them to your eyes for the view as before.
 - **Map (v1.16.2):** one hand holds a lower corner; the free part of the sheet sags and flops a little (it flattens when you put it back). With both hands the sheet sits between them and is stretched flatter.
 - **Checklist card:** rides your hand where it sits (it no longer turns to face you). v1.16.3: it flexes slightly; your fingers' corner stays put.
 - **Logbooks, the photo, Gordon's letter (v1.16.3):** they flex gently in your hand. Bring one within 13 cm of where it lives and a yellow ghost shows; let go and it snaps home.
@@ -616,3 +616,14 @@ A customer stands at every job board. Walk up to them for a hello: their rep tie
 - v1.14.0: its yellow ring and grab zone reach 6.5 cm (was 5 cm), with a slightly bigger ring.
 - A red lamp beside it and PARK BRAKE on the status line show it's set. It's off by default and isn't saved.
 - It holds both main wheels only with weight on them. In the air it does nothing. A full rudder pedal still frees that side a little (the toe brakes are differential).
+
+
+## v1.18.0 changes to how you play
+
+| Do this | Where / how |
+|---|---|
+| Buy the rifle ($180) or binoculars ($45) | Dry Fork hardware counter: the plank above the bench. VR: grab the item. Desktop: look at it and press Z. The rifle is then slung on your back (T), the binoculars on your belt (V). Ammo is the bell, as before |
+| Reload | Bring a round to the gate and it loads (empty action: it chambers). A / X near the gate still loads too |
+| Wrist watch | Money, MENU, survival gauges. Everything else (jobs, fuel, engine, clock, warnings) is on the clipboard's JOBS page |
+| Bushes | Settings > Graphics: Tree density and 2D density now thin and thicken the 2D bushes too |
+| Home cabin | The door faces the strip (west); the rack, crate, camera stand and yard moved with it |
