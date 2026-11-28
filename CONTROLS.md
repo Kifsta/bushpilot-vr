@@ -132,7 +132,7 @@ v0.44 latches: every window and the door are latched while shut. Squeeze the han
 | Answer a radio call / call Home (v1.02, v1.16.1) | Take the hand mic off its clip, squeeze that hand's trigger. A missed call can be called back the same way; the caller also rings again after about a minute, or on your next landing | Hold ' (quote) |
 | Walt's map fills in (v1.03, story) | Fly or walk: the paper map inks in round you (wider the higher you fly); named places + lakes found low overhead pay; 25 / 50 / 75 % mapped pays | same |
 | Signature vistas (v1.04) | Fly to them: Oxbow Falls (W), Sentinel Fjord (W coast), Needle Eye Arch (SE, fly through the gap), the North Icefall (SE, above the icefield strip), the Hidden Lake (far SW); the northern lights on clear nights, looking north. Each is a discovery: journal, map, +$150 | same |
-| Act 2: the north ice (v1.05, story) | After the cowling + 6 clues: Pete calls - fit the wheel-skis (he puts in half: $1,300 on the hangar board), fly the search cache from the Home pad to Walt's ski shelf (orange wands + dye, ~½ km N of the cowling), land northbound uphill, set every piece down inside the wands. Engine off on the shelf the skis freeze in | same |
+| Act 2: the north ice (v1.05, story) | After the cowling + 6 clues: Pete calls - fit the wheel-skis (he puts in half: $1,300 in the hangar catalog), fly the search cache from the Home pad to Walt's ski shelf (orange wands + dye, ~½ km N of the cowling), land northbound uphill, set every piece down inside the wands. Engine off on the shelf the skis freeze in | same |
 | Pour the cache fuel (v1.05) | Park the Cub by the cache tent, engine off, stand at the cans (it pours by itself, ~10 gal) | same |
 | Find the Norseman (v1.06, story) | Once the cache is pitched: walk ~200 m up the ridge's west flank from the shelf following the red scraps, or fly over and stop the Cub within ~70 m. Within ~30 m on foot it's found (music swell, map note) | same |
 | Read Gordon's logbook / letter (v1.06) | On the mail sack by the Norseman's door: VR grip it, trigger turns the page; desktop look at it, E, then , and . to turn pages | same |
@@ -434,9 +434,10 @@ The Cub keeps a log: tach hours, oil, tyre and brake wear, and gear and engine d
 
 | | VR (Quest) | Desktop |
 |---|---|---|
-| Buy oil, tyres, repairs, the 100-hour | Poke the price button on the **HANGAR** service board (at the open shed on the left of the home strip) or on a strip's fuel board | **1-4** standing at the board |
+| Buy oil, tyres, repairs, the 100-hour | v1.20.0: the **hangar catalog** on its stand inside the hangar (front right, under PARTS + SERVICE). Grip it to pick it up and read it in your hand; poke a price on the **left page** (SERVICE) with your other hand. Or poke it where it lies. A strip's fuel board works as before | Look at the left page and press **1-4**, or **E** to hold it up, then **1-4** (**,** / **.** turn the page, **E** puts it back) |
+| The catalog (v1.20.0) | Let go of it over its stand and it goes back. Anywhere else it drops and waits (it goes back by itself once you're 40 m away, get in the Cub or the truck, or load a save) | Walk more than 6 m off while holding it up and it goes back on its stand |
 
-- **The hangar board** shows avgas, tach hours, when the 100-hour is due, landings, oil, tyres, brakes and damage. Its four buttons are:
+- **The catalog's service page** (v1.20.0: it was the hangar board out front) shows avgas, tach hours, when the 100-hour is due, landings, oil, tyres, brakes and damage. Its four buttons are:
   1. Top up oil ($9/qt).
   2. New tyres and brake pads, priced by wear ($240 for tyres, $180 for pads, when fully worn).
   3. Repair gear and engine damage ($1,200 × gear damage + $2,600 × engine damage).
@@ -455,11 +456,11 @@ The Cub keeps a log: tach hours, oil, tyre and brake wear, and gear and engine d
 - Damage and wear only change what your controls do: a power cap on the throttle, weaker brakes, a rudder pull on the ground, or engine out when seized. A healthy Cub flies exactly as before.
 
 ## Plane upgrades (v0.57)
-Parts are sold on the **PARTS** board on the home hangar wall, next to the service board. They are cash only, and the tank, tyres and pod also need rep: Lodge 55, Ridge Crew 35 and Dry Fork 55.
+Parts are sold on the **right page (PARTS)** of the hangar catalog (v1.20.0: it was the parts board out front). They are cash only, and the tank, tyres and pod also need rep: Lodge 55, Ridge Crew 35 and Dry Fork 55.
 
 | | VR (Quest) | Desktop |
 |---|---|---|
-| Buy / fit / remove | Poke the row on the parts board | **1-7** standing at the board |
+| Buy / fit / remove | Poke the row on the catalog's right page | Look at the right page and press **1-7** (or **E** to hold it up, **.** for the parts page, then **1-7**) |
 | Carry a part | Grip it on the hangar bench or floor | **E** by the part |
 | Put it on | Hold it at the green outline on the Cub; it clicks on | **E** at the Cub |
 | Tighten the bolts | Grip a bolt head and twist your wrist (270° each, ratchet clicks) | **E** once per bolt |
@@ -482,6 +483,9 @@ Parts are sold on the **PARTS** board on the home hangar wall, next to the servi
 - **Water and snow effects (v0.94):** on the floats you get spray off the bows, a bow wake that spreads into a V, and a hiss of water that rises with speed. A water touchdown gives a splash and a ripple ring. On the skis you get snow puffs, ski tracks that stay for about 2.5 minutes, a hiss while sliding, and a soft whump on touchdown. These are looks and sound only.
 - **Float jobs (v0.94):** the float sites ask for lodge boat motors and groceries on ice, paddles and canoe repair kits, and river guides' coolers and raft spares. Lake hops between two float sites carry fresh fish on ice or guests' gear.
 - Every part's weight shows on the W&B card. With nothing fitted, the Cub flies exactly as stock.
+
+## Shops and shopkeepers (v1.20.0)
+Every shop in the three towns is furnished inside (stocked shelves, counters, tills, stoves, tables, lamps, pictures) and the general store, diner, gas station and feed store each have a keeper behind the counter: Cutler MAGGIE / LOU / EARL / DOT, Dry Fork IRMA / SAL / WES / OTTO, Hollis RUTH / BENNY / CLEM. HANK runs the hardware counter in the Dry Fork strip hangar (the rifle, binoculars, ammo and tackle) and GUS works in your own hangar. They turn to face you, wave and say hello as you walk in, and thank you when you buy something there (Gus: anything from the catalog). Houses, the sheriff's office, the church and the school are furnished too. Nothing to press: walk in.
 
 ## Townsfolk and emergencies (v0.58)
 A customer stands at every job board. Walk up to them for a hello: their rep tier and where their story is. Deliveries move their story on (a NOTE after the delivery, and radio lines with the COM radio). Emergency call-outs come every 6–10 min; one runs at a time.

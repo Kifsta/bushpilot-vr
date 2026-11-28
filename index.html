@@ -19,7 +19,7 @@
 </script>
 </head>
 <body>
-<div id="info">BUSH PILOT VR <span id="ver">v1.04</span> - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar parts board (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
+<div id="info">BUSH PILOT VR <span id="ver">v1.04</span> - PA-18 Super Cub bush delivery: take jobs off the strip boards, load and strap the cargo, fly it out. Fragile, perishable and live cargo, bush sites, deer hunting jobs, airdrops, running costs (fuel, oil, wear, repairs), reputation with every customer (better pay, requests, the Halvorsen board), plane upgrades from the hangar catalog (long-range tank, tundra tyres, cargo pod, LED light, COM radio), townsfolk with their own stories, medevac and search-and-rescue call-outs. No wind, no weather.
 You start on foot by the Cub at the cabin strip. Walk up to her and climb in (F / Y), then start her up off the checklist card (J).
 Desktop - flying: W/S or arrows pitch, A/D or arrows roll, Q/E rudder, Shift / Ctrl (or + / -) throttle, B brakes, \ parking brake, [ ] flaps, PgUp / PgDn trim,
   R reset to the strip (cold and dark), F climb out, M map, L landing light, Home recentre, mouse looks (click to capture).
@@ -30,7 +30,7 @@ Desktop - on foot: WASD walk, Shift run, C crouch, Space hop, F climb in, G refu
   Camp (v1.12.0): Shift+I unrolls the swag strapped under the pack, sleeps in it when you're tired (to dawn, then saves) or rolls it back up.
   Hunting: T take / sling / rack the rifle, LMB fire, RMB aim, X lever, Z load a round (ammo is sold only at the Dry Fork hangar's HARDWARE counter: $35 a box of 20, Z again takes it; you start with 20 in the pouch), V binoculars, hold E by a downed deer to field dress it.
   Airdrops: in flight open the right door (1 upper window, 2 lower door), G pushes the next bundle out - drop it on the smoke / X.
-  Running costs: fuel is paid at the red drums (4 strips, 4 prices); oil, tyres + brakes, repairs and the 100-hour service at the home HANGAR board (1-4 there).
+  Running costs: fuel is paid at the red drums (4 strips, 4 prices); oil, tyres + brakes, repairs and the 100-hour service at the hangar CATALOG (pick it up off its stand; 1-4 service, 1-7 parts).
 VR - in the cockpit: grip the stick (right) and throttle (left), left stick = rudder, left trigger = brakes, reach up and pull the flap handle down
   a notch at a time, wind the trim crank, turn knobs / the mag key / the primer / the fuel valve with your hand; every cockpit control needs the grip (yellow ring = what it takes); the parking brake T-handle: grip it and pull it out along its shaft to set, push it in to release. Binoculars: the 7x view comes up inside 12 cm of your eyes and drops past 16 cm (v0.84.7: fixed in the headset).
   Grip the clipboard on your thigh to lift it, its hand's trigger turns the page. Map light (up by the flap handle, aimed at your lap): grip its knob and twist to dim, a quick squeeze switches it off / on. At night signs and papers need light: your torch, a lantern, the map light. A / X recentre, Y climb out (restart a flight: wrist MENU > RESUME > RESTART FLIGHT). Turn your left wrist to your face and poke its MENU button with your right finger for SETTINGS.
@@ -40,7 +40,7 @@ VR - on foot: left stick walks (click = run), right stick turns (snap / smooth i
   Hunting (v0.85: the new model, the v0.44 handling): grip the rifle's wrist (cabin / Cub rack; right stick in + up / down = grip angle), other hand on the forend, trigger fires, B / Y on the rifle hand works the lever (v1.12.0: no loop grab, no flick), take a round from the belt pouch and press A / X with it within 25 cm of the gate to load it; binoculars in the holster on your left hip (one hand or both, a hand on each barrel), raise them to your eyes; grip and hold a downed deer to dress it.
   Camp (v1.12.0): grip the swag under the worn pack, trigger rolls it out in front of you; a hand on it + trigger = sleep (tired; to dawn, saves there), grip it = roll it up. Pack: reach over your LEFT shoulder.
   Airdrops: unlatch + open both halves of the right door, reach back and grip a bundle, put your hand out through the door and let go.
-  Running costs: carry the drum's nozzle to a wing cap (trigger pumps) to buy fuel; poke a price on the hangar / fuel boards for oil, tyres, repairs, the 100-hour.
+  Running costs: carry the drum's nozzle to a wing cap (trigger pumps) to buy fuel; poke a price in the hangar catalog (or on a fuel board) for oil, tyres, repairs, the 100-hour.
 MENU (Esc / F2 on desktop, the wrist MENU button in VR; poke, point + trigger, or click): resume, save / load (3 slots), graphics + presets, comfort, controls (dominant hand), audio volumes. ` = old settings list.
 </div>
 <div id="hud"></div><div id="cross"></div>
@@ -640,7 +640,7 @@ const hyp = (a, b, c = 0) => Math.sqrt(a * a + b * b + c * c);   // v0.59 Math.h
 
 // ======================= RENDERING =======================
 // v0.35 settings (persist in localStorage 'bp_gfx'; ?gfx=shadows:2,grass:1 overrides for testing). Defaults = the v0.34 look and cost.
-const BP_VERSION = 'v1.19.0';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
+const BP_VERSION = 'v1.20.0';   // v0.91.1 shown in the menu header and the desktop info line; t911 checks it against CHANGELOG.md's newest entry
 { const e = document.getElementById('ver'); if (e) e.textContent = BP_VERSION; } window.__bpVer = BP_VERSION; bootLog('game module running ' + BP_VERSION + ' (three r' + THREE.REVISION + ')' + (/[?&]safe(=|&|$)/.test(location.search) ? ' - SAFE MODE: default graphics, no shadows / ULTRA / life / vistas / music' : ''));
 const GFX_DEF = { shadows: 0, scale: 1, fov: 1, dist: 1, trees: 1, grass: 0, clouds: 1, fog: 1, msaa: 1, hz: 90, vig: 0, turn: 0, fps: 0, tod: 11, stk: 1, tips: 1, terr: 1, dyn: 1, glove: 0, hand: 0, wt: 1, volM: 1, volMu: 0.5, volE: 1, volA: 1, volF: 1, volS: 1, volW: 1, wx: 1, forest: 0, fdens: 0, hints: 1, ground: 0, gtex: 0, cvl: 1, water: 1, dayl: 48, flure: 0, fline: 8, fdrag: 4, fbob: 0, fsink: 0, ultra: 0, sfxr: 1 };   // v0.68.1 dominant hand, volumes. v0.48 BALANCED: 90 % scale, 72 Hz, fast terrain shading, auto resolution; v0.49.1 the stick stays where you let go of it
 const GFX = Object.assign({}, GFX_DEF);
@@ -2095,6 +2095,7 @@ let lookYaw = 0, lookPitch = 0, needRecenter = 0, crashTimer = 0;
 let mode = 'plane';                                 // 'plane' | 'foot'
 const footRig = new THREE.Group(); scene.add(footRig);
 const TRK = { in: false, x: 0, z: 0, y: 0, yaw: 0, v: 0, st: 0, wh: 0, pit: 0, rol: 0, pv: 0, rv: 0, yv: 0, ty: 0, tp: 0, tr: 0, eng: 0, crank: 0, ign: false, rpm: 0, gear: 0, thr: 0, brk: 0, li: false, wip: false, wipA: 0, wipD: 1, horn: false, hornK: false, dr: [0, 0], drT: [0, 0], spin: 0, surf: 2, rdT: 0, hold: [null, null], hA: [0, 0], levA: 0.3, keyR: 0, crankH: false, autoC: 0, hapT: 0, bump: 0, odo: 0, wsay: 0, nr: 0, lo: -1, bo: -1, ck: -1, built: false, au: null, wF: false, wR: false, sl: false, wN: 0, sndT: 0 };   // v1.19.0 the pickup's state (the module is further down)
+const CAT = { st: 'rest', g: null, pg: 0, G: null, pages: null, cov: null, HF: null, rest: new THREE.Vector3(), look: new THREE.Vector3(), n: new THREE.Vector3(), vy: 0, d: 1e9, hint: false, ms: 0 };   // v1.20.0 the hangar catalog (built with the hangar dressing)
 const EYE = 1.6, WALK = 2.2;                          // on-foot eye height (m) and walk speed (m/s)
 let msg = '', msgT = 0, msgA = 0, msgW = -1e9;
 const msgDur = m => Math.max(3, Math.ceil(wrapText(m, 22).length / 2) * 2.6);   // v1.16.0 by wrapped pages (it was by characters: a long message lost its last pages on the wrist)   // v0.59.1 long messages stay up long enough to page through on the wrist
@@ -2580,6 +2581,7 @@ addEventListener('keydown', e => {
   if (e.repeat) return;
   if (trkKey(e)) return;   // v1.19.0 the truck (in it: K F Z X L J O H + driving keys; by it: O the door)
   if (storyKey(e)) return;   // v0.99 E a logbook / photo, 1-3 at Walt's board
+  if (catKey(e)) return;   // v1.20.0 the hangar catalog: E holds it up, , / . pages, 1-4 / 1-7
   if (dropKey(e)) return;   // v0.54 G: push a bundle out of the open door
   if (fishKey(e)) return;   // v0.97 Q rod, - / = drag, E net / keep / buy
   if (e.code === 'KeyI' && e.shiftKey && swgKey()) return;   // v1.12.0 the swag
@@ -3579,6 +3581,7 @@ const TOWN_MESH = [];
     function fence(o) { const fw = o.w + 6, fd = 5, z0 = o.d / 2 + 2.6; if (TOWN_R() < 0.35) return;   // a picket run along the front yard with a gate gap
       for (const sx of [-1, 1]) { const q = { ...o }; for (let k = 0; k < 4; k++) { const lx = sx * (1.4 + k * (fw / 2 - 1.4) / 3); const [x, z] = TW(o, lx, z0); q.y = groundY(x, z); P(q, 0.1, 1.0, 0.1, PAL.white, lx, 0.45, z0); }
         const [x, z] = TW(o, sx * (fw / 4 + 0.7), z0); q.y = groundY(x, z); for (const y of [0.35, 0.8]) P(q, fw / 2 - 1.4, 0.07, 0.04, PAL.white, sx * (fw / 4 + 0.7), y, z0); } }
+    for (const kk of Object.keys(K)) { const f0 = K[kk]; K[kk] = (...a) => { const o = f0(...a); if (o && o.w) (T.kits || (T.kits = [])).push({ k: kk, o, sch: kk === 'church' && !!a[3] }); return o; }; }   // v1.20.0 note each building (its interior is dressed later)
     // ---- layouts ----
     const L = T.layout;
     for (const [k, s, lz, zn, extra] of L.b) { if (k === 'school') K.church(s, lz, zn, true); else if (k === 'shack') K.shack(s, lz, extra); else if (k === 'house') K.house(s, lz, zn, extra); else K[k](s, lz, zn); }
@@ -4985,7 +4988,7 @@ function kbBody(x) {   // pages 2-4 (page 1 is the jobs list below)
     y += 6; const cap = ecoCap(), bk = ecoBrk();
     line('FULL POWER AVAILABLE ' + Math.round(cap * 100) + '%', cap < 1 ? '#b8301e' : '#2a5a22', '20px'); line('BRAKING ' + Math.round(bk * 100) + '%', bk < 1 ? '#b8301e' : '#2a5a22', '20px');
     if (E.sink) line('LAST TOUCHDOWN ' + Math.round(E.sink * 196.85) + ' FPM', E.sink > (UPG.tyres ? 2.4 : 2.0) ? '#b8301e' : '#444', '20px');
-    x.fillStyle = '#666'; x.font = '17px sans-serif'; x.fillText('SERVICE, OIL, TYRES + REPAIRS: THE HOME HANGAR BOARD', 22, KB_H - 16, KB_W - 44);
+    x.fillStyle = '#666'; x.font = '17px sans-serif'; x.fillText('SERVICE, OIL, TYRES + REPAIRS: THE HOME HANGAR CATALOG', 22, KB_H - 16, KB_W - 44);
   } else if (pg === 6) { goalKbBody(x); kbTabs(x);   // v1.16.0 the goal
   } else if (pg === 5) { journalKbBody(x); kbTabs(x);   // v1.01 the journal
   } else if (pg === 4) { storyKbBody(x); kbTabs(x);   // v0.99 the bank's letter
@@ -7084,7 +7087,7 @@ function supOk(o) { const m = o.material, g = o.geometry; return o.isMesh && !o.
 const supKey = (ix, iz) => (ix + 4096) * 8192 + iz + 4096;
 function supBuild() {   // once: every static prop near the ground into the grid; the Cub's own meshes into P
   const t0 = performance.now(); SUP.on = true; SUP.G.clear(); SUP.O.length = 0; SUP.B.length = 0; SUP.P.length = 0; scene.updateMatrixWorld(true);
-  const skip = new Set([footRig, xrOffset, camera]); for (const g of grips) skip.add(g); for (const m of PK.hm) skip.add(m); for (const m of PK.fm) skip.add(m); skip.add(PK.mesh); if (PK.gm) skip.add(PK.gm);
+  const skip = new Set([footRig, xrOffset, camera]); for (const g of grips) skip.add(g); for (const m of PK.hm) skip.add(m); for (const m of PK.fm) skip.add(m); skip.add(PK.mesh); if (CAT.G) skip.add(CAT.G); if (PK.gm) skip.add(PK.gm);
   for (const o of [FROD.f, FNET.m, BINO.m, RFL.g, FLINE.l]) if (o) skip.add(o); for (const k in FWORN) if (FWORN[k] && FWORN[k].isObject3D) skip.add(FWORN[k]); for (const k in FMESH) skip.add(FMESH[k]); for (const k in FLM) skip.add(FLM[k]);   // v1.14.0 (carried things)
   const walk = (o, cub) => { if (skip.has(o) || !o.visible || SUP_SKIPN.has(o.name)) return; if (o === plane) cub = true;
     if (supOk(o)) { if (cub) SUP.P.push(o); else { const b = SUP.bx.setFromObject(o), sx = b.max.x - b.min.x, sz = b.max.z - b.min.z;
@@ -9685,14 +9688,14 @@ function ecoTick(dt) {
   E.near = nd < 60 ? nb : null; E.nearD = nd;
   if ((E.bT = (E.bT || 0) - dt) <= 0) { E.bT = 0.5; for (const F of FUEL_ST) { const near = hyp(PP.x - F.b[0], PP.z - F.b[1]) < 300; F.B.m.visible = near; if (!near) continue;
       const k = [Math.round(DLV.cash), E.oil.toFixed(1), E.svc.toFixed(1), E.tyre.toFixed(2), E.brake.toFixed(2), E.gear.toFixed(2), E.eng.toFixed(2), E.seized, E.ldg, repOf(F.id)].join(); if (k !== F.B.key) { F.B.key = k; ecoDraw(F); } } }
-  if (mode === 'foot' && nd < 5 && E.hint !== nb) { E.hint = nb; say((nb.B.home ? 'HANGAR SERVICE BOARD' : nb.S.name + ' FUEL $' + fuelPx(nb).toFixed(2) + '/GAL') + ' - POKE A PRICE' + (renderer.xr.isPresenting ? '' : ' (DESKTOP ' + (nb.B.rows.length > 1 ? '1-' + nb.B.rows.length : '1') + ')')); } else if (nd > 10) E.hint = null;
+  if (mode === 'foot' && nd < 5 && E.hint !== nb && !nb.B.home) { E.hint = nb; say((nb.B.home ? 'HANGAR SERVICE BOARD' : nb.S.name + ' FUEL $' + fuelPx(nb).toFixed(2) + '/GAL') + ' - POKE A PRICE' + (renderer.xr.isPresenting ? '' : ' (DESKTOP ' + (nb.B.rows.length > 1 ? '1-' + nb.B.rows.length : '1') + ')')); } else if (nd > 10) E.hint = null;
   E.ms = performance.now() - t0;
 }
 function ecoKey(e) { if (mode !== 'foot' || !ECO.near || ECO.nearD > 5 || DLV.nearD < 5) return false; const m = /^Digit([1-4])$/.exec(e.code); if (!m) return false; return ecoDo(ECO.near, +m[1] - 1); }
 const _ecL = new THREE.Vector3();
 function ecoPoke() {   // VR fingertips on the nearest service board (as the job boards)
   const F = ECO.near; if (!F || ECO.nearD > 4 || !HANDS.st.length || mode !== 'foot') return; const B = F.B;
-  for (let i = 0; i < 2; i++) { const st = HANDS.st[i]; if (!st.vis) continue; B.m.worldToLocal(_ecL.copy(st.tip)); const u = (_ecL.x / B.PW + 0.5) * SVB_W, v = (0.5 - _ecL.y / B.PH) * SVB_H, inP = u >= 0 && u <= SVB_W && v >= 0 && v <= SVB_H;
+  for (let i = 0; i < 2; i++) { const st = HANDS.st[i]; if (!st.vis || (CAT.g !== null && CAT.g === grips[i])) continue; B.m.worldToLocal(_ecL.copy(st.tip)); const u = (_ecL.x / B.PW + 0.5) * SVB_W, v = (0.5 - _ecL.y / B.PH) * SVB_H, inP = u >= 0 && u <= SVB_W && v >= 0 && v <= SVB_H;
     if (!ECO.poke[i] && (!inP || _ecL.z > 0.04)) ECO.poke[i] = true;
     if (ECO.poke[i] && inP && _ecL.z < 0.012 && _ecL.z > -0.05) { ECO.poke[i] = false; const r = Math.floor((v - B.r0) / B.rh); if (r >= 0 && r < B.rows.length && u > SVB_W - 120) { ecoDo(F, r); if (grips[i]) HX.pulse(grips[i], 0.4, 14, 'ui'); } } }
 }
@@ -9906,7 +9909,7 @@ function upgKey(e) {
 const _upL = new THREE.Vector3();
 function upgPoke() {   // VR fingertips on the parts board
   if (UPB.d > 4 || !HANDS.st.length || mode !== 'foot') return;
-  for (let i = 0; i < 2; i++) { const st = HANDS.st[i]; if (!st.vis) continue; UPB.m.worldToLocal(_upL.copy(st.tip)); const u = (_upL.x / UPB.PW + 0.5) * SVB_W, v = (0.5 - _upL.y / UPB.PH) * SVB_H, inP = u >= 0 && u <= SVB_W && v >= 0 && v <= SVB_H;
+  for (let i = 0; i < 2; i++) { const st = HANDS.st[i]; if (!st.vis || (CAT.g !== null && CAT.g === grips[i])) continue; UPB.m.worldToLocal(_upL.copy(st.tip)); const u = (_upL.x / UPB.PW + 0.5) * SVB_W, v = (0.5 - _upL.y / UPB.PH) * SVB_H, inP = u >= 0 && u <= SVB_W && v >= 0 && v <= SVB_H;
     if (!UPB.poke[i] && (!inP || _upL.z > 0.04)) UPB.poke[i] = true;
     if (UPB.poke[i] && inP && _upL.z < 0.012 && _upL.z > -0.05) { UPB.poke[i] = false; const r = Math.floor((v - UPB.r0) / UPB.rh); if (r >= 0 && r < UPB.rows.length && u > SVB_W - 120) { upgDo(r); if (grips[i]) HX.pulse(grips[i], 0.4, 14, 'ui'); } } }
 }
@@ -9933,7 +9936,7 @@ function upgTick(dt) {
   upgGhost(mode === 'foot' ? gk : null); upgTwist(dt); upgRadioTick(dt);
   playerPos(); UPB.d = hyp(PP.x - UPB.b[0], PP.z - UPB.b[1]);
   if ((UPB.t = (UPB.t || 0) - dt) <= 0) { UPB.t = 0.5; const near = UPB.d < 300; UPB.m.visible = near; if (near) { const k = [Math.round(DLV.cash), UPG_K.map(k => UPG[k] + '' + (UPG.own[k] | 0)).join(''), UPG.fit ? UPG.fit.key : '', UPG_K.map(k => UPG_I[k].gate ? repOf(UPG_I[k].gate[0]) : 0).join(), renderer.xr.isPresenting].join('|'); if (k !== UPB.key) { UPB.key = k; upbDraw(); } } }
-  if (mode === 'foot' && UPB.d < 5 && UPB.d <= ECO.nearD && !UPB.hint) { UPB.hint = true; say('HANGAR PARTS BOARD - POKE A PRICE' + (renderer.xr.isPresenting ? '' : ' (DESKTOP 1-7)')); } else if (UPB.d > 10) UPB.hint = false;
+  if (false && mode === 'foot' && UPB.d < 5 && UPB.d <= ECO.nearD && !UPB.hint) { UPB.hint = true; say('HANGAR PARTS BOARD - POKE A PRICE' + (renderer.xr.isPresenting ? '' : ' (DESKTOP 1-7)')); } else if (UPB.d > 10) UPB.hint = false;
   UPG.ms = performance.now() - t0;
 }
 function upgPodLb() { let lb = 0; for (const it of DLV.items) if (it.st === 'cargo' && it.cz === 'pod') lb += it.lb; return lb; }
@@ -11153,7 +11156,7 @@ function emgSignDraw() {
     T('UP TO $' + c.pay, H - 30, 'bold 20px sans-serif', '#1e6a2a');
     x.fillStyle = '#b8201a'; x.fillRect(W - 150, H - 54, 134, 38); x.fillStyle = '#fff'; x.font = 'bold 18px sans-serif'; x.textAlign = 'center'; x.fillText('ACCEPT', W - 83, H - 28); x.textAlign = 'left'; }
   else { T('NO CALL-OUTS RIGHT NOW', 78, 'bold 18px sans-serif', '#555'); T('RANGER KOWALSKI RUNS THE LIST.', 108); T('NEXT CHECK-IN IN ~' + Math.max(1, Math.ceil(EMG.nextT - DLV.gt)) + ' MIN', 132);
-    T(UPG.radio ? 'YOUR COM RADIO WILL HEAR THE NEXT ONE (C TO TAKE IT)' : 'A COM RADIO (HANGAR PARTS BOARD) HEARS CALLS IN THE AIR', 160, '13px sans-serif', '#555'); }
+    T(UPG.radio ? 'YOUR COM RADIO WILL HEAR THE NEXT ONE (C TO TAKE IT)' : 'A COM RADIO (HANGAR CATALOG) HEARS CALLS IN THE AIR', 160, '13px sans-serif', '#555'); }
   T('POKE THE SIGN (DESKTOP 4) - ' + EMG.done + ' CALL-OUTS DONE', H - 10, '11px sans-serif', '#777'); texDirty(EMG_TEX);
 }
 function emgSignAct(S) { if (emgActive()) { emgCancel(); return true; } if (EMG.call) return emgAccept(S); say('NO CALL-OUTS RIGHT NOW - NEXT CHECK-IN IN ~' + Math.max(1, Math.ceil(EMG.nextT - DLV.gt)) + ' MIN'); sfx('tick'); return true; }
@@ -11609,7 +11612,7 @@ onDiscover((id, R) => { if (isFinite(R.x) && isFinite(R.z)) fogReveal(R.x, R.z, 
 // ===================== v1.05 ACT 2: THE NORTH ICE - Walt's ski shelf, the wheel-skis, the search cache =====================
 // Once the cowling is found and six clues are on the corkboard, the search goes north. Pete calls: the only flat ice up there is a saddle Walt staked
 // with orange wands, half a km north of the cowling (SH_X / SH_Z: a 480 x 120 m bench cut in rawHeight, 3 % uphill to the north - snow, ski-landable;
-// stopped there with the engine off the skis freeze in). Wheels won't do: the hangar board sells
+// stopped there with the engine off the skis freeze in). Wheels won't do: the hangar catalog sells
 // the wheel-skis and Pete puts in half ($1,300 in story). He stages a search cache on the Home pad (two fuel cans, a tent crate, a grub sack): a story
 // job (not on any board, so the boards' seeded jobs are untouched). Fly it up, land on skis inside the wands, set the pieces down in the snow -> the
 // cache is pitched (tent, cans) and its fuel can be poured into the Cub there. Voss calls too: her father chartered Gordon's last flight.
@@ -11639,13 +11642,13 @@ function a2Spawn() { if (!a2Its().length) dlvSpawn(ST_JOBS[0]); }
 function act2Hint() { const s = STORY.said; if (!STORY.on || !s.a2) return null;
   if (s.cache) return !s.wreck ? 'THE CACHE IS IN. WALK THE ICE BETWEEN THE SHELF AND THE COWLING, KID - UP THE RIDGE\'S WEST FLANK. GORDON\'S UP THERE SOMEWHERE.' : !s.glet ? 'READ WHAT HE LEFT YOU - THE LOGBOOK AND THE LETTER ON THE MAIL SACK BY THE DOOR.' : !s.end ? 'VOSS IS WAITING AT WALT\'S BOARD IN THE HANGAR. TAKE HER THE LETTER.' : 'THE BOARDS ARE FULL AND THE HANGAR\'S OURS. FLY FOR FUN FOR ONCE, KID.';
   if (!s.r_a2) return 'THE NORTH ICE - WALT STAKED A SKI SHELF TWO-THIRDS OF A K NORTH-NORTH-WEST OF YOUR COWLING. ORANGE WANDS. YOU\'LL WANT SKIS AND A CACHE.';
-  if (UPG.gk !== 'skis') return UPG.kown.skis ? 'FIT THE WHEEL-SKIS AT THE HANGAR BOARD BEFORE YOU GO NORTH. WHEELS SINK UP THERE.' : 'THE WHEEL-SKIS ARE ON THE HANGAR BOARD. I PUT IN HALF - ' + $o(A2.skiK.price) + ' TO YOU. THE CREW FITS THEM.';
+  if (UPG.gk !== 'skis') return UPG.kown.skis ? 'FIT THE WHEEL-SKIS AT THE HANGAR CATALOG BEFORE YOU GO NORTH. WHEELS SINK UP THERE.' : 'THE WHEEL-SKIS ARE ON THE HANGAR CATALOG. I PUT IN HALF - ' + $o(A2.skiK.price) + ' TO YOU. THE CREW FITS THEM.';
   const its = a2Its(), aboard = its.filter(it => it.st === 'cargo').length;
   return aboard ? 'YOU\'VE GOT ' + aboard + ' OF THE CACHE ABOARD. LAND INSIDE WALT\'S WANDS ON THE NORTH SHELF AND SET IT DOWN IN THE SNOW.' : 'THE CACHE GEAR IS ON THE HOME PAD - TWO CANS, THE TENT, THE GRUB. FLY IT TO WALT\'S WANDS ON THE NORTH SHELF.'; }
 RAD_CALLS.push(
   { id: 'a2', ask: 1, k: () => !!STORY.said.a2 && !!STORY.said.r_glint && hyp(ac.pos[0] - GLINT.x, ac.pos[2] - GLINT.z) > 800, L: () => [['PETE', 'CUB, HOME. I\'VE BEEN UP ALL NIGHT WITH WALT\'S OLD SHEETS AND THAT CORKBOARD OF YOURS.'], ['YOU', 'AND?'],
     ['PETE', 'THERE\'S A SNOW BENCH UNDER THE RIDGE, A BIT OVER HALF A K NORTH-NORTH-WEST OF YOUR COWLING. WALT STAKED IT WITH ORANGE WANDS - ONLY FLAT ICE UP THERE.'], ['PETE', 'LAND IT UPHILL, TO THE NORTH, AND SHUT DOWN - THE SKIS FREEZE IN.'],
-    ['PETE', UPG.gk === 'skis' ? 'YOU\'VE GOT THE WHEEL-SKIS ON. GOOD.' : UPG.kown.skis ? 'YOU\'VE GOT THE WHEEL-SKIS - HAVE THE CREW FIT THEM.' : 'WHEELS WON\'T DO IT. I\'M PUTTING IN HALF ON THE WHEEL-SKIS - ' + $o(Math.round(A2.skiP / 2)) + ' TO YOU AT THE HANGAR BOARD.'],
+    ['PETE', UPG.gk === 'skis' ? 'YOU\'VE GOT THE WHEEL-SKIS ON. GOOD.' : UPG.kown.skis ? 'YOU\'VE GOT THE WHEEL-SKIS - HAVE THE CREW FIT THEM.' : 'WHEELS WON\'T DO IT. I\'M PUTTING IN HALF ON THE WHEEL-SKIS - ' + $o(Math.round(A2.skiP / 2)) + ' TO YOU AT THE HANGAR CATALOG.'],
     ['PETE', 'AND NOBODY SEARCHES THAT ICE WITHOUT A CACHE. FUEL, A TENT, GRUB. I\'LL STACK IT ON THE PAD - FLY IT UP AND LEAVE IT INSIDE THE WANDS.']], then: () => { storyLog('Pete: Walt staked a ski shelf with orange wands, about 650 m north-north-west of the cowling - land uphill, northbound. Skis (he put in half) and a cache first.'); a2Go(); } },
   { id: 'a2voss', ask: 1, k: () => !!STORY.said.r_a2 && (STORY.said.cacheGo ? 1 : 0) && (A2.vt = (A2.vt || 0) + 1) > 20, L: () => [['VOSS', 'VALLEY CREDIT FOR ' + PILOT + ' MACRAE. PETE TELLS ME YOU FOUND A PIECE OF GORDON\'S AIRPLANE.'], ['YOU', 'ON THE NORTH ICE. I\'M GOING BACK UP ON SKIS.'],
     ['VOSS', 'MY FATHER, HAROLD, CHARTERED THAT LAST FLIGHT. HE MET GORDON AT THE LODGE THE NIGHT BEFORE. HE NEVER WOULD TALK ABOUT IT.'],
@@ -11842,7 +11845,7 @@ function golText(st, sub) {   // the words (built once per change)
       h += ' ' + G.cn + ' of 6 clues so far; the north ice needs six.'; golAim(S.pad[0], S.pad[1], S.name); break; }
     case 6: t = sub ? 'WAIT FOR DAYLIGHT, THEN FLY LOW OVER THE NORTH ICE' : 'FLY LOW OVER THE NORTH ICE IN DAYLIGHT - LOOK FOR A GLINT'; h = sub ? 'The cowling only shows with the sun up. Wait for daylight, then fly the high snow shoulder about 6 km north-west of Home, low (under 380 m) and within 230 m, with a clear line of sight.' : 'Walt\'s log says glare all day. The high snow shoulder about 6 km north-west of Home: come in low (under 380 m), within 230 m, in daylight, with a clear view of the snow.'; golAim(GLINT.x, GLINT.z, 'THE NORTH ICE'); break;
     case 7: t = (sub & 1) ? 'KEY THE MIC TO CALL PETE BACK - HE\'LL RING AGAIN' : (sub & 2) ? 'FLY ON - PETE WILL CALL ABOUT THE COWLING' : 'FLY ON - PETE WILL CALL ABOUT THE NORTH ICE'; h = (sub & 1) ? 'You missed a call. Hold \' to talk (VR: grab the hand mic and squeeze its trigger). If you wait, he rings again in a minute or on your next landing.' : 'Keep the master switch on and fly more than 800 m from the cowling. Pete calls over the radio when he has worked out where Walt landed.'; break;
-    case 8: t = UPG.kown.skis ? 'HAVE THE CREW FIT YOUR WHEEL-SKIS AT THE HANGAR BOARD' : 'BUY THE WHEEL-SKIS AT THE HANGAR BOARD ($' + A2.skiK.price.toLocaleString('en-US') + ')'; h = 'Wheels sink in the snow up there. The hangar\'s upgrade board sells wheel-skis (Pete has put in half) and the crew fits them.'; golAim(SB.X, SB.Z, 'THE HANGAR BOARD, HOME'); break;
+    case 8: t = UPG.kown.skis ? 'HAVE THE CREW FIT YOUR WHEEL-SKIS AT THE HANGAR CATALOG' : 'BUY THE WHEEL-SKIS AT THE HANGAR CATALOG ($' + A2.skiK.price.toLocaleString('en-US') + ')'; h = 'Wheels sink in the snow up there. The hangar\'s catalog sells wheel-skis (Pete has put in half) and the crew fits them.'; golAim(CAT.rest.x, CAT.rest.z, 'THE HANGAR CATALOG, HOME'); break;
     case 9: t = 'LOAD THE SEARCH CACHE FROM THE HOME PAD INTO THE CUB'; h = 'Pete stacked two fuel cans, a tent crate and a grub sack on the Home pad. Load all four (watch the weight and balance on page 2) and fly north.'; golAim(HP[0], HP[1], 'THE HOME PAD'); break;
     case 10: t = 'FLY THE CACHE TO WALT\'S SHELF AND LAND ON SKIS'; h = 'Land uphill, northbound, between Walt\'s orange wands, then shut the engine down: the skis freeze in. The shelf lies south-east of the high snow, about 650 m north-north-west of the cowling.'; golAim(SH_X, SH_Z, 'WALT\'S SKI SHELF'); break;
     case 11: t = 'SET THE CACHE DOWN IN THE SNOW INSIDE THE WANDS'; h = 'Unload every piece of the cache onto the snow between the orange wands. When the last piece is down the tent goes up.'; golAim(SH_X, SH_Z, 'WALT\'S SKI SHELF'); break;
@@ -12073,7 +12076,7 @@ function gameLoad() {
   if (d.mode === 'foot' && Array.isArray(d.foot) && d.foot.slice(0, 3).every(isFinite)) { exitPlane(); const [x, z, yaw] = d.foot; footRig.position.set(x, groundY(x, z) + EYE, z); footRig.rotation.set(0, yaw, 0); bodyYaw = yaw; }   // v0.59.1 checked (a damaged foot entry stopped the page loading)
   upgLoad(d.upg || null);   // v0.57 before the cargo (the pod)
   emgLoad(d.emg || null);   // v0.58 before the cargo (a patient aboard finds their job)
-  wxLoad(d.wx || null); dlvLoad(d.v >= 50 ? d.dlv : null); huntLoad(d.v >= 53 ? d.hunt : null); h2Load(d.h2 || null); fishLoad(d.fish || null); packLoad(d.pack || null); swgLoad(d.swg || null); gdLoad(d.gd || null); if (window.NLM) { NLM.lv = clamp(+d.nl || 0, 0, 1); if (NLM.lv > 0.02) NLM.last = NLM.lv; } survLoad(d.surv || null); cabLoad(d.cab || null); storyLoad(d.story || null); trkLoad(d.trk || null); discLoad(d.disc || null); fogLoad(d.fog || null); dropLoadFix(); ecoLoad(d.v >= 55 ? d.eco : null); emgFix();   // v0.54 a save taken mid-drop: the last bundle down settles the job
+  wxLoad(d.wx || null); dlvLoad(d.v >= 50 ? d.dlv : null); huntLoad(d.v >= 53 ? d.hunt : null); h2Load(d.h2 || null); fishLoad(d.fish || null); packLoad(d.pack || null); swgLoad(d.swg || null); gdLoad(d.gd || null); if (window.NLM) { NLM.lv = clamp(+d.nl || 0, 0, 1); if (NLM.lv > 0.02) NLM.last = NLM.lv; } survLoad(d.surv || null); cabLoad(d.cab || null); storyLoad(d.story || null); trkLoad(d.trk || null); catPut(); discLoad(d.disc || null); fogLoad(d.fog || null); dropLoadFix(); ecoLoad(d.v >= 55 ? d.eco : null); emgFix();   // v0.54 a save taken mid-drop: the last bundle down settles the job
   msgT = 0; SV.last = d.at || 0; return true;
 }
 // ===================== v1.19.0 WALT'S PICKUP: a drivable truck, and the story now starts in it at the gates of the strip =====================
@@ -12429,6 +12432,291 @@ updateFoot = (o => function (dt) { if (TRK.in) { trkSeat(); return; } return o(d
 footXR = (o => function (dt) { if (TRK.in) return trkXR(dt); return o(dt); })(footXR);
 footDesktop = (o => function (dt) { if (TRK.in) return trkDesk(dt); return o(dt); })(footDesktop);
 handGrab = (o => function (g) { if (!TRK.in && mode === 'foot') { g.getWorldPosition(_tkA); for (let k = 0; k < 2; k++) { TRK.dO[k].getWorldPosition(_tkB); if (_tkA.distanceTo(_tkB) < 0.12) { trkDoor(k); HX.pulse(g, 0.3, 18, 'trk'); return; } } } return o(g); })(handGrab);
+
+// ===================== v1.20.0 BUILD C: Walt's hangar fitted out + the pick-up CATALOG (service + parts: it replaces the two boards out front); real shop interiors + shopkeepers =====================
+// Neil's list (t268, items 5 + 9). No physics anywhere (the Cub's block is untouched). Nothing new is saved: the catalog goes back on its stand on a load.
+// Draw cost: the hangar dressing is one merged mesh, each town's interiors one merged mesh (+ one for the lamp bulbs), culled by distance like the towns. The shopkeepers are the
+// townsfolk's own skinned figures (no new shader programs), animated only while you're near.
+function shH(i) { const s = Math.sin(i * 127.1 + 311.7) * 43758.5453; return s - Math.floor(s); }   // a fixed hash: no random stream is touched, so nothing else in the world moves
+const SH_COL = [[0xb8342a, 0x2f6a3a, 0xc8a030, 0x3a5a9a, 0xd8d0c0, 0x8a2a4a], [0xc8a060, 0xa83a2a, 0x3a6a8a, 0xe0c040, 0x6a8a3a, 0xd8d8d0, 0x8a5a9a], [0xc89a40, 0x9a3a2a, 0xd8c8a0, 0x6a8a3a], [0xb5a47a, 0xa08a60, 0xd8cca8, 0x8a7a5a]];
+const SHP = {   // building blocks, all in a local frame (x right, y up from the floor, z toward the front): each pushes partGeo rows into P (B: lamp bulbs, drawn unlit)
+  b(P, w, h, d, x, y, z, c, ry = 0, rx = 0, rz = 0) { P.push(['b', w, h, d, x, y, z, c, rx, ry, rz]); },
+  c(P, r, h, x, y, z, c, seg = 10, rx = 0, ry = 0, rz = 0) { P.push(['c', r, h, seg, x, y, z, c, rx, ry, rz]); },
+  // goods along a shelf: centre (cx, cz), length along its own x, turned ry (its front = its +z), item bases at heights ys
+  stock(P, cx, cz, len, ry, ys, seed, back = -0.12) { const c = Math.cos(ry), s = Math.sin(ry);
+    for (let L = 0; L < ys.length; L++) { let u = -len / 2 + 0.06, n = 0;
+      while (true) { const h = shH(seed + L * 97 + n * 13), t = h < 0.34 ? 0 : h < 0.66 ? 1 : h < 0.86 ? 2 : 3, w = [0.1, 0.2, 0.12, 0.26][t]; if (u + w > len / 2 - 0.05) break;
+        const uc = u + w / 2, v = back + 0.1 + shH(seed + n * 7 + L) * 0.05, x = cx + uc * c + v * s, z = cz - uc * s + v * c, y = ys[L], cl = SH_COL[t], col = cl[Math.floor(shH(seed * 3 + n + L * 5) * cl.length)];
+        if (t === 0) { for (let k = 0; k < 2; k++) P.push(['c', 0.042, 0.12, 8, x - s * k * 0.1, y + 0.06, z - c * k * 0.1, col]); }
+        else if (t === 1) { const hh = 0.17 + shH(n + seed) * 0.13; P.push(['b', w, hh, 0.17, x, y + hh / 2, z, col, 0, ry, 0]); }
+        else if (t === 2) { P.push(['c', 0.05, 0.15, 8, x, y + 0.075, z, col]); P.push(['c', 0.052, 0.02, 8, x, y + 0.16, z, 0x9a8a6a]); }
+        else P.push(['b', w, 0.22, 0.28, x, y + 0.11, z, col, 0, ry, 0]);
+        u += w + 0.025 + shH(seed + n * 31) * 0.05; n++; } } },
+  shelf(P, cx, cz, len, ry, seed, col = 0x5e4630) { const c = Math.cos(ry), s = Math.sin(ry), at = (u, v) => [cx + u * c + v * s, cz - u * s + v * c];   // a stocked shelf unit (1.8 m)
+    for (const e of [-1, 1]) { const [x, z] = at(e * len / 2, 0); P.push(['b', 0.05, 1.8, 0.45, x, 0.9, z, col, 0, ry, 0]); }
+    for (const y of [0.15, 0.85, 1.5]) P.push(['b', len, 0.04, 0.45, cx, y, cz, col, 0, ry, 0]); { const [x, z] = at(0, -0.21); P.push(['b', len, 1.8, 0.03, x, 0.9, z, col, 0, ry, 0]); }
+    SHP.stock(P, cx, cz, len, ry, [0.17, 0.87, 1.52], seed); },
+  lamp(P, B, x, z, top, drop, shade = 0x2e4a38) { P.push(['b', 0.012, drop, 0.012, x, top - drop / 2, z, 0x222222]); P.push(['t', [0.05, 0.24], 0.16, 12, x, top - drop - 0.05, z, shade]); B.push(['c', 0.055, 0.07, 8, x, top - drop - 0.14, z, 0xffffff]); },
+  chair(P, x, z, ry, col = 0x6a4a2a) { const c = Math.cos(ry), s = Math.sin(ry), at = (u, v) => [x + u * c + v * s, z - u * s + v * c];
+    P.push(['b', 0.42, 0.04, 0.42, x, 0.45, z, col, 0, ry, 0]); for (const [u, v] of [[-0.18, -0.18], [0.18, -0.18], [-0.18, 0.18], [0.18, 0.18]]) { const [a, b] = at(u, v); P.push(['b', 0.035, 0.45, 0.035, a, 0.225, b, col]); }
+    const [a, b] = at(0, -0.2); P.push(['b', 0.42, 0.45, 0.03, a, 0.7, b, col, 0, ry, 0]); },
+  table(P, x, z, w, d, col = 0x6e5236, h = 0.75) { P.push(['b', w, 0.04, d, x, h, z, col]); for (const [u, v] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) P.push(['b', 0.05, h, 0.05, x + u * (w / 2 - 0.06), h / 2, z + v * (d / 2 - 0.06), col]); },
+  pic(P, x, y, z, ry, w, h, col) { P.push(['b', w + 0.06, h + 0.06, 0.025, x, y, z, 0x3a2a1a, 0, ry, 0]); const c = Math.cos(ry), s = Math.sin(ry); P.push(['b', w, h, 0.01, x + s * 0.016, y, z + c * 0.016, col, 0, ry, 0]); },
+  stove(P, x, z, top) { P.push(['c', 0.27, 0.62, 12, x, 0.5, z, 0x2a2826]); P.push(['c', 0.3, 0.05, 12, x, 0.83, z, 0x3a3836]); P.push(['c', 0.22, 0.05, 12, x, 0.18, z, 0x3a3836]);
+    for (const [u, v] of [[-0.2, -0.2], [0.2, -0.2], [-0.2, 0.2], [0.2, 0.2]]) P.push(['b', 0.04, 0.16, 0.04, x + u, 0.08, z + v, 0x2a2826]);
+    P.push(['c', 0.065, top - 0.85, 8, x, (top + 0.85) / 2, z, 0x2a2826]); P.push(['b', 0.12, 0.1, 0.03, x, 0.5, z + 0.27, 0x7a3a1a]); },
+  register(P, x, y, z, ry) { const c = Math.cos(ry), s = Math.sin(ry); P.push(['b', 0.32, 0.16, 0.3, x, y + 0.08, z, 0x2e2a26, 0, ry, 0]); P.push(['b', 0.3, 0.12, 0.04, x - s * 0.1, y + 0.2, z - c * 0.1, 0x9a7a3a, -0.3, ry, 0]);
+    P.push(['b', 0.26, 0.03, 0.12, x + s * 0.09, y + 0.175, z + c * 0.09, 0xd8d0b8, 0.35, ry, 0]); },
+  rug(P, x, z, w, d, col, y = 0.026) { P.push(['b', w, 0.01, d, x, y, z, col]); P.push(['b', w - 0.16, 0.012, d - 0.16, x, y + 0.001, z, 0xc8a870]); P.push(['b', w - 0.3, 0.014, d - 0.3, x, y + 0.002, z, col]); },
+  cooler(P, x, z, ry) { const c = Math.cos(ry), s = Math.sin(ry); P.push(['b', 1.0, 1.85, 0.65, x, 0.925, z, 0xe8e4dc, 0, ry, 0]); P.push(['b', 0.86, 1.4, 0.02, x + s * 0.33, 1.0, z + c * 0.33, 0x5a7a8a, 0, ry, 0]);
+    for (let k = 0; k < 3; k++) for (let j = 0; j < 5; j++) P.push(['c', 0.03, 0.2, 6, x + s * 0.2 + c * (j - 2) * 0.15, 0.55 + k * 0.42, z + c * 0.2 - s * (j - 2) * 0.15, [0xb83a2a, 0x3a7a3a, 0xc8a030][(j + k) % 3]]); },
+};
+// ---- per kind: the room's furnishings (local frame of the kit's building, o.y = the floor). Coordinates are fitted round each kit's own counter / shelves / windows / door ----
+const SH_KIT = {
+  store(P, B, o, T, n) { const s = n * 1000 + 17;
+    SHP.stock(P, -3.8, -1, 4, Math.PI / 2, [0.17, 0.87, 1.52], s); SHP.stock(P, 3.8, -1, 4, -Math.PI / 2, [0.17, 0.87, 1.52], s + 300); SHP.stock(P, 0, -3, 4, 0, [0.17, 0.87, 1.52], s + 600);   // the kit's three shelves, stocked
+    SHP.register(P, 3.05, 1.0, 3.35, Math.PI); SHP.b(P, 0.26, 0.06, 0.26, 1.45, 1.03, 3.4, 0xd8d8d0); SHP.c(P, 0.12, 0.02, 1.45, 1.17, 3.4, 0xa8a8a0, 12); SHP.b(P, 0.03, 0.1, 0.03, 1.45, 1.1, 3.4, 0x6a6a6a);   // register, scales
+    for (let k = 0; k < 3; k++) { SHP.c(P, 0.065, 0.2, 1.95 + k * 0.17, 1.1, 3.3, [0xd8c8a0, 0xc87a5a, 0xa8c890][k], 10); SHP.c(P, 0.068, 0.03, 1.95 + k * 0.17, 1.215, 3.3, 0x8a7a5a, 10); }   // candy jars
+    SHP.b(P, 0.36, 0.07, 0.26, 3.5, 1.035, 3.55, 0xe8e4d8);   // newspapers
+    for (const x of [-1.6, 1.6]) { SHP.c(P, 0.28, 0.82, x, 0.41, 5.7, 0x7a5230, 12); for (const y of [0.15, 0.67]) SHP.c(P, 0.29, 0.04, x, y, 5.7, 0x3a3a3a, 12); for (let k = 0; k < 7; k++) SHP.b(P, 0.09, 0.09, 0.09, x + Math.cos(k) * 0.14, 0.87, 5.7 + Math.sin(k) * 0.14, k % 2 ? 0xb8302a : 0x9ab83a, k); }   // apple barrels by the door
+    SHP.stove(P, 0, -1.25, 4.2); SHP.c(P, 0.26, 0.74, -1.35, 0.37, 0.6, 0x7a5230, 12); SHP.b(P, 0.42, 0.012, 0.42, -1.35, 0.746, 0.6, 0xd8d0b8); SHP.b(P, 0.3, 0.014, 0.3, -1.35, 0.748, 0.6, 0x2a2a2a);   // stove, the checkers barrel
+    SHP.chair(P, -1.95, 0.6, -Math.PI / 2); SHP.chair(P, -0.75, 0.6, Math.PI / 2); SHP.rug(P, -1.35, 0.6, 2.4, 1.6, 0x7a2e2a);
+    SHP.cooler(P, 3.6, -5.85, 0); SHP.cooler(P, 2.5, -5.85, 0);
+    for (let k = 0; k < 5; k++) SHP.b(P, 0.6, 0.24, 0.42, -4.0 + (k % 2) * 0.12, 0.12 + Math.floor(k / 2) * 0.24, -5.7 + (k % 3) * 0.05, SH_COL[3][k % 4], k * 0.2);   // sacks
+    SHP.b(P, 2.6, 0.45, 0.04, 0, 2.55, -6.31, 0xb8302a); SHP.b(P, 2.3, 0.25, 0.045, 0, 2.55, -6.3, 0xe8dcb8);   // a painted plank over the back shelf
+    SHP.pic(P, -4.82, 2.5, -4.5, Math.PI / 2, 0.6, 0.45, 0x6a8a5a); SHP.pic(P, 4.82, 2.5, -4.5, -Math.PI / 2, 0.5, 0.65, 0x8a6a4a); SHP.pic(P, 4.82, 2.4, 2.5, -Math.PI / 2, 0.7, 0.5, 0x5a7a9a);
+    SHP.c(P, 0.17, 0.04, 0, 3.2, -6.29, 0xf0ece0, 14, Math.PI / 2); SHP.c(P, 0.19, 0.03, 0, 3.2, -6.32, 0x3a2a1a, 14, Math.PI / 2);   // the clock
+    SHP.lamp(P, B, -1.6, -1.2, 4.2, 0.9); SHP.lamp(P, B, 1.6, -1.2, 4.2, 0.9); SHP.lamp(P, B, 0.6, 2.8, 4.2, 0.9); },
+  diner(P, B, o) {
+    SHP.b(P, 8, 0.9, 0.55, 0, 0.45, -3.5, 0x9a9ea2); SHP.b(P, 8.05, 0.04, 0.6, 0, 0.92, -3.5, 0x5a5e62);   // the back counter
+    SHP.c(P, 0.15, 0.45, -2.6, 1.17, -3.5, 0xb8bcc0, 12); SHP.c(P, 0.15, 0.45, -2.2, 1.17, -3.5, 0xb8bcc0, 12); SHP.b(P, 0.04, 0.06, 0.06, -2.6, 1.05, -3.32, 0x2a2a2a); SHP.b(P, 0.04, 0.06, 0.06, -2.2, 1.05, -3.32, 0x2a2a2a);   // coffee urns
+    SHP.b(P, 1.3, 0.1, 0.5, 1.6, 0.99, -3.5, 0x2a2826); SHP.b(P, 1.7, 0.45, 0.6, 1.6, 2.45, -3.52, 0x8a8e92); SHP.b(P, 0.3, 0.75, 0.3, 1.6, 3.0, -3.65, 0x8a8e92);   // the grill + its hood
+    SHP.b(P, 3.2, 0.04, 0.26, -2.0, 1.85, -3.7, 0x6a5a4a); for (let k = 0; k < 12; k++) SHP.c(P, 0.04, 0.09, -3.4 + k * 0.25, 1.92, -3.7, 0xf2efe6, 8);   // cups
+    SHP.b(P, 2.4, 0.9, 0.05, -0.6, 2.5, -3.81, 0x1e2a22); for (let k = 0; k < 6; k++) SHP.b(P, 0.6 + shH(k + 4) * 0.9, 0.05, 0.01, -1.3 + shH(k) * 0.3, 2.82 - k * 0.12, -3.78, 0xe8e4d0); SHP.b(P, 1.2, 0.08, 0.01, -0.6, 2.9, -3.78, 0xd8a030);   // menu board
+    SHP.b(P, 0.62, 0.36, 0.42, -1.0, 1.17, -1.6, 0x9ab4bc); SHP.c(P, 0.13, 0.05, -1.0, 1.05, -1.6, 0xc89a50, 12); SHP.b(P, 0.62, 0.02, 0.42, -1.0, 1.36, -1.6, 0xd8d8d0);   // the pie case
+    SHP.b(P, 0.5, 0.25, 0.25, 2.6, 1.1, -1.6, 0xb8302a); for (let k = 0; k < 4; k++) SHP.b(P, 0.12, 0.2, 0.12, -3.2 + k * 0.3, 1.07, -1.55, k % 2 ? 0xd8d0c0 : 0xc8302a);   // napkins, ketchup + sugar
+    for (const bx of [-4.6, -2.4]) { SHP.b(P, 1.4, 0.6, 0.15, bx, 0.78, 3.38, 0x8a2f26); SHP.b(P, 1.4, 0.45, 1.0, bx, 0.23, 0.35, 0x8a2f26); SHP.b(P, 1.4, 0.6, 0.15, bx, 0.78, -0.12, 0x8a2f26); SHP.c(P, 0.09, 0.02, bx - 0.3, 0.77, 1.4, 0xf2efe6, 12); SHP.c(P, 0.09, 0.02, bx + 0.3, 0.77, 1.4, 0xf2efe6, 12); }   // booth backs + a second bench
+    for (const tx of [3.0, 4.8]) { SHP.c(P, 0.45, 0.04, tx, 0.75, 2.4, 0xe8e4dc, 14); SHP.c(P, 0.05, 0.73, tx, 0.37, 2.4, 0x5a5e62, 8); SHP.c(P, 0.25, 0.03, tx, 0.015, 2.4, 0x5a5e62, 10); SHP.chair(P, tx, 1.75, 0, 0x8a2f26); SHP.chair(P, tx, 3.05, Math.PI, 0x8a2f26); }
+    SHP.b(P, 0.5, 1.35, 0.75, -5.5, 0.68, -2.6, 0xb04a2a); SHP.c(P, 0.375, 0.5, -5.5, 1.35, -2.6, 0xd8a030, 14, 0, 0, Math.PI / 2); SHP.b(P, 0.02, 0.4, 0.5, -5.24, 1.0, -2.6, 0xe8c070);   // the jukebox
+    SHP.pic(P, -5.82, 2.3, 0.8, Math.PI / 2, 0.8, 0.55, 0x5a8aa0); SHP.pic(P, 5.82, 2.3, 0.0, -Math.PI / 2, 0.6, 0.8, 0xc87a3a);
+    SHP.lamp(P, B, -2.5, -1.6, 3.4, 0.7, 0xb8302a); SHP.lamp(P, B, 0.0, -1.6, 3.4, 0.7, 0xb8302a); SHP.lamp(P, B, 2.5, -1.6, 3.4, 0.7, 0xb8302a); SHP.lamp(P, B, -3.5, 1.4, 3.4, 0.8); SHP.lamp(P, B, 3.9, 2.4, 3.4, 0.8); },
+  gas(P, B, o, T, n) {
+    SHP.register(P, -1.9, 0.975, -1.0, Math.PI); SHP.b(P, 0.45, 0.24, 0.2, -0.45, 1.095, -0.92, 0xc8302a); for (let k = 0; k < 6; k++) SHP.b(P, 0.06, 0.08, 0.05, -0.62 + k * 0.07, 1.25, -0.88, SH_COL[1][k]);   // register, the candy rack
+    SHP.stock(P, 2.4, -0.8, 2.6, -Math.PI / 2, [0.17, 0.87, 1.52], n * 1000 + 901);
+    SHP.cooler(P, 1.0, -1.98, 0);
+    for (let r = 0; r < 4; r++) for (let k = 0; k <= 3 - r; k++) SHP.c(P, 0.06, 0.17, -2.4 + k * 0.13 + r * 0.065, 0.085 + r * 0.17, 1.7, r % 2 ? 0xc8a030 : 0x2a5aa0, 10);   // oil cans
+    SHP.b(P, 0.06, 0.8, 0.55, -2.8, 1.35, 0.6, 0x6e5236); for (let k = 0; k < 4; k++) SHP.b(P, 0.03, 0.22, 0.12, -2.755, 1.12 + Math.floor(k / 2) * 0.32, 0.45 + (k % 2) * 0.28, [0xe8dcb8, 0x8ab0c8, 0xe8dcb8, 0xd8c070][k]);   // the map rack
+    SHP.pic(P, 2.82, 2.2, 1.6, -Math.PI / 2, 0.45, 0.6, 0xd8a030); SHP.lamp(P, B, -0.6, -0.4, 3.2, 0.6); },
+  feed(P, B, o, T, n) {
+    SHP.register(P, 4.7, 0.9, 0.9, Math.PI); SHP.b(P, 0.8, 0.1, 0.6, 1.4, 0.05, 0.9, 0x7b8086); SHP.b(P, 0.06, 1.0, 0.06, 1.4, 0.55, 0.62, 0x5a5e62); SHP.c(P, 0.15, 0.03, 1.4, 1.1, 0.6, 0xf0ece0, 12, Math.PI / 2);   // register, a platform scale
+    for (let k = 0; k < 5; k++) { const z = -2.2 + k * 0.45; SHP.b(P, 0.04, 1.5, 0.04, 5.75, 0.8, z, 0x8a6a40, 0, 0, 0.12); SHP.b(P, 0.24, 0.3, 0.03, 5.67, 0.13, z, 0x8a8e92); }   // shovels by the wall
+    SHP.shelf(P, -5.6, 2.6, 3, Math.PI / 2, n * 1000 + 501);
+    for (let k = 0; k < 4; k++) SHP.b(P, 1.0, 0.45, 0.5, -4.6 + (k % 2) * 1.05, 0.225 + Math.floor(k / 2) * 0.45, 5.4, 0xd8c070);   // hay bales
+    for (let k = 0; k < 4; k++) SHP.b(P, 0.25, 0.25, 0.25, 0.4 + k * 0.3, 0.125, -6.3, 0xf2efe6);   // salt licks
+    for (let k = 0; k < 3; k++) P.push(['r', 0.32, 0.035, 14, -1.8 + k * 0.15, 0.36, -6.4, 0x8a8e92, Math.PI / 2, 0, 0]);   // fencing wire
+    SHP.b(P, 0.04, 1.2, 0.04, 0.6, 0.6, -3.55, 0x3a3a3a, 0, 0.3); SHP.b(P, 0.04, 1.2, 0.04, 1.0, 0.6, -3.55, 0x3a3a3a, 0, 0.3); SHP.b(P, 0.5, 0.04, 0.3, 0.8, 0.03, -3.38, 0x3a3a3a); SHP.c(P, 0.1, 0.05, 0.55, 0.1, -3.7, 0x1a1a1a, 10, 0, 0, Math.PI / 2); SHP.c(P, 0.1, 0.05, 1.05, 0.1, -3.7, 0x1a1a1a, 10, 0, 0, Math.PI / 2);   // a sack truck
+    SHP.lamp(P, B, -2.0, -1.5, 5, 1.4); SHP.lamp(P, B, 2.5, -1.5, 5, 1.4); SHP.lamp(P, B, 3.8, 1.0, 5, 1.6); },
+  sheriff(P, B, o) {
+    SHP.chair(P, -2.0, 0.7, 0, 0x3a3a3a); SHP.b(P, 0.36, 0.12, 0.3, -2.4, 0.84, 1.5, 0x2a2a2a); SHP.b(P, 0.16, 0.08, 0.2, -1.3, 0.82, 1.62, 0x1a1a1a); SHP.b(P, 0.3, 0.02, 0.22, -1.8, 0.79, 1.4, 0xf2efe6);   // chair, typewriter, phone, papers
+    for (const z of [0.0, 0.6]) { SHP.b(P, 0.5, 1.3, 0.55, -4.15, 0.65, z, 0x6a6e72); for (let k = 0; k < 3; k++) SHP.b(P, 0.42, 0.02, 0.01, -3.89, 0.3 + k * 0.4, z, 0x3a3e42, Math.PI / 2); }   // filing cabinets
+    SHP.b(P, 1.9, 0.45, 0.8, 2.6, 0.22, -4.4, 0x6a6e72); SHP.b(P, 1.85, 0.06, 0.75, 2.6, 0.48, -4.4, 0x5a6a4a);   // the cell's cot
+    SHP.b(P, 0.03, 0.9, 1.2, -4.32, 1.7, 3.0, 0xb08a5a); for (let k = 0; k < 5; k++) SHP.b(P, 0.01, 0.28, 0.22, -4.3, 1.55 + (k % 2) * 0.3, 2.55 + k * 0.22, 0xf2efe6);   // the notice board
+    SHP.c(P, 0.025, 2.3, 3.9, 1.15, 3.6, 0x9a8a5a, 8); SHP.b(P, 0.02, 0.55, 0.85, 3.9, 1.95, 3.2, 0x2a3a7a); SHP.b(P, 0.022, 0.18, 0.85, 3.9, 1.79, 3.2, 0xb8302a);   // the flag
+    SHP.table(P, 3.6, 1.5, 0.6, 0.5, 0x6e5236, 0.7); SHP.c(P, 0.07, 0.2, 3.6, 0.82, 1.5, 0x3a3a3a, 10);   // coffee
+    SHP.lamp(P, B, -1.5, 1.0, 3.6, 0.8); SHP.lamp(P, B, 2.4, -3.2, 3.6, 0.8); },
+  house(P, B, o, T, n) { const q = SH_COL[1][n % 7];
+    for (const [x, z, r] of [[-2.3, -0.85, Math.PI], [-1.3, -0.85, Math.PI], [-2.3, -2.15, 0], [-1.3, -2.15, 0]]) SHP.chair(P, x, z, r);
+    SHP.c(P, 0.11, 0.012, -2.2, 0.78, -1.5, 0xf2efe6, 12); SHP.c(P, 0.11, 0.012, -1.4, 0.78, -1.5, 0xf2efe6, 12);
+    SHP.b(P, 2.2, 0.9, 0.6, -2.75, 0.45, -4.1, 0xd8d4c8); SHP.b(P, 2.25, 0.04, 0.65, -2.75, 0.92, -4.1, 0x6a5a4a); SHP.b(P, 0.5, 0.05, 0.35, -3.2, 0.92, -4.05, 0x5a5e62); SHP.b(P, 2.2, 0.7, 0.35, -2.75, 1.95, -4.25, 0xc8c0b0);   // kitchen counter, sink, cupboards
+    SHP.b(P, 0.7, 0.85, 0.6, -1.15, 0.43, -4.1, 0x2a2826); SHP.c(P, 0.08, 1.95, -1.15, 1.85, -4.3, 0x2a2826, 8);   // the cook stove
+    SHP.b(P, 1.0, 0.9, 0.06, 2.8, 0.45, -3.9, 0x5a3a20); SHP.b(P, 0.6, 0.12, 0.32, 2.8, 0.56, -3.6, 0xf2efe6); SHP.b(P, 0.94, 0.04, 1.35, 2.8, 0.51, -2.55, q);   // headboard, pillow, quilt
+    SHP.table(P, 3.6, -3.65, 0.4, 0.4, 0x5a3a20, 0.55); SHP.c(P, 0.05, 0.25, 3.6, 0.68, -3.65, 0x8a6a40, 8); P.push(['t', [0.06, 0.13], 0.15, 10, 3.6, 0.87, -3.65, 0xe8dcb8]); B.push(['c', 0.03, 0.04, 6, 3.6, 0.82, -3.65, 0xffffff]);   // nightstand + lamp
+    SHP.b(P, 0.8, 0.42, 2.0, -3.5, 0.21, 2.0, 0x5a6a4a); SHP.b(P, 0.2, 0.5, 2.0, -3.84, 0.62, 2.0, 0x5a6a4a); for (const z of [0.95, 3.05]) SHP.b(P, 0.8, 0.25, 0.12, -3.5, 0.5, z, 0x4a5a3a);   // the sofa
+    SHP.b(P, 0.6, 0.4, 1.0, -2.55, 0.2, 2.0, 0x6e5236); SHP.rug(P, -2.55, 2.0, 2.0, 2.6, 0x3a4a6a);
+    SHP.b(P, 0.6, 2.0, 1.2, 3.65, 1.0, 2.6, 0x6e5236); SHP.b(P, 0.01, 1.8, 0.02, 3.34, 1.0, 2.6, 0x3a2a1a);   // a wardrobe
+    SHP.pic(P, -3.82, 1.7, 2.0, Math.PI / 2, 0.6, 0.45, 0x7a9a6a); SHP.pic(P, 0, 1.75, -4.32, 0, 0.5, 0.4, 0xa87a5a);
+    SHP.lamp(P, B, 0.0, 0.0, 2.9, 0.4, 0xd8c8a0); },
+  church(P, B, o, T, n, sch) {
+    if (sch) { SHP.table(P, -2.6, -5.6, 1.4, 0.7, 0x6e5236); SHP.chair(P, -2.6, -6.2, 0); SHP.c(P, 0.14, 0.02, -2.2, 0.78, -5.6, 0x3a3a3a, 10); P.push(['d', 0.15, 1, 1, -2.2, 1.0, -5.6, 0x3a7aa0]);   // the teacher's desk + globe
+      SHP.shelf(P, 4.08, -5.0, 2.4, -Math.PI / 2, n * 1000 + 77, 0x6e5236); SHP.pic(P, -4.32, 2.2, 0, Math.PI / 2, 1.0, 0.7, 0x8aa08a); }
+    else { SHP.b(P, 2.3, 0.02, 1.05, 0, 1.01, -6.0, 0xf2efe6); for (const x of [-0.8, 0.8]) { SHP.c(P, 0.03, 0.3, x, 1.17, -6.0, 0xf2efe6, 8); SHP.c(P, 0.06, 0.02, x, 1.03, -6.0, 0xc8a040, 8); }
+      SHP.b(P, 0.12, 1.3, 0.06, 0, 2.7, -7.3, 0xc8a040); SHP.b(P, 0.7, 0.12, 0.06, 0, 3.0, -7.3, 0xc8a040); SHP.b(P, 0.5, 1.1, 0.4, 2.4, 0.55, -5.3, 0x6e5236); }
+    SHP.lamp(P, B, 0, -2, 4.6, 1.2, 0x3a3a3a); SHP.lamp(P, B, 0, 2.5, 4.6, 1.2, 0x3a3a3a); },
+};
+// the shopkeepers: [kind, local x, local z, names by town] (behind the counter, facing the door)
+const SH_AT = { store: [2.2, 2.72], diner: [0.8, -2.55], gas: [-1.2, -1.85], feed: [3.8, -0.2] };
+const SH_WHO = {
+  CUTLER: { store: ['MAGGIE', { sk: 0xf0c8a8, sh: 0x8a3a5a, tr: 0x3a3a4a, hat: 'bun', hc: 0x9a8a7a, s: 0.95 }], diner: ['LOU', { sk: 0xd8a888, sh: 0xf0f0e8, tr: 0x2a2a2a, hat: 'none', hc: 0x2a2018, s: 1.02 }],
+    gas: ['EARL', { sk: 0xc89068, sh: 0x3a5a8a, tr: 0x2a3a5a, hat: 'cap', hc: 0xc02a20, s: 1.0 }], feed: ['DOT', { sk: 0xe8b898, sh: 0x6a8a4a, tr: 0x4a3e2e, hat: 'brim', hc: 0x8a6a40, s: 0.93 }] },
+  'DRY FORK': { store: ['IRMA', { sk: 0xe0b090, sh: 0x5a6a9a, tr: 0x3a3a4a, hat: 'long', hc: 0x6a4a2a, s: 0.94 }], diner: ['SAL', { sk: 0xb88060, sh: 0xd8d0c0, tr: 0x2a2a2a, hat: 'none', hc: 0x1a1612, s: 1.03, beard: 0x2a2018 }],
+    gas: ['WES', { sk: 0xf0c8a8, sh: 0x8a2a2a, tr: 0x3a4a6a, hat: 'cap', hc: 0x2a3a5a, s: 0.98 }], feed: ['OTTO', { sk: 0xd09870, sh: 0x8a7a50, tr: 0x3a3226, hat: 'brim', hc: 0x6a5032, s: 1.01, beard: 0x8a8a80 }] },
+  HOLLIS: { store: ['RUTH', { sk: 0x8a5a3a, sh: 0xc8702a, tr: 0x3a3a32, hat: 'bun', hc: 0x1a1612, s: 0.96 }], diner: ['BENNY', { sk: 0xe8c0a0, sh: 0xd8d8d0, tr: 0x2a3a5a, hat: 'cap', hc: 0xb8302a, s: 1.0 }],
+    feed: ['CLEM', { sk: 0xc89068, sh: 0x5a7aa0, tr: 0x2a3a5a, hat: 'brim', hc: 0xd8c8a0, s: 1.02, beard: 0xb8b8b0 }] } };
+const SH_LINE = { store: ['WHAT CAN I GET YOU, {P}?', 'FRESH BREAD CAME UP ON THE TRUCK THIS MORNING.', 'HOLLER IF YOU CAN\'T FIND IT.', 'YOU\'RE THE NEW PILOT? WALT USED TO BUY HIS COFFEE HERE.'],
+  diner: ['COFFEE\'S FRESH, {P}. PIE\'S APPLE TODAY.', 'SIT ANYWHERE, HON.', 'THE PILOT\'S SPECIAL: EGGS, BACON, BOTTOMLESS COFFEE.', 'YOU LOOK LIKE YOU\'VE BEEN FLYING SINCE DAWN.'],
+  gas: ['FILL HER UP? OH - YOU FLY. MAPS ARE ON THE RACK.', 'COLD POP IN THE COOLER.', 'AVGAS? YOU WANT THE RED DRUMS AT THE STRIP.'],
+  feed: ['FEED, SEED AND FENCING. WHAT\'LL IT BE?', 'MIND THE SACKS, THEY BITE.', 'IF YOU\'RE FLYING FEED OUT TO THE RANCHES, TELL \'EM OTTO SAYS HI.'] };
+const SH_THX = ['THANK YOU KINDLY.', 'THERE YOU GO, {P}.', 'PLEASURE DOING BUSINESS.', 'COME BACK ANY TIME.'];
+const SHOPK = [];   // { f: the folk figure, o: the building frame (x z a w d), nm, k, hi, n }
+function shkMake(k, nm, L, o, lx, lz, ry, y) { const c = Math.cos(o.a), s = Math.sin(o.a), x = o.x + lx * c + lz * s, z = o.z - lx * s + lz * c, f = folkMake(L, 'stand', x, z, o.a + ry);
+  if (y !== undefined) f.g.position.y = y; f.id = 'SHOP'; const K = { f, o, nm, k, hi: 0, n: SHOPK.length, c, s }; SHOPK.push(K); return K; }
+// ---- the town interiors: one merged mesh per town (+ its lamp bulbs), and a shopkeeper behind each shop counter ----
+{ const BULB = new THREE.MeshBasicMaterial({ color: 0xfff1c8 }), M4 = new THREE.Matrix4(), R4 = new THREE.Matrix4();
+  SHP.BULB = BULB;
+  TOWNS.forEach((T, ti) => { const gs = [], bs = []; let n = ti * 37;
+    for (const { k, o, sch } of T.kits || []) { const fn = SH_KIT[k]; if (!fn) continue; const P = [], B = []; fn(P, B, o, T, n++, sch);
+      M4.makeTranslation(o.x, o.y, o.z).multiply(R4.makeRotationY(o.a));
+      for (const p of P) { const g = partGeo(p); g.applyMatrix4(M4); gs.push(g); } for (const p of B) { const g = partGeo(p); g.applyMatrix4(M4); bs.push(g); }
+      const who = SH_WHO[T.name] && SH_WHO[T.name][k], at = SH_AT[k]; if (who && at) shkMake(k, who[0], who[1], o, at[0], at[1], 0); }
+    if (gs.length) { const m = new THREE.Mesh(mergeGeometries(gs), ITEM_VM); for (const g of gs) g.dispose(); m.receiveShadow = true; scene.add(m); TOWN_MESH.push({ m, x: T.x, z: T.z, far: 700 }); T.inside = m; }
+    if (bs.length) { const m = new THREE.Mesh(mergeGeometries(bs), BULB); for (const g of bs) g.dispose(); scene.add(m); TOWN_MESH.push({ m, x: T.x, z: T.z, far: 700 }); } }); }
+// ---- the Dry Fork strip hangar's HARDWARE: stocked shelves, a cabinet, the till, nail kegs, a pegboard of tools, axes + shovels, a stove with chairs, lamps, a sign over the door, and Hank behind the counter ----
+{ const o = DFSTORE.o, P = [], B = [], b = (...a) => SHP.b(P, ...a), cy = (...a) => SHP.c(P, ...a);
+  SHP.stock(P, 6.7, 1.75, 1.0, -Math.PI / 2, [1.625], 4401, -0.1); SHP.stock(P, 6.7, 1.2, 2.2, -Math.PI / 2, [2.225], 4501, -0.1);
+  b(0.4, 0.9, 2.2, 6.75, 0.55, 1.2, 0x6e5236); for (let k = 0; k < 3; k++) b(0.01, 0.02, 2.1, 6.545, 0.3 + k * 0.28, 1.2, 0x3a2a1a); b(0.42, 0.03, 2.25, 6.75, 1.01, 1.2, 0x4a3a2a);   // a drawer cabinet under the shelves
+  SHP.stock(P, 6.75, 1.2, 2.1, -Math.PI / 2, [1.025], 4601, -0.15);
+  SHP.register(P, 5.6, 1.15, 0.15, -Math.PI / 2);
+  const i0 = P.length;   // (from here on: things on the floor, which is 0.1 above the frame)
+  for (const [x, z] of [[4.35, -0.55], [3.95, -0.95], [4.45, -1.15]]) { cy(0.21, 0.5, x, 0.35, z, 0x7a5230, 12); cy(0.22, 0.03, x, 0.21, z, 0x3a3a3a, 12); cy(0.22, 0.03, x, 0.5, z, 0x3a3a3a, 12); cy(0.19, 0.02, x, 0.6, z, 0x8a8e92, 12); }   // nail kegs
+  b(0.03, 1.0, 0.9, 6.88, 1.9, 5.35, 0xb89a6a); b(0.03, 0.04, 0.32, 6.85, 2.2, 5.05, 0x6a4426); b(0.04, 0.1, 0.06, 6.85, 2.2, 4.9, 0x3a3e42);   // pegboard: a hammer,
+  b(0.01, 0.12, 0.45, 6.86, 1.85, 5.45, 0x9aa0a6); b(0.03, 0.12, 0.1, 6.85, 1.85, 5.2, 0x6a4426);   // a saw,
+  for (let k = 0; k < 4; k++) b(0.02, 0.16 + k * 0.04, 0.025, 6.86, 1.6, 5.1 + k * 0.1, 0x8a8e92); P.push(['r', 0.11, 0.02, 12, 6.85, 2.15, 5.6, 0xc8a870, 0, 0, Math.PI / 2]);   // wrenches, rope
+  for (let k = 0; k < 5; k++) { const z = -1.3 + k * 0.24; b(0.035, 1.35, 0.035, 6.78, 0.78, z, 0x8a6a40, 0, 0, -0.14); k % 2 ? b(0.03, 0.22, 0.16, 6.66, 1.42, z, 0x6a6e72) : b(0.22, 0.28, 0.03, 6.66, 0.25, z, 0x8a8e92); }   // axes + shovels against the wall
+  SHP.stove(P, 2.5, -3.6, 5.2); for (const [x, r] of [[1.6, -Math.PI / 2], [3.4, Math.PI / 2]]) SHP.chair(P, x, -2.8, r); cy(0.25, 0.7, 2.5, 0.45, -2.6, 0x7a5230, 12); b(0.4, 0.012, 0.4, 2.5, 0.806, -2.6, 0x2a2a2a);   // stove, chairs, the checkers barrel
+  for (let k = 0; k < 5; k++) b(0.6, 0.24, 0.42, 5.6 + (k % 2) * 0.1, 0.22 + Math.floor(k / 2) * 0.24, -3.4 + (k % 3) * 0.05, SH_COL[3][k % 4], k * 0.3);   // feed sacks
+  for (let i = i0; i < P.length; i++) P[i][5] += 0.1;
+  SHP.rug(P, 4.35, 1.2, 1.4, 2.4, 0x6a3a2a, 0.106);
+  SHP.lamp(P, B, 5.4, 0.6, 4.9, 1.6); SHP.lamp(P, B, 5.4, 1.9, 4.9, 1.6); SHP.lamp(P, B, 2.5, -2.2, 4.9, 1.8); SHP.lamp(P, B, -3.5, -2.0, 4.9, 1.8);
+  const M4 = new THREE.Matrix4().makeTranslation(o.x, o.y, o.z).multiply(new THREE.Matrix4().makeRotationY(o.a)), mk = (L, mt) => { const gs = L.map(p => partGeo(p).applyMatrix4(M4)), m = new THREE.Mesh(mergeGeometries(gs), mt); for (const g of gs) g.dispose(); scene.add(m); TOWN_MESH.push({ m, x: o.x, z: o.z, far: 700 }); return m; };
+  mk(P, ITEM_VM).receiveShadow = true; mk(B, SHP.BULB);
+  const c = Math.cos(o.a), s = Math.sin(o.a), sg = fSign([['DRY FORK HANGAR', 64], ['HARDWARE - TACKLE - FEED', 34]], 4.1, 0.75); sg.position.set(o.x + 6.29 * s, o.y + 4.5, o.z + 6.29 * c); sg.rotation.y = o.a; sg.userData.noBatch = true; scene.add(sg); TOWN_MESH.push({ m: sg, x: o.x, z: o.z, far: 1500 });
+  SHOPK.HANK = shkMake('hardware', 'HANK', { sk: 0xd8a078, sh: 0x6a4a3a, tr: 0x3a3a32, hat: 'cap', hc: 0x2a4a2a, s: 1.04, beard: 0x6a5a4a }, { x: o.x, z: o.z, a: o.a, w: 14, d: 12 }, 6.18, 1.2, -Math.PI / 2, o.y + 0.1); }
+// ---- Walt's hangar, fitted out: roof trusses, wall ribs, high windows, the rolled-back doors, lamps, an engine on a stand, a prop on the wall, parts shelving, drums, a compressor,
+// a tool cart, a wing on trestles, a vise + grinder, the floor line, an extinguisher, the catalog's stand (a lectern under the PARTS + SERVICE sign) and Gus the mechanic ----
+{ const X0 = HANGAR.x, Z0 = HANGAR.z, F = HANGAR.y + 0.2, P = [], B = [], b = (...a) => SHP.b(P, ...a), cy = (...a) => SHP.c(P, ...a), ST = 0x5a5e62, DK = 0x3a3e42;
+  for (const x of [-3.4, -1.1, 1.2, 3.5]) { b(0.08, 0.08, 11.8, x, 3.7, 0, DK); b(0.08, 0.08, 11.8, x, 4.3, 0, DK); const n = 10, L = 11.8 / n, th = Math.atan2(0.6, L), dl = Math.hypot(0.6, L);   // a Warren truss
+    for (let k = 0; k < n; k++) b(0.05, 0.05, dl, x, 4.0, -5.9 + (k + 0.5) * L, DK, 0, k % 2 ? th : -th); }
+  for (const s of [-1, 1]) { for (let x = -4.3; x <= 4.31; x += 0.6) b(0.05, 4.4, 0.04, x, 2.2, s * 5.9, 0x7a7e82);
+    for (const x of [-1.5, 1.5]) { b(1.6, 0.8, 0.02, x, 3.05, s * 5.905, 0x9ab8c8); b(1.7, 0.06, 0.06, x, 2.62, s * 5.89, DK); b(0.04, 0.8, 0.03, x, 3.05, s * 5.89, DK); }
+    b(0.08, 4.3, 4.0, 4.85, 2.15, s * 8.1, 0x8a8e92); for (let z = 6.3; z < 10.0; z += 0.5) b(0.1, 4.3, 0.04, 4.87, 2.15, s * z, 0x7a7e82); }   // the doors rolled back along the front
+  b(0.12, 0.14, 20.4, 4.85, 4.38, 0, DK);   // their rail
+  b(0.1, 0.006, 11.6, 4.2, 0.004, 0, 0xd8b020);   // the yellow line
+  for (const x of [-1.1, 1.2]) for (const z of [-2.8, 2.8]) SHP.lamp(P, B, x, z, 3.7, 0.7, 0x3a5a3a);
+  SHP.lamp(P, B, 3.25, 4.3, 3.7, 1.0, 0x8a2a20);   // over the catalog
+  // the engine on its stand (a flat four) + a drip pan
+  b(0.9, 0.05, 0.7, 1.7, 0.5, -3.6, 0xb03020); for (const [u, v] of [[-0.4, -0.3], [0.4, -0.3], [-0.4, 0.3], [0.4, 0.3]]) b(0.05, 0.5, 0.05, 1.7 + u, 0.25, -3.6 + v, 0xb03020);
+  for (const [u, v] of [[-0.4, -0.3], [0.4, -0.3], [-0.4, 0.3], [0.4, 0.3]]) cy(0.04, 0.04, 1.7 + u, 0.02, -3.6 + v, 0x1a1a1a, 8, Math.PI / 2);
+  b(0.55, 0.4, 0.42, 1.7, 0.75, -3.6, 0x6a6e72); for (const s of [-1, 1]) for (const u of [-0.12, 0.14]) { cy(0.09, 0.26, 1.7 + u, 0.8, -3.6 + s * 0.34, 0x8a8e92, 10, Math.PI / 2); for (let k = 0; k < 4; k++) cy(0.11, 0.012, 1.7 + u, 0.8, -3.6 + s * (0.25 + k * 0.05), 0x9a9ea2, 10, Math.PI / 2); }
+  cy(0.07, 0.12, 2.04, 0.8, -3.6, 0x3a3a3a, 10, 0, 0, Math.PI / 2); b(0.25, 0.22, 0.3, 1.32, 0.98, -3.6, 0x2a2a2a); b(1.0, 0.03, 0.8, 1.7, 0.016, -3.6, 0x2a2826);
+  // the prop on the back wall + a bracket
+  b(0.04, 0.1, 1.9, -4.46, 3.0, -3.6, 0x8a6a40, 0, 0.12); cy(0.08, 0.1, -4.45, 3.0, -3.6, 0x9a9ea2, 10, 0, 0, Math.PI / 2); b(0.02, 0.05, 0.08, -4.46, 3.0, -2.67, 0xd8b020, 0, 0.12); b(0.02, 0.05, 0.08, -4.46, 3.0, -4.53, 0xd8b020, 0, 0.12);
+  // parts shelving (north by the door, south behind the catalog), stocked with boxes + cans
+  SHP.shelf(P, 3.5, -5.66, 1.6, 0, 7101, ST); SHP.shelf(P, 2.65, 5.66, 2.5, Math.PI, 7202, ST);
+  // drums, the compressor, a tool cart, a pedestal grinder, a vise on the bench
+  for (const [x, c] of [[-0.1, 0xb02a1c], [0.55, 0x2a5aa0]]) { cy(0.29, 0.88, x, 0.44, -5.45, c, 12); for (const y of [0.29, 0.59]) cy(0.3, 0.03, x, y, -5.45, 0x2b2b2b, 12); }
+  cy(0.22, 0.9, 1.45, 0.3, -5.45, 0xb03020, 12, 0, 0, Math.PI / 2); b(0.3, 0.25, 0.25, 1.4, 0.63, -5.45, 0x3a3a3a); cy(0.11, 0.06, 1.68, 0.63, -5.45, 0x9a9ea2, 10, 0, 0, Math.PI / 2); for (const u of [-0.35, 0.35]) b(0.06, 0.1, 0.36, 1.45 + u, 0.05, -5.45, 0x2a2a2a);
+  b(0.8, 0.8, 0.45, 0.4, 0.5, -2.4, 0xb03020); for (let k = 0; k < 4; k++) b(0.72, 0.012, 0.01, 0.4, 0.3 + k * 0.17, -2.17, 0x2a2a2a); b(0.84, 0.03, 0.5, 0.4, 0.915, -2.4, 0x2a2a2a);
+  for (const [u, v] of [[-0.35, -0.18], [0.35, -0.18], [-0.35, 0.18], [0.35, 0.18]]) cy(0.05, 0.04, 0.4 + u, 0.05, -2.4 + v, 0x1a1a1a, 8, Math.PI / 2);
+  b(0.04, 0.04, 0.5, 0.82, 0.95, -2.4, 0x9a9ea2); b(0.2, 0.05, 0.08, 0.2, 0.96, -2.4, 0x6a6e72); b(0.04, 0.03, 0.25, 0.55, 0.95, -2.35, 0x8a8e92);   // handle, a wrench + a ratchet
+  cy(0.05, 0.85, -4.15, 0.425, -3.3, ST, 8); cy(0.18, 0.04, -4.15, 0.02, -3.3, ST, 10); b(0.25, 0.14, 0.14, -4.15, 0.93, -3.3, 0x3a5a3a); for (const s of [-1, 1]) cy(0.09, 0.03, -4.15, 0.93, -3.3 + s * 0.12, 0x8a8e92, 12, Math.PI / 2);
+  b(0.16, 0.12, 0.12, -3.75, 0.81, 1.95, 0x3a5a7a); b(0.08, 0.1, 0.2, -3.75, 0.9, 1.95, 0x3a5a7a); b(0.02, 0.02, 0.22, -3.68, 0.92, 1.95, 0x9a9ea2);
+  // a wing on trestles, its fabric half doped
+  for (const x of [-1.1, 1.1]) { b(0.06, 0.06, 1.0, x, 0.72, 4.85, 0x8a6a40); for (const s of [-1, 1]) for (const v of [-0.4, 0.4]) b(0.05, 0.75, 0.05, x + s * 0.18, 0.36, 4.85 + v, 0x8a6a40, 0, 0, s * 0.25); }
+  b(2.8, 0.1, 1.0, 0, 0.8, 4.85, 0xe0b828); b(1.2, 0.101, 0.98, -0.75, 0.8, 4.85, 0xd8d0b8); for (let k = 0; k < 6; k++) b(0.02, 0.11, 0.98, -1.3 + k * 0.2, 0.8, 4.85, 0xc8c0a8);
+  // the extinguisher, a first-aid box, the lectern the catalog lives on
+  cy(0.08, 0.5, 4.35, 1.05, 5.78, 0xc02020, 10); b(0.14, 0.06, 0.06, 4.35, 1.34, 5.82, 0x2a2a2a); b(0.3, 0.25, 0.08, 4.35, 1.65, 5.86, 0xf0f0f0); b(0.08, 0.2, 0.01, 4.35, 1.65, 5.815, 0xc02020); b(0.2, 0.06, 0.01, 4.35, 1.65, 5.814, 0xc02020);
+  b(0.5, 0.04, 0.4, 3.25, 0.02, 4.6, 0x4a3a2a); b(0.09, 1.0, 0.09, 3.25, 0.54, 4.65, 0x6b4a2a); b(0.8, 0.035, 0.45, 3.25, 1.08, 4.6, 0x6b4a2a, 0, -0.44); b(0.8, 0.03, 0.03, 3.25, 1.0, 4.38, 0x4a3a2a, 0, -0.44);
+  // the catalog's spare copies, oil cases and tyres by the door
+  for (let k = 0; k < 3; k++) b(0.4, 0.3, 0.3, 4.2, 0.15 + k * 0.3, -4.6 + (k % 2) * 0.04, 0x8a6a40, k * 0.1);
+  for (let k = 0; k < 3; k++) cy(0.3, 0.16, 3.4, 0.08 + k * 0.17, -4.4, 0x1a1a1a, 12);
+  const M4 = new THREE.Matrix4().makeTranslation(X0, F, Z0), mk = (L, mt) => { const gs = L.map(p => partGeo(p).applyMatrix4(M4)), m = new THREE.Mesh(mergeGeometries(gs), mt); for (const g of gs) g.dispose(); m.userData.noBatch = true; scene.add(m); TOWN_MESH.push({ m, x: X0, z: Z0, far: 1500 }); return m; };
+  const hm = mk(P, ITEM_VM); hm.receiveShadow = true; hm.castShadow = true; mk(B, SHP.BULB); HANGAR.dress = hm;
+  const sg = fSign([['PARTS + SERVICE', 66], ['THE CATALOG - PICK IT UP', 30]], 1.9, 0.5); sg.position.set(X0 + 3.0, F + 2.55, Z0 + 5.84); sg.rotation.y = Math.PI; sg.userData.noBatch = true; scene.add(sg); TOWN_MESH.push({ m: sg, x: X0, z: Z0, far: 600 });
+  const s2 = fSign([['NO SMOKING', 60], ['WITHIN 50 FT OF THE AVGAS', 28]], 1.3, 0.42); s2.position.set(X0 - 1.4, F + 2.3, Z0 - 5.86); s2.userData.noBatch = true; scene.add(s2); TOWN_MESH.push({ m: s2, x: X0, z: Z0, far: 600 });
+  const s3 = fSign([['WALT\'S SHOP RULES', 40], ['1. CLEAN YOUR TOOLS', 26], ['2. SAFETY WIRE EVERYTHING', 26], ['3. IF IN DOUBT, DON\'T', 26]], 1.2, 0.8); s3.position.set(X0 - 1.6, F + 2.2, Z0 + 5.86); s3.rotation.y = Math.PI; s3.userData.noBatch = true; scene.add(s3); TOWN_MESH.push({ m: s3, x: X0, z: Z0, far: 600 });
+  const W = (a, bb, c, d) => [X0 + a, Z0 + bb, X0 + c, Z0 + d];
+  SOLID_SEGS.push(W(4.85, -6.1, 4.85, -10.1), W(4.85, 6.1, 4.85, 10.1), W(1.25, -3.95, 2.15, -3.95), W(1.25, -3.25, 2.15, -3.25), W(-1.4, 4.35, 1.4, 4.35), W(-1.4, 5.35, 1.4, 5.35), W(0.0, -2.62, 0.8, -2.62), W(0.0, -2.18, 0.8, -2.18));
+  SHOPK.GUS = shkMake('hangar', 'GUS', { sk: 0xd8a888, sh: 0x3a4a6a, tr: 0x3a4a6a, hat: 'cap', hc: 0xb8302a, s: 1.0, beard: 0x8a7a6a }, { x: X0, z: Z0, a: 0, w: 9.2, d: 12 }, 2.75, -2.4, Math.PI / 2, F); SHOPK.GUS.free = 1; }
+// ---- the CATALOG: a ring binder on the lectern. Left page = the service sheet (oil, tyres + brakes, repairs, the 100-hour), right page = the parts sheet (the five parts + the two gear kits).
+// The two boards that stood out front are gone; their canvases + all their logic (prices, rows, pokes, the redraws) now live on these pages, and follow the binder wherever it is.
+// VR: grip it anywhere and read it in your hand, poke a price with the other hand; let go over the stand and it goes back, anywhere else it drops (and waits). Desktop: E looking at it holds it up, , / . page, 1-4 / 1-7, E puts it back.
+CAT.HF = FUEL_ST.find(F => F.id === 'HOME');
+{ const H = CAT.HF.B, G = new THREE.Group(), PW = 0.36, PH = 0.2475, P = [];
+  for (const s of [-1, 1]) P.push(['b', 0.385, 0.27, 0.008, s * 0.188, 0, -0.008, 0x6a1e1a, 0, s * -0.1, 0]);
+  P.push(['c', 0.013, 0.272, 10, 0, 0, -0.006, 0x4a1612]); for (const y of [-0.08, 0, 0.08]) P.push(['r', 0.016, 0.003, 10, 0, y, 0.0, 0xb8bcc0, 0, 0, Math.PI / 2]);
+  const gs = P.map(partGeo), cov = new THREE.Mesh(mergeGeometries(gs), ITEM_VM); for (const g of gs) g.dispose(); cov.castShadow = true; G.add(cov);
+  const page = (mt, s) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(PW, PH), mt); m.position.set(s * 0.188, 0, 0); m.rotation.y = s * -0.1; G.add(m); return m; };
+  const pL = page(H.m.material, -1), pR = page(UPB.m.material, 1);
+  scene.remove(H.G); scene.remove(UPB.G); H.m = pL; H.PW = PW; H.PH = PH; UPB.m = pR; UPB.PW = PW; UPB.PH = PH;
+  G.traverse(o => { o.userData.noBatch = true; }); scene.add(G); CAT.G = G; CAT.pages = [pL, pR]; CAT.cov = cov;
+  const F = HANGAR.y + 0.2, n = CAT.n.set(0, Math.cos(-0.44), Math.sin(-0.44)); CAT.rest.set(HANGAR.x + 3.25, F + 1.08, HANGAR.z + 4.6).addScaledVector(n, 0.03); CAT.look.copy(CAT.rest).add(n); }
+function catWorld(v) { return CAT.st === 'desk' ? camera.getWorldPosition(v) : CAT.st === 'hand' ? CAT.g.getWorldPosition(v) : v.copy(CAT.G.position); }
+function catPut() { const G = CAT.G; if (!G || CAT.st === 'rest') return; CAT.st = 'rest'; CAT.g = null; CAT.vy = 0; if (G.parent !== scene) scene.add(G); G.position.copy(CAT.rest); G.up.set(0, 1, 0); G.lookAt(CAT.look); }
+function catDesk() { const G = CAT.G; CAT.st = 'desk'; CAT.g = null; camera.add(G); G.rotation.set(0, 0, 0); G.position.set(CAT.pg ? -0.188 : 0.188, -0.03, -0.46); sfx('pick');
+  if (!CAT.saidD) { CAT.saidD = 1; say('THE HANGAR CATALOG - , / . TURNS TO SERVICE / PARTS, 1-4 OR 1-7 BUYS, E PUTS IT BACK'); } }
+const CAT_MS = new Float64Array(3), _ctA = new THREE.Vector3(), _ctB = new THREE.Vector3(), _ctR = new THREE.Raycaster(), _ctH = [];
+function catAimPage(maxD) {   // which page the crosshair is on (-1 none); key presses only
+  camera.getWorldPosition(_ctA); camera.getWorldDirection(_ctB); _ctR.set(_ctA, _ctB); _ctR.far = maxD; _ctH.length = 0; CAT.G.updateMatrixWorld(true);
+  _ctR.intersectObjects([CAT.pages[0], CAT.pages[1], CAT.cov], false, _ctH); if (!_ctH.length) return -1; const o = _ctH[0].object; return o === CAT.pages[0] ? 0 : o === CAT.pages[1] ? 1 : 2; }
+function catGrab(g) { if (mode !== 'foot' || TRK.in || CAT.st === 'hand' || CAT.st === 'desk') return false; const G = CAT.G; G.updateMatrixWorld(true); g.getWorldPosition(_ctA); G.worldToLocal(_ctA);
+  if (Math.abs(_ctA.x) > 0.42 || Math.abs(_ctA.y) > 0.17 || Math.abs(_ctA.z) > 0.12) return false;
+  CAT.st = 'hand'; CAT.g = g; CAT.vy = 0; g.add(G); G.rotation.set(-0.75, 0, 0); G.position.set(g === grips[0] ? 0.17 : -0.17, 0.06, -0.1); HX.pulse(g, 0.4, 20, 'cat'); sfx('pick'); if (!CAT.saidH) { CAT.saidH = 1; say('THE HANGAR CATALOG - POKE A PRICE WITH YOUR OTHER HAND. LET GO OVER THE STAND TO PUT IT BACK'); } return true; }
+function catRelease(g) { if (CAT.g !== g) return; CAT.g = null; scene.attach(CAT.G); { const e = CAT.G.rotation; e.reorder('YXZ'); e.set(0, e.y, 0, 'YXZ'); } HX.pulse(g, 0.15, 12, 'release'); if (CAT.G.position.distanceTo(CAT.rest) < 0.6) { catPut(); sfx('tick'); } else { CAT.st = 'fall'; CAT.vy = 0; } }
+function catKey(e) {
+  if (mode !== 'foot' || TRK.in) return false; const c = e.code;
+  if (CAT.st === 'desk') { if (c === 'KeyE') { catPut(); sfx('tick'); return true; } if (c === 'Comma' || c === 'Period') { CAT.pg = c === 'Period' ? 1 : 0; sfx('tick'); return true; } }
+  if (c === 'KeyE') { if (CAT.st === 'hand' || UPG.desk || STORY.held || DLV.desk) return false; if (catAimPage(2.6) >= 0) { const p = catAimPage(2.6); if (p < 2) CAT.pg = p; catDesk(); return true; } return false; }
+  const m = /^Digit([1-7])$/.exec(c); if (!m || DLV.nearD < 5 || CAT_MS[2] > 5 || (STORY.near && CAT_MS[2] > 3)) return false;
+  let pg = CAT.st === 'desk' ? CAT.pg : catAimPage(5); if (pg === 2) pg = -1;
+  if (pg < 0) { say('LOOK AT A PAGE OF THE CATALOG: LEFT SERVICE (1-4), RIGHT PARTS (1-7) - OR E TO HOLD IT UP'); sfx('tick'); return true; }
+  const i = +m[1] - 1; if (pg === 0) { if (i > 3) { sfx('tick'); return true; } return ecoDo(CAT.HF, i); } return upgDo(i);
+}
+function catTick(dt) { if (CAT.st !== 'rest') catMove(dt); catNear(); }   // (split small so each part stays optimised: no heap numbers per frame)
+function catMove(dt) {
+  const G = CAT.G; if (mode !== 'foot' || TRK.in) { catPut(); return; }
+  if (CAT.st === 'fall') { const p = G.position, inH = Math.abs(p.x - HANGAR.x) < 4.6 && Math.abs(p.z - HANGAR.z) < 6, g0 = groundY(p.x, p.z), sa = supAt(p.x, p.z, p.y, true), r = (inH && sa < g0 + 0.02 ? Math.max(g0, HANGAR.y + 0.2) : sa) + 0.012;   // (the hangar slab: its top)
+    CAT.vy -= 9.81 * dt; p.y += CAT.vy * dt; if (p.y <= r) { p.y = r; if (CAT.vy < -1) sfx('thud', p); CAT.vy = 0; CAT.st = 'floor'; G.rotation.set(-Math.PI / 2, G.rotation.y, 0, 'YXZ'); } }
+  else if (CAT.st === 'desk') { const x = CAT.pg ? -0.188 : 0.188; G.position.x += (x - G.position.x) * Math.min(1, dt * 10);
+    playerPos(); const ax = PP.x - CAT.rest.x, az = PP.z - CAT.rest.z; if (ax * ax + az * az > 36) { catPut(); say('THE CATALOG IS BACK ON ITS STAND'); } }
+}
+function catNear() {
+  playerPos(); catWorld(_ctA); const ex = PP.x - _ctA.x, ez = PP.z - _ctA.z, d2 = ex * ex + ez * ez; CAT_MS[2] = Math.sqrt(d2);
+  CAT.HF.b[0] = UPB.b[0] = _ctA.x; CAT.HF.b[1] = UPB.b[1] = _ctA.z;   // the service + parts logic follows the binder
+  if (CAT.st === 'floor' && d2 > 1600) catPut();
+  if (d2 < 9) { if (!CAT.hint && CAT.st === 'rest' && mode === 'foot' && !TRK.in) catHint(); } else if (d2 > 64) CAT.hint = false;
+}
+function catHint() { CAT.hint = true; say('THE HANGAR CATALOG: SERVICE + REPAIRS (LEFT), PARTS + GEAR KITS (RIGHT) - ' + (renderer.xr.isPresenting ? 'GRIP IT, POKE A PRICE' : 'E HOLDS IT UP, OR LOOK AT A PAGE AND PRESS 1-7')); }
+handGrab = (o => function (g) { if (catGrab(g)) return; return o(g); })(handGrab);
+handRelease = (o => function (g) { if (CAT.g === g) catRelease(g); return o(g); })(handRelease);
+inHeld = (o => g => o(g) || (CAT.g !== null && CAT.g === g))(inHeld);
+catPut(); CAT.st = 'x'; catPut();
+// ---- the shopkeepers: turn to you, wave + say hello as you walk in, thank you when you buy ----
+function shkLine(K) {
+  if (K.k === 'hangar') { const E = ECO; if (E.gear > 0.05 || E.eng > 0.02 || E.seized) return 'SHE\'S BEEN KNOCKED ABOUT, ' + PILOT + '. REPAIRS ARE ON THE LEFT PAGE OF THE CATALOG.';
+    for (const k of UPG_K) if (UPG.own[k] && !UPG[k]) return 'YOUR ' + UPG_I[k].label + '\'S ON THE ' + (k === 'light' || k === 'radio' ? 'BENCH' : 'FLOOR') + ' - CARRY IT OVER TO THE CUB AND WE\'LL BOLT IT ON.';
+    if (E.svc > 95) return 'THE 100-HOUR\'S DUE. IT\'S IN THE CATALOG, LEFT PAGE.';
+    return ['EVERYTHING FOR THE CUB IS IN THE CATALOG ON THE STAND. PICK IT UP, HAVE A LOOK.', 'WALT BUILT HALF THIS SHOP. MIND THE WING, THE DOPE\'S WET.', 'TUNDRAS, FLOATS, SKIS - IF IT FITS A CUB, IT\'S IN THE BOOK.'][K.hi++ % 3]; }
+  if (K.k === 'hardware') { if (!OWN.r) return 'THAT WINCHESTER ON THE WALL\'S $180. RING THE BELL OR JUST TAKE IT DOWN.'; if (!OWN.b) return 'BINOCULARS ARE $45 - YOU\'LL SPOT A LOST HIKER A MILE OFF.'; return ['AMMO\'S BY THE BELL - $' + STORE.price + ' A BOX OF 20.', 'TACKLE\'S ON THE BENCH. THE TROUT ARE BITING UP THE CREEK.', 'NEED NAILS? WE GOT NAILS.'][K.hi++ % 3]; }
+  const L = SH_LINE[K.k]; return L[K.hi++ % L.length]; }
+function shkSay(K, t) { K.f.wave = 2.2; FOLK.q.push({ t: K.nm + ': "' + folkP(t) + '"', w: 0.6, soft: 1 }); }
+function shkThank(K) { if (!K) return; K.f.wave = 2.2; FOLK.q.push({ t: K.nm + ': "' + folkP(SH_THX[(K.n + K.hi++) % SH_THX.length]) + '"', w: 1.4, soft: 1 }); }
+function shkNear(r) { playerPos(); let b = null, bd = r * r; for (const K of SHOPK) { const dx = PP.x - K.f.x, dz = PP.z - K.f.z, d = dx * dx + dz * dz; if (d < bd) { bd = d; b = K; } } return b; }
+function shkTick(dt) {
+  const t0 = performance.now(), foot = mode === 'foot' && !TRK.in; playerPos();
+  for (let i = 0; i < SHOPK.length; i++) { const K = SHOPK[i], f = K.f, dx = PP.x - f.x, dz = PP.z - f.z, d = Math.sqrt(dx * dx + dz * dz), vis = d < 110; f.g.visible = vis; (f.N || folkN(f))[3] = d; if (!vis) continue;
+    { const R = f.g.rotation, near = foot && d < 7; let e = (near ? Math.atan2(dx, dz) : f.ry0) - R._y; e = Math.atan2(Math.sin(e), Math.cos(e)); if (near && !K.free && (e > 1.3 || e < -1.3)) e = 0;   // (behind the counter: he won't spin round)
+      if (e > 1e-7 || e < -1e-7) { R._y += e * Math.min(1, dt * (near ? 3 : 1.5)); R._onChangeCallback(); } }
+    if (foot && d < (K.k === 'feed' ? 7.6 : K.k === 'diner' ? 6 : 3.4) && !K.met) { const ox = PP.x - K.o.x, oz = PP.z - K.o.z, lx = ox * K.c - oz * K.s, lz = ox * K.s + oz * K.c; if (Math.abs(lx) < K.o.w / 2 && Math.abs(lz) < K.o.d / 2 + 0.5) { K.met = 1; shkSay(K, shkLine(K)); } }
+    else if (d > 9) K.met = 0;
+    folkArm(f, dt); }
+  CAT_MS[1] = performance.now() - t0;
+}
+for (const K of SHOPK) { const R = K.f.g.rotation; K.f.ry0 = R.y; }
+storeBuy = (o => function (g) { const r = o(g); if (r) shkThank(SHOPK.HANK); return r; })(storeBuy);
+{ const gb = GEAR.buy; GEAR.buy = (k, g) => { const r = gb(k, g); if (r) shkThank(SHOPK.HANK); return r; }; }
+fBuy = (o => function (id, g) { const r = o(id, g); if (r) shkThank(shkNear(9)); return r; })(fBuy);
+ecoDo = (o => function (F, i) { const c0 = DLV.cash, r = o(F, i); if (F.B.home && DLV.cash < c0) shkThank(SHOPK.GUS); return r; })(ecoDo);
+upgDo = (o => function (i) { const c0 = DLV.cash, r = o(i); if (DLV.cash < c0) shkThank(SHOPK.GUS); return r; })(upgDo);
 
 MYS_SITES.clear();   // the whole world is built now: clear trees and rocks off the strips and sites
 let SV_BAD = false;
@@ -13090,7 +13378,7 @@ function svInPlace(fresh, story) {
   let ok = false;
   if (!fresh) { try { ok = gameLoad(); } catch (e) { ok = false; } }
   if (!ok) { fuel = FUEL_MAX; DAY.h = GFX.tod; SV.cub = null; resetAircraft(ac); ac.gdn = false;
-    try { upgLoad(null); emgLoad(null); wxLoad(null); dlvLoad(null); huntLoad(null); h2Load(null); fishLoad(null); packLoad(null); if (typeof swgLoad === 'function') swgLoad(null); gdLoad(null); if (window.NLM) NLM.lv = 0; survLoad(null); cabLoad(null); storyLoad(null); trkLoad(null); STORY.on = false; discLoad(null); fogLoad(null); dropLoadFix(); ecoLoad(null); emgFix(); } catch (e) { console.warn('svInPlace ' + e); }
+    try { upgLoad(null); emgLoad(null); wxLoad(null); dlvLoad(null); huntLoad(null); h2Load(null); fishLoad(null); packLoad(null); if (typeof swgLoad === 'function') swgLoad(null); gdLoad(null); if (window.NLM) NLM.lv = 0; survLoad(null); cabLoad(null); storyLoad(null); trkLoad(null); catPut(); STORY.on = false; discLoad(null); fogLoad(null); dropLoadFix(); ecoLoad(null); emgFix(); } catch (e) { console.warn('svInPlace ' + e); }
     exitPlane(); msgT = 0; STORY.want = !!story; if (story) storyBegin(); else storyShow(); }
   SV.off = false; SV.t = 30; SV.due = -1; needRecenter = renderer.xr.isPresenting ? 2 : 0; saveGame('reset'); return true;
 }
@@ -15974,7 +16262,7 @@ function wx3Tick(dt) { WX3.tick(dt); }
 //  - MINOR: the flare gun appears on the glare shield. VR: grip it, pull the trigger. Desktop: F. The flare goes up, fade, the Cub and you are trucked home (cost by distance).
 //  - Restart: controller B no longer restarts (it says where Restart went); MENU > RESUME > RESTART FLIGHT (poke twice to confirm); desktop R twice. Restart after a crash = recovery (charged).
 //  - Damage visuals: per part (CRX.dmg: cowl, prop, screen, wing L, wing R, gear / belly, sides, tail) -> one overlay mesh of dents / scrapes / tears / windscreen cracks
-//    (the prop blade's own material: no new program, 1 draw only while the Cub is damaged) + the prop blades bent in place. The hangar board's REPAIR clears it.
+//    (the prop blade's own material: no new program, 1 draw only while the Cub is damaged) + the prop blades bent in place. The hangar catalog's REPAIR clears it.
 const CRX = (() => {
   const X = { FATAL_G: 15, CRUSH: 0.9, GLANCE: 0.35, st: 'ok', kind: '', seen: false, t: 0, a: 0, info: null, pend: 0, last: null, snd: { n: 0, vol: 0, kind: '' },
     WAKE_H: 14, REC_H: 3, CLINIC: 900, FLARE_C: 35, REC_BASE: 120, REC_KM: 40, hold: 0, lines: [], held: null, rconf: 0, bSaid: 0, n: { fatal: 0, minor: 0, flare: 0, wake: 0, rec: 0, restart: 0 } };
@@ -16191,7 +16479,7 @@ const CRX = (() => {
     } else { X.n.rec++;
       cost = charge(recCost(X.flare), X.flare ? 'flare + recovery' : 'recovery'); skipHours(X.REC_H); resetFlight();
       lines = [X.flare ? 'A rancher saw your red flare go up and radioed the strip.' : 'You got through on the radio.', 'A flatbed and four strong backs brought you and the Cub home on the back roads.',
-        'Recovery: ' + money(cost) + ' on the account (' + money(DLV.cash) + '). Repairs at the hangar board.', STORY.on ? money(storyOwed()) + ' still owed to Valley Credit - day ' + storyDay() + '.' : 'You\'re sore, but you\'ll fly again.'];
+        'Recovery: ' + money(cost) + ' on the account (' + money(DLV.cash) + '). Repairs in the hangar catalog.', STORY.on ? money(storyOwed()) + ' still owed to Valley Credit - day ' + storyDay() + '.' : 'You\'re sore, but you\'ll fly again.'];
       card(X.REC_H + ' HOURS LATER', lines);
       if (STORY.on) storyLog('Recovered after a crash - ' + money(cost) + ' for the flatbed.');
     }
@@ -16235,7 +16523,7 @@ const CRX = (() => {
       if (X.t >= L) { X.st = 'black'; X.t = 0; blackout(); fadeSet(1); } return; }
     if (S === 'black') { fadeSet(1); if (X.t >= (X.kind === 'fatal' ? 5.5 : 4.5)) { X.st = 'fadein'; X.t = 0; } return; }
     if (S === 'fadein') { fadeSet(Math.max(0, 1 - X.t / 1.6)); if (X.t >= 1.6) { X.st = 'ok'; X.kind = ''; fadeSet(0);
-      say(X.lastWhat === 'salvage + clinic' ? 'WALT\'S HANGAR - ' + Math.round(P.hp) + '% HEALTH. ' + money(X.lastCost) + ' ON THE ACCOUNT. THE CUB NEEDS REPAIRS (HANGAR BOARD)' : 'HOME - RECOVERY ' + money(X.lastCost) + '. REPAIRS AT THE HANGAR BOARD'); } }
+      say(X.lastWhat === 'salvage + clinic' ? 'WALT\'S HANGAR - ' + Math.round(P.hp) + '% HEALTH. ' + money(X.lastCost) + ' ON THE ACCOUNT. THE CUB NEEDS REPAIRS (HANGAR CATALOG)' : 'HOME - RECOVERY ' + money(X.lastCost) + '. REPAIRS AT THE HANGAR CATALOG'); } }
   };
   Q[0] = ECO.gear;
   // ---------------- hooks into the game's own functions (reassigned function declarations: no text edits inside them) ----------------
@@ -17267,6 +17555,7 @@ renderer.setAnimationLoop(() => {
     camera.rotation.set(lookPitch, lookYaw, 0, 'YXZ');
   }
   trkTick(dt);   // v1.19.0 the pickup (its own physics)
+  catTick(dt); shkTick(dt);   // v1.20.0 the hangar catalog, the shopkeepers
   if (mode === 'foot') updateFoot(dt);
   updateGear(dt); updateEngine(dt);
   cross.style.display = !xr && mode === 'foot' && !TITLE.on ? 'block' : 'none';
